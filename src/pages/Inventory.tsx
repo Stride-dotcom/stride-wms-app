@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -40,6 +41,7 @@ interface Item {
 }
 
 export default function Inventory() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -245,7 +247,7 @@ export default function Inventory() {
                       <TableRow
                         key={item.id}
                         className={`cursor-pointer hover:bg-muted/50 ${selectedItems.has(item.id) ? 'bg-muted/30' : ''}`}
-                        onClick={() => toggleItemSelection(item.id)}
+                        onClick={() => navigate(`/inventory/${item.id}`)}
                       >
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <Checkbox

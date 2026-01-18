@@ -1,0 +1,226 @@
+import { useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Camera, Upload, X, Loader2, Image as ImageIcon, FileText } from 'lucide-react';
+
+interface PhotoCaptureProps {
+  entityType: 'item' | 'shipment' | 'receiving' | 'inspection' | 'repair';
+  entityId?: string;
+  onPhotosChange: (urls: string[]) => void;
+  existingPhotos?: string[];
+  maxPhotos?: number;
+  label?: string;
+  acceptDocuments?: boolean;
+}
+
+export function PhotoCapture({
+  entityType,
+  entityId,
+  onPhotosChange,
+  existingPhotos = [],
+  maxPhotos = 10,
+  label = 'Photos',
+  acceptDocuments = false,
+}: PhotoCaptureProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [photos, setPhotos] = useState<string[]>(existingPhotos);
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+
+  const acceptTypes = acceptDocuments
+    ? 'image/*,application/pdf,.doc,.docx,.xls,.xlsx'
+    : 'image/*';
+
+  const uploadFile = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${entityType}/${entityId || 'temp'}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('photos')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('photos')
+        .getPublicUrl(fileName);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      return null;
+    }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const remainingSlots = maxPhotos - photos.length;
+    if (remainingSlots <= 0) {
+      toast({
+        title: 'Maximum photos reached',
+        description: `You can only upload up to ${maxPhotos} photos.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
+    setUploading(true);
+
+    try {
+      const uploadPromises = filesToUpload.map((file) => uploadFile(file));
+      const results = await Promise.all(uploadPromises);
+      const newUrls = results.filter((url): url is string => url !== null);
+
+      const updatedPhotos = [...photos, ...newUrls];
+      setPhotos(updatedPhotos);
+      onPhotosChange(updatedPhotos);
+
+      toast({
+        title: 'Upload complete',
+        description: `${newUrls.length} file(s) uploaded successfully.`,
+      });
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      toast({
+        title: 'Upload failed',
+        description: 'Some files failed to upload. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+      // Reset input
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
+    }
+  };
+
+  const removePhoto = async (urlToRemove: string) => {
+    try {
+      // Extract the path from the URL
+      const urlParts = urlToRemove.split('/photos/');
+      if (urlParts.length > 1) {
+        const filePath = urlParts[1];
+        await supabase.storage.from('photos').remove([filePath]);
+      }
+
+      const updatedPhotos = photos.filter((url) => url !== urlToRemove);
+      setPhotos(updatedPhotos);
+      onPhotosChange(updatedPhotos);
+    } catch (error) {
+      console.error('Error removing photo:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to remove photo.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const isImageUrl = (url: string) => {
+    return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+  };
+
+  return (
+    <div className="space-y-3">
+      <Label>{label}</Label>
+
+      {/* Photo Grid */}
+      {photos.length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          {photos.map((url, index) => (
+            <div
+              key={index}
+              className="relative aspect-square rounded-lg border overflow-hidden bg-muted"
+            >
+              {isImageUrl(url) ? (
+                <img
+                  src={url}
+                  alt={`Photo ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <FileText className="h-8 w-8 text-muted-foreground" />
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => removePhoto(url)}
+                className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Upload Buttons */}
+      {photos.length < maxPhotos && (
+        <div className="flex gap-2">
+          {/* Camera Input (mobile) */}
+          <Input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => cameraInputRef.current?.click()}
+            disabled={uploading}
+            className="flex-1"
+          >
+            {uploading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Camera className="h-4 w-4 mr-2" />
+            )}
+            Take Photo
+          </Button>
+
+          {/* File Upload Input */}
+          <Input
+            ref={fileInputRef}
+            type="file"
+            accept={acceptTypes}
+            multiple
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="flex-1"
+          >
+            {uploading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4 mr-2" />
+            )}
+            Upload {acceptDocuments ? 'Files' : 'Photos'}
+          </Button>
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        {photos.length}/{maxPhotos} {acceptDocuments ? 'files' : 'photos'} uploaded
+      </p>
+    </div>
+  );
+}
