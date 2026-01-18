@@ -11,20 +11,47 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
+import { useDashboardPreferences } from '@/hooks/useDashboardPreferences';
 import { format, isPast, isToday } from 'date-fns';
 import { 
   Loader2, 
-  Search as SearchIcon, 
   Truck, 
   ClipboardCheck, 
   Wrench, 
   Package,
   RefreshCw,
   ArrowRight,
-  AlertTriangle
+  AlertTriangle,
+  GripVertical,
+  Settings2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const priorityColors: Record<string, string> = {
   low: 'bg-gray-100 text-gray-800',
@@ -41,6 +68,41 @@ const statusColors: Record<string, string> = {
   in_transit: 'bg-blue-100 text-blue-800',
 };
 
+interface SortableCardProps {
+  id: string;
+  children: React.ReactNode;
+}
+
+function SortableCard({ id, children }: SortableCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative group">
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute top-3 left-3 z-10 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity"
+      >
+        <GripVertical className="h-5 w-5 text-muted-foreground" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -53,6 +115,24 @@ export default function Dashboard() {
     loading, 
     refetch 
   } = useDashboardStats();
+
+  const {
+    preferences,
+    updateCardOrder,
+    toggleCardVisibility,
+    DEFAULT_CARD_ORDER,
+  } = useDashboardPreferences();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const formatDueDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
@@ -83,6 +163,52 @@ export default function Dashboard() {
     }
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      const oldIndex = preferences.cardOrder.indexOf(active.id as string);
+      const newIndex = preferences.cardOrder.indexOf(over.id as string);
+      const newOrder = arrayMove(preferences.cardOrder, oldIndex, newIndex);
+      updateCardOrder(newOrder);
+    }
+  };
+
+  const cardConfigs: Record<string, { title: string; icon: React.ReactNode; value: number; description: string; type: 'inspection' | 'assembly' | 'shipments' | 'putaway' }> = {
+    inspection: {
+      title: 'Need to Inspect',
+      icon: <ClipboardCheck className="h-5 w-5 text-yellow-500" />,
+      value: stats.needToInspect,
+      description: 'Pending inspections by due date',
+      type: 'inspection',
+    },
+    assembly: {
+      title: 'Need to Assemble',
+      icon: <Wrench className="h-5 w-5 text-blue-500" />,
+      value: stats.needToAssemble,
+      description: 'Pending assemblies by due date',
+      type: 'assembly',
+    },
+    shipments: {
+      title: 'Incoming Shipments',
+      icon: <Truck className="h-5 w-5 text-green-500" />,
+      value: stats.incomingShipments,
+      description: 'Expected by ETA date',
+      type: 'shipments',
+    },
+    putaway: {
+      title: 'Put Away',
+      icon: <Package className="h-5 w-5 text-purple-500" />,
+      value: stats.putAwayCount,
+      description: 'Items at Receiving Dock',
+      type: 'putaway',
+    },
+  };
+
+  const visibleCards = preferences.cardOrder.filter(
+    id => !preferences.hiddenCards.includes(id)
+  );
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -93,9 +219,34 @@ export default function Dashboard() {
               Welcome back{profile?.first_name ? `, ${profile.first_name}` : ''}! Here's an overview of your warehouse.
             </p>
           </div>
-          <Button variant="outline" size="icon" onClick={refetch} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
+          <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {DEFAULT_CARD_ORDER.map(cardId => (
+                  <DropdownMenuItem
+                    key={cardId}
+                    onClick={() => toggleCardVisibility(cardId)}
+                    className="gap-2"
+                  >
+                    {preferences.hiddenCards.includes(cardId) ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                    {cardConfigs[cardId]?.title}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="outline" size="icon" onClick={refetch} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
 
         {loading ? (
@@ -104,64 +255,39 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            {/* Stat Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card 
-                className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => handleCardClick('inspection')}
-              >
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Need to Inspect</CardTitle>
-                  <ClipboardCheck className="h-5 w-5 text-yellow-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.needToInspect}</div>
-                  <p className="text-xs text-muted-foreground">Pending inspections by due date</p>
-                </CardContent>
-              </Card>
+            {/* Stat Cards - Draggable */}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={visibleCards} strategy={rectSortingStrategy}>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  {visibleCards.map(cardId => {
+                    const config = cardConfigs[cardId];
+                    if (!config) return null;
 
-              <Card 
-                className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => handleCardClick('assembly')}
-              >
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Need to Assemble</CardTitle>
-                  <Wrench className="h-5 w-5 text-blue-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.needToAssemble}</div>
-                  <p className="text-xs text-muted-foreground">Pending assemblies by due date</p>
-                </CardContent>
-              </Card>
-
-              <Card 
-                className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => handleCardClick('shipments')}
-              >
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Incoming Shipments</CardTitle>
-                  <Truck className="h-5 w-5 text-green-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.incomingShipments}</div>
-                  <p className="text-xs text-muted-foreground">Expected by ETA date</p>
-                </CardContent>
-              </Card>
-
-              <Card 
-                className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => handleCardClick('putaway')}
-              >
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Put Away</CardTitle>
-                  <Package className="h-5 w-5 text-purple-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.putAwayCount}</div>
-                  <p className="text-xs text-muted-foreground">Items at Receiving Dock</p>
-                </CardContent>
-              </Card>
-            </div>
+                    return (
+                      <SortableCard key={cardId} id={cardId}>
+                        <Card 
+                          className="cursor-pointer hover:shadow-md transition-shadow"
+                          onClick={() => handleCardClick(config.type)}
+                        >
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pl-10">
+                            <CardTitle className="text-sm font-medium">{config.title}</CardTitle>
+                            {config.icon}
+                          </CardHeader>
+                          <CardContent className="pl-10">
+                            <div className="text-2xl font-bold">{config.value}</div>
+                            <p className="text-xs text-muted-foreground">{config.description}</p>
+                          </CardContent>
+                        </Card>
+                      </SortableCard>
+                    );
+                  })}
+                </div>
+              </SortableContext>
+            </DndContext>
 
             {/* Task Lists Row */}
             <div className="grid gap-4 md:grid-cols-2">
@@ -290,7 +416,7 @@ export default function Dashboard() {
                         <TableRow 
                           key={shipment.id} 
                           className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => navigate(`/shipments?id=${shipment.id}`)}
+                          onClick={() => navigate(`/shipments/${shipment.id}`)}
                         >
                           <TableCell className="font-medium">{shipment.shipment_number}</TableCell>
                           <TableCell>{shipment.account?.account_name || '-'}</TableCell>
@@ -311,7 +437,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Put Away List - Larger Card */}
+            {/* Put Away List */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -341,7 +467,7 @@ export default function Dashboard() {
                         <TableRow 
                           key={item.id} 
                           className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => navigate(`/inventory?id=${item.id}`)}
+                          onClick={() => navigate(`/inventory/${item.id}`)}
                         >
                           <TableCell className="font-medium">{item.item_code}</TableCell>
                           <TableCell className="max-w-[200px] truncate">
