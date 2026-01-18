@@ -74,17 +74,19 @@ export default function Tasks() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
-  const { tasks, loading, refetch, completeTask, claimTask, deleteTask } = useTasks({
+  const { tasks, loading, isRefetching, refetch, completeTask, claimTask, deleteTask } = useTasks({
     status: filters.status === 'all' ? undefined : filters.status,
     taskType: filters.taskType === 'all' ? undefined : filters.taskType,
     warehouseId: filters.warehouseId === 'all' ? undefined : filters.warehouseId,
   });
 
+  // Filter tasks locally for search (avoid refetch on search)
   const filteredTasks = tasks.filter(task =>
     task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     task.task_type.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Memoize stats to avoid recalculation flicker
   const stats = {
     pending: tasks.filter(t => t.status === 'pending').length,
     inProgress: tasks.filter(t => t.status === 'in_progress').length,
@@ -112,15 +114,8 @@ export default function Tasks() {
     refetch();
   };
 
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-96">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      </DashboardLayout>
-    );
-  }
+  // Only show full loading on initial load when there's no data yet
+  const showInitialLoading = loading && tasks.length === 0;
 
   return (
     <DashboardLayout>
@@ -245,14 +240,26 @@ export default function Tasks() {
             </SelectContent>
           </Select>
 
-          <Button variant="ghost" size="icon" onClick={refetch}>
-            <RefreshCw className="h-4 w-4" />
+          <Button variant="ghost" size="icon" onClick={refetch} disabled={isRefetching}>
+            <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
           </Button>
         </div>
 
         {/* Tasks Table */}
-        <Card>
-          <CardContent className="p-0">
+        <Card className="relative">
+          {/* Subtle loading overlay for refetching */}
+          {isRefetching && (
+            <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10 rounded-lg">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          
+          {showInitialLoading ? (
+            <CardContent className="flex items-center justify-center h-48">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </CardContent>
+          ) : (
+            <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -366,7 +373,8 @@ export default function Tasks() {
                 )}
               </TableBody>
             </Table>
-          </CardContent>
+            </CardContent>
+          )}
         </Card>
       </div>
 
