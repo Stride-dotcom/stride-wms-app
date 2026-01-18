@@ -1178,6 +1178,66 @@ export type Database = {
           },
         ]
       }
+      inventory_column_configs: {
+        Row: {
+          account_id: string | null
+          column_key: string
+          column_width: number | null
+          created_at: string | null
+          data_type: string | null
+          display_label: string
+          id: string
+          is_required: boolean | null
+          is_visible: boolean | null
+          sort_order: number | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          column_key: string
+          column_width?: number | null
+          created_at?: string | null
+          data_type?: string | null
+          display_label: string
+          id?: string
+          is_required?: boolean | null
+          is_visible?: boolean | null
+          sort_order?: number | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          column_key?: string
+          column_width?: number | null
+          created_at?: string | null
+          data_type?: string | null
+          display_label?: string
+          id?: string
+          is_required?: boolean | null
+          is_visible?: boolean | null
+          sort_order?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_column_configs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_column_configs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_line_items: {
         Row: {
           account_code: string | null
@@ -1892,6 +1952,7 @@ export type Database = {
           current_utilization: number | null
           deleted_at: string | null
           id: string
+          is_active: boolean | null
           metadata: Json | null
           name: string | null
           parent_location_id: string | null
@@ -1907,6 +1968,7 @@ export type Database = {
           current_utilization?: number | null
           deleted_at?: string | null
           id?: string
+          is_active?: boolean | null
           metadata?: Json | null
           name?: string | null
           parent_location_id?: string | null
@@ -1922,6 +1984,7 @@ export type Database = {
           current_utilization?: number | null
           deleted_at?: string | null
           id?: string
+          is_active?: boolean | null
           metadata?: Json | null
           name?: string | null
           parent_location_id?: string | null
@@ -3463,6 +3526,51 @@ export type Database = {
         }
         Relationships: []
       }
+      user_accounts: {
+        Row: {
+          access_level: string | null
+          account_id: string
+          created_at: string | null
+          deleted_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_level?: string | null
+          account_id: string
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_level?: string | null
+          account_id?: string
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_accounts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_accounts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           assigned_at: string
@@ -3908,6 +4016,8 @@ export type Database = {
       current_user_id: { Args: never; Returns: string }
       generate_shipment_number: { Args: never; Returns: string }
       get_current_user_tenant_id: { Args: never; Returns: string }
+      get_user_role: { Args: { _user_id: string }; Returns: string }
+      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_tenant_admin:
         | { Args: never; Returns: boolean }
         | {
@@ -3933,6 +4043,7 @@ export type Database = {
       user_tenant_id: { Args: never; Returns: string }
     }
     Enums: {
+      app_role: "admin" | "manager" | "warehouse" | "client_user"
       discount_type: "percentage" | "flat_rate"
       expiration_type: "none" | "date"
       service_scope_type: "all" | "selected"
@@ -4064,6 +4175,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "manager", "warehouse", "client_user"],
       discount_type: ["percentage", "flat_rate"],
       expiration_type: ["none", "date"],
       service_scope_type: ["all", "selected"],
