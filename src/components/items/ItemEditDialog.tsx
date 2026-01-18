@@ -31,6 +31,7 @@ import {
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { ItemTypeCombobox } from './ItemTypeCombobox';
 
 const itemSchema = z.object({
   description: z.string().optional(),
@@ -42,9 +43,15 @@ const itemSchema = z.object({
   room: z.string().optional(),
   link: z.string().url().optional().or(z.literal('')),
   status: z.string().optional(),
+  item_type_id: z.string().optional(),
 });
 
 type ItemFormData = z.infer<typeof itemSchema>;
+
+interface ItemType {
+  id: string;
+  name: string;
+}
 
 interface ItemEditDialogProps {
   open: boolean;
@@ -61,6 +68,7 @@ interface ItemEditDialogProps {
     room?: string | null;
     link?: string | null;
     status: string;
+    item_type_id?: string | null;
   } | null;
   onSuccess: () => void;
 }
@@ -89,6 +97,20 @@ export function ItemEditDialog({
 }: ItemEditDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
+
+  // Fetch item types
+  useEffect(() => {
+    const fetchItemTypes = async () => {
+      const { data } = await supabase
+        .from('item_types')
+        .select('id, name')
+        .is('deleted_at', null)
+        .order('name');
+      if (data) setItemTypes(data);
+    };
+    if (open) fetchItemTypes();
+  }, [open]);
 
   const form = useForm<ItemFormData>({
     resolver: zodResolver(itemSchema),
@@ -102,6 +124,7 @@ export function ItemEditDialog({
       room: '',
       link: '',
       status: 'available',
+      item_type_id: '',
     },
   });
 
@@ -117,6 +140,7 @@ export function ItemEditDialog({
         room: item.room || '',
         link: item.link || '',
         status: item.status || 'available',
+        item_type_id: item.item_type_id || '',
       });
     }
   }, [open, item]);
@@ -136,6 +160,7 @@ export function ItemEditDialog({
         room: data.room || null,
         link: data.link || null,
         status: data.status || 'available',
+        item_type_id: data.item_type_id || null,
       };
 
       const { error } = await (supabase.from('items') as any)
@@ -187,6 +212,25 @@ export function ItemEditDialog({
                       className="resize-none"
                       rows={2}
                       {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="item_type_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Item Type</FormLabel>
+                  <FormControl>
+                    <ItemTypeCombobox
+                      itemTypes={itemTypes}
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      placeholder="Select item type..."
                     />
                   </FormControl>
                   <FormMessage />

@@ -61,6 +61,7 @@ interface ItemDetail {
   size_unit: string | null;
   room: string | null;
   link: string | null;
+  item_type_id: string | null;
   received_at: string | null;
   created_at: string;
   assembly_status: string | null;
