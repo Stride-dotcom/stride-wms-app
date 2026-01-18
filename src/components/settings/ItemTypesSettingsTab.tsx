@@ -310,30 +310,7 @@ function parseRowToItemType(headers: string[], row: unknown[]): Record<string, u
   return obj;
 }
 
-function parseCsvLine(line: string): string[] {
-  const out: string[] = [];
-  let cur = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        cur += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (ch === ',' && !inQuotes) {
-      out.push(cur);
-      cur = '';
-    } else {
-      cur += ch;
-    }
-  }
-  out.push(cur);
-  return out.map((v) => v.trim());
-}
+// parseCsvLine is now imported from @/lib/importUtils via parseFileToRows
 
 export function ItemTypesSettingsTab() {
   const { profile } = useAuth();
