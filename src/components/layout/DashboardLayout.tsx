@@ -44,9 +44,9 @@ const navItems: NavItem[] = [
   { label: 'Inventory', href: '/inventory', icon: Boxes },
   { label: 'Tasks', href: '/tasks', icon: ClipboardList },
   { label: 'Orders', href: '/orders', icon: Package },
-  { label: 'Billing', href: '/billing', icon: FileText, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Reports', href: '/reports', icon: BarChart3 },
   { label: 'Accounts', href: '/accounts', icon: Users, requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Employees', href: '/employees', icon: Building2, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Settings', href: '/settings', icon: Settings, requiredRole: ['admin', 'tenant_admin'] },
 ];
 

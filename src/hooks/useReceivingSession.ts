@@ -1,0 +1,303 @@
+import { useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+
+interface ReceivingSession {
+  id: string;
+  shipment_id: string;
+  started_by: string;
+  started_at: string;
+  finished_at: string | null;
+  status: 'in_progress' | 'completed' | 'cancelled';
+  notes: string | null;
+  verification_data: any;
+  started_by_user?: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+  };
+}
+
+interface VerificationData {
+  expected_items: { description: string; quantity: number }[];
+  received_items: { description: string; quantity: number; item_id?: string }[];
+  discrepancies: { description: string; expected: number; received: number }[];
+  backorder_items?: { description: string; quantity: number }[];
+  [key: string]: unknown;
+}
+
+export function useReceivingSession(shipmentId: string | undefined) {
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  const [session, setSession] = useState<ReceivingSession | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchSession = useCallback(async () => {
+    if (!shipmentId) return null;
+
+    const { data, error } = await supabase
+      .from('receiving_sessions')
+      .select(`
+        *,
+        started_by_user:users!receiving_sessions_started_by_fkey(first_name, last_name, email)
+      `)
+      .eq('shipment_id', shipmentId)
+      .eq('status', 'in_progress')
+      .maybeSingle();
+
+    if (!error && data) {
+      setSession(data as any);
+      return data;
+    }
+    setSession(null);
+    return null;
+  }, [shipmentId]);
+
+  const startSession = async () => {
+    if (!shipmentId || !profile?.tenant_id || !profile?.id) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Unable to start receiving session',
+      });
+      return null;
+    }
+
+    setLoading(true);
+    try {
+      // Check if there's already an active session
+      const existing = await fetchSession();
+      if (existing) {
+        toast({
+          variant: 'destructive',
+          title: 'Session Already Active',
+          description: `This shipment is being received by another user.`,
+        });
+        return null;
+      }
+
+      const { data, error } = await supabase
+        .from('receiving_sessions')
+        .insert({
+          tenant_id: profile.tenant_id,
+          shipment_id: shipmentId,
+          started_by: profile.id,
+          status: 'in_progress',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update shipment status
+      await supabase
+        .from('shipments')
+        .update({ status: 'receiving' })
+        .eq('id', shipmentId);
+
+      setSession(data as any);
+      toast({
+        title: 'Receiving Started',
+        description: 'You can now receive items for this shipment.',
+      });
+
+      return data;
+    } catch (error: any) {
+      console.error('Error starting session:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to start receiving session',
+      });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateSessionNotes = async (notes: string) => {
+    if (!session) return;
+
+    const { error } = await supabase
+      .from('receiving_sessions')
+      .update({ notes })
+      .eq('id', session.id);
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save notes',
+      });
+    }
+  };
+
+  const finishSession = async (
+    verificationData: VerificationData,
+    createItems: boolean = true
+  ) => {
+    if (!session || !profile?.tenant_id) return false;
+
+    setLoading(true);
+    try {
+      // Update session
+      const { error: sessionError } = await supabase
+        .from('receiving_sessions')
+        .update({
+          status: 'completed' as const,
+          finished_at: new Date().toISOString(),
+          verification_data: JSON.parse(JSON.stringify(verificationData)),
+        })
+        .eq('id', session.id);
+
+      if (sessionError) throw sessionError;
+
+      // Update shipment status
+      const hasBackorders = verificationData.backorder_items && verificationData.backorder_items.length > 0;
+      await supabase
+        .from('shipments')
+        .update({ 
+          status: hasBackorders ? 'partial' : 'received',
+          received_at: new Date().toISOString(),
+        })
+        .eq('id', session.shipment_id);
+
+      // Create inventory items if requested
+      if (createItems && verificationData.received_items.length > 0) {
+        // Get shipment details for account info
+        const { data: shipment } = await supabase
+          .from('shipments')
+          .select('account_id, warehouse_id')
+          .eq('id', session.shipment_id)
+          .single();
+
+        if (shipment) {
+          // Get the account to check auto_inspection settings
+          const { data: account } = await supabase
+            .from('accounts')
+            .select('auto_inspection_on_receiving')
+            .eq('id', shipment.account_id)
+            .single();
+
+          for (const item of verificationData.received_items) {
+            // Generate item code
+            const itemCode = `ITM-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+            
+            // Create item
+            const { data: newItem, error: itemError } = await supabase
+              .from('items')
+              .insert({
+                tenant_id: profile.tenant_id,
+                account_id: shipment.account_id,
+                warehouse_id: shipment.warehouse_id,
+                item_code: itemCode,
+                description: item.description,
+                quantity: item.quantity,
+                status: 'available',
+                receiving_shipment_id: session.shipment_id,
+                received_at: new Date().toISOString(),
+              })
+              .select()
+              .single();
+
+            if (itemError) {
+              console.error('Error creating item:', itemError);
+              continue;
+            }
+
+            // Create inspection task if auto_inspection is enabled
+            if (account?.auto_inspection_on_receiving && newItem) {
+              await supabase
+                .from('tasks')
+                .insert({
+                  tenant_id: profile.tenant_id,
+                  title: `Inspect: ${item.description}`,
+                  task_type: 'Inspection',
+                  status: 'pending',
+                  priority: 'medium',
+                  account_id: shipment.account_id,
+                  warehouse_id: shipment.warehouse_id,
+                });
+            }
+
+            // Create billing event for receiving
+            await supabase
+              .from('billing_events')
+              .insert({
+                tenant_id: profile.tenant_id,
+                account_id: shipment.account_id,
+                item_id: newItem?.id,
+                event_type: 'receiving',
+                charge_type: 'receiving',
+                description: `Receiving: ${item.description}`,
+                quantity: item.quantity,
+                unit_rate: 0, // Would be looked up from rate card
+                total_amount: 0,
+                created_by: profile.id,
+              });
+          }
+        }
+      }
+
+      setSession(null);
+      toast({
+        title: 'Receiving Completed',
+        description: 'Shipment has been received and items created.',
+      });
+
+      return true;
+    } catch (error: any) {
+      console.error('Error finishing session:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to complete receiving',
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelSession = async () => {
+    if (!session) return;
+
+    setLoading(true);
+    try {
+      await supabase
+        .from('receiving_sessions')
+        .update({
+          status: 'cancelled',
+          finished_at: new Date().toISOString(),
+        })
+        .eq('id', session.id);
+
+      // Revert shipment status
+      await supabase
+        .from('shipments')
+        .update({ status: 'expected' })
+        .eq('id', session.shipment_id);
+
+      setSession(null);
+      toast({
+        title: 'Session Cancelled',
+        description: 'Receiving session has been cancelled.',
+      });
+    } catch (error) {
+      console.error('Error cancelling session:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    session,
+    loading,
+    fetchSession,
+    startSession,
+    updateSessionNotes,
+    finishSession,
+    cancelSession,
+  };
+}
