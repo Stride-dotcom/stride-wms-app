@@ -173,7 +173,8 @@ async function parseFile(file: File): Promise<{ items: ParsedItem[]; headers: st
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-  const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { header: 1 });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data: any[][] = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
   
   if (data.length < 2) return { items: [], headers: [] };
   
@@ -182,7 +183,7 @@ async function parseFile(file: File): Promise<{ items: ParsedItem[]; headers: st
   let columnIndices: Record<keyof ParsedItem, number> = {} as Record<keyof ParsedItem, number>;
   
   for (let i = 0; i < Math.min(data.length, 5); i++) {
-    const row = data[i] as unknown[];
+    const row = data[i];
     if (!row) continue;
     
     const tempIndices: Record<string, number> = {};
@@ -212,7 +213,7 @@ async function parseFile(file: File): Promise<{ items: ParsedItem[]; headers: st
   
   // Parse data rows
   for (let i = headerRowIndex + 1; i < data.length; i++) {
-    const row = data[i] as unknown[];
+    const row = data[i];
     if (!row) continue;
     
     const getValue = (key: keyof ParsedItem): string => {
