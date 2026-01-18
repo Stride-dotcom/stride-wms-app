@@ -270,11 +270,44 @@ export function TaskDialog({
     return formData.task_type || 'New Task';
   };
 
+  // Map task types to inventory status fields
+  const getInventoryStatusField = (taskType: string): string | null => {
+    const mapping: Record<string, string> = {
+      'Assembly': 'assembly_status',
+      'Inspection': 'inspection_status',
+      'Repair': 'repair_status',
+    };
+    return mapping[taskType] || null;
+  };
+
+  // Update inventory status for items
+  const updateInventoryStatus = async (itemIds: string[], taskType: string, status: string) => {
+    const statusField = getInventoryStatusField(taskType);
+    if (!statusField || itemIds.length === 0) return;
+
+    try {
+      const updateData: Record<string, string> = {};
+      updateData[statusField] = status;
+
+      await (supabase
+        .from('items') as any)
+        .update(updateData)
+        .in('id', itemIds);
+    } catch (error) {
+      console.error('Error updating inventory status:', error);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!profile?.tenant_id || !formData.task_type) return;
 
     try {
       setLoading(true);
+
+      // Collect all item IDs
+      const allItemIds = isFromInventory 
+        ? selectedItemIds 
+        : selectedItems.map(i => i.id);
 
       const taskData = {
         tenant_id: profile.tenant_id,
@@ -287,7 +320,7 @@ export function TaskDialog({
         assigned_department: formData.assigned_department || null,
         warehouse_id: formData.warehouse_id === 'none' ? null : formData.warehouse_id || null,
         account_id: formData.account_id === 'none' ? null : formData.account_id || null,
-        status: 'pending',
+        status: task ? task.status : 'in_queue', // New tasks start as in_queue
       };
 
       if (task) {
@@ -308,11 +341,7 @@ export function TaskDialog({
 
         if (error) throw error;
 
-        // Add task items - combine pre-selected and manually selected
-        const allItemIds = isFromInventory 
-          ? selectedItemIds 
-          : selectedItems.map(i => i.id);
-
+        // Add task items
         if (allItemIds.length > 0 && newTask) {
           const taskItems = allItemIds.map(itemId => ({
             task_id: newTask.id,
@@ -320,6 +349,9 @@ export function TaskDialog({
           }));
 
           await (supabase.from('task_items') as any).insert(taskItems);
+
+          // Update inventory status to in_queue
+          await updateInventoryStatus(allItemIds, formData.task_type, 'in_queue');
         }
       }
 

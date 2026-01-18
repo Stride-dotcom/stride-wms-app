@@ -23,12 +23,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useTasks, useTaskTypes, Task } from '@/hooks/useTasks';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useAuth } from '@/contexts/AuthContext';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
+import { UnableToCompleteDialog } from '@/components/tasks/UnableToCompleteDialog';
 import { format } from 'date-fns';
 import {
   Loader2,
@@ -44,13 +46,27 @@ import {
   AlertCircle,
   Clock,
   CheckCircle2,
+  Play,
+  XCircle,
+  ListTodo,
 } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
+  in_queue: 'bg-yellow-100 text-yellow-800',
   pending: 'bg-yellow-100 text-yellow-800',
   in_progress: 'bg-blue-100 text-blue-800',
   completed: 'bg-green-100 text-green-800',
+  unable_to_complete: 'bg-red-100 text-red-800',
   cancelled: 'bg-gray-100 text-gray-800',
+};
+
+const statusLabels: Record<string, string> = {
+  in_queue: 'In Queue',
+  pending: 'Pending',
+  in_progress: 'In Progress',
+  completed: 'Completed',
+  unable_to_complete: 'Unable to Complete',
+  cancelled: 'Cancelled',
 };
 
 const priorityColors: Record<string, string> = {
@@ -73,8 +89,20 @@ export default function Tasks() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [unableToCompleteTask, setUnableToCompleteTask] = useState<Task | null>(null);
 
-  const { tasks, loading, isRefetching, refetch, completeTask, claimTask, deleteTask } = useTasks({
+  const { 
+    tasks, 
+    loading, 
+    isRefetching, 
+    refetch, 
+    startTask,
+    completeTask, 
+    markUnableToComplete,
+    claimTask, 
+    updateTaskStatus,
+    deleteTask 
+  } = useTasks({
     status: filters.status === 'all' ? undefined : filters.status,
     taskType: filters.taskType === 'all' ? undefined : filters.taskType,
     warehouseId: filters.warehouseId === 'all' ? undefined : filters.warehouseId,
@@ -88,11 +116,12 @@ export default function Tasks() {
 
   // Memoize stats to avoid recalculation flicker
   const stats = {
-    pending: tasks.filter(t => t.status === 'pending').length,
+    inQueue: tasks.filter(t => t.status === 'in_queue' || t.status === 'pending').length,
     inProgress: tasks.filter(t => t.status === 'in_progress').length,
     completed: tasks.filter(t => t.status === 'completed').length,
     overdue: tasks.filter(t => 
       t.status !== 'completed' && 
+      t.status !== 'unable_to_complete' &&
       t.due_date && 
       new Date(t.due_date) < new Date()
     ).length,
@@ -114,8 +143,66 @@ export default function Tasks() {
     refetch();
   };
 
+  const handleUnableToComplete = async (note: string) => {
+    if (!unableToCompleteTask) return false;
+    const success = await markUnableToComplete(unableToCompleteTask.id, note);
+    if (success) {
+      setUnableToCompleteTask(null);
+    }
+    return success;
+  };
+
   // Only show full loading on initial load when there's no data yet
   const showInitialLoading = loading && tasks.length === 0;
+
+  // Render action buttons based on task status
+  const renderActionButtons = (task: Task) => {
+    const buttons = [];
+
+    if (task.status === 'in_queue' || task.status === 'pending') {
+      buttons.push(
+        <Button
+          key="start"
+          size="sm"
+          variant="outline"
+          onClick={() => startTask(task.id)}
+          className="h-7 px-2 text-xs"
+        >
+          <Play className="h-3 w-3 mr-1" />
+          Start
+        </Button>
+      );
+    }
+
+    if (task.status === 'in_progress') {
+      buttons.push(
+        <Button
+          key="complete"
+          size="sm"
+          variant="default"
+          onClick={() => completeTask(task.id)}
+          className="h-7 px-2 text-xs"
+        >
+          <Check className="h-3 w-3 mr-1" />
+          Complete
+        </Button>,
+        <Button
+          key="unable"
+          size="sm"
+          variant="destructive"
+          onClick={() => setUnableToCompleteTask(task)}
+          className="h-7 px-2 text-xs"
+        >
+          <XCircle className="h-3 w-3 mr-1" />
+          Unable
+        </Button>
+      );
+    }
+
+    return buttons.length > 0 ? (
+      <div className="flex gap-1">{buttons}</div>
+    ) : null;
+  };
 
   return (
     <DashboardLayout>
@@ -135,15 +222,15 @@ export default function Tasks() {
 
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-4">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilters(f => ({ ...f, status: 'pending' }))}>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilters(f => ({ ...f, status: 'in_queue' }))}>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-yellow-100 rounded-lg">
-                  <Clock className="h-6 w-6 text-yellow-600" />
+                  <ListTodo className="h-6 w-6 text-yellow-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.pending}</p>
-                  <p className="text-sm text-muted-foreground">Pending</p>
+                  <p className="text-2xl font-bold">{stats.inQueue}</p>
+                  <p className="text-sm text-muted-foreground">In Queue</p>
                 </div>
               </div>
             </CardContent>
@@ -210,9 +297,10 @@ export default function Tasks() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="in_queue">In Queue</SelectItem>
               <SelectItem value="in_progress">In Progress</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="unable_to_complete">Unable to Complete</SelectItem>
             </SelectContent>
           </Select>
 
@@ -263,14 +351,14 @@ export default function Tasks() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Title</TableHead>
+                  <TableHead>Task</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Priority</TableHead>
                   <TableHead>Due Date</TableHead>
                   <TableHead>Assigned To</TableHead>
-                  <TableHead>Warehouse</TableHead>
-                  <TableHead className="w-[80px]">Actions</TableHead>
+                  <TableHead>Actions</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -295,14 +383,38 @@ export default function Tasks() {
                             {task.description}
                           </p>
                         )}
+                        {task.status === 'unable_to_complete' && task.unable_to_complete_note && (
+                          <p className="text-xs text-destructive truncate max-w-[200px]">
+                            Note: {task.unable_to_complete_note}
+                          </p>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">{task.task_type}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={statusColors[task.status] || ''}>
-                          {task.status.replace('_', ' ')}
-                        </Badge>
+                        <Select
+                          value={task.status}
+                          onValueChange={(value) => {
+                            if (value === 'unable_to_complete') {
+                              setUnableToCompleteTask(task);
+                            } else {
+                              updateTaskStatus(task.id, value);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-7 w-[140px]">
+                            <Badge className={statusColors[task.status] || ''}>
+                              {statusLabels[task.status] || task.status.replace('_', ' ')}
+                            </Badge>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="in_queue">In Queue</SelectItem>
+                            <SelectItem value="in_progress">In Progress</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="unable_to_complete">Unable to Complete</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
                         <Badge className={priorityColors[task.priority || 'medium'] || ''}>
@@ -312,7 +424,9 @@ export default function Tasks() {
                       <TableCell>
                         {task.due_date ? (
                           <span className={
-                            new Date(task.due_date) < new Date() && task.status !== 'completed'
+                            new Date(task.due_date) < new Date() && 
+                            task.status !== 'completed' && 
+                            task.status !== 'unable_to_complete'
                               ? 'text-red-600 font-medium'
                               : ''
                           }>
@@ -332,7 +446,7 @@ export default function Tasks() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {task.warehouse?.name || '-'}
+                        {renderActionButtons(task)}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -346,18 +460,32 @@ export default function Tasks() {
                               <Pencil className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
-                            {!task.assigned_to && task.status === 'pending' && (
+                            {!task.assigned_to && (
                               <DropdownMenuItem onClick={() => claimTask(task.id)}>
                                 <User className="mr-2 h-4 w-4" />
                                 Claim Task
                               </DropdownMenuItem>
                             )}
-                            {task.status !== 'completed' && (
-                              <DropdownMenuItem onClick={() => completeTask(task.id)}>
-                                <Check className="mr-2 h-4 w-4" />
-                                Complete
+                            <DropdownMenuSeparator />
+                            {(task.status === 'in_queue' || task.status === 'pending') && (
+                              <DropdownMenuItem onClick={() => startTask(task.id)}>
+                                <Play className="mr-2 h-4 w-4" />
+                                Start Task
                               </DropdownMenuItem>
                             )}
+                            {task.status === 'in_progress' && (
+                              <>
+                                <DropdownMenuItem onClick={() => completeTask(task.id)}>
+                                  <Check className="mr-2 h-4 w-4" />
+                                  Complete
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setUnableToCompleteTask(task)}>
+                                  <XCircle className="mr-2 h-4 w-4" />
+                                  Unable to Complete
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => deleteTask(task.id)}
                               className="text-destructive"
@@ -383,6 +511,13 @@ export default function Tasks() {
         onOpenChange={setDialogOpen}
         task={editingTask}
         onSuccess={handleDialogSuccess}
+      />
+
+      <UnableToCompleteDialog
+        open={!!unableToCompleteTask}
+        onOpenChange={(open) => !open && setUnableToCompleteTask(null)}
+        taskTitle={unableToCompleteTask?.title || ''}
+        onConfirm={handleUnableToComplete}
       />
     </DashboardLayout>
   );
