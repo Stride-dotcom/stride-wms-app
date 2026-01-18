@@ -26,6 +26,7 @@ import { InviteUserDialog } from '@/components/settings/InviteUserDialog';
 import { ItemTypesSettingsTab } from '@/components/settings/ItemTypesSettingsTab';
 import { DueDateRulesSettingsTab } from '@/components/settings/DueDateRulesSettingsTab';
 import { BillingChargeTemplatesTab } from '@/components/settings/BillingChargeTemplatesTab';
+import { EmployeesSettingsTab } from '@/components/settings/EmployeesSettingsTab';
 
 interface TenantInfo {
   id: string;
@@ -226,6 +227,7 @@ export default function Settings() {
           <TabsList className="flex-wrap h-auto gap-1">
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="organization">Organization</TabsTrigger>
+            <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             <TabsTrigger value="item-types">Item Types</TabsTrigger>
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
@@ -330,6 +332,10 @@ export default function Settings() {
 
             {/* Due Date Rules Section */}
             <DueDateRulesSettingsTab />
+          </TabsContent>
+
+          <TabsContent value="employees">
+            <EmployeesSettingsTab />
           </TabsContent>
 
           <TabsContent value="billing">

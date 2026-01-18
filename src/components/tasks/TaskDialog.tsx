@@ -87,6 +87,9 @@ export function TaskDialog({
     assigned_department: '',
     warehouse_id: 'none',
     account_id: 'none',
+    bill_to: 'account' as 'account' | 'customer' | 'no_charge',
+    bill_to_customer_name: '',
+    bill_to_customer_email: '',
   });
 
   // Check if we're creating from inventory (items pre-selected)
@@ -112,6 +115,9 @@ export function TaskDialog({
         assigned_department: task.assigned_department || '',
         warehouse_id: task.warehouse_id || 'none',
         account_id: task.account_id || 'none',
+        bill_to: ((task as any).bill_to as 'account' | 'customer' | 'no_charge') || 'account',
+        bill_to_customer_name: (task as any).bill_to_customer_name || '',
+        bill_to_customer_email: (task as any).bill_to_customer_email || '',
       });
     } else {
       setFormData({
@@ -123,6 +129,9 @@ export function TaskDialog({
         assigned_department: '',
         warehouse_id: 'none',
         account_id: 'none',
+        bill_to: 'account',
+        bill_to_customer_name: '',
+        bill_to_customer_email: '',
       });
       setSelectedItems([]);
       setAccountItems([]);
@@ -321,6 +330,9 @@ export function TaskDialog({
         warehouse_id: formData.warehouse_id === 'none' ? null : formData.warehouse_id || null,
         account_id: formData.account_id === 'none' ? null : formData.account_id || null,
         status: task ? task.status : 'in_queue', // New tasks start as in_queue
+        bill_to: formData.bill_to,
+        bill_to_customer_name: formData.bill_to === 'customer' ? formData.bill_to_customer_name : null,
+        bill_to_customer_email: formData.bill_to === 'customer' ? formData.bill_to_customer_email : null,
       };
 
       if (task) {
@@ -529,6 +541,56 @@ export function TaskDialog({
                 rows={3}
               />
             </div>
+
+            {/* Bill To */}
+            <div className="space-y-2">
+              <Label>Bill To</Label>
+              <Select
+                value={formData.bill_to}
+                onValueChange={(value: 'account' | 'customer' | 'no_charge') => 
+                  setFormData(prev => ({ ...prev, bill_to: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="account">Account</SelectItem>
+                  <SelectItem value="customer">Customer (Different Billing)</SelectItem>
+                  <SelectItem value="no_charge">No Charge</SelectItem>
+                </SelectContent>
+              </Select>
+              {formData.bill_to === 'no_charge' && (
+                <p className="text-xs text-muted-foreground">
+                  Selecting "No Charge" will void all charges for this task.
+                </p>
+              )}
+            </div>
+
+            {/* Customer Billing Info - only show when bill_to is customer */}
+            {formData.bill_to === 'customer' && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="bill_to_customer_name">Customer Name</Label>
+                  <Input
+                    id="bill_to_customer_name"
+                    value={formData.bill_to_customer_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, bill_to_customer_name: e.target.value }))}
+                    placeholder="Customer name for billing"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bill_to_customer_email">Customer Email</Label>
+                  <Input
+                    id="bill_to_customer_email"
+                    type="email"
+                    value={formData.bill_to_customer_email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, bill_to_customer_email: e.target.value }))}
+                    placeholder="customer@email.com"
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="grid gap-4 md:grid-cols-2">
               {/* Priority */}
