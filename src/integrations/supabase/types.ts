@@ -937,6 +937,249 @@ export type Database = {
           },
         ]
       }
+      communication_alerts: {
+        Row: {
+          channels: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_enabled: boolean
+          key: string
+          name: string
+          tenant_id: string
+          timing_rule: string
+          trigger_event: string
+          updated_at: string
+        }
+        Insert: {
+          channels?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          key: string
+          name: string
+          tenant_id: string
+          timing_rule?: string
+          trigger_event: string
+          updated_at?: string
+        }
+        Update: {
+          channels?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          key?: string
+          name?: string
+          tenant_id?: string
+          timing_rule?: string
+          trigger_event?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_brand_settings: {
+        Row: {
+          brand_logo_url: string | null
+          brand_primary_color: string
+          brand_support_email: string | null
+          created_at: string
+          from_email: string | null
+          from_name: string | null
+          id: string
+          portal_base_url: string | null
+          sms_sender_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          brand_logo_url?: string | null
+          brand_primary_color?: string
+          brand_support_email?: string | null
+          created_at?: string
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          portal_base_url?: string | null
+          sms_sender_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          brand_logo_url?: string | null
+          brand_primary_color?: string
+          brand_support_email?: string | null
+          created_at?: string
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          portal_base_url?: string | null
+          sms_sender_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_brand_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_design_elements: {
+        Row: {
+          category: string
+          created_at: string
+          html_snippet: string
+          id: string
+          is_system: boolean
+          name: string
+          tenant_id: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          html_snippet: string
+          id?: string
+          is_system?: boolean
+          name: string
+          tenant_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          html_snippet?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_design_elements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_template_versions: {
+        Row: {
+          body_template: string
+          created_at: string
+          created_by: string | null
+          id: string
+          subject_template: string | null
+          template_id: string
+          version_number: number
+        }
+        Insert: {
+          body_template: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          subject_template?: string | null
+          template_id: string
+          version_number: number
+        }
+        Update: {
+          body_template?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          subject_template?: string | null
+          template_id?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_template_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_template_versions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "communication_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_templates: {
+        Row: {
+          alert_id: string
+          body_format: string
+          body_template: string
+          channel: string
+          created_at: string
+          from_email: string | null
+          from_name: string | null
+          id: string
+          sms_sender_id: string | null
+          subject_template: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          alert_id: string
+          body_format?: string
+          body_template: string
+          channel: string
+          created_at?: string
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          sms_sender_id?: string | null
+          subject_template?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          alert_id?: string
+          body_format?: string
+          body_template?: string
+          channel?: string
+          created_at?: string
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          sms_sender_id?: string | null
+          subject_template?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_templates_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "communication_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       csv_import_jobs: {
         Row: {
           completed_at: string | null
@@ -4584,6 +4827,7 @@ export type Database = {
       get_current_user_tenant_id: { Args: never; Returns: string }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
+      is_communication_admin: { Args: never; Returns: boolean }
       is_tenant_admin:
         | { Args: never; Returns: boolean }
         | {
