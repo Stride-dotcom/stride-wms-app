@@ -53,7 +53,7 @@ type ReleaseType = 'will_call' | 'disposal';
 
 export function ReleaseDialog({ open, onOpenChange, selectedItems, onSuccess }: ReleaseDialogProps) {
   const [releaseType, setReleaseType] = useState<ReleaseType>('will_call');
-  const [accountId, setAccountId] = useState<string>('');
+  const [accountId, setAccountId] = useState<string>('none');
   const [warehouseId, setWarehouseId] = useState<string>('');
   const [releaseToName, setReleaseToName] = useState('');
   const [releaseToEmail, setReleaseToEmail] = useState('');
@@ -149,7 +149,7 @@ export function ReleaseDialog({ open, onOpenChange, selectedItems, onSuccess }: 
         shipment_type: 'outbound',
         release_type: releaseType,
         status: 'expected',
-        account_id: accountId || null,
+        account_id: accountId === 'none' ? null : accountId || null,
         warehouse_id: warehouseId,
         release_to_name: releaseToName || null,
         release_to_email: releaseToEmail || null,
@@ -203,7 +203,7 @@ export function ReleaseDialog({ open, onOpenChange, selectedItems, onSuccess }: 
 
   const resetForm = () => {
     setReleaseType('will_call');
-    setAccountId('');
+    setAccountId('none');
     setWarehouseId('');
     setReleaseToName('');
     setReleaseToEmail('');
@@ -277,7 +277,7 @@ export function ReleaseDialog({ open, onOpenChange, selectedItems, onSuccess }: 
                     <SelectValue placeholder="Select account" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Account</SelectItem>
+                    <SelectItem value="none">No Account</SelectItem>
                     {accounts.map((account) => (
                       <SelectItem key={account.id} value={account.id}>
                         {account.account_name} ({account.account_code})

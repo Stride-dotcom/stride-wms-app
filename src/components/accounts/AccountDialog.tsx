@@ -256,7 +256,7 @@ const getDefaultValues = (): AccountFormData => ({
   use_tenant_email_defaults: true,
   use_tenant_communication_defaults: true,
   disable_email_communications: false,
-  copy_from_account_id: '',
+  copy_from_account_id: 'none',
   email_subject_override: '',
   email_html_body_override: '',
   email_recipients_override: '',
@@ -375,7 +375,7 @@ export function AccountDialog({
         use_tenant_email_defaults: data.use_tenant_email_defaults ?? true,
         use_tenant_communication_defaults: data.use_tenant_communication_defaults ?? true,
         disable_email_communications: data.disable_email_communications || false,
-        copy_from_account_id: data.copy_from_account_id || '',
+        copy_from_account_id: data.copy_from_account_id || 'none',
         email_subject_override: data.email_subject_override || '',
         email_html_body_override: data.email_html_body_override || '',
         email_recipients_override: data.email_recipients_override || '',
@@ -457,7 +457,7 @@ export function AccountDialog({
         use_tenant_email_defaults: data.use_tenant_email_defaults ?? true,
         use_tenant_communication_defaults: data.use_tenant_communication_defaults ?? true,
         disable_email_communications: data.disable_email_communications || false,
-        copy_from_account_id: data.copy_from_account_id || null,
+        copy_from_account_id: data.copy_from_account_id === 'none' ? null : data.copy_from_account_id || null,
         email_subject_override: data.email_subject_override || null,
         email_html_body_override: data.email_html_body_override || null,
         email_recipients_override: data.email_recipients_override || null,
@@ -1439,7 +1439,7 @@ export function AccountDialog({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">Don't copy from another account</SelectItem>
+                              <SelectItem value="none">Don't copy from another account</SelectItem>
                               {accounts
                                 .filter((a) => a.id !== accountId)
                                 .map((account) => (

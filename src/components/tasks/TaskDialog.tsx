@@ -76,10 +76,10 @@ export function TaskDialog({
     task_type: '',
     priority: 'medium',
     due_date: null as Date | null,
-    assigned_to: '',
+    assigned_to: 'unassigned',
     assigned_department: '',
-    warehouse_id: '',
-    account_id: '',
+    warehouse_id: 'none',
+    account_id: 'none',
   });
 
   useEffect(() => {
@@ -99,10 +99,10 @@ export function TaskDialog({
         task_type: task.task_type,
         priority: task.priority || 'medium',
         due_date: task.due_date ? new Date(task.due_date) : null,
-        assigned_to: task.assigned_to || '',
+        assigned_to: task.assigned_to || 'unassigned',
         assigned_department: task.assigned_department || '',
-        warehouse_id: task.warehouse_id || '',
-        account_id: task.account_id || '',
+        warehouse_id: task.warehouse_id || 'none',
+        account_id: task.account_id || 'none',
       });
     } else {
       setFormData({
@@ -111,10 +111,10 @@ export function TaskDialog({
         task_type: '',
         priority: 'medium',
         due_date: null,
-        assigned_to: '',
+        assigned_to: 'unassigned',
         assigned_department: '',
-        warehouse_id: '',
-        account_id: '',
+        warehouse_id: 'none',
+        account_id: 'none',
       });
       setSelectedItems([]);
     }
@@ -183,10 +183,10 @@ export function TaskDialog({
         task_type: formData.task_type,
         priority: formData.priority,
         due_date: formData.due_date?.toISOString() || null,
-        assigned_to: formData.assigned_to || null,
+        assigned_to: formData.assigned_to === 'unassigned' ? null : formData.assigned_to || null,
         assigned_department: formData.assigned_department || null,
-        warehouse_id: formData.warehouse_id || null,
-        account_id: formData.account_id || null,
+        warehouse_id: formData.warehouse_id === 'none' ? null : formData.warehouse_id || null,
+        account_id: formData.account_id === 'none' ? null : formData.account_id || null,
         status: 'pending',
       };
 
@@ -387,7 +387,7 @@ export function TaskDialog({
                     <SelectValue placeholder="Select user" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
                     {users.map(user => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.first_name} {user.last_name}
@@ -408,7 +408,7 @@ export function TaskDialog({
                     <SelectValue placeholder="Select warehouse" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {warehouses.map(wh => (
                       <SelectItem key={wh.id} value={wh.id}>
                         {wh.name}
@@ -430,7 +430,7 @@ export function TaskDialog({
                   <SelectValue placeholder="Select account" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {accounts.map(acc => (
                     <SelectItem key={acc.id} value={acc.id}>
                       {acc.account_name}
