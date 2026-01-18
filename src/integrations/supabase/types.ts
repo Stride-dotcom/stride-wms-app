@@ -14,8 +14,228 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_additional_charges: {
+        Row: {
+          account_id: string
+          charge_amount: number
+          charge_description: string | null
+          charge_name: string
+          charge_type: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          charge_amount: number
+          charge_description?: string | null
+          charge_name: string
+          charge_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          charge_amount?: number
+          charge_description?: string | null
+          charge_name?: string
+          charge_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_additional_charges_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_additional_charges_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      account_item_type_overrides: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          custom_packaging_rate: number | null
+          id: string
+          item_type_id: string
+          minor_touchup_rate: number | null
+          packing_rate: number | null
+          pallet_sale_rate: number | null
+          picking_rate: number | null
+          receiving_rate: number | null
+          shipping_rate: number | null
+          storage_billing_frequency: string | null
+          storage_rate: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          custom_packaging_rate?: number | null
+          id?: string
+          item_type_id: string
+          minor_touchup_rate?: number | null
+          packing_rate?: number | null
+          pallet_sale_rate?: number | null
+          picking_rate?: number | null
+          receiving_rate?: number | null
+          shipping_rate?: number | null
+          storage_billing_frequency?: string | null
+          storage_rate?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          custom_packaging_rate?: number | null
+          id?: string
+          item_type_id?: string
+          minor_touchup_rate?: number | null
+          packing_rate?: number | null
+          pallet_sale_rate?: number | null
+          picking_rate?: number | null
+          receiving_rate?: number | null
+          shipping_rate?: number | null
+          storage_billing_frequency?: string | null
+          storage_rate?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_item_type_overrides_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_item_type_overrides_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_item_type_overrides_item_type_id_fkey"
+            columns: ["item_type_id"]
+            isOneToOne: false
+            referencedRelation: "item_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      account_rate_overrides: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          custom_packaging_rate: number | null
+          deleted_at: string | null
+          id: string
+          item_type_id: string
+          minor_touchup_rate: number | null
+          packing_rate: number | null
+          pallet_sale_rate: number | null
+          picking_rate: number | null
+          receiving_rate: number | null
+          shipping_rate: number | null
+          storage_billing_frequency: string | null
+          storage_rate: number | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          custom_packaging_rate?: number | null
+          deleted_at?: string | null
+          id?: string
+          item_type_id: string
+          minor_touchup_rate?: number | null
+          packing_rate?: number | null
+          pallet_sale_rate?: number | null
+          picking_rate?: number | null
+          receiving_rate?: number | null
+          shipping_rate?: number | null
+          storage_billing_frequency?: string | null
+          storage_rate?: number | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          custom_packaging_rate?: number | null
+          deleted_at?: string | null
+          id?: string
+          item_type_id?: string
+          minor_touchup_rate?: number | null
+          packing_rate?: number | null
+          pallet_sale_rate?: number | null
+          picking_rate?: number | null
+          receiving_rate?: number | null
+          shipping_rate?: number | null
+          storage_billing_frequency?: string | null
+          storage_rate?: number | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_rate_overrides_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_rate_overrides_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_rate_overrides_item_type_id_fkey"
+            columns: ["item_type_id"]
+            isOneToOne: false
+            referencedRelation: "item_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_rate_overrides_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts: {
         Row: {
+          access_level: string | null
           account_code: string
           account_name: string
           account_type: string | null
@@ -35,18 +255,31 @@ export type Database = {
           billing_method: string | null
           billing_net_terms: number | null
           billing_postal_code: string | null
+          billing_schedule: string | null
           billing_state: string | null
+          billing_type: string | null
+          can_delete_accounts: boolean | null
+          can_modify_pricing: boolean | null
           communication_settings: Json | null
+          copy_from_account_id: string | null
           created_at: string
           credit_hold: boolean | null
           credit_limit: number | null
+          credit_limit_amount: number | null
           currency: string | null
           default_receiving_location_id: string | null
           default_receiving_status: string | null
           deleted_at: string | null
-          hide_internal_fields: boolean | null
+          disable_email_communications: boolean | null
+          email_html_body_override: string | null
+          email_recipients_override: string | null
+          email_subject_override: string | null
+          email_variables: Json | null
+          hide_internal_fields_from_clients: boolean | null
           id: string
+          is_master_account: boolean | null
           metadata: Json | null
+          net_terms: number | null
           notes: string | null
           parent_account_id: string | null
           payment_terms: string | null
@@ -56,6 +289,7 @@ export type Database = {
           primary_contact_name: string | null
           primary_contact_phone: string | null
           rate_card_id: string | null
+          read_only_access: boolean | null
           require_inspection_photos: boolean | null
           require_sidemark: boolean | null
           restrict_visible_columns: Json | null
@@ -63,8 +297,10 @@ export type Database = {
           tenant_id: string
           updated_at: string
           use_tenant_communication_defaults: boolean | null
+          use_tenant_email_defaults: boolean | null
         }
         Insert: {
+          access_level?: string | null
           account_code: string
           account_name: string
           account_type?: string | null
@@ -84,18 +320,31 @@ export type Database = {
           billing_method?: string | null
           billing_net_terms?: number | null
           billing_postal_code?: string | null
+          billing_schedule?: string | null
           billing_state?: string | null
+          billing_type?: string | null
+          can_delete_accounts?: boolean | null
+          can_modify_pricing?: boolean | null
           communication_settings?: Json | null
+          copy_from_account_id?: string | null
           created_at?: string
           credit_hold?: boolean | null
           credit_limit?: number | null
+          credit_limit_amount?: number | null
           currency?: string | null
           default_receiving_location_id?: string | null
           default_receiving_status?: string | null
           deleted_at?: string | null
-          hide_internal_fields?: boolean | null
+          disable_email_communications?: boolean | null
+          email_html_body_override?: string | null
+          email_recipients_override?: string | null
+          email_subject_override?: string | null
+          email_variables?: Json | null
+          hide_internal_fields_from_clients?: boolean | null
           id?: string
+          is_master_account?: boolean | null
           metadata?: Json | null
+          net_terms?: number | null
           notes?: string | null
           parent_account_id?: string | null
           payment_terms?: string | null
@@ -105,6 +354,7 @@ export type Database = {
           primary_contact_name?: string | null
           primary_contact_phone?: string | null
           rate_card_id?: string | null
+          read_only_access?: boolean | null
           require_inspection_photos?: boolean | null
           require_sidemark?: boolean | null
           restrict_visible_columns?: Json | null
@@ -112,8 +362,10 @@ export type Database = {
           tenant_id: string
           updated_at?: string
           use_tenant_communication_defaults?: boolean | null
+          use_tenant_email_defaults?: boolean | null
         }
         Update: {
+          access_level?: string | null
           account_code?: string
           account_name?: string
           account_type?: string | null
@@ -133,18 +385,31 @@ export type Database = {
           billing_method?: string | null
           billing_net_terms?: number | null
           billing_postal_code?: string | null
+          billing_schedule?: string | null
           billing_state?: string | null
+          billing_type?: string | null
+          can_delete_accounts?: boolean | null
+          can_modify_pricing?: boolean | null
           communication_settings?: Json | null
+          copy_from_account_id?: string | null
           created_at?: string
           credit_hold?: boolean | null
           credit_limit?: number | null
+          credit_limit_amount?: number | null
           currency?: string | null
           default_receiving_location_id?: string | null
           default_receiving_status?: string | null
           deleted_at?: string | null
-          hide_internal_fields?: boolean | null
+          disable_email_communications?: boolean | null
+          email_html_body_override?: string | null
+          email_recipients_override?: string | null
+          email_subject_override?: string | null
+          email_variables?: Json | null
+          hide_internal_fields_from_clients?: boolean | null
           id?: string
+          is_master_account?: boolean | null
           metadata?: Json | null
+          net_terms?: number | null
           notes?: string | null
           parent_account_id?: string | null
           payment_terms?: string | null
@@ -154,6 +419,7 @@ export type Database = {
           primary_contact_name?: string | null
           primary_contact_phone?: string | null
           rate_card_id?: string | null
+          read_only_access?: boolean | null
           require_inspection_photos?: boolean | null
           require_sidemark?: boolean | null
           restrict_visible_columns?: Json | null
@@ -161,8 +427,16 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
           use_tenant_communication_defaults?: boolean | null
+          use_tenant_email_defaults?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "accounts_copy_from_account_id_fkey"
+            columns: ["copy_from_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "accounts_default_receiving_location_id_fkey"
             columns: ["default_receiving_location_id"]
@@ -579,6 +853,103 @@ export type Database = {
           },
         ]
       }
+      custom_billing_charges: {
+        Row: {
+          account_id: string | null
+          amount: number
+          charge_date: string
+          charge_name: string
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          invoice_id: string | null
+          invoiced_at: string | null
+          item_id: string | null
+          task_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          charge_date?: string
+          charge_name: string
+          created_at?: string
+          created_by: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          invoice_id?: string | null
+          invoiced_at?: string | null
+          item_id?: string | null
+          task_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          charge_date?: string
+          charge_name?: string
+          created_at?: string
+          created_by?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          invoice_id?: string | null
+          invoiced_at?: string | null
+          item_id?: string | null
+          task_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_billing_charges_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_billing_charges_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_billing_charges_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_billing_charges_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_billing_charges_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_billing_charges_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_fields_definitions: {
         Row: {
           created_at: string
@@ -705,6 +1076,322 @@ export type Database = {
           },
         ]
       }
+      invoice_line_items: {
+        Row: {
+          account_code: string | null
+          created_at: string | null
+          description: string
+          id: string
+          invoice_id: string
+          item_code: string | null
+          item_id: string | null
+          line_item_type: string
+          line_total: number
+          quantity: number | null
+          service_date: string | null
+          service_type: string | null
+          sort_order: number | null
+          task_id: string | null
+          task_item_id: string | null
+          unit_price: number
+        }
+        Insert: {
+          account_code?: string | null
+          created_at?: string | null
+          description: string
+          id?: string
+          invoice_id: string
+          item_code?: string | null
+          item_id?: string | null
+          line_item_type: string
+          line_total: number
+          quantity?: number | null
+          service_date?: string | null
+          service_type?: string | null
+          sort_order?: number | null
+          task_id?: string | null
+          task_item_id?: string | null
+          unit_price: number
+        }
+        Update: {
+          account_code?: string | null
+          created_at?: string | null
+          description?: string
+          id?: string
+          invoice_id?: string
+          item_code?: string | null
+          item_id?: string | null
+          line_item_type?: string
+          line_total?: number
+          quantity?: number | null
+          service_date?: string | null
+          service_type?: string | null
+          sort_order?: number | null
+          task_id?: string | null
+          task_item_id?: string | null
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_line_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_task_item_id_fkey"
+            columns: ["task_item_id"]
+            isOneToOne: false
+            referencedRelation: "task_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          discount_amount: number | null
+          due_date: string | null
+          group_by: string | null
+          id: string
+          invoice_date: string
+          invoice_number: string
+          notes: string | null
+          paid_amount: number | null
+          paid_date: string | null
+          period_end: string | null
+          period_start: string | null
+          sort_by: string | null
+          status: string | null
+          subtotal: number | null
+          tax_amount: number | null
+          tax_rate: number | null
+          tenant_id: string
+          terms: string | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          discount_amount?: number | null
+          due_date?: string | null
+          group_by?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number: string
+          notes?: string | null
+          paid_amount?: number | null
+          paid_date?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          sort_by?: string | null
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          tax_rate?: number | null
+          tenant_id: string
+          terms?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          discount_amount?: number | null
+          due_date?: string | null
+          group_by?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          notes?: string | null
+          paid_amount?: number | null
+          paid_date?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          sort_by?: string | null
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          tax_rate?: number | null
+          tenant_id?: string
+          terms?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      item_additional_charges: {
+        Row: {
+          charge_amount: number
+          charge_description: string | null
+          charge_name: string
+          charge_type: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          item_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          charge_amount: number
+          charge_description?: string | null
+          charge_name: string
+          charge_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          item_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          charge_amount?: number
+          charge_description?: string | null
+          charge_name?: string
+          charge_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          item_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_additional_charges_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_additional_charges_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_additional_charges_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      item_custom_charges: {
+        Row: {
+          charge_amount: number
+          charge_description: string | null
+          charge_name: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          item_id: string
+          tenant_id: string
+        }
+        Insert: {
+          charge_amount: number
+          charge_description?: string | null
+          charge_name: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          item_id: string
+          tenant_id: string
+        }
+        Update: {
+          charge_amount?: number
+          charge_description?: string | null
+          charge_name?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          item_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_custom_charges_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_custom_charges_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_custom_charges_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_custom_charges_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       item_custom_field_values: {
         Row: {
           created_at: string
@@ -808,6 +1495,99 @@ export type Database = {
           },
         ]
       }
+      item_types: {
+        Row: {
+          category: string
+          created_at: string | null
+          created_by: string | null
+          custom_packaging_rate: number | null
+          dimension_unit: string | null
+          height: number | null
+          id: string
+          is_active: boolean | null
+          length: number | null
+          minor_touchup_rate: number | null
+          name: string
+          packing_rate: number | null
+          pallet_sale_rate: number | null
+          picking_rate: number | null
+          receiving_rate: number | null
+          shipping_rate: number | null
+          storage_billing_frequency: string | null
+          storage_rate: number | null
+          tenant_id: string
+          updated_at: string | null
+          weight: number | null
+          weight_unit: string | null
+          width: number | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          created_by?: string | null
+          custom_packaging_rate?: number | null
+          dimension_unit?: string | null
+          height?: number | null
+          id?: string
+          is_active?: boolean | null
+          length?: number | null
+          minor_touchup_rate?: number | null
+          name: string
+          packing_rate?: number | null
+          pallet_sale_rate?: number | null
+          picking_rate?: number | null
+          receiving_rate?: number | null
+          shipping_rate?: number | null
+          storage_billing_frequency?: string | null
+          storage_rate?: number | null
+          tenant_id: string
+          updated_at?: string | null
+          weight?: number | null
+          weight_unit?: string | null
+          width?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          custom_packaging_rate?: number | null
+          dimension_unit?: string | null
+          height?: number | null
+          id?: string
+          is_active?: boolean | null
+          length?: number | null
+          minor_touchup_rate?: number | null
+          name?: string
+          packing_rate?: number | null
+          pallet_sale_rate?: number | null
+          picking_rate?: number | null
+          receiving_rate?: number | null
+          shipping_rate?: number | null
+          storage_billing_frequency?: string | null
+          storage_rate?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+          weight?: number | null
+          weight_unit?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_types_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_types_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       items: {
         Row: {
           assembly_status: string | null
@@ -819,6 +1599,7 @@ export type Database = {
           id: string
           inspection_status: string | null
           item_code: string
+          item_type_id: string | null
           metadata: Json | null
           quantity: number
           received_at: string | null
@@ -842,6 +1623,7 @@ export type Database = {
           id?: string
           inspection_status?: string | null
           item_code: string
+          item_type_id?: string | null
           metadata?: Json | null
           quantity?: number
           received_at?: string | null
@@ -865,6 +1647,7 @@ export type Database = {
           id?: string
           inspection_status?: string | null
           item_code?: string
+          item_type_id?: string | null
           metadata?: Json | null
           quantity?: number
           received_at?: string | null
@@ -884,6 +1667,13 @@ export type Database = {
             columns: ["current_location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_item_type_id_fkey"
+            columns: ["item_type_id"]
+            isOneToOne: false
+            referencedRelation: "item_types"
             referencedColumns: ["id"]
           },
           {
@@ -1466,19 +2256,221 @@ export type Database = {
           },
         ]
       }
+      task_additional_charges: {
+        Row: {
+          charge_amount: number
+          charge_description: string | null
+          charge_name: string
+          charge_type: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_applied: boolean | null
+          task_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          charge_amount: number
+          charge_description?: string | null
+          charge_name: string
+          charge_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_applied?: boolean | null
+          task_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          charge_amount?: number
+          charge_description?: string | null
+          charge_name?: string
+          charge_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_applied?: boolean | null
+          task_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_additional_charges_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_additional_charges_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_custom_charges: {
+        Row: {
+          charge_amount: number
+          charge_description: string | null
+          charge_name: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          task_id: string
+          tenant_id: string
+        }
+        Insert: {
+          charge_amount: number
+          charge_description?: string | null
+          charge_name: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          task_id: string
+          tenant_id: string
+        }
+        Update: {
+          charge_amount?: number
+          charge_description?: string | null
+          charge_name?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          task_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_custom_charges_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_custom_charges_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_custom_charges_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_items: {
+        Row: {
+          apply_custom_packaging: boolean | null
+          apply_minor_touchup: boolean | null
+          apply_pallet_sale: boolean | null
+          base_service_charge: number | null
+          created_at: string | null
+          custom_packaging_charge: number | null
+          id: string
+          item_id: string
+          item_type_id: string | null
+          minor_touchup_charge: number | null
+          pallet_sale_charge: number | null
+          quantity: number | null
+          task_id: string
+          total_charge: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          apply_custom_packaging?: boolean | null
+          apply_minor_touchup?: boolean | null
+          apply_pallet_sale?: boolean | null
+          base_service_charge?: number | null
+          created_at?: string | null
+          custom_packaging_charge?: number | null
+          id?: string
+          item_id: string
+          item_type_id?: string | null
+          minor_touchup_charge?: number | null
+          pallet_sale_charge?: number | null
+          quantity?: number | null
+          task_id: string
+          total_charge?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          apply_custom_packaging?: boolean | null
+          apply_minor_touchup?: boolean | null
+          apply_pallet_sale?: boolean | null
+          base_service_charge?: number | null
+          created_at?: string | null
+          custom_packaging_charge?: number | null
+          id?: string
+          item_id?: string
+          item_type_id?: string | null
+          minor_touchup_charge?: number | null
+          pallet_sale_charge?: number | null
+          quantity?: number | null
+          task_id?: string
+          total_charge?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_items_item_type_id_fkey"
+            columns: ["item_type_id"]
+            isOneToOne: false
+            referencedRelation: "item_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
+          account_id: string | null
+          assigned_department: string | null
           assigned_to: string | null
+          billing_charge_date: string | null
+          billing_date: string | null
+          billing_status: string | null
           completed_at: string | null
           completed_by: string | null
           created_at: string | null
+          custom_packaging_applied: boolean | null
           deleted_at: string | null
           description: string | null
           due_date: string | null
           id: string
+          invoice_id: string | null
           metadata: Json | null
+          minor_touchup_applied: boolean | null
+          pallet_sale_applied: boolean | null
           priority: string | null
           related_item_id: string | null
+          service_date: string | null
           status: string
           task_type: string
           tenant_id: string
@@ -1487,17 +2479,27 @@ export type Database = {
           warehouse_id: string | null
         }
         Insert: {
+          account_id?: string | null
+          assigned_department?: string | null
           assigned_to?: string | null
+          billing_charge_date?: string | null
+          billing_date?: string | null
+          billing_status?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string | null
+          custom_packaging_applied?: boolean | null
           deleted_at?: string | null
           description?: string | null
           due_date?: string | null
           id?: string
+          invoice_id?: string | null
           metadata?: Json | null
+          minor_touchup_applied?: boolean | null
+          pallet_sale_applied?: boolean | null
           priority?: string | null
           related_item_id?: string | null
+          service_date?: string | null
           status?: string
           task_type: string
           tenant_id: string
@@ -1506,17 +2508,27 @@ export type Database = {
           warehouse_id?: string | null
         }
         Update: {
+          account_id?: string | null
+          assigned_department?: string | null
           assigned_to?: string | null
+          billing_charge_date?: string | null
+          billing_date?: string | null
+          billing_status?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string | null
+          custom_packaging_applied?: boolean | null
           deleted_at?: string | null
           description?: string | null
           due_date?: string | null
           id?: string
+          invoice_id?: string | null
           metadata?: Json | null
+          minor_touchup_applied?: boolean | null
+          pallet_sale_applied?: boolean | null
           priority?: string | null
           related_item_id?: string | null
+          service_date?: string | null
           status?: string
           task_type?: string
           tenant_id?: string
@@ -1525,6 +2537,20 @@ export type Database = {
           warehouse_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_tasks_invoice"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tasks_assigned_to_fkey"
             columns: ["assigned_to"]
@@ -1630,6 +2656,88 @@ export type Database = {
           },
         ]
       }
+      tenant_company_settings: {
+        Row: {
+          app_base_url: string | null
+          app_subdomain: string | null
+          company_address: string | null
+          company_email: string | null
+          company_name: string | null
+          company_phone: string | null
+          company_website: string | null
+          created_at: string
+          created_by: string | null
+          email_signature_custom_text: string | null
+          email_signature_enabled: boolean
+          id: string
+          logo_storage_path: string | null
+          logo_url: string | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          app_base_url?: string | null
+          app_subdomain?: string | null
+          company_address?: string | null
+          company_email?: string | null
+          company_name?: string | null
+          company_phone?: string | null
+          company_website?: string | null
+          created_at?: string
+          created_by?: string | null
+          email_signature_custom_text?: string | null
+          email_signature_enabled?: boolean
+          id?: string
+          logo_storage_path?: string | null
+          logo_url?: string | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          app_base_url?: string | null
+          app_subdomain?: string | null
+          company_address?: string | null
+          company_email?: string | null
+          company_name?: string | null
+          company_phone?: string | null
+          company_website?: string | null
+          created_at?: string
+          created_by?: string | null
+          email_signature_custom_text?: string | null
+          email_signature_enabled?: boolean
+          id?: string
+          logo_storage_path?: string | null
+          logo_url?: string | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_company_settings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_company_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_company_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_email_layouts: {
         Row: {
           background_color: string | null
@@ -1722,6 +2830,62 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_legal_pages: {
+        Row: {
+          content: string
+          content_format: string
+          created_at: string
+          created_by: string | null
+          effective_date: string | null
+          id: string
+          is_active: boolean
+          page_type: string
+          tenant_id: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          content: string
+          content_format?: string
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string | null
+          id?: string
+          is_active?: boolean
+          page_type: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          content?: string
+          content_format?: string
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string | null
+          id?: string
+          is_active?: boolean
+          page_type?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_legal_pages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
