@@ -488,19 +488,29 @@ reurrently inside an embedded preview. The preview iframe must allow camera
         {scanning && (status === "error" || status === "unsupported") && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/95 rounded-2xl p-6">
             <Camera className="h-12 w-12 text-muted-foreground mb-3" />
-            <p className="text-base font-semibold text-center">Camera failed to start</p>
+            <p className="text-base font-semibold text-center">
+              {isEmbedded && status === "unsupported" ? "Camera blocked by preview" : "Camera failed to start"}
+            </p>
             <p className="text-sm text-muted-foreground text-center mt-1 mb-4 line-clamp-4">
-              {errorMessage || "Unknown error"}
+              {isEmbedded && status === "unsupported"
+                ? "The embedded preview doesn't allow camera access. Open in a new tab to use the scanner."
+                : errorMessage || "Unknown error"}
             </p>
             <div className="flex flex-col gap-2 w-full max-w-[260px]">
-              <Button onClick={startCamera}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Try again
-              </Button>
+              {isEmbedded && status === "unsupported" ? (
+                <Button onClick={openInNewTab}>
+                  Open in new tab
+                </Button>
+              ) : (
+                <Button onClick={startCamera}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Try again
+                </Button>
+              )}
               <Button variant="outline" onClick={() => setShowDiagnostics(true)}>
                 Camera diagnostics
               </Button>
-              {isEmbedded && (
+              {isEmbedded && status !== "unsupported" && (
                 <Button variant="outline" onClick={openInNewTab}>
                   Open in new tab
                 </Button>
