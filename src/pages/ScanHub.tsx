@@ -1,33 +1,12 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLocations } from '@/hooks/useLocations';
-import { useWarehouses } from '@/hooks/useWarehouses';
 import {
-  QrCode,
   Move,
   Layers,
   Search,
@@ -38,7 +17,10 @@ import {
   Loader2,
   X,
   Camera,
+  ArrowLeft,
+  ChevronRight,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ScannedItem {
   id: string;
@@ -48,46 +30,54 @@ interface ScannedItem {
   warehouse_name: string | null;
 }
 
-type ScanMode = 'move' | 'batch' | 'lookup';
+interface ScannedLocation {
+  id: string;
+  code: string;
+  name: string | null;
+}
+
+type ScanMode = 'move' | 'batch' | 'lookup' | null;
+type ScanPhase = 'idle' | 'scanning-item' | 'scanning-location' | 'confirm';
 
 export default function ScanHub() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { locations } = useLocations();
-  const { warehouses } = useWarehouses();
   
-  const [mode, setMode] = useState<ScanMode>('move');
+  const [mode, setMode] = useState<ScanMode>(null);
+  const [phase, setPhase] = useState<ScanPhase>('idle');
   const [scanInput, setScanInput] = useState('');
-  const [scanning, setScanning] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const scanInputRef = useRef<HTMLInputElement>(null);
   
   // Move mode state
   const [scannedItem, setScannedItem] = useState<ScannedItem | null>(null);
-  const [targetLocation, setTargetLocation] = useState('');
-  const [moving, setMoving] = useState(false);
+  const [targetLocation, setTargetLocation] = useState<ScannedLocation | null>(null);
   
   // Batch move state
   const [batchItems, setBatchItems] = useState<ScannedItem[]>([]);
-  const [batchTargetLocation, setBatchTargetLocation] = useState('');
-  const [batchMoving, setBatchMoving] = useState(false);
-  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
-  const [movedCount, setMovedCount] = useState(0);
+  
+  // Swipe confirmation state
+  const [swipeProgress, setSwipeProgress] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const swipeStartX = useRef(0);
+  const swipeContainerRef = useRef<HTMLDivElement>(null);
 
-  // Focus input on mode change
+  // Focus input when entering scan mode
   useEffect(() => {
-    scanInputRef.current?.focus();
-  }, [mode]);
+    if (phase === 'scanning-item' || phase === 'scanning-location') {
+      setTimeout(() => scanInputRef.current?.focus(), 100);
+    }
+  }, [phase]);
 
   const parseQRPayload = (input: string): { type: string; id: string; code?: string } | null => {
     try {
-      // Try parsing as JSON (our QR format)
       const parsed = JSON.parse(input);
       if (parsed.type && parsed.id) {
         return parsed;
       }
     } catch {
-      // Not JSON, treat as item code
-      return { type: 'item', id: '', code: input.trim() };
+      return { type: 'unknown', id: '', code: input.trim() };
     }
     return null;
   };
@@ -100,7 +90,7 @@ export default function ScanHub() {
       .from('v_items_with_location')
       .select('id, item_code, description, location_code, warehouse_name');
 
-    if (payload.id) {
+    if (payload.type === 'item' && payload.id) {
       query = query.eq('id', payload.id);
     } else if (payload.code) {
       query = query.eq('item_code', payload.code);
@@ -121,43 +111,111 @@ export default function ScanHub() {
     };
   };
 
-  const handleScan = async () => {
-    if (!scanInput.trim()) return;
+  const lookupLocation = async (input: string): Promise<ScannedLocation | null> => {
+    const payload = parseQRPayload(input);
+    if (!payload) return null;
 
-    setScanning(true);
+    // Check if it's a location QR
+    if (payload.type === 'location' && payload.id) {
+      const loc = locations.find(l => l.id === payload.id);
+      if (loc) {
+        return { id: loc.id, code: loc.code, name: loc.name };
+      }
+    }
+    
+    // Try matching by code
+    const loc = locations.find(l => 
+      l.code.toLowerCase() === (payload.code || input).toLowerCase()
+    );
+    if (loc) {
+      return { id: loc.id, code: loc.code, name: loc.name };
+    }
+
+    return null;
+  };
+
+  const handleScan = async () => {
+    if (!scanInput.trim() || processing) return;
+
+    setProcessing(true);
+    const input = scanInput.trim();
+    setScanInput('');
     
     try {
-      const item = await lookupItem(scanInput);
-      
-      if (!item) {
-        toast({
-          variant: 'destructive',
-          title: 'Item Not Found',
-          description: 'No item found with that code or QR data.',
-        });
-        setScanInput('');
-        scanInputRef.current?.focus();
+      if (mode === 'lookup') {
+        const item = await lookupItem(input);
+        if (item) {
+          navigate(`/inventory/${item.id}`);
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Item Not Found',
+            description: 'No item found with that code.',
+          });
+        }
         return;
       }
 
-      if (mode === 'lookup') {
-        // Navigate directly to item detail page
-        navigate(`/inventory/${item.id}`);
-      } else if (mode === 'move') {
-        setScannedItem(item);
-        setScanInput('');
-      } else if (mode === 'batch') {
-        // Add to batch if not already present
-        if (!batchItems.find(i => i.id === item.id)) {
-          setBatchItems(prev => [...prev, item]);
-        } else {
+      if (mode === 'move') {
+        if (phase === 'scanning-item') {
+          const item = await lookupItem(input);
+          if (item) {
+            setScannedItem(item);
+            setPhase('scanning-location');
+          } else {
+            toast({
+              variant: 'destructive',
+              title: 'Item Not Found',
+              description: 'Scan a valid item QR code.',
+            });
+          }
+        } else if (phase === 'scanning-location') {
+          const loc = await lookupLocation(input);
+          if (loc) {
+            setTargetLocation(loc);
+            setPhase('confirm');
+          } else {
+            toast({
+              variant: 'destructive',
+              title: 'Location Not Found',
+              description: 'Scan a valid bay/location QR code.',
+            });
+          }
+        }
+      }
+
+      if (mode === 'batch') {
+        // In batch mode, first try to parse as location
+        const loc = await lookupLocation(input);
+        if (loc && batchItems.length > 0) {
+          // Location scanned - end batch and go to confirm
+          setTargetLocation(loc);
+          setPhase('confirm');
+          return;
+        }
+
+        // Try as item
+        const item = await lookupItem(input);
+        if (item) {
+          if (!batchItems.find(i => i.id === item.id)) {
+            setBatchItems(prev => [...prev, item]);
+            toast({
+              title: `Added: ${item.item_code}`,
+              description: `${batchItems.length + 1} items in batch. Scan location to finish.`,
+            });
+          } else {
+            toast({
+              title: 'Already in batch',
+              description: `${item.item_code} is already added.`,
+            });
+          }
+        } else if (!loc) {
           toast({
-            title: 'Already Added',
-            description: `${item.item_code} is already in the batch.`,
+            variant: 'destructive',
+            title: 'Not Found',
+            description: 'Scan a valid item or location code.',
           });
         }
-        setScanInput('');
-        scanInputRef.current?.focus();
       }
     } catch (error) {
       console.error('Scan error:', error);
@@ -167,7 +225,8 @@ export default function ScanHub() {
         description: 'Failed to process scan.',
       });
     } finally {
-      setScanning(false);
+      setProcessing(false);
+      scanInputRef.current?.focus();
     }
   };
 
@@ -177,61 +236,23 @@ export default function ScanHub() {
     }
   };
 
-  const handleMoveItem = async () => {
-    if (!scannedItem || !targetLocation) return;
-
-    setMoving(true);
+  const executeMove = async () => {
+    if (!targetLocation) return;
+    
+    setProcessing(true);
     try {
-      const { error } = await (supabase.from('items') as any)
-        .update({ current_location_id: targetLocation })
-        .eq('id', scannedItem.id);
+      const items = mode === 'move' && scannedItem ? [scannedItem] : batchItems;
+      let successCount = 0;
 
-      if (error) throw error;
-
-      // Record movement
-      await (supabase.from('movements') as any).insert({
-        item_id: scannedItem.id,
-        to_location_id: targetLocation,
-        action_type: 'move',
-        moved_at: new Date().toISOString(),
-      });
-
-      toast({
-        title: 'Item Moved',
-        description: `${scannedItem.item_code} has been moved successfully.`,
-      });
-
-      setScannedItem(null);
-      setTargetLocation('');
-      scanInputRef.current?.focus();
-    } catch (error) {
-      console.error('Move error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Move Failed',
-        description: 'Failed to move item.',
-      });
-    } finally {
-      setMoving(false);
-    }
-  };
-
-  const handleBatchMove = async () => {
-    if (batchItems.length === 0 || !batchTargetLocation) return;
-
-    setBatchMoving(true);
-    let successCount = 0;
-
-    try {
-      for (const item of batchItems) {
+      for (const item of items) {
         const { error } = await (supabase.from('items') as any)
-          .update({ current_location_id: batchTargetLocation })
+          .update({ current_location_id: targetLocation.id })
           .eq('id', item.id);
 
         if (!error) {
           await (supabase.from('movements') as any).insert({
             item_id: item.id,
-            to_location_id: batchTargetLocation,
+            to_location_id: targetLocation.id,
             action_type: 'move',
             moved_at: new Date().toISOString(),
           });
@@ -239,289 +260,354 @@ export default function ScanHub() {
         }
       }
 
-      setMovedCount(successCount);
-      setSuccessDialogOpen(true);
-      setBatchItems([]);
-      setBatchTargetLocation('');
+      toast({
+        title: 'Move Complete',
+        description: `Moved ${successCount} item${successCount !== 1 ? 's' : ''} to ${targetLocation.code}`,
+      });
+
+      // Reset and return to mode selection
+      resetState();
     } catch (error) {
-      console.error('Batch move error:', error);
+      console.error('Move error:', error);
       toast({
         variant: 'destructive',
-        title: 'Batch Move Failed',
-        description: `Moved ${successCount} of ${batchItems.length} items.`,
+        title: 'Move Failed',
+        description: 'Failed to move items.',
       });
     } finally {
-      setBatchMoving(false);
+      setProcessing(false);
     }
   };
 
-  const removeFromBatch = (itemId: string) => {
-    setBatchItems(prev => prev.filter(i => i.id !== itemId));
-  };
-
-  const cancelMove = () => {
+  const resetState = () => {
+    setMode(null);
+    setPhase('idle');
     setScannedItem(null);
-    setTargetLocation('');
-    scanInputRef.current?.focus();
+    setTargetLocation(null);
+    setBatchItems([]);
+    setScanInput('');
+    setSwipeProgress(0);
   };
 
+  const selectMode = (selectedMode: ScanMode) => {
+    setMode(selectedMode);
+    if (selectedMode === 'move' || selectedMode === 'lookup') {
+      setPhase('scanning-item');
+    } else if (selectedMode === 'batch') {
+      setPhase('scanning-item');
+    }
+  };
+
+  // Swipe handlers
+  const handleSwipeStart = useCallback((clientX: number) => {
+    setIsSwiping(true);
+    swipeStartX.current = clientX;
+  }, []);
+
+  const handleSwipeMove = useCallback((clientX: number) => {
+    if (!isSwiping || !swipeContainerRef.current) return;
+    
+    const containerWidth = swipeContainerRef.current.offsetWidth;
+    const swipeDistance = clientX - swipeStartX.current;
+    const progress = Math.min(Math.max(swipeDistance / (containerWidth - 80), 0), 1);
+    setSwipeProgress(progress);
+  }, [isSwiping]);
+
+  const handleSwipeEnd = useCallback(() => {
+    if (swipeProgress > 0.85) {
+      executeMove();
+    }
+    setIsSwiping(false);
+    setSwipeProgress(0);
+  }, [swipeProgress]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    handleSwipeStart(e.touches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    handleSwipeMove(e.touches[0].clientX);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    handleSwipeStart(e.clientX);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isSwiping) {
+      handleSwipeMove(e.clientX);
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (isSwiping) {
+      handleSwipeEnd();
+    }
+  };
+
+  // Mode Selection Screen
+  if (mode === null) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
+          <h1 className="text-2xl font-bold mb-8">Scan Hub</h1>
+          
+          <div className="grid grid-cols-1 gap-6 w-full max-w-md">
+            <button
+              onClick={() => selectMode('move')}
+              className="flex flex-col items-center justify-center p-8 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95 shadow-lg"
+            >
+              <Move className="h-16 w-16 mb-4" />
+              <span className="text-2xl font-bold">Move</span>
+              <span className="text-sm opacity-80 mt-1">Single item</span>
+            </button>
+
+            <button
+              onClick={() => selectMode('batch')}
+              className="flex flex-col items-center justify-center p-8 rounded-2xl bg-secondary text-secondary-foreground hover:bg-secondary/90 transition-all active:scale-95 shadow-lg"
+            >
+              <Layers className="h-16 w-16 mb-4" />
+              <span className="text-2xl font-bold">Batch Move</span>
+              <span className="text-sm opacity-80 mt-1">Multiple items</span>
+            </button>
+
+            <button
+              onClick={() => selectMode('lookup')}
+              className="flex flex-col items-center justify-center p-8 rounded-2xl bg-muted text-foreground hover:bg-muted/80 transition-all active:scale-95 shadow-lg border"
+            >
+              <Search className="h-16 w-16 mb-4" />
+              <span className="text-2xl font-bold">Look Up</span>
+              <span className="text-sm opacity-80 mt-1">View item details</span>
+            </button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Confirmation Screen with Swipe
+  if (phase === 'confirm') {
+    const items = mode === 'move' && scannedItem ? [scannedItem] : batchItems;
+    
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col min-h-[70vh] px-4">
+          <button
+            onClick={resetState}
+            className="flex items-center gap-2 text-muted-foreground mb-6 hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            Cancel
+          </button>
+
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <div className="text-center mb-8">
+              <CheckCircle className="h-16 w-16 text-primary mx-auto mb-4" />
+              <h2 className="text-2xl font-bold">Confirm Move</h2>
+            </div>
+
+            <Card className="w-full max-w-md mb-6">
+              <CardContent className="pt-6">
+                <div className="space-y-3">
+                  {items.slice(0, 3).map((item) => (
+                    <div key={item.id} className="flex items-center gap-3">
+                      <Package className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{item.item_code}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.current_location_code || 'No location'} → {targetLocation?.code}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {items.length > 3 && (
+                    <p className="text-sm text-muted-foreground text-center">
+                      +{items.length - 3} more items
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-center gap-4 mt-6 py-4 border-t">
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">Moving to</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <MapPin className="h-5 w-5 text-primary" />
+                      <span className="text-xl font-bold">{targetLocation?.code}</span>
+                    </div>
+                    {targetLocation?.name && (
+                      <p className="text-sm text-muted-foreground">{targetLocation.name}</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Swipe to Confirm */}
+            <div
+              ref={swipeContainerRef}
+              className="relative w-full max-w-md h-16 bg-muted rounded-full overflow-hidden cursor-pointer select-none"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleSwipeEnd}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+            >
+              <div
+                className="absolute inset-y-0 left-0 bg-primary/20 transition-all"
+                style={{ width: `${swipeProgress * 100}%` }}
+              />
+              <div
+                className={cn(
+                  "absolute inset-y-1 left-1 w-14 h-14 rounded-full bg-primary flex items-center justify-center transition-all shadow-lg",
+                  processing && "animate-pulse"
+                )}
+                style={{ transform: `translateX(${swipeProgress * (swipeContainerRef.current?.offsetWidth || 300 - 72)}px)` }}
+              >
+                {processing ? (
+                  <Loader2 className="h-6 w-6 text-primary-foreground animate-spin" />
+                ) : (
+                  <ChevronRight className="h-6 w-6 text-primary-foreground" />
+                )}
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className={cn(
+                  "text-muted-foreground font-medium transition-opacity",
+                  swipeProgress > 0.3 && "opacity-0"
+                )}>
+                  Swipe to confirm →
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Scanning Screen
   return (
     <DashboardLayout>
-      <div className="space-y-6 max-w-2xl mx-auto">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight flex items-center justify-center gap-2">
-            <QrCode className="h-8 w-8" />
-            Scan Hub
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Scan QR codes to move items or look up details
-          </p>
-        </div>
+      <div className="flex flex-col min-h-[70vh] px-4">
+        <button
+          onClick={resetState}
+          className="flex items-center gap-2 text-muted-foreground mb-4 hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          Back
+        </button>
 
-        <Tabs value={mode} onValueChange={(v) => setMode(v as ScanMode)}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="move" className="flex items-center gap-2">
-              <Move className="h-4 w-4" />
-              Move
-            </TabsTrigger>
-            <TabsTrigger value="batch" className="flex items-center gap-2">
-              <Layers className="h-4 w-4" />
-              Batch Move
-            </TabsTrigger>
-            <TabsTrigger value="lookup" className="flex items-center gap-2">
-              <Search className="h-4 w-4" />
-              Look Up
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Shared scan input */}
-          <Card className="mt-6">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Camera className="h-5 w-5" />
-                Scan Item
-              </CardTitle>
-              <CardDescription>
-                {mode === 'lookup' 
-                  ? 'Scan a QR code to view item details'
-                  : mode === 'batch'
-                  ? 'Scan items to add them to the batch'
-                  : 'Scan an item QR code to move it'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2">
-                <Input
-                  ref={scanInputRef}
-                  placeholder="Scan QR code or enter item code..."
-                  value={scanInput}
-                  onChange={(e) => setScanInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={scanning}
-                  className="font-mono"
-                  autoFocus
-                />
-                <Button onClick={handleScan} disabled={scanning || !scanInput.trim()}>
-                  {scanning ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <QrCode className="h-4 w-4" />
-                  )}
-                </Button>
+        <div className="flex-1 flex flex-col items-center justify-center">
+          {/* Scanning indicator */}
+          <div className="relative mb-8">
+            <div className="w-40 h-40 rounded-3xl bg-muted flex items-center justify-center">
+              <Camera className="h-20 w-20 text-muted-foreground" />
+            </div>
+            {processing && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-3xl">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Move Mode */}
-          <TabsContent value="move" className="mt-0">
-            {scannedItem && (
-              <Card className="mt-4">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    Move Item
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="bg-muted rounded-lg p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-bold text-lg">{scannedItem.item_code}</p>
-                        <p className="text-sm text-muted-foreground">{scannedItem.description || 'No description'}</p>
-                      </div>
-                      <Badge variant="outline">
-                        <MapPin className="h-3 w-3 mr-1" />
-                        {scannedItem.current_location_code || 'No location'}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1 text-center">
-                      <p className="text-sm text-muted-foreground">Current</p>
-                      <p className="font-medium">{scannedItem.current_location_code || 'None'}</p>
-                    </div>
-                    <ArrowRight className="h-6 w-6 text-muted-foreground" />
-                    <div className="flex-1">
-                      <Label className="text-sm text-muted-foreground">New Location</Label>
-                      <Select value={targetLocation} onValueChange={setTargetLocation}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select bay..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {locations.map((loc) => (
-                            <SelectItem key={loc.id} value={loc.id}>
-                              {loc.code} {loc.name && `- ${loc.name}`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={cancelMove} className="flex-1">
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={handleMoveItem} 
-                      disabled={!targetLocation || moving}
-                      className="flex-1"
-                    >
-                      {moving ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                      )}
-                      Confirm Move
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
             )}
-          </TabsContent>
+          </div>
 
-          {/* Batch Move Mode */}
-          <TabsContent value="batch" className="mt-0 space-y-4">
-            {batchItems.length > 0 && (
-              <Card className="mt-4">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <Layers className="h-5 w-5" />
-                      Batch Items ({batchItems.length})
-                    </span>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => setBatchItems([])}
-                    >
-                      Clear All
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {batchItems.map((item) => (
-                      <div 
-                        key={item.id} 
-                        className="flex items-center justify-between bg-muted rounded-lg px-3 py-2"
-                      >
-                        <div>
-                          <p className="font-medium">{item.item_code}</p>
-                          <p className="text-xs text-muted-foreground">{item.current_location_code || 'No location'}</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeFromBatch(item.id)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
+          <h2 className="text-xl font-bold mb-2">
+            {mode === 'lookup' && 'Scan Item'}
+            {mode === 'move' && phase === 'scanning-item' && 'Scan Item'}
+            {mode === 'move' && phase === 'scanning-location' && 'Scan Location'}
+            {mode === 'batch' && 'Scan Items or Location'}
+          </h2>
+          
+          <p className="text-muted-foreground text-center mb-6">
+            {mode === 'lookup' && 'Scan QR to view item details'}
+            {mode === 'move' && phase === 'scanning-item' && 'Scan the item you want to move'}
+            {mode === 'move' && phase === 'scanning-location' && 'Now scan the destination bay'}
+            {mode === 'batch' && 'Scan items to add. Scan a bay to finish.'}
+          </p>
+
+          {/* Hidden input for scanner */}
+          <input
+            ref={scanInputRef}
+            type="text"
+            value={scanInput}
+            onChange={(e) => setScanInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="absolute opacity-0 pointer-events-none"
+            autoFocus
+          />
+
+          {/* Visible input for manual entry */}
+          <div className="w-full max-w-md">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Scan or type code..."
+                value={scanInput}
+                onChange={(e) => setScanInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-full h-14 px-4 text-lg font-mono bg-muted rounded-xl border-2 border-transparent focus:border-primary focus:outline-none"
+              />
+              <button
+                onClick={handleScan}
+                disabled={!scanInput.trim() || processing}
+                className="absolute right-2 top-2 h-10 px-4 bg-primary text-primary-foreground rounded-lg font-medium disabled:opacity-50"
+              >
+                Go
+              </button>
+            </div>
+          </div>
+
+          {/* Scanned item indicator for move mode */}
+          {mode === 'move' && scannedItem && phase === 'scanning-location' && (
+            <Card className="w-full max-w-md mt-6">
+              <CardContent className="py-4">
+                <div className="flex items-center gap-3">
+                  <Package className="h-6 w-6 text-primary" />
+                  <div className="flex-1">
+                    <p className="font-bold">{scannedItem.item_code}</p>
+                    <p className="text-sm text-muted-foreground">{scannedItem.description || 'No description'}</p>
                   </div>
+                  <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                  <MapPin className="h-6 w-6 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-                  <div>
-                    <Label>Move All To</Label>
-                    <Select value={batchTargetLocation} onValueChange={setBatchTargetLocation}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select target bay..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {locations.map((loc) => (
-                          <SelectItem key={loc.id} value={loc.id}>
-                            {loc.code} {loc.name && `- ${loc.name}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Button 
-                    onClick={handleBatchMove} 
-                    disabled={!batchTargetLocation || batchMoving}
-                    className="w-full"
+          {/* Batch items list */}
+          {mode === 'batch' && batchItems.length > 0 && (
+            <Card className="w-full max-w-md mt-6">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-medium">Batch: {batchItems.length} items</span>
+                  <button
+                    onClick={() => setBatchItems([])}
+                    className="text-sm text-destructive hover:underline"
                   >
-                    {batchMoving ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                    )}
-                    Move {batchItems.length} Items
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-
-            {batchItems.length === 0 && (
-              <Card className="mt-4">
-                <CardContent className="py-12 text-center">
-                  <Layers className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <p className="mt-4 text-muted-foreground">
-                    Scan items to add them to the batch
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          {/* Lookup Mode */}
-          <TabsContent value="lookup" className="mt-0">
-            <Card className="mt-4">
-              <CardContent className="py-12 text-center">
-                <Search className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-4 text-muted-foreground">
-                  Scan an item QR code to view its details
+                    Clear
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {batchItems.map((item) => (
+                    <Badge key={item.id} variant="secondary" className="text-sm">
+                      {item.item_code}
+                      <button
+                        onClick={() => setBatchItems(prev => prev.filter(i => i.id !== item.id))}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  Scan a bay/location to move all items
                 </p>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
       </div>
-
-      {/* Success Dialog */}
-      <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-green-600">
-              <CheckCircle className="h-5 w-5" />
-              Batch Move Complete
-            </DialogTitle>
-            <DialogDescription>
-              Successfully moved {movedCount} items to the new location.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={() => {
-              setSuccessDialogOpen(false);
-              scanInputRef.current?.focus();
-            }}>
-              Continue Scanning
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </DashboardLayout>
   );
 }
