@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import * as XLSX from 'xlsx';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { parseFileToRows, canonicalizeHeader } from '@/lib/importUtils';
 
 interface CSVImportDialogProps {
   open: boolean;
@@ -42,13 +42,25 @@ interface ImportResult {
   errors: string[];
 }
 
+// Header aliases for location imports
+const LOCATION_HEADER_ALIASES: Record<string, string> = {
+  location_name: 'code',
+  location_code: 'code',
+  location: 'code',
+  code: 'code',
+  name: 'name',
+  type: 'type',
+  location_type: 'type',
+};
+
 function detectLocationType(code: string): string {
   const upperCode = code.toUpperCase();
   
   // Zones - typically single word descriptive areas
   if (upperCode.includes('DOCK') || upperCode.includes('ZONE') || 
       upperCode === 'IA' || upperCode === 'I-J' || upperCode === 'E-F' || upperCode === 'G-H' ||
-      upperCode.includes('OVERFLOW') || upperCode.includes('CAP')) {
+      upperCode.includes('OVERFLOW') || upperCode.includes('CAP') ||
+      upperCode.includes('STAGING') || upperCode.includes('RECEIVING')) {
     return 'zone';
   }
   
@@ -74,73 +86,44 @@ function detectLocationType(code: string): string {
 
 async function parseFile(file: File): Promise<ParsedLocation[]> {
   const locations: ParsedLocation[] = [];
-  const fileName = file.name.toLowerCase();
   
-  if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-    // Parse Excel file
-    const buffer = await file.arrayBuffer();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const workbook = XLSX.read(buffer, { type: 'array' });
-    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data: any[][] = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+  try {
+    const { headers, rows } = await parseFileToRows(file);
     
-    // Find header row and column index
-    let headerRowIndex = 0;
-    let codeColumnIndex = 0;
-    
-    for (let i = 0; i < Math.min(data.length, 5); i++) {
-      const row = data[i] as unknown[];
-      if (row) {
-        for (let j = 0; j < row.length; j++) {
-          const cell = String(row[j] || '').toLowerCase();
-          if (cell.includes('location') || cell.includes('code') || cell.includes('name')) {
-            headerRowIndex = i;
-            codeColumnIndex = j;
-            break;
-          }
-        }
-      }
+    if (rows.length === 0) {
+      return locations;
     }
     
-    // Extract locations starting after header
-    for (let i = headerRowIndex + 1; i < data.length; i++) {
-      const row = data[i] as unknown[];
-      if (row && row[codeColumnIndex]) {
-        const rawCode = String(row[codeColumnIndex]).trim();
-        if (rawCode && rawCode.length > 0) {
-          const code = rawCode.toUpperCase();
-          locations.push({
-            code,
-            name: '',
-            type: detectLocationType(code),
-          });
-        }
-      }
+    // Map headers to field names
+    const mappedHeaders = headers.map((h) => {
+      const canonical = canonicalizeHeader(h);
+      return LOCATION_HEADER_ALIASES[canonical] || null;
+    });
+    
+    // Find the code column index (required)
+    let codeIdx = mappedHeaders.indexOf('code');
+    const nameIdx = mappedHeaders.indexOf('name');
+    const typeIdx = mappedHeaders.indexOf('type');
+    
+    // If no code column found, use first column
+    if (codeIdx === -1) {
+      codeIdx = 0;
     }
-  } else {
-    // Parse CSV file
-    const content = await file.text();
-    const lines = content.trim().split('\n');
     
-    // Check if first line is a header
-    const firstLine = lines[0].toLowerCase();
-    const hasHeader = firstLine.includes('code') || firstLine.includes('name') || firstLine.includes('location');
-    const startIndex = hasHeader ? 1 : 0;
-    
-    for (let i = startIndex; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
+    // Parse each row
+    for (const row of rows) {
+      const rawCode = String(row[codeIdx] ?? '').trim();
+      if (!rawCode) continue;
       
-      const parts = line.split(',').map(p => p.trim().replace(/^["']|["']$/g, ''));
+      const code = rawCode.toUpperCase();
+      const name = nameIdx >= 0 ? String(row[nameIdx] ?? '').trim() : '';
+      const typeValue = typeIdx >= 0 ? String(row[typeIdx] ?? '').trim().toLowerCase() : '';
+      const type = typeValue || detectLocationType(code);
       
-      if (parts.length >= 1 && parts[0]) {
-        const code = parts[0].toUpperCase();
-        const name = parts[1] || '';
-        const type = parts[2] || detectLocationType(code);
-        
-        locations.push({ code, name, type });
-      }
+      locations.push({ code, name, type });
     }
+  } catch (error) {
+    console.error('Error parsing file:', error);
   }
   
   return locations;
@@ -181,6 +164,14 @@ export function CSVImportDialog({
     try {
       const locations = await parseFile(file);
       setParsedLocations(locations);
+      
+      if (locations.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Import Error',
+          description: 'No valid locations found in the file.',
+        });
+      }
     } catch (error) {
       console.error('Error parsing file:', error);
       toast({

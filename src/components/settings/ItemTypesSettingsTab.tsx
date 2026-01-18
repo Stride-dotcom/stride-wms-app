@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import * as XLSX from 'xlsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +50,12 @@ import {
   Settings2,
   RefreshCw
 } from 'lucide-react';
+import { 
+  parseFileToRows, 
+  canonicalizeHeader, 
+  parseBoolean, 
+  parseNumber 
+} from '@/lib/importUtils';
 
 // Type definition matching all database columns
 interface ItemType {
@@ -208,17 +213,6 @@ const ITEM_TYPE_ALLOWED_KEYS = new Set<string>([
   'tenant_id',
 ]);
 
-function canonicalizeHeader(header: string): string {
-  return header
-    .toLowerCase()
-    .trim()
-    .replace(/\(.*?\)/g, '')
-    .replace(/#/g, 'number')
-    .replace(/&/g, 'and')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-}
-
 const HEADER_ALIASES: Record<string, string> = {
   // Core name
   name: 'name',
@@ -282,23 +276,6 @@ const HEADER_ALIASES: Record<string, string> = {
   storage_billing_frequency: 'storage_billing_frequency',
   assemblies_in_base_rate: 'assemblies_in_base_rate',
 };
-
-function parseBoolean(value: unknown): boolean | null {
-  if (value === null || value === undefined) return null;
-  const v = String(value).trim().toLowerCase();
-  if (['yes', 'y', 'true', '1'].includes(v)) return true;
-  if (['no', 'n', 'false', '0'].includes(v)) return false;
-  return null;
-}
-
-function parseNumber(value: unknown): number | null {
-  if (value === null || value === undefined) return null;
-  if (typeof value === 'number' && !Number.isNaN(value)) return value;
-  const cleaned = String(value).trim();
-  if (!cleaned) return null;
-  const n = Number(cleaned);
-  return Number.isNaN(n) ? null : n;
-}
 
 function parseRowToItemType(headers: string[], row: unknown[]): Record<string, unknown> {
   const obj: Record<string, unknown> = {};
@@ -553,49 +530,16 @@ export function ItemTypesSettingsTab() {
     if (!file) return;
 
     try {
-      const fileName = file.name.toLowerCase();
-      let headers: string[] = [];
-      let rows: unknown[][] = [];
+      const { headers, rows } = await parseFileToRows(file);
 
-      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-        const buffer = await file.arrayBuffer();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const workbook = XLSX.read(buffer, { type: 'array' } as any);
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const data: any[][] = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-
-        const cleaned = data.filter((r) => Array.isArray(r) && r.some((c) => String(c ?? '').trim() !== ''));
-        if (cleaned.length < 2) {
-          toast({
-            variant: 'destructive',
-            title: 'Import Error',
-            description: 'The spreadsheet appears to be empty.',
-          });
-          return;
-        }
-
-        headers = (cleaned[0] || []).map((h) => String(h ?? '').trim());
-        rows = cleaned.slice(1);
-      } else {
-        // CSV
-        const text = await file.text();
-        const lines = text
-          .split(/\r?\n/)
-          .map((l) => l.trimEnd())
-          .filter((line) => line.trim());
-
-        if (lines.length < 2) {
-          toast({
-            variant: 'destructive',
-            title: 'Import Error',
-            description: 'The CSV appears to be empty.',
-          });
-          return;
-        }
-
-        headers = parseCsvLine(lines[0]).map((h) => h.replace(/^"|"$/g, '').trim());
-        rows = lines.slice(1).map((line) => parseCsvLine(line).map((v) => v.replace(/^"|"$/g, '')));
+      if (rows.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Import Error',
+          description: 'The file appears to be empty.',
+        });
+        event.target.value = '';
+        return;
       }
 
       const parsedData = rows
