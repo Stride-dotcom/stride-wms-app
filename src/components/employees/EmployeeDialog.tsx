@@ -222,14 +222,6 @@ export function EmployeeDialog({
         phone: data.phone || null,
       };
 
-      // Only include pay fields if admin
-      if (isAdmin) {
-        userData.pay_type = data.pay_type || null;
-        userData.pay_rate = data.pay_rate || null;
-        userData.overtime_eligible = data.overtime_eligible || false;
-        userData.cost_center = data.cost_center || null;
-      }
-
       if (employee) {
         // Update existing employee
         const { error } = await supabase
@@ -265,6 +257,11 @@ export function EmployeeDialog({
             });
         }
 
+        // Save pay data to employee_pay table if admin
+        if (isAdmin) {
+          await saveEmployeePayData(employee.id, data);
+        }
+
         toast({
           title: 'Employee Updated',
           description: 'Employee details have been saved.',
@@ -296,6 +293,11 @@ export function EmployeeDialog({
             });
         }
 
+        // Save pay data to employee_pay table if admin
+        if (isAdmin) {
+          await saveEmployeePayData(newUser.id, data);
+        }
+
         toast({
           title: 'Employee Created',
           description: 'New employee has been added.',
@@ -313,6 +315,72 @@ export function EmployeeDialog({
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveEmployeePayData = async (userId: string, data: EmployeeFormData) => {
+    if (!profile?.tenant_id) return;
+
+    const payDataPayload: any = {
+      pay_type: data.pay_type || 'hourly',
+      pay_rate: data.pay_rate || 0,
+      salary_hourly_equivalent: data.salary_hourly_equivalent || null,
+      overtime_eligible: data.overtime_eligible || false,
+      primary_warehouse_id: data.primary_warehouse_id || null,
+      cost_center: data.cost_center || null,
+    };
+
+    // Check if pay record exists
+    const { data: existingPay } = await supabase
+      .from('employee_pay')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existingPay) {
+      // Update existing
+      const { error } = await supabase
+        .from('employee_pay')
+        .update({
+          ...payDataPayload,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingPay.id);
+
+      if (error) throw error;
+
+      // Audit log
+      await supabase.from('admin_audit_log').insert({
+        tenant_id: profile.tenant_id,
+        actor_id: profile.id,
+        entity_type: 'employee_pay',
+        entity_id: existingPay.id,
+        action: 'update',
+        changes_json: payDataPayload,
+      });
+    } else {
+      // Create new
+      const { data: newPay, error } = await supabase
+        .from('employee_pay')
+        .insert({
+          tenant_id: profile.tenant_id,
+          user_id: userId,
+          ...payDataPayload,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Audit log
+      await supabase.from('admin_audit_log').insert({
+        tenant_id: profile.tenant_id,
+        actor_id: profile.id,
+        entity_type: 'employee_pay',
+        entity_id: newPay.id,
+        action: 'create',
+        changes_json: payDataPayload,
+      });
     }
   };
 
@@ -512,6 +580,63 @@ export function EmployeeDialog({
                             placeholder="0.00"
                           />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {form.watch('pay_type') === 'salary' && (
+                    <FormField
+                      control={form.control}
+                      name="salary_hourly_equivalent"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Salary Hourly Equivalent ($/hour)</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Auto-calculated or enter manually"
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Used for labor cost calculations. Default: annual salary ÷ 2080 hours
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  <FormField
+                    control={form.control}
+                    name="primary_warehouse_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Primary Warehouse</FormLabel>
+                        <Select
+                          value={field.value || ''}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select primary warehouse" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="">None</SelectItem>
+                            {warehouses.map((wh) => (
+                              <SelectItem key={wh.id} value={wh.id}>
+                                {wh.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Default warehouse for labor cost grouping
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

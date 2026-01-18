@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { usePermissions } from '@/hooks/usePermissions';
-import { Loader2, Package, ClipboardList, Truck, TrendingUp, FileText } from 'lucide-react';
+import { Loader2, Package, ClipboardList, Truck, TrendingUp, FileText, DollarSign } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -19,6 +19,7 @@ import {
   Legend,
 } from 'recharts';
 import { InvoicesTab } from '@/components/reports/InvoicesTab';
+import { LaborCostsTab } from '@/components/reports/LaborCostsTab';
 
 interface ReportStats {
   totalItems: number;
@@ -140,6 +141,12 @@ export default function Reports() {
               <TrendingUp className="h-4 w-4" />
               Analytics
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="labor-costs" className="gap-2">
+                <DollarSign className="h-4 w-4" />
+                Labor Costs
+              </TabsTrigger>
+            )}
             {isAdmin && (
               <TabsTrigger value="invoices" className="gap-2">
                 <FileText className="h-4 w-4" />
@@ -282,6 +289,12 @@ export default function Reports() {
               </Card>
             </div>
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="labor-costs" className="mt-6">
+              <LaborCostsTab />
+            </TabsContent>
+          )}
 
           {isAdmin && (
             <TabsContent value="invoices" className="mt-6">
