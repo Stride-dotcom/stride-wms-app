@@ -41,7 +41,14 @@ const itemSchema = z.object({
   size: z.coerce.number().optional(),
   size_unit: z.string().optional(),
   room: z.string().optional(),
-  link: z.string().url().optional().or(z.literal('')),
+  link: z.string().optional().transform((val) => {
+    if (!val || val.trim() === '') return '';
+    // Auto-prepend https:// if no protocol is provided
+    if (!/^https?:\/\//i.test(val)) {
+      return `https://${val}`;
+    }
+    return val;
+  }),
   status: z.string().optional(),
   item_type_id: z.string().optional(),
 });
