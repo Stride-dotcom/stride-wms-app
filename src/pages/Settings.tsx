@@ -17,7 +17,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Building, Users, Warehouse, Save } from 'lucide-react';
+import { Loader2, Building, Users, Warehouse, Save, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations, Location } from '@/hooks/useLocations';
@@ -25,6 +25,8 @@ import { LocationsSettingsTab } from '@/components/settings/LocationsSettingsTab
 import { LocationDialog } from '@/components/locations/LocationDialog';
 import { PrintLabelsDialog } from '@/components/locations/PrintLabelsDialog';
 import { CSVImportDialog } from '@/components/settings/CSVImportDialog';
+import { WarehouseList } from '@/components/warehouses/WarehouseList';
+import { WarehouseDialog } from '@/components/warehouses/WarehouseDialog';
 
 interface TenantInfo {
   id: string;
@@ -63,7 +65,11 @@ export default function Settings() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvImportDialogOpen, setCsvImportDialogOpen] = useState(false);
 
-  const { warehouses, loading: warehousesLoading } = useWarehouses();
+  // Warehouse state
+  const [warehouseDialogOpen, setWarehouseDialogOpen] = useState(false);
+  const [editingWarehouse, setEditingWarehouse] = useState<string | null>(null);
+
+  const { warehouses, loading: warehousesLoading, refetch: refetchWarehouses } = useWarehouses();
   const { locations, loading: locationsLoading, refetch: refetchLocations } = useLocations(
     selectedWarehouse === 'all' ? undefined : selectedWarehouse
   );
@@ -179,6 +185,27 @@ export default function Settings() {
     refetchLocations();
     setCsvImportDialogOpen(false);
     setCsvFile(null);
+  };
+
+  // Warehouse handlers
+  const handleCreateWarehouse = () => {
+    setEditingWarehouse(null);
+    setWarehouseDialogOpen(true);
+  };
+
+  const handleEditWarehouse = (warehouseId: string) => {
+    setEditingWarehouse(warehouseId);
+    setWarehouseDialogOpen(true);
+  };
+
+  const handleWarehouseDialogClose = () => {
+    setWarehouseDialogOpen(false);
+    setEditingWarehouse(null);
+  };
+
+  const handleWarehouseSuccess = () => {
+    handleWarehouseDialogClose();
+    refetchWarehouses();
   };
 
   if (loading) {
@@ -307,57 +334,29 @@ export default function Settings() {
           </TabsContent>
 
           <TabsContent value="warehouses">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Warehouse className="h-5 w-5" />
-                  Warehouses
-                </CardTitle>
-                <CardDescription>
-                  {warehouses.length} warehouses configured
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {warehousesLoading ? (
-                  <div className="flex items-center justify-center h-32">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
-                ) : warehouses.length === 0 ? (
-                  <p className="text-muted-foreground">No warehouses configured</p>
-                ) : (
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Code</TableHead>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Location</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {warehouses.map((wh) => (
-                          <TableRow key={wh.id}>
-                            <TableCell className="font-medium">{wh.code}</TableCell>
-                            <TableCell>{wh.name}</TableCell>
-                            <TableCell>
-                              {wh.city || wh.state
-                                ? `${wh.city || ''}${wh.city && wh.state ? ', ' : ''}${wh.state || ''}`
-                                : '-'}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={wh.status === 'active' ? 'default' : 'secondary'}>
-                                {wh.status}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium flex items-center gap-2">
+                    <Warehouse className="h-5 w-5" />
+                    Warehouses
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Manage your warehouse locations and configurations
+                  </p>
+                </div>
+                <Button onClick={handleCreateWarehouse}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Warehouse
+                </Button>
+              </div>
+              <WarehouseList
+                warehouses={warehouses}
+                loading={warehousesLoading}
+                onEdit={handleEditWarehouse}
+                onRefresh={refetchWarehouses}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="locations">
@@ -451,6 +450,14 @@ export default function Settings() {
         file={csvFile}
         warehouses={warehouses}
         onSuccess={handleImportSuccess}
+      />
+
+      {/* Warehouse Dialog */}
+      <WarehouseDialog
+        open={warehouseDialogOpen}
+        onOpenChange={setWarehouseDialogOpen}
+        warehouseId={editingWarehouse}
+        onSuccess={handleWarehouseSuccess}
       />
     </DashboardLayout>
   );

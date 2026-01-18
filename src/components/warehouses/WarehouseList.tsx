@@ -146,7 +146,11 @@ export function WarehouseList({ warehouses, loading, onEdit, onRefresh }: Wareho
             </TableHeader>
             <TableBody>
               {warehouses.map((warehouse) => (
-                <TableRow key={warehouse.id}>
+                <TableRow 
+                  key={warehouse.id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => onEdit(warehouse.id)}
+                >
                   <TableCell className="font-medium">{warehouse.name}</TableCell>
                   <TableCell>
                     <code className="text-sm bg-muted px-1.5 py-0.5 rounded">
@@ -163,7 +167,7 @@ export function WarehouseList({ warehouses, loading, onEdit, onRefresh }: Wareho
                     {warehouse.timezone}
                   </TableCell>
                   <TableCell>{getStatusBadge(warehouse.status)}</TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
