@@ -33,6 +33,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -48,7 +49,10 @@ import {
   DollarSign,
   Clock,
   Settings2,
-  RefreshCw
+  RefreshCw,
+  ChevronDown,
+  ChevronRight,
+  Save
 } from 'lucide-react';
 import { 
   parseFileToRows, 
@@ -56,6 +60,7 @@ import {
   parseBoolean, 
   parseNumber 
 } from '@/lib/importUtils';
+import { syncItemTypeRatesToDefaultRateCard } from '@/lib/billingRates';
 
 // Type definition matching all database columns
 interface ItemType {
@@ -92,6 +97,10 @@ interface ItemType {
   felt_pad_price: number | null;
   extra_fee: number | null;
   oversize_rate: number | null;
+  overweight_rate: number | null;
+  crated_rate: number | null;
+  received_without_id_rate: number | null;
+  disposal_rate: number | null;
   inspection_fee: number | null;
   removal_rate: number | null;
   will_call_rate: number | null;
@@ -116,6 +125,31 @@ interface ItemType {
   created_at: string;
   updated_at: string;
 }
+
+// Rate field definitions for inline editing
+const ITEM_SERVICE_RATES = [
+  { field: 'receiving_rate', label: 'Receiving', serviceType: 'receiving' },
+  { field: 'shipping_rate', label: 'Shipping', serviceType: 'shipping' },
+  { field: 'assembly_rate', label: 'Assembly', serviceType: 'assembly' },
+  { field: 'inspection_fee', label: 'Inspection', serviceType: 'inspection' },
+  { field: 'minor_touchup_rate', label: 'Repair/Touchup', serviceType: 'repair' },
+  { field: 'storage_rate', label: 'Storage (Monthly)', serviceType: 'storage' },
+  { field: 'storage_rate_per_day', label: 'Storage (Daily)', serviceType: 'storage_daily' },
+  { field: 'will_call_rate', label: 'Will Call', serviceType: 'will_call' },
+  { field: 'disposal_rate', label: 'Disposal', serviceType: 'disposal' },
+  { field: 'picking_rate', label: 'Picking', serviceType: 'picking' },
+  { field: 'packing_rate', label: 'Packing', serviceType: 'packing' },
+  { field: 'pull_for_delivery_rate', label: 'Pull for Delivery', serviceType: 'pull_for_delivery' },
+  { field: 'removal_rate', label: 'Removal', serviceType: 'removal' },
+] as const;
+
+const ACCESSORIAL_RATES = [
+  { field: 'oversize_rate', label: 'Oversized', serviceType: 'oversized' },
+  { field: 'overweight_rate', label: 'Overweight', serviceType: 'overweight' },
+  { field: 'unstackable_extra_fee', label: 'Unstackable', serviceType: 'unstackable' },
+  { field: 'crated_rate', label: 'Crated', serviceType: 'crated' },
+  { field: 'received_without_id_rate', label: 'Received w/o ID', serviceType: 'received_without_id' },
+] as const;
 
 // Default empty item type for creating new items
 const getDefaultItemType = (): Partial<ItemType> => ({
@@ -147,6 +181,10 @@ const getDefaultItemType = (): Partial<ItemType> => ({
   felt_pad_price: null,
   extra_fee: null,
   oversize_rate: null,
+  overweight_rate: null,
+  crated_rate: null,
+  received_without_id_rate: null,
+  disposal_rate: null,
   inspection_fee: null,
   removal_rate: null,
   will_call_rate: null,
@@ -332,6 +370,11 @@ export function ItemTypesSettingsTab() {
   const [csvData, setCsvData] = useState<any[]>([]);
   const [duplicates, setDuplicates] = useState<string[]>([]);
   const [importAction, setImportAction] = useState<'replace' | 'skip'>('skip');
+  
+  // Inline editing states
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [editingRates, setEditingRates] = useState<Record<string, number | null>>({});
+  const [savingInline, setSavingInline] = useState(false);
 
   const fetchItemTypes = useCallback(async () => {
     if (!profile?.tenant_id) return;
@@ -428,6 +471,8 @@ export function ItemTypesSettingsTab() {
         tenant_id: profile.tenant_id,
       };
 
+      let itemId = editingItem.id;
+
       if (editingItem.id) {
         // Update existing
         const { error } = await (supabase
@@ -437,17 +482,41 @@ export function ItemTypesSettingsTab() {
 
         if (error) throw error;
         
+        // Sync rates to default rate card
+        const rateUpdates: Record<string, number | null> = {};
+        [...ITEM_SERVICE_RATES, ...ACCESSORIAL_RATES].forEach(({ field }) => {
+          if (field in editingItem) {
+            rateUpdates[field] = (editingItem as any)[field] ?? null;
+          }
+        });
+        await syncItemTypeRatesToDefaultRateCard(profile.tenant_id, editingItem.id, rateUpdates);
+        
         toast({
           title: 'Item Type Updated',
-          description: `"${editingItem.name}" has been updated.`,
+          description: `"${editingItem.name}" has been updated and rates synced.`,
         });
       } else {
         // Create new
-        const { error } = await (supabase
+        const { data, error } = await (supabase
           .from('item_types') as any)
-          .insert(itemData);
+          .insert(itemData)
+          .select('id')
+          .single();
 
         if (error) throw error;
+        
+        itemId = data?.id;
+        
+        // Sync rates to default rate card for new item type
+        if (itemId) {
+          const rateUpdates: Record<string, number | null> = {};
+          [...ITEM_SERVICE_RATES, ...ACCESSORIAL_RATES].forEach(({ field }) => {
+            if (field in editingItem) {
+              rateUpdates[field] = (editingItem as any)[field] ?? null;
+            }
+          });
+          await syncItemTypeRatesToDefaultRateCard(profile.tenant_id, itemId, rateUpdates);
+        }
         
         toast({
           title: 'Item Type Created',
@@ -631,6 +700,77 @@ export function ItemTypesSettingsTab() {
     }
   };
 
+  // Inline editing functions
+  const handleExpandRow = (item: ItemType) => {
+    if (expandedItemId === item.id) {
+      // Collapse
+      setExpandedItemId(null);
+      setEditingRates({});
+    } else {
+      // Expand and load current rates
+      setExpandedItemId(item.id);
+      const rates: Record<string, number | null> = {};
+      [...ITEM_SERVICE_RATES, ...ACCESSORIAL_RATES].forEach(({ field }) => {
+        rates[field] = (item as any)[field] ?? null;
+      });
+      setEditingRates(rates);
+    }
+  };
+
+  const updateInlineRate = (field: string, value: string) => {
+    setEditingRates(prev => ({
+      ...prev,
+      [field]: value === '' ? null : parseFloat(value)
+    }));
+  };
+
+  const handleInlineSave = async (itemId: string) => {
+    if (!profile?.tenant_id) return;
+    
+    try {
+      setSavingInline(true);
+      
+      // 1. Update item_types record
+      const { error } = await (supabase
+        .from('item_types') as any)
+        .update(editingRates)
+        .eq('id', itemId);
+
+      if (error) throw error;
+      
+      // 2. Sync rates to default rate card
+      await syncItemTypeRatesToDefaultRateCard(
+        profile.tenant_id,
+        itemId,
+        editingRates
+      );
+      
+      toast({
+        title: 'Rates Updated',
+        description: 'Rates saved and synced to default rate card.',
+      });
+      
+      // Collapse and refresh
+      setExpandedItemId(null);
+      setEditingRates({});
+      fetchItemTypes();
+    } catch (error) {
+      console.error('Error saving rates:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save rates',
+      });
+    } finally {
+      setSavingInline(false);
+    }
+  };
+
+  const handleCancelInline = () => {
+    setExpandedItemId(null);
+    setEditingRates({});
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -699,11 +839,12 @@ export function ItemTypesSettingsTab() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Assembly Rate</TableHead>
-                <TableHead className="text-right">Inspection Fee</TableHead>
-                <TableHead className="text-right">Storage/Day</TableHead>
+                <TableHead className="text-right">Receiving</TableHead>
+                <TableHead className="text-right">Assembly</TableHead>
+                <TableHead className="text-right">Inspection</TableHead>
                 <TableHead className="text-right">Will Call</TableHead>
                 <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
@@ -711,50 +852,160 @@ export function ItemTypesSettingsTab() {
             <TableBody>
               {filteredItemTypes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No item types found. Click "Add Item Type" to create one.
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredItemTypes.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>
-                      <Badge variant={item.is_active ? 'default' : 'secondary'}>
-                        {item.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {item.assembly_rate ? `$${item.assembly_rate}` : '-'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {item.inspection_fee ? `$${item.inspection_fee}` : '-'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {item.storage_rate_per_day ? `$${item.storage_rate_per_day}` : '-'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {item.will_call_rate ? `$${item.will_call_rate}` : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
+                  <>
+                    <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50">
+                      <TableCell className="w-8">
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleEdit(item)}
+                          className="h-6 w-6"
+                          onClick={() => handleExpandRow(item)}
                         >
-                          <Pencil className="h-4 w-4" />
+                          {expandedItemId === item.id ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(item)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                      </TableCell>
+                      <TableCell className="font-medium" onClick={() => handleExpandRow(item)}>
+                        {item.name}
+                      </TableCell>
+                      <TableCell onClick={() => handleExpandRow(item)}>
+                        <Badge variant={item.is_active ? 'default' : 'secondary'}>
+                          {item.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right" onClick={() => handleExpandRow(item)}>
+                        {item.receiving_rate ? `$${item.receiving_rate}` : '-'}
+                      </TableCell>
+                      <TableCell className="text-right" onClick={() => handleExpandRow(item)}>
+                        {item.assembly_rate ? `$${item.assembly_rate}` : '-'}
+                      </TableCell>
+                      <TableCell className="text-right" onClick={() => handleExpandRow(item)}>
+                        {item.inspection_fee ? `$${item.inspection_fee}` : '-'}
+                      </TableCell>
+                      <TableCell className="text-right" onClick={() => handleExpandRow(item)}>
+                        {item.will_call_rate ? `$${item.will_call_rate}` : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(item)}
+                            title="Edit all fields"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(item)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    
+                    {/* Expanded Rate Editing Row */}
+                    {expandedItemId === item.id && (
+                      <TableRow key={`${item.id}-expanded`} className="bg-muted/30">
+                        <TableCell colSpan={8} className="p-4">
+                          <div className="grid gap-6 md:grid-cols-2">
+                            {/* Item Services */}
+                            <div className="space-y-3">
+                              <h4 className="font-semibold text-sm flex items-center gap-2">
+                                <DollarSign className="h-4 w-4" />
+                                Item Service Rates
+                              </h4>
+                              <div className="grid gap-2">
+                                {ITEM_SERVICE_RATES.map(({ field, label }) => (
+                                  <div key={field} className="flex items-center gap-3">
+                                    <Label className="w-32 text-sm text-muted-foreground">{label}</Label>
+                                    <div className="relative flex-1 max-w-[120px]">
+                                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={editingRates[field] ?? ''}
+                                        onChange={(e) => updateInlineRate(field, e.target.value)}
+                                        className="pl-6 h-8"
+                                        placeholder="0.00"
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            {/* Accessorial Services */}
+                            <div className="space-y-3">
+                              <h4 className="font-semibold text-sm flex items-center gap-2">
+                                <Package className="h-4 w-4" />
+                                Accessorial Fees
+                              </h4>
+                              <div className="grid gap-2">
+                                {ACCESSORIAL_RATES.map(({ field, label }) => (
+                                  <div key={field} className="flex items-center gap-3">
+                                    <Label className="w-32 text-sm text-muted-foreground">{label}</Label>
+                                    <div className="relative flex-1 max-w-[120px]">
+                                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={editingRates[field] ?? ''}
+                                        onChange={(e) => updateInlineRate(field, e.target.value)}
+                                        className="pl-6 h-8"
+                                        placeholder="0.00"
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              
+                              {/* Action Buttons */}
+                              <div className="flex justify-end gap-2 pt-4 border-t mt-4">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleCancelInline}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleInlineSave(item.id)}
+                                  disabled={savingInline}
+                                >
+                                  {savingInline ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Saving...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Save className="mr-2 h-4 w-4" />
+                                      Save & Sync
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
                 ))
               )}
             </TableBody>
@@ -1080,6 +1331,58 @@ export function ItemTypesSettingsTab() {
                       value={editingItem?.custom_packaging_rate || ''}
                       onChange={(e) => updateField('custom_packaging_rate', e.target.value ? parseFloat(e.target.value) : null)}
                     />
+                  </div>
+                </div>
+
+                {/* Accessorial Fees Section */}
+                <div className="pt-4 border-t">
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Accessorial Fees
+                  </h4>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="overweight_rate">Overweight Fee ($)</Label>
+                      <Input
+                        id="overweight_rate"
+                        type="number"
+                        step="0.01"
+                        value={editingItem?.overweight_rate || ''}
+                        onChange={(e) => updateField('overweight_rate', e.target.value ? parseFloat(e.target.value) : null)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="crated_rate">Crated Fee ($)</Label>
+                      <Input
+                        id="crated_rate"
+                        type="number"
+                        step="0.01"
+                        value={editingItem?.crated_rate || ''}
+                        onChange={(e) => updateField('crated_rate', e.target.value ? parseFloat(e.target.value) : null)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="received_without_id_rate">Received w/o ID Fee ($)</Label>
+                      <Input
+                        id="received_without_id_rate"
+                        type="number"
+                        step="0.01"
+                        value={editingItem?.received_without_id_rate || ''}
+                        onChange={(e) => updateField('received_without_id_rate', e.target.value ? parseFloat(e.target.value) : null)}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="disposal_rate">Disposal Fee ($)</Label>
+                      <Input
+                        id="disposal_rate"
+                        type="number"
+                        step="0.01"
+                        value={editingItem?.disposal_rate || ''}
+                        onChange={(e) => updateField('disposal_rate', e.target.value ? parseFloat(e.target.value) : null)}
+                      />
+                    </div>
                   </div>
                 </div>
               </TabsContent>
