@@ -534,16 +534,18 @@ export function AccountDialog({
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-8 mb-4">
-                  <TabsTrigger value="basic">Basic</TabsTrigger>
-                  <TabsTrigger value="contacts">Contacts</TabsTrigger>
-                  <TabsTrigger value="pricing">Pricing</TabsTrigger>
-                  <TabsTrigger value="billing">Billing</TabsTrigger>
-                  <TabsTrigger value="automations">Automations</TabsTrigger>
-                  <TabsTrigger value="inventory">Inventory</TabsTrigger>
-                  <TabsTrigger value="communications">Communications</TabsTrigger>
-                  <TabsTrigger value="permissions">Permissions</TabsTrigger>
-                </TabsList>
+                <div className="overflow-x-auto -mx-1 px-1 pb-2">
+                  <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-8 mb-4 gap-1">
+                    <TabsTrigger value="basic" className="whitespace-nowrap">Basic</TabsTrigger>
+                    <TabsTrigger value="contacts" className="whitespace-nowrap">Contacts</TabsTrigger>
+                    <TabsTrigger value="pricing" className="whitespace-nowrap">Pricing</TabsTrigger>
+                    <TabsTrigger value="billing" className="whitespace-nowrap">Billing</TabsTrigger>
+                    <TabsTrigger value="automations" className="whitespace-nowrap">Automations</TabsTrigger>
+                    <TabsTrigger value="inventory" className="whitespace-nowrap">Inventory</TabsTrigger>
+                    <TabsTrigger value="communications" className="whitespace-nowrap">Comms</TabsTrigger>
+                    <TabsTrigger value="permissions" className="whitespace-nowrap">Permissions</TabsTrigger>
+                  </TabsList>
+                </div>
 
                 <ScrollArea className="h-[50vh] pr-4">
                   {/* Basic Tab */}
