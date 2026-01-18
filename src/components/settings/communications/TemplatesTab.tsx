@@ -49,6 +49,8 @@ import {
   Smartphone,
   Copy,
   Check,
+  Send,
+  Loader2,
 } from 'lucide-react';
 import {
   CommunicationAlert,
@@ -58,6 +60,8 @@ import {
   CommunicationBrandSettings,
   COMMUNICATION_VARIABLES,
 } from '@/hooks/useCommunications';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
 interface TemplatesTabProps {
@@ -67,6 +71,7 @@ interface TemplatesTabProps {
   brandSettings: CommunicationBrandSettings | null;
   selectedAlertId: string | null;
   selectedChannel: 'email' | 'sms' | null;
+  tenantId: string;
   onUpdateTemplate: (id: string, updates: Partial<CommunicationTemplate>) => Promise<boolean>;
   getTemplateVersions: (templateId: string) => Promise<CommunicationTemplateVersion[]>;
   revertToVersion: (templateId: string, version: CommunicationTemplateVersion) => Promise<boolean>;
@@ -80,6 +85,7 @@ export function TemplatesTab({
   brandSettings,
   selectedAlertId,
   selectedChannel,
+  tenantId,
   onUpdateTemplate,
   getTemplateVersions,
   revertToVersion,
@@ -93,7 +99,11 @@ export function TemplatesTab({
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<CommunicationTemplateVersion[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSendingTest, setIsSendingTest] = useState(false);
+  const [showTestDialog, setShowTestDialog] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
   const [copiedVar, setCopiedVar] = useState<string | null>(null);
+  const { toast } = useToast();
   
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const subjectRef = useRef<HTMLInputElement>(null);
@@ -204,6 +214,41 @@ export function TemplatesTab({
     setShowVersions(true);
   };
 
+  const handleSendTest = async () => {
+    if (!testEmail || !formData.subject_template || !tenantId) return;
+    
+    setIsSendingTest(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-test-email', {
+        body: {
+          to_email: testEmail,
+          subject: formData.subject_template,
+          body_html: formData.body_template,
+          from_name: formData.from_name,
+          from_email: formData.from_email,
+          tenant_id: tenantId,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Test email sent',
+        description: `Email sent to ${testEmail}`,
+      });
+      setShowTestDialog(false);
+      setTestEmail('');
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to send test',
+        description: err.message,
+      });
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
+
   const handleRevert = async (version: CommunicationTemplateVersion) => {
     if (!currentTemplate) return;
     await revertToVersion(currentTemplate.id, version);
@@ -312,6 +357,7 @@ export function TemplatesTab({
   }
 
   return (
+    <>
     <div className="h-[calc(100vh-300px)] min-h-[600px] flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b">
@@ -344,19 +390,12 @@ export function TemplatesTab({
         </div>
         
         <div className="flex items-center gap-2">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" disabled>
-                  <Mail className="mr-2 h-4 w-4" />
-                  Send Test
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                Coming next (Email/Twilio provider integration)
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {currentChannel === 'email' && (
+            <Button variant="outline" size="sm" onClick={() => setShowTestDialog(true)}>
+              <Send className="mr-2 h-4 w-4" />
+              Send Test
+            </Button>
+          )}
           
           <Button variant="outline" size="sm" onClick={loadVersions}>
             <History className="mr-2 h-4 w-4" />
@@ -639,5 +678,35 @@ export function TemplatesTab({
         </DialogContent>
       </Dialog>
     </div>
+
+    {/* Send Test Dialog */}
+    <Dialog open={showTestDialog} onOpenChange={setShowTestDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Send Test Email</DialogTitle>
+          <DialogDescription>Enter an email address to send a test of this template</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="test-email">Email Address</Label>
+            <Input
+              id="test-email"
+              type="email"
+              placeholder="your@email.com"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowTestDialog(false)}>Cancel</Button>
+          <Button onClick={handleSendTest} disabled={isSendingTest || !testEmail}>
+            {isSendingTest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+            {isSendingTest ? 'Sending...' : 'Send Test'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

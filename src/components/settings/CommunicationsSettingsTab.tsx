@@ -184,6 +184,7 @@ export function CommunicationsSettingsTab() {
             brandSettings={brandSettings}
             selectedAlertId={selectedAlertId}
             selectedChannel={selectedChannel}
+            tenantId={profile?.tenant_id || ''}
             onUpdateTemplate={updateTemplate}
             getTemplateVersions={getTemplateVersions}
             revertToVersion={revertToVersion}
