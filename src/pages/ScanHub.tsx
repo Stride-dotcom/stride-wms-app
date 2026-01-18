@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLocations } from '@/hooks/useLocations';
 import { QRScanner } from '@/components/scan/QRScanner';
+import { ItemSearchOverlay, LocationSearchOverlay } from '@/components/scan/SearchOverlays';
 import {
   Move,
   Layers,
@@ -20,6 +21,7 @@ import {
   ArrowLeft,
   ChevronRight,
   Keyboard,
+  Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -48,8 +50,6 @@ export default function ScanHub() {
   const [mode, setMode] = useState<ScanMode>(null);
   const [phase, setPhase] = useState<ScanPhase>('idle');
   const [processing, setProcessing] = useState(false);
-  const [showManualInput, setShowManualInput] = useState(false);
-  const [manualInput, setManualInput] = useState('');
   
   // Move mode state
   const [scannedItem, setScannedItem] = useState<ScannedItem | null>(null);
@@ -57,6 +57,10 @@ export default function ScanHub() {
   
   // Batch move state
   const [batchItems, setBatchItems] = useState<ScannedItem[]>([]);
+  
+  // Search overlay state
+  const [showItemSearch, setShowItemSearch] = useState(false);
+  const [showLocationSearch, setShowLocationSearch] = useState(false);
   
   // Swipe confirmation state
   const [swipeProgress, setSwipeProgress] = useState(0);
@@ -92,7 +96,7 @@ export default function ScanHub() {
       return null;
     }
 
-    const { data, error } = await query.single();
+    const { data, error } = await query.maybeSingle();
     
     if (error || !data) return null;
     
@@ -186,7 +190,6 @@ export default function ScanHub() {
         // In batch mode, first try to parse as location
         const loc = await lookupLocation(input);
         if (loc && batchItems.length > 0) {
-          // Location scanned - end batch and go to confirm
           setTargetLocation(loc);
           setPhase('confirm');
           setProcessing(false);
@@ -228,12 +231,53 @@ export default function ScanHub() {
     }
   };
 
-  const handleManualSubmit = () => {
-    if (manualInput.trim()) {
-      handleScanResult(manualInput.trim());
-      setManualInput('');
-      setShowManualInput(false);
+  // Handle manual item selection from search
+  const handleItemSelect = (item: { id: string; item_code: string; description: string | null; location_code: string | null; warehouse_name: string | null }) => {
+    setShowItemSearch(false);
+    
+    const scannedItem: ScannedItem = {
+      id: item.id,
+      item_code: item.item_code,
+      description: item.description,
+      current_location_code: item.location_code,
+      warehouse_name: item.warehouse_name,
+    };
+
+    if (mode === 'lookup') {
+      navigate(`/inventory/${item.id}`);
+      return;
     }
+
+    if (mode === 'move') {
+      setScannedItem(scannedItem);
+      setPhase('scanning-location');
+      toast({
+        title: `Selected: ${item.item_code}`,
+        description: 'Now scan or select the destination bay.',
+      });
+    }
+
+    if (mode === 'batch') {
+      if (!batchItems.find(i => i.id === item.id)) {
+        setBatchItems(prev => [...prev, scannedItem]);
+        toast({
+          title: `Added: ${item.item_code}`,
+          description: `${batchItems.length + 1} items in batch.`,
+        });
+      } else {
+        toast({
+          title: 'Already in batch',
+          description: `${item.item_code} is already added.`,
+        });
+      }
+    }
+  };
+
+  // Handle manual location selection from search
+  const handleLocationSelect = (loc: ScannedLocation) => {
+    setShowLocationSearch(false);
+    setTargetLocation(loc);
+    setPhase('confirm');
   };
 
   const executeMove = async () => {
@@ -265,7 +309,6 @@ export default function ScanHub() {
         description: `Moved ${successCount} item${successCount !== 1 ? 's' : ''} to ${targetLocation.code}`,
       });
 
-      // Reset and return to mode selection
       resetState();
     } catch (error) {
       console.error('Move error:', error);
@@ -286,8 +329,8 @@ export default function ScanHub() {
     setTargetLocation(null);
     setBatchItems([]);
     setSwipeProgress(0);
-    setShowManualInput(false);
-    setManualInput('');
+    setShowItemSearch(false);
+    setShowLocationSearch(false);
   };
 
   const selectMode = (selectedMode: ScanMode) => {
@@ -341,6 +384,9 @@ export default function ScanHub() {
       handleSwipeEnd();
     }
   };
+
+  // Prepare location data for search
+  const locationData = locations.map(l => ({ id: l.id, code: l.code, name: l.name }));
 
   // Mode Selection Screen
   if (mode === null) {
@@ -483,10 +529,10 @@ export default function ScanHub() {
     );
   }
 
-  // Scanning Screen with Camera
+  // Scanning Screen with Camera + Manual Entry
   return (
     <DashboardLayout>
-      <div className="flex flex-col min-h-[70vh] px-4">
+      <div className="flex flex-col min-h-[70vh] px-4 pb-4">
         <button
           onClick={resetState}
           className="flex items-center gap-2 text-muted-foreground mb-4 hover:text-foreground transition-colors"
@@ -495,31 +541,30 @@ export default function ScanHub() {
           Back
         </button>
 
-        <div className="flex-1 flex flex-col items-center">
-          {/* Title and instructions */}
-          <h2 className="text-xl font-bold mb-2">
+        {/* Title and instructions */}
+        <div className="text-center mb-4">
+          <h2 className="text-xl font-bold">
             {mode === 'lookup' && 'Scan Item'}
             {mode === 'move' && phase === 'scanning-item' && 'Scan Item'}
             {mode === 'move' && phase === 'scanning-location' && 'Scan Location'}
             {mode === 'batch' && 'Scan Items or Location'}
           </h2>
           
-          <p className="text-muted-foreground text-center mb-4">
-            {mode === 'lookup' && 'Point camera at QR code'}
-            {mode === 'move' && phase === 'scanning-item' && 'Scan the item you want to move'}
-            {mode === 'move' && phase === 'scanning-location' && 'Now scan the destination bay'}
-            {mode === 'batch' && 'Scan items to add. Scan a bay to finish.'}
+          <p className="text-sm text-muted-foreground mt-1">
+            {mode === 'lookup' && 'Point camera at QR code or search below'}
+            {mode === 'move' && phase === 'scanning-item' && 'Scan the item or search below'}
+            {mode === 'move' && phase === 'scanning-location' && 'Scan the bay or search below'}
+            {mode === 'batch' && 'Scan items continuously, then scan a bay to finish'}
           </p>
+        </div>
 
-          {/* Camera Scanner */}
-          <div className="w-full max-w-md mb-4">
+        <div className="flex-1 flex flex-col items-center">
+          {/* Camera Scanner - smaller to fit with manual entry */}
+          <div className="w-full max-w-sm mb-4">
             <QRScanner 
               onScan={handleScanResult}
-              onError={(error) => {
-                console.error('Scanner error:', error);
-              }}
+              onError={(error) => console.error('Scanner error:', error)}
               scanning={phase === 'scanning-item' || phase === 'scanning-location'}
-              className="w-full"
             />
           </div>
 
@@ -531,42 +576,47 @@ export default function ScanHub() {
             </div>
           )}
 
-          {/* Manual entry toggle */}
-          <button
-            onClick={() => setShowManualInput(!showManualInput)}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
-          >
-            <Keyboard className="h-4 w-4" />
-            {showManualInput ? 'Hide keyboard' : 'Type code manually'}
-          </button>
+          {/* Manual Entry Button - Always visible */}
+          <div className="w-full max-w-md space-y-3">
+            {/* Item search button - show when scanning items */}
+            {(phase === 'scanning-item' || mode === 'batch') && (
+              <button
+                onClick={() => setShowItemSearch(true)}
+                className="w-full flex items-center justify-center gap-3 p-4 bg-muted hover:bg-muted/80 rounded-xl transition-colors"
+              >
+                <Keyboard className="h-5 w-5" />
+                <span className="font-medium">
+                  {mode === 'batch' ? 'Search & Add Item' : 'Search Item by Code'}
+                </span>
+              </button>
+            )}
 
-          {/* Manual input */}
-          {showManualInput && (
-            <div className="w-full max-w-md mb-4">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Enter item or location code..."
-                  value={manualInput}
-                  onChange={(e) => setManualInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleManualSubmit()}
-                  className="flex-1 h-12 px-4 text-lg font-mono bg-muted rounded-xl border-2 border-transparent focus:border-primary focus:outline-none"
-                  autoFocus
-                />
-                <button
-                  onClick={handleManualSubmit}
-                  disabled={!manualInput.trim() || processing}
-                  className="px-6 h-12 bg-primary text-primary-foreground rounded-xl font-medium disabled:opacity-50"
-                >
-                  Go
-                </button>
-              </div>
-            </div>
-          )}
+            {/* Location search button - show when scanning location */}
+            {phase === 'scanning-location' && (
+              <button
+                onClick={() => setShowLocationSearch(true)}
+                className="w-full flex items-center justify-center gap-3 p-4 bg-muted hover:bg-muted/80 rounded-xl transition-colors"
+              >
+                <MapPin className="h-5 w-5" />
+                <span className="font-medium">Search Bay/Location</span>
+              </button>
+            )}
+
+            {/* Batch: location search button when items added */}
+            {mode === 'batch' && batchItems.length > 0 && (
+              <button
+                onClick={() => setShowLocationSearch(true)}
+                className="w-full flex items-center justify-center gap-3 p-4 bg-primary text-primary-foreground rounded-xl transition-colors"
+              >
+                <MapPin className="h-5 w-5" />
+                <span className="font-medium">Select Destination Bay</span>
+              </button>
+            )}
+          </div>
 
           {/* Scanned item indicator for move mode */}
           {mode === 'move' && scannedItem && phase === 'scanning-location' && (
-            <Card className="w-full max-w-md">
+            <Card className="w-full max-w-md mt-4">
               <CardContent className="py-4">
                 <div className="flex items-center gap-3">
                   <Package className="h-6 w-6 text-primary" />
@@ -583,7 +633,7 @@ export default function ScanHub() {
 
           {/* Batch items list */}
           {mode === 'batch' && batchItems.length > 0 && (
-            <Card className="w-full max-w-md">
+            <Card className="w-full max-w-md mt-4">
               <CardContent className="py-4">
                 <div className="flex items-center justify-between mb-3">
                   <span className="font-medium">Batch: {batchItems.length} items</span>
@@ -607,14 +657,26 @@ export default function ScanHub() {
                     </Badge>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground mt-3">
-                  Scan a bay/location to move all items
-                </p>
               </CardContent>
             </Card>
           )}
         </div>
       </div>
+
+      {/* Search Overlays */}
+      <ItemSearchOverlay
+        open={showItemSearch}
+        onClose={() => setShowItemSearch(false)}
+        onSelect={handleItemSelect}
+        excludeIds={mode === 'batch' ? batchItems.map(i => i.id) : []}
+      />
+
+      <LocationSearchOverlay
+        open={showLocationSearch}
+        onClose={() => setShowLocationSearch(false)}
+        onSelect={handleLocationSelect}
+        locations={locationData}
+      />
     </DashboardLayout>
   );
 }
