@@ -23,6 +23,7 @@ import ShipmentCreate from "./pages/ShipmentCreate";
 import Tasks from "./pages/Tasks";
 import Billing from "./pages/Billing";
 import NotFound from "./pages/NotFound";
+import { AIClientBot } from "./components/ai/AIClientBot";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/settings" element={<ProtectedRoute><RequireRole role="tenant_admin"><Settings /></RequireRole></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <AIClientBot />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
