@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Building, Users, Warehouse, Save, Plus, Package, DollarSign } from 'lucide-react';
@@ -14,7 +13,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations, Location } from '@/hooks/useLocations';
 import { useUsers } from '@/hooks/useUsers';
-import { useTenantSettings } from '@/hooks/useTenantSettings';
 import { LocationsSettingsTab } from '@/components/settings/LocationsSettingsTab';
 import { LocationDialog } from '@/components/locations/LocationDialog';
 import { PrintLabelsDialog } from '@/components/locations/PrintLabelsDialog';
@@ -25,10 +23,10 @@ import { UserList } from '@/components/settings/UserList';
 import { UserDialog } from '@/components/settings/UserDialog';
 import { InviteUserDialog } from '@/components/settings/InviteUserDialog';
 import { ItemTypesSettingsTab } from '@/components/settings/ItemTypesSettingsTab';
-import { DueDateRulesSettingsTab } from '@/components/settings/DueDateRulesSettingsTab';
 import { BillingChargeTemplatesTab } from '@/components/settings/BillingChargeTemplatesTab';
 import { EmployeesSettingsTab } from '@/components/settings/EmployeesSettingsTab';
-import { OrganizationLogoUpload } from '@/components/settings/OrganizationLogoUpload';
+import { OrganizationSettingsTab } from '@/components/settings/OrganizationSettingsTab';
+import { RateCardsSettingsTab } from '@/components/settings/RateCardsSettingsTab';
 
 interface TenantInfo {
   id: string;
@@ -80,13 +78,6 @@ export default function Settings() {
     assignRole, 
     removeRole 
   } = useUsers();
-  const {
-    settings: tenantSettings,
-    loading: tenantSettingsLoading,
-    uploading: logoUploading,
-    uploadLogo,
-    removeLogo,
-  } = useTenantSettings();
 
   useEffect(() => {
     if (profile?.tenant_id) {
@@ -238,6 +229,7 @@ export default function Settings() {
             <TabsTrigger value="organization">Organization</TabsTrigger>
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
+            <TabsTrigger value="rate-cards">Rate Cards</TabsTrigger>
             <TabsTrigger value="item-types">Item Types</TabsTrigger>
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
@@ -300,58 +292,8 @@ export default function Settings() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="organization" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building className="h-5 w-5" />
-                  Organization Details
-                </CardTitle>
-                <CardDescription>
-                  View and manage your organization information
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {tenant ? (
-                  <>
-                    {/* Logo Upload */}
-                    <OrganizationLogoUpload
-                      logoUrl={tenantSettings?.logo_url || null}
-                      uploading={logoUploading}
-                      onUpload={uploadLogo}
-                      onRemove={removeLogo}
-                      organizationName={tenant.name}
-                    />
-
-                    <Separator />
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <Label className="text-muted-foreground">Organization Name</Label>
-                        <p className="text-lg font-medium">{tenant.name}</p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground">Slug</Label>
-                        <p className="text-lg font-medium">{tenant.slug}</p>
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground">Status</Label>
-                      <div className="mt-1">
-                        <Badge variant={tenant.status === 'active' ? 'default' : 'secondary'}>
-                          {tenant.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-muted-foreground">No organization data available</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Due Date Rules Section */}
-            <DueDateRulesSettingsTab />
+          <TabsContent value="organization">
+            <OrganizationSettingsTab />
           </TabsContent>
 
           <TabsContent value="employees">
@@ -360,6 +302,10 @@ export default function Settings() {
 
           <TabsContent value="billing">
             <BillingChargeTemplatesTab />
+          </TabsContent>
+
+          <TabsContent value="rate-cards">
+            <RateCardsSettingsTab />
           </TabsContent>
 
           <TabsContent value="item-types">
