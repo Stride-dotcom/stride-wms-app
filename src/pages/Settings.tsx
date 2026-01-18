@@ -22,6 +22,7 @@ import { WarehouseList } from '@/components/warehouses/WarehouseList';
 import { WarehouseDialog } from '@/components/warehouses/WarehouseDialog';
 import { UserList } from '@/components/settings/UserList';
 import { UserDialog } from '@/components/settings/UserDialog';
+import { InviteUserDialog } from '@/components/settings/InviteUserDialog';
 import { ItemTypesSettingsTab } from '@/components/settings/ItemTypesSettingsTab';
 import { DueDateRulesSettingsTab } from '@/components/settings/DueDateRulesSettingsTab';
 import { BillingChargeTemplatesTab } from '@/components/settings/BillingChargeTemplatesTab';
@@ -61,6 +62,7 @@ export default function Settings() {
   // User state
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<string | null>(null);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   const { warehouses, loading: warehousesLoading, refetch: refetchWarehouses } = useWarehouses();
   const { locations, loading: locationsLoading, refetch: refetchLocations } = useLocations(
@@ -403,6 +405,7 @@ export default function Settings() {
                 }}
                 onDelete={deleteUser}
                 onRefresh={refetchUsers}
+                onInvite={() => setInviteDialogOpen(true)}
               />
             </div>
           </TabsContent>
@@ -460,6 +463,17 @@ export default function Settings() {
         }}
         onAssignRole={assignRole}
         onRemoveRole={removeRole}
+      />
+
+      {/* Invite User Dialog */}
+      <InviteUserDialog
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
+        roles={roles}
+        onSuccess={() => {
+          setInviteDialogOpen(false);
+          refetchUsers();
+        }}
       />
     </DashboardLayout>
   );

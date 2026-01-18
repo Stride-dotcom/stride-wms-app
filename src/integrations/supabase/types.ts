@@ -4028,6 +4028,7 @@ export type Database = {
         Args: { tenant_id_param: string; user_id: string }
         Returns: boolean
       }
+      seed_standard_roles: { Args: { p_tenant_id: string }; Returns: undefined }
       user_has_permission: {
         Args: { p_permission: string; p_user_id: string }
         Returns: boolean
