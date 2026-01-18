@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Package, ClipboardList, Truck, TrendingUp } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Loader2, Package, ClipboardList, Truck, TrendingUp, FileText } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -16,6 +18,7 @@ import {
   Cell,
   Legend,
 } from 'recharts';
+import { InvoicesTab } from '@/components/reports/InvoicesTab';
 
 interface ReportStats {
   totalItems: number;
@@ -27,6 +30,7 @@ interface ReportStats {
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--muted))'];
 
 export default function Reports() {
+  const { isAdmin } = usePermissions();
   const [stats, setStats] = useState<ReportStats>({
     totalItems: 0,
     itemsByStatus: [],
@@ -126,142 +130,165 @@ export default function Reports() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
           <p className="text-muted-foreground">
-            Analytics and insights for your warehouse operations
+            Analytics, insights, and invoicing for your warehouse operations
           </p>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Items</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalItems.toLocaleString()}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Item Statuses</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.itemsByStatus.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Receiving Batches</CardTitle>
-              <ClipboardList className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {stats.receivingByMonth.reduce((sum, m) => sum + m.count, 0)}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-              <Truck className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {stats.ordersByStatus.reduce((sum, o) => sum + o.count, 0)}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <Tabs defaultValue="analytics">
+          <TabsList>
+            <TabsTrigger value="analytics" className="gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="invoices" className="gap-2">
+                <FileText className="h-4 w-4" />
+                Invoices
+              </TabsTrigger>
+            )}
+          </TabsList>
 
-        {/* Charts */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Inventory by Status</CardTitle>
-              <CardDescription>Distribution of items across different statuses</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {stats.itemsByStatus.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={stats.itemsByStatus}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ status, percent }) =>
-                        `${status} (${(percent * 100).toFixed(0)}%)`
-                      }
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="count"
-                      nameKey="status"
-                    >
-                      {stats.itemsByStatus.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                  No inventory data available
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <TabsContent value="analytics" className="space-y-6 mt-6">
+            {/* Summary Cards */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.totalItems.toLocaleString()}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Item Statuses</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.itemsByStatus.length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Receiving Batches</CardTitle>
+                  <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {stats.receivingByMonth.reduce((sum, m) => sum + m.count, 0)}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+                  <Truck className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {stats.ordersByStatus.reduce((sum, o) => sum + o.count, 0)}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Receiving Activity</CardTitle>
-              <CardDescription>Receiving batches over the last 6 months</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {stats.receivingByMonth.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={stats.receivingByMonth}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                  No receiving data available
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            {/* Charts */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Inventory by Status</CardTitle>
+                  <CardDescription>Distribution of items across different statuses</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {stats.itemsByStatus.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={stats.itemsByStatus}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ status, percent }) =>
+                            `${status} (${(percent * 100).toFixed(0)}%)`
+                          }
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="count"
+                          nameKey="status"
+                        >
+                          {stats.itemsByStatus.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                      No inventory data available
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle>Orders by Status</CardTitle>
-              <CardDescription>Current distribution of will call orders</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {stats.ordersByStatus.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={stats.ordersByStatus} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" />
-                    <YAxis dataKey="status" type="category" width={100} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                  No order data available
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Receiving Activity</CardTitle>
+                  <CardDescription>Receiving batches over the last 6 months</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {stats.receivingByMonth.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={stats.receivingByMonth}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                      No receiving data available
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle>Orders by Status</CardTitle>
+                  <CardDescription>Current distribution of will call orders</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {stats.ordersByStatus.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={stats.ordersByStatus} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" />
+                        <YAxis dataKey="status" type="category" width={100} />
+                        <Tooltip />
+                        <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                      No order data available
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="invoices" className="mt-6">
+              <InvoicesTab />
+            </TabsContent>
+          )}
+        </Tabs>
       </div>
     </DashboardLayout>
   );
