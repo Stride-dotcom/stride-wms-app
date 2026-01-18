@@ -21,8 +21,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Package, Loader2, Filter, Truck, Trash2 } from 'lucide-react';
+import { Search, Package, Loader2, Filter, Truck, Trash2, ClipboardList } from 'lucide-react';
 import { ReleaseDialog } from '@/components/inventory/ReleaseDialog';
+import { TaskDialog } from '@/components/tasks/TaskDialog';
 
 interface Item {
   id: string;
@@ -45,6 +46,7 @@ export default function Inventory() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchItems();
@@ -138,6 +140,13 @@ export default function Inventory() {
           <div className="flex items-center gap-2">
             {selectedItems.size > 0 && (
               <>
+                <Button
+                  variant="outline"
+                  onClick={() => setTaskDialogOpen(true)}
+                >
+                  <ClipboardList className="mr-2 h-4 w-4" />
+                  Create Task ({selectedItems.size})
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => setReleaseDialogOpen(true)}
@@ -282,6 +291,16 @@ export default function Inventory() {
         onOpenChange={setReleaseDialogOpen}
         selectedItems={getSelectedItemsData()}
         onSuccess={handleReleaseSuccess}
+      />
+
+      <TaskDialog
+        open={taskDialogOpen}
+        onOpenChange={setTaskDialogOpen}
+        selectedItemIds={Array.from(selectedItems)}
+        onSuccess={() => {
+          setTaskDialogOpen(false);
+          setSelectedItems(new Set());
+        }}
       />
     </DashboardLayout>
   );
