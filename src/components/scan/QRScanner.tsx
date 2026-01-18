@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, CameraOff, Loader2, RefreshCw, Settings } from "lucide-react";
+import { Camera, CameraOff, ExternalLink, Loader2, RefreshCw, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -97,7 +97,6 @@ async function readCameraPermissionState(): Promise<{
 }> {
   try {
     if (!navigator.permissions?.query) return { error: "Permissions API not supported" };
-    // `camera` is not in TS PermissionName for all browsers; cast is required.
     const res = await navigator.permissions.query({ name: "camera" as any });
     return { state: res.state };
   } catch (err) {
@@ -159,6 +158,14 @@ async function gatherDiagnostics(): Promise<CameraDiagnostics> {
   };
 }
 
+// Early detection: camera APIs missing in embedded context = blocked by iframe policy
+function isCameraBlockedByEmbed(): boolean {
+  if (!isEmbeddedFrame()) return false;
+  const hasModern = !!navigator.mediaDevices?.getUserMedia;
+  const hasLegacy = !!getLegacyGetUserMedia();
+  return !hasModern && !hasLegacy;
+}
+
 export function QRScanner({ onScan, onError, scanning = true, className }: QRScannerProps) {
   const [status, setStatus] = useState<ScannerStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -167,6 +174,7 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
   const [diagnostics, setDiagnostics] = useState<CameraDiagnostics | null>(null);
 
   const isEmbedded = useMemo(() => isEmbeddedFrame(), []);
+  const isCameraBlocked = useMemo(() => isCameraBlockedByEmbed(), []);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -221,7 +229,6 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
       if (!scanning) return;
       if (!streamRef.current) return;
 
-      // Avoid concurrent detect calls.
       if (!detectInFlightRef.current && video.readyState >= 2) {
         detectInFlightRef.current = true;
         try {
@@ -246,23 +253,19 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
       }
 
       rafRef.current = requestAnimationFrame(() => {
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         tick();
       });
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     tick();
   }, [onScan, scanning]);
 
   const startCamera = useCallback(async () => {
     if (!scanning) return;
 
-    // 3) Request MUST happen in the click handler with NO delays.
     setStatus("starting");
     setErrorMessage("");
 
-    // Kick off diagnostics (do not await before requesting camera).
     const diagPromise = gatherDiagnostics().then((d) => {
       setDiagnostics(d);
       console.info("[QRScanner] Camera diagnostics", d);
@@ -300,7 +303,6 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
       return;
     }
 
-    // Ensure we don't keep an old stream alive.
     stopCamera();
 
     try {
@@ -310,7 +312,6 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
       const video = videoRef.current;
       if (!video) throw new Error("Video element not mounted");
 
-      // 5) iOS requirements.
       video.autoplay = true;
       video.muted = true;
       (video as any).playsInline = true;
@@ -318,7 +319,6 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
 
       await video.play();
 
-      // Setup detector
       if (typeof BarcodeDetector !== "undefined") {
         try {
           detectorRef.current = new BarcodeDetector({ formats: ["qr_code"] });
@@ -373,12 +373,10 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
     });
   }, []);
 
-  // 8) Cleanup on unmount.
   useEffect(() => {
     return () => stopCamera();
   }, [stopCamera]);
 
-  // If parent disables scanning, release camera.
   useEffect(() => {
     if (!scanning) stopCamera();
   }, [scanning, stopCamera]);
@@ -411,8 +409,35 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
           playsInline
         />
 
-        {/* Tap-to-start overlay (user gesture) */}
-        {scanning && (status === "idle" || status === "starting") && (
+        {/* Camera blocked by iframe - show immediately without requiring button click */}
+        {scanning && isCameraBlocked && status === "idle" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/95 rounded-2xl p-6">
+            <div className="bg-destructive/10 rounded-full p-4 mb-4">
+              <CameraOff className="h-10 w-10 text-destructive" />
+            </div>
+            <p className="text-lg font-semibold text-center">Camera blocked by preview</p>
+            <p className="text-sm text-muted-foreground text-center mt-2 mb-1 max-w-[280px]">
+              The embedded preview iframe doesn't allow camera access on iOS browsers.
+            </p>
+            <p className="text-xs text-muted-foreground text-center mb-6 max-w-[280px]">
+              Open this page in a new tab to use the QR scanner.
+            </p>
+
+            <div className="flex flex-col gap-2 w-full max-w-[280px]">
+              <Button size="lg" onClick={openInNewTab} className="w-full">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open in new tab
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowDiagnostics((v) => !v)}>
+                <Settings className="h-4 w-4 mr-2" />
+                Camera diagnostics
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Tap-to-start overlay (user gesture) - only show if camera is NOT blocked */}
+        {scanning && !isCameraBlocked && (status === "idle" || status === "starting") && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/90 rounded-2xl p-6">
             {status === "starting" ? (
               <Loader2 className="h-12 w-12 animate-spin text-primary mb-3" />
@@ -425,10 +450,7 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
               <p className="text-sm text-muted-foreground mt-1">Needed for QR scanning</p>
               {isEmbedded && (
                 <p className="text-xs text-muted-foreground mt-2">
-                  You
-reurrently inside an embedded preview. The preview iframe must allow camera
-                  access (<code className="font-mono">allow=&quot;camera&quot;</code>) — otherwise open in a
-                  new tab.
+                  You're inside an embedded preview. If camera fails, open in a new tab.
                 </p>
               )}
             </div>
@@ -499,6 +521,7 @@ reurrently inside an embedded preview. The preview iframe must allow camera
             <div className="flex flex-col gap-2 w-full max-w-[260px]">
               {isEmbedded && status === "unsupported" ? (
                 <Button onClick={openInNewTab}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
                   Open in new tab
                 </Button>
               ) : (
@@ -563,7 +586,7 @@ reurrently inside an embedded preview. The preview iframe must allow camera
               Enable Camera
             </DialogTitle>
             <DialogDescription>
-              We cant open your device settings automatically from the browser, but well guide you
+              We can't open your device settings automatically from the browser, but we'll guide you
               to the right place.
             </DialogDescription>
           </DialogHeader>
