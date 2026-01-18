@@ -30,6 +30,8 @@ import { ItemNotesSection } from '@/components/items/ItemNotesSection';
 import { RepairQuoteSection } from '@/components/items/RepairQuoteSection';
 import { ItemPhotoGallery } from '@/components/items/ItemPhotoGallery';
 import { ItemEditDialog } from '@/components/items/ItemEditDialog';
+import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
+import { ItemLabelData } from '@/lib/labelGenerator';
 import { format } from 'date-fns';
 import { 
   ArrowLeft, 
@@ -128,6 +130,7 @@ export default function ItemDetail() {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [selectedTaskType, setSelectedTaskType] = useState<string>('');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   // Check if user is a client (simplified check)
   const isClientUser = false; // Will be determined by role system
@@ -407,7 +410,7 @@ export default function ItemDetail() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setPrintDialogOpen(true)}>
                     <Printer className="mr-2 h-4 w-4" />
                     Print 4x6 Label
                   </DropdownMenuItem>
@@ -744,6 +747,21 @@ export default function ItemDetail() {
         onOpenChange={setEditDialogOpen}
         item={item}
         onSuccess={fetchItem}
+      />
+
+      <PrintLabelsDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        items={item ? [{
+          id: item.id,
+          itemCode: item.item_code,
+          description: item.description || '',
+          vendor: item.vendor || '',
+          account: item.client_account || '',
+          sidemark: item.sidemark || '',
+          warehouseName: item.warehouse?.name || '',
+          locationCode: item.location?.code || '',
+        }] : []}
       />
     </DashboardLayout>
   );

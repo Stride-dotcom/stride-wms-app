@@ -37,8 +37,11 @@ import {
   CheckCircle, 
   Clock,
   FileText,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Printer
 } from 'lucide-react';
+import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
+import { ItemLabelData } from '@/lib/labelGenerator';
 
 interface ShipmentDetail {
   id: string;
@@ -90,6 +93,9 @@ export default function ShipmentDetail() {
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [showPrintDialog, setShowPrintDialog] = useState(false);
+  const [showPrintPrompt, setShowPrintPrompt] = useState(false);
+  const [receivedItemsForLabels, setReceivedItemsForLabels] = useState<ItemLabelData[]>([]);
   
   // For signature
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -207,6 +213,35 @@ export default function ShipmentDetail() {
         description: `${shipment.shipment_number} has been marked as ${shipment.shipment_type === 'inbound' ? 'received' : 'completed'}.`,
       });
 
+      // For inbound shipments, prompt to print labels for received items
+      if (shipment.shipment_type === 'inbound') {
+        // Fetch the actual items that were created/received
+        const itemIds = shipment.items
+          .map(i => i.item_id)
+          .filter((id): id is string => id !== null);
+
+        if (itemIds.length > 0) {
+          const { data: receivedItems } = await (supabase.from('items') as any)
+            .select('id, item_code, description, vendor, client_account, sidemark, location_id, warehouse_id, locations(code), warehouses(name)')
+            .in('id', itemIds);
+
+          if (receivedItems && receivedItems.length > 0) {
+            const labelsData: ItemLabelData[] = receivedItems.map((item: any) => ({
+              id: item.id,
+              itemCode: item.item_code,
+              description: item.description || '',
+              vendor: item.vendor || '',
+              account: item.client_account || shipment.account?.account_name || '',
+              sidemark: item.sidemark || '',
+              warehouseName: item.warehouses?.name || shipment.warehouse?.name || '',
+              locationCode: item.locations?.code || '',
+            }));
+            setReceivedItemsForLabels(labelsData);
+            setShowPrintPrompt(true);
+          }
+        }
+      }
+
       fetchShipment();
       setShowCompleteDialog(false);
     } catch (error: any) {
@@ -318,12 +353,49 @@ export default function ShipmentDetail() {
             </div>
           </div>
           
-          {!isCompleted && (
-            <Button onClick={() => setShowCompleteDialog(true)}>
-              <CheckCircle className="mr-2 h-4 w-4" />
-              {shipment.shipment_type === 'inbound' ? 'Mark as Received' : 'Complete'}
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {isCompleted && shipment.shipment_type === 'inbound' && (
+              <Button variant="outline" onClick={() => {
+                // Fetch items for printing
+                const itemIds = shipment.items
+                  .map(i => i.item_id)
+                  .filter((id): id is string => id !== null);
+                
+                if (itemIds.length > 0) {
+                  (async () => {
+                    const { data: receivedItems } = await (supabase.from('items') as any)
+                      .select('id, item_code, description, vendor, client_account, sidemark, locations(code), warehouses(name)')
+                      .in('id', itemIds);
+                    
+                    if (receivedItems && receivedItems.length > 0) {
+                      const labelsData: ItemLabelData[] = receivedItems.map((item: any) => ({
+                        id: item.id,
+                        itemCode: item.item_code,
+                        description: item.description || '',
+                        vendor: item.vendor || '',
+                        account: item.client_account || shipment.account?.account_name || '',
+                        sidemark: item.sidemark || '',
+                        warehouseName: item.warehouses?.name || shipment.warehouse?.name || '',
+                        locationCode: item.locations?.code || '',
+                      }));
+                      setReceivedItemsForLabels(labelsData);
+                      setShowPrintDialog(true);
+                    }
+                  })();
+                }
+              }}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print Labels
+              </Button>
+            )}
+            
+            {!isCompleted && (
+              <Button onClick={() => setShowCompleteDialog(true)}>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                {shipment.shipment_type === 'inbound' ? 'Mark as Received' : 'Complete'}
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Receiving Session - Only show for inbound shipments that aren't completed */}
@@ -571,6 +643,37 @@ export default function ShipmentDetail() {
             <AlertDialogAction onClick={handleCompleteShipment} disabled={completing}>
               {completing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {shipment.shipment_type === 'inbound' ? 'Mark as Received' : 'Complete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Print Labels Dialog */}
+      <PrintLabelsDialog
+        open={showPrintDialog}
+        onOpenChange={setShowPrintDialog}
+        items={receivedItemsForLabels}
+        title="Print Item Labels"
+        description={`Print 4x6 labels for ${receivedItemsForLabels.length} received items`}
+      />
+
+      {/* Auto-prompt after receiving */}
+      <AlertDialog open={showPrintPrompt} onOpenChange={setShowPrintPrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Print Labels?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Would you like to print 4x6 labels for the {receivedItemsForLabels.length} items that were just received?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Skip</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowPrintPrompt(false);
+              setShowPrintDialog(true);
+            }}>
+              <Printer className="mr-2 h-4 w-4" />
+              Print Labels
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

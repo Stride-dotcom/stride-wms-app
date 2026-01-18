@@ -9,13 +9,22 @@ interface LocationLabelData {
   warehouseCode: string;
 }
 
-interface ItemLabelData {
+export interface ItemLabelData {
+  id: string;
   itemCode: string;
   description: string;
   vendor: string;
-  sidemark: string;
-  warehouseName: string;
-  locationCode: string;
+  account: string;
+  sidemark?: string;
+  warehouseName?: string;
+  locationCode?: string;
+}
+
+interface QRPayload {
+  type: 'item' | 'location';
+  id: string;
+  code: string;
+  v: number; // version for future compatibility
 }
 
 const LABEL_WIDTH_INCHES = 4;
@@ -26,15 +35,82 @@ const LABEL_WIDTH = LABEL_WIDTH_INCHES * DPI;
 const LABEL_HEIGHT = LABEL_HEIGHT_INCHES * DPI;
 const MARGIN = 0.25 * DPI;
 
-// Base URL for deep links
-const BASE_URL = window.location.origin;
+// Base URL for deep links - use published URL if available, otherwise preview
+const getBaseUrl = (): string => {
+  // In production, use the actual domain
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return 'https://id-preview--2db8a4a9-ca38-466e-84b2-80e3eeb232e2.lovable.app';
+};
 
 async function generateQRDataUrl(data: string): Promise<string> {
   return await QRCode.toDataURL(data, {
-    width: 150,
+    width: 200,
     margin: 1,
     errorCorrectionLevel: 'H',
   });
+}
+
+function createItemQRPayload(item: ItemLabelData): string {
+  const payload: QRPayload = {
+    type: 'item',
+    id: item.id,
+    code: item.itemCode,
+    v: 1,
+  };
+  return JSON.stringify(payload);
+}
+
+function createLocationQRPayload(location: LocationLabelData): string {
+  const payload: QRPayload = {
+    type: 'location',
+    id: location.code, // Using code as ID for locations
+    code: location.code,
+    v: 1,
+  };
+  return JSON.stringify(payload);
+}
+
+function truncateText(doc: jsPDF, text: string, maxWidth: number): string {
+  if (!text) return '';
+  let truncated = text;
+  while (doc.getTextWidth(truncated) > maxWidth && truncated.length > 3) {
+    truncated = truncated.slice(0, -4) + '...';
+  }
+  return truncated;
+}
+
+function wrapText(doc: jsPDF, text: string, maxWidth: number, maxLines: number = 2): string[] {
+  if (!text) return [''];
+  
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+  
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    if (doc.getTextWidth(testLine) <= maxWidth) {
+      currentLine = testLine;
+    } else {
+      if (currentLine) {
+        lines.push(currentLine);
+        if (lines.length >= maxLines) {
+          // Add ellipsis to last line if we're cutting off
+          const lastLine = lines[lines.length - 1];
+          lines[lines.length - 1] = truncateText(doc, lastLine, maxWidth);
+          return lines;
+        }
+      }
+      currentLine = word;
+    }
+  }
+  
+  if (currentLine) {
+    lines.push(truncateText(doc, currentLine, maxWidth));
+  }
+  
+  return lines.slice(0, maxLines);
 }
 
 export async function generateLocationLabelsPDF(locations: LocationLabelData[]): Promise<Blob> {
@@ -50,8 +126,8 @@ export async function generateLocationLabelsPDF(locations: LocationLabelData[]):
     }
 
     const location = locations[i];
-    const deepLink = `${BASE_URL}/scan/location/${location.code}`;
-    const qrDataUrl = await generateQRDataUrl(deepLink);
+    const qrPayload = createLocationQRPayload(location);
+    const qrDataUrl = await generateQRDataUrl(qrPayload);
 
     // Background
     doc.setFillColor(255, 255, 255);
@@ -59,51 +135,52 @@ export async function generateLocationLabelsPDF(locations: LocationLabelData[]):
 
     // Border
     doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(1);
+    doc.setLineWidth(2);
     doc.rect(MARGIN / 2, MARGIN / 2, LABEL_WIDTH - MARGIN, LABEL_HEIGHT - MARGIN, 'S');
 
     // Location code (large)
     doc.setFontSize(48);
     doc.setFont('helvetica', 'bold');
-    doc.text(location.code, LABEL_WIDTH / 2, MARGIN + 40, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+    doc.text(location.code, LABEL_WIDTH / 2, MARGIN + 45, { align: 'center' });
 
     // Location name
     if (location.name) {
       doc.setFontSize(18);
       doc.setFont('helvetica', 'normal');
-      doc.text(location.name, LABEL_WIDTH / 2, MARGIN + 70, { align: 'center' });
+      doc.text(location.name, LABEL_WIDTH / 2, MARGIN + 75, { align: 'center' });
     }
 
     // Type badge
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     const typeText = location.type.toUpperCase();
-    const typeWidth = doc.getTextWidth(typeText) + 16;
+    const typeWidth = doc.getTextWidth(typeText) + 20;
     const typeX = (LABEL_WIDTH - typeWidth) / 2;
     
     doc.setFillColor(230, 230, 230);
-    doc.roundedRect(typeX, MARGIN + 85, typeWidth, 24, 4, 4, 'F');
+    doc.roundedRect(typeX, MARGIN + 90, typeWidth, 26, 4, 4, 'F');
     doc.setTextColor(60, 60, 60);
-    doc.text(typeText, LABEL_WIDTH / 2, MARGIN + 102, { align: 'center' });
+    doc.text(typeText, LABEL_WIDTH / 2, MARGIN + 108, { align: 'center' });
 
-    // QR Code
-    const qrSize = 180;
+    // QR Code (larger for better scanning)
+    const qrSize = 220;
     const qrX = (LABEL_WIDTH - qrSize) / 2;
-    const qrY = MARGIN + 130;
+    const qrY = MARGIN + 135;
     doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
     // Warehouse info
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(12);
+    doc.setFontSize(14);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Warehouse: ${location.warehouseName}`, LABEL_WIDTH / 2, LABEL_HEIGHT - MARGIN - 40, {
+    doc.text(`Warehouse: ${location.warehouseName}`, LABEL_WIDTH / 2, LABEL_HEIGHT - MARGIN - 30, {
       align: 'center',
     });
 
-    // Deep link text (small)
-    doc.setFontSize(8);
-    doc.setTextColor(120, 120, 120);
-    doc.text(deepLink, LABEL_WIDTH / 2, LABEL_HEIGHT - MARGIN - 15, { align: 'center' });
+    // Scan instruction
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Scan to update location', LABEL_WIDTH / 2, LABEL_HEIGHT - MARGIN - 10, { align: 'center' });
   }
 
   return doc.output('blob');
@@ -116,14 +193,16 @@ export async function generateItemLabelsPDF(items: ItemLabelData[]): Promise<Blo
     format: [LABEL_WIDTH, LABEL_HEIGHT],
   });
 
+  const maxTextWidth = LABEL_WIDTH - MARGIN * 2 - 20;
+
   for (let i = 0; i < items.length; i++) {
     if (i > 0) {
       doc.addPage([LABEL_WIDTH, LABEL_HEIGHT]);
     }
 
     const item = items[i];
-    const deepLink = `${BASE_URL}/scan/item/${item.itemCode}`;
-    const qrDataUrl = await generateQRDataUrl(deepLink);
+    const qrPayload = createItemQRPayload(item);
+    const qrDataUrl = await generateQRDataUrl(qrPayload);
 
     // Background
     doc.setFillColor(255, 255, 255);
@@ -131,60 +210,120 @@ export async function generateItemLabelsPDF(items: ItemLabelData[]): Promise<Blo
 
     // Border
     doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(1);
+    doc.setLineWidth(2);
     doc.rect(MARGIN / 2, MARGIN / 2, LABEL_WIDTH - MARGIN, LABEL_HEIGHT - MARGIN, 'S');
 
-    // Item code (large)
-    doc.setFontSize(36);
+    let yPos = MARGIN + 10;
+
+    // Item code (large, bold) - at the top
+    doc.setFontSize(32);
     doc.setFont('helvetica', 'bold');
-    doc.text(item.itemCode, LABEL_WIDTH / 2, MARGIN + 35, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+    doc.text(item.itemCode, LABEL_WIDTH / 2, yPos + 28, { align: 'center' });
+    yPos += 50;
 
-    // Description (truncated)
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'normal');
-    const maxDescWidth = LABEL_WIDTH - MARGIN * 2;
-    let description = item.description;
-    while (doc.getTextWidth(description) > maxDescWidth && description.length > 3) {
-      description = description.slice(0, -4) + '...';
+    // Account (prominent)
+    if (item.account) {
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(40, 40, 40);
+      const accountText = truncateText(doc, item.account, maxTextWidth);
+      doc.text(accountText, LABEL_WIDTH / 2, yPos, { align: 'center' });
+      yPos += 22;
     }
-    doc.text(description, LABEL_WIDTH / 2, MARGIN + 60, { align: 'center' });
 
-    // Vendor & Sidemark
-    if (item.vendor || item.sidemark) {
-      doc.setFontSize(11);
+    // Vendor
+    if (item.vendor) {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(60, 60, 60);
+      const vendorText = truncateText(doc, `Vendor: ${item.vendor}`, maxTextWidth);
+      doc.text(vendorText, LABEL_WIDTH / 2, yPos, { align: 'center' });
+      yPos += 20;
+    }
+
+    // Horizontal line
+    yPos += 5;
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(1);
+    doc.line(MARGIN + 20, yPos, LABEL_WIDTH - MARGIN - 20, yPos);
+    yPos += 15;
+
+    // Description (wrapped, 2 lines max)
+    if (item.description) {
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
       doc.setTextColor(80, 80, 80);
-      const infoLine = [item.vendor, item.sidemark].filter(Boolean).join(' | ');
-      doc.text(infoLine, LABEL_WIDTH / 2, MARGIN + 80, { align: 'center' });
+      const descLines = wrapText(doc, item.description, maxTextWidth, 2);
+      for (const line of descLines) {
+        doc.text(line, LABEL_WIDTH / 2, yPos, { align: 'center' });
+        yPos += 16;
+      }
     }
 
-    // QR Code
+    // QR Code (centered, large for easy scanning)
     const qrSize = 200;
     const qrX = (LABEL_WIDTH - qrSize) / 2;
-    const qrY = MARGIN + 100;
+    const qrY = yPos + 10;
     doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
+    // Bottom section - Location info
+    const bottomY = LABEL_HEIGHT - MARGIN - 50;
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(1);
+    doc.line(MARGIN + 20, bottomY - 15, LABEL_WIDTH - MARGIN - 20, bottomY - 15);
+
     // Location info
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
     if (item.locationCode) {
-      doc.text(`Location: ${item.locationCode}`, LABEL_WIDTH / 2, LABEL_HEIGHT - MARGIN - 55, {
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Location: ${item.locationCode}`, LABEL_WIDTH / 2, bottomY + 5, {
         align: 'center',
       });
     }
 
     // Warehouse info
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.text(item.warehouseName, LABEL_WIDTH / 2, LABEL_HEIGHT - MARGIN - 35, {
-      align: 'center',
-    });
+    if (item.warehouseName) {
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
+      doc.text(item.warehouseName, LABEL_WIDTH / 2, bottomY + 22, {
+        align: 'center',
+      });
+    }
 
-    // Deep link text (small)
-    doc.setFontSize(8);
+    // Scan instruction
+    doc.setFontSize(9);
     doc.setTextColor(120, 120, 120);
-    doc.text(deepLink, LABEL_WIDTH / 2, LABEL_HEIGHT - MARGIN - 15, { align: 'center' });
+    doc.text('Scan QR to view item details', LABEL_WIDTH / 2, LABEL_HEIGHT - MARGIN - 8, { align: 'center' });
   }
 
   return doc.output('blob');
+}
+
+// Helper to trigger download
+export function downloadPDF(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Helper to open print dialog
+export async function printLabels(blob: Blob): Promise<void> {
+  const url = URL.createObjectURL(blob);
+  const printWindow = window.open(url, '_blank');
+  if (printWindow) {
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+  }
+  // Clean up after a delay
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }

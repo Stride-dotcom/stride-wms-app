@@ -1,0 +1,133 @@
+import { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Loader2, Printer, Download } from 'lucide-react';
+import { generateItemLabelsPDF, downloadPDF, printLabels, ItemLabelData } from '@/lib/labelGenerator';
+
+interface PrintLabelsDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  items: ItemLabelData[];
+  title?: string;
+  description?: string;
+}
+
+export function PrintLabelsDialog({
+  open,
+  onOpenChange,
+  items,
+  title = 'Print Labels',
+  description,
+}: PrintLabelsDialogProps) {
+  const [generating, setGenerating] = useState(false);
+
+  const handlePrint = async () => {
+    if (items.length === 0) return;
+    
+    setGenerating(true);
+    try {
+      const blob = await generateItemLabelsPDF(items);
+      await printLabels(blob);
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error generating labels:', error);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (items.length === 0) return;
+    
+    setGenerating(true);
+    try {
+      const blob = await generateItemLabelsPDF(items);
+      const filename = items.length === 1 
+        ? `label-${items[0].itemCode}.pdf`
+        : `labels-${items.length}-items.pdf`;
+      downloadPDF(blob, filename);
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error generating labels:', error);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const defaultDescription = items.length === 1
+    ? `Generate a 4x6 label for ${items[0].itemCode}`
+    : `Generate 4x6 labels for ${items.length} items`;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            {description || defaultDescription}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-4">
+          <div className="rounded-lg border p-4 bg-muted/50">
+            <h4 className="font-medium mb-2">Label Contents:</h4>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li>• QR Code (links to item detail page)</li>
+              <li>• Item Code</li>
+              <li>• Account Name</li>
+              <li>• Vendor</li>
+              <li>• Description</li>
+              <li>• Current Location</li>
+            </ul>
+          </div>
+
+          {items.length > 1 && (
+            <p className="text-sm text-muted-foreground mt-3">
+              Each item will be printed on a separate 4x6 label.
+            </p>
+          )}
+        </div>
+
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={generating}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleDownload}
+            disabled={generating || items.length === 0}
+          >
+            {generating ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Download PDF
+          </Button>
+          <Button
+            onClick={handlePrint}
+            disabled={generating || items.length === 0}
+          >
+            {generating ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="mr-2 h-4 w-4" />
+            )}
+            Print Labels
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
