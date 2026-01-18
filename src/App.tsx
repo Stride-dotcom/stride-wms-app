@@ -47,6 +47,7 @@ const App = () => (
             <Route path="/shipments/list" element={<ProtectedRoute><ShipmentsList /></ProtectedRoute>} />
             <Route path="/shipments/incoming" element={<ProtectedRoute><ShipmentsList /></ProtectedRoute>} />
             <Route path="/shipments/outbound" element={<ProtectedRoute><ShipmentsList /></ProtectedRoute>} />
+            <Route path="/shipments/received" element={<ProtectedRoute><ShipmentsList /></ProtectedRoute>} />
             <Route path="/shipments/new" element={<ProtectedRoute><ShipmentCreate /></ProtectedRoute>} />
             <Route path="/shipments/:id" element={<ProtectedRoute><ShipmentDetail /></ProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Package, Loader2, Filter, Plus, Truck, ArrowLeft } from 'lucide-react';
+import { Search, Package, Loader2, Filter, Plus, Truck, ArrowLeft, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Shipment {
@@ -44,14 +44,20 @@ interface Shipment {
 
 export default function ShipmentsList() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const directionParam = searchParams.get('direction');
+  
+  // Determine view mode based on URL path
+  const isReceivedView = location.pathname === '/shipments/received';
   
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<string>(directionParam === 'outbound' ? 'outbound' : 'inbound');
+  const [activeTab, setActiveTab] = useState<string>(
+    isReceivedView ? 'received' : (directionParam === 'outbound' ? 'outbound' : 'inbound')
+  );
 
   useEffect(() => {
     fetchShipments();
@@ -79,9 +85,15 @@ export default function ShipmentsList() {
           warehouses(name)
         `)
         .is('deleted_at', null)
-        .eq('shipment_type', activeTab)
         .order('created_at', { ascending: false })
         .limit(100);
+
+      // Filter by status for received view, otherwise by shipment type
+      if (activeTab === 'received') {
+        query = query.in('status', ['received', 'completed']);
+      } else {
+        query = query.eq('shipment_type', activeTab);
+      }
 
       const { data, error } = await query;
 
@@ -150,12 +162,18 @@ export default function ShipmentsList() {
             </Button>
             <div>
               <h1 className="text-3xl font-bold tracking-tight">
-                {activeTab === 'inbound' ? 'Incoming Shipments' : 'Outbound Shipments'}
+                {activeTab === 'received' 
+                  ? 'Received Shipments' 
+                  : activeTab === 'inbound' 
+                    ? 'Incoming Shipments' 
+                    : 'Outbound Shipments'}
               </h1>
               <p className="text-muted-foreground">
-                {activeTab === 'inbound' 
-                  ? 'Manage receiving and incoming shipments' 
-                  : 'Manage will call and disposal releases'}
+                {activeTab === 'received'
+                  ? 'View completed receiving shipments'
+                  : activeTab === 'inbound' 
+                    ? 'Manage receiving and incoming shipments' 
+                    : 'Manage will call and disposal releases'}
               </p>
             </div>
           </div>
@@ -174,6 +192,10 @@ export default function ShipmentsList() {
             <TabsTrigger value="outbound" className="flex items-center gap-2">
               <Truck className="h-4 w-4" />
               Outbound
+            </TabsTrigger>
+            <TabsTrigger value="received" className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              Received
             </TabsTrigger>
           </TabsList>
 
