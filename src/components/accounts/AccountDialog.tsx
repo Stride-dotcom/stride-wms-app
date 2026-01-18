@@ -36,7 +36,7 @@ import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const accountSchema = z.object({
   // Basic
@@ -534,7 +534,7 @@ export function AccountDialog({
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <Tabs defaultValue="basic" className="w-full">
-                <ScrollArea className="w-full pb-2 mb-4">
+                <div className="overflow-x-auto pb-2 mb-4 -mx-6 px-6">
                   <TabsList className="inline-flex h-10 w-max p-1 gap-1">
                     <TabsTrigger value="basic" className="whitespace-nowrap px-3">Basic</TabsTrigger>
                     <TabsTrigger value="contacts" className="whitespace-nowrap px-3">Contacts</TabsTrigger>
@@ -545,8 +545,7 @@ export function AccountDialog({
                     <TabsTrigger value="communications" className="whitespace-nowrap px-3">Comms</TabsTrigger>
                     <TabsTrigger value="permissions" className="whitespace-nowrap px-3">Permissions</TabsTrigger>
                   </TabsList>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
+                </div>
 
                 <ScrollArea className="h-[50vh] pr-4">
                   {/* Basic Tab */}
