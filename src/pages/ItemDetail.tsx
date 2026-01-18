@@ -565,6 +565,7 @@ export default function ItemDetail() {
                   needs_warehouse_assembly: item.needs_warehouse_assembly || false,
                   notify_dispatch: item.notify_dispatch || false,
                   has_damage: item.has_damage || false,
+                  received_without_id: (item as any).received_without_id || false,
                 }}
                 onFlagsChange={handleFlagsChange}
                 isClientUser={isClientUser}
