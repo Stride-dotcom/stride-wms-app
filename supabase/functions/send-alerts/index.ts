@@ -1,8 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -207,8 +205,9 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Dynamic import of Resend
+    // Import Resend
     const { Resend } = await import("https://esm.sh/resend@2.0.0");
+    const resend = new Resend(resendApiKey);
 
     let sent = 0;
     let failed = 0;
