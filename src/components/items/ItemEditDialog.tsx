@@ -1,0 +1,357 @@
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+const itemSchema = z.object({
+  description: z.string().optional(),
+  quantity: z.coerce.number().min(1).default(1),
+  sidemark: z.string().optional(),
+  vendor: z.string().optional(),
+  size: z.coerce.number().optional(),
+  size_unit: z.string().optional(),
+  room: z.string().optional(),
+  link: z.string().url().optional().or(z.literal('')),
+  status: z.string().optional(),
+});
+
+type ItemFormData = z.infer<typeof itemSchema>;
+
+interface ItemEditDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  item: {
+    id: string;
+    item_code: string;
+    description: string | null;
+    quantity: number;
+    sidemark: string | null;
+    vendor: string | null;
+    size: number | null;
+    size_unit: string | null;
+    room?: string | null;
+    link?: string | null;
+    status: string;
+  } | null;
+  onSuccess: () => void;
+}
+
+const STATUS_OPTIONS = [
+  { value: 'available', label: 'Available' },
+  { value: 'reserved', label: 'Reserved' },
+  { value: 'damaged', label: 'Damaged' },
+  { value: 'in_transit', label: 'In Transit' },
+  { value: 'shipped', label: 'Shipped' },
+  { value: 'released', label: 'Released' },
+];
+
+const SIZE_UNITS = [
+  { value: 'sq_ft', label: 'sq ft' },
+  { value: 'cu_ft', label: 'cu ft' },
+  { value: 'inches', label: 'inches' },
+  { value: 'feet', label: 'feet' },
+];
+
+export function ItemEditDialog({
+  open,
+  onOpenChange,
+  item,
+  onSuccess,
+}: ItemEditDialogProps) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+
+  const form = useForm<ItemFormData>({
+    resolver: zodResolver(itemSchema),
+    defaultValues: {
+      description: '',
+      quantity: 1,
+      sidemark: '',
+      vendor: '',
+      size: undefined,
+      size_unit: '',
+      room: '',
+      link: '',
+      status: 'available',
+    },
+  });
+
+  useEffect(() => {
+    if (open && item) {
+      form.reset({
+        description: item.description || '',
+        quantity: item.quantity || 1,
+        sidemark: item.sidemark || '',
+        vendor: item.vendor || '',
+        size: item.size || undefined,
+        size_unit: item.size_unit || '',
+        room: item.room || '',
+        link: item.link || '',
+        status: item.status || 'available',
+      });
+    }
+  }, [open, item]);
+
+  const onSubmit = async (data: ItemFormData) => {
+    if (!item) return;
+
+    setLoading(true);
+    try {
+      const updateData = {
+        description: data.description || null,
+        quantity: data.quantity,
+        sidemark: data.sidemark || null,
+        vendor: data.vendor || null,
+        size: data.size || null,
+        size_unit: data.size_unit || null,
+        room: data.room || null,
+        link: data.link || null,
+        status: data.status || 'available',
+      };
+
+      const { error } = await (supabase.from('items') as any)
+        .update(updateData)
+        .eq('id', item.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Item Updated',
+        description: `${item.item_code} has been updated successfully.`,
+      });
+
+      onOpenChange(false);
+      onSuccess();
+    } catch (error: any) {
+      console.error('Error updating item:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to update item',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Edit Item</DialogTitle>
+          <DialogDescription>
+            Update details for {item?.item_code}
+          </DialogDescription>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Item description..."
+                      className="resize-none"
+                      rows={2}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="quantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Quantity</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={1} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {STATUS_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="sidemark"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sidemark</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Sidemark" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="vendor"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vendor</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Vendor" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="room"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Room</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Room / Area" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="link"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Link (URL)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="size"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Size</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="Size" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="size_unit"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Size Unit</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Unit" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {SIZE_UNITS.map((unit) => (
+                          <SelectItem key={unit.value} value={unit.value}>
+                            {unit.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}

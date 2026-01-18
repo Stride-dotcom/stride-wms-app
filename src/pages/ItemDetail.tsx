@@ -29,6 +29,7 @@ import { ItemFlagsSection } from '@/components/items/ItemFlagsSection';
 import { ItemNotesSection } from '@/components/items/ItemNotesSection';
 import { RepairQuoteSection } from '@/components/items/RepairQuoteSection';
 import { ItemPhotoGallery } from '@/components/items/ItemPhotoGallery';
+import { ItemEditDialog } from '@/components/items/ItemEditDialog';
 import { format } from 'date-fns';
 import { 
   ArrowLeft, 
@@ -58,6 +59,8 @@ interface ItemDetail {
   vendor: string | null;
   size: number | null;
   size_unit: string | null;
+  room: string | null;
+  link: string | null;
   received_at: string | null;
   created_at: string;
   assembly_status: string | null;
@@ -123,6 +126,7 @@ export default function ItemDetail() {
   const [loading, setLoading] = useState(true);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [selectedTaskType, setSelectedTaskType] = useState<string>('');
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   // Check if user is a client (simplified check)
   const isClientUser = false; // Will be determined by role system
@@ -155,6 +159,8 @@ export default function ItemDetail() {
         location: data.locations,
         warehouse: data.warehouses,
         item_type: data.item_types,
+        room: data.room || null,
+        link: data.link || null,
         photo_urls: data.photo_urls || [],
         inspection_photos: data.inspection_photos || [],
         repair_photos: data.repair_photos || [],
@@ -422,7 +428,7 @@ export default function ItemDetail() {
                     Link to Shipment
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setEditDialogOpen(true)}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit Item
                   </DropdownMenuItem>
@@ -483,11 +489,31 @@ export default function ItemDetail() {
                       <p className="font-medium">{item.vendor || '-'}</p>
                     </div>
                     <div>
+                      <span className="text-muted-foreground">Room</span>
+                      <p className="font-medium">{item.room || '-'}</p>
+                    </div>
+                    <div>
                       <span className="text-muted-foreground">Size</span>
                       <p className="font-medium">
                         {item.size ? `${item.size} ${item.size_unit || ''}` : '-'}
                       </p>
                     </div>
+                    {item.link && (
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Link</span>
+                        <p className="font-medium">
+                          <a 
+                            href={item.link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline flex items-center gap-1"
+                          >
+                            {item.link.length > 40 ? item.link.substring(0, 40) + '...' : item.link}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <Separator />
@@ -710,6 +736,13 @@ export default function ItemDetail() {
           setTaskDialogOpen(false);
           fetchTasks();
         }}
+      />
+
+      <ItemEditDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        item={item}
+        onSuccess={fetchItem}
       />
     </DashboardLayout>
   );

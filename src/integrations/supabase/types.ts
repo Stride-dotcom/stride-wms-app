@@ -2532,6 +2532,7 @@ export type Database = {
           is_unstackable: boolean | null
           item_code: string
           item_type_id: string | null
+          link: string | null
           metadata: Json | null
           needs_inspection: boolean | null
           needs_repair: boolean | null
@@ -2543,6 +2544,7 @@ export type Database = {
           received_at: string | null
           repair_photos: Json | null
           repair_status: string | null
+          room: string | null
           sidemark: string | null
           size: number | null
           size_unit: string | null
@@ -2569,6 +2571,7 @@ export type Database = {
           is_unstackable?: boolean | null
           item_code: string
           item_type_id?: string | null
+          link?: string | null
           metadata?: Json | null
           needs_inspection?: boolean | null
           needs_repair?: boolean | null
@@ -2580,6 +2583,7 @@ export type Database = {
           received_at?: string | null
           repair_photos?: Json | null
           repair_status?: string | null
+          room?: string | null
           sidemark?: string | null
           size?: number | null
           size_unit?: string | null
@@ -2606,6 +2610,7 @@ export type Database = {
           is_unstackable?: boolean | null
           item_code?: string
           item_type_id?: string | null
+          link?: string | null
           metadata?: Json | null
           needs_inspection?: boolean | null
           needs_repair?: boolean | null
@@ -2617,6 +2622,7 @@ export type Database = {
           received_at?: string | null
           repair_photos?: Json | null
           repair_status?: string | null
+          room?: string | null
           sidemark?: string | null
           size?: number | null
           size_unit?: string | null
