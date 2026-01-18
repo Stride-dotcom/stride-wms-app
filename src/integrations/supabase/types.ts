@@ -268,6 +268,7 @@ export type Database = {
           credit_limit_amount: number | null
           currency: string | null
           default_receiving_location_id: string | null
+          default_receiving_notes: string | null
           default_receiving_status: string | null
           deleted_at: string | null
           disable_email_communications: boolean | null
@@ -333,6 +334,7 @@ export type Database = {
           credit_limit_amount?: number | null
           currency?: string | null
           default_receiving_location_id?: string | null
+          default_receiving_notes?: string | null
           default_receiving_status?: string | null
           deleted_at?: string | null
           disable_email_communications?: boolean | null
@@ -398,6 +400,7 @@ export type Database = {
           credit_limit_amount?: number | null
           currency?: string | null
           default_receiving_location_id?: string | null
+          default_receiving_notes?: string | null
           default_receiving_status?: string | null
           deleted_at?: string | null
           disable_email_communications?: boolean | null
@@ -1056,6 +1059,122 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "custom_fields_definitions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      disposal_order_items: {
+        Row: {
+          created_at: string
+          disposal_order_id: string
+          id: string
+          item_id: string
+        }
+        Insert: {
+          created_at?: string
+          disposal_order_id: string
+          id?: string
+          item_id: string
+        }
+        Update: {
+          created_at?: string
+          disposal_order_id?: string
+          id?: string
+          item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disposal_order_items_disposal_order_id_fkey"
+            columns: ["disposal_order_id"]
+            isOneToOne: false
+            referencedRelation: "disposal_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disposal_order_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disposal_order_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      disposal_orders: {
+        Row: {
+          account_id: string | null
+          bill_to: string | null
+          bill_to_customer_name: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          deleted_at: string | null
+          disposal_method: string | null
+          disposal_reason: string | null
+          id: string
+          notes: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          bill_to?: string | null
+          bill_to_customer_name?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          disposal_method?: string | null
+          disposal_reason?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          bill_to?: string | null
+          bill_to_customer_name?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          disposal_method?: string | null
+          disposal_reason?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disposal_orders_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disposal_orders_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disposal_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1849,12 +1968,15 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           id: string
+          inspection_photos: Json | null
           inspection_status: string | null
           item_code: string
           item_type_id: string | null
           metadata: Json | null
+          photo_urls: Json | null
           quantity: number
           received_at: string | null
+          repair_photos: Json | null
           repair_status: string | null
           sidemark: string | null
           size: number | null
@@ -1873,12 +1995,15 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           id?: string
+          inspection_photos?: Json | null
           inspection_status?: string | null
           item_code: string
           item_type_id?: string | null
           metadata?: Json | null
+          photo_urls?: Json | null
           quantity?: number
           received_at?: string | null
+          repair_photos?: Json | null
           repair_status?: string | null
           sidemark?: string | null
           size?: number | null
@@ -1897,12 +2022,15 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           id?: string
+          inspection_photos?: Json | null
           inspection_status?: string | null
           item_code?: string
           item_type_id?: string | null
           metadata?: Json | null
+          photo_urls?: Json | null
           quantity?: number
           received_at?: string | null
+          repair_photos?: Json | null
           repair_status?: string | null
           sidemark?: string | null
           size?: number | null
@@ -2412,9 +2540,12 @@ export type Database = {
           metadata: Json | null
           notes: string | null
           received_by: string | null
+          receiving_documents: Json | null
+          receiving_photos: Json | null
           status: string
           tenant_id: string
           updated_at: string | null
+          vendor: string | null
           warehouse_id: string | null
         }
         Insert: {
@@ -2425,9 +2556,12 @@ export type Database = {
           metadata?: Json | null
           notes?: string | null
           received_by?: string | null
+          receiving_documents?: Json | null
+          receiving_photos?: Json | null
           status?: string
           tenant_id: string
           updated_at?: string | null
+          vendor?: string | null
           warehouse_id?: string | null
         }
         Update: {
@@ -2438,9 +2572,12 @@ export type Database = {
           metadata?: Json | null
           notes?: string | null
           received_by?: string | null
+          receiving_documents?: Json | null
+          receiving_photos?: Json | null
           status?: string
           tenant_id?: string
           updated_at?: string | null
+          vendor?: string | null
           warehouse_id?: string | null
         }
         Relationships: [
@@ -2614,6 +2751,9 @@ export type Database = {
           payment_status: string | null
           po_number: string | null
           received_at: string | null
+          receiving_documents: Json | null
+          receiving_notes: string | null
+          receiving_photos: Json | null
           release_to_email: string | null
           release_to_name: string | null
           release_to_phone: string | null
@@ -2648,6 +2788,9 @@ export type Database = {
           payment_status?: string | null
           po_number?: string | null
           received_at?: string | null
+          receiving_documents?: Json | null
+          receiving_notes?: string | null
+          receiving_photos?: Json | null
           release_to_email?: string | null
           release_to_name?: string | null
           release_to_phone?: string | null
@@ -2682,6 +2825,9 @@ export type Database = {
           payment_status?: string | null
           po_number?: string | null
           received_at?: string | null
+          receiving_documents?: Json | null
+          receiving_notes?: string | null
+          receiving_photos?: Json | null
           release_to_email?: string | null
           release_to_name?: string | null
           release_to_phone?: string | null
@@ -3036,6 +3182,9 @@ export type Database = {
           account_id: string | null
           assigned_department: string | null
           assigned_to: string | null
+          bill_to: string | null
+          bill_to_customer_email: string | null
+          bill_to_customer_name: string | null
           billing_charge_date: string | null
           billing_date: string | null
           billing_status: string | null
@@ -3068,6 +3217,9 @@ export type Database = {
           account_id?: string | null
           assigned_department?: string | null
           assigned_to?: string | null
+          bill_to?: string | null
+          bill_to_customer_email?: string | null
+          bill_to_customer_name?: string | null
           billing_charge_date?: string | null
           billing_date?: string | null
           billing_status?: string | null
@@ -3100,6 +3252,9 @@ export type Database = {
           account_id?: string | null
           assigned_department?: string | null
           assigned_to?: string | null
+          bill_to?: string | null
+          bill_to_customer_email?: string | null
+          bill_to_customer_name?: string | null
           billing_charge_date?: string | null
           billing_date?: string | null
           billing_status?: string | null
@@ -3633,6 +3788,7 @@ export type Database = {
           email: string
           first_name: string | null
           id: string
+          labor_rate: number | null
           last_login_at: string | null
           last_name: string | null
           password_hash: string
@@ -3646,6 +3802,7 @@ export type Database = {
           email: string
           first_name?: string | null
           id?: string
+          labor_rate?: number | null
           last_login_at?: string | null
           last_name?: string | null
           password_hash: string
@@ -3659,6 +3816,7 @@ export type Database = {
           email?: string
           first_name?: string | null
           id?: string
+          labor_rate?: number | null
           last_login_at?: string | null
           last_name?: string | null
           password_hash?: string
@@ -3844,6 +4002,7 @@ export type Database = {
       }
       will_call_orders: {
         Row: {
+          bill_to: string | null
           client_account: string | null
           client_name: string
           completed_at: string | null
@@ -3855,12 +4014,17 @@ export type Database = {
           metadata: Json | null
           notes: string | null
           order_number: string
+          picked_up_at: string | null
+          picked_up_by: string | null
           scheduled_pickup_at: string | null
+          signature_data: string | null
+          signature_name: string | null
           status: string
           tenant_id: string
           updated_at: string | null
         }
         Insert: {
+          bill_to?: string | null
           client_account?: string | null
           client_name: string
           completed_at?: string | null
@@ -3872,12 +4036,17 @@ export type Database = {
           metadata?: Json | null
           notes?: string | null
           order_number: string
+          picked_up_at?: string | null
+          picked_up_by?: string | null
           scheduled_pickup_at?: string | null
+          signature_data?: string | null
+          signature_name?: string | null
           status?: string
           tenant_id: string
           updated_at?: string | null
         }
         Update: {
+          bill_to?: string | null
           client_account?: string | null
           client_name?: string
           completed_at?: string | null
@@ -3889,7 +4058,11 @@ export type Database = {
           metadata?: Json | null
           notes?: string | null
           order_number?: string
+          picked_up_at?: string | null
+          picked_up_by?: string | null
           scheduled_pickup_at?: string | null
+          signature_data?: string | null
+          signature_name?: string | null
           status?: string
           tenant_id?: string
           updated_at?: string | null
