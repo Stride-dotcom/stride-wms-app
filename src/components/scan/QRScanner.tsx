@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, CameraOff, Loader2, RefreshCw } from "lucide-react";
+import { Camera, CameraOff, ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -329,14 +329,21 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
         )}
       />
 
-      {/* Camera blocked or unavailable - show simple message */}
+      {/* Camera blocked by embedded preview - show new-tab action */}
       {scanning && isCameraBlocked && status === "idle" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/95 rounded-2xl p-6">
           <CameraOff className="h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-base font-semibold text-center">Camera unavailable</p>
-          <p className="text-sm text-muted-foreground text-center mt-2 max-w-[280px]">
-            Please check your browser settings or try a different browser.
+          <p className="text-base font-semibold text-center">Camera unavailable in embedded view</p>
+          <p className="text-sm text-muted-foreground text-center mt-2 mb-4 max-w-[280px]">
+            Chrome blocks camera access inside embedded previews. Open the scanner in a new tab to use your camera.
           </p>
+          <Button
+            variant="outline"
+            onClick={() => window.open(window.location.href, "_blank", "noopener,noreferrer")}
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open in new tab
+          </Button>
         </div>
       )}
 
