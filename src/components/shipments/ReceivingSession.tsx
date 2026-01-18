@@ -243,7 +243,7 @@ export function ReceivingSession({
       {/* Session Header */}
       <Card className="border-primary">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5 text-primary" />
@@ -253,12 +253,12 @@ export function ReceivingSession({
                 Started {format(new Date(session.started_at), 'MMM d, yyyy h:mm a')}
               </CardDescription>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleCancelSession}>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={handleCancelSession}>
                 <X className="mr-2 h-4 w-4" />
                 Cancel
               </Button>
-              <Button onClick={() => setShowFinishDialog(true)}>
+              <Button size="sm" onClick={() => setShowFinishDialog(true)}>
                 <CheckCircle className="mr-2 h-4 w-4" />
                 Finish Receiving
               </Button>
