@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,10 +14,21 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { PhotoCapture } from '@/components/shipments/PhotoCapture';
+import { useAuth } from '@/contexts/AuthContext';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
+import { ItemFlagsSection } from '@/components/items/ItemFlagsSection';
+import { ItemNotesSection } from '@/components/items/ItemNotesSection';
+import { RepairQuoteSection } from '@/components/items/RepairQuoteSection';
+import { ItemPhotoGallery } from '@/components/items/ItemPhotoGallery';
 import { format } from 'date-fns';
 import { 
   ArrowLeft, 
@@ -26,10 +37,14 @@ import {
   MapPin, 
   ClipboardList,
   History,
-  Camera,
   Edit,
+  MoreHorizontal,
+  Printer,
   Truck,
-  Trash2
+  Trash2,
+  DollarSign,
+  Link as LinkIcon,
+  ExternalLink,
 } from 'lucide-react';
 
 interface ItemDetail {
@@ -51,6 +66,18 @@ interface ItemDetail {
   photo_urls: string[] | null;
   inspection_photos: string[] | null;
   repair_photos: string[] | null;
+  primary_photo_url: string | null;
+  // Flags
+  is_overweight: boolean;
+  is_oversize: boolean;
+  is_unstackable: boolean;
+  is_crated: boolean;
+  needs_repair: boolean;
+  needs_inspection: boolean;
+  needs_warehouse_assembly: boolean;
+  notify_dispatch: boolean;
+  has_damage: boolean;
+  // Relations
   location?: { id: string; code: string; name: string | null } | null;
   warehouse?: { id: string; name: string } | null;
   item_type?: { id: string; name: string } | null;
@@ -72,24 +99,40 @@ interface ItemTask {
   status: string;
   priority: string;
   due_date: string | null;
+  created_at: string;
+}
+
+interface ShipmentLink {
+  id: string;
+  shipment_number: string;
+  shipment_type: string;
+  status: string;
+  created_at: string;
 }
 
 export default function ItemDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { profile } = useAuth();
 
   const [item, setItem] = useState<ItemDetail | null>(null);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [tasks, setTasks] = useState<ItemTask[]>([]);
+  const [shipments, setShipments] = useState<ShipmentLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [selectedTaskType, setSelectedTaskType] = useState<string>('');
+
+  // Check if user is a client (simplified check)
+  const isClientUser = false; // Will be determined by role system
 
   useEffect(() => {
     if (id) {
       fetchItem();
       fetchMovements();
       fetchTasks();
+      fetchShipments();
     }
   }, [id]);
 
@@ -163,7 +206,7 @@ export default function ItemDetail() {
       const taskIds = taskItems.map((ti: any) => ti.task_id);
 
       const { data } = await (supabase.from('tasks') as any)
-        .select('id, title, task_type, status, priority, due_date')
+        .select('id, title, task_type, status, priority, due_date, created_at')
         .in('id', taskIds)
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
@@ -174,25 +217,60 @@ export default function ItemDetail() {
     }
   };
 
-  const handlePhotosChange = async (
-    field: 'photo_urls' | 'inspection_photos' | 'repair_photos',
-    urls: string[]
-  ) => {
-    if (!item) return;
-
+  const fetchShipments = async () => {
     try {
-      const updateData: any = {};
-      updateData[field] = urls;
+      // Get shipments through shipment_items
+      const { data: shipmentItems } = await (supabase.from('shipment_items') as any)
+        .select(`
+          shipment_id,
+          shipments:shipment_id(id, shipment_number, shipment_type, status, created_at)
+        `)
+        .eq('item_id', id);
 
-      const { error } = await (supabase.from('items') as any)
-        .update(updateData)
-        .eq('id', item.id);
+      if (!shipmentItems) {
+        setShipments([]);
+        return;
+      }
 
-      if (error) throw error;
+      const uniqueShipments = shipmentItems
+        .map((si: any) => si.shipments)
+        .filter((s: any) => s)
+        .reduce((acc: ShipmentLink[], s: any) => {
+          if (!acc.find(existing => existing.id === s.id)) {
+            acc.push(s);
+          }
+          return acc;
+        }, []);
 
-      setItem(prev => prev ? { ...prev, [field]: urls } : null);
+      setShipments(uniqueShipments);
     } catch (error) {
-      console.error('Error updating photos:', error);
+      console.error('Error fetching shipments:', error);
+    }
+  };
+
+  const handleFlagsChange = (flags: any) => {
+    if (item) {
+      setItem({ ...item, ...flags });
+    }
+  };
+
+  const openTaskMenu = (taskType: string) => {
+    // Check for existing open tasks of this type
+    const openTasks = tasks.filter(
+      t => t.task_type === taskType && 
+      !['completed', 'cancelled', 'unable_to_complete'].includes(t.status)
+    );
+
+    if (openTasks.length === 1) {
+      // Navigate to the existing task
+      navigate(`/tasks?id=${openTasks[0].id}`);
+    } else if (openTasks.length > 1) {
+      // Show list - for now just navigate to tasks filtered
+      navigate(`/tasks?type=${taskType}`);
+    } else {
+      // Create new task
+      setSelectedTaskType(taskType);
+      setTaskDialogOpen(true);
     }
   };
 
@@ -269,14 +347,87 @@ export default function ItemDetail() {
           </div>
           
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setTaskDialogOpen(true)}>
-              <ClipboardList className="mr-2 h-4 w-4" />
-              Create Task
-            </Button>
-            <Button variant="outline">
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
-            </Button>
+            {/* Task Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <ClipboardList className="mr-2 h-4 w-4" />
+                  Tasks
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => openTaskMenu('Inspection')}>
+                  Inspection
+                  {tasks.filter(t => t.task_type === 'Inspection' && t.status !== 'completed').length > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {tasks.filter(t => t.task_type === 'Inspection' && t.status !== 'completed').length}
+                    </Badge>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openTaskMenu('Assembly')}>
+                  Assembly
+                  {tasks.filter(t => t.task_type === 'Assembly' && t.status !== 'completed').length > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {tasks.filter(t => t.task_type === 'Assembly' && t.status !== 'completed').length}
+                    </Badge>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openTaskMenu('Repair')}>
+                  Repair
+                  {tasks.filter(t => t.task_type === 'Repair' && t.status !== 'completed').length > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {tasks.filter(t => t.task_type === 'Repair' && t.status !== 'completed').length}
+                    </Badge>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => {
+                  setSelectedTaskType('');
+                  setTaskDialogOpen(true);
+                }}>
+                  Other Task Type
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Actions Menu */}
+            {!isClientUser && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>
+                    <Printer className="mr-2 h-4 w-4" />
+                    Print 4x6 Label
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Truck className="mr-2 h-4 w-4" />
+                    Create Will Call
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Create Disposal
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <DollarSign className="mr-2 h-4 w-4" />
+                    Add Billing Charge
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <LinkIcon className="mr-2 h-4 w-4" />
+                    Link to Shipment
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Item
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
 
@@ -289,232 +440,265 @@ export default function ItemDetail() {
           </div>
         )}
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Details Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Item Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Quantity</span>
-                  <p className="font-medium">{item.quantity}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Item Type</span>
-                  <p className="font-medium">{item.item_type?.name || '-'}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Client Account</span>
-                  <p className="font-medium">{item.client_account || '-'}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Sidemark</span>
-                  <p className="font-medium">{item.sidemark || '-'}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Vendor</span>
-                  <p className="font-medium">{item.vendor || '-'}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Size</span>
-                  <p className="font-medium">
-                    {item.size ? `${item.size} ${item.size_unit || ''}` : '-'}
-                  </p>
-                </div>
-              </div>
+        <Tabs defaultValue="details" className="w-full">
+          <TabsList>
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="photos">Photos</TabsTrigger>
+            <TabsTrigger value="notes">Notes</TabsTrigger>
+            {!isClientUser && <TabsTrigger value="history">History</TabsTrigger>}
+            {item.needs_repair && <TabsTrigger value="repair">Repair</TabsTrigger>}
+          </TabsList>
 
-              <Separator />
+          <TabsContent value="details" className="space-y-6 mt-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Details Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Item Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Quantity</span>
+                      <p className="font-medium">{item.quantity}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Item Type</span>
+                      <p className="font-medium">{item.item_type?.name || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Client Account</span>
+                      <p className="font-medium">{item.client_account || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Sidemark</span>
+                      <p className="font-medium">{item.sidemark || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Vendor</span>
+                      <p className="font-medium">{item.vendor || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Size</span>
+                      <p className="font-medium">
+                        {item.size ? `${item.size} ${item.size_unit || ''}` : '-'}
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Warehouse</span>
-                  <p className="font-medium">{item.warehouse?.name || '-'}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Location</span>
-                  <p className="font-medium flex items-center gap-1">
-                    <MapPin className="h-3 w-3" />
-                    {item.location?.code || item.location?.name || '-'}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Received</span>
-                  <p className="font-medium">
-                    {item.received_at
-                      ? format(new Date(item.received_at), 'MMM d, yyyy')
-                      : '-'}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Created</span>
-                  <p className="font-medium">
-                    {format(new Date(item.created_at), 'MMM d, yyyy')}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                  <Separator />
 
-          {/* Photos Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Camera className="h-5 w-5" />
-                Photos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="item">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="item">Item</TabsTrigger>
-                  <TabsTrigger value="inspection">Inspection</TabsTrigger>
-                  <TabsTrigger value="repair">Repair</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="item" className="mt-4">
-                  <PhotoCapture
-                    entityType="item"
-                    entityId={item.id}
-                    onPhotosChange={(urls) => handlePhotosChange('photo_urls', urls)}
-                    existingPhotos={item.photo_urls || []}
-                    label="Item Photos"
-                  />
-                </TabsContent>
-
-                <TabsContent value="inspection" className="mt-4">
-                  <PhotoCapture
-                    entityType="inspection"
-                    entityId={item.id}
-                    onPhotosChange={(urls) => handlePhotosChange('inspection_photos', urls)}
-                    existingPhotos={item.inspection_photos || []}
-                    label="Inspection Photos"
-                  />
-                </TabsContent>
-
-                <TabsContent value="repair" className="mt-4">
-                  <PhotoCapture
-                    entityType="repair"
-                    entityId={item.id}
-                    onPhotosChange={(urls) => handlePhotosChange('repair_photos', urls)}
-                    existingPhotos={item.repair_photos || []}
-                    label="Repair Photos"
-                  />
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Tasks Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ClipboardList className="h-5 w-5" />
-              Tasks ({tasks.length})
-            </CardTitle>
-            <CardDescription>Tasks associated with this item</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {tasks.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">No tasks for this item</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Task</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Due Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tasks.map((task) => (
-                    <TableRow
-                      key={task.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate(`/tasks?id=${task.id}`)}
-                    >
-                      <TableCell className="font-medium">{task.title}</TableCell>
-                      <TableCell>{task.task_type}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{task.status.replace('_', ' ')}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={
-                            task.priority === 'urgent'
-                              ? 'bg-red-100 text-red-800'
-                              : task.priority === 'high'
-                              ? 'bg-orange-100 text-orange-800'
-                              : ''
-                          }
-                        >
-                          {task.priority}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {task.due_date
-                          ? format(new Date(task.due_date), 'MMM d, yyyy')
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Warehouse</span>
+                      <p className="font-medium">{item.warehouse?.name || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Location</span>
+                      <p className="font-medium flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        {item.location?.code || item.location?.name || '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Received</span>
+                      <p className="font-medium">
+                        {item.received_at
+                          ? format(new Date(item.received_at), 'MMM d, yyyy')
                           : '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Created</span>
+                      <p className="font-medium">
+                        {format(new Date(item.created_at), 'MMM d, yyyy')}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-        {/* Movement History Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              Movement History
-            </CardTitle>
-            <CardDescription>Location changes and movements</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {movements.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">No movement history</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Action</TableHead>
-                    <TableHead>From</TableHead>
-                    <TableHead>To</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Note</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {movements.map((movement) => (
-                    <TableRow key={movement.id}>
-                      <TableCell className="font-medium">
-                        {movement.action_type.replace('_', ' ')}
-                      </TableCell>
-                      <TableCell>{movement.from_location?.code || '-'}</TableCell>
-                      <TableCell>{movement.to_location?.code || '-'}</TableCell>
-                      <TableCell>
-                        {format(new Date(movement.moved_at), 'MMM d, yyyy h:mm a')}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {movement.note || '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              {/* Flags Card */}
+              <ItemFlagsSection
+                itemId={item.id}
+                flags={{
+                  is_overweight: item.is_overweight || false,
+                  is_oversize: item.is_oversize || false,
+                  is_unstackable: item.is_unstackable || false,
+                  is_crated: item.is_crated || false,
+                  needs_repair: item.needs_repair || false,
+                  needs_inspection: item.needs_inspection || false,
+                  needs_warehouse_assembly: item.needs_warehouse_assembly || false,
+                  notify_dispatch: item.notify_dispatch || false,
+                  has_damage: item.has_damage || false,
+                }}
+                onFlagsChange={handleFlagsChange}
+                isClientUser={isClientUser}
+              />
+            </div>
+
+            {/* Shipment Links */}
+            {shipments.length > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <LinkIcon className="h-5 w-5" />
+                    Linked Shipments
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {shipments.map((shipment) => (
+                      <div
+                        key={shipment.id}
+                        className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline">{shipment.shipment_type}</Badge>
+                          <span className="font-medium">{shipment.shipment_number}</span>
+                          <Badge variant="secondary">{shipment.status}</Badge>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/shipments/${shipment.id}`)}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
+
+            {/* Tasks Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5" />
+                  Tasks ({tasks.length})
+                </CardTitle>
+                <CardDescription>Tasks associated with this item</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {tasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">No tasks for this item</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Task</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Priority</TableHead>
+                        <TableHead>Due Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tasks.map((task) => (
+                        <TableRow
+                          key={task.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => navigate(`/tasks?id=${task.id}`)}
+                        >
+                          <TableCell className="font-medium">{task.title}</TableCell>
+                          <TableCell>{task.task_type}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{task.status.replace('_', ' ')}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className={
+                                task.priority === 'urgent'
+                                  ? 'bg-red-100 text-red-800'
+                                  : task.priority === 'high'
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : ''
+                              }
+                            >
+                              {task.priority}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {task.due_date
+                              ? format(new Date(task.due_date), 'MMM d, yyyy')
+                              : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="photos" className="mt-6">
+            <ItemPhotoGallery itemId={item.id} isClientUser={isClientUser} />
+          </TabsContent>
+
+          <TabsContent value="notes" className="mt-6">
+            <ItemNotesSection itemId={item.id} isClientUser={isClientUser} />
+          </TabsContent>
+
+          {!isClientUser && (
+            <TabsContent value="history" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Movement History
+                  </CardTitle>
+                  <CardDescription>Location changes and movements</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {movements.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4">No movement history</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Action</TableHead>
+                          <TableHead>From</TableHead>
+                          <TableHead>To</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Note</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {movements.map((movement) => (
+                          <TableRow key={movement.id}>
+                            <TableCell className="font-medium">
+                              {movement.action_type.replace('_', ' ')}
+                            </TableCell>
+                            <TableCell>{movement.from_location?.code || '-'}</TableCell>
+                            <TableCell>{movement.to_location?.code || '-'}</TableCell>
+                            <TableCell>
+                              {format(new Date(movement.moved_at), 'MMM d, yyyy h:mm a')}
+                            </TableCell>
+                            <TableCell className="max-w-[200px] truncate">
+                              {movement.note || '-'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          {item.needs_repair && (
+            <TabsContent value="repair" className="mt-6">
+              <RepairQuoteSection itemId={item.id} canApprove={!isClientUser} />
+            </TabsContent>
+          )}
+        </Tabs>
       </div>
 
       <TaskDialog
