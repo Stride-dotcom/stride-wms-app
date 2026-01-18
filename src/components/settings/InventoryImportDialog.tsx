@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import * as XLSX from 'xlsx';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +22,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { 
+  parseFileToRows, 
+  canonicalizeHeader, 
+  parseNumber, 
+  parseDate as parseDateUtil,
+  extractUrl 
+} from '@/lib/importUtils';
 
 interface InventoryImportDialogProps {
   open: boolean;
@@ -61,40 +67,82 @@ interface ImportResult {
   skipped: number;
 }
 
-// Column header mappings (case-insensitive)
-const COLUMN_MAP: Record<string, keyof ParsedItem> = {
-  'qty': 'quantity',
-  'quantity': 'quantity',
-  'box cnt': 'boxCount',
-  'box count': 'boxCount',
-  'vendor': 'vendor',
-  'description': 'description',
-  'id#': 'itemCode',
-  'id': 'itemCode',
-  'item code': 'itemCode',
-  'item_code': 'itemCode',
-  'location': 'locationCode',
-  'project': 'project',
-  'room': 'room',
-  'photos': 'photoUrl',
-  'photo': 'photoUrl',
-  'photo url': 'photoUrl',
-  'inspection notes': 'inspectionNotes',
-  'inspection': 'inspectionNotes',
-  'assembly status': 'assemblyStatus',
-  'assembly': 'assemblyStatus',
-  'item notes': 'itemNotes',
-  'notes': 'itemNotes',
-  'tech': 'tech',
-  'technician': 'tech',
-  'repair status': 'repairStatus',
-  'repair': 'repairStatus',
-  'date repaired': 'dateRepaired',
-  'date received': 'dateReceived',
-  'received': 'dateReceived',
-  'date released': 'dateReleased',
-  'released': 'dateReleased',
-  'size': 'size',
+// Header aliases for inventory imports (canonicalized form -> field name)
+const INVENTORY_HEADER_ALIASES: Record<string, keyof ParsedItem> = {
+  // Quantity
+  qty: 'quantity',
+  quantity: 'quantity',
+  
+  // Box count
+  box_cnt: 'boxCount',
+  box_count: 'boxCount',
+  boxcount: 'boxCount',
+  
+  // Vendor
+  vendor: 'vendor',
+  
+  // Description
+  description: 'description',
+  desc: 'description',
+  item_description: 'description',
+  
+  // Item code / ID
+  id_number: 'itemCode',
+  id: 'itemCode',
+  item_code: 'itemCode',
+  itemcode: 'itemCode',
+  item_id: 'itemCode',
+  sku: 'itemCode',
+  
+  // Location
+  location: 'locationCode',
+  loc: 'locationCode',
+  location_code: 'locationCode',
+  
+  // Project
+  project: 'project',
+  sidemark: 'project',
+  
+  // Room
+  room: 'room',
+  
+  // Photos
+  photos: 'photoUrl',
+  photo: 'photoUrl',
+  photo_url: 'photoUrl',
+  image: 'photoUrl',
+  
+  // Inspection notes
+  inspection_notes: 'inspectionNotes',
+  inspection: 'inspectionNotes',
+  
+  // Assembly status
+  assembly_status: 'assemblyStatus',
+  assembly: 'assemblyStatus',
+  assm: 'assemblyStatus',
+  
+  // Item notes
+  item_notes: 'itemNotes',
+  notes: 'itemNotes',
+  
+  // Tech
+  tech: 'tech',
+  technician: 'tech',
+  
+  // Repair status
+  repair_status: 'repairStatus',
+  repair: 'repairStatus',
+  
+  // Dates
+  date_repaired: 'dateRepaired',
+  repaired: 'dateRepaired',
+  date_received: 'dateReceived',
+  received: 'dateReceived',
+  date_released: 'dateReleased',
+  released: 'dateReleased',
+  
+  // Size
+  size: 'size',
 };
 
 function parseAssemblyStatus(value: string): string | null {
@@ -115,150 +163,72 @@ function parseRepairStatus(value: string): string | null {
   return null;
 }
 
-function parseDate(value: string | number): string | null {
-  if (!value) return null;
-  
-  // Handle Excel date serial numbers
-  if (typeof value === 'number') {
-    const excelEpoch = new Date(1899, 11, 30);
-    const date = new Date(excelEpoch.getTime() + value * 86400000);
-    return date.toISOString();
-  }
-  
-  // Handle string dates
-  const str = String(value).trim();
-  if (!str) return null;
-  
-  // Try parsing common formats: M/D/YYYY, M/D/YY, YYYY-MM-DD
-  const parts = str.split('/');
-  if (parts.length === 3) {
-    let year = parseInt(parts[2]);
-    if (year < 100) year += 2000; // Handle 2-digit years
-    const month = parseInt(parts[0]) - 1;
-    const day = parseInt(parts[1]);
-    const date = new Date(year, month, day);
-    if (!isNaN(date.getTime())) {
-      return date.toISOString();
-    }
-  }
-  
-  // Try standard Date parsing
-  const date = new Date(str);
-  if (!isNaN(date.getTime())) {
-    return date.toISOString();
-  }
-  
-  return null;
-}
-
-function extractPhotoUrl(value: string): string | null {
-  if (!value) return null;
-  
-  // Extract URL from markdown link format [text](url) or plain URL
-  const markdownMatch = value.match(/\]\((https?:\/\/[^)]+)\)/);
-  if (markdownMatch) return markdownMatch[1];
-  
-  // Match plain URLs
-  const urlMatch = value.match(/(https?:\/\/[^\s<>)"]+)/);
-  if (urlMatch) return urlMatch[1];
-  
-  return null;
-}
-
 async function parseFile(file: File): Promise<{ items: ParsedItem[]; headers: string[] }> {
   const items: ParsedItem[] = [];
-  const fileName = file.name.toLowerCase();
-  let headers: string[] = [];
   
-  const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: 'array' });
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data: any[][] = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-  
-  if (data.length < 2) return { items: [], headers: [] };
-  
-  // Find header row (first row with recognizable column names)
-  let headerRowIndex = 0;
-  let columnIndices: Record<keyof ParsedItem, number> = {} as Record<keyof ParsedItem, number>;
-  
-  for (let i = 0; i < Math.min(data.length, 5); i++) {
-    const row = data[i];
-    if (!row) continue;
+  try {
+    const { headers, rows } = await parseFileToRows(file);
     
-    const tempIndices: Record<string, number> = {};
-    let matchCount = 0;
-    
-    for (let j = 0; j < row.length; j++) {
-      const cell = String(row[j] || '').toLowerCase().trim();
-      // Remove HTML tags and parenthetical content
-      const cleanCell = cell.replace(/<[^>]*>/g, '').replace(/\([^)]*\)/g, '').trim();
-      
-      for (const [key, mappedKey] of Object.entries(COLUMN_MAP)) {
-        if (cleanCell === key || cleanCell.includes(key)) {
-          tempIndices[mappedKey] = j;
-          matchCount++;
-          break;
-        }
-      }
+    if (rows.length === 0) {
+      return { items: [], headers: [] };
     }
     
-    if (matchCount >= 3) { // Found at least 3 matching columns
-      headerRowIndex = i;
-      columnIndices = tempIndices as Record<keyof ParsedItem, number>;
-      headers = row.map(c => String(c || ''));
-      break;
-    }
-  }
-  
-  // Parse data rows
-  for (let i = headerRowIndex + 1; i < data.length; i++) {
-    const row = data[i];
-    if (!row) continue;
-    
-    const getValue = (key: keyof ParsedItem): string => {
-      const idx = columnIndices[key];
-      if (idx === undefined) return '';
-      return String(row[idx] || '').trim();
-    };
-    
-    const getNumValue = (key: keyof ParsedItem): number => {
-      const idx = columnIndices[key];
-      if (idx === undefined) return 0;
-      const val = row[idx];
-      if (typeof val === 'number') return val;
-      return parseInt(String(val || '0')) || 0;
-    };
-    
-    const itemCode = getValue('itemCode');
-    const quantity = getNumValue('quantity');
-    
-    // Skip empty rows or rows without item code
-    if (!itemCode && quantity === 0) continue;
-    
-    items.push({
-      quantity: quantity || 1,
-      boxCount: getNumValue('boxCount'),
-      vendor: getValue('vendor'),
-      description: getValue('description'),
-      itemCode,
-      locationCode: getValue('locationCode').toUpperCase(),
-      project: getValue('project'),
-      room: getValue('room'),
-      photoUrl: getValue('photoUrl'),
-      inspectionNotes: getValue('inspectionNotes'),
-      assemblyStatus: getValue('assemblyStatus'),
-      itemNotes: getValue('itemNotes'),
-      tech: getValue('tech'),
-      repairStatus: getValue('repairStatus'),
-      dateRepaired: getValue('dateRepaired'),
-      dateReceived: getValue('dateReceived'),
-      dateReleased: getValue('dateReleased'),
-      size: getNumValue('size'),
+    // Map headers to field names
+    const mappedHeaders: (keyof ParsedItem | null)[] = headers.map((h) => {
+      const canonical = canonicalizeHeader(h);
+      return INVENTORY_HEADER_ALIASES[canonical] || null;
     });
+    
+    // Create column indices
+    const getIndex = (field: keyof ParsedItem): number => mappedHeaders.indexOf(field);
+    
+    // Parse each row
+    for (const row of rows) {
+      const getValue = (field: keyof ParsedItem): string => {
+        const idx = getIndex(field);
+        if (idx === -1) return '';
+        return String(row[idx] ?? '').trim();
+      };
+      
+      const getNumValue = (field: keyof ParsedItem): number => {
+        const idx = getIndex(field);
+        if (idx === -1) return 0;
+        return parseNumber(row[idx]) || 0;
+      };
+      
+      const itemCode = getValue('itemCode');
+      const quantity = getNumValue('quantity');
+      
+      // Skip empty rows or rows without item code
+      if (!itemCode && quantity === 0) continue;
+      
+      items.push({
+        quantity: quantity || 1,
+        boxCount: getNumValue('boxCount'),
+        vendor: getValue('vendor'),
+        description: getValue('description'),
+        itemCode,
+        locationCode: getValue('locationCode').toUpperCase(),
+        project: getValue('project'),
+        room: getValue('room'),
+        photoUrl: getValue('photoUrl'),
+        inspectionNotes: getValue('inspectionNotes'),
+        assemblyStatus: getValue('assemblyStatus'),
+        itemNotes: getValue('itemNotes'),
+        tech: getValue('tech'),
+        repairStatus: getValue('repairStatus'),
+        dateRepaired: getValue('dateRepaired'),
+        dateReceived: getValue('dateReceived'),
+        dateReleased: getValue('dateReleased'),
+        size: getNumValue('size'),
+      });
+    }
+    
+    return { items, headers };
+  } catch (error) {
+    console.error('Error parsing inventory file:', error);
+    return { items: [], headers: [] };
   }
-  
-  return { items, headers };
 }
 
 export function InventoryImportDialog({
@@ -305,6 +275,14 @@ export function InventoryImportDialog({
       const { items, headers: parsedHeaders } = await parseFile(file);
       setParsedItems(items);
       setHeaders(parsedHeaders);
+      
+      if (items.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Import Error',
+          description: 'No valid items found in the file. Check that columns like ID#, Description, etc. are present.',
+        });
+      }
     } catch (error) {
       console.error('Error parsing file:', error);
       toast({
@@ -342,7 +320,7 @@ export function InventoryImportDialog({
       .from('users')
       .select('tenant_id')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (!profile?.tenant_id) {
       toast({
@@ -371,7 +349,7 @@ export function InventoryImportDialog({
           .filter(item => item.itemCode) // Skip items without item code
           .map((item) => {
             const locationId = locationMap.get(item.locationCode);
-            const photoUrl = extractPhotoUrl(item.photoUrl);
+            const photoUrl = extractUrl(item.photoUrl);
             
             return {
               tenant_id: profile.tenant_id,
@@ -386,7 +364,7 @@ export function InventoryImportDialog({
               status: item.dateReleased ? 'released' : 'in_storage',
               assembly_status: parseAssemblyStatus(item.assemblyStatus),
               repair_status: parseRepairStatus(item.repairStatus),
-              received_at: parseDate(item.dateReceived),
+              received_at: parseDateUtil(item.dateReceived),
               primary_photo_url: photoUrl,
               photo_urls: photoUrl ? [photoUrl] : null,
               metadata: {
