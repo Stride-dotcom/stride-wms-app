@@ -473,6 +473,54 @@ export type Database = {
           },
         ]
       }
+      admin_audit_log: {
+        Row: {
+          action: string
+          actor_id: string
+          changes_json: Json | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          changes_json?: Json | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          changes_json?: Json | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_log_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_default_templates: {
         Row: {
           alert_type_id: string
@@ -1581,6 +1629,70 @@ export type Database = {
           },
         ]
       }
+      employee_pay: {
+        Row: {
+          cost_center: string | null
+          created_at: string
+          id: string
+          overtime_eligible: boolean
+          pay_rate: number
+          pay_type: string
+          primary_warehouse_id: string | null
+          salary_hourly_equivalent: number | null
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cost_center?: string | null
+          created_at?: string
+          id?: string
+          overtime_eligible?: boolean
+          pay_rate?: number
+          pay_type?: string
+          primary_warehouse_id?: string | null
+          salary_hourly_equivalent?: number | null
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cost_center?: string | null
+          created_at?: string
+          id?: string
+          overtime_eligible?: boolean
+          pay_rate?: number
+          pay_type?: string
+          primary_warehouse_id?: string | null
+          salary_hourly_equivalent?: number | null
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_pay_primary_warehouse_id_fkey"
+            columns: ["primary_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_pay_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_pay_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       file_attachments: {
         Row: {
           created_at: string
@@ -2541,6 +2653,47 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      labor_settings: {
+        Row: {
+          created_at: string
+          currency_code: string
+          id: string
+          overtime_multiplier: number
+          rounding_rule_minutes: number
+          standard_workweek_hours: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency_code?: string
+          id?: string
+          overtime_multiplier?: number
+          rounding_rule_minutes?: number
+          standard_workweek_hours?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency_code?: string
+          id?: string
+          overtime_multiplier?: number
+          rounding_rule_minutes?: number
+          standard_workweek_hours?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "labor_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -3883,6 +4036,9 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           due_date: string | null
+          duration_minutes: number | null
+          ended_at: string | null
+          ended_by: string | null
           id: string
           invoice_id: string | null
           metadata: Json | null
@@ -3892,6 +4048,8 @@ export type Database = {
           priority: string | null
           related_item_id: string | null
           service_date: string | null
+          started_at: string | null
+          started_by: string | null
           status: string
           task_type: string
           task_type_id: string | null
@@ -3922,6 +4080,9 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           due_date?: string | null
+          duration_minutes?: number | null
+          ended_at?: string | null
+          ended_by?: string | null
           id?: string
           invoice_id?: string | null
           metadata?: Json | null
@@ -3931,6 +4092,8 @@ export type Database = {
           priority?: string | null
           related_item_id?: string | null
           service_date?: string | null
+          started_at?: string | null
+          started_by?: string | null
           status?: string
           task_type: string
           task_type_id?: string | null
@@ -3961,6 +4124,9 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           due_date?: string | null
+          duration_minutes?: number | null
+          ended_at?: string | null
+          ended_by?: string | null
           id?: string
           invoice_id?: string | null
           metadata?: Json | null
@@ -3970,6 +4136,8 @@ export type Database = {
           priority?: string | null
           related_item_id?: string | null
           service_date?: string | null
+          started_at?: string | null
+          started_by?: string | null
           status?: string
           task_type?: string
           task_type_id?: string | null
@@ -4013,6 +4181,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tasks_ended_by_fkey"
+            columns: ["ended_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tasks_parent_task_id_fkey"
             columns: ["parent_task_id"]
             isOneToOne: false
@@ -4031,6 +4206,13 @@ export type Database = {
             columns: ["related_item_id"]
             isOneToOne: false
             referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_started_by_fkey"
+            columns: ["started_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
