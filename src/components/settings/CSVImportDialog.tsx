@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import {
   Dialog,
   DialogContent,
@@ -9,10 +10,17 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Warehouse } from '@/hooks/useWarehouses';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface CSVImportDialogProps {
   open: boolean;
@@ -26,7 +34,6 @@ interface ParsedLocation {
   code: string;
   name: string;
   type: string;
-  parentCode?: string;
 }
 
 interface ImportResult {
@@ -40,18 +47,19 @@ function detectLocationType(code: string): string {
   
   // Zones - typically single word descriptive areas
   if (upperCode.includes('DOCK') || upperCode.includes('ZONE') || 
-      upperCode === 'IA' || upperCode === 'I-J' || upperCode === 'E-F' || upperCode === 'G-H') {
+      upperCode === 'IA' || upperCode === 'I-J' || upperCode === 'E-F' || upperCode === 'G-H' ||
+      upperCode.includes('OVERFLOW') || upperCode.includes('CAP')) {
     return 'zone';
   }
   
   // Bays - BAY-* pattern or SW*, WW* staging areas
-  if (upperCode.startsWith('BAY-') || /^[SW][W]?\d+$/.test(upperCode) || 
-      /^W[W]\d+$/.test(upperCode)) {
+  if (upperCode.startsWith('BAY-') || /^SW\d*$/.test(upperCode) || 
+      /^WW\d*$/.test(upperCode)) {
     return 'bay';
   }
   
-  // Aisles - *RR.* pattern (rack rows)
-  if (/^[A-Z]+RR\.\d+$/.test(upperCode)) {
+  // Aisles - *RR.* pattern (rack rows) or EFR*, GHR*, IJR* patterns
+  if (/^[A-Z]+RR\.\d+$/.test(upperCode) || /^[A-Z]+R\d+$/.test(upperCode)) {
     return 'aisle';
   }
   
@@ -64,28 +72,74 @@ function detectLocationType(code: string): string {
   return 'bin';
 }
 
-function parseCSV(content: string): ParsedLocation[] {
-  const lines = content.trim().split('\n');
+async function parseFile(file: File): Promise<ParsedLocation[]> {
   const locations: ParsedLocation[] = [];
+  const fileName = file.name.toLowerCase();
   
-  // Check if first line is a header
-  const firstLine = lines[0].toLowerCase();
-  const hasHeader = firstLine.includes('code') || firstLine.includes('name') || firstLine.includes('location');
-  const startIndex = hasHeader ? 1 : 0;
-  
-  for (let i = startIndex; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+  if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+    // Parse Excel file
+    const buffer = await file.arrayBuffer();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data: any[][] = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
     
-    const parts = line.split(',').map(p => p.trim().replace(/^["']|["']$/g, ''));
+    // Find header row and column index
+    let headerRowIndex = 0;
+    let codeColumnIndex = 0;
     
-    if (parts.length >= 1 && parts[0]) {
-      const code = parts[0].toUpperCase();
-      const name = parts[1] || '';
-      const type = parts[2] || detectLocationType(code);
-      const parentCode = parts[3] || '';
+    for (let i = 0; i < Math.min(data.length, 5); i++) {
+      const row = data[i] as unknown[];
+      if (row) {
+        for (let j = 0; j < row.length; j++) {
+          const cell = String(row[j] || '').toLowerCase();
+          if (cell.includes('location') || cell.includes('code') || cell.includes('name')) {
+            headerRowIndex = i;
+            codeColumnIndex = j;
+            break;
+          }
+        }
+      }
+    }
+    
+    // Extract locations starting after header
+    for (let i = headerRowIndex + 1; i < data.length; i++) {
+      const row = data[i] as unknown[];
+      if (row && row[codeColumnIndex]) {
+        const rawCode = String(row[codeColumnIndex]).trim();
+        if (rawCode && rawCode.length > 0) {
+          const code = rawCode.toUpperCase();
+          locations.push({
+            code,
+            name: '',
+            type: detectLocationType(code),
+          });
+        }
+      }
+    }
+  } else {
+    // Parse CSV file
+    const content = await file.text();
+    const lines = content.trim().split('\n');
+    
+    // Check if first line is a header
+    const firstLine = lines[0].toLowerCase();
+    const hasHeader = firstLine.includes('code') || firstLine.includes('name') || firstLine.includes('location');
+    const startIndex = hasHeader ? 1 : 0;
+    
+    for (let i = startIndex; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
       
-      locations.push({ code, name, type, parentCode });
+      const parts = line.split(',').map(p => p.trim().replace(/^["']|["']$/g, ''));
+      
+      if (parts.length >= 1 && parts[0]) {
+        const code = parts[0].toUpperCase();
+        const name = parts[1] || '';
+        const type = parts[2] || detectLocationType(code);
+        
+        locations.push({ code, name, type });
+      }
     }
   }
   
@@ -105,22 +159,39 @@ export function CSVImportDialog({
   const [selectedWarehouse, setSelectedWarehouse] = useState(warehouses[0]?.id || '');
   const [parsedLocations, setParsedLocations] = useState<ParsedLocation[]>([]);
   const [step, setStep] = useState<'preview' | 'importing' | 'complete'>('preview');
+  const [parsing, setParsing] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (warehouses.length > 0 && !selectedWarehouse) {
+      setSelectedWarehouse(warehouses[0].id);
+    }
+  }, [warehouses, selectedWarehouse]);
+
+  useEffect(() => {
+    if (open && file && parsedLocations.length === 0 && !parsing) {
+      handleFileRead();
+    }
+  }, [open, file]);
 
   const handleFileRead = async () => {
     if (!file) return;
     
-    const content = await file.text();
-    const locations = parseCSV(content);
-    setParsedLocations(locations);
-  };
-
-  // Read file when dialog opens
-  useState(() => {
-    if (open && file) {
-      handleFileRead();
+    setParsing(true);
+    try {
+      const locations = await parseFile(file);
+      setParsedLocations(locations);
+    } catch (error) {
+      console.error('Error parsing file:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to parse the file. Please check the format.',
+      });
+    } finally {
+      setParsing(false);
     }
-  });
+  };
 
   const handleImport = async () => {
     if (!selectedWarehouse || parsedLocations.length === 0) {
@@ -199,16 +270,11 @@ export function CSVImportDialog({
     onOpenChange(false);
   };
 
-  // Re-read file when it changes
-  if (open && file && parsedLocations.length === 0) {
-    handleFileRead();
-  }
-
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Import Locations from CSV</DialogTitle>
+          <DialogTitle>Import Locations</DialogTitle>
           <DialogDescription>
             {step === 'preview' && 'Review the locations to be imported.'}
             {step === 'importing' && 'Importing locations...'}
@@ -220,23 +286,26 @@ export function CSVImportDialog({
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">Target Warehouse</label>
-              <select
-                className="w-full mt-1 border rounded-md p-2"
-                value={selectedWarehouse}
-                onChange={(e) => setSelectedWarehouse(e.target.value)}
-              >
-                {warehouses.map((wh) => (
-                  <option key={wh.id} value={wh.id}>
-                    {wh.name}
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Select warehouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  {warehouses.map((wh) => (
+                    <SelectItem key={wh.id} value={wh.id}>
+                      {wh.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="bg-muted rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium">Locations found:</span>
-                <span className="text-2xl font-bold">{parsedLocations.length}</span>
+                <span className="text-2xl font-bold">
+                  {parsing ? <Loader2 className="h-6 w-6 animate-spin" /> : parsedLocations.length}
+                </span>
               </div>
               <p className="text-xs text-muted-foreground">
                 File: {file?.name}
@@ -314,7 +383,7 @@ export function CSVImportDialog({
               <Button variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button onClick={handleImport} disabled={parsedLocations.length === 0}>
+              <Button onClick={handleImport} disabled={parsedLocations.length === 0 || parsing}>
                 Import {parsedLocations.length} Locations
               </Button>
             </>
