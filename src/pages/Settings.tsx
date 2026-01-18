@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Building, Users, Warehouse, Save, Plus } from 'lucide-react';
+import { Loader2, Building, Users, Warehouse, Save, Plus, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations, Location } from '@/hooks/useLocations';
@@ -22,6 +22,7 @@ import { WarehouseList } from '@/components/warehouses/WarehouseList';
 import { WarehouseDialog } from '@/components/warehouses/WarehouseDialog';
 import { UserList } from '@/components/settings/UserList';
 import { UserDialog } from '@/components/settings/UserDialog';
+import { ItemTypesSettingsTab } from '@/components/settings/ItemTypesSettingsTab';
 
 interface TenantInfo {
   id: string;
@@ -221,6 +222,7 @@ export default function Settings() {
           <TabsList>
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="organization">Organization</TabsTrigger>
+            <TabsTrigger value="item-types">Item Types</TabsTrigger>
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
@@ -320,6 +322,10 @@ export default function Settings() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="item-types">
+            <ItemTypesSettingsTab />
           </TabsContent>
 
           <TabsContent value="warehouses">

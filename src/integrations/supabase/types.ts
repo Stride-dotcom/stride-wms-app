@@ -1497,79 +1497,169 @@ export type Database = {
       }
       item_types: {
         Row: {
-          category: string
+          allow_on_order_entry: boolean | null
+          allow_on_reservation: boolean | null
+          assemblies_in_base_rate: number | null
+          assembly_rate: number | null
+          auto_add_assembly_fee: boolean | null
+          billing_pieces: number | null
           created_at: string | null
           created_by: string | null
+          cubic_feet: number | null
           custom_packaging_rate: number | null
+          default_item_notes: string | null
+          delivery_pieces: number | null
           dimension_unit: string | null
+          extra_fee: number | null
+          felt_pad_price: number | null
           height: number | null
           id: string
+          inspection_fee: number | null
           is_active: boolean | null
           length: number | null
           minor_touchup_rate: number | null
+          minutes_per_felt_pad: number | null
+          minutes_to_assemble: number | null
+          minutes_to_deliver: number | null
+          minutes_to_inspect: number | null
+          minutes_to_load: number | null
+          minutes_to_move: number | null
+          minutes_to_put_in_warehouse: number | null
+          model_number: string | null
+          move_rate: number | null
           name: string
+          notify_dispatch: boolean | null
+          oversize_rate: number | null
           packing_rate: number | null
           pallet_sale_rate: number | null
+          people_to_deliver: number | null
           picking_rate: number | null
+          pull_for_delivery_rate: number | null
           receiving_rate: number | null
+          removal_rate: number | null
+          same_day_assembly_rate: number | null
           shipping_rate: number | null
+          sort_order: number | null
           storage_billing_frequency: string | null
           storage_rate: number | null
+          storage_rate_per_day: number | null
           tenant_id: string
+          unstackable_extra_fee: number | null
           updated_at: string | null
           weight: number | null
           weight_unit: string | null
           width: number | null
+          will_call_rate: number | null
         }
         Insert: {
-          category: string
+          allow_on_order_entry?: boolean | null
+          allow_on_reservation?: boolean | null
+          assemblies_in_base_rate?: number | null
+          assembly_rate?: number | null
+          auto_add_assembly_fee?: boolean | null
+          billing_pieces?: number | null
           created_at?: string | null
           created_by?: string | null
+          cubic_feet?: number | null
           custom_packaging_rate?: number | null
+          default_item_notes?: string | null
+          delivery_pieces?: number | null
           dimension_unit?: string | null
+          extra_fee?: number | null
+          felt_pad_price?: number | null
           height?: number | null
           id?: string
+          inspection_fee?: number | null
           is_active?: boolean | null
           length?: number | null
           minor_touchup_rate?: number | null
+          minutes_per_felt_pad?: number | null
+          minutes_to_assemble?: number | null
+          minutes_to_deliver?: number | null
+          minutes_to_inspect?: number | null
+          minutes_to_load?: number | null
+          minutes_to_move?: number | null
+          minutes_to_put_in_warehouse?: number | null
+          model_number?: string | null
+          move_rate?: number | null
           name: string
+          notify_dispatch?: boolean | null
+          oversize_rate?: number | null
           packing_rate?: number | null
           pallet_sale_rate?: number | null
+          people_to_deliver?: number | null
           picking_rate?: number | null
+          pull_for_delivery_rate?: number | null
           receiving_rate?: number | null
+          removal_rate?: number | null
+          same_day_assembly_rate?: number | null
           shipping_rate?: number | null
+          sort_order?: number | null
           storage_billing_frequency?: string | null
           storage_rate?: number | null
+          storage_rate_per_day?: number | null
           tenant_id: string
+          unstackable_extra_fee?: number | null
           updated_at?: string | null
           weight?: number | null
           weight_unit?: string | null
           width?: number | null
+          will_call_rate?: number | null
         }
         Update: {
-          category?: string
+          allow_on_order_entry?: boolean | null
+          allow_on_reservation?: boolean | null
+          assemblies_in_base_rate?: number | null
+          assembly_rate?: number | null
+          auto_add_assembly_fee?: boolean | null
+          billing_pieces?: number | null
           created_at?: string | null
           created_by?: string | null
+          cubic_feet?: number | null
           custom_packaging_rate?: number | null
+          default_item_notes?: string | null
+          delivery_pieces?: number | null
           dimension_unit?: string | null
+          extra_fee?: number | null
+          felt_pad_price?: number | null
           height?: number | null
           id?: string
+          inspection_fee?: number | null
           is_active?: boolean | null
           length?: number | null
           minor_touchup_rate?: number | null
+          minutes_per_felt_pad?: number | null
+          minutes_to_assemble?: number | null
+          minutes_to_deliver?: number | null
+          minutes_to_inspect?: number | null
+          minutes_to_load?: number | null
+          minutes_to_move?: number | null
+          minutes_to_put_in_warehouse?: number | null
+          model_number?: string | null
+          move_rate?: number | null
           name?: string
+          notify_dispatch?: boolean | null
+          oversize_rate?: number | null
           packing_rate?: number | null
           pallet_sale_rate?: number | null
+          people_to_deliver?: number | null
           picking_rate?: number | null
+          pull_for_delivery_rate?: number | null
           receiving_rate?: number | null
+          removal_rate?: number | null
+          same_day_assembly_rate?: number | null
           shipping_rate?: number | null
+          sort_order?: number | null
           storage_billing_frequency?: string | null
           storage_rate?: number | null
+          storage_rate_per_day?: number | null
           tenant_id?: string
+          unstackable_extra_fee?: number | null
           updated_at?: string | null
           weight?: number | null
           weight_unit?: string | null
           width?: number | null
+          will_call_rate?: number | null
         }
         Relationships: [
           {
