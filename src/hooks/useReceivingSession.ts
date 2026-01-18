@@ -172,7 +172,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
           .eq('id', session.shipment_id)
           .single();
 
-        if (shipment) {
+      if (shipment) {
           // Get the account to check auto_inspection settings
           const { data: account } = await supabase
             .from('accounts')
@@ -198,7 +198,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
                 receiving_shipment_id: session.shipment_id,
                 received_at: new Date().toISOString(),
               })
-              .select()
+              .select('*, item_types(receiving_rate)')
               .single();
 
             if (itemError) {
@@ -221,7 +221,23 @@ export function useReceivingSession(shipmentId: string | undefined) {
                 });
             }
 
-            // Create billing event for receiving
+            // Lookup receiving rate from item_type if available
+            let receivingRate = 0;
+            
+            // If item has item_type_id, fetch the receiving rate
+            if (newItem?.item_type_id) {
+              const { data: itemType } = await supabase
+                .from('item_types')
+                .select('receiving_rate')
+                .eq('id', newItem.item_type_id)
+                .single();
+              
+              receivingRate = itemType?.receiving_rate || 0;
+            }
+
+            const totalAmount = receivingRate * item.quantity;
+
+            // Create billing event for receiving with actual rates
             await supabase
               .from('billing_events')
               .insert({
@@ -232,8 +248,8 @@ export function useReceivingSession(shipmentId: string | undefined) {
                 charge_type: 'receiving',
                 description: `Receiving: ${item.description}`,
                 quantity: item.quantity,
-                unit_rate: 0, // Would be looked up from rate card
-                total_amount: 0,
+                unit_rate: receivingRate,
+                total_amount: totalAmount,
                 created_by: profile.id,
               });
           }
