@@ -84,8 +84,19 @@ export function ItemFlagsSection({
     setUpdating(flagKey);
 
     try {
-      const updateData: Record<string, boolean> = {};
+      const updateData: Record<string, any> = {};
       updateData[flagKey] = value;
+
+      // Auto-set corresponding status to 'in_queue' when enabling needs_* flags
+      if (value) {
+        if (flagKey === 'needs_inspection') {
+          updateData['inspection_status'] = 'in_queue';
+        } else if (flagKey === 'needs_repair') {
+          updateData['repair_status'] = 'in_queue';
+        } else if (flagKey === 'needs_warehouse_assembly') {
+          updateData['assembly_status'] = 'in_queue';
+        }
+      }
 
       const { error } = await (supabase
         .from('items') as any)
@@ -100,7 +111,9 @@ export function ItemFlagsSection({
         await createFlagBillingEvent(itemId, flagKey, value);
       }
 
-      onFlagsChange({ ...flags, [flagKey]: value });
+      // Update local state including status changes
+      const updatedFlags = { ...flags, [flagKey]: value };
+      onFlagsChange(updatedFlags);
 
       toast({
         title: 'Flag Updated',
