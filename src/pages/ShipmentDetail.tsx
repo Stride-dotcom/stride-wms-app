@@ -27,6 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SignaturePad } from '@/components/shipments/SignaturePad';
 import { PhotoCapture } from '@/components/shipments/PhotoCapture';
+import { ReceivingSession } from '@/components/shipments/ReceivingSession';
 import { format } from 'date-fns';
 import { 
   ArrowLeft, 
@@ -324,6 +325,24 @@ export default function ShipmentDetail() {
             </Button>
           )}
         </div>
+
+        {/* Receiving Session - Only show for inbound shipments that aren't completed */}
+        {shipment.shipment_type === 'inbound' && !isCompleted && (
+          <ReceivingSession
+            shipmentId={shipment.id}
+            shipmentNumber={shipment.shipment_number}
+            expectedItems={shipment.items.map(item => ({
+              id: item.id,
+              expected_description: item.expected_description,
+              expected_quantity: item.expected_quantity,
+              received_quantity: item.received_quantity,
+            }))}
+            onComplete={fetchShipment}
+            onPhotosChange={handlePhotosChange}
+            existingPhotos={shipment.receiving_photos || []}
+            existingDocuments={shipment.receiving_documents || []}
+          />
+        )}
 
         <div className="grid gap-6 md:grid-cols-2">
           {/* Details Card */}

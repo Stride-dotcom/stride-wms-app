@@ -58,6 +58,7 @@ const accountSchema = z.object({
   // Contacts - Alerts
   alerts_contact_name: z.string().optional(),
   alerts_contact_email: z.string().email().optional().or(z.literal('')),
+  account_alert_recipients: z.string().optional(),
   // Billing Address
   billing_address: z.string().optional(),
   billing_city: z.string().optional(),
@@ -222,6 +223,7 @@ const getDefaultValues = (): AccountFormData => ({
   billing_contact_phone: '',
   alerts_contact_name: '',
   alerts_contact_email: '',
+  account_alert_recipients: '',
   billing_address: '',
   billing_city: '',
   billing_state: '',
@@ -341,6 +343,7 @@ export function AccountDialog({
         billing_contact_phone: data.billing_contact_phone || '',
         alerts_contact_name: data.alerts_contact_name || '',
         alerts_contact_email: data.alerts_contact_email || '',
+        account_alert_recipients: data.account_alert_recipients || '',
         billing_address: data.billing_address || '',
         billing_city: data.billing_city || '',
         billing_state: data.billing_state || '',
@@ -426,6 +429,7 @@ export function AccountDialog({
         billing_contact_phone: data.billing_contact_phone || null,
         alerts_contact_name: data.alerts_contact_name || null,
         alerts_contact_email: data.alerts_contact_email || null,
+        account_alert_recipients: data.account_alert_recipients || null,
         billing_address: data.billing_address || null,
         billing_city: data.billing_city || null,
         billing_state: data.billing_state || null,
@@ -634,45 +638,50 @@ export function AccountDialog({
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-4">
                       <FormField
                         control={form.control}
                         name="is_master_account"
                         render={({ field }) => (
-                          <FormItem className="flex flex-row items-center space-x-3 space-y-0 pt-6">
+                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
                             <FormControl>
                               <Checkbox
                                 checked={field.value}
                                 onCheckedChange={(checked) => {
                                   field.onChange(checked);
-                                  if (checked) {
+                                  if (!checked) {
                                     form.setValue('parent_account_id', 'none');
                                   }
                                 }}
                               />
                             </FormControl>
-                            <FormLabel className="font-normal">
-                              Is a Master Account?
-                            </FormLabel>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="font-normal">
+                                Sub Account
+                              </FormLabel>
+                              <FormDescription>
+                                Check if this is a sub-account of another primary account
+                              </FormDescription>
+                            </div>
                           </FormItem>
                         )}
                       />
 
-                      {!form.watch('is_master_account') && (
+                      {form.watch('is_master_account') && (
                         <FormField
                           control={form.control}
                           name="parent_account_id"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Parent Account</FormLabel>
+                              <FormLabel>Primary Account</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="Select parent account" />
+                                    <SelectValue placeholder="Search and select primary account..." />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="none">None (Top-Level Account)</SelectItem>
+                                  <SelectItem value="none">Select a primary account</SelectItem>
                                   {accounts
                                     .filter((a) => a.id !== accountId)
                                     .map((a) => (
@@ -683,7 +692,7 @@ export function AccountDialog({
                                 </SelectContent>
                               </Select>
                               <FormDescription>
-                                Sub-accounts inherit settings from their parent by default.
+                                Primary account users automatically have access to this sub-account.
                               </FormDescription>
                               <FormMessage />
                             </FormItem>
@@ -837,6 +846,32 @@ export function AccountDialog({
                           )}
                         />
                       </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-medium mb-3">Alert Recipients</h4>
+                      <FormField
+                        control={form.control}
+                        name="account_alert_recipients"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Contact Recipients</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="john@example.com, +1-555-123-4567, jane@example.com"
+                                className="resize-none"
+                                rows={2}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Comma-separated emails and phone numbers for all account alerts. 
+                              Available in templates as {'{{account_contact_email}}'}, {'{{account_contact_phone}}'}, and {'{{account_contact_recipients_raw}}'}.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
 
                     <div>
