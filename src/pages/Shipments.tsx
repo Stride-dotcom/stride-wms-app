@@ -49,25 +49,25 @@ export default function Shipments() {
 
   const fetchShipmentData = async () => {
     try {
-      // Fetch counts in parallel - use 'any' cast since types may not be regenerated yet
+      // Note: Using type assertion until Supabase types are regenerated
+      const shipmentsTable = supabase.from('shipments') as any;
+      
+      // Fetch counts in parallel
       const [incomingRes, outboundRes, recentReceivedRes, recentReleasedRes] = await Promise.all([
         // Incoming: expected or in_progress inbound shipments
-        (supabase as any)
-          .from('shipments')
+        shipmentsTable
           .select('id', { count: 'exact', head: true })
           .eq('shipment_type', 'inbound')
           .in('status', ['expected', 'in_progress'])
           .is('deleted_at', null),
         // Outbound: Will Call or Disposal releases not yet completed
-        (supabase as any)
-          .from('shipments')
+        shipmentsTable
           .select('id', { count: 'exact', head: true })
           .eq('shipment_type', 'outbound')
           .in('status', ['expected', 'in_progress'])
           .is('deleted_at', null),
         // Recent received: last 5 fully received shipments
-        (supabase as any)
-          .from('shipments')
+        shipmentsTable
           .select('id, shipment_number, status, created_at, completed_at, accounts(account_name)')
           .eq('shipment_type', 'inbound')
           .eq('status', 'received')
@@ -75,8 +75,7 @@ export default function Shipments() {
           .order('completed_at', { ascending: false })
           .limit(5),
         // Recent released: last 5 completed releases
-        (supabase as any)
-          .from('shipments')
+        shipmentsTable
           .select('id, shipment_number, status, created_at, completed_at, accounts(account_name)')
           .eq('shipment_type', 'outbound')
           .eq('status', 'completed')
