@@ -658,7 +658,7 @@ export function InvoicesTab() {
                 {invoices.slice(0, 10).map((invoice) => (
                   <TableRow key={invoice.id}>
                     <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                    <TableCell>{invoice.account?.account_name}</TableCell>
+                    <TableCell>{invoice.account_name}</TableCell>
                     <TableCell>{format(new Date(invoice.invoice_date), 'MMM d, yyyy')}</TableCell>
                     <TableCell>
                       {invoice.due_date
@@ -760,7 +760,7 @@ export function InvoicesTab() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Account:</span>
-                  <p className="font-medium">{selectedInvoice?.account?.account_name}</p>
+                  <p className="font-medium">{selectedInvoice?.account_name}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Status:</span>
