@@ -731,6 +731,60 @@ export type Database = {
           },
         ]
       }
+      billing_charge_templates: {
+        Row: {
+          amount: number
+          charge_type: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          charge_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          charge_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_charge_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_charge_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_contacts: {
         Row: {
           account_name: string | null
@@ -1002,6 +1056,54 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "custom_fields_definitions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      due_date_rules: {
+        Row: {
+          account_id: string | null
+          created_at: string | null
+          days_from_creation: number
+          id: string
+          is_active: boolean | null
+          task_type: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string | null
+          days_from_creation?: number
+          id?: string
+          is_active?: boolean | null
+          task_type: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string | null
+          days_from_creation?: number
+          id?: string
+          is_active?: boolean | null
+          task_type?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "due_date_rules_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "due_date_rules_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -2570,6 +2672,60 @@ export type Database = {
           },
         ]
       }
+      subtasks: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_completed: boolean | null
+          sort_order: number | null
+          task_id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_completed?: boolean | null
+          sort_order?: number | null
+          task_id: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_completed?: boolean | null
+          sort_order?: number | null
+          task_id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subtasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subtasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_additional_charges: {
         Row: {
           charge_amount: number
@@ -2762,6 +2918,56 @@ export type Database = {
           },
         ]
       }
+      task_types: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          is_system: boolean | null
+          name: string
+          sort_order: number | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name: string
+          sort_order?: number | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name?: string
+          sort_order?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_types_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           account_id: string | null
@@ -2782,11 +2988,13 @@ export type Database = {
           metadata: Json | null
           minor_touchup_applied: boolean | null
           pallet_sale_applied: boolean | null
+          parent_task_id: string | null
           priority: string | null
           related_item_id: string | null
           service_date: string | null
           status: string
           task_type: string
+          task_type_id: string | null
           tenant_id: string
           title: string
           updated_at: string | null
@@ -2811,11 +3019,13 @@ export type Database = {
           metadata?: Json | null
           minor_touchup_applied?: boolean | null
           pallet_sale_applied?: boolean | null
+          parent_task_id?: string | null
           priority?: string | null
           related_item_id?: string | null
           service_date?: string | null
           status?: string
           task_type: string
+          task_type_id?: string | null
           tenant_id: string
           title: string
           updated_at?: string | null
@@ -2840,11 +3050,13 @@ export type Database = {
           metadata?: Json | null
           minor_touchup_applied?: boolean | null
           pallet_sale_applied?: boolean | null
+          parent_task_id?: string | null
           priority?: string | null
           related_item_id?: string | null
           service_date?: string | null
           status?: string
           task_type?: string
+          task_type_id?: string | null
           tenant_id?: string
           title?: string
           updated_at?: string | null
@@ -2880,6 +3092,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tasks_related_item_id_fkey"
             columns: ["related_item_id"]
             isOneToOne: false
@@ -2891,6 +3110,13 @@ export type Database = {
             columns: ["related_item_id"]
             isOneToOne: false
             referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_task_type_id_fkey"
+            columns: ["task_type_id"]
+            isOneToOne: false
+            referencedRelation: "task_types"
             referencedColumns: ["id"]
           },
           {

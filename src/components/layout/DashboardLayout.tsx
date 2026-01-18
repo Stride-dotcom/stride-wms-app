@@ -42,6 +42,7 @@ const navItems: NavItem[] = [
   { label: 'Shipments', href: '/shipments', icon: Truck },
   { label: 'Inventory', href: '/inventory', icon: Boxes },
   { label: 'Receiving', href: '/receiving', icon: ClipboardList },
+  { label: 'Tasks', href: '/tasks', icon: ClipboardList },
   { label: 'Reports', href: '/reports', icon: BarChart3 },
   { label: 'Accounts', href: '/accounts', icon: Users, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Rate Cards', href: '/rate-cards', icon: FileText, requiredRole: ['admin', 'tenant_admin'] },
