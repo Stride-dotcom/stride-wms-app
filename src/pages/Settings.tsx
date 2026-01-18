@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations, Location } from '@/hooks/useLocations';
 import { useUsers } from '@/hooks/useUsers';
+import { useTenantSettings } from '@/hooks/useTenantSettings';
 import { LocationsSettingsTab } from '@/components/settings/LocationsSettingsTab';
 import { LocationDialog } from '@/components/locations/LocationDialog';
 import { PrintLabelsDialog } from '@/components/locations/PrintLabelsDialog';
@@ -27,6 +28,7 @@ import { ItemTypesSettingsTab } from '@/components/settings/ItemTypesSettingsTab
 import { DueDateRulesSettingsTab } from '@/components/settings/DueDateRulesSettingsTab';
 import { BillingChargeTemplatesTab } from '@/components/settings/BillingChargeTemplatesTab';
 import { EmployeesSettingsTab } from '@/components/settings/EmployeesSettingsTab';
+import { OrganizationLogoUpload } from '@/components/settings/OrganizationLogoUpload';
 
 interface TenantInfo {
   id: string;
@@ -78,6 +80,13 @@ export default function Settings() {
     assignRole, 
     removeRole 
   } = useUsers();
+  const {
+    settings: tenantSettings,
+    loading: tenantSettingsLoading,
+    uploading: logoUploading,
+    uploadLogo,
+    removeLogo,
+  } = useTenantSettings();
 
   useEffect(() => {
     if (profile?.tenant_id) {
@@ -299,12 +308,23 @@ export default function Settings() {
                   Organization Details
                 </CardTitle>
                 <CardDescription>
-                  View your organization information
+                  View and manage your organization information
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 {tenant ? (
                   <>
+                    {/* Logo Upload */}
+                    <OrganizationLogoUpload
+                      logoUrl={tenantSettings?.logo_url || null}
+                      uploading={logoUploading}
+                      onUpload={uploadLogo}
+                      onRemove={removeLogo}
+                      organizationName={tenant.name}
+                    />
+
+                    <Separator />
+
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <Label className="text-muted-foreground">Organization Name</Label>

@@ -1,9 +1,9 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +29,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface NavItem {
   label: string;
@@ -56,10 +57,47 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [tenantLogo, setTenantLogo] = useState<string | null>(null);
+  const [tenantName, setTenantName] = useState<string>('Stride WMS');
   const { profile, signOut } = useAuth();
   const { hasRole, isAdmin } = usePermissions();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Fetch tenant logo and name
+  useEffect(() => {
+    const fetchTenantBranding = async () => {
+      if (!profile?.tenant_id) return;
+
+      try {
+        // Fetch tenant name
+        const { data: tenantData } = await supabase
+          .from('tenants')
+          .select('name')
+          .eq('id', profile.tenant_id)
+          .single();
+
+        if (tenantData?.name) {
+          setTenantName(tenantData.name);
+        }
+
+        // Fetch logo from tenant_company_settings
+        const { data: settingsData } = await supabase
+          .from('tenant_company_settings')
+          .select('logo_url')
+          .eq('tenant_id', profile.tenant_id)
+          .maybeSingle();
+
+        if (settingsData?.logo_url) {
+          setTenantLogo(settingsData.logo_url);
+        }
+      } catch (error) {
+        console.error('Error fetching tenant branding:', error);
+      }
+    };
+
+    fetchTenantBranding();
+  }, [profile?.tenant_id]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -100,10 +138,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       >
         <div className="flex h-16 items-center justify-between px-4 border-b">
           <Link to="/" className="flex items-center gap-2">
-            <div className="p-1.5 bg-primary rounded-lg">
-              <Package className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-lg">Stride WMS</span>
+            {tenantLogo ? (
+              <img 
+                src={tenantLogo} 
+                alt={tenantName} 
+                className="h-8 w-8 object-contain rounded"
+              />
+            ) : (
+              <div className="p-1.5 bg-primary rounded-lg">
+                <Package className="h-5 w-5 text-primary-foreground" />
+              </div>
+            )}
+            <span className="font-bold text-lg">{tenantName}</span>
           </Link>
           <Button
             variant="ghost"

@@ -43,6 +43,58 @@ async function getManagerEmails(supabase: any, tenantId: string): Promise<string
     .filter(Boolean);
 }
 
+async function getTenantBranding(supabase: any, tenantId: string): Promise<{ logoUrl: string | null; companyName: string | null }> {
+  try {
+    const { data: settings } = await supabase
+      .from('tenant_company_settings')
+      .select('logo_url, company_name')
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    const { data: tenant } = await supabase
+      .from('tenants')
+      .select('name')
+      .eq('id', tenantId)
+      .single();
+
+    return {
+      logoUrl: settings?.logo_url || null,
+      companyName: settings?.company_name || tenant?.name || 'Warehouse System',
+    };
+  } catch {
+    return { logoUrl: null, companyName: 'Warehouse System' };
+  }
+}
+
+function wrapEmailWithBranding(html: string, logoUrl: string | null, companyName: string): string {
+  const logoHtml = logoUrl 
+    ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 60px; max-width: 200px; margin-bottom: 20px;" />`
+    : `<h1 style="color: #1f2937; margin-bottom: 20px;">${companyName}</h1>`;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #374151; margin: 0; padding: 0; background-color: #f3f4f6;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: white; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <div style="text-align: center; margin-bottom: 24px;">
+            ${logoHtml}
+          </div>
+          ${html}
+        </div>
+        <div style="text-align: center; padding: 20px; color: #6b7280; font-size: 12px;">
+          <p>This is an automated message from ${companyName}.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
 async function generateEmailContent(
   alertType: string, 
   entityType: string,
@@ -243,12 +295,18 @@ const handler = async (req: Request): Promise<Response> => {
           text = text || content.text;
         }
 
+        // Get tenant branding
+        const branding = await getTenantBranding(supabase, alert.tenant_id);
+
+        // Wrap HTML with branding
+        const brandedHtml = wrapEmailWithBranding(html!, branding.logoUrl, branding.companyName || 'Warehouse System');
+
         // Send email
         const { error: sendError } = await resend.emails.send({
-          from: "Warehouse System <alerts@resend.dev>",
+          from: `${branding.companyName || 'Warehouse System'} <alerts@resend.dev>`,
           to: recipients,
           subject: subject,
-          html: html,
+          html: brandedHtml,
           text: text,
         });
 
