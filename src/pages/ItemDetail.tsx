@@ -414,11 +414,17 @@ export default function ItemDetail() {
                     <Printer className="mr-2 h-4 w-4" />
                     Print 4x6 Label
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    setSelectedTaskType('Will Call');
+                    setTaskDialogOpen(true);
+                  }}>
                     <Truck className="mr-2 h-4 w-4" />
                     Create Will Call
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    setSelectedTaskType('Disposal');
+                    setTaskDialogOpen(true);
+                  }}>
                     <Trash2 className="mr-2 h-4 w-4" />
                     Create Disposal
                   </DropdownMenuItem>

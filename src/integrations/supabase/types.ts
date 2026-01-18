@@ -233,6 +233,48 @@ export type Database = {
           },
         ]
       }
+      account_task_permissions: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          id: string
+          is_allowed: boolean | null
+          task_type_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          id?: string
+          is_allowed?: boolean | null
+          task_type_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          id?: string
+          is_allowed?: boolean | null
+          task_type_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_task_permissions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_task_permissions_task_type_id_fkey"
+            columns: ["task_type_id"]
+            isOneToOne: false
+            referencedRelation: "task_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts: {
         Row: {
           access_level: string | null

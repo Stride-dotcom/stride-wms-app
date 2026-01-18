@@ -45,7 +45,7 @@ const navItems: NavItem[] = [
   { label: 'Inventory', href: '/inventory', icon: Boxes },
   { label: 'Tasks', href: '/tasks', icon: ClipboardList },
   { label: 'Scan Hub', href: '/scan', icon: ScanLine },
-  { label: 'Orders', href: '/orders', icon: Package },
+  
   { label: 'Reports', href: '/reports', icon: BarChart3 },
   { label: 'Accounts', href: '/accounts', icon: Users, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Employees', href: '/employees', icon: Building2, requiredRole: ['admin', 'tenant_admin'] },
