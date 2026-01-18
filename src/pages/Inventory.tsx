@@ -298,12 +298,13 @@ export default function Inventory() {
                         />
                       </TableHead>
                       <TableHead>Item Code</TableHead>
+                      <TableHead>Vendor</TableHead>
                       <TableHead>Description</TableHead>
-                      <TableHead>Status</TableHead>
                       <TableHead className="text-right">Qty</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead>Client</TableHead>
                       <TableHead>Sidemark</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -321,10 +322,10 @@ export default function Inventory() {
                           />
                         </TableCell>
                         <TableCell className="font-medium">{item.item_code}</TableCell>
+                        <TableCell>{item.vendor || '-'}</TableCell>
                         <TableCell className="max-w-[200px] truncate">
                           {item.description || '-'}
                         </TableCell>
-                        <TableCell>{getStatusBadge(item.status)}</TableCell>
                         <TableCell className="text-right">{item.quantity}</TableCell>
                         <TableCell>
                           {item.location_code ? (
@@ -342,6 +343,7 @@ export default function Inventory() {
                         </TableCell>
                         <TableCell>{item.client_account || '-'}</TableCell>
                         <TableCell>{item.sidemark || '-'}</TableCell>
+                        <TableCell>{getStatusBadge(item.status)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
