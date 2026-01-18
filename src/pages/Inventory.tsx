@@ -32,7 +32,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, Package, Loader2, Filter, Truck, Trash2, ClipboardList, Upload, Printer, AlertTriangle } from 'lucide-react';
-import { ReleaseDialog } from '@/components/inventory/ReleaseDialog';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { InventoryImportDialog } from '@/components/settings/InventoryImportDialog';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
@@ -61,10 +60,10 @@ export default function Inventory() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('active');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [preSelectedTaskType, setPreSelectedTaskType] = useState<string>('');
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [printLabelsDialogOpen, setPrintLabelsDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -104,8 +103,12 @@ export default function Inventory() {
       item.client_account?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.sidemark?.toLowerCase().includes(searchQuery.toLowerCase());
 
+    // Active filter hides released and disposed items by default
+    if (statusFilter === 'active') {
+      return matchesSearch && item.status !== 'released' && item.status !== 'disposed';
+    }
+    
     const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-
     return matchesSearch && matchesStatus;
   });
 
@@ -180,8 +183,9 @@ export default function Inventory() {
     }));
   };
 
-  const handleReleaseSuccess = () => {
+  const handleTaskSuccess = () => {
     setSelectedItems(new Set());
+    setPreSelectedTaskType('');
     fetchItems();
   };
 
@@ -252,7 +256,8 @@ export default function Inventory() {
                       setValidationDialogOpen(true);
                       return;
                     }
-                    setReleaseDialogOpen(true);
+                    setPreSelectedTaskType('Will Call');
+                    setTaskDialogOpen(true);
                   }}
                 >
                   <Truck className="mr-2 h-4 w-4" />
@@ -266,7 +271,8 @@ export default function Inventory() {
                       setValidationDialogOpen(true);
                       return;
                     }
-                    setReleaseDialogOpen(true);
+                    setPreSelectedTaskType('Disposal');
+                    setTaskDialogOpen(true);
                   }}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
@@ -317,8 +323,11 @@ export default function Inventory() {
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="active">Active (Default)</SelectItem>
                   <SelectItem value="all">All Statuses</SelectItem>
-                  {uniqueStatuses.map((status) => (
+                  <SelectItem value="released">Released</SelectItem>
+                  <SelectItem value="disposed">Disposed</SelectItem>
+                  {uniqueStatuses.filter(s => s !== 'released' && s !== 'disposed').map((status) => (
                     <SelectItem key={status} value={status}>
                       {status}
                     </SelectItem>
@@ -410,21 +419,15 @@ export default function Inventory() {
         </Card>
       </div>
 
-      <ReleaseDialog
-        open={releaseDialogOpen}
-        onOpenChange={setReleaseDialogOpen}
-        selectedItems={getSelectedItemsData()}
-        onSuccess={handleReleaseSuccess}
-      />
-
       <TaskDialog
         open={taskDialogOpen}
-        onOpenChange={setTaskDialogOpen}
-        selectedItemIds={Array.from(selectedItems)}
-        onSuccess={() => {
-          setTaskDialogOpen(false);
-          setSelectedItems(new Set());
+        onOpenChange={(open) => {
+          setTaskDialogOpen(open);
+          if (!open) setPreSelectedTaskType('');
         }}
+        selectedItemIds={Array.from(selectedItems)}
+        preSelectedTaskType={preSelectedTaskType}
+        onSuccess={handleTaskSuccess}
       />
 
       <InventoryImportDialog

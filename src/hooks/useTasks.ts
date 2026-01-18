@@ -100,6 +100,12 @@ const TASK_STATUS_TO_INVENTORY_STATUS: Record<string, string> = {
   'unable_to_complete': 'unable_to_complete',
 };
 
+// Task types that require special completion handling
+const SPECIAL_TASK_TYPES = {
+  WILL_CALL: 'Will Call',
+  DISPOSAL: 'Disposal',
+};
+
 export function useTasks(filters?: {
   status?: string;
   taskType?: string;
@@ -325,7 +331,7 @@ export function useTasks(filters?: {
     }
   };
 
-  const completeTask = async (taskId: string) => {
+  const completeTask = async (taskId: string, pickupName?: string) => {
     if (!profile?.id) return false;
 
     try {
@@ -336,6 +342,103 @@ export function useTasks(filters?: {
         .eq('id', taskId)
         .single();
 
+      if (!taskData) {
+        throw new Error('Task not found');
+      }
+
+      // Handle Will Call completion - requires pickup name
+      if (taskData.task_type === SPECIAL_TASK_TYPES.WILL_CALL) {
+        if (!pickupName) {
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Pickup name is required for Will Call completion',
+          });
+          return false;
+        }
+
+        // Update task with pickup info
+        const { error: taskError } = await (supabase
+          .from('tasks') as any)
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            completed_by: profile.id,
+            billing_status: 'pending',
+            billing_charge_date: new Date().toISOString(),
+            pickup_name: pickupName,
+            pickup_completed_at: new Date().toISOString(),
+          })
+          .eq('id', taskId);
+
+        if (taskError) throw taskError;
+
+        // Get task items and update them to 'released' status
+        const { data: taskItems } = await (supabase
+          .from('task_items') as any)
+          .select('item_id')
+          .eq('task_id', taskId);
+
+        if (taskItems && taskItems.length > 0) {
+          const itemIds = taskItems.map((ti: any) => ti.item_id);
+          await (supabase
+            .from('items') as any)
+            .update({ status: 'released' })
+            .in('id', itemIds);
+        }
+
+        toast({
+          title: 'Will Call Completed',
+          description: `Items released to ${pickupName}.`,
+        });
+
+        fetchTasks();
+        return true;
+      }
+
+      // Handle Disposal completion
+      if (taskData.task_type === SPECIAL_TASK_TYPES.DISPOSAL) {
+        // Update task
+        const { error: taskError } = await (supabase
+          .from('tasks') as any)
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            completed_by: profile.id,
+            billing_status: 'pending',
+            billing_charge_date: new Date().toISOString(),
+          })
+          .eq('id', taskId);
+
+        if (taskError) throw taskError;
+
+        // Get task items and update them to 'disposed' status with deleted_at
+        const { data: taskItems } = await (supabase
+          .from('task_items') as any)
+          .select('item_id')
+          .eq('task_id', taskId);
+
+        if (taskItems && taskItems.length > 0) {
+          const itemIds = taskItems.map((ti: any) => ti.item_id);
+          await (supabase
+            .from('items') as any)
+            .update({ 
+              status: 'disposed',
+              deleted_at: new Date().toISOString(),
+            })
+            .in('id', itemIds);
+        }
+
+        toast({
+          title: 'Disposal Completed',
+          description: 'Items have been marked as disposed.',
+        });
+
+        fetchTasks();
+        return true;
+      }
+
+      // Normal task completion for other task types
       const { error } = await (supabase
         .from('tasks') as any)
         .update({
@@ -350,9 +453,7 @@ export function useTasks(filters?: {
       if (error) throw error;
 
       // Update inventory status
-      if (taskData) {
-        await updateInventoryStatus(taskId, taskData.task_type, 'completed');
-      }
+      await updateInventoryStatus(taskId, taskData.task_type, 'completed');
 
       toast({
         title: 'Task Completed',
@@ -369,6 +470,30 @@ export function useTasks(filters?: {
         description: 'Failed to complete task',
       });
       return false;
+    }
+  };
+
+  // Get task items for a specific task (used for Will Call dialog)
+  const getTaskItems = async (taskId: string) => {
+    try {
+      const { data: taskItems } = await (supabase
+        .from('task_items') as any)
+        .select(`
+          item_id,
+          items:item_id(id, item_code, description)
+        `)
+        .eq('task_id', taskId);
+
+      if (!taskItems) return [];
+
+      return taskItems.map((ti: any) => ({
+        id: ti.items?.id || ti.item_id,
+        item_code: ti.items?.item_code || 'Unknown',
+        description: ti.items?.description || null,
+      }));
+    } catch (error) {
+      console.error('Error fetching task items:', error);
+      return [];
     }
   };
 
@@ -537,6 +662,7 @@ export function useTasks(filters?: {
     claimTask,
     updateTaskStatus,
     deleteTask,
+    getTaskItems,
   };
 }
 
@@ -550,6 +676,8 @@ export function useTaskTypes() {
     { name: 'Inspection', is_system: true },
     { name: 'Assembly', is_system: true },
     { name: 'Repair', is_system: true },
+    { name: 'Will Call', is_system: true, completion_action: 'release' },
+    { name: 'Disposal', is_system: true, completion_action: 'dispose' },
     { name: 'Other', is_system: true },
   ];
 

@@ -46,6 +46,7 @@ interface TaskDialogProps {
   onOpenChange: (open: boolean) => void;
   task?: Task | null;
   selectedItemIds?: string[];
+  preSelectedTaskType?: string;
   onSuccess: () => void;
 }
 
@@ -69,6 +70,7 @@ export function TaskDialog({
   onOpenChange,
   task,
   selectedItemIds = [],
+  preSelectedTaskType,
   onSuccess,
 }: TaskDialogProps) {
   const { profile } = useAuth();
@@ -132,11 +134,15 @@ export function TaskDialog({
         bill_to_customer_email: (task as any).bill_to_customer_email || '',
       });
     } else {
+      // Reset form and apply preSelectedTaskType if provided
+      const initialTaskType = preSelectedTaskType || '';
+      const dueDate = preSelectedTaskType ? getDueDateForTaskType(preSelectedTaskType) : null;
+      
       setFormData({
         description: '',
-        task_type: '',
+        task_type: initialTaskType,
         priority: 'medium',
-        due_date: null,
+        due_date: dueDate,
         assigned_to: 'unassigned',
         assigned_department: '',
         warehouse_id: 'none',
@@ -149,7 +155,7 @@ export function TaskDialog({
       setAccountItems([]);
       setItemSearchQuery('');
     }
-  }, [task, open]);
+  }, [task, open, preSelectedTaskType, getDueDateForTaskType]);
 
   // Auto-populate account and warehouse when items are selected from inventory
   useEffect(() => {

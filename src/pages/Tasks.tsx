@@ -31,6 +31,7 @@ import { useWarehouses } from '@/hooks/useWarehouses';
 import { useAuth } from '@/contexts/AuthContext';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { UnableToCompleteDialog } from '@/components/tasks/UnableToCompleteDialog';
+import { WillCallCompletionDialog } from '@/components/tasks/WillCallCompletionDialog';
 import { format } from 'date-fns';
 import {
   Loader2,
@@ -90,6 +91,8 @@ export default function Tasks() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [unableToCompleteTask, setUnableToCompleteTask] = useState<Task | null>(null);
+  const [willCallTask, setWillCallTask] = useState<Task | null>(null);
+  const [willCallItems, setWillCallItems] = useState<Array<{ id: string; item_code: string; description: string | null }>>([]);
 
   const { 
     tasks, 
@@ -101,7 +104,8 @@ export default function Tasks() {
     markUnableToComplete,
     claimTask, 
     updateTaskStatus,
-    deleteTask 
+    deleteTask,
+    getTaskItems,
   } = useTasks({
     status: filters.status === 'all' ? undefined : filters.status,
     taskType: filters.taskType === 'all' ? undefined : filters.taskType,
@@ -152,6 +156,29 @@ export default function Tasks() {
     return success;
   };
 
+  // Handle Will Call completion
+  const handleCompleteClick = async (task: Task) => {
+    if (task.task_type === 'Will Call') {
+      // Fetch items for this task
+      const items = await getTaskItems(task.id);
+      setWillCallItems(items);
+      setWillCallTask(task);
+    } else {
+      // Normal completion
+      completeTask(task.id);
+    }
+  };
+
+  const handleWillCallComplete = async (pickupName: string) => {
+    if (!willCallTask) return false;
+    const success = await completeTask(willCallTask.id, pickupName);
+    if (success) {
+      setWillCallTask(null);
+      setWillCallItems([]);
+    }
+    return success;
+  };
+
   // Only show full loading on initial load when there's no data yet
   const showInitialLoading = loading && tasks.length === 0;
 
@@ -180,7 +207,7 @@ export default function Tasks() {
           key="complete"
           size="sm"
           variant="default"
-          onClick={() => completeTask(task.id)}
+          onClick={() => handleCompleteClick(task)}
           className="h-7 px-2 text-xs"
         >
           <Check className="h-3 w-3 mr-1" />
@@ -473,9 +500,9 @@ export default function Tasks() {
                                 Start Task
                               </DropdownMenuItem>
                             )}
-                            {task.status === 'in_progress' && (
+                              {task.status === 'in_progress' && (
                               <>
-                                <DropdownMenuItem onClick={() => completeTask(task.id)}>
+                                <DropdownMenuItem onClick={() => handleCompleteClick(task)}>
                                   <Check className="mr-2 h-4 w-4" />
                                   Complete
                                 </DropdownMenuItem>
@@ -518,6 +545,19 @@ export default function Tasks() {
         onOpenChange={(open) => !open && setUnableToCompleteTask(null)}
         taskTitle={unableToCompleteTask?.title || ''}
         onConfirm={handleUnableToComplete}
+      />
+
+      <WillCallCompletionDialog
+        open={!!willCallTask}
+        onOpenChange={(open) => {
+          if (!open) {
+            setWillCallTask(null);
+            setWillCallItems([]);
+          }
+        }}
+        taskTitle={willCallTask?.title || ''}
+        items={willCallItems}
+        onComplete={handleWillCallComplete}
       />
     </DashboardLayout>
   );
