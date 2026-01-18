@@ -212,7 +212,7 @@ const getDefaultValues = (): AccountFormData => ({
   account_type: '',
   status: 'active',
   is_master_account: false,
-  parent_account_id: '',
+  parent_account_id: 'none',
   notes: '',
   primary_contact_name: '',
   primary_contact_email: '',
@@ -240,7 +240,7 @@ const getDefaultValues = (): AccountFormData => ({
   prepay_required: false,
   credit_hold: false,
   pricing_level: 'default',
-  rate_card_id: '',
+  rate_card_id: 'default',
   pricing_copy_from_account_id: '',
   pricing_percentage: undefined,
   pricing_apply_to: 'all',
@@ -331,7 +331,7 @@ export function AccountDialog({
         account_type: data.account_type || '',
         status: mapStatus(data.status),
         is_master_account: data.is_master_account || false,
-        parent_account_id: data.parent_account_id || '',
+        parent_account_id: data.parent_account_id || 'none',
         notes: data.notes || '',
         primary_contact_name: data.primary_contact_name || '',
         primary_contact_email: data.primary_contact_email || '',
@@ -359,7 +359,7 @@ export function AccountDialog({
         prepay_required: data.prepay_required || false,
         credit_hold: data.credit_hold || false,
         pricing_level: data.pricing_level || 'default',
-        rate_card_id: data.rate_card_id || '',
+        rate_card_id: data.rate_card_id || 'default',
         pricing_copy_from_account_id: '',
         pricing_percentage: undefined,
         pricing_apply_to: 'all',
@@ -416,7 +416,7 @@ export function AccountDialog({
         account_type: data.account_type || null,
         status: data.status,
         is_master_account: data.is_master_account || false,
-        parent_account_id: data.parent_account_id || null,
+        parent_account_id: data.parent_account_id === 'none' ? null : data.parent_account_id || null,
         notes: data.notes || null,
         primary_contact_name: data.primary_contact_name || null,
         primary_contact_email: data.primary_contact_email || null,
@@ -444,7 +444,7 @@ export function AccountDialog({
         prepay_required: data.prepay_required || false,
         credit_hold: data.credit_hold || false,
         pricing_level: data.pricing_level || null,
-        rate_card_id: data.rate_card_id || null,
+        rate_card_id: data.rate_card_id === 'default' ? null : data.rate_card_id || null,
         auto_inspection_on_receiving: data.auto_inspection_on_receiving || false,
         auto_assembly_on_receiving: data.auto_assembly_on_receiving || false,
         auto_repair_on_damage: data.auto_repair_on_damage || false,
@@ -672,7 +672,7 @@ export function AccountDialog({
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="">None (Top-Level Account)</SelectItem>
+                                  <SelectItem value="none">None (Top-Level Account)</SelectItem>
                                   {accounts
                                     .filter((a) => a.id !== accountId)
                                     .map((a) => (
@@ -1043,7 +1043,7 @@ export function AccountDialog({
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">Default Rate Card</SelectItem>
+                                <SelectItem value="default">Default Rate Card</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormDescription>
