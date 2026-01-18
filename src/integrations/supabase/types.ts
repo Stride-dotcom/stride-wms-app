@@ -236,6 +236,7 @@ export type Database = {
       accounts: {
         Row: {
           access_level: string | null
+          account_alert_recipients: string | null
           account_code: string
           account_name: string
           account_type: string | null
@@ -302,6 +303,7 @@ export type Database = {
         }
         Insert: {
           access_level?: string | null
+          account_alert_recipients?: string | null
           account_code: string
           account_name: string
           account_type?: string | null
@@ -368,6 +370,7 @@ export type Database = {
         }
         Update: {
           access_level?: string | null
+          account_alert_recipients?: string | null
           account_code?: string
           account_name?: string
           account_type?: string | null
@@ -3074,6 +3077,70 @@ export type Database = {
           },
         ]
       }
+      receiving_sessions: {
+        Row: {
+          created_at: string
+          finished_at: string | null
+          id: string
+          notes: string | null
+          shipment_id: string
+          started_at: string
+          started_by: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          verification_data: Json | null
+        }
+        Insert: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          notes?: string | null
+          shipment_id: string
+          started_at?: string
+          started_by: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          verification_data?: Json | null
+        }
+        Update: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          notes?: string | null
+          shipment_id?: string
+          started_at?: string
+          started_by?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          verification_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receiving_sessions_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receiving_sessions_started_by_fkey"
+            columns: ["started_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receiving_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       repair_quotes: {
         Row: {
           approval_status: string | null
@@ -4362,6 +4429,41 @@ export type Database = {
           },
         ]
       }
+      user_dashboard_preferences: {
+        Row: {
+          card_order: Json | null
+          created_at: string
+          hidden_cards: Json | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          card_order?: Json | null
+          created_at?: string
+          hidden_cards?: Json | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          card_order?: Json | null
+          created_at?: string
+          hidden_cards?: Json | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_dashboard_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           assigned_at: string
@@ -4416,43 +4518,73 @@ export type Database = {
       }
       users: {
         Row: {
+          cost_center: string | null
           created_at: string
           deleted_at: string | null
           email: string
+          enrolled: boolean | null
+          enrolled_at: string | null
           first_name: string | null
           id: string
+          invite_expires_at: string | null
+          invite_token: string | null
+          invited_at: string | null
           labor_rate: number | null
           last_login_at: string | null
           last_name: string | null
+          overtime_eligible: boolean | null
           password_hash: string
+          pay_rate: number | null
+          pay_type: string | null
+          phone: string | null
           status: string
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          cost_center?: string | null
           created_at?: string
           deleted_at?: string | null
           email: string
+          enrolled?: boolean | null
+          enrolled_at?: string | null
           first_name?: string | null
           id?: string
+          invite_expires_at?: string | null
+          invite_token?: string | null
+          invited_at?: string | null
           labor_rate?: number | null
           last_login_at?: string | null
           last_name?: string | null
+          overtime_eligible?: boolean | null
           password_hash: string
+          pay_rate?: number | null
+          pay_type?: string | null
+          phone?: string | null
           status?: string
           tenant_id: string
           updated_at?: string
         }
         Update: {
+          cost_center?: string | null
           created_at?: string
           deleted_at?: string | null
           email?: string
+          enrolled?: boolean | null
+          enrolled_at?: string | null
           first_name?: string | null
           id?: string
+          invite_expires_at?: string | null
+          invite_token?: string | null
+          invited_at?: string | null
           labor_rate?: number | null
           last_login_at?: string | null
           last_name?: string | null
+          overtime_eligible?: boolean | null
           password_hash?: string
+          pay_rate?: number | null
+          pay_type?: string | null
+          phone?: string | null
           status?: string
           tenant_id?: string
           updated_at?: string
@@ -4823,6 +4955,7 @@ export type Database = {
     Functions: {
       check_past_due_tasks: { Args: never; Returns: undefined }
       current_user_id: { Args: never; Returns: string }
+      generate_invoice_number: { Args: never; Returns: string }
       generate_shipment_number: { Args: never; Returns: string }
       get_current_user_tenant_id: { Args: never; Returns: string }
       get_user_role: { Args: { _user_id: string }; Returns: string }
