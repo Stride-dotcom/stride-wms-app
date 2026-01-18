@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -163,7 +164,7 @@ const getDefaultItemType = (): Partial<ItemType> => ({
   auto_add_assembly_fee: false,
 });
 
-// CSV column headers for export/import template
+// CSV column headers for export/import template (matches DB column names)
 const CSV_HEADERS = [
   'name',
   'is_active',
@@ -202,10 +203,165 @@ const CSV_HEADERS = [
   'auto_add_assembly_fee',
 ];
 
+const ITEM_TYPE_ALLOWED_KEYS = new Set<string>([
+  ...Object.keys(getDefaultItemType()),
+  'tenant_id',
+]);
+
+function canonicalizeHeader(header: string): string {
+  return header
+    .toLowerCase()
+    .trim()
+    .replace(/\(.*?\)/g, '')
+    .replace(/#/g, 'number')
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+const HEADER_ALIASES: Record<string, string> = {
+  // Core name
+  name: 'name',
+  type_name: 'name',
+  item_type: 'name',
+
+  // Pieces
+  number_of_delivery_pieces: 'delivery_pieces',
+  delivery_pieces: 'delivery_pieces',
+  number_of_billing_pieces: 'billing_pieces',
+  billing_pieces: 'billing_pieces',
+
+  // Rates
+  assembly_rate: 'assembly_rate',
+  same_day_assembly_rate: 'same_day_assembly_rate',
+  move_rate: 'move_rate',
+  inspection_fee: 'inspection_fee',
+  receiving_fee: 'receiving_rate',
+  receiving_rate: 'receiving_rate',
+  pull_for_delivery_rate: 'pull_for_delivery_rate',
+  removal_rate: 'removal_rate',
+  will_call_rate: 'will_call_rate',
+  storage_rate_per_day: 'storage_rate_per_day',
+  storage_rate: 'storage_rate',
+  oversize_rate: 'oversize_rate',
+  felt_pad_price: 'felt_pad_price',
+  extra_fee: 'extra_fee',
+  extra_fee_if_item_is_unstackable: 'unstackable_extra_fee',
+  unstackable_extra_fee: 'unstackable_extra_fee',
+
+  // Minutes
+  minutes_to_deliver: 'minutes_to_deliver',
+  minutes_to_move: 'minutes_to_move',
+  minutes_to_assemble: 'minutes_to_assemble',
+  minutes_to_load_from_warehouse: 'minutes_to_load',
+  minutes_to_load: 'minutes_to_load',
+  minutes_to_inspect: 'minutes_to_inspect',
+  minutes_to_put_in_warehouse: 'minutes_to_put_in_warehouse',
+  minutes_per_felt_pad: 'minutes_per_felt_pad',
+
+  // Other
+  default_item_notes: 'default_item_notes',
+  sort_order: 'sort_order',
+  number_of_people_to_deliver: 'people_to_deliver',
+  people_to_deliver: 'people_to_deliver',
+  cubic_feet_for_truck_calculations: 'cubic_feet',
+  cubic_feet: 'cubic_feet',
+  model_number: 'model_number',
+  weight: 'weight',
+
+  // Booleans
+  is_active: 'is_active',
+  allow_on_reservation_system: 'allow_on_reservation',
+  allow_on_reservation: 'allow_on_reservation',
+  notify_dispatch: 'notify_dispatch',
+  allow_on_order_entry: 'allow_on_order_entry',
+  automatically_add_assembly_fee: 'auto_add_assembly_fee',
+  auto_add_assembly_fee: 'auto_add_assembly_fee',
+
+  // Keep as-is if present
+  storage_billing_frequency: 'storage_billing_frequency',
+  assemblies_in_base_rate: 'assemblies_in_base_rate',
+};
+
+function parseBoolean(value: unknown): boolean | null {
+  if (value === null || value === undefined) return null;
+  const v = String(value).trim().toLowerCase();
+  if (['yes', 'y', 'true', '1'].includes(v)) return true;
+  if (['no', 'n', 'false', '0'].includes(v)) return false;
+  return null;
+}
+
+function parseNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  const cleaned = String(value).trim();
+  if (!cleaned) return null;
+  const n = Number(cleaned);
+  return Number.isNaN(n) ? null : n;
+}
+
+function parseRowToItemType(headers: string[], row: unknown[]): Record<string, unknown> {
+  const obj: Record<string, unknown> = {};
+
+  headers.forEach((headerRaw, idx) => {
+    const header = canonicalizeHeader(headerRaw);
+    const mapped = HEADER_ALIASES[header] || header;
+
+    if (!mapped || !ITEM_TYPE_ALLOWED_KEYS.has(mapped)) return;
+
+    const cell = row[idx];
+
+    // Prefer boolean parsing for known boolean fields
+    if (['is_active', 'allow_on_reservation', 'notify_dispatch', 'allow_on_order_entry', 'auto_add_assembly_fee'].includes(mapped)) {
+      const b = parseBoolean(cell);
+      obj[mapped] = b === null ? (mapped === 'is_active' ? true : false) : b;
+      return;
+    }
+
+    // Parse numbers for numeric fields (most of this table)
+    if (mapped !== 'name' && mapped !== 'storage_billing_frequency' && mapped !== 'model_number' && mapped !== 'default_item_notes') {
+      const n = parseNumber(cell);
+      obj[mapped] = n;
+      return;
+    }
+
+    // Strings
+    const s = cell === null || cell === undefined ? '' : String(cell).trim();
+    obj[mapped] = s === '' ? null : s;
+  });
+
+  return obj;
+}
+
+function parseCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      out.push(cur);
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  out.push(cur);
+  return out.map((v) => v.trim());
+}
+
 export function ItemTypesSettingsTab() {
   const { profile } = useAuth();
   const { toast } = useToast();
-  
+
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -392,48 +548,97 @@ export function ItemTypesSettingsTab() {
     URL.revokeObjectURL(url);
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const lines = text.split('\n').filter(line => line.trim());
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-      
-      const parsedData = lines.slice(1).map(line => {
-        const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-        const obj: any = {};
-        headers.forEach((header, idx) => {
-          let value: any = values[idx] || null;
-          
-          // Convert YES/NO to boolean
-          if (value === 'YES' || value === 'yes') value = true;
-          else if (value === 'NO' || value === 'no') value = false;
-          // Convert numeric strings
-          else if (value && !isNaN(Number(value))) value = Number(value);
-          else if (value === '') value = null;
-          
-          obj[header] = value;
+    try {
+      const fileName = file.name.toLowerCase();
+      let headers: string[] = [];
+      let rows: unknown[][] = [];
+
+      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        const buffer = await file.arrayBuffer();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const workbook = XLSX.read(buffer, { type: 'array' } as any);
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const data: any[][] = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+        const cleaned = data.filter((r) => Array.isArray(r) && r.some((c) => String(c ?? '').trim() !== ''));
+        if (cleaned.length < 2) {
+          toast({
+            variant: 'destructive',
+            title: 'Import Error',
+            description: 'The spreadsheet appears to be empty.',
+          });
+          return;
+        }
+
+        headers = (cleaned[0] || []).map((h) => String(h ?? '').trim());
+        rows = cleaned.slice(1);
+      } else {
+        // CSV
+        const text = await file.text();
+        const lines = text
+          .split(/\r?\n/)
+          .map((l) => l.trimEnd())
+          .filter((line) => line.trim());
+
+        if (lines.length < 2) {
+          toast({
+            variant: 'destructive',
+            title: 'Import Error',
+            description: 'The CSV appears to be empty.',
+          });
+          return;
+        }
+
+        headers = parseCsvLine(lines[0]).map((h) => h.replace(/^"|"$/g, '').trim());
+        rows = lines.slice(1).map((line) => parseCsvLine(line).map((v) => v.replace(/^"|"$/g, '')));
+      }
+
+      const parsedData = rows
+        .map((row) => parseRowToItemType(headers, row))
+        .map((obj) => {
+          // Ensure name is populated from any alias
+          const name = obj.name;
+          return {
+            ...obj,
+            name: name === null || name === undefined ? '' : String(name),
+          };
+        })
+        .filter((obj) => String(obj.name || '').trim().length > 0);
+
+      if (parsedData.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Import Error',
+          description: 'No valid rows found (missing Type Name / name).',
         });
-        return obj;
-      });
+        return;
+      }
 
       // Check for duplicates
-      const existingNames = itemTypes.map(it => it.name.toLowerCase());
+      const existingNames = itemTypes.map((it) => it.name.toLowerCase());
       const duplicateNames = parsedData
-        .filter(item => existingNames.includes(item.name?.toLowerCase()))
-        .map(item => item.name);
+        .filter((item) => existingNames.includes(String(item.name || '').toLowerCase()))
+        .map((item) => String(item.name));
 
       setCsvData(parsedData);
       setDuplicates([...new Set(duplicateNames)]);
       setImportDialogOpen(true);
-    };
-    reader.readAsText(file);
-    
-    // Reset file input
-    event.target.value = '';
+    } catch (error) {
+      console.error('Error parsing item types file:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Import Error',
+        description: 'Failed to parse the file. Please check the format.',
+      });
+    } finally {
+      // Reset file input
+      event.target.value = '';
+    }
   };
 
   const handleImportConfirm = async () => {
@@ -537,13 +742,13 @@ export function ItemTypesSettingsTab() {
           <div className="relative">
             <input
               type="file"
-              accept=".csv"
+              accept=".csv,.xlsx,.xls"
               onChange={handleFileUpload}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
             <Button variant="outline" size="sm">
               <Upload className="mr-2 h-4 w-4" />
-              Import CSV
+              Import
             </Button>
           </div>
           <Button onClick={handleCreate}>
