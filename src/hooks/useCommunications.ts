@@ -97,7 +97,9 @@ export const COMMUNICATION_VARIABLES = [
   // Account
   { key: 'account_name', label: 'Account Name', group: 'Account', sample: 'Acme Corp', description: 'Customer account name' },
   { key: 'account_contact_name', label: 'Account Contact Name', group: 'Account', sample: 'John Smith', description: 'Primary contact name' },
-  { key: 'account_contact_email', label: 'Account Contact Email', group: 'Account', sample: 'john@acme.com', description: 'Primary contact email' },
+  { key: 'account_contact_email', label: 'Account Contact Email', group: 'Account', sample: 'john@acme.com', description: 'Parsed email from alert recipients' },
+  { key: 'account_contact_phone', label: 'Account Contact Phone', group: 'Account', sample: '+1-555-123-4567', description: 'Parsed phone from alert recipients' },
+  { key: 'account_contact_recipients_raw', label: 'Alert Recipients (Raw)', group: 'Account', sample: 'john@acme.com, +1-555-123-4567', description: 'Raw alert recipients field' },
   { key: 'account_billing_contact_email', label: 'Billing Contact Email', group: 'Account', sample: 'billing@acme.com', description: 'Billing contact email' },
   { key: 'account_user_email', label: 'Account User Email', group: 'Account', sample: 'user@acme.com', description: 'Logged-in user email' },
   
