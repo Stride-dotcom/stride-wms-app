@@ -353,35 +353,45 @@ export default function ShipmentDetail() {
             </div>
           </div>
           
-          <div className="flex gap-2">
-            {isCompleted && shipment.shipment_type === 'inbound' && (
-              <Button variant="outline" onClick={() => {
+          <div className="flex flex-wrap gap-2">
+            {shipment.shipment_type === 'inbound' && shipment.items.some(i => i.item_id) && (
+              <Button variant="outline" onClick={async () => {
                 // Fetch items for printing
                 const itemIds = shipment.items
                   .map(i => i.item_id)
                   .filter((id): id is string => id !== null);
                 
                 if (itemIds.length > 0) {
-                  (async () => {
-                    const { data: receivedItems } = await (supabase.from('items') as any)
-                      .select('id, item_code, description, vendor, client_account, sidemark, locations(code), warehouses(name)')
-                      .in('id', itemIds);
-                    
-                    if (receivedItems && receivedItems.length > 0) {
-                      const labelsData: ItemLabelData[] = receivedItems.map((item: any) => ({
-                        id: item.id,
-                        itemCode: item.item_code,
-                        description: item.description || '',
-                        vendor: item.vendor || '',
-                        account: item.client_account || shipment.account?.account_name || '',
-                        sidemark: item.sidemark || '',
-                        warehouseName: item.warehouses?.name || shipment.warehouse?.name || '',
-                        locationCode: item.locations?.code || '',
-                      }));
-                      setReceivedItemsForLabels(labelsData);
-                      setShowPrintDialog(true);
-                    }
-                  })();
+                  const { data: receivedItems } = await (supabase.from('items') as any)
+                    .select('id, item_code, description, vendor, client_account, sidemark, locations(code), warehouses(name)')
+                    .in('id', itemIds);
+                  
+                  if (receivedItems && receivedItems.length > 0) {
+                    const labelsData: ItemLabelData[] = receivedItems.map((item: any) => ({
+                      id: item.id,
+                      itemCode: item.item_code,
+                      description: item.description || '',
+                      vendor: item.vendor || '',
+                      account: item.client_account || shipment.account?.account_name || '',
+                      sidemark: item.sidemark || '',
+                      warehouseName: item.warehouses?.name || shipment.warehouse?.name || '',
+                      locationCode: item.locations?.code || '',
+                    }));
+                    setReceivedItemsForLabels(labelsData);
+                    setShowPrintDialog(true);
+                  } else {
+                    toast({
+                      title: 'No items to print',
+                      description: 'Complete receiving first to create items for labeling.',
+                      variant: 'destructive',
+                    });
+                  }
+                } else {
+                  toast({
+                    title: 'No items to print',
+                    description: 'Complete receiving first to create items for labeling.',
+                    variant: 'destructive',
+                  });
                 }
               }}>
                 <Printer className="mr-2 h-4 w-4" />
