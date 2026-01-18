@@ -10,13 +10,15 @@ import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Inventory from "./pages/Inventory";
-import Receiving from "./pages/Receiving";
+import ItemDetail from "./pages/ItemDetail";
 import Orders from "./pages/Orders";
 import Reports from "./pages/Reports";
 import Accounts from "./pages/Accounts";
 import RateCards from "./pages/RateCards";
 import Settings from "./pages/Settings";
 import Shipments from "./pages/Shipments";
+import ShipmentsList from "./pages/ShipmentsList";
+import ShipmentDetail from "./pages/ShipmentDetail";
 import ShipmentCreate from "./pages/ShipmentCreate";
 import Tasks from "./pages/Tasks";
 import Billing from "./pages/Billing";
@@ -36,9 +38,13 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
+            <Route path="/inventory/:id" element={<ProtectedRoute><ItemDetail /></ProtectedRoute>} />
             <Route path="/shipments" element={<ProtectedRoute><Shipments /></ProtectedRoute>} />
+            <Route path="/shipments/list" element={<ProtectedRoute><ShipmentsList /></ProtectedRoute>} />
+            <Route path="/shipments/incoming" element={<ProtectedRoute><ShipmentsList /></ProtectedRoute>} />
+            <Route path="/shipments/outbound" element={<ProtectedRoute><ShipmentsList /></ProtectedRoute>} />
             <Route path="/shipments/new" element={<ProtectedRoute><ShipmentCreate /></ProtectedRoute>} />
-            <Route path="/receiving" element={<ProtectedRoute><Receiving /></ProtectedRoute>} />
+            <Route path="/shipments/:id" element={<ProtectedRoute><ShipmentDetail /></ProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
             <Route path="/billing" element={<ProtectedRoute><RequireRole role="tenant_admin"><Billing /></RequireRole></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
