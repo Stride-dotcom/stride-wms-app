@@ -73,7 +73,6 @@ interface Warehouse {
 interface ItemType {
   id: string;
   name: string;
-  category: string;
 }
 
 export default function ShipmentCreate() {
@@ -127,7 +126,7 @@ export default function ShipmentCreate() {
           .order('name'),
         supabase
           .from('item_types')
-          .select('id, name, category')
+          .select('id, name')
           .eq('is_active', true)
           .order('name'),
       ]);
