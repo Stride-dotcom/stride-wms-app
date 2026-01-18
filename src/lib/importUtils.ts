@@ -46,20 +46,37 @@ export function parseNumber(value: unknown): number | null {
 
 /**
  * Parse a date from various formats including Excel serial numbers.
+ * Only treats numbers as Excel dates if they're in a reasonable range (1900-2100).
  */
 export function parseDate(value: string | number | null | undefined): string | null {
   if (value === null || value === undefined) return null;
   
-  // Handle Excel date serial numbers
+  // Handle Excel date serial numbers - but only if in reasonable range
+  // Excel date 1 = Jan 1, 1900, and ~73050 = Dec 31, 2099
+  // We'll accept dates from 1950 (18264) to 2100 (73415)
   if (typeof value === 'number') {
+    // If number is outside reasonable Excel date range, skip it
+    if (value < 1 || value > 100000) {
+      return null;
+    }
     const excelEpoch = new Date(1899, 11, 30);
     const date = new Date(excelEpoch.getTime() + value * 86400000);
+    // Validate the resulting date is reasonable (1950-2100)
+    const year = date.getFullYear();
+    if (year < 1950 || year > 2100) {
+      return null;
+    }
     return date.toISOString();
   }
   
   // Handle string dates
   const str = String(value).trim();
   if (!str) return null;
+  
+  // Skip values that look like IDs or codes (all numeric with no separators)
+  if (/^\d{5,}$/.test(str)) {
+    return null;
+  }
   
   // Try parsing common formats: M/D/YYYY, M/D/YY, YYYY-MM-DD
   const parts = str.split('/');
@@ -68,16 +85,21 @@ export function parseDate(value: string | number | null | undefined): string | n
     if (year < 100) year += 2000; // Handle 2-digit years
     const month = parseInt(parts[0]) - 1;
     const day = parseInt(parts[1]);
-    const date = new Date(year, month, day);
-    if (!isNaN(date.getTime())) {
-      return date.toISOString();
+    if (month >= 0 && month <= 11 && day >= 1 && day <= 31 && year >= 1950 && year <= 2100) {
+      const date = new Date(year, month, day);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString();
+      }
     }
   }
   
-  // Try standard Date parsing
+  // Try standard Date parsing but validate result is reasonable
   const date = new Date(str);
   if (!isNaN(date.getTime())) {
-    return date.toISOString();
+    const year = date.getFullYear();
+    if (year >= 1950 && year <= 2100) {
+      return date.toISOString();
+    }
   }
   
   return null;
