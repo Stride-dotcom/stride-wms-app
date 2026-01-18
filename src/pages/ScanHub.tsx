@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLocations } from '@/hooks/useLocations';
+import { QRScanner } from '@/components/scan/QRScanner';
 import {
   Move,
   Layers,
@@ -16,9 +17,9 @@ import {
   MapPin,
   Loader2,
   X,
-  Camera,
   ArrowLeft,
   ChevronRight,
+  Keyboard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -46,9 +47,9 @@ export default function ScanHub() {
   
   const [mode, setMode] = useState<ScanMode>(null);
   const [phase, setPhase] = useState<ScanPhase>('idle');
-  const [scanInput, setScanInput] = useState('');
   const [processing, setProcessing] = useState(false);
-  const scanInputRef = useRef<HTMLInputElement>(null);
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [manualInput, setManualInput] = useState('');
   
   // Move mode state
   const [scannedItem, setScannedItem] = useState<ScannedItem | null>(null);
@@ -62,13 +63,6 @@ export default function ScanHub() {
   const [isSwiping, setIsSwiping] = useState(false);
   const swipeStartX = useRef(0);
   const swipeContainerRef = useRef<HTMLDivElement>(null);
-
-  // Focus input when entering scan mode
-  useEffect(() => {
-    if (phase === 'scanning-item' || phase === 'scanning-location') {
-      setTimeout(() => scanInputRef.current?.focus(), 100);
-    }
-  }, [phase]);
 
   const parseQRPayload = (input: string): { type: string; id: string; code?: string } | null => {
     try {
@@ -134,12 +128,11 @@ export default function ScanHub() {
     return null;
   };
 
-  const handleScan = async () => {
-    if (!scanInput.trim() || processing) return;
+  const handleScanResult = async (data: string) => {
+    if (processing) return;
 
     setProcessing(true);
-    const input = scanInput.trim();
-    setScanInput('');
+    const input = data.trim();
     
     try {
       if (mode === 'lookup') {
@@ -153,6 +146,7 @@ export default function ScanHub() {
             description: 'No item found with that code.',
           });
         }
+        setProcessing(false);
         return;
       }
 
@@ -162,6 +156,10 @@ export default function ScanHub() {
           if (item) {
             setScannedItem(item);
             setPhase('scanning-location');
+            toast({
+              title: `Found: ${item.item_code}`,
+              description: 'Now scan the destination bay.',
+            });
           } else {
             toast({
               variant: 'destructive',
@@ -191,6 +189,7 @@ export default function ScanHub() {
           // Location scanned - end batch and go to confirm
           setTargetLocation(loc);
           setPhase('confirm');
+          setProcessing(false);
           return;
         }
 
@@ -226,13 +225,14 @@ export default function ScanHub() {
       });
     } finally {
       setProcessing(false);
-      scanInputRef.current?.focus();
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleScan();
+  const handleManualSubmit = () => {
+    if (manualInput.trim()) {
+      handleScanResult(manualInput.trim());
+      setManualInput('');
+      setShowManualInput(false);
     }
   };
 
@@ -285,17 +285,14 @@ export default function ScanHub() {
     setScannedItem(null);
     setTargetLocation(null);
     setBatchItems([]);
-    setScanInput('');
     setSwipeProgress(0);
+    setShowManualInput(false);
+    setManualInput('');
   };
 
   const selectMode = (selectedMode: ScanMode) => {
     setMode(selectedMode);
-    if (selectedMode === 'move' || selectedMode === 'lookup') {
-      setPhase('scanning-item');
-    } else if (selectedMode === 'batch') {
-      setPhase('scanning-item');
-    }
+    setPhase('scanning-item');
   };
 
   // Swipe handlers
@@ -486,7 +483,7 @@ export default function ScanHub() {
     );
   }
 
-  // Scanning Screen
+  // Scanning Screen with Camera
   return (
     <DashboardLayout>
       <div className="flex flex-col min-h-[70vh] px-4">
@@ -498,19 +495,8 @@ export default function ScanHub() {
           Back
         </button>
 
-        <div className="flex-1 flex flex-col items-center justify-center">
-          {/* Scanning indicator */}
-          <div className="relative mb-8">
-            <div className="w-40 h-40 rounded-3xl bg-muted flex items-center justify-center">
-              <Camera className="h-20 w-20 text-muted-foreground" />
-            </div>
-            {processing && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-3xl">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              </div>
-            )}
-          </div>
-
+        <div className="flex-1 flex flex-col items-center">
+          {/* Title and instructions */}
           <h2 className="text-xl font-bold mb-2">
             {mode === 'lookup' && 'Scan Item'}
             {mode === 'move' && phase === 'scanning-item' && 'Scan Item'}
@@ -518,48 +504,69 @@ export default function ScanHub() {
             {mode === 'batch' && 'Scan Items or Location'}
           </h2>
           
-          <p className="text-muted-foreground text-center mb-6">
-            {mode === 'lookup' && 'Scan QR to view item details'}
+          <p className="text-muted-foreground text-center mb-4">
+            {mode === 'lookup' && 'Point camera at QR code'}
             {mode === 'move' && phase === 'scanning-item' && 'Scan the item you want to move'}
             {mode === 'move' && phase === 'scanning-location' && 'Now scan the destination bay'}
             {mode === 'batch' && 'Scan items to add. Scan a bay to finish.'}
           </p>
 
-          {/* Hidden input for scanner */}
-          <input
-            ref={scanInputRef}
-            type="text"
-            value={scanInput}
-            onChange={(e) => setScanInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="absolute opacity-0 pointer-events-none"
-            autoFocus
-          />
-
-          {/* Visible input for manual entry */}
-          <div className="w-full max-w-md">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Scan or type code..."
-                value={scanInput}
-                onChange={(e) => setScanInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="w-full h-14 px-4 text-lg font-mono bg-muted rounded-xl border-2 border-transparent focus:border-primary focus:outline-none"
-              />
-              <button
-                onClick={handleScan}
-                disabled={!scanInput.trim() || processing}
-                className="absolute right-2 top-2 h-10 px-4 bg-primary text-primary-foreground rounded-lg font-medium disabled:opacity-50"
-              >
-                Go
-              </button>
-            </div>
+          {/* Camera Scanner */}
+          <div className="w-full max-w-md mb-4">
+            <QRScanner 
+              onScan={handleScanResult}
+              onError={(error) => {
+                console.error('Scanner error:', error);
+              }}
+              scanning={phase === 'scanning-item' || phase === 'scanning-location'}
+              className="w-full"
+            />
           </div>
+
+          {/* Processing indicator */}
+          {processing && (
+            <div className="flex items-center gap-2 text-primary mb-4">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Processing...</span>
+            </div>
+          )}
+
+          {/* Manual entry toggle */}
+          <button
+            onClick={() => setShowManualInput(!showManualInput)}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
+          >
+            <Keyboard className="h-4 w-4" />
+            {showManualInput ? 'Hide keyboard' : 'Type code manually'}
+          </button>
+
+          {/* Manual input */}
+          {showManualInput && (
+            <div className="w-full max-w-md mb-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter item or location code..."
+                  value={manualInput}
+                  onChange={(e) => setManualInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleManualSubmit()}
+                  className="flex-1 h-12 px-4 text-lg font-mono bg-muted rounded-xl border-2 border-transparent focus:border-primary focus:outline-none"
+                  autoFocus
+                />
+                <button
+                  onClick={handleManualSubmit}
+                  disabled={!manualInput.trim() || processing}
+                  className="px-6 h-12 bg-primary text-primary-foreground rounded-xl font-medium disabled:opacity-50"
+                >
+                  Go
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Scanned item indicator for move mode */}
           {mode === 'move' && scannedItem && phase === 'scanning-location' && (
-            <Card className="w-full max-w-md mt-6">
+            <Card className="w-full max-w-md">
               <CardContent className="py-4">
                 <div className="flex items-center gap-3">
                   <Package className="h-6 w-6 text-primary" />
@@ -576,7 +583,7 @@ export default function ScanHub() {
 
           {/* Batch items list */}
           {mode === 'batch' && batchItems.length > 0 && (
-            <Card className="w-full max-w-md mt-6">
+            <Card className="w-full max-w-md">
               <CardContent className="py-4">
                 <div className="flex items-center justify-between mb-3">
                   <span className="font-medium">Batch: {batchItems.length} items</span>
