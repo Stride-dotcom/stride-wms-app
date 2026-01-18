@@ -21,8 +21,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Package, Loader2, Filter, Truck, Trash2, ClipboardList, Upload, Printer } from 'lucide-react';
+import { Search, Package, Loader2, Filter, Truck, Trash2, ClipboardList, Upload, Printer, AlertTriangle } from 'lucide-react';
 import { ReleaseDialog } from '@/components/inventory/ReleaseDialog';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { InventoryImportDialog } from '@/components/settings/InventoryImportDialog';
@@ -42,6 +51,7 @@ interface Item {
   vendor: string | null;
   location_code: string | null;
   location_name: string | null;
+  warehouse_id: string | null;
   warehouse_name: string | null;
   received_at: string | null;
 }
@@ -58,6 +68,8 @@ export default function Inventory() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [printLabelsDialogOpen, setPrintLabelsDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [validationMessage, setValidationMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { warehouses } = useWarehouses();
@@ -71,7 +83,7 @@ export default function Inventory() {
     try {
       const { data, error } = await supabase
         .from('v_items_with_location')
-        .select('id, item_code, description, status, quantity, client_account, sidemark, vendor, location_code, location_name, warehouse_name, received_at')
+        .select('id, item_code, description, status, quantity, client_account, sidemark, vendor, location_code, location_name, warehouse_id, warehouse_name, received_at')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(100);
@@ -134,8 +146,26 @@ export default function Inventory() {
       description: item.description,
       quantity: item.quantity,
       client_account: item.client_account,
+      warehouse_id: item.warehouse_id,
     }));
   };
+
+  // Validation: Check if selected items have multiple accounts
+  const getSelectedItemsAccounts = () => {
+    const selectedData = items.filter(item => selectedItems.has(item.id));
+    const accounts = new Set(selectedData.map(item => item.client_account).filter(Boolean));
+    return accounts;
+  };
+
+  // Validation: Check if selected items have multiple warehouses
+  const getSelectedItemsWarehouses = () => {
+    const selectedData = items.filter(item => selectedItems.has(item.id));
+    const warehouses = new Set(selectedData.map(item => item.warehouse_id).filter(Boolean));
+    return warehouses;
+  };
+
+  const hasMultipleAccounts = getSelectedItemsAccounts().size > 1;
+  const hasMultipleWarehouses = getSelectedItemsWarehouses().size > 1;
 
   const getSelectedItemsForLabels = (): ItemLabelData[] => {
     return items.filter(item => selectedItems.has(item.id)).map(item => ({
@@ -197,21 +227,47 @@ export default function Inventory() {
               <>
                 <Button
                   variant="outline"
-                  onClick={() => setTaskDialogOpen(true)}
+                  onClick={() => {
+                    if (hasMultipleAccounts) {
+                      setValidationMessage('Cannot create a task for items from different accounts. Please select items from a single account.');
+                      setValidationDialogOpen(true);
+                      return;
+                    }
+                    if (hasMultipleWarehouses) {
+                      setValidationMessage('Cannot create a task for items located in different warehouses. Please select items from a single warehouse.');
+                      setValidationDialogOpen(true);
+                      return;
+                    }
+                    setTaskDialogOpen(true);
+                  }}
                 >
                   <ClipboardList className="mr-2 h-4 w-4" />
                   Create Task ({selectedItems.size})
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => setReleaseDialogOpen(true)}
+                  onClick={() => {
+                    if (hasMultipleAccounts) {
+                      setValidationMessage('Cannot create a will call for items from different accounts. Please select items from a single account.');
+                      setValidationDialogOpen(true);
+                      return;
+                    }
+                    setReleaseDialogOpen(true);
+                  }}
                 >
                   <Truck className="mr-2 h-4 w-4" />
                   Will Call ({selectedItems.size})
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => setReleaseDialogOpen(true)}
+                  onClick={() => {
+                    if (hasMultipleAccounts) {
+                      setValidationMessage('Cannot create a disposal for items from different accounts. Please select items from a single account.');
+                      setValidationDialogOpen(true);
+                      return;
+                    }
+                    setReleaseDialogOpen(true);
+                  }}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Dispose ({selectedItems.size})
@@ -385,6 +441,26 @@ export default function Inventory() {
         onOpenChange={setPrintLabelsDialogOpen}
         items={getSelectedItemsForLabels()}
       />
+
+      {/* Validation Error Dialog */}
+      <AlertDialog open={validationDialogOpen} onOpenChange={setValidationDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Cannot Proceed
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {validationMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setValidationDialogOpen(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }

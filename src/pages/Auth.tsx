@@ -86,10 +86,8 @@ export default function Auth() {
       return;
     }
 
-    toast({
-      title: 'Welcome back!',
-      description: 'You have successfully logged in.',
-    });
+    // Navigate to dashboard without welcome toast
+    navigate('/');
     navigate('/');
   };
 

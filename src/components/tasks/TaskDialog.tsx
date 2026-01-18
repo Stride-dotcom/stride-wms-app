@@ -7,6 +7,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,7 +38,7 @@ import { useTaskTypes, useDueDateRules, Task } from '@/hooks/useTasks';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useUsers } from '@/hooks/useUsers';
 import { format } from 'date-fns';
-import { Loader2, CalendarIcon, Plus, X, Search } from 'lucide-react';
+import { Loader2, CalendarIcon, Plus, X, Search, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TaskDialogProps {
@@ -52,6 +61,7 @@ interface InventoryItem {
   vendor: string | null;
   sidemark: string | null;
   client_account: string | null;
+  warehouse_id: string | null;
 }
 
 export function TaskDialog({
@@ -77,6 +87,8 @@ export function TaskDialog({
   const [accountItems, setAccountItems] = useState<InventoryItem[]>([]);
   const [itemSearchQuery, setItemSearchQuery] = useState('');
   const [loadingItems, setLoadingItems] = useState(false);
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [validationMessage, setValidationMessage] = useState('');
 
   const [formData, setFormData] = useState({
     description: '',
@@ -139,21 +151,39 @@ export function TaskDialog({
     }
   }, [task, open]);
 
-  // Auto-populate account when items are selected from inventory
+  // Auto-populate account and warehouse when items are selected from inventory
   useEffect(() => {
-    if (selectedItems.length > 0 && formData.account_id === 'none') {
-      // Find the account that matches the first item's client_account
-      const firstItemAccount = selectedItems[0]?.client_account;
-      if (firstItemAccount) {
-        const matchingAccount = accounts.find(
-          acc => acc.account_name === firstItemAccount
-        );
-        if (matchingAccount) {
-          setFormData(prev => ({ ...prev, account_id: matchingAccount.id }));
+    if (selectedItems.length > 0) {
+      // Auto-populate account
+      if (formData.account_id === 'none') {
+        const firstItemAccount = selectedItems[0]?.client_account;
+        if (firstItemAccount) {
+          const matchingAccount = accounts.find(
+            acc => acc.account_name === firstItemAccount
+          );
+          if (matchingAccount) {
+            setFormData(prev => ({ ...prev, account_id: matchingAccount.id }));
+          }
         }
+      }
+      // Auto-populate warehouse from items
+      const firstItemWarehouse = selectedItems[0]?.warehouse_id;
+      if (firstItemWarehouse) {
+        setFormData(prev => ({ ...prev, warehouse_id: firstItemWarehouse }));
       }
     }
   }, [selectedItems, accounts]);
+
+  // Validation: Check for multiple accounts/warehouses
+  const hasMultipleAccounts = (() => {
+    const accounts = new Set(selectedItems.map(i => i.client_account).filter(Boolean));
+    return accounts.size > 1;
+  })();
+
+  const hasMultipleWarehouses = (() => {
+    const warehouses = new Set(selectedItems.map(i => i.warehouse_id).filter(Boolean));
+    return warehouses.size > 1;
+  })();
 
   // Fetch items when account is selected (only when creating from tasks menu)
   useEffect(() => {
@@ -180,7 +210,7 @@ export function TaskDialog({
 
     const { data } = await (supabase
       .from('items') as any)
-      .select('id, item_code, description, vendor, sidemark, client_account')
+      .select('id, item_code, description, vendor, sidemark, client_account, warehouse_id')
       .in('id', selectedItemIds);
 
     setSelectedItems(data || []);
@@ -195,7 +225,7 @@ export function TaskDialog({
 
       const { data } = await (supabase
         .from('items') as any)
-        .select('id, item_code, description, vendor, sidemark, client_account')
+        .select('id, item_code, description, vendor, sidemark, client_account, warehouse_id')
         .eq('client_account', account.account_name)
         .eq('status', 'in_stock')
         .is('deleted_at', null)
@@ -662,26 +692,15 @@ export function TaskDialog({
                 </Select>
               </div>
 
-              {/* Warehouse */}
-              <div className="space-y-2">
-                <Label>Warehouse</Label>
-                <Select
-                  value={formData.warehouse_id}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, warehouse_id: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select warehouse" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {warehouses.map(wh => (
-                      <SelectItem key={wh.id} value={wh.id}>
-                        {wh.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Warehouse - Auto-derived from items, shown as read-only when items selected */}
+              {selectedItems.length > 0 && formData.warehouse_id !== 'none' && (
+                <div className="space-y-2">
+                  <Label>Warehouse</Label>
+                  <div className="text-sm text-muted-foreground px-3 py-2 bg-muted rounded-md">
+                    {warehouses.find(wh => wh.id === formData.warehouse_id)?.name || 'Auto-assigned from items'}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Account - only show when creating from inventory (auto-populated) */}
@@ -728,6 +747,26 @@ export function TaskDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Validation Error Dialog */}
+      <AlertDialog open={validationDialogOpen} onOpenChange={setValidationDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Cannot Create Task
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {validationMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setValidationDialogOpen(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
