@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
 import { Camera, CameraOff, Flashlight, FlashlightOff, Loader2, RefreshCw, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -37,18 +37,44 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
   const lastScannedRef = useRef<string>('');
   const lastScanTimeRef = useRef<number>(0);
 
+  const isEmbedded = (() => {
+    try {
+      return window.self !== window.top;
+    } catch {
+      return true;
+    }
+  })();
+
+  const openInNewTab = () => {
+    try {
+      window.open(window.location.href, '_blank', 'noopener,noreferrer');
+    } catch {
+      // ignore
+    }
+  };
+
   const safeStop = useCallback(async () => {
     const scanner = scannerRef.current;
     if (!scanner) return;
 
-    // IMPORTANT: html5-qrcode.stop() can throw synchronously (not just reject).
+    // Only stop when actually running/paused to avoid library throwing.
     try {
-      const maybePromise = (scanner as any).stop?.();
-      if (maybePromise && typeof (maybePromise as any).then === 'function') {
-        await maybePromise;
+      const state = (scanner as any).getState?.() as Html5QrcodeScannerState | undefined;
+      const canStop =
+        state === Html5QrcodeScannerState.SCANNING || state === Html5QrcodeScannerState.PAUSED;
+
+      if (canStop) {
+        await scanner.stop();
       }
     } catch {
       // Swallow: "Cannot stop, scanner is not running or paused." etc.
+    }
+
+    // Clear UI elements if the instance created them.
+    try {
+      (scanner as any).clear?.();
+    } catch {
+      // ignore
     }
 
     scannerRef.current = null;
@@ -134,9 +160,16 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
         setStatus('active');
       } catch (err) {
         const { msg, isPermission } = classifyError(err);
-        setErrorMessage(msg);
+
+        const lowered = msg.toLowerCase();
+        const hintedMsg =
+          isEmbedded && lowered.includes('unable to query supported devices')
+            ? 'Camera access is blocked in this embedded preview. Open this page in a new tab to use the camera.'
+            : msg;
+
+        setErrorMessage(hintedMsg);
         setStatus(isPermission ? 'denied' : 'error');
-        onError?.(msg);
+        onError?.(hintedMsg);
 
         // Ensure we don't leave a half-started instance around
         await safeStop();
@@ -146,7 +179,7 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
     })();
 
     await startInFlightRef.current;
-  }, [onError, onScan, safeStop, scanning]);
+  }, [onError, onScan, safeStop, scanning, isEmbedded]);
 
   // If parent disables scanning (e.g., confirm screen), release camera.
   useEffect(() => {
@@ -205,21 +238,39 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
 
         {/* Tap-to-start overlay (user gesture) */}
         {scanning && (status === 'idle' || status === 'starting') && (
-          <button
-            type="button"
-            onClick={startCamera}
-            className="absolute inset-0 flex flex-col items-center justify-center bg-muted/90 rounded-2xl"
-          >
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/90 rounded-2xl p-6">
             {status === 'starting' ? (
               <Loader2 className="h-12 w-12 animate-spin text-primary mb-3" />
             ) : (
               <Camera className="h-12 w-12 text-primary mb-3" />
             )}
-            <div className="text-center">
-              <p className="text-base font-semibold">Tap to start camera</p>
+
+            <div className="text-center mb-4">
+              <p className="text-base font-semibold">Start camera</p>
               <p className="text-sm text-muted-foreground mt-1">Needed for QR scanning</p>
+              {isEmbedded && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Camera is often blocked inside the embedded preview. Open in a new tab to scan.
+                </p>
+              )}
             </div>
-          </button>
+
+            <div className="flex flex-col gap-2 w-full max-w-[260px]">
+              <Button onClick={startCamera} disabled={status === 'starting'}>
+                {status === 'starting' ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Camera className="h-4 w-4 mr-2" />
+                )}
+                {status === 'starting' ? 'Starting…' : 'Start camera'}
+              </Button>
+              {isEmbedded && (
+                <Button variant="outline" onClick={openInNewTab}>
+                  Open in new tab
+                </Button>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Active frame overlay */}
@@ -253,6 +304,11 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Try again
               </Button>
+              {isEmbedded && (
+                <Button variant="outline" onClick={openInNewTab}>
+                  Open in new tab
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -264,10 +320,17 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
             <p className="text-sm text-muted-foreground text-center mt-1 mb-4 line-clamp-3">
               {errorMessage || 'Unknown error'}
             </p>
-            <Button onClick={startCamera}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Try again
-            </Button>
+            <div className="flex flex-col gap-2 w-full max-w-[240px]">
+              <Button onClick={startCamera}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try again
+              </Button>
+              {isEmbedded && (
+                <Button variant="outline" onClick={openInNewTab}>
+                  Open in new tab
+                </Button>
+              )}
+            </div>
           </div>
         )}
 
