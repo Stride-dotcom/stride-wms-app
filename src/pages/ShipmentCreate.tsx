@@ -35,8 +35,9 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Plus, Trash2, ArrowLeft } from 'lucide-react';
+import { Loader2, Plus, Trash2, ArrowLeft, Upload } from 'lucide-react';
 import { ItemTypeCombobox } from '@/components/items/ItemTypeCombobox';
+import { ShipmentItemsImportDialog, ParsedShipmentItem } from '@/components/shipments/ShipmentItemsImportDialog';
 
 const expectedItemSchema = z.object({
   quantity: z.coerce.number().min(1, 'Quantity must be at least 1'),
@@ -85,6 +86,8 @@ export default function ShipmentCreate() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [fetchingData, setFetchingData] = useState(true);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
 
   const form = useForm<ShipmentFormData>({
     resolver: zodResolver(shipmentSchema),
@@ -102,10 +105,26 @@ export default function ShipmentCreate() {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: 'expected_items',
   });
+
+  const handleImportItems = (importedItems: ParsedShipmentItem[]) => {
+    // Replace all existing items with imported items
+    replace(importedItems);
+    setImportDialogOpen(false);
+    setImportFile(null);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImportFile(file);
+      setImportDialogOpen(true);
+    }
+    e.target.value = '';
+  };
 
   useEffect(() => {
     fetchInitialData();
@@ -385,17 +404,35 @@ export default function ShipmentCreate() {
                       Items expected on this shipment. Item ID Codes will be assigned when received.
                     </CardDescription>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      append({ quantity: 1, vendor: '', description: '', item_type_id: '', sidemark: '' })
-                    }
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Item
-                  </Button>
+                  <div className="flex gap-2">
+                    <input
+                      type="file"
+                      id="import-items-file"
+                      accept=".csv,.xlsx,.xls"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById('import-items-file')?.click()}
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      Import
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        append({ quantity: 1, vendor: '', description: '', item_type_id: '', sidemark: '' })
+                      }
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Item
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -525,6 +562,14 @@ export default function ShipmentCreate() {
             </div>
           </form>
         </Form>
+
+        <ShipmentItemsImportDialog
+          open={importDialogOpen}
+          onOpenChange={setImportDialogOpen}
+          file={importFile}
+          itemTypes={itemTypes}
+          onImport={handleImportItems}
+        />
       </div>
     </DashboardLayout>
   );
