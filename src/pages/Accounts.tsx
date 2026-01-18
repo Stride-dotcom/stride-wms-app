@@ -20,7 +20,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, Loader2, Filter, Plus, Building2 } from 'lucide-react';
+import { Search, Loader2, Filter, Plus, Building2 } from 'lucide-react';
+import { AccountDialog } from '@/components/accounts/AccountDialog';
 
 interface Account {
   id: string;
@@ -40,6 +41,8 @@ export default function Accounts() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAccounts();
@@ -99,7 +102,7 @@ export default function Accounts() {
               Manage client accounts and billing information
             </p>
           </div>
-          <Button>
+          <Button onClick={() => { setEditingAccountId(null); setDialogOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" />
             New Account
           </Button>
@@ -168,7 +171,11 @@ export default function Accounts() {
                   </TableHeader>
                   <TableBody>
                     {filteredAccounts.map((account) => (
-                      <TableRow key={account.id} className="cursor-pointer hover:bg-muted/50">
+                      <TableRow 
+                        key={account.id} 
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => { setEditingAccountId(account.id); setDialogOpen(true); }}
+                      >
                         <TableCell className="font-medium">{account.account_code}</TableCell>
                         <TableCell>{account.account_name}</TableCell>
                         <TableCell>{account.account_type || '-'}</TableCell>
@@ -201,6 +208,17 @@ export default function Accounts() {
           </CardContent>
         </Card>
       </div>
+
+      <AccountDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        accountId={editingAccountId}
+        onSuccess={() => {
+          setDialogOpen(false);
+          setEditingAccountId(null);
+          fetchAccounts();
+        }}
+      />
     </DashboardLayout>
   );
 }
