@@ -27,6 +27,7 @@ import {
   FileText,
   Building2,
   MapPin,
+  ScanLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,6 +44,7 @@ const navItems: NavItem[] = [
   { label: 'Shipments', href: '/shipments', icon: Truck },
   { label: 'Inventory', href: '/inventory', icon: Boxes },
   { label: 'Tasks', href: '/tasks', icon: ClipboardList },
+  { label: 'Scan Hub', href: '/scan', icon: ScanLine },
   { label: 'Orders', href: '/orders', icon: Package },
   { label: 'Reports', href: '/reports', icon: BarChart3 },
   { label: 'Accounts', href: '/accounts', icon: Users, requiredRole: ['admin', 'tenant_admin'] },
