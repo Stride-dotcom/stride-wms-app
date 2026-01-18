@@ -248,9 +248,10 @@ export default function ItemDetail() {
     }
   };
 
-  const handleFlagsChange = (flags: any) => {
+  const handleFlagsChange = async (flags: any) => {
     if (item) {
-      setItem({ ...item, ...flags });
+      // Refetch item to get updated status values from database
+      await fetchItem();
     }
   };
 

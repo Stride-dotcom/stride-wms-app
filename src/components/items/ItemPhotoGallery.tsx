@@ -93,7 +93,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
   };
 
   const renderPhotoGrid = (photosToRender: ItemPhoto[]) => (
-    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
       {photosToRender.map((photo) => (
         <div
           key={photo.id}
@@ -109,17 +109,17 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
           />
 
           {/* Overlay badges */}
-          <div className="absolute top-1 left-1 flex gap-1">
+          <div className="absolute top-1 left-1 flex gap-1 flex-wrap">
             {photo.is_primary && (
-              <Badge className="h-5 text-xs bg-primary">
-                <Star className="h-3 w-3 mr-1" />
-                Primary
+              <Badge className="h-5 text-[10px] sm:text-xs bg-primary px-1 sm:px-2">
+                <Star className="h-3 w-3 sm:mr-1" />
+                <span className="hidden sm:inline">Primary</span>
               </Badge>
             )}
             {photo.needs_attention && (
-              <Badge variant="destructive" className="h-5 text-xs">
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                Attention
+              <Badge variant="destructive" className="h-5 text-[10px] sm:text-xs px-1 sm:px-2">
+                <AlertTriangle className="h-3 w-3 sm:mr-1" />
+                <span className="hidden sm:inline">Attention</span>
               </Badge>
             )}
           </div>
@@ -127,7 +127,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
           {/* Selection checkbox (for staff) */}
           {!isClientUser && (
             <div
-              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute top-1 right-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
               onClick={(e) => {
                 e.stopPropagation();
                 togglePhotoSelection(photo.id);
@@ -140,51 +140,51 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
             </div>
           )}
 
-          {/* Hover actions (for staff) */}
+          {/* Hover actions (for staff) - always visible on mobile */}
           {!isClientUser && (
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
               <div className="flex gap-1 justify-end">
                 {!photo.is_primary && (
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-6 w-6 text-white hover:text-primary"
+                    className="h-7 w-7 sm:h-6 sm:w-6 text-white hover:text-primary"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleSetPrimary(photo.id);
                     }}
                   >
-                    <Star className="h-3 w-3" />
+                    <Star className="h-4 w-4 sm:h-3 sm:w-3" />
                   </Button>
                 )}
                 <Button
                   size="icon"
                   variant="ghost"
-                  className={`h-6 w-6 ${photo.needs_attention ? 'text-red-500' : 'text-white'} hover:text-red-500`}
+                  className={`h-7 w-7 sm:h-6 sm:w-6 ${photo.needs_attention ? 'text-red-500' : 'text-white'} hover:text-red-500`}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleToggleAttention(photo.id, photo.needs_attention);
                   }}
                 >
-                  <AlertTriangle className="h-3 w-3" />
+                  <AlertTriangle className="h-4 w-4 sm:h-3 sm:w-3" />
                 </Button>
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-6 w-6 text-white hover:text-destructive"
+                  className="h-7 w-7 sm:h-6 sm:w-6 text-white hover:text-destructive"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDelete(photo.id);
                   }}
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-4 w-4 sm:h-3 sm:w-3" />
                 </Button>
               </div>
             </div>
           )}
 
-          {/* Zoom icon */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          {/* Zoom icon - hidden on mobile for cleaner UI */}
+          <div className="absolute inset-0 hidden sm:flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
             <ZoomIn className="h-8 w-8 text-white drop-shadow-lg" />
           </div>
         </div>
@@ -206,7 +206,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
     <>
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <Camera className="h-5 w-5" />
               Photos ({photos.length})
@@ -218,15 +218,16 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
             </CardTitle>
 
             {!isClientUser && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {/* Filter toggle */}
                 <Button
                   variant={filterNeedsAttention ? 'secondary' : 'outline'}
                   size="sm"
                   onClick={() => setFilterNeedsAttention(!filterNeedsAttention)}
+                  className="text-xs sm:text-sm"
                 >
-                  <Filter className="h-4 w-4 mr-1" />
-                  Needs Attention
+                  <Filter className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Needs Attention</span>
                 </Button>
 
                 {/* Upload buttons */}
@@ -243,13 +244,14 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                   variant="outline"
                   onClick={() => cameraInputRef.current?.click()}
                   disabled={uploading}
+                  className="text-xs sm:text-sm"
                 >
                   {uploading ? (
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Camera className="h-4 w-4 mr-1" />
+                    <Camera className="h-4 w-4 sm:mr-1" />
                   )}
-                  Camera
+                  <span className="hidden sm:inline">Camera</span>
                 </Button>
 
                 <Input
@@ -264,19 +266,20 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
+                  className="text-xs sm:text-sm"
                 >
                   {uploading ? (
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Upload className="h-4 w-4 mr-1" />
+                    <Upload className="h-4 w-4 sm:mr-1" />
                   )}
-                  Upload
+                  <span className="hidden sm:inline">Upload</span>
                 </Button>
               </div>
             )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pb-6">
           {photos.length === 0 ? (
             <div className="text-center py-8">
               <Camera className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -288,18 +291,22 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
             </div>
           ) : (
             <Tabs defaultValue="all" onValueChange={(v) => setPhotoType(v as ItemPhoto['photo_type'])}>
-              <TabsList className="w-full grid grid-cols-4 mb-4">
-                <TabsTrigger value="all">All ({photos.length})</TabsTrigger>
-                <TabsTrigger value="general">
-                  General ({photos.filter(p => p.photo_type === 'general').length})
-                </TabsTrigger>
-                <TabsTrigger value="inspection">
-                  Inspection ({photos.filter(p => p.photo_type === 'inspection').length})
-                </TabsTrigger>
-                <TabsTrigger value="repair">
-                  Repair ({photos.filter(p => p.photo_type === 'repair').length})
-                </TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto -mx-1 px-1 pb-2">
+                <TabsList className="w-full min-w-max grid grid-cols-4 mb-4">
+                  <TabsTrigger value="all" className="text-xs sm:text-sm px-2 sm:px-3">
+                    All ({photos.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="general" className="text-xs sm:text-sm px-2 sm:px-3">
+                    General ({photos.filter(p => p.photo_type === 'general').length})
+                  </TabsTrigger>
+                  <TabsTrigger value="inspection" className="text-xs sm:text-sm px-2 sm:px-3">
+                    Inspect ({photos.filter(p => p.photo_type === 'inspection').length})
+                  </TabsTrigger>
+                  <TabsTrigger value="repair" className="text-xs sm:text-sm px-2 sm:px-3">
+                    Repair ({photos.filter(p => p.photo_type === 'repair').length})
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               <TabsContent value="all">
                 {renderPhotoGrid(getFilteredPhotos())}

@@ -119,7 +119,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   });
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen min-h-[100dvh] bg-background flex flex-col">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -184,9 +184,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className="lg:pl-64 flex flex-col flex-1 min-h-0">
         {/* Header */}
-        <header className="sticky top-0 z-30 h-16 bg-background/95 backdrop-blur border-b flex items-center justify-between px-4 lg:px-6">
+        <header className="sticky top-0 z-30 h-16 shrink-0 bg-background/95 backdrop-blur border-b flex items-center justify-between px-4 lg:px-6">
           <Button
             variant="ghost"
             size="icon"
@@ -228,8 +228,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </DropdownMenu>
         </header>
 
-        {/* Page content */}
-        <main className="p-4 lg:p-6">{children}</main>
+        {/* Page content - scrollable */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-safe">{children}</main>
       </div>
     </div>
   );
