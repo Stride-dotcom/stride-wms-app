@@ -2256,6 +2256,230 @@ export type Database = {
           },
         ]
       }
+      shipment_items: {
+        Row: {
+          actual_quantity: number | null
+          created_at: string
+          expected_description: string | null
+          expected_item_type_id: string | null
+          expected_quantity: number
+          expected_sidemark: string | null
+          expected_vendor: string | null
+          id: string
+          item_id: string | null
+          notes: string | null
+          received_at: string | null
+          released_at: string | null
+          shipment_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actual_quantity?: number | null
+          created_at?: string
+          expected_description?: string | null
+          expected_item_type_id?: string | null
+          expected_quantity?: number
+          expected_sidemark?: string | null
+          expected_vendor?: string | null
+          id?: string
+          item_id?: string | null
+          notes?: string | null
+          received_at?: string | null
+          released_at?: string | null
+          shipment_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actual_quantity?: number | null
+          created_at?: string
+          expected_description?: string | null
+          expected_item_type_id?: string | null
+          expected_quantity?: number
+          expected_sidemark?: string | null
+          expected_vendor?: string | null
+          id?: string
+          item_id?: string | null
+          notes?: string | null
+          received_at?: string | null
+          released_at?: string | null
+          shipment_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_items_expected_item_type_id_fkey"
+            columns: ["expected_item_type_id"]
+            isOneToOne: false
+            referencedRelation: "item_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_items_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipments: {
+        Row: {
+          account_id: string | null
+          bill_to: string | null
+          carrier: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          expected_arrival_date: string | null
+          id: string
+          metadata: Json | null
+          notes: string | null
+          payment_amount: number | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string | null
+          po_number: string | null
+          received_at: string | null
+          release_to_email: string | null
+          release_to_name: string | null
+          release_to_phone: string | null
+          release_type: string | null
+          shipment_number: string
+          shipment_type: string
+          signature_data: string | null
+          signature_name: string | null
+          signature_timestamp: string | null
+          status: string
+          tenant_id: string
+          tracking_number: string | null
+          updated_at: string
+          warehouse_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          bill_to?: string | null
+          carrier?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          expected_arrival_date?: string | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          payment_amount?: number | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
+          po_number?: string | null
+          received_at?: string | null
+          release_to_email?: string | null
+          release_to_name?: string | null
+          release_to_phone?: string | null
+          release_type?: string | null
+          shipment_number: string
+          shipment_type?: string
+          signature_data?: string | null
+          signature_name?: string | null
+          signature_timestamp?: string | null
+          status?: string
+          tenant_id: string
+          tracking_number?: string | null
+          updated_at?: string
+          warehouse_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          bill_to?: string | null
+          carrier?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          expected_arrival_date?: string | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          payment_amount?: number | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
+          po_number?: string | null
+          received_at?: string | null
+          release_to_email?: string | null
+          release_to_name?: string | null
+          release_to_phone?: string | null
+          release_type?: string | null
+          shipment_number?: string
+          shipment_type?: string
+          signature_data?: string | null
+          signature_name?: string | null
+          signature_timestamp?: string | null
+          status?: string
+          tenant_id?: string
+          tracking_number?: string | null
+          updated_at?: string
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_additional_charges: {
         Row: {
           charge_amount: number
@@ -3366,6 +3590,7 @@ export type Database = {
     Functions: {
       check_past_due_tasks: { Args: never; Returns: undefined }
       current_user_id: { Args: never; Returns: string }
+      generate_shipment_number: { Args: never; Returns: string }
       get_current_user_tenant_id: { Args: never; Returns: string }
       is_tenant_admin:
         | { Args: never; Returns: boolean }
