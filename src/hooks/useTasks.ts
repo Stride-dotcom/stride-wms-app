@@ -94,12 +94,25 @@ export function useTasks(filters?: {
   const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefetching, setIsRefetching] = useState(false);
 
-  const fetchTasks = useCallback(async () => {
+  // Memoize filter values to prevent unnecessary refetches
+  const filterStatus = filters?.status;
+  const filterTaskType = filters?.taskType;
+  const filterWarehouseId = filters?.warehouseId;
+  const filterAssignedTo = filters?.assignedTo;
+
+  const fetchTasks = useCallback(async (showLoading = true) => {
     if (!profile?.tenant_id) return;
 
     try {
-      setLoading(true);
+      // Only show full loading on initial load, use refetching for subsequent
+      if (showLoading && tasks.length === 0) {
+        setLoading(true);
+      } else {
+        setIsRefetching(true);
+      }
+
       let query = (supabase
         .from('tasks') as any)
         .select(`
@@ -112,17 +125,17 @@ export function useTasks(filters?: {
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
-      if (filters?.status && filters.status !== 'all') {
-        query = query.eq('status', filters.status);
+      if (filterStatus && filterStatus !== 'all') {
+        query = query.eq('status', filterStatus);
       }
-      if (filters?.taskType && filters.taskType !== 'all') {
-        query = query.eq('task_type', filters.taskType);
+      if (filterTaskType && filterTaskType !== 'all') {
+        query = query.eq('task_type', filterTaskType);
       }
-      if (filters?.warehouseId && filters.warehouseId !== 'all') {
-        query = query.eq('warehouse_id', filters.warehouseId);
+      if (filterWarehouseId && filterWarehouseId !== 'all') {
+        query = query.eq('warehouse_id', filterWarehouseId);
       }
-      if (filters?.assignedTo && filters.assignedTo !== 'all') {
-        query = query.eq('assigned_to', filters.assignedTo);
+      if (filterAssignedTo && filterAssignedTo !== 'all') {
+        query = query.eq('assigned_to', filterAssignedTo);
       }
 
       const { data, error } = await query;
@@ -138,8 +151,9 @@ export function useTasks(filters?: {
       });
     } finally {
       setLoading(false);
+      setIsRefetching(false);
     }
-  }, [profile?.tenant_id, filters, toast]);
+  }, [profile?.tenant_id, filterStatus, filterTaskType, filterWarehouseId, filterAssignedTo, toast, tasks.length]);
 
   useEffect(() => {
     fetchTasks();
@@ -312,7 +326,8 @@ export function useTasks(filters?: {
   return {
     tasks,
     loading,
-    refetch: fetchTasks,
+    isRefetching,
+    refetch: () => fetchTasks(false),
     createTask,
     updateTask,
     completeTask,
