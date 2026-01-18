@@ -534,26 +534,21 @@ export function AccountDialog({
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <Tabs defaultValue="basic" className="w-full">
-                <div 
-                  className="overflow-x-auto pb-3 mb-4 -mx-6 px-6 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent"
-                  style={{ WebkitOverflowScrolling: 'touch' }}
-                >
-                  <TabsList className="inline-flex h-10 w-max p-1 gap-1 touch-pan-x">
-                    <TabsTrigger value="basic" className="whitespace-nowrap px-3 min-w-fit">Basic</TabsTrigger>
-                    <TabsTrigger value="contacts" className="whitespace-nowrap px-3 min-w-fit">Contacts</TabsTrigger>
-                    <TabsTrigger value="pricing" className="whitespace-nowrap px-3 min-w-fit">Pricing</TabsTrigger>
-                    <TabsTrigger value="billing" className="whitespace-nowrap px-3 min-w-fit">Billing</TabsTrigger>
-                    <TabsTrigger value="automations" className="whitespace-nowrap px-3 min-w-fit">Automations</TabsTrigger>
-                    <TabsTrigger value="inventory" className="whitespace-nowrap px-3 min-w-fit">Inventory</TabsTrigger>
-                    <TabsTrigger value="communications" className="whitespace-nowrap px-3 min-w-fit">Comms</TabsTrigger>
-                    <TabsTrigger value="permissions" className="whitespace-nowrap px-3 min-w-fit">Permissions</TabsTrigger>
-                  </TabsList>
-                </div>
+                <TabsList className="grid w-full grid-cols-4 sm:grid-cols-8 mb-4 gap-1 h-auto">
+                  <TabsTrigger value="basic" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Basic</TabsTrigger>
+                  <TabsTrigger value="contacts" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Contacts</TabsTrigger>
+                  <TabsTrigger value="pricing" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Pricing</TabsTrigger>
+                  <TabsTrigger value="billing" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Billing</TabsTrigger>
+                  <TabsTrigger value="automations" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Automations</TabsTrigger>
+                  <TabsTrigger value="inventory" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Inventory</TabsTrigger>
+                  <TabsTrigger value="communications" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Comms</TabsTrigger>
+                  <TabsTrigger value="permissions" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Permissions</TabsTrigger>
+                </TabsList>
 
                 <ScrollArea className="h-[50vh] pr-4">
                   {/* Basic Tab */}
                   <TabsContent value="basic" className="space-y-4 mt-0">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="account_name"
@@ -587,7 +582,7 @@ export function AccountDialog({
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="account_type"
@@ -639,7 +634,7 @@ export function AccountDialog({
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="is_master_account"
@@ -651,7 +646,7 @@ export function AccountDialog({
                                 onCheckedChange={(checked) => {
                                   field.onChange(checked);
                                   if (checked) {
-                                    form.setValue('parent_account_id', '');
+                                    form.setValue('parent_account_id', 'none');
                                   }
                                 }}
                               />
