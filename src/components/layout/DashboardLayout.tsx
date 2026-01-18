@@ -43,7 +43,6 @@ const navItems: NavItem[] = [
   { label: 'Receiving', href: '/receiving', icon: ClipboardList },
   { label: 'Will Call Orders', href: '/orders', icon: Truck },
   { label: 'Reports', href: '/reports', icon: BarChart3 },
-  { label: 'Warehouses', href: '/warehouses', icon: Building2, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Accounts', href: '/accounts', icon: Users, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Rate Cards', href: '/rate-cards', icon: FileText, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Settings', href: '/settings', icon: Settings, requiredRole: ['admin', 'tenant_admin'] },

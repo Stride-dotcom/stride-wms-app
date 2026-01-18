@@ -1,0 +1,236 @@
+import { useState } from 'react';
+import { UserWithRoles, Role } from '@/hooks/useUsers';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Loader2, MoreHorizontal, Pencil, Trash2, Users, Shield } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+interface UserListProps {
+  users: UserWithRoles[];
+  roles: Role[];
+  loading: boolean;
+  currentUserId?: string;
+  onEdit: (userId: string) => void;
+  onDelete: (userId: string) => Promise<void>;
+  onRefresh: () => void;
+}
+
+export function UserList({ 
+  users, 
+  roles, 
+  loading, 
+  currentUserId,
+  onEdit, 
+  onDelete, 
+  onRefresh 
+}: UserListProps) {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const { toast } = useToast();
+
+  const handleDeleteClick = (user: UserWithRoles) => {
+    setUserToDelete(user);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete) return;
+
+    try {
+      setDeleting(true);
+      await onDelete(userToDelete.id);
+      toast({
+        title: 'User deleted',
+        description: `${userToDelete.email} has been removed.`,
+      });
+      onRefresh();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete user',
+      });
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active':
+        return <Badge variant="default" className="bg-green-600">Active</Badge>;
+      case 'inactive':
+        return <Badge variant="secondary">Inactive</Badge>;
+      case 'suspended':
+        return <Badge variant="destructive">Suspended</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const formatName = (user: UserWithRoles) => {
+    if (user.first_name || user.last_name) {
+      return `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    }
+    return '-';
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center h-48">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (users.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center h-48 text-center">
+          <Users className="h-12 w-12 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium">No users yet</h3>
+          <p className="text-muted-foreground text-sm mt-1">
+            Users will appear here when they register.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>All Users</CardTitle>
+          <CardDescription>
+            {users.length} user{users.length !== 1 ? 's' : ''} in your organization
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Roles</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-[70px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((user) => (
+                <TableRow 
+                  key={user.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => onEdit(user.id)}
+                >
+                  <TableCell className="font-medium">
+                    {formatName(user)}
+                    {user.id === currentUserId && (
+                      <Badge variant="outline" className="ml-2">You</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {user.roles.length > 0 ? (
+                        user.roles.map((role) => (
+                          <Badge key={role.id} variant="outline" className="text-xs">
+                            <Shield className="h-3 w-3 mr-1" />
+                            {role.name}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No roles</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>{getStatusBadge(user.status)}</TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Open menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onEdit(user.id)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        {user.id !== currentUserId && (
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => handleDeleteClick(user)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{userToDelete?.email}</strong>?
+              This will remove their access to the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}

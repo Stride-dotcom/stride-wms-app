@@ -6,14 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,25 +13,20 @@ import { Loader2, Building, Users, Warehouse, Save, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations, Location } from '@/hooks/useLocations';
+import { useUsers } from '@/hooks/useUsers';
 import { LocationsSettingsTab } from '@/components/settings/LocationsSettingsTab';
 import { LocationDialog } from '@/components/locations/LocationDialog';
 import { PrintLabelsDialog } from '@/components/locations/PrintLabelsDialog';
 import { CSVImportDialog } from '@/components/settings/CSVImportDialog';
 import { WarehouseList } from '@/components/warehouses/WarehouseList';
 import { WarehouseDialog } from '@/components/warehouses/WarehouseDialog';
+import { UserList } from '@/components/settings/UserList';
+import { UserDialog } from '@/components/settings/UserDialog';
 
 interface TenantInfo {
   id: string;
   name: string;
   slug: string;
-  status: string;
-}
-
-interface UserInfo {
-  id: string;
-  email: string;
-  first_name: string | null;
-  last_name: string | null;
   status: string;
 }
 
@@ -49,7 +36,6 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tenant, setTenant] = useState<TenantInfo | null>(null);
-  const [users, setUsers] = useState<UserInfo[]>([]);
   const [profileData, setProfileData] = useState({
     firstName: '',
     lastName: '',
@@ -69,10 +55,23 @@ export default function Settings() {
   const [warehouseDialogOpen, setWarehouseDialogOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<string | null>(null);
 
+  // User state
+  const [userDialogOpen, setUserDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<string | null>(null);
+
   const { warehouses, loading: warehousesLoading, refetch: refetchWarehouses } = useWarehouses();
   const { locations, loading: locationsLoading, refetch: refetchLocations } = useLocations(
     selectedWarehouse === 'all' ? undefined : selectedWarehouse
   );
+  const { 
+    users, 
+    roles, 
+    loading: usersLoading, 
+    refetch: refetchUsers, 
+    deleteUser, 
+    assignRole, 
+    removeRole 
+  } = useUsers();
 
   useEffect(() => {
     if (profile?.tenant_id) {
@@ -102,16 +101,6 @@ export default function Settings() {
         .single();
 
       if (tenantData) setTenant(tenantData);
-
-      // Fetch users
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, email, first_name, last_name, status')
-        .eq('tenant_id', profile.tenant_id)
-        .is('deleted_at', null)
-        .order('email');
-
-      setUsers(userData || []);
     } catch (error) {
       console.error('Error fetching settings data:', error);
     } finally {
@@ -375,51 +364,31 @@ export default function Settings() {
           </TabsContent>
 
           <TabsContent value="users">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Users
-                </CardTitle>
-                <CardDescription>
-                  {users.length} users in your organization
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {users.length === 0 ? (
-                  <p className="text-muted-foreground">No users found</p>
-                ) : (
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {users.map((user) => (
-                          <TableRow key={user.id}>
-                            <TableCell className="font-medium">
-                              {user.first_name || user.last_name
-                                ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
-                                : '-'}
-                            </TableCell>
-                            <TableCell>{user.email}</TableCell>
-                            <TableCell>
-                              <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
-                                {user.status}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Users
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Manage users and their roles in your organization
+                  </p>
+                </div>
+              </div>
+              <UserList
+                users={users}
+                roles={roles}
+                loading={usersLoading}
+                currentUserId={profile?.id}
+                onEdit={(userId) => {
+                  setEditingUser(userId);
+                  setUserDialogOpen(true);
+                }}
+                onDelete={deleteUser}
+                onRefresh={refetchUsers}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </div>
@@ -458,6 +427,23 @@ export default function Settings() {
         onOpenChange={setWarehouseDialogOpen}
         warehouseId={editingWarehouse}
         onSuccess={handleWarehouseSuccess}
+      />
+
+      {/* User Dialog */}
+      <UserDialog
+        open={userDialogOpen}
+        onOpenChange={setUserDialogOpen}
+        userId={editingUser}
+        users={users}
+        roles={roles}
+        currentUserId={profile?.id}
+        onSuccess={() => {
+          setUserDialogOpen(false);
+          setEditingUser(null);
+          refetchUsers();
+        }}
+        onAssignRole={assignRole}
+        onRemoveRole={removeRole}
       />
     </DashboardLayout>
   );
