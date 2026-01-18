@@ -534,16 +534,19 @@ export function AccountDialog({
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <Tabs defaultValue="basic" className="w-full">
-                <div className="overflow-x-auto pb-2 mb-4 -mx-6 px-6">
-                  <TabsList className="inline-flex h-10 w-max p-1 gap-1">
-                    <TabsTrigger value="basic" className="whitespace-nowrap px-3">Basic</TabsTrigger>
-                    <TabsTrigger value="contacts" className="whitespace-nowrap px-3">Contacts</TabsTrigger>
-                    <TabsTrigger value="pricing" className="whitespace-nowrap px-3">Pricing</TabsTrigger>
-                    <TabsTrigger value="billing" className="whitespace-nowrap px-3">Billing</TabsTrigger>
-                    <TabsTrigger value="automations" className="whitespace-nowrap px-3">Automations</TabsTrigger>
-                    <TabsTrigger value="inventory" className="whitespace-nowrap px-3">Inventory</TabsTrigger>
-                    <TabsTrigger value="communications" className="whitespace-nowrap px-3">Comms</TabsTrigger>
-                    <TabsTrigger value="permissions" className="whitespace-nowrap px-3">Permissions</TabsTrigger>
+                <div 
+                  className="overflow-x-auto pb-3 mb-4 -mx-6 px-6 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent"
+                  style={{ WebkitOverflowScrolling: 'touch' }}
+                >
+                  <TabsList className="inline-flex h-10 w-max p-1 gap-1 touch-pan-x">
+                    <TabsTrigger value="basic" className="whitespace-nowrap px-3 min-w-fit">Basic</TabsTrigger>
+                    <TabsTrigger value="contacts" className="whitespace-nowrap px-3 min-w-fit">Contacts</TabsTrigger>
+                    <TabsTrigger value="pricing" className="whitespace-nowrap px-3 min-w-fit">Pricing</TabsTrigger>
+                    <TabsTrigger value="billing" className="whitespace-nowrap px-3 min-w-fit">Billing</TabsTrigger>
+                    <TabsTrigger value="automations" className="whitespace-nowrap px-3 min-w-fit">Automations</TabsTrigger>
+                    <TabsTrigger value="inventory" className="whitespace-nowrap px-3 min-w-fit">Inventory</TabsTrigger>
+                    <TabsTrigger value="communications" className="whitespace-nowrap px-3 min-w-fit">Comms</TabsTrigger>
+                    <TabsTrigger value="permissions" className="whitespace-nowrap px-3 min-w-fit">Permissions</TabsTrigger>
                   </TabsList>
                 </div>
 
