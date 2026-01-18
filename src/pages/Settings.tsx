@@ -27,6 +27,7 @@ import { BillingChargeTemplatesTab } from '@/components/settings/BillingChargeTe
 import { EmployeesSettingsTab } from '@/components/settings/EmployeesSettingsTab';
 import { OrganizationSettingsTab } from '@/components/settings/OrganizationSettingsTab';
 import { RateCardsSettingsTab } from '@/components/settings/RateCardsSettingsTab';
+import { CommunicationsSettingsTab } from '@/components/settings/CommunicationsSettingsTab';
 
 interface TenantInfo {
   id: string;
@@ -228,6 +229,7 @@ export default function Settings() {
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="organization">Organization</TabsTrigger>
             <TabsTrigger value="employees">Employees</TabsTrigger>
+            <TabsTrigger value="communications">Communications</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             <TabsTrigger value="rate-cards">Rate Cards</TabsTrigger>
             <TabsTrigger value="item-types">Item Types</TabsTrigger>
@@ -298,6 +300,10 @@ export default function Settings() {
 
           <TabsContent value="employees">
             <EmployeesSettingsTab />
+          </TabsContent>
+
+          <TabsContent value="communications">
+            <CommunicationsSettingsTab />
           </TabsContent>
 
           <TabsContent value="billing">
