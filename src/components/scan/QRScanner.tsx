@@ -31,6 +31,7 @@ type CameraDiagnostics = {
   userAgent: string;
   hasMediaDevices: boolean;
   hasGetUserMedia: boolean;
+  hasLegacyGetUserMedia: boolean;
   hasEnumerateDevices: boolean;
   hasPermissionsApi: boolean;
   cameraPermissionState?: string;
@@ -62,6 +63,32 @@ function formatError(err: unknown) {
   const name = anyErr?.name ? String(anyErr.name) : "UnknownError";
   const message = anyErr?.message ? String(anyErr.message) : String(err);
   return { name, message, raw: err };
+}
+
+function getLegacyGetUserMedia():
+  | ((constraints: MediaStreamConstraints, onSuccess: (stream: MediaStream) => void, onError: (err: unknown) => void) => void)
+  | null {
+  const nav = navigator as any;
+  return nav.getUserMedia || nav.webkitGetUserMedia || nav.mozGetUserMedia || nav.msGetUserMedia || null;
+}
+
+async function getUserMediaCompat(constraints: MediaStreamConstraints): Promise<MediaStream> {
+  if (navigator.mediaDevices?.getUserMedia) {
+    return navigator.mediaDevices.getUserMedia(constraints);
+  }
+
+  const legacy = getLegacyGetUserMedia();
+  if (!legacy) {
+    throw new Error("getUserMedia is not available in this browser environment");
+  }
+
+  return await new Promise<MediaStream>((resolve, reject) => {
+    try {
+      legacy.call(navigator, constraints, resolve, reject);
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
 
 async function readCameraPermissionState(): Promise<{
@@ -116,6 +143,7 @@ async function gatherDiagnostics(): Promise<CameraDiagnostics> {
     userAgent: navigator.userAgent,
     hasMediaDevices,
     hasGetUserMedia: !!navigator.mediaDevices?.getUserMedia,
+    hasLegacyGetUserMedia: !!getLegacyGetUserMedia(),
     hasEnumerateDevices: !!navigator.mediaDevices?.enumerateDevices,
     hasPermissionsApi: !!navigator.permissions?.query,
   };
@@ -230,18 +258,40 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
   const startCamera = useCallback(async () => {
     if (!scanning) return;
 
+    // 3) Request MUST happen in the click handler with NO delays.
     setStatus("starting");
     setErrorMessage("");
 
-    // Diagnostics collection should not block getUserMedia.
+    // Kick off diagnostics (do not await before requesting camera).
     const diagPromise = gatherDiagnostics().then((d) => {
       setDiagnostics(d);
+      console.info("[QRScanner] Camera diagnostics", d);
       return d;
     });
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      const msg = "Camera API unavailable: navigator.mediaDevices.getUserMedia is missing.";
-      console.error("[QRScanner]", msg);
+    const hasModernGetUserMedia = !!navigator.mediaDevices?.getUserMedia;
+    const hasLegacyGetUserMedia = !!getLegacyGetUserMedia();
+
+    if (!hasModernGetUserMedia && !hasLegacyGetUserMedia) {
+      const reasons: string[] = [];
+      if (!window.isSecureContext) {
+        reasons.push("Not a secure context (HTTPS required, or localhost).");
+      }
+      if (isEmbedded) {
+        reasons.push(
+          "Embedded preview detected; the parent iframe must allow camera access (allow=\"camera\"). Try Open in new tab."
+        );
+      }
+
+      const suffix = reasons.length ? ` ${reasons.join(" ")}` : "";
+      const msg = `Camera API unavailable: getUserMedia is missing.${suffix}`;
+
+      console.error("[QRScanner] Camera API unavailable", {
+        msg,
+        hasModernGetUserMedia,
+        hasLegacyGetUserMedia,
+      });
+
       setStatus("unsupported");
       setErrorMessage(msg);
       toast({ variant: "destructive", title: "Camera not supported", description: msg });
@@ -254,8 +304,7 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
     stopCamera();
 
     try {
-      // 3) MUST happen directly in the click handler with no delays.
-      const stream = await navigator.mediaDevices.getUserMedia(DEFAULT_CONSTRAINTS);
+      const stream = await getUserMediaCompat(DEFAULT_CONSTRAINTS);
       streamRef.current = stream;
 
       const video = videoRef.current;
@@ -312,7 +361,7 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
       stopCamera();
       await diagPromise;
     }
-  }, [onError, scanning, startDetectLoop, stopCamera]);
+  }, [isEmbedded, onError, scanning, startDetectLoop, stopCamera]);
 
   const refreshDiagnostics = useCallback(async () => {
     const d = await gatherDiagnostics();
