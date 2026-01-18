@@ -16,6 +16,7 @@ import Reports from "./pages/Reports";
 import Accounts from "./pages/Accounts";
 import RateCards from "./pages/RateCards";
 import Settings from "./pages/Settings";
+import Warehouses from "./pages/Warehouses";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/receiving" element={<ProtectedRoute><Receiving /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+            <Route path="/warehouses" element={<ProtectedRoute><RequireRole role="tenant_admin"><Warehouses /></RequireRole></ProtectedRoute>} />
             <Route path="/accounts" element={<ProtectedRoute><RequireRole role="tenant_admin"><Accounts /></RequireRole></ProtectedRoute>} />
             <Route path="/rate-cards" element={<ProtectedRoute><RequireRole role="tenant_admin"><RateCards /></RequireRole></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><RequireRole role="tenant_admin"><Settings /></RequireRole></ProtectedRoute>} />
