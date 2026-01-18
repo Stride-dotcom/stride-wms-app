@@ -43,8 +43,9 @@ const accountSchema = z.object({
   account_code: z.string().min(1, 'Account code is required').max(50),
   account_name: z.string().min(1, 'Account name is required').max(200),
   account_type: z.string().optional(),
-  status: z.enum(['active', 'inactive', 'suspended']),
+  status: z.enum(['active', 'on_hold', 'archived', 'credit_hold']),
   is_master_account: z.boolean().optional(),
+  parent_account_id: z.string().optional(),
   notes: z.string().optional(),
   // Contacts - Primary
   primary_contact_name: z.string().optional(),
@@ -54,6 +55,9 @@ const accountSchema = z.object({
   billing_contact_name: z.string().optional(),
   billing_contact_email: z.string().email().optional().or(z.literal('')),
   billing_contact_phone: z.string().optional(),
+  // Contacts - Alerts
+  alerts_contact_name: z.string().optional(),
+  alerts_contact_email: z.string().email().optional().or(z.literal('')),
   // Billing Address
   billing_address: z.string().optional(),
   billing_city: z.string().optional(),
@@ -62,14 +66,23 @@ const accountSchema = z.object({
   billing_country: z.string().optional(),
   // Billing Settings
   billing_type: z.string().optional(),
+  billing_method: z.string().optional(),
   billing_frequency: z.string().optional(),
   billing_schedule: z.string().optional(),
   payment_terms: z.string().optional(),
   currency: z.string().optional(),
   billing_net_terms: z.coerce.number().optional(),
+  net_terms: z.coerce.number().optional(),
   credit_limit: z.coerce.number().optional(),
+  credit_limit_amount: z.coerce.number().optional(),
   prepay_required: z.boolean().optional(),
   credit_hold: z.boolean().optional(),
+  // Pricing
+  pricing_level: z.string().optional(),
+  rate_card_id: z.string().optional(),
+  pricing_copy_from_account_id: z.string().optional(),
+  pricing_percentage: z.coerce.number().optional(),
+  pricing_apply_to: z.string().optional(),
   // Automations
   auto_inspection_on_receiving: z.boolean().optional(),
   auto_assembly_on_receiving: z.boolean().optional(),
@@ -80,10 +93,15 @@ const accountSchema = z.object({
   require_inspection_photos: z.boolean().optional(),
   hide_internal_fields_from_clients: z.boolean().optional(),
   default_receiving_status: z.string().optional(),
+  default_receiving_location_id: z.string().optional(),
   // Communications
   use_tenant_email_defaults: z.boolean().optional(),
+  use_tenant_communication_defaults: z.boolean().optional(),
   disable_email_communications: z.boolean().optional(),
   copy_from_account_id: z.string().optional(),
+  email_subject_override: z.string().optional(),
+  email_html_body_override: z.string().optional(),
+  email_recipients_override: z.string().optional(),
   // Permissions
   access_level: z.string().optional(),
   can_modify_pricing: z.boolean().optional(),
@@ -117,6 +135,33 @@ const ACCOUNT_TYPES = [
 const BILLING_TYPES = [
   { value: 'automatic', label: 'Automatic' },
   { value: 'manual', label: 'Manual' },
+  { value: 'mixed', label: 'Mixed' },
+];
+
+const BILLING_METHODS = [
+  { value: 'per_shipment', label: 'Per Shipment' },
+  { value: 'consolidated', label: 'Consolidated' },
+  { value: 'monthly', label: 'Monthly' },
+];
+
+const ACCOUNT_STATUSES = [
+  { value: 'active', label: 'Active' },
+  { value: 'on_hold', label: 'On Hold' },
+  { value: 'archived', label: 'Archived' },
+  { value: 'credit_hold', label: 'Credit Hold' },
+];
+
+const PRICING_LEVELS = [
+  { value: 'default', label: 'Use Default Price List' },
+  { value: 'copy', label: 'Copy from Another Account' },
+  { value: 'rate_card', label: 'Assign Rate Card' },
+  { value: 'percentage', label: 'Apply Percentage Change' },
+];
+
+const PRICING_APPLY_TO = [
+  { value: 'all', label: 'All Services' },
+  { value: 'category', label: 'By Category' },
+  { value: 'selected', label: 'Selected Services Only' },
 ];
 
 const BILLING_FREQUENCIES = [
@@ -167,6 +212,7 @@ const getDefaultValues = (): AccountFormData => ({
   account_type: '',
   status: 'active',
   is_master_account: false,
+  parent_account_id: '',
   notes: '',
   primary_contact_name: '',
   primary_contact_email: '',
@@ -174,20 +220,30 @@ const getDefaultValues = (): AccountFormData => ({
   billing_contact_name: '',
   billing_contact_email: '',
   billing_contact_phone: '',
+  alerts_contact_name: '',
+  alerts_contact_email: '',
   billing_address: '',
   billing_city: '',
   billing_state: '',
   billing_postal_code: '',
   billing_country: 'USA',
   billing_type: 'automatic',
+  billing_method: 'per_shipment',
   billing_frequency: 'monthly',
   billing_schedule: 'not_set',
   payment_terms: 'net_30',
   currency: 'USD',
   billing_net_terms: 30,
+  net_terms: 30,
   credit_limit: undefined,
+  credit_limit_amount: undefined,
   prepay_required: false,
   credit_hold: false,
+  pricing_level: 'default',
+  rate_card_id: '',
+  pricing_copy_from_account_id: '',
+  pricing_percentage: undefined,
+  pricing_apply_to: 'all',
   auto_inspection_on_receiving: false,
   auto_assembly_on_receiving: false,
   auto_repair_on_damage: false,
@@ -196,9 +252,14 @@ const getDefaultValues = (): AccountFormData => ({
   require_inspection_photos: false,
   hide_internal_fields_from_clients: false,
   default_receiving_status: 'available',
+  default_receiving_location_id: '',
   use_tenant_email_defaults: true,
+  use_tenant_communication_defaults: true,
   disable_email_communications: false,
   copy_from_account_id: '',
+  email_subject_override: '',
+  email_html_body_override: '',
+  email_recipients_override: '',
   access_level: 'client_read_only',
   can_modify_pricing: false,
   can_delete_accounts: false,
@@ -257,12 +318,20 @@ export function AccountDialog({
 
       if (error) throw error;
 
+      // Map legacy status values to new ones
+      const mapStatus = (s: string): 'active' | 'on_hold' | 'archived' | 'credit_hold' => {
+        if (s === 'inactive' || s === 'suspended') return 'on_hold';
+        if (s === 'on_hold' || s === 'archived' || s === 'credit_hold') return s as 'on_hold' | 'archived' | 'credit_hold';
+        return 'active';
+      };
+
       form.reset({
         account_code: data.account_code,
         account_name: data.account_name,
         account_type: data.account_type || '',
-        status: data.status as 'active' | 'inactive' | 'suspended',
+        status: mapStatus(data.status),
         is_master_account: data.is_master_account || false,
+        parent_account_id: data.parent_account_id || '',
         notes: data.notes || '',
         primary_contact_name: data.primary_contact_name || '',
         primary_contact_email: data.primary_contact_email || '',
@@ -270,20 +339,30 @@ export function AccountDialog({
         billing_contact_name: data.billing_contact_name || '',
         billing_contact_email: data.billing_contact_email || '',
         billing_contact_phone: data.billing_contact_phone || '',
+        alerts_contact_name: data.alerts_contact_name || '',
+        alerts_contact_email: data.alerts_contact_email || '',
         billing_address: data.billing_address || '',
         billing_city: data.billing_city || '',
         billing_state: data.billing_state || '',
         billing_postal_code: data.billing_postal_code || '',
         billing_country: data.billing_country || 'USA',
         billing_type: data.billing_type || 'automatic',
+        billing_method: data.billing_method || 'per_shipment',
         billing_frequency: data.billing_frequency || 'monthly',
         billing_schedule: data.billing_schedule || 'not_set',
         payment_terms: data.payment_terms || 'net_30',
         currency: data.currency || 'USD',
         billing_net_terms: data.billing_net_terms || 30,
+        net_terms: data.net_terms || 30,
         credit_limit: data.credit_limit || undefined,
+        credit_limit_amount: data.credit_limit_amount || undefined,
         prepay_required: data.prepay_required || false,
         credit_hold: data.credit_hold || false,
+        pricing_level: data.pricing_level || 'default',
+        rate_card_id: data.rate_card_id || '',
+        pricing_copy_from_account_id: '',
+        pricing_percentage: undefined,
+        pricing_apply_to: 'all',
         auto_inspection_on_receiving: data.auto_inspection_on_receiving || false,
         auto_assembly_on_receiving: data.auto_assembly_on_receiving || false,
         auto_repair_on_damage: data.auto_repair_on_damage || false,
@@ -292,9 +371,14 @@ export function AccountDialog({
         require_inspection_photos: data.require_inspection_photos || false,
         hide_internal_fields_from_clients: data.hide_internal_fields_from_clients || false,
         default_receiving_status: data.default_receiving_status || 'available',
+        default_receiving_location_id: data.default_receiving_location_id || '',
         use_tenant_email_defaults: data.use_tenant_email_defaults ?? true,
+        use_tenant_communication_defaults: data.use_tenant_communication_defaults ?? true,
         disable_email_communications: data.disable_email_communications || false,
         copy_from_account_id: data.copy_from_account_id || '',
+        email_subject_override: data.email_subject_override || '',
+        email_html_body_override: data.email_html_body_override || '',
+        email_recipients_override: data.email_recipients_override || '',
         access_level: data.access_level || 'client_read_only',
         can_modify_pricing: data.can_modify_pricing || false,
         can_delete_accounts: data.can_delete_accounts || false,
@@ -332,6 +416,7 @@ export function AccountDialog({
         account_type: data.account_type || null,
         status: data.status,
         is_master_account: data.is_master_account || false,
+        parent_account_id: data.parent_account_id || null,
         notes: data.notes || null,
         primary_contact_name: data.primary_contact_name || null,
         primary_contact_email: data.primary_contact_email || null,
@@ -339,20 +424,27 @@ export function AccountDialog({
         billing_contact_name: data.billing_contact_name || null,
         billing_contact_email: data.billing_contact_email || null,
         billing_contact_phone: data.billing_contact_phone || null,
+        alerts_contact_name: data.alerts_contact_name || null,
+        alerts_contact_email: data.alerts_contact_email || null,
         billing_address: data.billing_address || null,
         billing_city: data.billing_city || null,
         billing_state: data.billing_state || null,
         billing_postal_code: data.billing_postal_code || null,
         billing_country: data.billing_country || null,
         billing_type: data.billing_type || null,
+        billing_method: data.billing_method || null,
         billing_frequency: data.billing_frequency || null,
         billing_schedule: data.billing_schedule || null,
         payment_terms: data.payment_terms || null,
         currency: data.currency || null,
         billing_net_terms: data.billing_net_terms || null,
+        net_terms: data.net_terms || null,
         credit_limit: data.credit_limit || null,
+        credit_limit_amount: data.credit_limit_amount || null,
         prepay_required: data.prepay_required || false,
         credit_hold: data.credit_hold || false,
+        pricing_level: data.pricing_level || null,
+        rate_card_id: data.rate_card_id || null,
         auto_inspection_on_receiving: data.auto_inspection_on_receiving || false,
         auto_assembly_on_receiving: data.auto_assembly_on_receiving || false,
         auto_repair_on_damage: data.auto_repair_on_damage || false,
@@ -361,9 +453,14 @@ export function AccountDialog({
         require_inspection_photos: data.require_inspection_photos || false,
         hide_internal_fields_from_clients: data.hide_internal_fields_from_clients || false,
         default_receiving_status: data.default_receiving_status || null,
+        default_receiving_location_id: data.default_receiving_location_id || null,
         use_tenant_email_defaults: data.use_tenant_email_defaults ?? true,
+        use_tenant_communication_defaults: data.use_tenant_communication_defaults ?? true,
         disable_email_communications: data.disable_email_communications || false,
         copy_from_account_id: data.copy_from_account_id || null,
+        email_subject_override: data.email_subject_override || null,
+        email_html_body_override: data.email_html_body_override || null,
+        email_recipients_override: data.email_recipients_override || null,
         access_level: data.access_level || null,
         can_modify_pricing: data.can_modify_pricing || false,
         can_delete_accounts: data.can_delete_accounts || false,
@@ -437,9 +534,10 @@ export function AccountDialog({
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-7 mb-4">
+                <TabsList className="grid w-full grid-cols-8 mb-4">
                   <TabsTrigger value="basic">Basic</TabsTrigger>
                   <TabsTrigger value="contacts">Contacts</TabsTrigger>
+                  <TabsTrigger value="pricing">Pricing</TabsTrigger>
                   <TabsTrigger value="billing">Billing</TabsTrigger>
                   <TabsTrigger value="automations">Automations</TabsTrigger>
                   <TabsTrigger value="inventory">Inventory</TabsTrigger>
@@ -523,9 +621,11 @@ export function AccountDialog({
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="inactive">Inactive</SelectItem>
-                                <SelectItem value="suspended">Suspended</SelectItem>
+                                {ACCOUNT_STATUSES.map((s) => (
+                                  <SelectItem key={s.value} value={s.value}>
+                                    {s.label}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -534,23 +634,63 @@ export function AccountDialog({
                       />
                     </div>
 
-                    <FormField
-                      control={form.control}
-                      name="is_master_account"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <FormLabel className="font-normal">
-                            Is a Master Account?
-                          </FormLabel>
-                        </FormItem>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="is_master_account"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center space-x-3 space-y-0 pt-6">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={(checked) => {
+                                  field.onChange(checked);
+                                  if (checked) {
+                                    form.setValue('parent_account_id', '');
+                                  }
+                                }}
+                              />
+                            </FormControl>
+                            <FormLabel className="font-normal">
+                              Is a Master Account?
+                            </FormLabel>
+                          </FormItem>
+                        )}
+                      />
+
+                      {!form.watch('is_master_account') && (
+                        <FormField
+                          control={form.control}
+                          name="parent_account_id"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Parent Account</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select parent account" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="">None (Top-Level Account)</SelectItem>
+                                  {accounts
+                                    .filter((a) => a.id !== accountId)
+                                    .map((a) => (
+                                      <SelectItem key={a.id} value={a.id}>
+                                        {a.account_name}
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                              <FormDescription>
+                                Sub-accounts inherit settings from their parent by default.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       )}
-                    />
+                    </div>
 
                     <FormField
                       control={form.control}
@@ -665,6 +805,41 @@ export function AccountDialog({
                     </div>
 
                     <div>
+                      <h4 className="text-sm font-medium mb-3">Alerts Contact</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="alerts_contact_name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Operations Manager" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="alerts_contact_email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email</FormLabel>
+                              <FormControl>
+                                <Input type="email" placeholder="alerts@example.com" {...field} />
+                              </FormControl>
+                              <FormDescription>
+                                Receives system alerts and notifications
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
                       <h4 className="text-sm font-medium mb-3">Billing Address</h4>
                       <div className="space-y-4">
                         <FormField
@@ -740,6 +915,154 @@ export function AccountDialog({
                           />
                         </div>
                       </div>
+                    </div>
+                  </TabsContent>
+
+                  {/* Pricing Tab */}
+                  <TabsContent value="pricing" className="space-y-4 mt-0">
+                    <FormField
+                      control={form.control}
+                      name="pricing_level"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Pricing Setup Method</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select pricing method" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {PRICING_LEVELS.map((level) => (
+                                <SelectItem key={level.value} value={level.value}>
+                                  {level.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Priority: Fixed rate overrides &gt; % adjustments &gt; Base price list
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {form.watch('pricing_level') === 'copy' && (
+                      <FormField
+                        control={form.control}
+                        name="pricing_copy_from_account_id"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Copy Pricing From</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select account to copy from" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {accounts
+                                  .filter((a) => a.id !== accountId)
+                                  .map((a) => (
+                                    <SelectItem key={a.id} value={a.id}>
+                                      {a.account_name}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    {form.watch('pricing_level') === 'percentage' && (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="pricing_percentage"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Percentage Adjustment (%)</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    placeholder="e.g., 10 for markup, -10 for discount"
+                                    {...field}
+                                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  Positive = markup, Negative = discount
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="pricing_apply_to"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Apply To</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select scope" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {PRICING_APPLY_TO.map((option) => (
+                                      <SelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {form.watch('pricing_level') === 'rate_card' && (
+                      <FormField
+                        control={form.control}
+                        name="rate_card_id"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Rate Card</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select rate card" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="">Default Rate Card</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>
+                              Rate cards can be managed in Settings &gt; Rate Cards
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    <div className="rounded-md bg-muted/50 p-4 text-sm text-muted-foreground">
+                      <p className="font-medium mb-1">Pricing Priority</p>
+                      <p>When calculating charges, the system applies pricing in this order:</p>
+                      <ol className="list-decimal list-inside mt-2 space-y-1">
+                        <li>Fixed price overrides (item or service level)</li>
+                        <li>Percentage adjustments from this account</li>
+                        <li>Base price from assigned rate card or default list</li>
+                      </ol>
                     </div>
                   </TabsContent>
 
