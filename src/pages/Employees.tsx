@@ -97,16 +97,38 @@ export default function Employees() {
       const { data: users, error } = await supabase
         .from('users')
         .select(`
-          id, email, first_name, last_name, phone, status, enrolled, invited_at, last_login_at,
-          user_roles(
-            role:roles(id, name)
-          )
+          id, email, first_name, last_name, phone, status, enrolled, invited_at, last_login_at
         `)
         .eq('tenant_id', profile.tenant_id)
         .is('deleted_at', null)
         .order('email');
 
       if (error) throw error;
+
+      // Fetch roles separately to avoid join issues
+      const userIds = (users || []).map((u: any) => u.id);
+      let userRolesMap: Record<string, { id: string; name: string }[]> = {};
+      
+      if (userIds.length > 0) {
+        const { data: userRoles } = await supabase
+          .from('user_roles')
+          .select(`
+            user_id,
+            roles(id, name)
+          `)
+          .in('user_id', userIds);
+
+        if (userRoles) {
+          userRoles.forEach((ur: any) => {
+            if (ur.roles) {
+              if (!userRolesMap[ur.user_id]) {
+                userRolesMap[ur.user_id] = [];
+              }
+              userRolesMap[ur.user_id].push(ur.roles);
+            }
+          });
+        }
+      }
 
       const employeesData = (users || []).map((user: any) => ({
         id: user.id,
@@ -118,9 +140,7 @@ export default function Employees() {
         enrolled: user.enrolled || false,
         invited_at: user.invited_at,
         last_login_at: user.last_login_at,
-        roles: user.user_roles
-          ?.map((ur: any) => ur.role)
-          .filter(Boolean) || [],
+        roles: userRolesMap[user.id] || [],
       }));
 
       setEmployees(employeesData);

@@ -111,23 +111,23 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
           {/* Overlay badges */}
           <div className="absolute top-1 left-1 flex gap-1 flex-wrap">
             {photo.is_primary && (
-              <Badge className="h-5 text-[10px] sm:text-xs bg-primary px-1 sm:px-2">
-                <Star className="h-3 w-3 sm:mr-1" />
-                <span className="hidden sm:inline">Primary</span>
+              <Badge className="h-6 text-xs bg-primary px-2">
+                <Star className="h-3 w-3 mr-1" />
+                Primary
               </Badge>
             )}
             {photo.needs_attention && (
-              <Badge variant="destructive" className="h-5 text-[10px] sm:text-xs px-1 sm:px-2">
-                <AlertTriangle className="h-3 w-3 sm:mr-1" />
-                <span className="hidden sm:inline">Attention</span>
+              <Badge variant="destructive" className="h-6 text-xs px-2">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Attention
               </Badge>
             )}
           </div>
 
-          {/* Selection checkbox (for staff) */}
+          {/* Selection checkbox (for staff) - always visible */}
           {!isClientUser && (
             <div
-              className="absolute top-1 right-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+              className="absolute top-1 right-1"
               onClick={(e) => {
                 e.stopPropagation();
                 togglePhotoSelection(photo.id);
@@ -135,7 +135,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
             >
               <Checkbox
                 checked={selectedPhotos.includes(photo.id)}
-                className="bg-background"
+                className="h-5 w-5 bg-background border-2"
               />
             </div>
           )}
@@ -143,41 +143,41 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
           {/* Hover actions (for staff) - always visible on mobile */}
           {!isClientUser && (
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-              <div className="flex gap-1 justify-end">
+              <div className="flex gap-2 justify-end">
                 {!photo.is_primary && (
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-7 w-7 sm:h-6 sm:w-6 text-white hover:text-primary"
+                    className="h-8 w-8 text-white hover:text-primary"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleSetPrimary(photo.id);
                     }}
                   >
-                    <Star className="h-4 w-4 sm:h-3 sm:w-3" />
+                    <Star className="h-5 w-5" />
                   </Button>
                 )}
                 <Button
                   size="icon"
                   variant="ghost"
-                  className={`h-7 w-7 sm:h-6 sm:w-6 ${photo.needs_attention ? 'text-red-500' : 'text-white'} hover:text-red-500`}
+                  className={`h-8 w-8 ${photo.needs_attention ? 'text-red-500' : 'text-white'} hover:text-red-500`}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleToggleAttention(photo.id, photo.needs_attention);
                   }}
                 >
-                  <AlertTriangle className="h-4 w-4 sm:h-3 sm:w-3" />
+                  <AlertTriangle className="h-5 w-5" />
                 </Button>
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-7 w-7 sm:h-6 sm:w-6 text-white hover:text-destructive"
+                  className="h-8 w-8 text-white hover:text-destructive"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDelete(photo.id);
                   }}
                 >
-                  <X className="h-4 w-4 sm:h-3 sm:w-3" />
+                  <X className="h-5 w-5" />
                 </Button>
               </div>
             </div>
