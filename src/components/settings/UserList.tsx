@@ -67,11 +67,15 @@ export function UserList({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const { toast } = useToast();
 
-  // Get unique role names for filter dropdown
+  // Get unique role names for filter dropdown (filter out empty strings)
   const uniqueRoles = useMemo(() => {
     const roleSet = new Set<string>();
     users.forEach(user => {
-      user.roles.forEach(role => roleSet.add(role.name));
+      user.roles.forEach(role => {
+        if (role.name && role.name.trim()) {
+          roleSet.add(role.name);
+        }
+      });
     });
     return Array.from(roleSet).sort();
   }, [users]);
