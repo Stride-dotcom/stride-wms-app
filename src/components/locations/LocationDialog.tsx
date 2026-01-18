@@ -84,7 +84,7 @@ export function LocationDialog({
       name: '',
       type: 'bin',
       warehouse_id: defaultWarehouseId || '',
-      parent_location_id: '',
+      parent_location_id: 'none',
       capacity: undefined,
       status: 'active',
     },
@@ -106,7 +106,7 @@ export function LocationDialog({
         name: '',
         type: 'bin',
         warehouse_id: defaultWarehouseId || (warehouses.length > 0 ? warehouses[0].id : ''),
-        parent_location_id: '',
+        parent_location_id: 'none',
         capacity: undefined,
         status: 'active',
       });
@@ -129,7 +129,7 @@ export function LocationDialog({
         name: data.name || '',
         type: data.type as 'zone' | 'aisle' | 'bay' | 'bin' | 'shelf',
         warehouse_id: data.warehouse_id,
-        parent_location_id: data.parent_location_id || '',
+        parent_location_id: data.parent_location_id || 'none',
         capacity: data.capacity ? Number(data.capacity) : undefined,
         status: data.status as 'active' | 'inactive' | 'full',
       });
@@ -155,7 +155,7 @@ export function LocationDialog({
         name: data.name || null,
         type: data.type,
         warehouse_id: data.warehouse_id,
-        parent_location_id: data.parent_location_id || null,
+        parent_location_id: data.parent_location_id === 'none' ? null : data.parent_location_id || null,
         capacity: data.capacity || null,
         status: data.status,
       };
@@ -324,7 +324,7 @@ export function LocationDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">None (top level)</SelectItem>
+                        <SelectItem value="none">None (top level)</SelectItem>
                         {parentLocationOptions.map((loc) => (
                           <SelectItem key={loc.id} value={loc.id}>
                             {loc.code} {loc.name ? `(${loc.name})` : ''}

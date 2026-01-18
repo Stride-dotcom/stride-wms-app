@@ -54,7 +54,7 @@ export function DueDateRulesSettingsTab() {
   const [newRule, setNewRule] = useState({
     task_type: '',
     days_from_creation: 3,
-    account_id: '',
+    account_id: 'global',
   });
 
   useEffect(() => {
@@ -113,7 +113,7 @@ export function DueDateRulesSettingsTab() {
           tenant_id: profile.tenant_id,
           task_type: newRule.task_type,
           days_from_creation: newRule.days_from_creation,
-          account_id: newRule.account_id || null,
+          account_id: newRule.account_id === 'global' ? null : newRule.account_id || null,
           is_active: true,
         })
         .select()
@@ -123,7 +123,7 @@ export function DueDateRulesSettingsTab() {
 
       const accountName = accounts.find(a => a.id === newRule.account_id)?.account_name;
       setRules(prev => [...prev, { ...data, account_name: accountName }]);
-      setNewRule({ task_type: '', days_from_creation: 3, account_id: '' });
+      setNewRule({ task_type: '', days_from_creation: 3, account_id: 'global' });
 
       toast({
         title: 'Rule Added',
@@ -263,7 +263,7 @@ export function DueDateRulesSettingsTab() {
                   <SelectValue placeholder="Global (all accounts)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Global (all accounts)</SelectItem>
+                  <SelectItem value="global">Global (all accounts)</SelectItem>
                   {accounts.map(acc => (
                     <SelectItem key={acc.id} value={acc.id}>
                       {acc.account_name}
