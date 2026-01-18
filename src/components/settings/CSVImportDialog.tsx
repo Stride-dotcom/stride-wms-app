@@ -234,15 +234,31 @@ export function CSVImportDialog({
       setResult({ success: successCount, failed: failedCount, errors });
       setStep('complete');
 
-      if (successCount > 0) {
+      // Show accurate toast based on actual results
+      if (successCount > 0 && failedCount === 0) {
         toast({
           title: 'Import Complete',
-          description: `Successfully imported ${successCount} locations.`,
+          description: `Successfully imported ${successCount} location${successCount !== 1 ? 's' : ''}.`,
         });
         onSuccess();
+      } else if (successCount > 0 && failedCount > 0) {
+        toast({
+          variant: 'default',
+          title: 'Import Partially Complete',
+          description: `Imported ${successCount} location${successCount !== 1 ? 's' : ''}, ${failedCount} failed.`,
+        });
+        onSuccess();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Import Failed',
+          description: `Failed to import locations. ${errors.length > 0 ? errors[0] : 'Please check the file format.'}`,
+        });
       }
     } catch (error) {
       console.error('Import error:', error);
+      setResult({ success: 0, failed: parsedLocations.length, errors: ['An unexpected error occurred'] });
+      setStep('complete');
       toast({
         variant: 'destructive',
         title: 'Import Failed',

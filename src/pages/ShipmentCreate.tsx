@@ -36,6 +36,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Plus, Trash2, ArrowLeft } from 'lucide-react';
+import { ItemTypeCombobox } from '@/components/items/ItemTypeCombobox';
 
 const expectedItemSchema = z.object({
   quantity: z.coerce.number().min(1, 'Quantity must be at least 1'),
@@ -229,7 +230,7 @@ export default function ShipmentCreate() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Create Expected Shipment</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Create Shipment</h1>
             <p className="text-muted-foreground">
               Shipment number will be auto-generated • Item IDs assigned at receiving
             </p>
@@ -379,7 +380,7 @@ export default function ShipmentCreate() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Expected Items</CardTitle>
+                    <CardTitle>Shipment Items</CardTitle>
                     <CardDescription>
                       Items expected on this shipment. Item ID Codes will be assigned when received.
                     </CardDescription>
@@ -463,20 +464,14 @@ export default function ShipmentCreate() {
                               name={`expected_items.${index}.item_type_id`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Type" />
-                                      </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                      {itemTypes.map((type) => (
-                                        <SelectItem key={type.id} value={type.id}>
-                                          {type.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
+                                  <FormControl>
+                                    <ItemTypeCombobox
+                                      itemTypes={itemTypes}
+                                      value={field.value || ''}
+                                      onChange={field.onChange}
+                                      placeholder="Type"
+                                    />
+                                  </FormControl>
                                 </FormItem>
                               )}
                             />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,8 +34,10 @@ import {
   Users,
   CheckCircle,
   Clock,
+  Upload,
 } from 'lucide-react';
 import { EmployeeDialog } from '@/components/employees/EmployeeDialog';
+import { EmployeeImportDialog } from '@/components/employees/EmployeeImportDialog';
 
 interface Employee {
   id: string;
@@ -64,6 +66,22 @@ export default function Employees() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [inviting, setInviting] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImportFile(file);
+      setImportDialogOpen(true);
+    }
+    e.target.value = '';
+  };
 
   useEffect(() => {
     if (profile?.tenant_id) {
@@ -244,6 +262,13 @@ export default function Employees() {
             </p>
           </div>
           <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={handleFileChange}
+              className="hidden"
+            />
             {selectedIds.size > 0 && (
               <Button 
                 variant="outline" 
@@ -258,6 +283,10 @@ export default function Employees() {
                 Invite Selected ({selectedIds.size})
               </Button>
             )}
+            <Button variant="outline" onClick={handleImportClick}>
+              <Upload className="mr-2 h-4 w-4" />
+              Import
+            </Button>
             <Button onClick={handleAddEmployee}>
               <Plus className="mr-2 h-4 w-4" />
               Add Employee
@@ -418,6 +447,17 @@ export default function Employees() {
         employee={selectedEmployee}
         onSuccess={fetchEmployees}
         isAdmin={isAdmin}
+      />
+
+      <EmployeeImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        file={importFile}
+        onSuccess={() => {
+          setImportDialogOpen(false);
+          setImportFile(null);
+          fetchEmployees();
+        }}
       />
     </DashboardLayout>
   );
