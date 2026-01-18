@@ -36,7 +36,7 @@ import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 const accountSchema = z.object({
   // Basic
@@ -534,18 +534,19 @@ export function AccountDialog({
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <Tabs defaultValue="basic" className="w-full">
-                <div className="overflow-x-auto -mx-1 px-1 pb-2">
-                  <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-8 mb-4 gap-1">
-                    <TabsTrigger value="basic" className="whitespace-nowrap">Basic</TabsTrigger>
-                    <TabsTrigger value="contacts" className="whitespace-nowrap">Contacts</TabsTrigger>
-                    <TabsTrigger value="pricing" className="whitespace-nowrap">Pricing</TabsTrigger>
-                    <TabsTrigger value="billing" className="whitespace-nowrap">Billing</TabsTrigger>
-                    <TabsTrigger value="automations" className="whitespace-nowrap">Automations</TabsTrigger>
-                    <TabsTrigger value="inventory" className="whitespace-nowrap">Inventory</TabsTrigger>
-                    <TabsTrigger value="communications" className="whitespace-nowrap">Comms</TabsTrigger>
-                    <TabsTrigger value="permissions" className="whitespace-nowrap">Permissions</TabsTrigger>
+                <ScrollArea className="w-full pb-2 mb-4">
+                  <TabsList className="inline-flex h-10 w-max p-1 gap-1">
+                    <TabsTrigger value="basic" className="whitespace-nowrap px-3">Basic</TabsTrigger>
+                    <TabsTrigger value="contacts" className="whitespace-nowrap px-3">Contacts</TabsTrigger>
+                    <TabsTrigger value="pricing" className="whitespace-nowrap px-3">Pricing</TabsTrigger>
+                    <TabsTrigger value="billing" className="whitespace-nowrap px-3">Billing</TabsTrigger>
+                    <TabsTrigger value="automations" className="whitespace-nowrap px-3">Automations</TabsTrigger>
+                    <TabsTrigger value="inventory" className="whitespace-nowrap px-3">Inventory</TabsTrigger>
+                    <TabsTrigger value="communications" className="whitespace-nowrap px-3">Comms</TabsTrigger>
+                    <TabsTrigger value="permissions" className="whitespace-nowrap px-3">Permissions</TabsTrigger>
                   </TabsList>
-                </div>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
 
                 <ScrollArea className="h-[50vh] pr-4">
                   {/* Basic Tab */}
