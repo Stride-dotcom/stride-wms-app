@@ -22,12 +22,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Package, Loader2, Filter, Truck, Trash2, ClipboardList, Upload } from 'lucide-react';
+import { Search, Package, Loader2, Filter, Truck, Trash2, ClipboardList, Upload, Printer } from 'lucide-react';
 import { ReleaseDialog } from '@/components/inventory/ReleaseDialog';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { InventoryImportDialog } from '@/components/settings/InventoryImportDialog';
+import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations } from '@/hooks/useLocations';
+import { ItemLabelData } from '@/lib/labelGenerator';
 
 interface Item {
   id: string;
@@ -37,6 +39,7 @@ interface Item {
   quantity: number;
   client_account: string | null;
   sidemark: string | null;
+  vendor: string | null;
   location_code: string | null;
   location_name: string | null;
   warehouse_name: string | null;
@@ -53,6 +56,7 @@ export default function Inventory() {
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [printLabelsDialogOpen, setPrintLabelsDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -67,7 +71,7 @@ export default function Inventory() {
     try {
       const { data, error } = await supabase
         .from('v_items_with_location')
-        .select('id, item_code, description, status, quantity, client_account, sidemark, location_code, location_name, warehouse_name, received_at')
+        .select('id, item_code, description, status, quantity, client_account, sidemark, vendor, location_code, location_name, warehouse_name, received_at')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(100);
@@ -130,6 +134,19 @@ export default function Inventory() {
       description: item.description,
       quantity: item.quantity,
       client_account: item.client_account,
+    }));
+  };
+
+  const getSelectedItemsForLabels = (): ItemLabelData[] => {
+    return items.filter(item => selectedItems.has(item.id)).map(item => ({
+      id: item.id,
+      itemCode: item.item_code,
+      description: item.description || '',
+      vendor: item.vendor || '',
+      account: item.client_account || '',
+      sidemark: item.sidemark || '',
+      warehouseName: item.warehouse_name || '',
+      locationCode: item.location_code || '',
     }));
   };
 
@@ -198,6 +215,13 @@ export default function Inventory() {
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Dispose ({selectedItems.size})
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setPrintLabelsDialogOpen(true)}
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Labels ({selectedItems.size})
                 </Button>
               </>
             )}
@@ -352,6 +376,12 @@ export default function Inventory() {
         warehouses={warehouses}
         locations={locations}
         onSuccess={handleImportSuccess}
+      />
+
+      <PrintLabelsDialog
+        open={printLabelsDialogOpen}
+        onOpenChange={setPrintLabelsDialogOpen}
+        items={getSelectedItemsForLabels()}
       />
     </DashboardLayout>
   );
