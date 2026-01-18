@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Building, Users, Warehouse, Save, Plus, Package } from 'lucide-react';
+import { Loader2, Building, Users, Warehouse, Save, Plus, Package, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations, Location } from '@/hooks/useLocations';
@@ -23,6 +23,8 @@ import { WarehouseDialog } from '@/components/warehouses/WarehouseDialog';
 import { UserList } from '@/components/settings/UserList';
 import { UserDialog } from '@/components/settings/UserDialog';
 import { ItemTypesSettingsTab } from '@/components/settings/ItemTypesSettingsTab';
+import { DueDateRulesSettingsTab } from '@/components/settings/DueDateRulesSettingsTab';
+import { BillingChargeTemplatesTab } from '@/components/settings/BillingChargeTemplatesTab';
 
 interface TenantInfo {
   id: string;
@@ -219,9 +221,10 @@ export default function Settings() {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto gap-1">
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="organization">Organization</TabsTrigger>
+            <TabsTrigger value="billing">Billing</TabsTrigger>
             <TabsTrigger value="item-types">Item Types</TabsTrigger>
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
@@ -284,7 +287,7 @@ export default function Settings() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="organization">
+          <TabsContent value="organization" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -322,6 +325,13 @@ export default function Settings() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Due Date Rules Section */}
+            <DueDateRulesSettingsTab />
+          </TabsContent>
+
+          <TabsContent value="billing">
+            <BillingChargeTemplatesTab />
           </TabsContent>
 
           <TabsContent value="item-types">
