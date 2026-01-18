@@ -142,21 +142,45 @@ export default function Employees() {
     setInviting(true);
     try {
       const selectedEmployees = employees.filter(e => selectedIds.has(e.id) && !e.enrolled);
+      let successCount = 0;
       
       for (const employee of selectedEmployees) {
-        // Update invited_at timestamp
-        await supabase
+        // Generate invite token
+        const inviteToken = crypto.randomUUID();
+        
+        // Update user with invite token and status
+        const { error: updateError } = await supabase
           .from('users')
           .update({ 
+            invite_token: inviteToken,
             invited_at: new Date().toISOString(),
             status: 'invited'
           })
           .eq('id', employee.id);
+
+        if (updateError) {
+          console.error('Error updating user:', updateError);
+          continue;
+        }
+
+        // Call edge function to send invite email
+        const { error: emailError } = await supabase.functions.invoke('send-employee-invite', {
+          body: {
+            user_id: employee.id,
+            tenant_id: profile?.tenant_id,
+          },
+        });
+
+        if (emailError) {
+          console.error('Error sending invite email:', emailError);
+        } else {
+          successCount++;
+        }
       }
 
       toast({
         title: 'Invitations Sent',
-        description: `Sent ${selectedEmployees.length} invitation(s).`,
+        description: `Sent ${successCount} invitation(s) successfully.`,
       });
 
       setSelectedIds(new Set());
