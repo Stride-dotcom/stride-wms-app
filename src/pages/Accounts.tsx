@@ -34,6 +34,8 @@ interface Account {
   billing_city: string | null;
   billing_state: string | null;
   credit_hold: boolean | null;
+  parent_account_id: string | null;
+  is_master_account: boolean | null;
 }
 
 export default function Accounts() {
@@ -52,10 +54,10 @@ export default function Accounts() {
     try {
       const { data, error } = await supabase
         .from('accounts')
-        .select('id, account_code, account_name, account_type, status, primary_contact_name, primary_contact_email, billing_city, billing_state, credit_hold')
+        .select('id, account_code, account_name, account_type, status, primary_contact_name, primary_contact_email, billing_city, billing_state, credit_hold, parent_account_id, is_master_account')
         .is('deleted_at', null)
         .order('account_name', { ascending: true })
-        .limit(100);
+        .limit(200);
 
       if (error) throw error;
       setAccounts(data || []);
@@ -78,16 +80,49 @@ export default function Accounts() {
     return matchesSearch && matchesStatus;
   });
 
+  // Organize accounts into a tree structure for nested display
+  const organizedAccounts = (): { account: Account; level: number }[] => {
+    const result: { account: Account; level: number }[] = [];
+    
+    // Get top-level accounts (no parent or parent not in list)
+    const topLevel = filteredAccounts.filter(
+      (a) => !a.parent_account_id || !filteredAccounts.some((p) => p.id === a.parent_account_id)
+    );
+    
+    // Recursively add children
+    const addWithChildren = (account: Account, level: number) => {
+      result.push({ account, level });
+      const children = filteredAccounts.filter((a) => a.parent_account_id === account.id);
+      children.forEach((child) => addWithChildren(child, level + 1));
+    };
+    
+    topLevel.forEach((account) => addWithChildren(account, 0));
+    return result;
+  };
+
+  const nestedAccounts = organizedAccounts();
+
   const getStatusBadge = (status: string, creditHold: boolean | null) => {
     if (creditHold) {
       return <Badge variant="destructive">Credit Hold</Badge>;
     }
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       active: 'default',
+      on_hold: 'secondary',
+      archived: 'outline',
+      credit_hold: 'destructive',
       inactive: 'secondary',
       suspended: 'destructive',
     };
-    return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
+    const labels: Record<string, string> = {
+      active: 'Active',
+      on_hold: 'On Hold',
+      archived: 'Archived',
+      credit_hold: 'Credit Hold',
+      inactive: 'Inactive',
+      suspended: 'Suspended',
+    };
+    return <Badge variant={variants[status] || 'default'}>{labels[status] || status}</Badge>;
   };
 
   const uniqueStatuses = [...new Set(accounts.map((account) => account.status))];
@@ -112,7 +147,7 @@ export default function Accounts() {
           <CardHeader>
             <CardTitle>Client Accounts</CardTitle>
             <CardDescription>
-              {filteredAccounts.length} accounts found
+              {nestedAccounts.length} accounts found
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -146,7 +181,7 @@ export default function Accounts() {
               <div className="flex items-center justify-center h-48">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
-            ) : filteredAccounts.length === 0 ? (
+            ) : nestedAccounts.length === 0 ? (
               <div className="text-center py-12">
                 <Building2 className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-4 text-lg font-semibold">No accounts found</h3>
@@ -170,14 +205,26 @@ export default function Accounts() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAccounts.map((account) => (
+                    {nestedAccounts.map(({ account, level }) => (
                       <TableRow 
                         key={account.id} 
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => { setEditingAccountId(account.id); setDialogOpen(true); }}
                       >
-                        <TableCell className="font-medium">{account.account_code}</TableCell>
-                        <TableCell>{account.account_name}</TableCell>
+                        <TableCell className="font-medium">
+                          <span style={{ paddingLeft: `${level * 1.5}rem` }}>
+                            {level > 0 && <span className="text-muted-foreground mr-2">└</span>}
+                            {account.account_code}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span style={{ paddingLeft: `${level * 1.5}rem` }}>
+                            {account.account_name}
+                            {account.is_master_account && (
+                              <Badge variant="outline" className="ml-2 text-xs">Master</Badge>
+                            )}
+                          </span>
+                        </TableCell>
                         <TableCell>{account.account_type || '-'}</TableCell>
                         <TableCell>{getStatusBadge(account.status, account.credit_hold)}</TableCell>
                         <TableCell>
