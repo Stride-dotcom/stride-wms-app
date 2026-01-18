@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Camera, CameraOff, Loader2, RefreshCw } from "lucide-react";
+import { Html5Qrcode } from "html5-qrcode";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
@@ -71,6 +72,7 @@ function isCameraBlockedByEmbed(): boolean {
 export function QRScanner({ onScan, onError, scanning = true, className }: QRScannerProps) {
   const [status, setStatus] = useState<ScannerStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [usingFallback, setUsingFallback] = useState(false);
 
   const isEmbedded = useMemo(() => isEmbeddedFrame(), []);
   const isCameraBlocked = useMemo(() => isCameraBlockedByEmbed(), []);
@@ -80,18 +82,27 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
   const rafRef = useRef<number | null>(null);
   const detectorRef = useRef<BarcodeDetectorInstance | null>(null);
   const detectInFlightRef = useRef(false);
+  const html5QrRef = useRef<Html5Qrcode | null>(null);
+  const scannerContainerId = useRef(`qr-scanner-${Math.random().toString(36).slice(2, 9)}`);
 
   const lastScannedRef = useRef<string>("");
   const lastScanTimeRef = useRef<number>(0);
 
   const stopCamera = useCallback(() => {
+    // Stop native detector loop
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
-
     detectInFlightRef.current = false;
 
+    // Stop html5-qrcode fallback
+    if (html5QrRef.current) {
+      html5QrRef.current.stop().catch(() => {});
+      html5QrRef.current = null;
+    }
+
+    // Stop camera stream
     const stream = streamRef.current;
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
@@ -109,7 +120,17 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
     }
 
     setStatus("idle");
+    setUsingFallback(false);
   }, []);
+
+  const handleQrCodeSuccess = useCallback((decodedText: string) => {
+    const now = Date.now();
+    if (decodedText !== lastScannedRef.current || now - lastScanTimeRef.current > 1500) {
+      lastScannedRef.current = decodedText;
+      lastScanTimeRef.current = now;
+      onScan(decodedText);
+    }
+  }, [onScan]);
 
   const startDetectLoop = useCallback(() => {
     const video = videoRef.current;
@@ -128,12 +149,7 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
           const value = first?.rawValue ? String(first.rawValue) : "";
 
           if (value) {
-            const now = Date.now();
-            if (value !== lastScannedRef.current || now - lastScanTimeRef.current > 1500) {
-              lastScannedRef.current = value;
-              lastScanTimeRef.current = now;
-              onScan(value);
-            }
+            handleQrCodeSuccess(value);
           }
         } catch (err) {
           const { name, message, raw } = formatError(err);
@@ -149,7 +165,43 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
     };
 
     tick();
-  }, [onScan, scanning]);
+  }, [handleQrCodeSuccess, scanning]);
+
+  const startFallbackScanner = useCallback(async () => {
+    console.info("[QRScanner] Starting html5-qrcode fallback scanner");
+    setUsingFallback(true);
+
+    try {
+      const html5Qr = new Html5Qrcode(scannerContainerId.current);
+      html5QrRef.current = html5Qr;
+
+      await html5Qr.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1,
+        },
+        handleQrCodeSuccess,
+        () => {} // Ignore scan failures (no QR in frame)
+      );
+
+      setStatus("active");
+    } catch (err) {
+      const { name, message, raw } = formatError(err);
+      console.error("[QRScanner] html5-qrcode fallback failed", { name, message, raw });
+
+      const msg = `${name}: ${message}`;
+      setErrorMessage(msg);
+      setStatus("error");
+      toast({
+        variant: "destructive",
+        title: "Scanner error",
+        description: msg,
+      });
+      onError?.(msg);
+    }
+  }, [handleQrCodeSuccess, onError]);
 
   const startCamera = useCallback(async () => {
     if (!scanning) return;
@@ -179,6 +231,17 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
 
     stopCamera();
 
+    // Check if native BarcodeDetector is available
+    const hasNativeBarcodeDetector = typeof BarcodeDetector !== "undefined";
+
+    if (!hasNativeBarcodeDetector) {
+      // Use html5-qrcode fallback directly
+      console.info("[QRScanner] BarcodeDetector not available, using html5-qrcode fallback");
+      await startFallbackScanner();
+      return;
+    }
+
+    // Use native BarcodeDetector
     try {
       const stream = await getUserMediaCompat(DEFAULT_CONSTRAINTS);
       streamRef.current = stream;
@@ -193,22 +256,18 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
 
       await video.play();
 
-      if (typeof BarcodeDetector !== "undefined") {
-        try {
-          detectorRef.current = new BarcodeDetector({ formats: ["qr_code"] });
-        } catch (err) {
-          detectorRef.current = null;
-          const { name, message, raw } = formatError(err);
-          console.error("[QRScanner] Failed to init BarcodeDetector", { name, message, raw });
-        }
+      try {
+        detectorRef.current = new BarcodeDetector({ formats: ["qr_code"] });
+      } catch (err) {
+        detectorRef.current = null;
+        const { name, message, raw } = formatError(err);
+        console.error("[QRScanner] Failed to init BarcodeDetector", { name, message, raw });
       }
 
       if (!detectorRef.current) {
-        const msg =
-          "QR scanning isn't supported in this browser (BarcodeDetector missing). Camera preview is running, but scanning may not work.";
-        console.warn("[QRScanner]", msg);
-        toast({ title: "Limited browser support", description: msg });
-        setStatus("active");
+        // Fallback to html5-qrcode
+        stopCamera();
+        await startFallbackScanner();
         return;
       }
 
@@ -231,7 +290,7 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
 
       stopCamera();
     }
-  }, [isEmbedded, onError, scanning, startDetectLoop, stopCamera]);
+  }, [isEmbedded, onError, scanning, startDetectLoop, startFallbackScanner, stopCamera]);
 
   useEffect(() => {
     return () => stopCamera();
@@ -243,10 +302,23 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
 
   return (
     <div className={cn("relative", className)}>
+      {/* Native video element - hidden when using fallback */}
       <video
         ref={videoRef}
-        className="w-full aspect-square rounded-2xl overflow-hidden bg-muted object-cover"
+        className={cn(
+          "w-full aspect-square rounded-2xl overflow-hidden bg-muted object-cover",
+          usingFallback && "hidden"
+        )}
         playsInline
+      />
+
+      {/* html5-qrcode container - shown when using fallback */}
+      <div
+        id={scannerContainerId.current}
+        className={cn(
+          "w-full aspect-square rounded-2xl overflow-hidden bg-muted",
+          !usingFallback && "hidden"
+        )}
       />
 
       {/* Camera blocked or unavailable - show simple message */}
