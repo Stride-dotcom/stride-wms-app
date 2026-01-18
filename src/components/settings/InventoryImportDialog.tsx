@@ -406,15 +406,31 @@ export function InventoryImportDialog({
       setResult({ success: successCount, failed: failedCount, errors, skipped: skippedCount });
       setStep('complete');
 
-      if (successCount > 0) {
+      // Show accurate toast based on actual results
+      if (successCount > 0 && failedCount === 0) {
         toast({
           title: 'Import Complete',
-          description: `Successfully imported ${successCount} items.`,
+          description: `Successfully imported ${successCount} item${successCount !== 1 ? 's' : ''}${skippedCount > 0 ? ` (${skippedCount} skipped)` : ''}.`,
         });
         onSuccess();
+      } else if (successCount > 0 && failedCount > 0) {
+        toast({
+          variant: 'default',
+          title: 'Import Partially Complete',
+          description: `Imported ${successCount} item${successCount !== 1 ? 's' : ''}, ${failedCount} failed${skippedCount > 0 ? `, ${skippedCount} skipped` : ''}.`,
+        });
+        onSuccess();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Import Failed',
+          description: `Failed to import items. ${errors.length > 0 ? errors[0] : 'Please check the file format.'}`,
+        });
       }
     } catch (error) {
       console.error('Import error:', error);
+      setResult({ success: 0, failed: parsedItems.length, errors: ['An unexpected error occurred'], skipped: 0 });
+      setStep('complete');
       toast({
         variant: 'destructive',
         title: 'Import Failed',

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,8 +20,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Loader2, Filter, Plus, Building2 } from 'lucide-react';
+import { Search, Loader2, Filter, Plus, Building2, Upload } from 'lucide-react';
 import { AccountDialog } from '@/components/accounts/AccountDialog';
+import { AccountImportDialog } from '@/components/accounts/AccountImportDialog';
 
 interface Account {
   id: string;
@@ -45,6 +46,22 @@ export default function Accounts() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImportFile(file);
+      setImportDialogOpen(true);
+    }
+    e.target.value = '';
+  };
 
   useEffect(() => {
     fetchAccounts();
@@ -137,10 +154,23 @@ export default function Accounts() {
               Manage client accounts and billing information
             </p>
           </div>
-          <Button onClick={() => { setEditingAccountId(null); setDialogOpen(true); }}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Account
-          </Button>
+          <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <Button variant="outline" onClick={handleImportClick}>
+              <Upload className="mr-2 h-4 w-4" />
+              Import
+            </Button>
+            <Button onClick={() => { setEditingAccountId(null); setDialogOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Account
+            </Button>
+          </div>
         </div>
 
         <Card>
@@ -263,6 +293,17 @@ export default function Accounts() {
         onSuccess={() => {
           setDialogOpen(false);
           setEditingAccountId(null);
+          fetchAccounts();
+        }}
+      />
+
+      <AccountImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        file={importFile}
+        onSuccess={() => {
+          setImportDialogOpen(false);
+          setImportFile(null);
           fetchAccounts();
         }}
       />

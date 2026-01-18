@@ -190,7 +190,7 @@ export default function Shipments() {
           </div>
           <Button onClick={() => navigate('/shipments/new')}>
             <Plus className="mr-2 h-4 w-4" />
-            Create Expected Shipment
+            Create Shipment
           </Button>
         </div>
 
