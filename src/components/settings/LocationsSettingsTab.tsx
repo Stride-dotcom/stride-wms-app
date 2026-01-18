@@ -469,7 +469,7 @@ export function LocationsSettingsTab({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx,.xls"
                   className="hidden"
                   onChange={handleFileChange}
                 />

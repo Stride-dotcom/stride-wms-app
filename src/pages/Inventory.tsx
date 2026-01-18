@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,9 +22,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Package, Loader2, Filter, Truck, Trash2, ClipboardList } from 'lucide-react';
+import { Search, Package, Loader2, Filter, Truck, Trash2, ClipboardList, Upload } from 'lucide-react';
 import { ReleaseDialog } from '@/components/inventory/ReleaseDialog';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
+import { InventoryImportDialog } from '@/components/settings/InventoryImportDialog';
+import { useWarehouses } from '@/hooks/useWarehouses';
+import { useLocations } from '@/hooks/useLocations';
 
 interface Item {
   id: string;
@@ -49,6 +52,12 @@ export default function Inventory() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const { warehouses } = useWarehouses();
+  const { locations } = useLocations();
 
   useEffect(() => {
     fetchItems();
@@ -129,8 +138,35 @@ export default function Inventory() {
     fetchItems();
   };
 
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImportFile(file);
+      setImportDialogOpen(true);
+    }
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  };
+
+  const handleImportSuccess = () => {
+    setImportDialogOpen(false);
+    setImportFile(null);
+    fetchItems();
+  };
+
   return (
     <DashboardLayout>
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".xlsx,.xls,.csv"
+        className="hidden"
+      />
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -165,6 +201,10 @@ export default function Inventory() {
                 </Button>
               </>
             )}
+            <Button variant="outline" onClick={handleImportClick}>
+              <Upload className="mr-2 h-4 w-4" />
+              Import
+            </Button>
             <Button>
               <Package className="mr-2 h-4 w-4" />
               Add Item
@@ -303,6 +343,15 @@ export default function Inventory() {
           setTaskDialogOpen(false);
           setSelectedItems(new Set());
         }}
+      />
+
+      <InventoryImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        file={importFile}
+        warehouses={warehouses}
+        locations={locations}
+        onSuccess={handleImportSuccess}
       />
     </DashboardLayout>
   );
