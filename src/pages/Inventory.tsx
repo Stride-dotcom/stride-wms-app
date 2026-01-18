@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -20,7 +21,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Package, Loader2, Filter } from 'lucide-react';
+import { Search, Package, Loader2, Filter, Truck, Trash2 } from 'lucide-react';
+import { ReleaseDialog } from '@/components/inventory/ReleaseDialog';
 
 interface Item {
   id: string;
@@ -41,6 +43,8 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchItems();
@@ -88,6 +92,39 @@ export default function Inventory() {
 
   const uniqueStatuses = [...new Set(items.map((item) => item.status))];
 
+  const toggleItemSelection = (itemId: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(itemId)) {
+      newSelected.delete(itemId);
+    } else {
+      newSelected.add(itemId);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedItems.size === filteredItems.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(filteredItems.map(item => item.id)));
+    }
+  };
+
+  const getSelectedItemsData = () => {
+    return items.filter(item => selectedItems.has(item.id)).map(item => ({
+      id: item.id,
+      item_code: item.item_code,
+      description: item.description,
+      quantity: item.quantity,
+      client_account: item.client_account,
+    }));
+  };
+
+  const handleReleaseSuccess = () => {
+    setSelectedItems(new Set());
+    fetchItems();
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -98,10 +135,30 @@ export default function Inventory() {
               Manage and track all items in your warehouse
             </p>
           </div>
-          <Button>
-            <Package className="mr-2 h-4 w-4" />
-            Add Item
-          </Button>
+          <div className="flex items-center gap-2">
+            {selectedItems.size > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setReleaseDialogOpen(true)}
+                >
+                  <Truck className="mr-2 h-4 w-4" />
+                  Will Call ({selectedItems.size})
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setReleaseDialogOpen(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Dispose ({selectedItems.size})
+                </Button>
+              </>
+            )}
+            <Button>
+              <Package className="mr-2 h-4 w-4" />
+              Add Item
+            </Button>
+          </div>
         </div>
 
         <Card>
@@ -109,6 +166,7 @@ export default function Inventory() {
             <CardTitle>Items</CardTitle>
             <CardDescription>
               {filteredItems.length} items found
+              {selectedItems.size > 0 && ` • ${selectedItems.size} selected`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -157,6 +215,13 @@ export default function Inventory() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={selectedItems.size === filteredItems.length && filteredItems.length > 0}
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="Select all"
+                        />
+                      </TableHead>
                       <TableHead>Item Code</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Status</TableHead>
@@ -168,7 +233,18 @@ export default function Inventory() {
                   </TableHeader>
                   <TableBody>
                     {filteredItems.map((item) => (
-                      <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50">
+                      <TableRow
+                        key={item.id}
+                        className={`cursor-pointer hover:bg-muted/50 ${selectedItems.has(item.id) ? 'bg-muted/30' : ''}`}
+                        onClick={() => toggleItemSelection(item.id)}
+                      >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedItems.has(item.id)}
+                            onCheckedChange={() => toggleItemSelection(item.id)}
+                            aria-label={`Select ${item.item_code}`}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">{item.item_code}</TableCell>
                         <TableCell className="max-w-[200px] truncate">
                           {item.description || '-'}
@@ -200,6 +276,13 @@ export default function Inventory() {
           </CardContent>
         </Card>
       </div>
+
+      <ReleaseDialog
+        open={releaseDialogOpen}
+        onOpenChange={setReleaseDialogOpen}
+        selectedItems={getSelectedItemsData()}
+        onSuccess={handleReleaseSuccess}
+      />
     </DashboardLayout>
   );
 }
