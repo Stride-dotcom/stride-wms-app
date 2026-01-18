@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -20,20 +19,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Building, Users, Warehouse, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useWarehouses } from '@/hooks/useWarehouses';
+import { useLocations, Location } from '@/hooks/useLocations';
+import { LocationsSettingsTab } from '@/components/settings/LocationsSettingsTab';
+import { LocationDialog } from '@/components/locations/LocationDialog';
+import { PrintLabelsDialog } from '@/components/locations/PrintLabelsDialog';
+import { CSVImportDialog } from '@/components/settings/CSVImportDialog';
 
 interface TenantInfo {
   id: string;
   name: string;
   slug: string;
-  status: string;
-}
-
-interface WarehouseInfo {
-  id: string;
-  code: string;
-  name: string;
-  city: string | null;
-  state: string | null;
   status: string;
 }
 
@@ -51,13 +47,26 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tenant, setTenant] = useState<TenantInfo | null>(null);
-  const [warehouses, setWarehouses] = useState<WarehouseInfo[]>([]);
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [profileData, setProfileData] = useState({
     firstName: '',
     lastName: '',
     email: '',
   });
+
+  // Locations state
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>('all');
+  const [locationDialogOpen, setLocationDialogOpen] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<string | null>(null);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [selectedLocationsForPrint, setSelectedLocationsForPrint] = useState<Location[]>([]);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvImportDialogOpen, setCsvImportDialogOpen] = useState(false);
+
+  const { warehouses, loading: warehousesLoading } = useWarehouses();
+  const { locations, loading: locationsLoading, refetch: refetchLocations } = useLocations(
+    selectedWarehouse === 'all' ? undefined : selectedWarehouse
+  );
 
   useEffect(() => {
     if (profile?.tenant_id) {
@@ -87,16 +96,6 @@ export default function Settings() {
         .single();
 
       if (tenantData) setTenant(tenantData);
-
-      // Fetch warehouses
-      const { data: warehouseData } = await supabase
-        .from('warehouses')
-        .select('id, code, name, city, state, status')
-        .eq('tenant_id', profile.tenant_id)
-        .is('deleted_at', null)
-        .order('name');
-
-      setWarehouses(warehouseData || []);
 
       // Fetch users
       const { data: userData } = await supabase
@@ -145,6 +144,43 @@ export default function Settings() {
     }
   };
 
+  // Location handlers
+  const handleCreateLocation = () => {
+    setEditingLocation(null);
+    setLocationDialogOpen(true);
+  };
+
+  const handleEditLocation = (locationId: string) => {
+    setEditingLocation(locationId);
+    setLocationDialogOpen(true);
+  };
+
+  const handleLocationDialogClose = () => {
+    setLocationDialogOpen(false);
+    setEditingLocation(null);
+  };
+
+  const handleLocationSuccess = () => {
+    handleLocationDialogClose();
+    refetchLocations();
+  };
+
+  const handlePrintSelected = (selected: Location[]) => {
+    setSelectedLocationsForPrint(selected);
+    setPrintDialogOpen(true);
+  };
+
+  const handleImportCSV = (file: File) => {
+    setCsvFile(file);
+    setCsvImportDialogOpen(true);
+  };
+
+  const handleImportSuccess = () => {
+    refetchLocations();
+    setCsvImportDialogOpen(false);
+    setCsvFile(null);
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -170,6 +206,7 @@ export default function Settings() {
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="organization">Organization</TabsTrigger>
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
+            <TabsTrigger value="locations">Locations</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
           </TabsList>
 
@@ -281,7 +318,11 @@ export default function Settings() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {warehouses.length === 0 ? (
+                {warehousesLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : warehouses.length === 0 ? (
                   <p className="text-muted-foreground">No warehouses configured</p>
                 ) : (
                   <div className="rounded-md border">
@@ -317,6 +358,21 @@ export default function Settings() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="locations">
+            <LocationsSettingsTab
+              locations={locations}
+              warehouses={warehouses}
+              loading={locationsLoading || warehousesLoading}
+              selectedWarehouse={selectedWarehouse}
+              onWarehouseChange={setSelectedWarehouse}
+              onEdit={handleEditLocation}
+              onCreate={handleCreateLocation}
+              onRefresh={refetchLocations}
+              onPrintSelected={handlePrintSelected}
+              onImportCSV={handleImportCSV}
+            />
           </TabsContent>
 
           <TabsContent value="users">
@@ -368,6 +424,34 @@ export default function Settings() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Location Dialog */}
+      <LocationDialog
+        open={locationDialogOpen}
+        onOpenChange={setLocationDialogOpen}
+        locationId={editingLocation}
+        warehouses={warehouses}
+        locations={locations}
+        defaultWarehouseId={selectedWarehouse === 'all' ? undefined : selectedWarehouse}
+        onSuccess={handleLocationSuccess}
+      />
+
+      {/* Print Labels Dialog */}
+      <PrintLabelsDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        locations={selectedLocationsForPrint}
+        warehouses={warehouses}
+      />
+
+      {/* CSV Import Dialog */}
+      <CSVImportDialog
+        open={csvImportDialogOpen}
+        onOpenChange={setCsvImportDialogOpen}
+        file={csvFile}
+        warehouses={warehouses}
+        onSuccess={handleImportSuccess}
+      />
     </DashboardLayout>
   );
 }
