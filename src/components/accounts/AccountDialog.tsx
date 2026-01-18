@@ -81,9 +81,9 @@ const accountSchema = z.object({
   // Pricing
   pricing_level: z.string().optional(),
   rate_card_id: z.string().optional(),
-  pricing_copy_from_account_id: z.string().optional(),
   pricing_percentage: z.coerce.number().optional(),
   pricing_apply_to: z.string().optional(),
+  pricing_selected_services: z.array(z.string()).optional(),
   // Automations
   auto_inspection_on_receiving: z.boolean().optional(),
   auto_assembly_on_receiving: z.boolean().optional(),
@@ -124,6 +124,13 @@ interface Account {
   account_name: string;
 }
 
+interface RateCard {
+  id: string;
+  rate_card_code: string;
+  rate_card_name: string;
+  is_active: boolean;
+}
+
 const ACCOUNT_TYPES = [
   'Retail',
   'Retail w/NO Warehousing',
@@ -154,15 +161,30 @@ const ACCOUNT_STATUSES = [
 
 const PRICING_LEVELS = [
   { value: 'default', label: 'Use Default Price List' },
-  { value: 'copy', label: 'Copy from Another Account' },
   { value: 'rate_card', label: 'Assign Rate Card' },
   { value: 'percentage', label: 'Apply Percentage Change' },
 ];
 
 const PRICING_APPLY_TO = [
   { value: 'all', label: 'All Services' },
-  { value: 'category', label: 'By Category' },
-  { value: 'selected', label: 'Selected Services Only' },
+  { value: 'selected', label: 'Select Services' },
+];
+
+// Available services for selection
+const AVAILABLE_SERVICES = [
+  { key: 'receiving', label: 'Receiving', description: 'Receiving and inspection of incoming items' },
+  { key: 'storage', label: 'Storage', description: 'Monthly/daily warehouse storage' },
+  { key: 'picking', label: 'Picking', description: 'Order picking and preparation' },
+  { key: 'packing', label: 'Packing', description: 'Packaging and wrapping' },
+  { key: 'shipping', label: 'Shipping', description: 'Outbound shipping and delivery' },
+  { key: 'assembly', label: 'Assembly', description: 'Item assembly and setup' },
+  { key: 'inspection', label: 'Inspection', description: 'Quality inspection services' },
+  { key: 'repair', label: 'Repair', description: 'Repair and restoration' },
+  { key: 'minor_touchup', label: 'Minor Touch-up', description: 'Minor repairs and touch-ups' },
+  { key: 'custom_packaging', label: 'Custom Packaging', description: 'Custom crating and packaging' },
+  { key: 'handling', label: 'Handling', description: 'Manual handling and labor' },
+  { key: 'move', label: 'Move', description: 'Internal warehouse moves' },
+  { key: 'delivery', label: 'Delivery', description: 'Final mile delivery' },
 ];
 
 const BILLING_FREQUENCIES = [
@@ -243,9 +265,9 @@ const getDefaultValues = (): AccountFormData => ({
   credit_hold: false,
   pricing_level: 'default',
   rate_card_id: 'default',
-  pricing_copy_from_account_id: '',
   pricing_percentage: undefined,
   pricing_apply_to: 'all',
+  pricing_selected_services: [],
   auto_inspection_on_receiving: false,
   auto_assembly_on_receiving: false,
   auto_repair_on_damage: false,
@@ -277,6 +299,8 @@ export function AccountDialog({
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [rateCards, setRateCards] = useState<RateCard[]>([]);
+  const [serviceSelectionOpen, setServiceSelectionOpen] = useState(false);
   const { toast } = useToast();
   const { profile } = useAuth();
 
@@ -288,6 +312,7 @@ export function AccountDialog({
   useEffect(() => {
     if (open) {
       fetchAccounts();
+      fetchRateCards();
       if (accountId) {
         fetchAccount(accountId);
       } else {
@@ -306,6 +331,20 @@ export function AccountDialog({
       setAccounts(data || []);
     } catch (error) {
       console.error('Error fetching accounts:', error);
+    }
+  };
+
+  const fetchRateCards = async () => {
+    try {
+      const { data } = await supabase
+        .from('rate_cards')
+        .select('id, rate_card_code, rate_card_name, is_active')
+        .is('deleted_at', null)
+        .eq('is_active', true)
+        .order('rate_card_name');
+      setRateCards(data || []);
+    } catch (error) {
+      console.error('Error fetching rate cards:', error);
     }
   };
 
@@ -363,9 +402,9 @@ export function AccountDialog({
         credit_hold: data.credit_hold || false,
         pricing_level: data.pricing_level || 'default',
         rate_card_id: data.rate_card_id || 'default',
-        pricing_copy_from_account_id: '',
         pricing_percentage: undefined,
         pricing_apply_to: 'all',
+        pricing_selected_services: [],
         auto_inspection_on_receiving: data.auto_inspection_on_receiving || false,
         auto_assembly_on_receiving: data.auto_assembly_on_receiving || false,
         auto_repair_on_damage: data.auto_repair_on_damage || false,
@@ -983,29 +1022,32 @@ export function AccountDialog({
                       )}
                     />
 
-                    {form.watch('pricing_level') === 'copy' && (
+
+                    {form.watch('pricing_level') === 'rate_card' && (
                       <FormField
                         control={form.control}
-                        name="pricing_copy_from_account_id"
+                        name="rate_card_id"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Copy Pricing From</FormLabel>
+                            <FormLabel>Rate Card</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select account to copy from" />
+                                  <SelectValue placeholder="Select rate card" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {accounts
-                                  .filter((a) => a.id !== accountId)
-                                  .map((a) => (
-                                    <SelectItem key={a.id} value={a.id}>
-                                      {a.account_name}
-                                    </SelectItem>
-                                  ))}
+                                <SelectItem value="default">Default Rate Card</SelectItem>
+                                {rateCards.map((card) => (
+                                  <SelectItem key={card.id} value={card.id}>
+                                    {card.rate_card_name} ({card.rate_card_code})
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
+                            <FormDescription>
+                              Rate cards can be managed in Settings &gt; Rate Cards
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -1042,7 +1084,15 @@ export function AccountDialog({
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Apply To</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select 
+                                  onValueChange={(value) => {
+                                    field.onChange(value);
+                                    if (value === 'selected') {
+                                      setServiceSelectionOpen(true);
+                                    }
+                                  }} 
+                                  value={field.value}
+                                >
                                   <FormControl>
                                     <SelectTrigger>
                                       <SelectValue placeholder="Select scope" />
@@ -1061,33 +1111,102 @@ export function AccountDialog({
                             )}
                           />
                         </div>
-                      </div>
-                    )}
 
-                    {form.watch('pricing_level') === 'rate_card' && (
-                      <FormField
-                        control={form.control}
-                        name="rate_card_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Rate Card</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select rate card" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="default">Default Rate Card</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormDescription>
-                              Rate cards can be managed in Settings &gt; Rate Cards
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
+                        {/* Show selected services when "Select Services" is chosen */}
+                        {form.watch('pricing_apply_to') === 'selected' && (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <FormLabel>Selected Services</FormLabel>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => setServiceSelectionOpen(true)}
+                              >
+                                Edit Selection
+                              </Button>
+                            </div>
+                            <div className="rounded-md border p-3">
+                              {(form.watch('pricing_selected_services') || []).length === 0 ? (
+                                <p className="text-sm text-muted-foreground">No services selected. Click "Edit Selection" to choose services.</p>
+                              ) : (
+                                <div className="flex flex-wrap gap-2">
+                                  {(form.watch('pricing_selected_services') || []).map((serviceKey) => {
+                                    const service = AVAILABLE_SERVICES.find(s => s.key === serviceKey);
+                                    return service ? (
+                                      <span 
+                                        key={serviceKey}
+                                        className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
+                                      >
+                                        {service.label}
+                                      </span>
+                                    ) : null;
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         )}
-                      />
+
+                        {/* Service Selection Dialog */}
+                        <Dialog open={serviceSelectionOpen} onOpenChange={setServiceSelectionOpen}>
+                          <DialogContent className="sm:max-w-[500px]">
+                            <DialogHeader>
+                              <DialogTitle>Select Services</DialogTitle>
+                              <DialogDescription>
+                                Choose which services the {form.watch('pricing_percentage') || 0}% adjustment will apply to.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-2 max-h-[400px] overflow-y-auto py-4">
+                              {AVAILABLE_SERVICES.map((service) => {
+                                const currentSelected = form.watch('pricing_selected_services') || [];
+                                const isSelected = currentSelected.includes(service.key);
+                                return (
+                                  <div 
+                                    key={service.key}
+                                    className={`flex items-start space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                      isSelected ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                                    }`}
+                                    onClick={() => {
+                                      const current = form.getValues('pricing_selected_services') || [];
+                                      if (current.includes(service.key)) {
+                                        form.setValue('pricing_selected_services', current.filter(s => s !== service.key));
+                                      } else {
+                                        form.setValue('pricing_selected_services', [...current, service.key]);
+                                      }
+                                    }}
+                                  >
+                                    <Checkbox checked={isSelected} />
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium">{service.label}</p>
+                                      <p className="text-xs text-muted-foreground">{service.description}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <DialogFooter>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                onClick={() => form.setValue('pricing_selected_services', [])}
+                              >
+                                Clear All
+                              </Button>
+                              <Button 
+                                type="button" 
+                                variant="outline"
+                                onClick={() => form.setValue('pricing_selected_services', AVAILABLE_SERVICES.map(s => s.key))}
+                              >
+                                Select All
+                              </Button>
+                              <Button type="button" onClick={() => setServiceSelectionOpen(false)}>
+                                Done
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
                     )}
 
                     <div className="rounded-md bg-muted/50 p-4 text-sm text-muted-foreground">
