@@ -17,6 +17,7 @@ import {
   Search,
   Hammer,
   Bell,
+  HelpCircle,
 } from 'lucide-react';
 
 interface ItemFlags {
@@ -29,6 +30,7 @@ interface ItemFlags {
   needs_warehouse_assembly: boolean;
   notify_dispatch: boolean;
   has_damage: boolean;
+  received_without_id: boolean;
 }
 
 interface ItemFlagsSectionProps {
@@ -51,6 +53,7 @@ const FLAG_CONFIG: FlagConfig[] = [
   { key: 'is_oversize', label: 'Oversize', icon: Ruler, billable: true },
   { key: 'is_unstackable', label: 'Unstackable', icon: Layers, billable: true },
   { key: 'is_crated', label: 'Crated', icon: Box, billable: true },
+  { key: 'received_without_id', label: 'Received Without ID', icon: HelpCircle, billable: true },
   { key: 'needs_repair', label: 'Needs Repair', icon: Wrench, billable: false, clientEditable: true },
   { key: 'needs_inspection', label: 'Needs Inspection', icon: Search, billable: false, clientEditable: true },
   { key: 'needs_warehouse_assembly', label: 'Needs Warehouse Assembly', icon: Hammer, billable: false },
@@ -105,7 +108,7 @@ export function ItemFlagsSection({
 
       if (error) throw error;
 
-      // Create billing event for billable flags
+      // Create billing event for billable flags (only when setting to true)
       const config = FLAG_CONFIG.find(f => f.key === flagKey);
       if (config?.billable && value) {
         await createFlagBillingEvent(itemId, flagKey, value);

@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,7 @@ import {
   Clock,
   Package,
   AlertTriangle,
+  HelpCircle,
 } from 'lucide-react';
 
 interface ShipmentItem {
@@ -78,7 +80,7 @@ export function ReceivingSession({
 
   const [notes, setNotes] = useState('');
   const [trackingNumbers, setTrackingNumbers] = useState<string[]>(['']);
-  const [receivedItems, setReceivedItems] = useState<{ description: string; quantity: number }[]>([]);
+  const [receivedItems, setReceivedItems] = useState<{ description: string; quantity: number; receivedWithoutId: boolean }[]>([]);
   const [showFinishDialog, setShowFinishDialog] = useState(false);
   const [finishing, setFinishing] = useState(false);
 
@@ -93,6 +95,7 @@ export function ReceivingSession({
         expectedItems.map(item => ({
           description: item.expected_description || '',
           quantity: item.expected_quantity || 0,
+          receivedWithoutId: false,
         }))
       );
     }
@@ -124,6 +127,12 @@ export function ReceivingSession({
   const handleReceivedQuantityChange = (index: number, quantity: number) => {
     const newItems = [...receivedItems];
     newItems[index] = { ...newItems[index], quantity };
+    setReceivedItems(newItems);
+  };
+
+  const handleReceivedWithoutIdChange = (index: number, value: boolean) => {
+    const newItems = [...receivedItems];
+    newItems[index] = { ...newItems[index], receivedWithoutId: value };
     setReceivedItems(newItems);
   };
 
@@ -363,6 +372,7 @@ export function ReceivingSession({
                   <TableHead>Description</TableHead>
                   <TableHead className="text-right w-24">Expected</TableHead>
                   <TableHead className="text-right w-32">Received</TableHead>
+                  <TableHead className="w-32 text-center">No ID</TableHead>
                   <TableHead className="w-24">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -382,6 +392,18 @@ export function ReceivingSession({
                           onChange={(e) => handleReceivedQuantityChange(index, parseInt(e.target.value) || 0)}
                           className="w-24 text-right"
                         />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <Checkbox
+                            id={`no-id-${index}`}
+                            checked={item.receivedWithoutId}
+                            onCheckedChange={(checked) => handleReceivedWithoutIdChange(index, checked as boolean)}
+                          />
+                          <Label htmlFor={`no-id-${index}`} className="text-xs text-muted-foreground flex items-center gap-1">
+                            <HelpCircle className="h-3 w-3" />
+                          </Label>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {hasDiscrepancy ? (

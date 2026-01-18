@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { getServiceRate } from '@/lib/billingRates';
 
 interface ReceivingSession {
   id: string;
@@ -21,7 +22,7 @@ interface ReceivingSession {
 
 interface VerificationData {
   expected_items: { description: string; quantity: number }[];
-  received_items: { description: string; quantity: number; item_id?: string }[];
+  received_items: { description: string; quantity: number; item_id?: string; receivedWithoutId?: boolean }[];
   discrepancies: { description: string; expected: number; received: number }[];
   backorder_items?: { description: string; quantity: number }[];
   [key: string]: unknown;
@@ -172,7 +173,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
           .eq('id', session.shipment_id)
           .single();
 
-      if (shipment) {
+        if (shipment) {
           // Get the account to check auto_inspection settings
           const { data: account } = await supabase
             .from('accounts')
@@ -184,21 +185,28 @@ export function useReceivingSession(shipmentId: string | undefined) {
             // Generate item code
             const itemCode = `ITM-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
             
-            // Create item
-            const { data: newItem, error: itemError } = await supabase
-              .from('items')
-              .insert({
-                tenant_id: profile.tenant_id,
-                account_id: shipment.account_id,
-                warehouse_id: shipment.warehouse_id,
-                item_code: itemCode,
-                description: item.description,
-                quantity: item.quantity,
-                status: 'available',
-                receiving_shipment_id: session.shipment_id,
-                received_at: new Date().toISOString(),
-              })
-              .select('*, item_types(receiving_rate)')
+            // Create item with received_without_id flag if set
+            const itemData: Record<string, any> = {
+              tenant_id: profile.tenant_id,
+              account_id: shipment.account_id,
+              warehouse_id: shipment.warehouse_id,
+              item_code: itemCode,
+              description: item.description,
+              quantity: item.quantity,
+              status: 'available',
+              receiving_shipment_id: session.shipment_id,
+              received_at: new Date().toISOString(),
+            };
+
+            // Set received_without_id flag if checked
+            if (item.receivedWithoutId) {
+              itemData.received_without_id = true;
+            }
+
+            const { data: newItem, error: itemError } = await (supabase
+              .from('items') as any)
+              .insert(itemData)
+              .select('id, item_type_id')
               .single();
 
             if (itemError) {
@@ -221,25 +229,18 @@ export function useReceivingSession(shipmentId: string | undefined) {
                 });
             }
 
-            // Lookup receiving rate from item_type if available
-            let receivingRate = 0;
-            
-            // If item has item_type_id, fetch the receiving rate
-            if (newItem?.item_type_id) {
-              const { data: itemType } = await supabase
-                .from('item_types')
-                .select('receiving_rate')
-                .eq('id', newItem.item_type_id)
-                .single();
-              
-              receivingRate = itemType?.receiving_rate || 0;
-            }
+            // Get receiving rate using unified rate lookup
+            const receivingRateResult = await getServiceRate({
+              accountId: shipment.account_id,
+              itemTypeId: newItem?.item_type_id || null,
+              serviceType: 'receiving',
+            });
 
-            const totalAmount = receivingRate * item.quantity;
+            const totalAmount = receivingRateResult.rate * item.quantity;
 
             // Create billing event for receiving with actual rates
-            await supabase
-              .from('billing_events')
+            await (supabase
+              .from('billing_events') as any)
               .insert({
                 tenant_id: profile.tenant_id,
                 account_id: shipment.account_id,
@@ -248,10 +249,40 @@ export function useReceivingSession(shipmentId: string | undefined) {
                 charge_type: 'receiving',
                 description: `Receiving: ${item.description}`,
                 quantity: item.quantity,
-                unit_rate: receivingRate,
+                unit_rate: receivingRateResult.rate,
                 total_amount: totalAmount,
                 created_by: profile.id,
+                rate_source: receivingRateResult.source,
+                service_category: receivingRateResult.category,
+                needs_review: receivingRateResult.source === 'default',
               });
+
+            // Create billing event for "Received Without ID" if flag is set
+            if (item.receivedWithoutId && newItem) {
+              const noIdRateResult = await getServiceRate({
+                accountId: shipment.account_id,
+                itemTypeId: newItem?.item_type_id || null,
+                serviceType: 'received_without_id',
+              });
+
+              await (supabase
+                .from('billing_events') as any)
+                .insert({
+                  tenant_id: profile.tenant_id,
+                  account_id: shipment.account_id,
+                  item_id: newItem?.id,
+                  event_type: 'flag_change',
+                  charge_type: 'received_without_id',
+                  description: `Received Without ID: ${item.description}`,
+                  quantity: 1,
+                  unit_rate: noIdRateResult.rate,
+                  total_amount: noIdRateResult.rate,
+                  created_by: profile.id,
+                  rate_source: noIdRateResult.source,
+                  service_category: noIdRateResult.category,
+                  needs_review: noIdRateResult.source === 'default',
+                });
+            }
           }
         }
       }

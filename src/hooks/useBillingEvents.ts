@@ -2,6 +2,13 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  getServiceRate, 
+  getAccountIdFromName, 
+  flagToServiceType,
+  taskTypeToServiceType,
+  RateLookupResult,
+} from '@/lib/billingRates';
 
 export interface BillingEvent {
   id: string;
@@ -9,7 +16,7 @@ export interface BillingEvent {
   account_id: string | null;
   item_id: string | null;
   task_id: string | null;
-  event_type: 'flag_change' | 'task_completion' | 'unable_to_complete';
+  event_type: 'flag_change' | 'task_completion' | 'unable_to_complete' | 'receiving' | 'will_call' | 'disposal';
   charge_type: string;
   description: string | null;
   quantity: number;
@@ -20,71 +27,14 @@ export interface BillingEvent {
   invoiced_at: string | null;
   created_by: string | null;
   created_at: string;
+  rate_source: string | null;
+  service_category: string | null;
 }
-
-// Map of flags to their corresponding rate field on rate_cards/item_types
-const FLAG_RATE_MAPPING: Record<string, string> = {
-  is_overweight: 'oversize_rate', // Using oversize as proxy for overweight
-  is_oversize: 'oversize_rate',
-  is_unstackable: 'extra_fee', // Using extra_fee as proxy
-  is_crated: 'extra_fee',
-};
 
 export function useBillingEvents() {
   const { profile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-
-  // Get rate for a specific charge type from rate card or item type
-  const getRateForCharge = async (
-    accountId: string | null,
-    itemTypeId: string | null,
-    chargeType: string
-  ): Promise<number> => {
-    try {
-      // Try to get rate from account's rate card first
-      if (accountId) {
-        const { data: account } = await supabase
-          .from('accounts')
-          .select('rate_card_id')
-          .eq('id', accountId)
-          .single();
-
-        if (account?.rate_card_id) {
-          const { data: rateCard } = await supabase
-            .from('rate_card_details')
-            .select('*')
-            .eq('rate_card_id', account.rate_card_id)
-            .eq('service_type', chargeType)
-            .single();
-
-          if (rateCard?.rate) {
-            return rateCard.rate;
-          }
-        }
-      }
-
-      // Fall back to item type rates
-      if (itemTypeId) {
-        const rateField = FLAG_RATE_MAPPING[chargeType] || 'extra_fee';
-        const { data: itemType } = await (supabase
-          .from('item_types') as any)
-          .select(rateField)
-          .eq('id', itemTypeId)
-          .single();
-
-        if (itemType && itemType[rateField]) {
-          return itemType[rateField];
-        }
-      }
-
-      // Default rate if nothing found
-      return 25.0;
-    } catch (error) {
-      console.error('Error getting rate:', error);
-      return 25.0;
-    }
-  };
 
   // Create billing event when a flag changes on an item
   const createFlagBillingEvent = useCallback(async (
@@ -107,15 +57,7 @@ export function useBillingEvents() {
       if (!item) return null;
 
       // Get account ID from client_account name
-      let accountId: string | null = null;
-      if (item.client_account) {
-        const { data: account } = await supabase
-          .from('accounts')
-          .select('id')
-          .eq('account_name', item.client_account)
-          .single();
-        accountId = account?.id || null;
-      }
+      const accountId = await getAccountIdFromName(item.client_account);
 
       // Check if billing event already exists for this flag
       const { data: existingEvent } = await (supabase
@@ -130,8 +72,13 @@ export function useBillingEvents() {
         return null;
       }
 
-      // Get rate
-      const rate = await getRateForCharge(accountId, item.item_type_id, flagName);
+      // Get rate using unified rate lookup
+      const serviceType = flagToServiceType(flagName);
+      const rateResult: RateLookupResult = await getServiceRate({
+        accountId,
+        itemTypeId: item.item_type_id,
+        serviceType,
+      });
 
       // Create billing event
       const chargeDescription = flagName
@@ -149,20 +96,30 @@ export function useBillingEvents() {
           charge_type: flagName,
           description: `${chargeDescription} - ${item.item_code}`,
           quantity: 1,
-          unit_rate: rate,
-          total_amount: rate,
-          needs_review: false,
+          unit_rate: rateResult.rate,
+          total_amount: rateResult.rate,
+          needs_review: rateResult.source === 'default', // Flag for review if using default rate
           created_by: profile.id,
+          rate_source: rateResult.source,
+          service_category: rateResult.category,
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      toast({
-        title: 'Billing Charge Created',
-        description: `$${rate.toFixed(2)} charge for ${chargeDescription.toLowerCase()}.`,
-      });
+      if (rateResult.rate > 0) {
+        toast({
+          title: 'Billing Charge Created',
+          description: `$${rateResult.rate.toFixed(2)} charge for ${chargeDescription.toLowerCase()}.`,
+        });
+      } else {
+        toast({
+          title: 'Billing Charge Created',
+          description: `Charge created for ${chargeDescription.toLowerCase()} (needs rate review).`,
+          variant: 'default',
+        });
+      }
 
       return data;
     } catch (error) {
@@ -197,43 +154,21 @@ export function useBillingEvents() {
       if (!taskItems || taskItems.length === 0) return null;
 
       const billingEvents: BillingEvent[] = [];
+      const serviceType = taskTypeToServiceType(taskType);
 
       for (const taskItem of taskItems) {
         const item = taskItem.items;
         if (!item) continue;
 
         // Get account ID
-        let accountId: string | null = null;
-        if (item.client_account) {
-          const { data: account } = await supabase
-            .from('accounts')
-            .select('id')
-            .eq('account_name', item.client_account)
-            .single();
-          accountId = account?.id || null;
-        }
+        const accountId = await getAccountIdFromName(item.client_account);
 
-        // Get rate based on task type
-        const rateFieldMap: Record<string, string> = {
-          'Receiving': 'receiving_rate',
-          'Shipping': 'shipping_rate',
-          'Assembly': 'assembly_rate',
-          'Inspection': 'inspection_fee',
-          'Repair': 'minor_touchup_rate',
-        };
-
-        const rateField = rateFieldMap[taskType] || 'receiving_rate';
-        let rate = 0;
-
-        if (item.item_type_id) {
-          const { data: itemType } = await (supabase
-            .from('item_types') as any)
-            .select(rateField)
-            .eq('id', item.item_type_id)
-            .single();
-
-          rate = itemType?.[rateField] || 0;
-        }
+        // Get rate using unified rate lookup
+        const rateResult = await getServiceRate({
+          accountId,
+          itemTypeId: item.item_type_id,
+          serviceType,
+        });
 
         const quantity = taskItem.quantity || 1;
 
@@ -245,13 +180,15 @@ export function useBillingEvents() {
             item_id: taskItem.item_id,
             task_id: taskId,
             event_type: isUnableToComplete ? 'unable_to_complete' : 'task_completion',
-            charge_type: taskType.toLowerCase(),
+            charge_type: serviceType,
             description: `${taskType} - ${item.item_code}`,
             quantity,
-            unit_rate: rate,
-            total_amount: quantity * rate,
-            needs_review: isUnableToComplete, // Needs review if unable to complete
+            unit_rate: rateResult.rate,
+            total_amount: quantity * rateResult.rate,
+            needs_review: isUnableToComplete || rateResult.source === 'default',
             created_by: profile.id,
+            rate_source: rateResult.source,
+            service_category: rateResult.category,
           })
           .select()
           .single();
@@ -277,9 +214,145 @@ export function useBillingEvents() {
     }
   }, [profile?.tenant_id, profile?.id, toast]);
 
+  // Create billing event for receiving
+  const createReceivingBillingEvent = useCallback(async (
+    itemId: string,
+    itemCode: string,
+    accountId: string | null,
+    itemTypeId: string | null,
+    quantity: number = 1
+  ) => {
+    if (!profile?.tenant_id) return null;
+
+    try {
+      const rateResult = await getServiceRate({
+        accountId,
+        itemTypeId,
+        serviceType: 'receiving',
+      });
+
+      const { data, error } = await (supabase
+        .from('billing_events') as any)
+        .insert({
+          tenant_id: profile.tenant_id,
+          account_id: accountId,
+          item_id: itemId,
+          event_type: 'receiving',
+          charge_type: 'receiving',
+          description: `Receiving - ${itemCode}`,
+          quantity,
+          unit_rate: rateResult.rate,
+          total_amount: quantity * rateResult.rate,
+          needs_review: rateResult.source === 'default',
+          created_by: profile.id,
+          rate_source: rateResult.source,
+          service_category: rateResult.category,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error creating receiving billing event:', error);
+      return null;
+    }
+  }, [profile?.tenant_id, profile?.id]);
+
+  // Create billing event for will call
+  const createWillCallBillingEvent = useCallback(async (
+    itemId: string,
+    itemCode: string,
+    accountId: string | null,
+    itemTypeId: string | null
+  ) => {
+    if (!profile?.tenant_id) return null;
+
+    try {
+      const rateResult = await getServiceRate({
+        accountId,
+        itemTypeId,
+        serviceType: 'will_call',
+      });
+
+      const { data, error } = await (supabase
+        .from('billing_events') as any)
+        .insert({
+          tenant_id: profile.tenant_id,
+          account_id: accountId,
+          item_id: itemId,
+          event_type: 'will_call',
+          charge_type: 'will_call',
+          description: `Will Call - ${itemCode}`,
+          quantity: 1,
+          unit_rate: rateResult.rate,
+          total_amount: rateResult.rate,
+          needs_review: rateResult.source === 'default',
+          created_by: profile.id,
+          rate_source: rateResult.source,
+          service_category: rateResult.category,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error creating will call billing event:', error);
+      return null;
+    }
+  }, [profile?.tenant_id, profile?.id]);
+
+  // Create billing event for disposal
+  const createDisposalBillingEvent = useCallback(async (
+    itemId: string,
+    itemCode: string,
+    accountId: string | null,
+    itemTypeId: string | null
+  ) => {
+    if (!profile?.tenant_id) return null;
+
+    try {
+      const rateResult = await getServiceRate({
+        accountId,
+        itemTypeId,
+        serviceType: 'disposal',
+      });
+
+      const { data, error } = await (supabase
+        .from('billing_events') as any)
+        .insert({
+          tenant_id: profile.tenant_id,
+          account_id: accountId,
+          item_id: itemId,
+          event_type: 'disposal',
+          charge_type: 'disposal',
+          description: `Disposal - ${itemCode}`,
+          quantity: 1,
+          unit_rate: rateResult.rate,
+          total_amount: rateResult.rate,
+          needs_review: rateResult.source === 'default',
+          created_by: profile.id,
+          rate_source: rateResult.source,
+          service_category: rateResult.category,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error creating disposal billing event:', error);
+      return null;
+    }
+  }, [profile?.tenant_id, profile?.id]);
+
   return {
     loading,
     createFlagBillingEvent,
     createTaskBillingEvent,
+    createReceivingBillingEvent,
+    createWillCallBillingEvent,
+    createDisposalBillingEvent,
   };
 }

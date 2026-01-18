@@ -901,6 +901,8 @@ export type Database = {
           item_id: string | null
           needs_review: boolean | null
           quantity: number | null
+          rate_source: string | null
+          service_category: string | null
           task_id: string | null
           tenant_id: string
           total_amount: number
@@ -919,6 +921,8 @@ export type Database = {
           item_id?: string | null
           needs_review?: boolean | null
           quantity?: number | null
+          rate_source?: string | null
+          service_category?: string | null
           task_id?: string | null
           tenant_id: string
           total_amount: number
@@ -937,6 +941,8 @@ export type Database = {
           item_id?: string | null
           needs_review?: boolean | null
           quantity?: number | null
+          rate_source?: string | null
+          service_category?: string | null
           task_id?: string | null
           tenant_id?: string
           total_amount?: number
@@ -2339,6 +2345,7 @@ export type Database = {
           assembly_rate: number | null
           auto_add_assembly_fee: boolean | null
           billing_pieces: number | null
+          crated_rate: number | null
           created_at: string | null
           created_by: string | null
           cubic_feet: number | null
@@ -2346,6 +2353,7 @@ export type Database = {
           default_item_notes: string | null
           delivery_pieces: number | null
           dimension_unit: string | null
+          disposal_rate: number | null
           extra_fee: number | null
           felt_pad_price: number | null
           height: number | null
@@ -2366,11 +2374,13 @@ export type Database = {
           name: string
           notify_dispatch: boolean | null
           oversize_rate: number | null
+          overweight_rate: number | null
           packing_rate: number | null
           pallet_sale_rate: number | null
           people_to_deliver: number | null
           picking_rate: number | null
           pull_for_delivery_rate: number | null
+          received_without_id_rate: number | null
           receiving_rate: number | null
           removal_rate: number | null
           same_day_assembly_rate: number | null
@@ -2394,6 +2404,7 @@ export type Database = {
           assembly_rate?: number | null
           auto_add_assembly_fee?: boolean | null
           billing_pieces?: number | null
+          crated_rate?: number | null
           created_at?: string | null
           created_by?: string | null
           cubic_feet?: number | null
@@ -2401,6 +2412,7 @@ export type Database = {
           default_item_notes?: string | null
           delivery_pieces?: number | null
           dimension_unit?: string | null
+          disposal_rate?: number | null
           extra_fee?: number | null
           felt_pad_price?: number | null
           height?: number | null
@@ -2421,11 +2433,13 @@ export type Database = {
           name: string
           notify_dispatch?: boolean | null
           oversize_rate?: number | null
+          overweight_rate?: number | null
           packing_rate?: number | null
           pallet_sale_rate?: number | null
           people_to_deliver?: number | null
           picking_rate?: number | null
           pull_for_delivery_rate?: number | null
+          received_without_id_rate?: number | null
           receiving_rate?: number | null
           removal_rate?: number | null
           same_day_assembly_rate?: number | null
@@ -2449,6 +2463,7 @@ export type Database = {
           assembly_rate?: number | null
           auto_add_assembly_fee?: boolean | null
           billing_pieces?: number | null
+          crated_rate?: number | null
           created_at?: string | null
           created_by?: string | null
           cubic_feet?: number | null
@@ -2456,6 +2471,7 @@ export type Database = {
           default_item_notes?: string | null
           delivery_pieces?: number | null
           dimension_unit?: string | null
+          disposal_rate?: number | null
           extra_fee?: number | null
           felt_pad_price?: number | null
           height?: number | null
@@ -2476,11 +2492,13 @@ export type Database = {
           name?: string
           notify_dispatch?: boolean | null
           oversize_rate?: number | null
+          overweight_rate?: number | null
           packing_rate?: number | null
           pallet_sale_rate?: number | null
           people_to_deliver?: number | null
           picking_rate?: number | null
           pull_for_delivery_rate?: number | null
+          received_without_id_rate?: number | null
           receiving_rate?: number | null
           removal_rate?: number | null
           same_day_assembly_rate?: number | null
@@ -2542,6 +2560,7 @@ export type Database = {
           primary_photo_url: string | null
           quantity: number
           received_at: string | null
+          received_without_id: boolean | null
           repair_photos: Json | null
           repair_status: string | null
           room: string | null
@@ -2581,6 +2600,7 @@ export type Database = {
           primary_photo_url?: string | null
           quantity?: number
           received_at?: string | null
+          received_without_id?: boolean | null
           repair_photos?: Json | null
           repair_status?: string | null
           room?: string | null
@@ -2620,6 +2640,7 @@ export type Database = {
           primary_photo_url?: string | null
           quantity?: number
           received_at?: string | null
+          received_without_id?: boolean | null
           repair_photos?: Json | null
           repair_status?: string | null
           room?: string | null
@@ -3056,10 +3077,12 @@ export type Database = {
       }
       rate_card_details: {
         Row: {
+          category: string | null
           charge_unit: string
           created_at: string
           deleted_at: string | null
           id: string
+          item_type_id: string | null
           metadata: Json | null
           minimum_charge: number | null
           rate: number
@@ -3070,10 +3093,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category?: string | null
           charge_unit: string
           created_at?: string
           deleted_at?: string | null
           id?: string
+          item_type_id?: string | null
           metadata?: Json | null
           minimum_charge?: number | null
           rate: number
@@ -3084,10 +3109,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category?: string | null
           charge_unit?: string
           created_at?: string
           deleted_at?: string | null
           id?: string
+          item_type_id?: string | null
           metadata?: Json | null
           minimum_charge?: number | null
           rate?: number
@@ -3098,6 +3125,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "rate_card_details_item_type_id_fkey"
+            columns: ["item_type_id"]
+            isOneToOne: false
+            referencedRelation: "item_types"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "rate_card_details_rate_card_id_fkey"
             columns: ["rate_card_id"]
