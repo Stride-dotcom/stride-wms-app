@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -29,7 +29,7 @@ import { useTaskTypes, useDueDateRules, Task } from '@/hooks/useTasks';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useUsers } from '@/hooks/useUsers';
 import { format } from 'date-fns';
-import { Loader2, CalendarIcon, Plus, X } from 'lucide-react';
+import { Loader2, CalendarIcon, Plus, X, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TaskDialogProps {
@@ -45,10 +45,13 @@ interface Account {
   account_name: string;
 }
 
-interface Item {
+interface InventoryItem {
   id: string;
   item_code: string;
   description: string | null;
+  vendor: string | null;
+  sidemark: string | null;
+  client_account: string | null;
 }
 
 export function TaskDialog({
@@ -66,12 +69,16 @@ export function TaskDialog({
 
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [selectedItems, setSelectedItems] = useState<Item[]>([]);
+  const [selectedItems, setSelectedItems] = useState<InventoryItem[]>([]);
   const [showNewTaskType, setShowNewTaskType] = useState(false);
   const [newTaskTypeName, setNewTaskTypeName] = useState('');
+  
+  // For item search when creating from tasks menu
+  const [accountItems, setAccountItems] = useState<InventoryItem[]>([]);
+  const [itemSearchQuery, setItemSearchQuery] = useState('');
+  const [loadingItems, setLoadingItems] = useState(false);
 
   const [formData, setFormData] = useState({
-    title: '',
     description: '',
     task_type: '',
     priority: 'medium',
@@ -81,6 +88,9 @@ export function TaskDialog({
     warehouse_id: 'none',
     account_id: 'none',
   });
+
+  // Check if we're creating from inventory (items pre-selected)
+  const isFromInventory = selectedItemIds.length > 0;
 
   useEffect(() => {
     if (open) {
@@ -94,7 +104,6 @@ export function TaskDialog({
   useEffect(() => {
     if (task) {
       setFormData({
-        title: task.title,
         description: task.description || '',
         task_type: task.task_type,
         priority: task.priority || 'medium',
@@ -106,7 +115,6 @@ export function TaskDialog({
       });
     } else {
       setFormData({
-        title: '',
         description: '',
         task_type: '',
         priority: 'medium',
@@ -117,8 +125,35 @@ export function TaskDialog({
         account_id: 'none',
       });
       setSelectedItems([]);
+      setAccountItems([]);
+      setItemSearchQuery('');
     }
   }, [task, open]);
+
+  // Auto-populate account when items are selected from inventory
+  useEffect(() => {
+    if (selectedItems.length > 0 && formData.account_id === 'none') {
+      // Find the account that matches the first item's client_account
+      const firstItemAccount = selectedItems[0]?.client_account;
+      if (firstItemAccount) {
+        const matchingAccount = accounts.find(
+          acc => acc.account_name === firstItemAccount
+        );
+        if (matchingAccount) {
+          setFormData(prev => ({ ...prev, account_id: matchingAccount.id }));
+        }
+      }
+    }
+  }, [selectedItems, accounts]);
+
+  // Fetch items when account is selected (only when creating from tasks menu)
+  useEffect(() => {
+    if (!isFromInventory && formData.account_id && formData.account_id !== 'none') {
+      fetchAccountItems(formData.account_id);
+    } else if (!isFromInventory) {
+      setAccountItems([]);
+    }
+  }, [formData.account_id, isFromInventory]);
 
   const fetchAccounts = async () => {
     const { data } = await supabase
@@ -136,10 +171,33 @@ export function TaskDialog({
 
     const { data } = await (supabase
       .from('items') as any)
-      .select('id, item_code, description')
+      .select('id, item_code, description, vendor, sidemark, client_account')
       .in('id', selectedItemIds);
 
     setSelectedItems(data || []);
+  };
+
+  const fetchAccountItems = async (accountId: string) => {
+    setLoadingItems(true);
+    try {
+      // Get the account name first
+      const account = accounts.find(a => a.id === accountId);
+      if (!account) return;
+
+      const { data } = await (supabase
+        .from('items') as any)
+        .select('id, item_code, description, vendor, sidemark, client_account')
+        .eq('client_account', account.account_name)
+        .eq('status', 'in_stock')
+        .is('deleted_at', null)
+        .order('item_code');
+
+      setAccountItems(data || []);
+    } catch (error) {
+      console.error('Error fetching account items:', error);
+    } finally {
+      setLoadingItems(false);
+    }
   };
 
   const handleTaskTypeChange = (value: string) => {
@@ -170,15 +228,57 @@ export function TaskDialog({
     }
   };
 
+  const handleAccountChange = (value: string) => {
+    setFormData(prev => ({ ...prev, account_id: value }));
+    // Clear selected items when account changes (only when not from inventory)
+    if (!isFromInventory) {
+      setSelectedItems([]);
+      setItemSearchQuery('');
+    }
+  };
+
+  const toggleItemSelection = (item: InventoryItem) => {
+    setSelectedItems(prev => {
+      const exists = prev.find(i => i.id === item.id);
+      if (exists) {
+        return prev.filter(i => i.id !== item.id);
+      }
+      return [...prev, item];
+    });
+  };
+
+  // Filter items based on search query
+  const filteredItems = useMemo(() => {
+    if (!itemSearchQuery.trim()) return accountItems;
+    
+    const query = itemSearchQuery.toLowerCase();
+    return accountItems.filter(item => 
+      item.item_code?.toLowerCase().includes(query) ||
+      item.description?.toLowerCase().includes(query) ||
+      item.vendor?.toLowerCase().includes(query) ||
+      item.sidemark?.toLowerCase().includes(query) ||
+      item.client_account?.toLowerCase().includes(query)
+    );
+  }, [accountItems, itemSearchQuery]);
+
+  // Generate title from task type and items
+  const generateTitle = () => {
+    const itemCount = selectedItems.length || selectedItemIds.length;
+    if (formData.task_type && itemCount > 0) {
+      return `${formData.task_type} - ${itemCount} item${itemCount > 1 ? 's' : ''}`;
+    }
+    return formData.task_type || 'New Task';
+  };
+
   const handleSubmit = async () => {
-    if (!profile?.tenant_id || !formData.title || !formData.task_type) return;
+    if (!profile?.tenant_id || !formData.task_type) return;
 
     try {
       setLoading(true);
 
       const taskData = {
         tenant_id: profile.tenant_id,
-        title: formData.title,
+        title: generateTitle(),
         description: formData.description || null,
         task_type: formData.task_type,
         priority: formData.priority,
@@ -208,9 +308,13 @@ export function TaskDialog({
 
         if (error) throw error;
 
-        // Add task items if any
-        if (selectedItemIds.length > 0 && newTask) {
-          const taskItems = selectedItemIds.map(itemId => ({
+        // Add task items - combine pre-selected and manually selected
+        const allItemIds = isFromInventory 
+          ? selectedItemIds 
+          : selectedItems.map(i => i.id);
+
+        if (allItemIds.length > 0 && newTask) {
+          const taskItems = allItemIds.map(itemId => ({
             task_id: newTask.id,
             item_id: itemId,
           }));
@@ -240,7 +344,7 @@ export function TaskDialog({
           <DialogDescription>
             {task
               ? 'Update task details'
-              : selectedItemIds.length > 0
+              : isFromInventory
               ? `Create a task for ${selectedItemIds.length} selected item(s)`
               : 'Create a new task'}
           </DialogDescription>
@@ -248,34 +352,6 @@ export function TaskDialog({
 
         <ScrollArea className="max-h-[60vh] pr-4">
           <div className="space-y-4">
-            {/* Selected Items */}
-            {selectedItems.length > 0 && (
-              <div className="space-y-2">
-                <Label>Selected Items</Label>
-                <div className="flex flex-wrap gap-2">
-                  {selectedItems.map(item => (
-                    <Badge key={item.id} variant="secondary" className="flex items-center gap-1">
-                      {item.item_code}
-                      <button onClick={() => removeItem(item.id)}>
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Title */}
-            <div className="space-y-2">
-              <Label htmlFor="title">Title *</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Task title"
-              />
-            </div>
-
             {/* Task Type */}
             <div className="space-y-2">
               <Label>Task Type *</Label>
@@ -314,6 +390,101 @@ export function TaskDialog({
                 </Select>
               )}
             </div>
+
+            {/* Account - shown at top when creating from tasks menu */}
+            {!isFromInventory && (
+              <div className="space-y-2">
+                <Label>Account *</Label>
+                <Select
+                  value={formData.account_id}
+                  onValueChange={handleAccountChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select account to view items" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select an account</SelectItem>
+                    {accounts.map(acc => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.account_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Item Search and Selection - shown when account is selected */}
+            {!isFromInventory && formData.account_id !== 'none' && (
+              <div className="space-y-3">
+                <Label>Select Items</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by item code, description, vendor, sidemark..."
+                    value={itemSearchQuery}
+                    onChange={(e) => setItemSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                
+                {loadingItems ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : filteredItems.length > 0 ? (
+                  <div className="border rounded-md max-h-48 overflow-y-auto">
+                    {filteredItems.map(item => (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-3 p-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
+                        onClick={() => toggleItemSelection(item)}
+                      >
+                        <Checkbox
+                          checked={selectedItems.some(i => i.id === item.id)}
+                          onCheckedChange={() => toggleItemSelection(item)}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">{item.item_code}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {[item.description, item.vendor, item.sidemark]
+                              .filter(Boolean)
+                              .join(' • ')}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : accountItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No items found for this account
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No items match your search
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Selected Items Display */}
+            {selectedItems.length > 0 && (
+              <div className="space-y-2">
+                <Label>Selected Items ({selectedItems.length})</Label>
+                <div className="flex flex-wrap gap-2">
+                  {selectedItems.map(item => (
+                    <Badge key={item.id} variant="secondary" className="flex items-center gap-1">
+                      {item.item_code}
+                      {!isFromInventory && (
+                        <button onClick={() => removeItem(item.id)}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Description */}
             <div className="space-y-2">
@@ -419,26 +590,28 @@ export function TaskDialog({
               </div>
             </div>
 
-            {/* Account */}
-            <div className="space-y-2">
-              <Label>Account</Label>
-              <Select
-                value={formData.account_id}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, account_id: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select account" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {accounts.map(acc => (
-                    <SelectItem key={acc.id} value={acc.id}>
-                      {acc.account_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Account - only show when creating from inventory (auto-populated) */}
+            {isFromInventory && (
+              <div className="space-y-2">
+                <Label>Account</Label>
+                <Select
+                  value={formData.account_id}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, account_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {accounts.map(acc => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.account_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </ScrollArea>
 
@@ -446,7 +619,10 @@ export function TaskDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={loading || !formData.title || !formData.task_type}>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={loading || !formData.task_type || (!isFromInventory && formData.account_id === 'none')}
+          >
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
