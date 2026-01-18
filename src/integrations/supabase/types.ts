@@ -511,6 +511,54 @@ export type Database = {
           },
         ]
       }
+      alert_queue: {
+        Row: {
+          alert_type: string
+          body_html: string | null
+          body_text: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          error_message: string | null
+          id: string
+          recipient_emails: string[] | null
+          sent_at: string | null
+          status: string | null
+          subject: string
+          tenant_id: string
+        }
+        Insert: {
+          alert_type: string
+          body_html?: string | null
+          body_text?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          error_message?: string | null
+          id?: string
+          recipient_emails?: string[] | null
+          sent_at?: string | null
+          status?: string | null
+          subject: string
+          tenant_id: string
+        }
+        Update: {
+          alert_type?: string
+          body_html?: string | null
+          body_text?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          error_message?: string | null
+          id?: string
+          recipient_emails?: string[] | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       alert_recipients: {
         Row: {
           alert_type_id: string
@@ -787,6 +835,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      billing_events: {
+        Row: {
+          account_id: string | null
+          charge_type: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          event_type: string
+          id: string
+          invoice_id: string | null
+          invoiced_at: string | null
+          item_id: string | null
+          needs_review: boolean | null
+          quantity: number | null
+          task_id: string | null
+          tenant_id: string
+          total_amount: number
+          unit_rate: number
+        }
+        Insert: {
+          account_id?: string | null
+          charge_type: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_type: string
+          id?: string
+          invoice_id?: string | null
+          invoiced_at?: string | null
+          item_id?: string | null
+          needs_review?: boolean | null
+          quantity?: number | null
+          task_id?: string | null
+          tenant_id: string
+          total_amount: number
+          unit_rate: number
+        }
+        Update: {
+          account_id?: string | null
+          charge_type?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_type?: string
+          id?: string
+          invoice_id?: string | null
+          invoiced_at?: string | null
+          item_id?: string | null
+          needs_review?: boolean | null
+          quantity?: number | null
+          task_id?: string | null
+          tenant_id?: string
+          total_amount?: number
+          unit_rate?: number
+        }
+        Relationships: []
       }
       client_contacts: {
         Row: {
@@ -1724,10 +1829,14 @@ export type Database = {
           created_by: string
           deleted_at: string | null
           id: string
+          is_current: boolean | null
           item_id: string
           note: string
           note_type: string | null
+          parent_note_id: string | null
+          tenant_id: string | null
           updated_at: string
+          version: number | null
           visibility: string | null
         }
         Insert: {
@@ -1735,10 +1844,14 @@ export type Database = {
           created_by: string
           deleted_at?: string | null
           id?: string
+          is_current?: boolean | null
           item_id: string
           note: string
           note_type?: string | null
+          parent_note_id?: string | null
+          tenant_id?: string | null
           updated_at?: string
+          version?: number | null
           visibility?: string | null
         }
         Update: {
@@ -1746,10 +1859,14 @@ export type Database = {
           created_by?: string
           deleted_at?: string | null
           id?: string
+          is_current?: boolean | null
           item_id?: string
           note?: string
           note_type?: string | null
+          parent_note_id?: string | null
+          tenant_id?: string | null
           updated_at?: string
+          version?: number | null
           visibility?: string | null
         }
         Relationships: [
@@ -1769,6 +1886,86 @@ export type Database = {
           },
           {
             foreignKeyName: "item_notes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_notes_parent_note_id_fkey"
+            columns: ["parent_note_id"]
+            isOneToOne: false
+            referencedRelation: "item_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_notes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      item_photos: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          id: string
+          is_primary: boolean | null
+          item_id: string
+          mime_type: string | null
+          needs_attention: boolean | null
+          photo_type: string | null
+          storage_key: string
+          storage_url: string | null
+          tenant_id: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          is_primary?: boolean | null
+          item_id: string
+          mime_type?: string | null
+          needs_attention?: boolean | null
+          photo_type?: string | null
+          storage_key: string
+          storage_url?: string | null
+          tenant_id: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          is_primary?: boolean | null
+          item_id?: string
+          mime_type?: string | null
+          needs_attention?: boolean | null
+          photo_type?: string | null
+          storage_key?: string
+          storage_url?: string | null
+          tenant_id?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_photos_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_photos_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "v_items_with_location"
@@ -1967,13 +2164,23 @@ export type Database = {
           current_location_id: string | null
           deleted_at: string | null
           description: string | null
+          has_damage: boolean | null
           id: string
           inspection_photos: Json | null
           inspection_status: string | null
+          is_crated: boolean | null
+          is_oversize: boolean | null
+          is_overweight: boolean | null
+          is_unstackable: boolean | null
           item_code: string
           item_type_id: string | null
           metadata: Json | null
+          needs_inspection: boolean | null
+          needs_repair: boolean | null
+          needs_warehouse_assembly: boolean | null
+          notify_dispatch: boolean | null
           photo_urls: Json | null
+          primary_photo_url: string | null
           quantity: number
           received_at: string | null
           repair_photos: Json | null
@@ -1994,13 +2201,23 @@ export type Database = {
           current_location_id?: string | null
           deleted_at?: string | null
           description?: string | null
+          has_damage?: boolean | null
           id?: string
           inspection_photos?: Json | null
           inspection_status?: string | null
+          is_crated?: boolean | null
+          is_oversize?: boolean | null
+          is_overweight?: boolean | null
+          is_unstackable?: boolean | null
           item_code: string
           item_type_id?: string | null
           metadata?: Json | null
+          needs_inspection?: boolean | null
+          needs_repair?: boolean | null
+          needs_warehouse_assembly?: boolean | null
+          notify_dispatch?: boolean | null
           photo_urls?: Json | null
+          primary_photo_url?: string | null
           quantity?: number
           received_at?: string | null
           repair_photos?: Json | null
@@ -2021,13 +2238,23 @@ export type Database = {
           current_location_id?: string | null
           deleted_at?: string | null
           description?: string | null
+          has_damage?: boolean | null
           id?: string
           inspection_photos?: Json | null
           inspection_status?: string | null
+          is_crated?: boolean | null
+          is_oversize?: boolean | null
+          is_overweight?: boolean | null
+          is_unstackable?: boolean | null
           item_code?: string
           item_type_id?: string | null
           metadata?: Json | null
+          needs_inspection?: boolean | null
+          needs_repair?: boolean | null
+          needs_warehouse_assembly?: boolean | null
+          notify_dispatch?: boolean | null
           photo_urls?: Json | null
+          primary_photo_url?: string | null
           quantity?: number
           received_at?: string | null
           repair_photos?: Json | null
@@ -2604,6 +2831,113 @@ export type Database = {
           },
         ]
       }
+      repair_quotes: {
+        Row: {
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          flat_rate: number | null
+          id: string
+          item_id: string
+          notes: string | null
+          technician_name: string | null
+          technician_user_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          flat_rate?: number | null
+          id?: string
+          item_id: string
+          notes?: string | null
+          technician_name?: string | null
+          technician_user_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          flat_rate?: number | null
+          id?: string
+          item_id?: string
+          notes?: string | null
+          technician_name?: string | null
+          technician_user_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_quotes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_quotes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      repair_tech_tokens: {
+        Row: {
+          accessed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          task_id: string
+          technician_email: string | null
+          technician_name: string | null
+          tenant_id: string
+          token: string
+        }
+        Insert: {
+          accessed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          task_id: string
+          technician_email?: string | null
+          technician_name?: string | null
+          tenant_id: string
+          token: string
+        }
+        Update: {
+          accessed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          task_id?: string
+          technician_email?: string | null
+          technician_name?: string | null
+          tenant_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_tech_tokens_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roles: {
         Row: {
           created_at: string
@@ -3127,6 +3461,50 @@ export type Database = {
           },
         ]
       }
+      task_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_required: boolean | null
+          note: string
+          note_type: string | null
+          parent_note_id: string | null
+          task_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_required?: boolean | null
+          note: string
+          note_type?: string | null
+          parent_note_id?: string | null
+          task_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_required?: boolean | null
+          note?: string
+          note_type?: string | null
+          parent_note_id?: string | null
+          task_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_notes_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_types: {
         Row: {
           color: string | null
@@ -3209,7 +3587,11 @@ export type Database = {
           task_type_id: string | null
           tenant_id: string
           title: string
+          unable_to_complete: boolean | null
+          unable_to_complete_at: string | null
+          unable_to_complete_by: string | null
           unable_to_complete_note: string | null
+          unable_to_complete_reason: string | null
           updated_at: string | null
           warehouse_id: string | null
         }
@@ -3244,7 +3626,11 @@ export type Database = {
           task_type_id?: string | null
           tenant_id: string
           title: string
+          unable_to_complete?: boolean | null
+          unable_to_complete_at?: string | null
+          unable_to_complete_by?: string | null
           unable_to_complete_note?: string | null
+          unable_to_complete_reason?: string | null
           updated_at?: string | null
           warehouse_id?: string | null
         }
@@ -3279,7 +3665,11 @@ export type Database = {
           task_type_id?: string | null
           tenant_id?: string
           title?: string
+          unable_to_complete?: boolean | null
+          unable_to_complete_at?: string | null
+          unable_to_complete_by?: string | null
           unable_to_complete_note?: string | null
+          unable_to_complete_reason?: string | null
           updated_at?: string | null
           warehouse_id?: string | null
         }
