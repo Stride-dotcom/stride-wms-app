@@ -21,6 +21,7 @@ export interface Task {
   completed_at: string | null;
   completed_by: string | null;
   billing_status: string | null;
+  unable_to_complete_note: string | null;
   created_at: string;
   updated_at: string;
   // Joined data
@@ -83,6 +84,21 @@ export interface DueDateRule {
   days_from_creation: number;
   is_active: boolean;
 }
+
+// Map task types to inventory status fields
+const TASK_TYPE_TO_STATUS_FIELD: Record<string, string> = {
+  'Assembly': 'assembly_status',
+  'Inspection': 'inspection_status',
+  'Repair': 'repair_status',
+};
+
+// Map task status to inventory status values
+const TASK_STATUS_TO_INVENTORY_STATUS: Record<string, string> = {
+  'in_queue': 'in_queue',
+  'in_progress': 'in_progress',
+  'completed': 'completed',
+  'unable_to_complete': 'unable_to_complete',
+};
 
 export function useTasks(filters?: {
   status?: string;
@@ -159,6 +175,38 @@ export function useTasks(filters?: {
     fetchTasks();
   }, [fetchTasks]);
 
+  // Helper to update inventory status for task items
+  const updateInventoryStatus = async (taskId: string, taskType: string, status: string) => {
+    const statusField = TASK_TYPE_TO_STATUS_FIELD[taskType];
+    if (!statusField) return; // Task type doesn't map to an inventory status
+
+    const inventoryStatus = TASK_STATUS_TO_INVENTORY_STATUS[status];
+    if (!inventoryStatus) return;
+
+    try {
+      // Get task items
+      const { data: taskItems } = await (supabase
+        .from('task_items') as any)
+        .select('item_id')
+        .eq('task_id', taskId);
+
+      if (!taskItems || taskItems.length === 0) return;
+
+      const itemIds = taskItems.map((ti: any) => ti.item_id);
+
+      // Update items with the new status
+      const updateData: Record<string, string> = {};
+      updateData[statusField] = inventoryStatus;
+
+      await (supabase
+        .from('items') as any)
+        .update(updateData)
+        .in('id', itemIds);
+    } catch (error) {
+      console.error('Error updating inventory status:', error);
+    }
+  };
+
   const createTask = async (taskData: Partial<Task>, itemIds?: string[]) => {
     if (!profile?.tenant_id) return null;
 
@@ -168,6 +216,7 @@ export function useTasks(filters?: {
         .insert({
           ...taskData,
           tenant_id: profile.tenant_id,
+          status: 'in_queue', // New tasks start as in_queue
         })
         .select()
         .single();
@@ -182,11 +231,14 @@ export function useTasks(filters?: {
         }));
 
         await (supabase.from('task_items') as any).insert(taskItems);
+
+        // Update inventory status to in_queue
+        await updateInventoryStatus(task.id, taskData.task_type || '', 'in_queue');
       }
 
       toast({
         title: 'Task Created',
-        description: `Task "${taskData.title}" has been created.`,
+        description: `Task has been created and added to queue.`,
       });
 
       fetchTasks();
@@ -229,10 +281,61 @@ export function useTasks(filters?: {
     }
   };
 
+  const startTask = async (taskId: string) => {
+    if (!profile?.id) return false;
+
+    try {
+      // Get task info first
+      const { data: taskData } = await (supabase
+        .from('tasks') as any)
+        .select('task_type')
+        .eq('id', taskId)
+        .single();
+
+      const { error } = await (supabase
+        .from('tasks') as any)
+        .update({
+          status: 'in_progress',
+          assigned_to: profile.id,
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      // Update inventory status
+      if (taskData) {
+        await updateInventoryStatus(taskId, taskData.task_type, 'in_progress');
+      }
+
+      toast({
+        title: 'Task Started',
+        description: 'Task is now in progress.',
+      });
+
+      fetchTasks();
+      return true;
+    } catch (error) {
+      console.error('Error starting task:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to start task',
+      });
+      return false;
+    }
+  };
+
   const completeTask = async (taskId: string) => {
     if (!profile?.id) return false;
 
     try {
+      // Get task info first
+      const { data: taskData } = await (supabase
+        .from('tasks') as any)
+        .select('task_type')
+        .eq('id', taskId)
+        .single();
+
       const { error } = await (supabase
         .from('tasks') as any)
         .update({
@@ -245,6 +348,11 @@ export function useTasks(filters?: {
         .eq('id', taskId);
 
       if (error) throw error;
+
+      // Update inventory status
+      if (taskData) {
+        await updateInventoryStatus(taskId, taskData.task_type, 'completed');
+      }
 
       toast({
         title: 'Task Completed',
@@ -264,6 +372,52 @@ export function useTasks(filters?: {
     }
   };
 
+  const markUnableToComplete = async (taskId: string, note: string) => {
+    if (!profile?.id) return false;
+
+    try {
+      // Get task info first
+      const { data: taskData } = await (supabase
+        .from('tasks') as any)
+        .select('task_type')
+        .eq('id', taskId)
+        .single();
+
+      const { error } = await (supabase
+        .from('tasks') as any)
+        .update({
+          status: 'unable_to_complete',
+          unable_to_complete_note: note,
+          completed_at: new Date().toISOString(),
+          completed_by: profile.id,
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      // Update inventory status
+      if (taskData) {
+        await updateInventoryStatus(taskId, taskData.task_type, 'unable_to_complete');
+      }
+
+      toast({
+        title: 'Task Marked',
+        description: 'Task has been marked as unable to complete.',
+      });
+
+      fetchTasks();
+      return true;
+    } catch (error) {
+      console.error('Error marking task unable to complete:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update task',
+      });
+      return false;
+    }
+  };
+
   const claimTask = async (taskId: string) => {
     if (!profile?.id) return false;
 
@@ -272,7 +426,6 @@ export function useTasks(filters?: {
         .from('tasks') as any)
         .update({
           assigned_to: profile.id,
-          status: 'in_progress',
         })
         .eq('id', taskId);
 
@@ -291,6 +444,54 @@ export function useTasks(filters?: {
         variant: 'destructive',
         title: 'Error',
         description: 'Failed to claim task',
+      });
+      return false;
+    }
+  };
+
+  const updateTaskStatus = async (taskId: string, status: string) => {
+    try {
+      // Get task info first
+      const { data: taskData } = await (supabase
+        .from('tasks') as any)
+        .select('task_type')
+        .eq('id', taskId)
+        .single();
+
+      const updates: any = { status };
+      
+      if (status === 'completed') {
+        updates.completed_at = new Date().toISOString();
+        updates.completed_by = profile?.id;
+        updates.billing_status = 'pending';
+        updates.billing_charge_date = new Date().toISOString();
+      }
+
+      const { error } = await (supabase
+        .from('tasks') as any)
+        .update(updates)
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      // Update inventory status
+      if (taskData) {
+        await updateInventoryStatus(taskId, taskData.task_type, status);
+      }
+
+      toast({
+        title: 'Status Updated',
+        description: `Task status changed to ${status.replace('_', ' ')}.`,
+      });
+
+      fetchTasks();
+      return true;
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update status',
       });
       return false;
     }
@@ -330,8 +531,11 @@ export function useTasks(filters?: {
     refetch: () => fetchTasks(false),
     createTask,
     updateTask,
+    startTask,
     completeTask,
+    markUnableToComplete,
     claimTask,
+    updateTaskStatus,
     deleteTask,
   };
 }

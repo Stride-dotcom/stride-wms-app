@@ -3060,6 +3060,7 @@ export type Database = {
           task_type_id: string | null
           tenant_id: string
           title: string
+          unable_to_complete_note: string | null
           updated_at: string | null
           warehouse_id: string | null
         }
@@ -3091,6 +3092,7 @@ export type Database = {
           task_type_id?: string | null
           tenant_id: string
           title: string
+          unable_to_complete_note?: string | null
           updated_at?: string | null
           warehouse_id?: string | null
         }
@@ -3122,6 +3124,7 @@ export type Database = {
           task_type_id?: string | null
           tenant_id?: string
           title?: string
+          unable_to_complete_note?: string | null
           updated_at?: string | null
           warehouse_id?: string | null
         }
