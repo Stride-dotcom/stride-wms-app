@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { UserWithRoles, Role } from '@/hooks/useUsers';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -27,7 +28,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Loader2, MoreHorizontal, Pencil, Trash2, Users, Shield } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Loader2, MoreHorizontal, Pencil, Trash2, Users, Shield, Search, UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface UserListProps {
@@ -38,6 +46,7 @@ interface UserListProps {
   onEdit: (userId: string) => void;
   onDelete: (userId: string) => Promise<void>;
   onRefresh: () => void;
+  onInvite?: () => void;
 }
 
 export function UserList({ 
@@ -47,12 +56,47 @@ export function UserList({
   currentUserId,
   onEdit, 
   onDelete, 
-  onRefresh 
+  onRefresh,
+  onInvite,
 }: UserListProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const { toast } = useToast();
+
+  // Get unique role names for filter dropdown
+  const uniqueRoles = useMemo(() => {
+    const roleSet = new Set<string>();
+    users.forEach(user => {
+      user.roles.forEach(role => roleSet.add(role.name));
+    });
+    return Array.from(roleSet).sort();
+  }, [users]);
+
+  // Filter users based on search, role, and status
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      // Search filter
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = !searchQuery || 
+        user.email.toLowerCase().includes(searchLower) ||
+        (user.first_name?.toLowerCase() || '').includes(searchLower) ||
+        (user.last_name?.toLowerCase() || '').includes(searchLower);
+
+      // Role filter
+      const matchesRole = roleFilter === 'all' || 
+        user.roles.some(role => role.name === roleFilter) ||
+        (roleFilter === 'no-role' && user.roles.length === 0);
+
+      // Status filter
+      const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
+
+      return matchesSearch && matchesRole && matchesStatus;
+    });
+  }, [users, searchQuery, roleFilter, statusFilter]);
 
   const handleDeleteClick = (user: UserWithRoles) => {
     setUserToDelete(user);
@@ -88,6 +132,8 @@ export function UserList({
     switch (status) {
       case 'active':
         return <Badge variant="default" className="bg-green-600">Active</Badge>;
+      case 'pending':
+        return <Badge variant="outline" className="border-amber-500 text-amber-600">Pending</Badge>;
       case 'inactive':
         return <Badge variant="secondary">Inactive</Badge>;
       case 'suspended':
@@ -131,13 +177,70 @@ export function UserList({
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle>All Users</CardTitle>
-          <CardDescription>
-            {users.length} user{users.length !== 1 ? 's' : ''} in your organization
-          </CardDescription>
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>All Users</CardTitle>
+              <CardDescription>
+                {filteredUsers.length} of {users.length} user{users.length !== 1 ? 's' : ''} in your organization
+              </CardDescription>
+            </div>
+            {onInvite && (
+              <Button onClick={onInvite}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Invite User
+              </Button>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Filter by role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="no-role">No Role</SelectItem>
+                {uniqueRoles.map(role => (
+                  <SelectItem key={role} value={role}>
+                    {role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {filteredUsers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Users className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium">No users match your filters</h3>
+              <p className="text-muted-foreground text-sm mt-1">
+                Try adjusting your search or filter criteria
+              </p>
+            </div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -149,7 +252,7 @@ export function UserList({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <TableRow 
                   key={user.id}
                   className="cursor-pointer hover:bg-muted/50"
@@ -206,6 +309,7 @@ export function UserList({
               ))}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
 
