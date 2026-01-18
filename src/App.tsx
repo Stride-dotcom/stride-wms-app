@@ -18,6 +18,7 @@ import RateCards from "./pages/RateCards";
 import Settings from "./pages/Settings";
 import Shipments from "./pages/Shipments";
 import ShipmentCreate from "./pages/ShipmentCreate";
+import Tasks from "./pages/Tasks";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/shipments" element={<ProtectedRoute><Shipments /></ProtectedRoute>} />
             <Route path="/shipments/new" element={<ProtectedRoute><ShipmentCreate /></ProtectedRoute>} />
             <Route path="/receiving" element={<ProtectedRoute><Receiving /></ProtectedRoute>} />
+            <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/accounts" element={<ProtectedRoute><RequireRole role="tenant_admin"><Accounts /></RequireRole></ProtectedRoute>} />
