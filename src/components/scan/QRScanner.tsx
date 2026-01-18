@@ -143,7 +143,7 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
-  const detectorRef = useRef<BarcodeDetector | null>(null);
+  const detectorRef = useRef<BarcodeDetectorInstance | null>(null);
   const detectInFlightRef = useRef(false);
 
   const lastScannedRef = useRef<string>("");
@@ -270,7 +270,7 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
       await video.play();
 
       // Setup detector
-      if ("BarcodeDetector" in window) {
+      if (typeof BarcodeDetector !== "undefined") {
         try {
           detectorRef.current = new BarcodeDetector({ formats: ["qr_code"] });
         } catch (err) {
