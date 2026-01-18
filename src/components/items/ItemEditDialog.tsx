@@ -51,6 +51,7 @@ const itemSchema = z.object({
   }),
   status: z.string().optional(),
   item_type_id: z.string().optional(),
+  account_id: z.string().optional(),
 });
 
 type ItemFormData = z.infer<typeof itemSchema>;
@@ -58,6 +59,12 @@ type ItemFormData = z.infer<typeof itemSchema>;
 interface ItemType {
   id: string;
   name: string;
+}
+
+interface Account {
+  id: string;
+  account_name: string;
+  account_code: string;
 }
 
 interface ItemEditDialogProps {
@@ -76,6 +83,7 @@ interface ItemEditDialogProps {
     link?: string | null;
     status: string;
     item_type_id?: string | null;
+    account_id?: string | null;
   } | null;
   onSuccess: () => void;
 }
@@ -105,18 +113,28 @@ export function ItemEditDialog({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
 
-  // Fetch item types
+  // Fetch item types and accounts
   useEffect(() => {
-    const fetchItemTypes = async () => {
-      const { data } = await supabase
-        .from('item_types')
-        .select('id, name')
-        .is('deleted_at', null)
-        .order('name');
-      if (data) setItemTypes(data);
+    const fetchData = async () => {
+      const [itemTypesRes, accountsRes] = await Promise.all([
+        supabase
+          .from('item_types')
+          .select('id, name')
+          .is('deleted_at', null)
+          .order('name'),
+        supabase
+          .from('accounts')
+          .select('id, account_name, account_code')
+          .is('deleted_at', null)
+          .eq('status', 'active')
+          .order('account_name'),
+      ]);
+      if (itemTypesRes.data) setItemTypes(itemTypesRes.data);
+      if (accountsRes.data) setAccounts(accountsRes.data);
     };
-    if (open) fetchItemTypes();
+    if (open) fetchData();
   }, [open]);
 
   const form = useForm<ItemFormData>({
@@ -132,6 +150,7 @@ export function ItemEditDialog({
       link: '',
       status: 'available',
       item_type_id: '',
+      account_id: '',
     },
   });
 
@@ -148,6 +167,7 @@ export function ItemEditDialog({
         link: item.link || '',
         status: item.status || 'available',
         item_type_id: item.item_type_id || '',
+        account_id: item.account_id || '',
       });
     }
   }, [open, item]);
@@ -168,6 +188,7 @@ export function ItemEditDialog({
         link: data.link || null,
         status: data.status || 'available',
         item_type_id: data.item_type_id || null,
+        account_id: data.account_id || null,
       };
 
       const { error } = await (supabase.from('items') as any)
@@ -240,6 +261,32 @@ export function ItemEditDialog({
                       placeholder="Select item type..."
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="account_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Account</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select account..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="">No account</SelectItem>
+                      {accounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.account_name} ({account.account_code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

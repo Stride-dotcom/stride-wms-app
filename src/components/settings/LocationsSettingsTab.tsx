@@ -397,7 +397,7 @@ export function LocationsSettingsTab({
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Plus className="h-4 w-4" />
-              Quick Add Location
+              Quick Add Bay
             </CardTitle>
             <CardDescription>
               Press Enter to add instantly. Auto-uppercase enabled.
@@ -440,14 +440,14 @@ export function LocationsSettingsTab({
           </CardContent>
         </Card>
 
-        {/* Locations List Card */}
+        {/* Bays List Card */}
         <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
                 <div>
-                  <CardTitle>Locations</CardTitle>
+                  <CardTitle>Bays</CardTitle>
                   <CardDescription>
                     {activeCount} active • {archivedCount} archived
                   </CardDescription>
@@ -481,7 +481,7 @@ export function LocationsSettingsTab({
                 )}
                 <Button size="sm" onClick={onCreate}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Location
+                  Add Bay
                 </Button>
               </div>
             </div>
@@ -492,7 +492,7 @@ export function LocationsSettingsTab({
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search locations..."
+                  placeholder="Search bays..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"

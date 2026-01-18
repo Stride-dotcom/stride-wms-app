@@ -24,6 +24,7 @@ import Tasks from "./pages/Tasks";
 import Billing from "./pages/Billing";
 import Employees from "./pages/Employees";
 import RepairTechAccess from "./pages/RepairTechAccess";
+import ScanHub from "./pages/ScanHub";
 import NotFound from "./pages/NotFound";
 import { AIClientBot } from "./components/ai/AIClientBot";
 
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/shipments/new" element={<ProtectedRoute><ShipmentCreate /></ProtectedRoute>} />
             <Route path="/shipments/:id" element={<ProtectedRoute><ShipmentDetail /></ProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+            <Route path="/scan" element={<ProtectedRoute><ScanHub /></ProtectedRoute>} />
             <Route path="/billing" element={<ProtectedRoute><RequireRole role="tenant_admin"><Billing /></RequireRole></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
