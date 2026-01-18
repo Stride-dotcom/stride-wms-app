@@ -8,11 +8,12 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Building, Users, Warehouse, Save, Plus, Package, DollarSign } from 'lucide-react';
+import { Loader2, Building, Users, Warehouse, Save, Plus, Package, DollarSign, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations, Location } from '@/hooks/useLocations';
 import { useUsers } from '@/hooks/useUsers';
+import { usePermissions } from '@/hooks/usePermissions';
 import { LocationsSettingsTab } from '@/components/settings/LocationsSettingsTab';
 import { LocationDialog } from '@/components/locations/LocationDialog';
 import { PrintLabelsDialog } from '@/components/locations/PrintLabelsDialog';
@@ -28,6 +29,7 @@ import { EmployeesSettingsTab } from '@/components/settings/EmployeesSettingsTab
 import { OrganizationSettingsTab } from '@/components/settings/OrganizationSettingsTab';
 import { RateCardsSettingsTab } from '@/components/settings/RateCardsSettingsTab';
 import { CommunicationsSettingsTab } from '@/components/settings/CommunicationsSettingsTab';
+import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
 
 interface TenantInfo {
   id: string;
@@ -79,6 +81,8 @@ export default function Settings() {
     assignRole, 
     removeRole 
   } = useUsers();
+  const { hasRole } = usePermissions();
+  const isAdmin = hasRole('admin') || hasRole('tenant_admin');
 
   useEffect(() => {
     if (profile?.tenant_id) {
@@ -231,6 +235,7 @@ export default function Settings() {
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="communications">Communications</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
+            {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
             <TabsTrigger value="rate-cards">Rate Cards</TabsTrigger>
             <TabsTrigger value="item-types">Item Types</TabsTrigger>
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
@@ -309,6 +314,12 @@ export default function Settings() {
           <TabsContent value="billing">
             <BillingChargeTemplatesTab />
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="labor">
+              <LaborSettingsTab />
+            </TabsContent>
+          )}
 
           <TabsContent value="rate-cards">
             <RateCardsSettingsTab />

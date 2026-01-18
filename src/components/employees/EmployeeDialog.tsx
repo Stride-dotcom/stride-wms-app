@@ -34,7 +34,8 @@ import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, DollarSign, User, Shield } from 'lucide-react';
+import { useWarehouses } from '@/hooks/useWarehouses';
+import { Loader2, DollarSign, User, Shield, Building } from 'lucide-react';
 
 const employeeSchema = z.object({
   email: z.string().email('Valid email required'),
@@ -42,10 +43,12 @@ const employeeSchema = z.object({
   last_name: z.string().optional(),
   phone: z.string().optional(),
   role_ids: z.array(z.string()),
-  // Pay fields - admin only
+  // Pay fields - admin only (stored in employee_pay table)
   pay_type: z.string().optional(),
   pay_rate: z.coerce.number().optional(),
+  salary_hourly_equivalent: z.coerce.number().optional(),
   overtime_eligible: z.boolean().optional(),
+  primary_warehouse_id: z.string().optional(),
   cost_center: z.string().optional(),
 });
 
@@ -91,12 +94,16 @@ export function EmployeeDialog({
 }: EmployeeDialogProps) {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const { warehouses } = useWarehouses();
   const [loading, setLoading] = useState(false);
   const [roles, setRoles] = useState<Role[]>([]);
   const [payData, setPayData] = useState<{
+    id?: string;
     pay_type: string | null;
     pay_rate: number | null;
+    salary_hourly_equivalent: number | null;
     overtime_eligible: boolean;
+    primary_warehouse_id: string | null;
     cost_center: string | null;
   } | null>(null);
 
@@ -110,7 +117,9 @@ export function EmployeeDialog({
       role_ids: [],
       pay_type: '',
       pay_rate: undefined,
+      salary_hourly_equivalent: undefined,
       overtime_eligible: false,
+      primary_warehouse_id: '',
       cost_center: '',
     },
   });
@@ -129,7 +138,9 @@ export function EmployeeDialog({
           role_ids: [],
           pay_type: '',
           pay_rate: undefined,
+          salary_hourly_equivalent: undefined,
           overtime_eligible: false,
+          primary_warehouse_id: '',
           cost_center: '',
         });
         setPayData(null);
@@ -160,6 +171,17 @@ export function EmployeeDialog({
       .eq('id', id)
       .single();
 
+    // Load pay data from employee_pay table if admin
+    let employeePayData = null;
+    if (isAdmin) {
+      const { data: payRecord } = await supabase
+        .from('employee_pay')
+        .select('*')
+        .eq('user_id', id)
+        .maybeSingle();
+      employeePayData = payRecord;
+    }
+
     if (!error && data) {
       form.reset({
         email: data.email,
@@ -167,18 +189,23 @@ export function EmployeeDialog({
         last_name: data.last_name || '',
         phone: data.phone || '',
         role_ids: employee?.roles.map(r => r.id) || [],
-        pay_type: data.pay_type || '',
-        pay_rate: data.pay_rate || undefined,
-        overtime_eligible: data.overtime_eligible || false,
-        cost_center: data.cost_center || '',
+        pay_type: employeePayData?.pay_type || '',
+        pay_rate: employeePayData?.pay_rate || undefined,
+        salary_hourly_equivalent: employeePayData?.salary_hourly_equivalent || undefined,
+        overtime_eligible: employeePayData?.overtime_eligible || false,
+        primary_warehouse_id: employeePayData?.primary_warehouse_id || '',
+        cost_center: employeePayData?.cost_center || '',
       });
 
-      if (isAdmin) {
+      if (isAdmin && employeePayData) {
         setPayData({
-          pay_type: data.pay_type,
-          pay_rate: data.pay_rate,
-          overtime_eligible: data.overtime_eligible || false,
-          cost_center: data.cost_center,
+          id: employeePayData.id,
+          pay_type: employeePayData.pay_type,
+          pay_rate: employeePayData.pay_rate,
+          salary_hourly_equivalent: employeePayData.salary_hourly_equivalent,
+          overtime_eligible: employeePayData.overtime_eligible || false,
+          primary_warehouse_id: employeePayData.primary_warehouse_id,
+          cost_center: employeePayData.cost_center,
         });
       }
     }
