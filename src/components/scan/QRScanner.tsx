@@ -170,6 +170,10 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
   const startFallbackScanner = useCallback(async () => {
     console.info("[QRScanner] Starting html5-qrcode fallback scanner");
     setUsingFallback(true);
+    setStatus("starting");
+
+    // Small delay to ensure DOM element is visible before html5-qrcode initializes
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     try {
       const html5Qr = new Html5Qrcode(scannerContainerId.current);
@@ -194,6 +198,7 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
       const msg = `${name}: ${message}`;
       setErrorMessage(msg);
       setStatus("error");
+      setUsingFallback(false);
       toast({
         variant: "destructive",
         title: "Scanner error",
@@ -235,7 +240,7 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
     const hasNativeBarcodeDetector = typeof BarcodeDetector !== "undefined";
 
     if (!hasNativeBarcodeDetector) {
-      // Use html5-qrcode fallback directly
+      // Use html5-qrcode fallback directly - don't call stopCamera as it resets status
       console.info("[QRScanner] BarcodeDetector not available, using html5-qrcode fallback");
       await startFallbackScanner();
       return;
@@ -265,8 +270,11 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
       }
 
       if (!detectorRef.current) {
-        // Fallback to html5-qrcode
-        stopCamera();
+        // Fallback to html5-qrcode - stop stream but don't reset status
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+        }
         await startFallbackScanner();
         return;
       }
@@ -332,8 +340,8 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
         </div>
       )}
 
-      {/* Tap-to-start overlay - only show if camera is NOT blocked */}
-      {scanning && !isCameraBlocked && (status === "idle" || status === "starting") && (
+      {/* Tap-to-start overlay - only show if camera is NOT blocked and not using fallback */}
+      {scanning && !isCameraBlocked && !usingFallback && (status === "idle" || status === "starting") && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/90 rounded-2xl p-6">
           {status === "starting" ? (
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-3" />
