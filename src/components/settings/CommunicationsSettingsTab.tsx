@@ -16,8 +16,6 @@ import { AlertsTab } from './communications/AlertsTab';
 import { BrandSettingsCard } from './communications/BrandSettingsCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface Account {
   id: string;
