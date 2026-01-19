@@ -34,7 +34,7 @@ import { ItemTypesSettingsTab } from '@/components/settings/ItemTypesSettingsTab
 import { BillingChargeTemplatesTab } from '@/components/settings/BillingChargeTemplatesTab';
 import { EmployeesSettingsTab } from '@/components/settings/EmployeesSettingsTab';
 import { OrganizationSettingsTab } from '@/components/settings/OrganizationSettingsTab';
-import { RateCardsSettingsTab } from '@/components/settings/RateCardsSettingsTab';
+import { RateSheetsSettingsTab } from '@/components/settings/RateSheetsSettingsTab';
 import { CommunicationsSettingsTab } from '@/components/settings/CommunicationsSettingsTab';
 import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
 
@@ -52,7 +52,7 @@ const TAB_OPTIONS = [
   { value: 'communications', label: 'Alerts' },
   { value: 'billing', label: 'Billing' },
   { value: 'labor', label: 'Labor', adminOnly: true },
-  { value: 'rate-cards', label: 'Rate Cards' },
+  { value: 'rate-sheets', label: 'Rate Sheets' },
   { value: 'item-types', label: 'Item Types' },
   { value: 'warehouses', label: 'Warehouses' },
   { value: 'locations', label: 'Locations' },
@@ -278,7 +278,7 @@ export default function Settings() {
             <TabsTrigger value="communications">Alerts</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
-            <TabsTrigger value="rate-cards">Rate Cards</TabsTrigger>
+            <TabsTrigger value="rate-sheets">Rate Sheets</TabsTrigger>
             <TabsTrigger value="item-types">Item Types</TabsTrigger>
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
@@ -363,8 +363,8 @@ export default function Settings() {
             </TabsContent>
           )}
 
-          <TabsContent value="rate-cards">
-            <RateCardsSettingsTab />
+          <TabsContent value="rate-sheets">
+            <RateSheetsSettingsTab />
           </TabsContent>
 
           <TabsContent value="item-types">
