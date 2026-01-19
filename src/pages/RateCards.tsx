@@ -18,10 +18,13 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Loader2, Plus, DollarSign, ChevronDown, ChevronRight, Package, Zap } from 'lucide-react';
+import { Search, Loader2, Plus, DollarSign, ChevronDown, ChevronRight, Package, Zap, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/contexts/AuthContext';
+import { populateRateCardFromItemTypes } from '@/lib/billingRates';
+import { cn } from '@/lib/utils';
 
 interface RateCard {
   id: string;
@@ -69,6 +72,7 @@ const ACCESSORIAL_SERVICES = [
 export default function RateCards() {
   const isMobile = useIsMobile();
   const { toast } = useToast();
+  const { profile } = useAuth();
   const [rateCards, setRateCards] = useState<RateCard[]>([]);
   const [rateCardDetails, setRateCardDetails] = useState<Record<string, RateCardDetail[]>>({});
   const [loading, setLoading] = useState(true);
@@ -76,7 +80,39 @@ export default function RateCards() {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [editingRates, setEditingRates] = useState<Record<string, number>>({});
   const [savingRates, setSavingRates] = useState<Set<string>>(new Set());
+  const [syncingCards, setSyncingCards] = useState<Set<string>>(new Set());
 
+  const handleSyncFromItemTypes = async (rateCardId: string) => {
+    if (!profile?.tenant_id) return;
+    
+    setSyncingCards(prev => new Set(prev).add(rateCardId));
+    try {
+      const result = await populateRateCardFromItemTypes(profile.tenant_id, rateCardId);
+      toast({
+        title: 'Sync Complete',
+        description: `Updated ${result.updated} rates, added ${result.inserted} new rates.`,
+      });
+      // Refresh the rate card details
+      setRateCardDetails(prev => {
+        const next = { ...prev };
+        delete next[rateCardId];
+        return next;
+      });
+      await fetchRateCardDetails(rateCardId);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Sync Failed',
+        description: 'Failed to sync rates from item types.',
+      });
+    } finally {
+      setSyncingCards(prev => {
+        const next = new Set(prev);
+        next.delete(rateCardId);
+        return next;
+      });
+    }
+  };
   useEffect(() => {
     fetchRateCards();
   }, []);
@@ -377,7 +413,7 @@ export default function RateCards() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-[calc(100vh-350px)] overflow-y-auto">
                 {filteredRateCards.map((card) => (
                   <Collapsible
                     key={card.id}
@@ -399,8 +435,20 @@ export default function RateCards() {
                             </div>
                           </div>
                           <div className="flex items-center gap-4">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSyncFromItemTypes(card.id);
+                              }}
+                              disabled={syncingCards.has(card.id)}
+                            >
+                              <RefreshCw className={cn("h-4 w-4 mr-2", syncingCards.has(card.id) && "animate-spin")} />
+                              Sync from Item Types
+                            </Button>
                             <div className="flex gap-1">{getStatusBadges(card)}</div>
-                            <div className="text-sm text-muted-foreground">
+                            <div className="text-sm text-muted-foreground hidden sm:block">
                               Effective: {format(new Date(card.effective_date), 'MMM d, yyyy')}
                             </div>
                           </div>
