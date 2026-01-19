@@ -9,8 +9,28 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Loader2 } from 'lucide-react';
+import { Package, Loader2, Shield, Users, Building2, Warehouse, Eye, Wrench, User, type LucideIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+// Dev-only quick login users - only visible in development mode
+interface DevUser {
+  role: string;
+  email: string;
+  password: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+const DEV_USERS: DevUser[] = [
+  { role: 'admin', email: 'admin-test@demo.com', password: 'TestPassword123!', label: 'Admin', icon: Shield },
+  { role: 'tenant_admin', email: 'admin@demo.com', password: 'TestPassword123!', label: 'Tenant Admin', icon: Building2 },
+  { role: 'manager', email: 'manager-test@demo.com', password: 'TestPassword123!', label: 'Manager', icon: Users },
+  { role: 'warehouse', email: 'warehouse-ops@demo.com', password: 'TestPassword123!', label: 'Warehouse', icon: Warehouse },
+  { role: 'warehouse_staff', email: 'warehouse@demo.com', password: 'TestPassword123!', label: 'WH Staff', icon: Package },
+  { role: 'client_user', email: 'client-test@demo.com', password: 'TestPassword123!', label: 'Client', icon: User },
+  { role: 'ops_viewer', email: 'client@demo.com', password: 'TestPassword123!', label: 'Ops Viewer', icon: Eye },
+  { role: 'repair_tech', email: 'repair-test@demo.com', password: 'TestPassword123!', label: 'Repair Tech', icon: Wrench },
+];
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -278,6 +298,53 @@ export default function Auth() {
                     </svg>
                     Google
                   </Button>
+
+                  {/* Dev Quick Login - Only visible in development */}
+                  {import.meta.env.DEV && (
+                    <div className="mt-6">
+                      <div className="relative mb-4">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t border-dashed border-orange-400" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-card px-2 text-orange-500 font-semibold">Dev Quick Login</span>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        {DEV_USERS.map((devUser) => {
+                          const IconComponent = devUser.icon;
+                          return (
+                            <Button
+                              key={devUser.role}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="text-xs border-orange-200 hover:bg-orange-50 hover:border-orange-400 dark:border-orange-800 dark:hover:bg-orange-950"
+                              onClick={async () => {
+                                setIsLoading(true);
+                                const { error } = await signIn(devUser.email, devUser.password);
+                                setIsLoading(false);
+                                if (error) {
+                                  toast({
+                                    variant: 'destructive',
+                                    title: 'Dev Login Failed',
+                                    description: `Could not log in as ${devUser.label}: ${error.message}`,
+                                  });
+                                  return;
+                                }
+                                navigate('/');
+                              }}
+                              disabled={isLoading}
+                            >
+                              <IconComponent className="h-3 w-3 mr-1" />
+                              {devUser.label}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </form>
               </Form>
             </TabsContent>
