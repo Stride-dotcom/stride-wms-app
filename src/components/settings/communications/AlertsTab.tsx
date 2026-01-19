@@ -185,7 +185,7 @@ export function AlertsTab({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => navigate(`/settings/templates/${alert.id}?channel=email`)}
+                          onClick={() => navigate(`/alert-templates/${alert.id}`)}
                         >
                           <Edit2 className="h-3 w-3" />
                         </Button>
@@ -202,7 +202,7 @@ export function AlertsTab({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => navigate(`/settings/templates/${alert.id}?channel=sms`)}
+                          onClick={() => navigate(`/alert-templates/${alert.id}`)}
                         >
                           <Edit2 className="h-3 w-3" />
                         </Button>
