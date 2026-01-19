@@ -24,6 +24,15 @@ import { Plus, Mail, MessageSquare, Trash2, ChevronRight } from 'lucide-react';
 import { CommunicationAlert, TRIGGER_EVENTS } from '@/hooks/useCommunications';
 import { format } from 'date-fns';
 import { CreateAlertDialog } from './CreateAlertDialog';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  MobileDataCard,
+  MobileDataCardHeader,
+  MobileDataCardTitle,
+  MobileDataCardDescription,
+  MobileDataCardContent,
+  MobileDataCardActions,
+} from '@/components/ui/mobile-data-card';
 
 interface AlertListProps {
   alerts: CommunicationAlert[];
@@ -42,6 +51,7 @@ export function AlertList({
 }: AlertListProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [alertToDelete, setAlertToDelete] = useState<CommunicationAlert | null>(null);
+  const isMobile = useIsMobile();
 
   const handleDeleteAlert = async () => {
     if (!alertToDelete) return;
@@ -52,6 +62,10 @@ export function AlertList({
   const toggleEnabled = async (e: React.MouseEvent, alert: CommunicationAlert) => {
     e.stopPropagation();
     await onUpdateAlert(alert.id, { is_enabled: !alert.is_enabled });
+  };
+
+  const getTriggerLabel = (triggerEvent: string) => {
+    return TRIGGER_EVENTS.find(e => e.value === triggerEvent)?.label || triggerEvent;
   };
 
   return (
@@ -65,93 +79,159 @@ export function AlertList({
         </div>
         <Button onClick={() => setShowCreateDialog(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Create Alert
+          <span className="hidden sm:inline">Create Alert</span>
+          <span className="sm:hidden">New</span>
         </Button>
       </div>
 
-      <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Key</TableHead>
-              <TableHead>Enabled</TableHead>
-              <TableHead>Channels</TableHead>
-              <TableHead>Trigger Event</TableHead>
-              <TableHead>Updated</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {alerts.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No alerts configured. Create your first alert to get started.
-                </TableCell>
-              </TableRow>
-            ) : (
-              alerts.map((alert) => (
-                <TableRow 
-                  key={alert.id} 
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => onSelectAlert(alert)}
-                >
-                  <TableCell className="font-medium">{alert.name}</TableCell>
-                  <TableCell>
-                    <code className="text-xs bg-muted px-2 py-1 rounded">{alert.key}</code>
-                  </TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={alert.is_enabled}
-                      onCheckedChange={() => {}}
-                      onClick={(e) => toggleEnabled(e, alert)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {alert.channels.email && (
-                        <Badge variant="secondary" className="gap-1">
-                          <Mail className="h-3 w-3" />
-                          Email
-                        </Badge>
-                      )}
-                      {alert.channels.sms && (
-                        <Badge variant="secondary" className="gap-1">
-                          <MessageSquare className="h-3 w-3" />
-                          SMS
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {TRIGGER_EVENTS.find(e => e.value === alert.trigger_event)?.label || alert.trigger_event}
+      {isMobile ? (
+        // Mobile card layout
+        <div className="space-y-3">
+          {alerts.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground border rounded-lg bg-card">
+              No alerts configured. Create your first alert to get started.
+            </div>
+          ) : (
+            alerts.map((alert) => (
+              <MobileDataCard key={alert.id} onClick={() => onSelectAlert(alert)}>
+                <MobileDataCardHeader>
+                  <div className="flex-1 min-w-0">
+                    <MobileDataCardTitle>{alert.name}</MobileDataCardTitle>
+                    <MobileDataCardDescription>
+                      <code className="text-xs bg-muted px-2 py-0.5 rounded">{alert.key}</code>
+                    </MobileDataCardDescription>
+                  </div>
+                  <Switch
+                    checked={alert.is_enabled}
+                    onCheckedChange={() => {}}
+                    onClick={(e) => toggleEnabled(e, alert)}
+                  />
+                </MobileDataCardHeader>
+                <MobileDataCardContent>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {alert.channels.email && (
+                      <Badge variant="secondary" className="gap-1">
+                        <Mail className="h-3 w-3" />
+                        Email
+                      </Badge>
+                    )}
+                    {alert.channels.sms && (
+                      <Badge variant="secondary" className="gap-1">
+                        <MessageSquare className="h-3 w-3" />
+                        SMS
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs">
+                      {getTriggerLabel(alert.trigger_event)}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
+                  </div>
+                </MobileDataCardContent>
+                <MobileDataCardActions>
+                  <span className="text-xs text-muted-foreground">
                     {format(new Date(alert.updated_at), 'MMM d, yyyy')}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setAlertToDelete(alert);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAlertToDelete(alert);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </MobileDataCardActions>
+              </MobileDataCard>
+            ))
+          )}
+        </div>
+      ) : (
+        // Desktop table layout
+        <div className="rounded-lg border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Key</TableHead>
+                <TableHead>Enabled</TableHead>
+                <TableHead>Channels</TableHead>
+                <TableHead>Trigger Event</TableHead>
+                <TableHead>Updated</TableHead>
+                <TableHead className="w-[100px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {alerts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No alerts configured. Create your first alert to get started.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ) : (
+                alerts.map((alert) => (
+                  <TableRow 
+                    key={alert.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => onSelectAlert(alert)}
+                  >
+                    <TableCell className="font-medium">{alert.name}</TableCell>
+                    <TableCell>
+                      <code className="text-xs bg-muted px-2 py-1 rounded">{alert.key}</code>
+                    </TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={alert.is_enabled}
+                        onCheckedChange={() => {}}
+                        onClick={(e) => toggleEnabled(e, alert)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {alert.channels.email && (
+                          <Badge variant="secondary" className="gap-1">
+                            <Mail className="h-3 w-3" />
+                            Email
+                          </Badge>
+                        )}
+                        {alert.channels.sms && (
+                          <Badge variant="secondary" className="gap-1">
+                            <MessageSquare className="h-3 w-3" />
+                            SMS
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {getTriggerLabel(alert.trigger_event)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {format(new Date(alert.updated_at), 'MMM d, yyyy')}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAlertToDelete(alert);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <CreateAlertDialog
         open={showCreateDialog}
