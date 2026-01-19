@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -28,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SignaturePad } from '@/components/shipments/SignaturePad';
 import { PhotoCapture } from '@/components/shipments/PhotoCapture';
 import { ReceivingSession } from '@/components/shipments/ReceivingSession';
+import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { format } from 'date-fns';
 import { 
   ArrowLeft, 
@@ -38,7 +40,8 @@ import {
   Clock,
   FileText,
   Image as ImageIcon,
-  Printer
+  Printer,
+  ClipboardList
 } from 'lucide-react';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
@@ -96,6 +99,10 @@ export default function ShipmentDetail() {
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
   const [receivedItemsForLabels, setReceivedItemsForLabels] = useState<ItemLabelData[]>([]);
+  
+  // For item selection and task creation
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [showTaskDialog, setShowTaskDialog] = useState(false);
   
   // For signature
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -329,6 +336,33 @@ export default function ShipmentDetail() {
   }
 
   const isCompleted = shipment.status === 'completed' || shipment.status === 'received';
+
+  // Get selectable items (only those with item_id)
+  const selectableItems = useMemo(() => 
+    shipment.items.filter(item => item.item_id !== null),
+    [shipment.items]
+  );
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedItems(new Set(selectableItems.map(item => item.item_id!)));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const handleSelectItem = (itemId: string, checked: boolean) => {
+    const newSelected = new Set(selectedItems);
+    if (checked) {
+      newSelected.add(itemId);
+    } else {
+      newSelected.delete(itemId);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const allSelected = selectableItems.length > 0 && selectableItems.every(item => selectedItems.has(item.item_id!));
+  const someSelected = selectableItems.some(item => selectedItems.has(item.item_id!));
 
   return (
     <DashboardLayout>
@@ -573,13 +607,21 @@ export default function ShipmentDetail() {
 
         {/* Items Card */}
         <Card>
-          <CardHeader>
-            <CardTitle>Items ({shipment.items.length})</CardTitle>
-            <CardDescription>
-              {shipment.shipment_type === 'inbound' 
-                ? 'Items expected in this shipment'
-                : 'Items included in this release'}
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Items ({shipment.items.length})</CardTitle>
+              <CardDescription>
+                {shipment.shipment_type === 'inbound' 
+                  ? 'Items expected in this shipment'
+                  : 'Items included in this release'}
+              </CardDescription>
+            </div>
+            {selectedItems.size > 0 && (
+              <Button onClick={() => setShowTaskDialog(true)}>
+                <ClipboardList className="mr-2 h-4 w-4" />
+                Create Task ({selectedItems.size})
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             {shipment.items.length === 0 ? (
@@ -588,6 +630,14 @@ export default function ShipmentDetail() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={handleSelectAll}
+                        aria-label="Select all items"
+                        disabled={selectableItems.length === 0}
+                      />
+                    </TableHead>
                     <TableHead>Item Code</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead className="text-right">Expected Qty</TableHead>
@@ -600,12 +650,23 @@ export default function ShipmentDetail() {
                     <TableRow 
                       key={item.id}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => item.item_id && navigate(`/inventory/${item.item_id}`)}
                     >
-                      <TableCell className="font-medium">
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {item.item_id && (
+                          <Checkbox
+                            checked={selectedItems.has(item.item_id)}
+                            onCheckedChange={(checked) => handleSelectItem(item.item_id!, !!checked)}
+                            aria-label={`Select ${item.item?.item_code || 'item'}`}
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell 
+                        className="font-medium"
+                        onClick={() => item.item_id && navigate(`/inventory/${item.item_id}`)}
+                      >
                         {item.item?.item_code || '-'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell onClick={() => item.item_id && navigate(`/inventory/${item.item_id}`)}>
                         {item.item?.description || item.expected_description || '-'}
                       </TableCell>
                       <TableCell className="text-right">
@@ -691,6 +752,20 @@ export default function ShipmentDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Task Dialog */}
+      <TaskDialog
+        open={showTaskDialog}
+        onOpenChange={(open) => {
+          setShowTaskDialog(open);
+          if (!open) setSelectedItems(new Set());
+        }}
+        selectedItemIds={Array.from(selectedItems)}
+        onSuccess={() => {
+          setSelectedItems(new Set());
+          setShowTaskDialog(false);
+        }}
+      />
     </DashboardLayout>
   );
 }
