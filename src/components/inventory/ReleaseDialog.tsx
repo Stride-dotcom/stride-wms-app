@@ -21,6 +21,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Package, Trash2 } from 'lucide-react';
+import { queueAlert } from '@/lib/alertQueue';
 import { Badge } from '@/components/ui/badge';
 
 interface ReleaseDialogProps {
@@ -180,6 +181,15 @@ export function ReleaseDialog({ open, onOpenChange, selectedItems, onSuccess }: 
         .insert(shipmentItems);
 
       if (itemsError) throw itemsError;
+
+      // Queue release.created alert
+      await queueAlert({
+        tenantId: profile.tenant_id,
+        alertType: 'release.created',
+        entityType: 'shipment',
+        entityId: shipment.id,
+        subject: `📦 ${releaseType === 'will_call' ? 'Will Call' : 'Disposal'} ${shipment.shipment_number} created`,
+      });
 
       toast({
         title: 'Release created',

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { queueInvoiceCreatedAlert } from '@/lib/alertQueue';
 
 export interface Invoice {
   id: string;
@@ -157,6 +158,16 @@ export function useInvoices() {
           .insert(itemsToInsert);
 
         if (lineItemsError) throw lineItemsError;
+      }
+
+      // Queue invoice.created alert
+      if (invoice) {
+        await queueInvoiceCreatedAlert(
+          profile.tenant_id,
+          invoice.id,
+          invoiceNumber,
+          totalAmount
+        );
       }
 
       await fetchInvoices();

@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { getServiceRate } from '@/lib/billingRates';
-import { queueShipmentReceivedAlert } from '@/lib/alertQueue';
+import { queueShipmentReceivedAlert, queueShipmentCompletedAlert } from '@/lib/alertQueue';
 
 interface ReceivingSession {
   id: string;
@@ -312,6 +312,17 @@ export function useReceivingSession(shipmentId: string | undefined) {
           shipmentData.shipment_number || session.shipment_id,
           verificationData.received_items.length
         );
+
+        // Also queue shipment.completed if no backorders
+        const hasBackorders = verificationData.backorder_items && verificationData.backorder_items.length > 0;
+        if (!hasBackorders) {
+          await queueShipmentCompletedAlert(
+            profile.tenant_id,
+            session.shipment_id,
+            shipmentData.shipment_number || session.shipment_id,
+            verificationData.received_items.length
+          );
+        }
       }
 
       setSession(null);
