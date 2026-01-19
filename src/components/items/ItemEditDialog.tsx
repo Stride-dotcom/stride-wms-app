@@ -272,14 +272,17 @@ export function ItemEditDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Account</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select 
+                    onValueChange={(val) => field.onChange(val === '_none_' ? '' : val)} 
+                    value={field.value || '_none_'}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select account..." />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">No account</SelectItem>
+                      <SelectItem value="_none_">No account</SelectItem>
                       {accounts.map((account) => (
                         <SelectItem key={account.id} value={account.id}>
                           {account.account_name} ({account.account_code})
