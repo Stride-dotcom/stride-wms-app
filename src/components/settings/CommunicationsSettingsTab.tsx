@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -10,9 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Building2 } from 'lucide-react';
+import { Bell, FileText, Building2 } from 'lucide-react';
 import { useCommunications } from '@/hooks/useCommunications';
 import { AlertsTab } from './communications/AlertsTab';
+import { TemplatesTab } from './communications/TemplatesTab';
 import { BrandSettingsCard } from './communications/BrandSettingsCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,14 +29,22 @@ export function CommunicationsSettingsTab() {
   const { profile } = useAuth();
   const {
     alerts,
+    templates,
+    designElements,
     brandSettings,
     loading,
     createAlert,
     updateAlert,
     deleteAlert,
+    updateTemplate,
+    getTemplateVersions,
+    revertToVersion,
     updateBrandSettings,
   } = useCommunications();
 
+  const [activeTab, setActiveTab] = useState('alerts');
+  const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<'email' | 'sms' | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('global');
 
@@ -54,6 +64,17 @@ export function CommunicationsSettingsTab() {
     
     fetchAccounts();
   }, [profile?.tenant_id]);
+
+  const handleEditTemplate = (alertId: string, channel: 'email' | 'sms') => {
+    setSelectedAlertId(alertId);
+    setSelectedChannel(channel);
+    setActiveTab('editor');
+  };
+
+  const handleCloseTemplateEditor = () => {
+    setSelectedAlertId(null);
+    setSelectedChannel(null);
+  };
 
   if (loading) {
     return (
@@ -116,19 +137,51 @@ export function CommunicationsSettingsTab() {
         )}
       </Card>
 
-      {/* Brand Settings */}
+      {/* Brand Settings - Always visible at top */}
       <BrandSettingsCard
         brandSettings={brandSettings}
         onUpdate={updateBrandSettings}
       />
 
-      {/* Alerts List - clicking edit navigates to dedicated page */}
-      <AlertsTab
-        alerts={alerts}
-        onCreateAlert={createAlert}
-        onUpdateAlert={updateAlert}
-        onDeleteAlert={deleteAlert}
-      />
+      {/* Simplified 2-Tab Layout */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2 max-w-full sm:max-w-[400px]">
+          <TabsTrigger value="alerts" className="gap-1 sm:gap-2">
+            <Bell className="h-4 w-4" />
+            <span className="hidden xs:inline sm:inline">Alerts</span>
+          </TabsTrigger>
+          <TabsTrigger value="editor" className="gap-1 sm:gap-2">
+            <FileText className="h-4 w-4" />
+            <span className="hidden xs:inline sm:inline">Template Editor</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="alerts" className="mt-6">
+          <AlertsTab
+            alerts={alerts}
+            onCreateAlert={createAlert}
+            onUpdateAlert={updateAlert}
+            onDeleteAlert={deleteAlert}
+            onEditTemplate={handleEditTemplate}
+          />
+        </TabsContent>
+
+        <TabsContent value="editor" className="mt-6">
+          <TemplatesTab
+            alerts={alerts}
+            templates={templates}
+            designElements={designElements}
+            brandSettings={brandSettings}
+            selectedAlertId={selectedAlertId}
+            selectedChannel={selectedChannel}
+            tenantId={profile?.tenant_id || ''}
+            onUpdateTemplate={updateTemplate}
+            getTemplateVersions={getTemplateVersions}
+            revertToVersion={revertToVersion}
+            onClose={handleCloseTemplateEditor}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
