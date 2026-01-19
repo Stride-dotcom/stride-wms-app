@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { queueItemDamagedAlert } from '@/lib/alertQueue';
 
 export interface ItemPhoto {
   id: string;
@@ -161,23 +162,24 @@ export function useItemPhotos(itemId: string | undefined) {
 
       // If marking as needs attention, update item's has_damage flag and create alert
       if (needsAttention) {
+        // Get item code for the alert
+        const { data: itemData } = await (supabase
+          .from('items') as any)
+          .select('item_code')
+          .eq('id', itemId)
+          .single();
+
         await (supabase
           .from('items') as any)
           .update({ has_damage: true })
           .eq('id', itemId);
 
-        // Create immediate alert
-        await (supabase
-          .from('alert_queue') as any)
-          .insert({
-            tenant_id: profile.tenant_id,
-            alert_type: 'damage_photo',
-            entity_type: 'item',
-            entity_id: itemId,
-            subject: 'Damage Photo Flagged - Needs Attention',
-            body_text: `A photo has been flagged as needing attention for item.`,
-            status: 'pending',
-          });
+        // Queue damage alert using the centralized alert queue
+        await queueItemDamagedAlert(
+          profile.tenant_id,
+          itemId,
+          itemData?.item_code || 'Unknown'
+        );
 
         toast({
           title: 'Photo Flagged',

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { queueTaskCreatedAlert, queueTaskAssignedAlert, queueTaskCompletedAlert } from '@/lib/alertQueue';
 
 export interface Task {
   id: string;
@@ -247,6 +248,11 @@ export function useTasks(filters?: {
         description: `Task has been created and added to queue.`,
       });
 
+      // Queue task.created alert
+      if (task) {
+        await queueTaskCreatedAlert(profile.tenant_id, task.id, taskData.task_type || 'General');
+      }
+
       fetchTasks();
       return task;
     } catch (error) {
@@ -317,6 +323,11 @@ export function useTasks(filters?: {
         title: 'Task Started',
         description: 'Task is now in progress.',
       });
+
+      // Queue task.assigned alert (task started = assigned to current user)
+      if (taskData) {
+        await queueTaskAssignedAlert(profile.tenant_id, taskId, taskData.task_type);
+      }
 
       fetchTasks();
       return true;
@@ -392,6 +403,9 @@ export function useTasks(filters?: {
           description: `Items released to ${pickupName}.`,
         });
 
+        // Queue task.completed alert
+        await queueTaskCompletedAlert(profile.tenant_id, taskId, 'Will Call');
+
         fetchTasks();
         return true;
       }
@@ -434,6 +448,9 @@ export function useTasks(filters?: {
           description: 'Items have been marked as disposed.',
         });
 
+        // Queue task.completed alert
+        await queueTaskCompletedAlert(profile.tenant_id, taskId, 'Disposal');
+
         fetchTasks();
         return true;
       }
@@ -459,6 +476,9 @@ export function useTasks(filters?: {
         title: 'Task Completed',
         description: 'Task has been marked as completed.',
       });
+
+      // Queue task.completed alert
+      await queueTaskCompletedAlert(profile.tenant_id, taskId, taskData.task_type);
 
       fetchTasks();
       return true;
