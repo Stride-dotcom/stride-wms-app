@@ -100,9 +100,9 @@ export function SmsTab({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Toolbar */}
-      <div className="flex items-center justify-between p-4 border-b bg-card">
+      <div className="flex items-center justify-between p-4 border-b bg-card flex-shrink-0">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-muted-foreground" />
@@ -135,7 +135,7 @@ export function SmsTab({
       </div>
 
       {/* Character Counter */}
-      <div className="flex items-center justify-between p-3 border-b bg-muted/30">
+      <div className="flex items-center justify-between p-3 border-b bg-muted/30 flex-shrink-0">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Badge variant={charInfo.segments > 1 ? 'secondary' : 'outline'}>
@@ -158,12 +158,12 @@ export function SmsTab({
       </div>
 
       {/* Editor / Preview */}
-      <div className="flex-1 overflow-hidden min-h-0 p-4">
+      <div className="flex-1 overflow-y-auto min-h-0 p-4">
         {editorMode === 'edit' ? (
           <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            className="w-full h-full font-mono text-sm resize-none"
+            className="w-full h-full min-h-[200px] font-mono text-sm resize-none"
             placeholder="Enter your SMS message here..."
           />
         ) : (
@@ -218,7 +218,9 @@ export function SmsTab({
       </div>
 
       {/* Variables Table at bottom */}
-      <VariablesTable onInsertVariable={insertVariable} />
+      <div className="flex-shrink-0">
+        <VariablesTable onInsertVariable={insertVariable} />
+      </div>
 
       {/* Send Test Dialog */}
       {profile?.tenant_id && (

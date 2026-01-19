@@ -102,7 +102,7 @@ export function AlertsSettingsTab() {
 
   // Show 5-tab editor when alert is selected
   return (
-    <div className="space-y-0 -m-6">
+    <div className="flex flex-col -m-6 min-h-0">
       <AlertEditorHeader
         alert={selectedAlert}
         onBack={handleBack}
@@ -110,8 +110,8 @@ export function AlertsSettingsTab() {
         onDeleteAlert={deleteAlert}
       />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-        <div className="border-b bg-card overflow-x-auto">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
+        <div className="border-b bg-card overflow-x-auto flex-shrink-0">
           <TabsList className="h-auto p-0 bg-transparent rounded-none flex-nowrap w-max min-w-full md:w-full">
             <TabsTrigger 
               value="recipients" 
@@ -154,41 +154,43 @@ export function AlertsSettingsTab() {
           </TabsList>
         </div>
 
-        <TabsContent value="recipients" className="p-4 md:p-6 m-0">
-          <RecipientsTab alertId={selectedAlert.id} />
-        </TabsContent>
+        <div className="flex-1 overflow-y-auto min-h-0">
+          <TabsContent value="recipients" className="p-4 md:p-6 m-0 h-full">
+            <RecipientsTab alertId={selectedAlert.id} />
+          </TabsContent>
 
-        <TabsContent value="email-html" className="m-0 h-[calc(100vh-300px)] overflow-y-auto">
-          <EmailHtmlTab
-            template={emailTemplate || null}
-            designElements={designElements}
-            brandSettings={brandSettings}
-            onUpdateTemplate={updateTemplate}
-            onGetVersions={getTemplateVersions}
-            onRevertToVersion={revertToVersion}
-          />
-        </TabsContent>
+          <TabsContent value="email-html" className="m-0 h-full">
+            <EmailHtmlTab
+              template={emailTemplate || null}
+              designElements={designElements}
+              brandSettings={brandSettings}
+              onUpdateTemplate={updateTemplate}
+              onGetVersions={getTemplateVersions}
+              onRevertToVersion={revertToVersion}
+            />
+          </TabsContent>
 
-        <TabsContent value="email-text" className="m-0 h-[calc(100vh-300px)] overflow-y-auto">
-          <EmailTextTab
-            template={emailTemplate || null}
-            onUpdateTemplate={updateTemplate}
-          />
-        </TabsContent>
+          <TabsContent value="email-text" className="m-0 h-full">
+            <EmailTextTab
+              template={emailTemplate || null}
+              onUpdateTemplate={updateTemplate}
+            />
+          </TabsContent>
 
-        <TabsContent value="sms" className="m-0 h-[calc(100vh-300px)] overflow-y-auto">
-          <SmsTab
-            template={smsTemplate || null}
-            onUpdateTemplate={updateTemplate}
-          />
-        </TabsContent>
+          <TabsContent value="sms" className="m-0 h-full">
+            <SmsTab
+              template={smsTemplate || null}
+              onUpdateTemplate={updateTemplate}
+            />
+          </TabsContent>
 
-        <TabsContent value="brand" className="p-4 md:p-6 m-0">
-          <BrandSettingsTab
-            brandSettings={brandSettings}
-            onUpdateBrandSettings={updateBrandSettings}
-          />
-        </TabsContent>
+          <TabsContent value="brand" className="p-4 md:p-6 m-0 h-full">
+            <BrandSettingsTab
+              brandSettings={brandSettings}
+              onUpdateBrandSettings={updateBrandSettings}
+            />
+          </TabsContent>
+        </div>
       </Tabs>
     </div>
   );
