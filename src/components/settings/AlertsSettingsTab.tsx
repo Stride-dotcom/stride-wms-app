@@ -11,6 +11,7 @@ import { EmailHtmlTab } from './alerts/tabs/EmailHtmlTab';
 import { EmailTextTab } from './alerts/tabs/EmailTextTab';
 import { SmsTab } from './alerts/tabs/SmsTab';
 import { BrandSettingsTab } from './alerts/tabs/BrandSettingsTab';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export function AlertsSettingsTab() {
   const {
@@ -30,6 +31,7 @@ export function AlertsSettingsTab() {
 
   const [selectedAlert, setSelectedAlert] = useState<CommunicationAlert | null>(null);
   const [activeTab, setActiveTab] = useState('recipients');
+  const isMobile = useIsMobile();
 
   const handleSelectAlert = (alert: CommunicationAlert) => {
     setSelectedAlert(alert);
@@ -104,54 +106,54 @@ export function AlertsSettingsTab() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-        <div className="border-b bg-card">
-          <TabsList className="h-auto p-0 bg-transparent rounded-none">
+        <div className="border-b bg-card overflow-x-auto">
+          <TabsList className="h-auto p-0 bg-transparent rounded-none flex-nowrap w-max min-w-full md:w-full">
             <TabsTrigger 
               value="recipients" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-2 px-6 py-3"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-1 md:gap-2 px-3 md:px-6 py-3 whitespace-nowrap"
             >
               <Users className="h-4 w-4" />
-              Recipients
+              <span className="hidden md:inline">Recipients</span>
             </TabsTrigger>
             <TabsTrigger 
               value="email-html" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-2 px-6 py-3"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-1 md:gap-2 px-3 md:px-6 py-3 whitespace-nowrap"
               disabled={!selectedAlert.channels.email}
             >
               <Mail className="h-4 w-4" />
-              Email HTML
+              <span className="hidden md:inline">Email HTML</span>
             </TabsTrigger>
             <TabsTrigger 
               value="email-text" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-2 px-6 py-3"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-1 md:gap-2 px-3 md:px-6 py-3 whitespace-nowrap"
               disabled={!selectedAlert.channels.email}
             >
               <FileText className="h-4 w-4" />
-              Email Text
+              <span className="hidden md:inline">Email Text</span>
             </TabsTrigger>
             <TabsTrigger 
               value="sms" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-2 px-6 py-3"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-1 md:gap-2 px-3 md:px-6 py-3 whitespace-nowrap"
               disabled={!selectedAlert.channels.sms}
             >
               <MessageSquare className="h-4 w-4" />
-              SMS
+              <span className="hidden md:inline">SMS</span>
             </TabsTrigger>
             <TabsTrigger 
               value="brand" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-2 px-6 py-3"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-1 md:gap-2 px-3 md:px-6 py-3 whitespace-nowrap"
             >
               <Palette className="h-4 w-4" />
-              Brand Settings
+              <span className="hidden md:inline">Brand Settings</span>
             </TabsTrigger>
           </TabsList>
         </div>
 
-        <TabsContent value="recipients" className="p-6 m-0">
+        <TabsContent value="recipients" className="p-4 md:p-6 m-0">
           <RecipientsTab alertId={selectedAlert.id} />
         </TabsContent>
 
-        <TabsContent value="email-html" className="m-0 h-[calc(100vh-300px)]">
+        <TabsContent value="email-html" className="m-0 h-[calc(100vh-300px)] overflow-y-auto">
           <EmailHtmlTab
             template={emailTemplate || null}
             designElements={designElements}
@@ -162,21 +164,21 @@ export function AlertsSettingsTab() {
           />
         </TabsContent>
 
-        <TabsContent value="email-text" className="m-0 h-[calc(100vh-300px)]">
+        <TabsContent value="email-text" className="m-0 h-[calc(100vh-300px)] overflow-y-auto">
           <EmailTextTab
             template={emailTemplate || null}
             onUpdateTemplate={updateTemplate}
           />
         </TabsContent>
 
-        <TabsContent value="sms" className="m-0 h-[calc(100vh-300px)]">
+        <TabsContent value="sms" className="m-0 h-[calc(100vh-300px)] overflow-y-auto">
           <SmsTab
             template={smsTemplate || null}
             onUpdateTemplate={updateTemplate}
           />
         </TabsContent>
 
-        <TabsContent value="brand" className="p-6 m-0">
+        <TabsContent value="brand" className="p-4 md:p-6 m-0">
           <BrandSettingsTab
             brandSettings={brandSettings}
             onUpdateBrandSettings={updateBrandSettings}
