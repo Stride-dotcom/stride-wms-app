@@ -572,6 +572,7 @@ export default function ItemDetail() {
                   notify_dispatch: item.notify_dispatch || false,
                   has_damage: item.has_damage || false,
                   received_without_id: (item as any).received_without_id || false,
+                  needs_minor_touchup: (item as any).needs_minor_touchup || false,
                 }}
                 onFlagsChange={handleFlagsChange}
                 isClientUser={isClientUser}

@@ -31,6 +31,7 @@ interface ItemFlags {
   notify_dispatch: boolean;
   has_damage: boolean;
   received_without_id: boolean;
+  needs_minor_touchup: boolean;
 }
 
 interface ItemFlagsSectionProps {
@@ -52,7 +53,8 @@ const FLAG_CONFIG: FlagConfig[] = [
   { key: 'is_overweight', label: 'Overweight', icon: Package, billable: true },
   { key: 'is_oversize', label: 'Oversize', icon: Ruler, billable: true },
   { key: 'is_unstackable', label: 'Unstackable', icon: Layers, billable: true },
-  { key: 'is_crated', label: 'Crated', icon: Box, billable: true },
+  { key: 'is_crated', label: 'Crate Disposal', icon: Box, billable: true },
+  { key: 'needs_minor_touchup', label: 'Minor Touch Up', icon: Wrench, billable: true },
   { key: 'received_without_id', label: 'Received Without ID', icon: HelpCircle, billable: true },
   { key: 'needs_repair', label: 'Needs Repair', icon: Wrench, billable: false, clientEditable: true },
   { key: 'needs_inspection', label: 'Needs Inspection', icon: Search, billable: false, clientEditable: true },
