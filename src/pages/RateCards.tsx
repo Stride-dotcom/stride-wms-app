@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Search, Loader2, Plus, DollarSign, ChevronDown, ChevronRight, Package, Zap } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface RateCard {
   id: string;
@@ -66,6 +67,7 @@ const ACCESSORIAL_SERVICES = [
 ];
 
 export default function RateCards() {
+  const isMobile = useIsMobile();
   const { toast } = useToast();
   const [rateCards, setRateCards] = useState<RateCard[]>([]);
   const [rateCardDetails, setRateCardDetails] = useState<Record<string, RateCardDetail[]>>({});
@@ -230,56 +232,97 @@ export default function RateCards() {
         {icon}
         {title}
       </h4>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Service</TableHead>
-              <TableHead className="w-32">Rate</TableHead>
-              <TableHead className="w-24">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {services.map((service) => {
-              const editKey = `${rateCardId}-${service.key}`;
-              const isEditing = editingRates[editKey] !== undefined;
-              const isSaving = savingRates.has(editKey);
-              const rate = getRateForService(rateCardId, service.key);
+      {isMobile ? (
+        <div className="space-y-2">
+          {services.map((service) => {
+            const editKey = `${rateCardId}-${service.key}`;
+            const isEditing = editingRates[editKey] !== undefined;
+            const isSaving = savingRates.has(editKey);
+            const rate = getRateForService(rateCardId, service.key);
 
-              return (
-                <TableRow key={service.key}>
-                  <TableCell>{service.label}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <span className="text-muted-foreground">$</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={rate}
-                        onChange={(e) => handleRateChange(rateCardId, service.key, e.target.value)}
-                        className="w-24 h-8"
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {isEditing && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => saveRate(rateCardId, service.key, category)}
-                        disabled={isSaving}
-                      >
-                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
+            return (
+              <div key={service.key} className="flex items-center justify-between gap-2 p-2 border rounded-md">
+                <span className="text-sm font-medium">{service.label}</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={rate}
+                      onChange={(e) => handleRateChange(rateCardId, service.key, e.target.value)}
+                      className="w-20 h-10"
+                    />
+                  </div>
+                  {isEditing && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-10"
+                      onClick={() => saveRate(rateCardId, service.key, category)}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Service</TableHead>
+                <TableHead className="w-32">Rate</TableHead>
+                <TableHead className="w-24">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {services.map((service) => {
+                const editKey = `${rateCardId}-${service.key}`;
+                const isEditing = editingRates[editKey] !== undefined;
+                const isSaving = savingRates.has(editKey);
+                const rate = getRateForService(rateCardId, service.key);
+
+                return (
+                  <TableRow key={service.key}>
+                    <TableCell>{service.label}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <span className="text-muted-foreground">$</span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={rate}
+                          onChange={(e) => handleRateChange(rateCardId, service.key, e.target.value)}
+                          className="w-24 h-8"
+                        />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {isEditing && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => saveRate(rateCardId, service.key, category)}
+                          disabled={isSaving}
+                        >
+                          {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 

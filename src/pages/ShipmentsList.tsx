@@ -24,6 +24,14 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Search, Package, Loader2, Filter, Plus, Truck, ArrowLeft, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  MobileDataCard,
+  MobileDataCardHeader,
+  MobileDataCardTitle,
+  MobileDataCardDescription,
+  MobileDataCardContent,
+} from '@/components/ui/mobile-data-card';
 
 interface Shipment {
   id: string;
@@ -43,6 +51,7 @@ interface Shipment {
 }
 
 export default function ShipmentsList() {
+  const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -250,8 +259,52 @@ export default function ShipmentsList() {
                         : 'Get started by creating a new shipment'}
                     </p>
                   </div>
+                ) : isMobile ? (
+                  <div className="space-y-3">
+                    {filteredShipments.map((shipment) => (
+                      <MobileDataCard
+                        key={shipment.id}
+                        onClick={() => navigate(`/shipments/${shipment.id}`)}
+                      >
+                        <MobileDataCardHeader>
+                          <div>
+                            <MobileDataCardTitle>{shipment.shipment_number}</MobileDataCardTitle>
+                            <MobileDataCardDescription>{shipment.account_name || '-'}</MobileDataCardDescription>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            {getStatusBadge(shipment.status)}
+                            {activeTab === 'outbound' && getReleaseTypeBadge(shipment.release_type)}
+                          </div>
+                        </MobileDataCardHeader>
+                        <MobileDataCardContent>
+                          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                            {activeTab === 'inbound' && (
+                              <div>
+                                <span>Carrier:</span>
+                                <div className="text-foreground">{shipment.carrier || '-'}</div>
+                              </div>
+                            )}
+                            <div>
+                              <span>{activeTab === 'inbound' ? 'Expected:' : 'Created:'}</span>
+                              <div className="text-foreground">
+                                {activeTab === 'inbound'
+                                  ? shipment.expected_arrival_date
+                                    ? format(new Date(shipment.expected_arrival_date), 'MMM d, yyyy')
+                                    : '-'
+                                  : format(new Date(shipment.created_at), 'MMM d, yyyy')}
+                              </div>
+                            </div>
+                            <div>
+                              <span>Warehouse:</span>
+                              <div className="text-foreground">{shipment.warehouse_name || '-'}</div>
+                            </div>
+                          </div>
+                        </MobileDataCardContent>
+                      </MobileDataCard>
+                    ))}
+                  </div>
                 ) : (
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>

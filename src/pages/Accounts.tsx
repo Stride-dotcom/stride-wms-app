@@ -23,6 +23,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Search, Loader2, Filter, Plus, Building2, Upload } from 'lucide-react';
 import { AccountDialog } from '@/components/accounts/AccountDialog';
 import { AccountImportDialog } from '@/components/accounts/AccountImportDialog';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  MobileDataCard,
+  MobileDataCardHeader,
+  MobileDataCardTitle,
+  MobileDataCardDescription,
+  MobileDataCardContent,
+} from '@/components/ui/mobile-data-card';
 
 interface Account {
   id: string;
@@ -40,6 +48,7 @@ interface Account {
 }
 
 export default function Accounts() {
+  const isMobile = useIsMobile();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -221,8 +230,54 @@ export default function Accounts() {
                     : 'Get started by creating a new account'}
                 </p>
               </div>
+            ) : isMobile ? (
+              <div className="space-y-3">
+                {nestedAccounts.map(({ account, level }) => (
+                  <MobileDataCard 
+                    key={account.id} 
+                    onClick={() => { setEditingAccountId(account.id); setDialogOpen(true); }}
+                    style={{ marginLeft: `${level * 0.75}rem` }}
+                  >
+                    <MobileDataCardHeader>
+                      <div>
+                        <MobileDataCardTitle className="flex items-center gap-2">
+                          {level > 0 && <span className="text-muted-foreground">└</span>}
+                          {account.account_code}
+                          {account.is_master_account && (
+                            <Badge variant="outline" className="text-xs">Master</Badge>
+                          )}
+                        </MobileDataCardTitle>
+                        <MobileDataCardDescription>{account.account_name}</MobileDataCardDescription>
+                      </div>
+                      {getStatusBadge(account.status, account.credit_hold)}
+                    </MobileDataCardHeader>
+                    <MobileDataCardContent>
+                      <div className="grid grid-cols-2 gap-2 text-muted-foreground text-xs">
+                        <div>
+                          <span>Type:</span>
+                          <div className="text-foreground">{account.account_type || '-'}</div>
+                        </div>
+                        <div>
+                          <span>Location:</span>
+                          <div className="text-foreground">
+                            {account.billing_city || account.billing_state
+                              ? `${account.billing_city || ''}${account.billing_city && account.billing_state ? ', ' : ''}${account.billing_state || ''}`
+                              : '-'}
+                          </div>
+                        </div>
+                      </div>
+                      {account.primary_contact_name && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          <span>Contact:</span>
+                          <div className="text-foreground">{account.primary_contact_name}</div>
+                        </div>
+                      )}
+                    </MobileDataCardContent>
+                  </MobileDataCard>
+                ))}
+              </div>
             ) : (
-              <div className="rounded-md border">
+              <div className="overflow-x-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
