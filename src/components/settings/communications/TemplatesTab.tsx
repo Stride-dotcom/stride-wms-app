@@ -278,7 +278,7 @@ export function TemplatesTab({
       html = html.replace(/{{portal_base_url}}/g, brandSettings.portal_base_url || 'https://portal.example.com');
     }
 
-    // Sample items list for preview
+    // Sample items list for preview (card style)
     const sampleItemsHtml = `
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;">
         <tr>
@@ -296,6 +296,41 @@ export function TemplatesTab({
       </table>
     `;
     html = html.replace(/{{items_list_html}}/g, sampleItemsHtml);
+
+    // Sample items table for preview (table style)
+    const sampleItemsTableHtml = `
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;border-collapse:collapse;">
+        <thead>
+          <tr style="background-color:#f3f4f6;">
+            <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Item ID</th>
+            <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Description</th>
+            <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Vendor</th>
+            <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Location</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">ITM-001</td>
+            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Office Chair - Black</td>
+            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Supplier Inc</td>
+            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Aisle A, Rack 5</td>
+          </tr>
+          <tr>
+            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">ITM-002</td>
+            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Standing Desk - Oak</td>
+            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Furniture Co</td>
+            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Aisle B, Rack 2</td>
+          </tr>
+          <tr>
+            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">ITM-003</td>
+            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Monitor Stand</td>
+            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Tech Supply</td>
+            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Aisle A, Rack 5</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+    html = html.replace(/{{items_table_html}}/g, sampleItemsTableHtml);
 
     if (currentChannel === 'sms') {
       return (
