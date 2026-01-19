@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mail, CheckCircle, XCircle, Loader2, Copy, Info, Globe, ShieldCheck } from 'lucide-react';
+import { Mail, CheckCircle, XCircle, Loader2, Copy, Info, Globe, ShieldCheck, RefreshCw, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -38,6 +38,7 @@ export function EmailDomainSection() {
   const [saving, setSaving] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [settings, setSettings] = useState<EmailDomainSettings>({
     custom_email_domain: null,
     email_domain_verified: false,
@@ -232,6 +233,40 @@ export function EmailDomainSection() {
     }
   };
 
+  const handleRefreshRecords = async () => {
+    if (!settings.resend_domain_id) return;
+    
+    setRefreshing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-email-domain', {
+        body: {},
+      });
+
+      if (error) throw error;
+
+      if (data?.records) {
+        setDnsRecords(data.records);
+        setSettings(prev => ({
+          ...prev,
+          resend_dns_records: data.records,
+        }));
+        toast({
+          title: 'Records Refreshed',
+          description: 'DNS records have been updated.',
+        });
+      }
+    } catch (error: any) {
+      console.error('Error refreshing records:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to refresh DNS records',
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
@@ -353,16 +388,24 @@ export function EmailDomainSection() {
           </div>
         )}
 
-        {/* Step 2: DNS Records */}
+        {/* Step 2: DNS Records - with records */}
         {registrationStatus === 'pending_dns' && dnsRecords.length > 0 && (
           <div className="space-y-4">
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                <p className="font-medium mb-2">Step 2: Add DNS Records</p>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Add the following DNS records to your domain ({domain}). Once added, click "Verify Domain" to complete setup.
+                <p className="font-medium mb-2">Step 2: Add DNS Records to Your Domain</p>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Add these records to your domain's DNS settings. You can find this in your domain registrar 
+                  (GoDaddy, Cloudflare, Namecheap, Google Domains, etc.):
                 </p>
+                <ol className="text-sm text-muted-foreground mb-4 list-decimal list-inside space-y-1">
+                  <li>Log into your domain registrar (where you bought <strong>{domain}</strong>)</li>
+                  <li>Go to <strong>DNS Settings</strong> or <strong>DNS Management</strong></li>
+                  <li>Add each record below exactly as shown</li>
+                  <li>Save changes and wait up to 48 hours for propagation</li>
+                  <li>Return here and click "Verify Domain"</li>
+                </ol>
                 
                 <div className="space-y-3">
                   {dnsRecords.map((record, index) => (
@@ -393,26 +436,31 @@ export function EmailDomainSection() {
                       <div className="space-y-1">
                         <div className="flex gap-2 text-xs">
                           <span className="font-medium text-muted-foreground w-12">Name:</span>
-                          <code className="flex-1 break-all">{record.name}</code>
+                          <code className="flex-1 break-all bg-muted px-1 rounded">{record.name}</code>
                         </div>
                         <div className="flex gap-2 text-xs">
                           <span className="font-medium text-muted-foreground w-12">Type:</span>
-                          <code>{record.type}</code>
+                          <code className="bg-muted px-1 rounded">{record.type}</code>
                         </div>
                         <div className="flex gap-2 text-xs">
                           <span className="font-medium text-muted-foreground w-12">Value:</span>
-                          <code className="flex-1 break-all text-[10px]">{record.value}</code>
+                          <code className="flex-1 break-all text-[10px] bg-muted px-1 rounded">{record.value}</code>
                         </div>
                         {record.priority !== undefined && (
                           <div className="flex gap-2 text-xs">
                             <span className="font-medium text-muted-foreground w-12">Priority:</span>
-                            <code>{record.priority}</code>
+                            <code className="bg-muted px-1 rounded">{record.priority}</code>
                           </div>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
+                
+                <p className="text-xs text-muted-foreground mt-4">
+                  <strong>Note:</strong> DNS changes can take 15 minutes to 48 hours to propagate. 
+                  If verification fails, wait a few hours and try again.
+                </p>
               </AlertDescription>
             </Alert>
             
@@ -421,6 +469,34 @@ export function EmailDomainSection() {
                 {verifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <ShieldCheck className="mr-2 h-4 w-4" />
                 Verify Domain
+              </Button>
+              <Button variant="outline" onClick={handleRefreshRecords} disabled={refreshing}>
+                {refreshing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh Status
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: DNS Records - empty records, need to refresh */}
+        {registrationStatus === 'pending_dns' && dnsRecords.length === 0 && (
+          <div className="space-y-4">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                <p className="font-medium mb-2">Loading DNS Records...</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  DNS records weren't loaded. Click the button below to refresh and retrieve the records you need to add to your domain.
+                </p>
+              </AlertDescription>
+            </Alert>
+            
+            <div className="flex gap-2">
+              <Button onClick={handleRefreshRecords} disabled={refreshing}>
+                {refreshing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Load DNS Records
               </Button>
             </div>
           </div>
