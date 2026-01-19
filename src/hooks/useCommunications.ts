@@ -204,33 +204,37 @@ export function useCommunications() {
 
   const fetchBrandSettings = useCallback(async () => {
     if (!profile?.tenant_id) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('communication_brand_settings')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
         .maybeSingle();
-      
+
       if (error) throw error;
-      
-      if (!data) {
-        // Create default brand settings
-        const { data: newSettings, error: createError } = await supabase
-          .from('communication_brand_settings')
-          .insert({
+
+      if (data) {
+        setBrandSettings(data as CommunicationBrandSettings);
+        return;
+      }
+
+      // Ensure a single row exists per tenant (handles race conditions / existing rows)
+      const { data: upserted, error: upsertError } = await supabase
+        .from('communication_brand_settings')
+        .upsert(
+          {
             tenant_id: profile.tenant_id,
             brand_primary_color: '#FD5A2A',
             from_name: 'Stride Logistics',
-          })
-          .select()
-          .single();
-        
-        if (createError) throw createError;
-        setBrandSettings(newSettings as CommunicationBrandSettings);
-      } else {
-        setBrandSettings(data as CommunicationBrandSettings);
-      }
+          },
+          { onConflict: 'tenant_id' }
+        )
+        .select('*')
+        .single();
+
+      if (upsertError) throw upsertError;
+      setBrandSettings(upserted as CommunicationBrandSettings);
     } catch (error) {
       console.error('Error fetching brand settings:', error);
     }

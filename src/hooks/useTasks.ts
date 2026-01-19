@@ -803,13 +803,13 @@ export function useDueDateRules(accountId?: string) {
     fetchRules();
   }, [fetchRules]);
 
-  const getDueDateForTaskType = (taskType: string): Date => {
+  const getDueDateForTaskType = useCallback((taskType: string): Date => {
     const rule = rules.find(r => r.task_type === taskType);
     const days = rule?.days_from_creation || 3; // Default 3 days
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + days);
     return dueDate;
-  };
+  }, [rules]);
 
   const saveRule = async (taskType: string, days: number, forAccountId?: string) => {
     if (!profile?.tenant_id) return false;
