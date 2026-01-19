@@ -176,7 +176,8 @@ export function RateSheetsSettingsTab() {
       r.service_type.toLowerCase().includes(q) ||
       r.rate_card_name.toLowerCase().includes(q) ||
       r.rate_card_code.toLowerCase().includes(q) ||
-      (r.category || '').toLowerCase().includes(q)
+      (r.category || '').toLowerCase().includes(q) ||
+      (r.item_type_name || '').toLowerCase().includes(q)
     );
   });
 
@@ -449,7 +450,7 @@ export function RateSheetsSettingsTab() {
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by service, rate card, or category..."
+              placeholder="Search by service, item type, rate card..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -548,9 +549,9 @@ export function RateSheetsSettingsTab() {
             ))}
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-md border max-h-[calc(100vh-400px)] overflow-y-auto">
+          <div className="rounded-md border max-h-[calc(100vh-350px)] overflow-auto relative">
             <Table>
-              <TableHeader className="sticky top-0 bg-background z-10">
+              <TableHeader className="sticky top-0 bg-background z-10 shadow-sm after:absolute after:left-0 after:right-0 after:bottom-0 after:h-px after:bg-border">
                 <TableRow>
                   <TableHead>Service Type</TableHead>
                   <TableHead>Item Type</TableHead>
