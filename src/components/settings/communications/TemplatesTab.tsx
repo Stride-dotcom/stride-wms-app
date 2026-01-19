@@ -35,6 +35,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Mail,
@@ -52,6 +60,8 @@ import {
   Loader2,
   Variable,
   Edit3,
+  MoreVertical,
+  X,
 } from 'lucide-react';
 import {
   CommunicationAlert,
@@ -108,8 +118,8 @@ export function TemplatesTab({
   const [showTestDialog, setShowTestDialog] = useState(false);
   const [testEmail, setTestEmail] = useState('');
   const [copiedVar, setCopiedVar] = useState<string | null>(null);
-  const [mobileView, setMobileView] = useState<'preview' | 'editor'>('preview');
   const [showVariablesDrawer, setShowVariablesDrawer] = useState(false);
+  const [showEditorSheet, setShowEditorSheet] = useState(false);
   const { toast } = useToast();
   
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -195,6 +205,11 @@ export function TemplatesTab({
       sms_sender_id: formData.sms_sender_id || null,
     });
     setIsSaving(false);
+    setShowEditorSheet(false);
+    toast({
+      title: 'Template saved',
+      description: 'Your changes have been saved.',
+    });
   };
 
   const loadVersions = async () => {
@@ -357,6 +372,7 @@ export function TemplatesTab({
               placeholder="e.g., Stride Logistics"
               value={formData.from_name}
               onChange={(e) => setFormData(prev => ({ ...prev, from_name: e.target.value }))}
+              className="h-11"
             />
           </div>
           <div className="space-y-2">
@@ -367,6 +383,7 @@ export function TemplatesTab({
               placeholder="e.g., notifications@stride.com"
               value={formData.from_email}
               onChange={(e) => setFormData(prev => ({ ...prev, from_email: e.target.value }))}
+              className="h-11"
             />
           </div>
         </div>
@@ -381,6 +398,7 @@ export function TemplatesTab({
             placeholder="e.g., STRIDE or +1234567890"
             value={formData.sms_sender_id}
             onChange={(e) => setFormData(prev => ({ ...prev, sms_sender_id: e.target.value }))}
+            className="h-11"
           />
           <p className="text-xs text-muted-foreground">
             Alphanumeric sender ID or phone number (requires Twilio)
@@ -398,6 +416,7 @@ export function TemplatesTab({
             placeholder="Email subject with {{variables}}"
             value={formData.subject_template}
             onChange={(e) => setFormData(prev => ({ ...prev, subject_template: e.target.value }))}
+            className="h-11"
           />
         </div>
       )}
@@ -410,7 +429,7 @@ export function TemplatesTab({
             <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="h-9 touch-target">
                     <span className="hidden sm:inline">Insert Element</span>
                     <span className="sm:hidden">Insert</span>
                     <ChevronDown className="ml-2 h-4 w-4" />
@@ -427,6 +446,7 @@ export function TemplatesTab({
                           <DropdownMenuItem
                             key={element.id}
                             onClick={() => insertDesignElement(element)}
+                            className="h-11"
                           >
                             {element.name}
                           </DropdownMenuItem>
@@ -439,12 +459,12 @@ export function TemplatesTab({
               </DropdownMenu>
               
               <Tabs value={editorMode} onValueChange={(v) => setEditorMode(v as 'rich' | 'code')}>
-                <TabsList className="h-8">
-                  <TabsTrigger value="code" className="text-xs px-2 h-6">
+                <TabsList className="h-9">
+                  <TabsTrigger value="code" className="text-xs px-3 h-7">
                     <Code className="h-3 w-3 mr-1" />
                     <span className="hidden sm:inline">Code</span>
                   </TabsTrigger>
-                  <TabsTrigger value="rich" className="text-xs px-2 h-6" disabled>
+                  <TabsTrigger value="rich" className="text-xs px-3 h-7" disabled>
                     <span className="hidden sm:inline">Rich</span>
                   </TabsTrigger>
                 </TabsList>
@@ -501,7 +521,7 @@ export function TemplatesTab({
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div
-                              className="flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer group text-sm"
+                              className="flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer group text-sm touch-target"
                               onClick={() => insertVariable(variable.key)}
                             >
                               <span className="font-mono text-xs truncate">
@@ -550,7 +570,7 @@ export function TemplatesTab({
           <span className="font-medium text-sm">Live Preview</span>
         </div>
         <Select value={previewContext} onValueChange={(v) => setPreviewContext(v as any)}>
-          <SelectTrigger className="w-full sm:w-[150px] h-8">
+          <SelectTrigger className="w-full sm:w-[150px] h-9">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -576,7 +596,7 @@ export function TemplatesTab({
           Choose an alert from the dropdown or go to the Alerts tab to create one.
         </p>
         <Select value={currentAlertId} onValueChange={setCurrentAlertId}>
-          <SelectTrigger className="w-full max-w-[300px]">
+          <SelectTrigger className="w-full max-w-[300px] h-11">
             <SelectValue placeholder="Select an alert" />
           </SelectTrigger>
           <SelectContent>
@@ -593,13 +613,104 @@ export function TemplatesTab({
 
   return (
     <>
-      <div className="flex flex-col h-[calc(100vh-350px)] min-h-[500px] lg:min-h-[600px]">
+      {/* Mobile Layout - Optimized for native apps */}
+      <div className="flex flex-col h-[calc(100dvh-200px)] lg:hidden">
+        {/* Compact Mobile Header - 48px with touch targets */}
+        <div className="flex items-center gap-2 py-2 border-b bg-background">
+          {/* Alert Selector */}
+          <Select value={currentAlertId} onValueChange={setCurrentAlertId}>
+            <SelectTrigger className="flex-1 h-11 min-w-0">
+              <SelectValue placeholder="Select alert" />
+            </SelectTrigger>
+            <SelectContent>
+              {alerts.map((alert) => (
+                <SelectItem key={alert.id} value={alert.id}>
+                  {alert.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          {/* Channel Toggle - Icon only for space */}
+          <div className="flex border rounded-lg">
+            <button
+              onClick={() => setCurrentChannel('email')}
+              className={`h-11 w-11 flex items-center justify-center rounded-l-lg transition-colors ${
+                currentChannel === 'email' 
+                  ? 'bg-primary text-primary-foreground' 
+                  : 'bg-background hover:bg-muted'
+              }`}
+            >
+              <Mail className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => setCurrentChannel('sms')}
+              className={`h-11 w-11 flex items-center justify-center rounded-r-lg transition-colors ${
+                currentChannel === 'sms' 
+                  ? 'bg-primary text-primary-foreground' 
+                  : 'bg-background hover:bg-muted'
+              }`}
+            >
+              <MessageSquare className="h-5 w-5" />
+            </button>
+          </div>
+          
+          {/* More Actions Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-11 w-11 shrink-0">
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => setShowVariablesDrawer(true)} className="h-11">
+                <Variable className="h-4 w-4 mr-2" />
+                Insert Variable
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={loadVersions} className="h-11">
+                <History className="h-4 w-4 mr-2" />
+                Version History
+              </DropdownMenuItem>
+              {currentChannel === 'email' && (
+                <DropdownMenuItem onClick={() => setShowTestDialog(true)} className="h-11">
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Test Email
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSave} disabled={isSaving} className="h-11">
+                <Save className="h-4 w-4 mr-2" />
+                {isSaving ? 'Saving...' : 'Save Template'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Full-height Preview */}
+        <div className="flex-1 overflow-hidden py-2">
+          {renderPreviewPanel()}
+        </div>
+
+        {/* Sticky Bottom Edit Button - 48px height with safe area */}
+        <div className="border-t bg-background p-2 pb-safe">
+          <Button 
+            onClick={() => setShowEditorSheet(true)} 
+            className="w-full h-12 text-base font-medium"
+          >
+            <Edit3 className="h-5 w-5 mr-2" />
+            Edit Template
+          </Button>
+        </div>
+      </div>
+
+      {/* Desktop Layout */}
+      <div className="hidden lg:flex lg:flex-col h-[calc(100vh-350px)] min-h-[600px]">
         {/* Header */}
         <div className="flex flex-col gap-4 pb-4 border-b">
           {/* Row 1: Alert selector and channel toggle */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center">
+          <div className="flex gap-4 items-center">
             <Select value={currentAlertId} onValueChange={setCurrentAlertId}>
-              <SelectTrigger className="w-full sm:w-[250px]">
+              <SelectTrigger className="w-[250px]">
                 <SelectValue placeholder="Select alert" />
               </SelectTrigger>
               <SelectContent>
@@ -612,88 +723,98 @@ export function TemplatesTab({
             </Select>
             
             <Tabs value={currentChannel} onValueChange={(v) => setCurrentChannel(v as 'email' | 'sms')}>
-              <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex">
-                <TabsTrigger value="email" className="gap-1 sm:gap-2">
+              <TabsList>
+                <TabsTrigger value="email" className="gap-2">
                   <Mail className="h-4 w-4" />
-                  <span className="hidden xs:inline sm:inline">Email</span>
+                  Email
                 </TabsTrigger>
-                <TabsTrigger value="sms" className="gap-1 sm:gap-2">
+                <TabsTrigger value="sms" className="gap-2">
                   <MessageSquare className="h-4 w-4" />
-                  <span className="hidden xs:inline sm:inline">SMS</span>
+                  SMS
                 </TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
           
           {/* Row 2: Actions */}
-          <div className="flex items-center gap-2 justify-between sm:justify-end flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowVariablesDrawer(true)}
-              className="gap-2 lg:hidden"
-            >
-              <Variable className="h-4 w-4" />
-              <span className="hidden sm:inline">Variables</span>
-            </Button>
-            
+          <div className="flex items-center gap-2 justify-end">
             {currentChannel === 'email' && (
               <Button variant="outline" size="sm" onClick={() => setShowTestDialog(true)}>
-                <Send className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Send Test</span>
+                <Send className="h-4 w-4 mr-2" />
+                Send Test
               </Button>
             )}
             
             <Button variant="outline" size="sm" onClick={loadVersions}>
-              <History className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Versions</span>
+              <History className="h-4 w-4 mr-2" />
+              Versions
             </Button>
             
             <Button onClick={handleSave} disabled={isSaving} size="sm">
-              <Save className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">{isSaving ? 'Saving...' : 'Save Template'}</span>
+              <Save className="h-4 w-4 mr-2" />
+              {isSaving ? 'Saving...' : 'Save Template'}
             </Button>
           </div>
         </div>
 
-        {/* Mobile view toggle - Preview first */}
-        <div className="lg:hidden pt-4 pb-2">
-          <Tabs value={mobileView} onValueChange={(v) => setMobileView(v as 'preview' | 'editor')}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="preview" className="gap-2">
-                <Eye className="h-4 w-4" />
-                Preview
-              </TabsTrigger>
-              <TabsTrigger value="editor" className="gap-2">
-                <Edit3 className="h-4 w-4" />
-                Editor
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-
-        {/* Desktop: Side by side */}
-        <div className="hidden lg:grid lg:grid-cols-2 gap-4 pt-4 flex-1 overflow-hidden">
+        {/* Side by side */}
+        <div className="grid grid-cols-2 gap-4 pt-4 flex-1 overflow-hidden">
           {renderEditorPanel()}
           {renderPreviewPanel()}
         </div>
-
-        {/* Mobile: Show based on toggle */}
-        <div className="lg:hidden flex-1 pt-2 overflow-hidden">
-          {mobileView === 'preview' && renderPreviewPanel()}
-          {mobileView === 'editor' && renderEditorPanel()}
-        </div>
-
-        {/* Floating Variables Button - Mobile only */}
-        <Button
-          variant="default"
-          size="icon"
-          className="fixed bottom-20 right-4 lg:hidden z-50 h-12 w-12 rounded-full shadow-lg"
-          onClick={() => setShowVariablesDrawer(true)}
-        >
-          <Variable className="h-5 w-5" />
-        </Button>
       </div>
+
+      {/* Mobile Editor Sheet - 90vh height */}
+      <Sheet open={showEditorSheet} onOpenChange={setShowEditorSheet}>
+        <SheetContent side="bottom" className="h-[90vh] flex flex-col p-0">
+          <SheetHeader className="px-4 py-3 border-b">
+            <div className="flex items-center justify-between">
+              <SheetTitle className="text-base">Edit Template</SheetTitle>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9"
+                onClick={() => setShowEditorSheet(false)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+          </SheetHeader>
+          
+          <div className="flex-1 overflow-auto p-4">
+            {renderEditorPanel()}
+          </div>
+          
+          <SheetFooter className="px-4 py-3 border-t pb-safe">
+            <div className="flex gap-3 w-full">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowEditorSheet(false)}
+                className="flex-1 h-12"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSave} 
+                disabled={isSaving}
+                className="flex-1 h-12"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </Button>
+            </div>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {/* Variables Drawer */}
       <VariablesDrawer
@@ -734,6 +855,7 @@ export function TemplatesTab({
                           variant="outline"
                           size="sm"
                           onClick={() => handleRevert(version)}
+                          className="h-11"
                         >
                           Restore
                         </Button>
@@ -768,14 +890,15 @@ export function TemplatesTab({
                 placeholder="your@email.com"
                 value={testEmail}
                 onChange={(e) => setTestEmail(e.target.value)}
+                className="h-11"
               />
             </div>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowTestDialog(false)} className="w-full sm:w-auto">
+            <Button variant="outline" onClick={() => setShowTestDialog(false)} className="w-full sm:w-auto h-12">
               Cancel
             </Button>
-            <Button onClick={handleSendTest} disabled={isSendingTest || !testEmail} className="w-full sm:w-auto">
+            <Button onClick={handleSendTest} disabled={isSendingTest || !testEmail} className="w-full sm:w-auto h-12">
               {isSendingTest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               {isSendingTest ? 'Sending...' : 'Send Test'}
             </Button>

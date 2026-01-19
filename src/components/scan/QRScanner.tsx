@@ -4,6 +4,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import { hapticMedium } from "@/lib/haptics";
 
 interface QRScannerProps {
   onScan: (data: string) => void;
@@ -128,6 +129,7 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
     if (decodedText !== lastScannedRef.current || now - lastScanTimeRef.current > 1500) {
       lastScannedRef.current = decodedText;
       lastScanTimeRef.current = now;
+      hapticMedium(); // Tactile feedback on successful scan
       onScan(decodedText);
     }
   }, [onScan]);

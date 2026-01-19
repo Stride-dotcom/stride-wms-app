@@ -9,6 +9,12 @@ import { useLocations } from '@/hooks/useLocations';
 import { QRScanner } from '@/components/scan/QRScanner';
 import { ItemSearchOverlay, LocationSearchOverlay } from '@/components/scan/SearchOverlays';
 import {
+  hapticLight,
+  hapticMedium,
+  hapticSuccess,
+  hapticError,
+} from '@/lib/haptics';
+import {
   Move,
   Layers,
   Search,
@@ -142,8 +148,10 @@ export default function ScanHub() {
       if (mode === 'lookup') {
         const item = await lookupItem(input);
         if (item) {
+          hapticMedium(); // Item found
           navigate(`/inventory/${item.id}`);
         } else {
+          hapticError(); // Item not found
           toast({
             variant: 'destructive',
             title: 'Item Not Found',
@@ -158,6 +166,7 @@ export default function ScanHub() {
         if (phase === 'scanning-item') {
           const item = await lookupItem(input);
           if (item) {
+            hapticMedium(); // Item found
             setScannedItem(item);
             setPhase('scanning-location');
             toast({
@@ -165,6 +174,7 @@ export default function ScanHub() {
               description: 'Now scan the destination bay.',
             });
           } else {
+            hapticError(); // Item not found
             toast({
               variant: 'destructive',
               title: 'Item Not Found',
@@ -174,9 +184,11 @@ export default function ScanHub() {
         } else if (phase === 'scanning-location') {
           const loc = await lookupLocation(input);
           if (loc) {
+            hapticMedium(); // Location found
             setTargetLocation(loc);
             setPhase('confirm');
           } else {
+            hapticError(); // Location not found
             toast({
               variant: 'destructive',
               title: 'Location Not Found',
@@ -190,6 +202,7 @@ export default function ScanHub() {
         // In batch mode, first try to parse as location
         const loc = await lookupLocation(input);
         if (loc && batchItems.length > 0) {
+          hapticMedium(); // Location found
           setTargetLocation(loc);
           setPhase('confirm');
           setProcessing(false);
@@ -200,6 +213,7 @@ export default function ScanHub() {
         const item = await lookupItem(input);
         if (item) {
           if (!batchItems.find(i => i.id === item.id)) {
+            hapticLight(); // Item added to batch
             setBatchItems(prev => [...prev, item]);
             toast({
               title: `Added: ${item.item_code}`,
@@ -212,6 +226,7 @@ export default function ScanHub() {
             });
           }
         } else if (!loc) {
+          hapticError(); // Not found
           toast({
             variant: 'destructive',
             title: 'Not Found',
@@ -234,6 +249,7 @@ export default function ScanHub() {
   // Handle manual item selection from search
   const handleItemSelect = (item: { id: string; item_code: string; description: string | null; location_code: string | null; warehouse_name: string | null }) => {
     setShowItemSearch(false);
+    hapticLight(); // Selection feedback
     
     const scannedItem: ScannedItem = {
       id: item.id,
@@ -276,6 +292,7 @@ export default function ScanHub() {
   // Handle manual location selection from search
   const handleLocationSelect = (loc: ScannedLocation) => {
     setShowLocationSearch(false);
+    hapticMedium(); // Location selected
     setTargetLocation(loc);
     setPhase('confirm');
   };
@@ -304,6 +321,7 @@ export default function ScanHub() {
         }
       }
 
+      hapticSuccess(); // Move completed successfully
       toast({
         title: 'Move Complete',
         description: `Moved ${successCount} item${successCount !== 1 ? 's' : ''} to ${targetLocation.code}`,
@@ -312,6 +330,7 @@ export default function ScanHub() {
       resetState();
     } catch (error) {
       console.error('Move error:', error);
+      hapticError(); // Move failed
       toast({
         variant: 'destructive',
         title: 'Move Failed',
@@ -334,6 +353,7 @@ export default function ScanHub() {
   };
 
   const selectMode = (selectedMode: ScanMode) => {
+    hapticLight(); // Mode selection feedback
     setMode(selectedMode);
     setPhase('scanning-item');
   };
