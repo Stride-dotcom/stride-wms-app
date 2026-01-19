@@ -122,7 +122,8 @@ export const COMMUNICATION_VARIABLES = [
   
   // Aggregates
   { key: 'items_count', label: 'Items Count', group: 'Aggregates', sample: '5', description: 'Total number of items' },
-  { key: 'items_list_html', label: 'Items List (HTML)', group: 'Aggregates', sample: '<div>...</div>', description: 'Formatted HTML list of items' },
+  { key: 'items_list_html', label: 'Items List (HTML)', group: 'Aggregates', sample: '<div>...</div>', description: 'Formatted HTML list of items (card style)' },
+  { key: 'items_table_html', label: 'Items Table (HTML)', group: 'Aggregates', sample: '<table>...</table>', description: 'Formatted HTML table of items with columns' },
   { key: 'items_list_text', label: 'Items List (Text)', group: 'Aggregates', sample: '1x Chair, 2x Table', description: 'Plain text list of items' },
   
   // Tasks

@@ -95,6 +95,42 @@ function wrapEmailWithBranding(html: string, logoUrl: string | null, companyName
   `;
 }
 
+async function generateItemsTableHtml(supabase: any, itemIds: string[]): Promise<string> {
+  if (!itemIds || itemIds.length === 0) return '<p style="color:#6b7280;">No items</p>';
+  
+  const { data: items } = await supabase
+    .from('items')
+    .select('item_code, description, vendor, current_location')
+    .in('id', itemIds);
+  
+  if (!items || items.length === 0) return '<p style="color:#6b7280;">No items found</p>';
+  
+  const rows = items.map((item: any) => `
+    <tr>
+      <td style="padding:12px;border-bottom:1px solid #e5e7eb;">${item.item_code || 'N/A'}</td>
+      <td style="padding:12px;border-bottom:1px solid #e5e7eb;">${item.description || 'N/A'}</td>
+      <td style="padding:12px;border-bottom:1px solid #e5e7eb;">${item.vendor || 'N/A'}</td>
+      <td style="padding:12px;border-bottom:1px solid #e5e7eb;">${item.current_location || 'N/A'}</td>
+    </tr>
+  `).join('');
+  
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;border-collapse:collapse;">
+      <thead>
+        <tr style="background-color:#f3f4f6;">
+          <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Item ID</th>
+          <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Description</th>
+          <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Vendor</th>
+          <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Location</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
+}
+
 async function generateEmailContent(
   alertType: string, 
   entityType: string,
