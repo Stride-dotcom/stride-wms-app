@@ -33,6 +33,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTenantSettings } from '@/hooks/useTenantSettings';
 import { OrganizationLogoUpload } from './OrganizationLogoUpload';
 import { DueDateRulesSettingsTab } from './DueDateRulesSettingsTab';
+import { PreferencesContent } from './preferences/PreferencesContent';
 
 const organizationSchema = z.object({
   // Company Info
@@ -421,72 +422,9 @@ export function OrganizationSettingsTab() {
               </Card>
             </TabsContent>
 
-            {/* Preferences Tab */}
+            {/* Preferences Tab - now uses dedicated component */}
             <TabsContent value="preferences">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings2 className="h-5 w-5" />
-                    System Preferences
-                  </CardTitle>
-                  <CardDescription>
-                    Configure default behaviors and application settings
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                      control={form.control}
-                      name="app_base_url"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Application URL</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://app.yourcompany.com" {...field} />
-                          </FormControl>
-                          <FormDescription>
-                            Base URL for links in emails and notifications
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="app_subdomain"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Subdomain</FormLabel>
-                          <FormControl>
-                            <Input placeholder="yourcompany" {...field} />
-                          </FormControl>
-                          <FormDescription>
-                            Custom subdomain for your organization
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button type="submit" disabled={saving}>
-                      {saving ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="mr-2 h-4 w-4" />
-                          Save Changes
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <PreferencesContent />
             </TabsContent>
 
             {/* Communications Tab */}

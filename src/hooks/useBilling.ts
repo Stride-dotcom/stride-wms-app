@@ -304,6 +304,89 @@ export function useBillableCharges(
         }
       }
 
+      // Fetch storage charges for items in active inventory during the period
+      if (chargeTypes.includes('storage')) {
+        // Get tenant preferences for daily storage rate
+        const { data: preferences } = await supabase
+          .from('tenant_preferences')
+          .select('daily_storage_rate_per_cuft, free_storage_days')
+          .eq('tenant_id', profile.tenant_id)
+          .maybeSingle();
+
+        const dailyRate = preferences?.daily_storage_rate_per_cuft || 0.04;
+        const freeStorageDays = preferences?.free_storage_days || 0;
+
+        // Get items that were in active stock during the billing period
+        // Active = received_at <= periodEnd AND (released_at IS NULL OR released_at >= periodStart)
+        const { data: items, error: itemsError } = await (supabase
+          .from('items') as any)
+          .select(`
+            id,
+            item_code,
+            description,
+            received_at,
+            released_at,
+            account_id,
+            accounts:account_id (account_name),
+            item_type_id,
+            item_types:item_type_id (cubic_feet)
+          `)
+          .eq('tenant_id', profile.tenant_id)
+          .in('account_id', accountIds)
+          .lte('received_at', periodEnd)
+          .or(`released_at.is.null,released_at.gte.${periodStart}`);
+
+        if (!itemsError && items) {
+          const periodStartDate = new Date(periodStart);
+          const periodEndDate = new Date(periodEnd);
+
+          for (const item of items) {
+            const cubicFeet = item.item_types?.cubic_feet || 0;
+            if (cubicFeet <= 0) continue;
+
+            const receivedAt = new Date(item.received_at);
+            const releasedAt = item.released_at ? new Date(item.released_at) : null;
+
+            // Calculate active start within billing period
+            const activeStart = receivedAt > periodStartDate ? receivedAt : periodStartDate;
+            // Calculate active end within billing period
+            const activeEnd = releasedAt && releasedAt < periodEndDate ? releasedAt : periodEndDate;
+
+            if (activeEnd <= activeStart) continue;
+
+            // Calculate days in period
+            const msPerDay = 1000 * 60 * 60 * 24;
+            let daysInPeriod = Math.ceil((activeEnd.getTime() - activeStart.getTime()) / msPerDay);
+
+            // Apply free storage days (only if this is within the first N days of receiving)
+            if (freeStorageDays > 0) {
+              const daysSinceReceived = Math.ceil((activeStart.getTime() - receivedAt.getTime()) / msPerDay);
+              const remainingFreeDays = Math.max(0, freeStorageDays - daysSinceReceived);
+              daysInPeriod = Math.max(0, daysInPeriod - remainingFreeDays);
+            }
+
+            if (daysInPeriod <= 0) continue;
+
+            const storageCharge = cubicFeet * dailyRate * daysInPeriod;
+
+            allCharges.push({
+              id: `storage-${item.id}-${periodStart}`,
+              charge_type: 'storage',
+              description: `Storage: ${item.item_code || item.description || 'Item'} (${cubicFeet} cu ft × ${daysInPeriod} days)`,
+              service_type: 'Storage',
+              service_date: periodEnd,
+              quantity: daysInPeriod,
+              unit_price: cubicFeet * dailyRate,
+              total: storageCharge,
+              account_id: item.account_id,
+              account_name: item.accounts?.account_name || '',
+              item_id: item.id,
+              item_code: item.item_code || undefined,
+            });
+          }
+        }
+      }
+
       // Fetch custom billing charges
       if (chargeTypes.includes('custom')) {
         const { data: customCharges, error: customError } = await supabase

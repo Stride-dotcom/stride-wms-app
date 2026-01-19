@@ -181,6 +181,16 @@ export function useReceivingSession(shipmentId: string | undefined) {
             .eq('id', shipment.account_id)
             .single();
 
+          // Get tenant preferences for should_create_inspections
+          const { data: tenantPreferences } = await supabase
+            .from('tenant_preferences')
+            .select('should_create_inspections')
+            .eq('tenant_id', profile.tenant_id)
+            .maybeSingle();
+
+          // Use tenant preference if set, otherwise fall back to account setting
+          const shouldCreateInspections = tenantPreferences?.should_create_inspections || account?.auto_inspection_on_receiving;
+
           for (const item of verificationData.received_items) {
             // Generate item code
             const itemCode = `ITM-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
@@ -214,8 +224,8 @@ export function useReceivingSession(shipmentId: string | undefined) {
               continue;
             }
 
-            // Create inspection task if auto_inspection is enabled
-            if (account?.auto_inspection_on_receiving && newItem) {
+            // Create inspection task if tenant preference or account setting is enabled
+            if (shouldCreateInspections && newItem) {
               await supabase
                 .from('tasks')
                 .insert({
