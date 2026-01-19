@@ -4161,6 +4161,7 @@ export type Database = {
           invoice_id: string | null
           metadata: Json | null
           minor_touchup_applied: boolean | null
+          overdue_alert_sent_at: string | null
           pallet_sale_applied: boolean | null
           parent_task_id: string | null
           priority: string | null
@@ -4205,6 +4206,7 @@ export type Database = {
           invoice_id?: string | null
           metadata?: Json | null
           minor_touchup_applied?: boolean | null
+          overdue_alert_sent_at?: string | null
           pallet_sale_applied?: boolean | null
           parent_task_id?: string | null
           priority?: string | null
@@ -4249,6 +4251,7 @@ export type Database = {
           invoice_id?: string | null
           metadata?: Json | null
           minor_touchup_applied?: boolean | null
+          overdue_alert_sent_at?: string | null
           pallet_sale_applied?: boolean | null
           parent_task_id?: string | null
           priority?: string | null
