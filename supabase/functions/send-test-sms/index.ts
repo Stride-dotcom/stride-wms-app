@@ -173,6 +173,15 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (!twilioResponse.ok) {
       console.error("Twilio error:", twilioData);
+      
+      // Check for trial account unverified number error
+      if (twilioData.code === 21608 || (twilioData.message && twilioData.message.includes('unverified'))) {
+        throw new Error(
+          `Trial account limitation: Your Twilio trial account can only send SMS to verified phone numbers. ` +
+          `Please verify this number at twilio.com/console/phone-numbers/verified, or upgrade your Twilio account.`
+        );
+      }
+      
       throw new Error(twilioData.message || 'Failed to send SMS');
     }
 
