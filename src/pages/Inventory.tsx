@@ -38,6 +38,14 @@ import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations } from '@/hooks/useLocations';
 import { ItemLabelData } from '@/lib/labelGenerator';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  MobileDataCard,
+  MobileDataCardHeader,
+  MobileDataCardTitle,
+  MobileDataCardDescription,
+  MobileDataCardContent,
+} from '@/components/ui/mobile-data-card';
 
 interface Item {
   id: string;
@@ -56,6 +64,7 @@ interface Item {
 }
 
 export default function Inventory() {
+  const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -350,8 +359,50 @@ export default function Inventory() {
                     : 'Get started by adding your first item'}
                 </p>
               </div>
+            ) : isMobile ? (
+              <div className="space-y-3">
+                {filteredItems.map((item) => (
+                  <MobileDataCard
+                    key={item.id}
+                    onClick={() => navigate(`/inventory/${item.id}`)}
+                    selected={selectedItems.has(item.id)}
+                  >
+                    <MobileDataCardHeader>
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedItems.has(item.id)}
+                          onCheckedChange={() => toggleItemSelection(item.id)}
+                          aria-label={`Select ${item.item_code}`}
+                          className="h-5 w-5"
+                        />
+                        <div>
+                          <MobileDataCardTitle>{item.item_code}</MobileDataCardTitle>
+                          <MobileDataCardDescription>{item.description || '-'}</MobileDataCardDescription>
+                        </div>
+                      </div>
+                      {getStatusBadge(item.status)}
+                    </MobileDataCardHeader>
+                    <MobileDataCardContent>
+                      <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                        <div>
+                          <span>Qty:</span>
+                          <div className="text-foreground font-medium">{item.quantity}</div>
+                        </div>
+                        <div>
+                          <span>Location:</span>
+                          <div className="text-foreground">{item.location_code || '-'}</div>
+                        </div>
+                        <div>
+                          <span>Client:</span>
+                          <div className="text-foreground">{item.client_account || '-'}</div>
+                        </div>
+                      </div>
+                    </MobileDataCardContent>
+                  </MobileDataCard>
+                ))}
+              </div>
             ) : (
-              <div className="rounded-md border">
+              <div className="overflow-x-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -388,7 +439,7 @@ export default function Inventory() {
                         </TableCell>
                         <TableCell className="font-medium">{item.item_code}</TableCell>
                         <TableCell>{item.vendor || '-'}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">
+                        <TableCell className="line-clamp-1">
                           {item.description || '-'}
                         </TableCell>
                         <TableCell className="text-right">{item.quantity}</TableCell>

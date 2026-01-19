@@ -48,6 +48,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  MobileDataCard,
+  MobileDataCardHeader,
+  MobileDataCardTitle,
+  MobileDataCardDescription,
+  MobileDataCardContent,
+  MobileDataCardActions,
+} from '@/components/ui/mobile-data-card';
 
 interface RateCard {
   id: string;
@@ -74,6 +83,7 @@ const rateCardSchema = z.object({
 type RateCardFormData = z.infer<typeof rateCardSchema>;
 
 export function RateCardsSettingsTab() {
+  const isMobile = useIsMobile();
   const [rateCards, setRateCards] = useState<RateCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -298,8 +308,54 @@ export function RateCardsSettingsTab() {
                 : 'Get started by creating a new rate card'}
             </p>
           </div>
+        ) : isMobile ? (
+          <div className="space-y-3">
+            {filteredRateCards.map((card) => (
+              <MobileDataCard key={card.id} onClick={() => handleEdit(card)}>
+                <MobileDataCardHeader>
+                  <div>
+                    <MobileDataCardTitle>{card.rate_card_code}</MobileDataCardTitle>
+                    <MobileDataCardDescription>{card.rate_card_name}</MobileDataCardDescription>
+                  </div>
+                  <div className="flex gap-1 flex-wrap">
+                    {getStatusBadges(card)}
+                  </div>
+                </MobileDataCardHeader>
+                <MobileDataCardContent>
+                  <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                    <div>
+                      <span className="text-xs">Effective:</span>
+                      <div className="text-foreground">{format(new Date(card.effective_date), 'MMM d, yyyy')}</div>
+                    </div>
+                    <div>
+                      <span className="text-xs">Expires:</span>
+                      <div className="text-foreground">
+                        {card.expiration_date ? format(new Date(card.expiration_date), 'MMM d, yyyy') : 'Never'}
+                      </div>
+                    </div>
+                  </div>
+                </MobileDataCardContent>
+                <MobileDataCardActions>
+                  <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => handleEdit(card)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11"
+                    onClick={() => {
+                      setDeletingRateCard(card);
+                      setDeleteDialogOpen(true);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </MobileDataCardActions>
+              </MobileDataCard>
+            ))}
+          </div>
         ) : (
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -317,7 +373,7 @@ export function RateCardsSettingsTab() {
                   <TableRow key={card.id}>
                     <TableCell className="font-medium">{card.rate_card_code}</TableCell>
                     <TableCell>{card.rate_card_name}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">
+                    <TableCell className="line-clamp-1">
                       {card.description || '-'}
                     </TableCell>
                     <TableCell>

@@ -37,6 +37,15 @@ import {
 } from '@/components/ui/select';
 import { Loader2, MoreHorizontal, Pencil, Trash2, Users, Shield, Search, UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  MobileDataCard,
+  MobileDataCardHeader,
+  MobileDataCardTitle,
+  MobileDataCardDescription,
+  MobileDataCardContent,
+  MobileDataCardActions,
+} from '@/components/ui/mobile-data-card';
 
 interface UserListProps {
   users: UserWithRoles[];
@@ -59,6 +68,7 @@ export function UserList({
   onRefresh,
   onInvite,
 }: UserListProps) {
+  const isMobile = useIsMobile();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -243,6 +253,54 @@ export function UserList({
               <p className="text-muted-foreground text-sm mt-1">
                 Try adjusting your search or filter criteria
               </p>
+            </div>
+          ) : isMobile ? (
+            <div className="space-y-3">
+              {filteredUsers.map((user) => (
+                <MobileDataCard key={user.id} onClick={() => onEdit(user.id)}>
+                  <MobileDataCardHeader>
+                    <div>
+                      <MobileDataCardTitle className="flex items-center gap-2">
+                        {formatName(user)}
+                        {user.id === currentUserId && (
+                          <Badge variant="outline">You</Badge>
+                        )}
+                      </MobileDataCardTitle>
+                      <MobileDataCardDescription>{user.email}</MobileDataCardDescription>
+                    </div>
+                    {getStatusBadge(user.status)}
+                  </MobileDataCardHeader>
+                  <MobileDataCardContent>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {user.roles.length > 0 ? (
+                        user.roles.map((role) => (
+                          <Badge key={role.id} variant="outline" className="text-xs">
+                            <Shield className="h-3 w-3 mr-1" />
+                            {role.name}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No roles</span>
+                      )}
+                    </div>
+                  </MobileDataCardContent>
+                  <MobileDataCardActions>
+                    <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => onEdit(user.id)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    {user.id !== currentUserId && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-11 w-11 text-destructive"
+                        onClick={() => handleDeleteClick(user)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </MobileDataCardActions>
+                </MobileDataCard>
+              ))}
             </div>
           ) : (
           <Table>

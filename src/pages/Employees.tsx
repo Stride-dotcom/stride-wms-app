@@ -38,6 +38,15 @@ import {
 } from 'lucide-react';
 import { EmployeeDialog } from '@/components/employees/EmployeeDialog';
 import { EmployeeImportDialog } from '@/components/employees/EmployeeImportDialog';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  MobileDataCard,
+  MobileDataCardHeader,
+  MobileDataCardTitle,
+  MobileDataCardDescription,
+  MobileDataCardContent,
+  MobileDataCardActions,
+} from '@/components/ui/mobile-data-card';
 
 interface Employee {
   id: string;
@@ -53,6 +62,7 @@ interface Employee {
 }
 
 export default function Employees() {
+  const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -349,6 +359,66 @@ export default function Employees() {
                 <p className="text-muted-foreground">
                   {searchQuery ? 'Try a different search term' : 'Add your first employee to get started'}
                 </p>
+              </div>
+            ) : isMobile ? (
+              <div className="space-y-3">
+                {filteredEmployees.map((employee) => (
+                  <MobileDataCard
+                    key={employee.id}
+                    onClick={() => handleEditEmployee(employee)}
+                    selected={selectedIds.has(employee.id)}
+                  >
+                    <MobileDataCardHeader>
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(employee.id)}
+                          onCheckedChange={(checked) => handleSelect(employee.id, !!checked)}
+                          aria-label={`Select ${employee.email}`}
+                          className="h-5 w-5"
+                        />
+                        <div>
+                          <MobileDataCardTitle>
+                            {employee.first_name || employee.last_name
+                              ? `${employee.first_name || ''} ${employee.last_name || ''}`.trim()
+                              : 'Unnamed'}
+                          </MobileDataCardTitle>
+                          <MobileDataCardDescription>{employee.email}</MobileDataCardDescription>
+                        </div>
+                      </div>
+                      {employee.enrolled ? (
+                        <Badge variant="outline" className="gap-1">
+                          <CheckCircle className="h-3 w-3 text-green-500" />
+                          Enrolled
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="gap-1">
+                          <Clock className="h-3 w-3" />
+                          Pending
+                        </Badge>
+                      )}
+                    </MobileDataCardHeader>
+                    <MobileDataCardContent>
+                      <div className="flex flex-wrap gap-1">
+                        {employee.roles.map((role) => (
+                          <Badge
+                            key={role.id}
+                            className={getRoleBadgeColor(role.name)}
+                          >
+                            {role.name.replace('_', ' ')}
+                          </Badge>
+                        ))}
+                        {employee.roles.length === 0 && (
+                          <span className="text-muted-foreground text-xs">No role</span>
+                        )}
+                      </div>
+                    </MobileDataCardContent>
+                    <MobileDataCardActions>
+                      <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => handleEditEmployee(employee)}>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </MobileDataCardActions>
+                  </MobileDataCard>
+                ))}
               </div>
             ) : (
               <Table>
