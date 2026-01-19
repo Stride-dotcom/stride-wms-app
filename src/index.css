@@ -128,8 +128,35 @@ All colors MUST be HSL.
     background-color: hsl(var(--muted-foreground) / 0.5);
   }
 
-  /* Safe area inset for mobile devices */
+  /* Safe area insets for native apps (iOS notch, Android gesture bar) */
+  .pt-safe {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+  }
+  
+  .pr-safe {
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+  
+  .pl-safe {
+    padding-left: max(0px, env(safe-area-inset-left));
+  }
+  
   .pb-safe {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  
+  /* For sticky elements that need to account for safe area */
+  .top-safe {
+    top: env(safe-area-inset-top);
+  }
+  
+  .bottom-safe {
+    bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Minimum touch target utility (44x44px iOS guideline) */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
   }
 }

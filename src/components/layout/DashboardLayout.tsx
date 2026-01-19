@@ -188,7 +188,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main content */}
       <div className="lg:pl-64 flex flex-col flex-1 min-h-0">
         {/* Header */}
-        <header className="sticky top-0 z-30 h-16 shrink-0 bg-background/95 backdrop-blur border-b flex items-center justify-between px-4 lg:px-6">
+        <header className="sticky top-0 z-30 shrink-0 bg-background/95 backdrop-blur border-b flex items-center justify-between px-4 lg:px-6 pt-safe h-[calc(4rem+env(safe-area-inset-top,0px))]">
           <Button
             variant="ghost"
             size="icon"
