@@ -69,6 +69,32 @@ const ACCESSORIAL_SERVICES = [
   { key: 'received_without_id', label: 'Received Without ID' },
 ];
 
+const SERVICE_LABELS: Record<string, string> = {
+  // Item services
+  receiving: 'Receiving',
+  shipping: 'Shipping',
+  assembly: 'Assembly',
+  inspection: 'Inspection',
+  repair: 'Repair',
+  storage: 'Storage',
+  will_call: 'Will Call',
+  disposal: 'Disposal',
+  picking: 'Picking',
+  packing: 'Packing',
+
+  // Accessorials
+  oversized: 'Oversized',
+  overweight: 'Overweight',
+  unstackable: 'Unstackable',
+  crated: 'Crated',
+  received_without_id: 'Received Without ID',
+
+  // Additional services that may exist in rate_card_details
+  pull_for_delivery: 'Pull for Delivery',
+  custom_packaging: 'Custom Packaging',
+  pallet_sale: 'Pallet Sale',
+};
+
 export default function RateCards() {
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -81,6 +107,39 @@ export default function RateCards() {
   const [editingRates, setEditingRates] = useState<Record<string, number>>({});
   const [savingRates, setSavingRates] = useState<Set<string>>(new Set());
   const [syncingCards, setSyncingCards] = useState<Set<string>>(new Set());
+  const [itemTypeNames, setItemTypeNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!profile?.tenant_id) return;
+
+    const fetchItemTypes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('item_types')
+          .select('id, name')
+          .eq('tenant_id', profile.tenant_id)
+          .order('name', { ascending: true });
+
+        if (error) throw error;
+        const map: Record<string, string> = {};
+        for (const it of data || []) {
+          map[it.id] = it.name;
+        }
+        setItemTypeNames(map);
+      } catch (error) {
+        console.error('Error fetching item types:', error);
+      }
+    };
+
+    fetchItemTypes();
+  }, [profile?.tenant_id]);
+
+  const toLabel = (serviceType: string) => {
+    if (SERVICE_LABELS[serviceType]) return SERVICE_LABELS[serviceType];
+    return serviceType
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
 
   const handleSyncFromItemTypes = async (rateCardId: string) => {
     if (!profile?.tenant_id) return;
@@ -100,6 +159,7 @@ export default function RateCards() {
       });
       await fetchRateCardDetails(rateCardId);
     } catch (error) {
+      console.error('Sync from item types failed:', error);
       toast({
         variant: 'destructive',
         title: 'Sync Failed',
@@ -113,6 +173,7 @@ export default function RateCards() {
       });
     }
   };
+
   useEffect(() => {
     fetchRateCards();
   }, []);
@@ -170,7 +231,9 @@ export default function RateCards() {
       return editingRates[editKey];
     }
     const details = rateCardDetails[rateCardId] || [];
-    const detail = details.find(d => d.service_type === serviceType);
+    const detail =
+      details.find(d => d.service_type === serviceType && d.item_type_id == null) ||
+      details.find(d => d.service_type === serviceType);
     return detail?.rate || 0;
   };
 
@@ -475,6 +538,62 @@ export default function RateCards() {
                               'Accessorial Services'
                             )}
                           </div>
+
+                          {(() => {
+                            const details = rateCardDetails[card.id] || [];
+                            const perItemType = details.filter(d => d.item_type_id);
+                            if (perItemType.length === 0) return null;
+
+                            return (
+                              <div className="space-y-2">
+                                <h4 className="font-medium text-sm">Item Type Rates</h4>
+                                <p className="text-xs text-muted-foreground">
+                                  Rates synced from Item Types (shown read-only here).
+                                </p>
+
+                                {isMobile ? (
+                                  <div className="space-y-2">
+                                    {perItemType.map((d) => (
+                                      <div key={d.id} className="flex items-start justify-between gap-3 p-2 border rounded-md">
+                                        <div className="min-w-0">
+                                          <div className="text-sm font-medium truncate">
+                                            {d.item_type_id ? (itemTypeNames[d.item_type_id] || 'Unknown Item Type') : '—'}
+                                          </div>
+                                          <div className="text-xs text-muted-foreground">{toLabel(d.service_type)}</div>
+                                        </div>
+                                        <div className="text-sm font-medium whitespace-nowrap">
+                                          ${d.rate.toFixed(2)}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="overflow-x-auto rounded-md border">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead>Item Type</TableHead>
+                                          <TableHead>Service</TableHead>
+                                          <TableHead className="w-32">Rate</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {perItemType.map((d) => (
+                                          <TableRow key={d.id}>
+                                            <TableCell className="font-medium">
+                                              {d.item_type_id ? (itemTypeNames[d.item_type_id] || 'Unknown Item Type') : '—'}
+                                            </TableCell>
+                                            <TableCell>{toLabel(d.service_type)}</TableCell>
+                                            <TableCell>${d.rate.toFixed(2)}</TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </CollapsibleContent>
                     </div>
