@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -39,19 +38,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Mail, MessageSquare, Trash2, Edit2, ExternalLink } from 'lucide-react';
+import { Plus, Mail, MessageSquare, Trash2, Edit2 } from 'lucide-react';
 import { CommunicationAlert, TRIGGER_EVENTS } from '@/hooks/useCommunications';
 import { format } from 'date-fns';
 
 interface AlertsTabProps {
   alerts: CommunicationAlert[];
-  onCreateAlert: (
-    alert: Omit<CommunicationAlert, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>
-  ) => Promise<CommunicationAlert | null>;
+  onCreateAlert: (alert: Omit<CommunicationAlert, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>) => Promise<CommunicationAlert | null>;
   onUpdateAlert: (id: string, updates: Partial<CommunicationAlert>) => Promise<boolean>;
   onDeleteAlert: (id: string) => Promise<boolean>;
   onEditTemplate: (alertId: string, channel: 'email' | 'sms') => void;
-  onNavigateToEditor?: (alertId: string, options?: { tab?: 'recipients' | 'email-html' | 'email-text' | 'sms' | 'brand' }) => void;
 }
 
 export function AlertsTab({
@@ -60,17 +56,11 @@ export function AlertsTab({
   onUpdateAlert,
   onDeleteAlert,
   onEditTemplate,
-  onNavigateToEditor,
 }: AlertsTabProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [alertToDelete, setAlertToDelete] = useState<CommunicationAlert | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const getEditorHref = (
-    id: string,
-    tab?: 'recipients' | 'email-html' | 'email-text' | 'sms' | 'brand'
-  ) => `/templates/${id}${tab ? `?tab=${tab}` : ''}`;
-
+  
   const [formData, setFormData] = useState({
     name: '',
     key: '',
@@ -191,27 +181,13 @@ export function AlertsTab({
                         onCheckedChange={() => toggleChannel(alert, 'email')}
                       />
                       {alert.channels.email && (
-                        onNavigateToEditor ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            asChild
-                            title="Edit email template"
-                          >
-                            <Link to={getEditorHref(alert.id, 'email-html')}>
-                              <Edit2 className="h-3 w-3" />
-                            </Link>
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onEditTemplate(alert.id, 'email')}
-                            title="Edit email template"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                        )
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEditTemplate(alert.id, 'email')}
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
                       )}
                     </div>
                   </TableCell>
@@ -222,27 +198,13 @@ export function AlertsTab({
                         onCheckedChange={() => toggleChannel(alert, 'sms')}
                       />
                       {alert.channels.sms && (
-                        onNavigateToEditor ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            asChild
-                            title="Edit SMS template"
-                          >
-                            <Link to={getEditorHref(alert.id, 'sms')}>
-                              <Edit2 className="h-3 w-3" />
-                            </Link>
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onEditTemplate(alert.id, 'sms')}
-                            title="Edit SMS template"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                        )
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEditTemplate(alert.id, 'sms')}
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
                       )}
                     </div>
                   </TableCell>
@@ -255,27 +217,13 @@ export function AlertsTab({
                     {format(new Date(alert.updated_at), 'MMM d, yyyy')}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      {onNavigateToEditor && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          asChild
-                          title="Open in Template Editor"
-                        >
-                          <Link to={getEditorHref(alert.id)}>
-                            <ExternalLink className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setAlertToDelete(alert)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setAlertToDelete(alert)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))

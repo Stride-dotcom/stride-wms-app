@@ -1,9 +1,6 @@
 import { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Loader2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 
 interface RequireRoleProps {
   role: string | string[];
@@ -11,8 +8,8 @@ interface RequireRoleProps {
   fallback?: ReactNode;
 }
 
-export function RequireRole({ role, children, fallback }: RequireRoleProps) {
-  const { hasRole, roles: userRoles, loading } = usePermissions();
+export function RequireRole({ role, children, fallback = null }: RequireRoleProps) {
+  const { hasRole, loading } = usePermissions();
 
   if (loading) {
     return (
@@ -22,39 +19,11 @@ export function RequireRole({ role, children, fallback }: RequireRoleProps) {
     );
   }
 
-  const requiredRoles = Array.isArray(role) ? role : [role];
-  const hasAnyRole = requiredRoles.some((r) => hasRole(r));
+  const roles = Array.isArray(role) ? role : [role];
+  const hasAnyRole = roles.some((r) => hasRole(r));
 
   if (!hasAnyRole) {
-    if (fallback !== undefined) return <>{fallback}</>;
-
-    return (
-      <div className="p-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Access restricted</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              You don’t have permission to view this page.
-            </p>
-            <div className="text-sm">
-              <div className="font-medium">Required role(s):</div>
-              <div className="text-muted-foreground">{requiredRoles.join(', ')}</div>
-            </div>
-            <div className="text-sm">
-              <div className="font-medium">Your role(s):</div>
-              <div className="text-muted-foreground">
-                {userRoles.length ? userRoles.map((r) => r.name).join(', ') : 'None'}
-              </div>
-            </div>
-            <Button asChild variant="outline">
-              <Link to="/">Return to dashboard</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <>{fallback}</>;
   }
 
   return <>{children}</>;

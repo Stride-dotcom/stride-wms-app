@@ -24,7 +24,7 @@ async function getManagerEmails(supabase: any, tenantId: string): Promise<string
     .from('users')
     .select(`
       email,
-      user_roles!user_roles_user_id_fkey(
+      user_roles(
         roles(name)
       )
     `)
