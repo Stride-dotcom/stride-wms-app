@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Bell, Users, Mail, FileText, MessageSquare, Palette } from 'lucide-react';
 import { useCommunications, CommunicationAlert } from '@/hooks/useCommunications';
+import { useAuth } from '@/contexts/AuthContext';
 import { AlertList } from './alerts/AlertList';
 import { AlertEditorHeader } from './alerts/AlertEditorHeader';
 import { RecipientsTab } from './alerts/tabs/RecipientsTab';
@@ -29,9 +30,11 @@ export function AlertsSettingsTab() {
     updateBrandSettings,
   } = useCommunications();
 
+  const { profile } = useAuth();
   const [selectedAlert, setSelectedAlert] = useState<CommunicationAlert | null>(null);
   const [activeTab, setActiveTab] = useState('recipients');
   const isMobile = useIsMobile();
+  const tenantId = profile?.tenant_id || '';
 
   const handleSelectAlert = (alert: CommunicationAlert) => {
     setSelectedAlert(alert);
@@ -85,6 +88,8 @@ export function AlertsSettingsTab() {
         <CardContent>
           <AlertList
             alerts={alerts}
+            templates={templates}
+            tenantId={tenantId}
             onCreateAlert={createAlert}
             onUpdateAlert={updateAlert}
             onDeleteAlert={deleteAlert}

@@ -15,7 +15,8 @@ import {
   Smartphone,
   Monitor,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Send
 } from 'lucide-react';
 import { 
   CommunicationTemplate, 
@@ -31,6 +32,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { SendTestDialog } from '@/components/settings/communications/SendTestDialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface EmailHtmlTabProps {
   template: CommunicationTemplate | null;
@@ -57,6 +60,8 @@ export function EmailHtmlTab({
   const [versions, setVersions] = useState<CommunicationTemplateVersion[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showTestDialog, setShowTestDialog] = useState(false);
+  const { profile } = useAuth();
 
   useEffect(() => {
     if (template) {
@@ -171,6 +176,10 @@ export function EmailHtmlTab({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowTestDialog(true)}>
+            <Send className="h-4 w-4 mr-2" />
+            Send Test
+          </Button>
           <Button variant="outline" size="sm" onClick={loadVersions}>
             <History className="h-4 w-4 mr-2" />
             History
@@ -277,6 +286,18 @@ export function EmailHtmlTab({
           </ScrollArea>
         </SheetContent>
       </Sheet>
+
+      {/* Send Test Dialog */}
+      {profile?.tenant_id && (
+        <SendTestDialog
+          open={showTestDialog}
+          onOpenChange={setShowTestDialog}
+          tenantId={profile.tenant_id}
+          channel="email"
+          subject={subject}
+          bodyHtml={body}
+        />
+      )}
     </div>
   );
 }

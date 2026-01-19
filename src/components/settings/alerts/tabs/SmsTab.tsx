@@ -3,12 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Code, Eye, Save, MessageSquare, AlertCircle } from 'lucide-react';
+import { Code, Eye, Save, MessageSquare, AlertCircle, Send } from 'lucide-react';
 import { 
   CommunicationTemplate, 
   COMMUNICATION_VARIABLES 
 } from '@/hooks/useCommunications';
 import { VariablesTable } from '../VariablesTable';
+import { SendTestDialog } from '@/components/settings/communications/SendTestDialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SmsTabProps {
   template: CommunicationTemplate | null;
@@ -25,6 +27,8 @@ export function SmsTab({
   const [body, setBody] = useState('');
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
   const [isSaving, setIsSaving] = useState(false);
+  const [showTestDialog, setShowTestDialog] = useState(false);
+  const { profile } = useAuth();
 
   useEffect(() => {
     if (template) {
@@ -118,10 +122,16 @@ export function SmsTab({
           </Tabs>
         </div>
 
-        <Button onClick={handleSave} disabled={isSaving}>
-          <Save className="h-4 w-4 mr-2" />
-          {isSaving ? 'Saving...' : 'Save'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowTestDialog(true)}>
+            <Send className="h-4 w-4 mr-2" />
+            Send Test
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            <Save className="h-4 w-4 mr-2" />
+            {isSaving ? 'Saving...' : 'Save'}
+          </Button>
+        </div>
       </div>
 
       {/* Character Counter */}
@@ -209,6 +219,17 @@ export function SmsTab({
 
       {/* Variables Table at bottom */}
       <VariablesTable onInsertVariable={insertVariable} />
+
+      {/* Send Test Dialog */}
+      {profile?.tenant_id && (
+        <SendTestDialog
+          open={showTestDialog}
+          onOpenChange={setShowTestDialog}
+          tenantId={profile.tenant_id}
+          channel="sms"
+          bodyText={body}
+        />
+      )}
     </div>
   );
 }

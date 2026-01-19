@@ -20,8 +20,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Mail, MessageSquare, Trash2, ChevronRight } from 'lucide-react';
-import { CommunicationAlert, TRIGGER_EVENTS } from '@/hooks/useCommunications';
+import { Plus, Mail, MessageSquare, Trash2, ChevronRight, Send } from 'lucide-react';
+import { CommunicationAlert, CommunicationTemplate, TRIGGER_EVENTS } from '@/hooks/useCommunications';
 import { format } from 'date-fns';
 import { CreateAlertDialog } from './CreateAlertDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -33,9 +33,12 @@ import {
   MobileDataCardContent,
   MobileDataCardActions,
 } from '@/components/ui/mobile-data-card';
+import { SendTestDialog } from '@/components/settings/communications/SendTestDialog';
 
 interface AlertListProps {
   alerts: CommunicationAlert[];
+  templates: CommunicationTemplate[];
+  tenantId: string;
   onCreateAlert: (alert: Omit<CommunicationAlert, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>) => Promise<CommunicationAlert | null>;
   onUpdateAlert: (id: string, updates: Partial<CommunicationAlert>) => Promise<boolean>;
   onDeleteAlert: (id: string) => Promise<boolean>;
@@ -44,6 +47,8 @@ interface AlertListProps {
 
 export function AlertList({
   alerts,
+  templates,
+  tenantId,
   onCreateAlert,
   onUpdateAlert,
   onDeleteAlert,
@@ -51,7 +56,12 @@ export function AlertList({
 }: AlertListProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [alertToDelete, setAlertToDelete] = useState<CommunicationAlert | null>(null);
+  const [testAlert, setTestAlert] = useState<CommunicationAlert | null>(null);
   const isMobile = useIsMobile();
+
+  const getTemplateForAlert = (alertId: string, channel: 'email' | 'sms') => {
+    return templates.find(t => t.alert_id === alertId && t.channel === channel);
+  };
 
   const handleDeleteAlert = async () => {
     if (!alertToDelete) return;
@@ -130,6 +140,16 @@ export function AlertList({
                   <span className="text-xs text-muted-foreground">
                     {format(new Date(alert.updated_at), 'MMM d, yyyy')}
                   </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTestAlert(alert);
+                    }}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -217,6 +237,17 @@ export function AlertList({
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
+                            setTestAlert(alert);
+                          }}
+                          title="Send Test"
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setAlertToDelete(alert);
                           }}
                         >
@@ -255,6 +286,19 @@ export function AlertList({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Send Test Dialog */}
+      {testAlert && (
+        <SendTestDialog
+          open={!!testAlert}
+          onOpenChange={(open) => !open && setTestAlert(null)}
+          tenantId={tenantId}
+          channel={testAlert.channels.email ? 'email' : 'sms'}
+          subject={getTemplateForAlert(testAlert.id, 'email')?.subject_template || ''}
+          bodyHtml={getTemplateForAlert(testAlert.id, 'email')?.body_template || ''}
+          bodyText={getTemplateForAlert(testAlert.id, 'sms')?.body_template || ''}
+        />
+      )}
     </div>
   );
 }
