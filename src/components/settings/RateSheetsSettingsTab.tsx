@@ -223,18 +223,21 @@ export function RateSheetsSettingsTab() {
       },
     }));
 
-    // Update category automatically when service type changes
+    // Only auto-update category when service type changes for NEW rates (not editing existing)
     if (field === 'service_type') {
-      const serviceOption = SERVICE_OPTIONS.find(o => o.value === value);
-      if (serviceOption) {
-        setEditingRates(prev => ({
-          ...prev,
-          [id]: {
-            ...prev[id],
-            service_type: value,
-            category: serviceOption.category,
-          },
-        }));
+      const rate = rates.find(r => r.id === id);
+      if (rate?.isNew) {
+        const serviceOption = SERVICE_OPTIONS.find(o => o.value === value);
+        if (serviceOption) {
+          setEditingRates(prev => ({
+            ...prev,
+            [id]: {
+              ...prev[id],
+              service_type: value,
+              category: serviceOption.category,
+            },
+          }));
+        }
       }
     }
 
@@ -611,7 +614,24 @@ export function RateSheetsSettingsTab() {
                         <span className="text-muted-foreground">{rate.rate_card_name}</span>
                       )}
                     </TableCell>
-                    <TableCell>{getCategoryBadge(getEditValue(rate, 'category') as string)}</TableCell>
+                    <TableCell>
+                      {isEditing(rate.id) ? (
+                        <Select
+                          value={getEditValue(rate, 'category') as string}
+                          onValueChange={(val) => handleEditChange(rate.id, 'category', val)}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="item_service">Item Service</SelectItem>
+                            <SelectItem value="accessorial">Accessorial</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        getCategoryBadge(getEditValue(rate, 'category') as string)
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <span className="text-muted-foreground">$</span>
