@@ -53,13 +53,13 @@ const App = () => (
             <Route path="/shipments/:id" element={<ProtectedRoute><ShipmentDetail /></ProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
             <Route path="/scan" element={<ProtectedRoute><ScanHub /></ProtectedRoute>} />
-            <Route path="/billing" element={<ProtectedRoute><RequireRole role="tenant_admin"><Billing /></RequireRole></ProtectedRoute>} />
-            <Route path="/templates/:alertId?" element={<ProtectedRoute><RequireRole role="tenant_admin"><TemplateEditor /></RequireRole></ProtectedRoute>} />
+            <Route path="/billing" element={<ProtectedRoute><RequireRole role={["tenant_admin", "admin"]}><Billing /></RequireRole></ProtectedRoute>} />
+            <Route path="/templates/:alertId?" element={<ProtectedRoute><RequireRole role={["tenant_admin", "admin"]}><TemplateEditor /></RequireRole></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-            <Route path="/accounts" element={<ProtectedRoute><RequireRole role="tenant_admin"><Accounts /></RequireRole></ProtectedRoute>} />
-            <Route path="/employees" element={<ProtectedRoute><RequireRole role="tenant_admin"><Employees /></RequireRole></ProtectedRoute>} />
-            <Route path="/rate-cards" element={<ProtectedRoute><RequireRole role="tenant_admin"><RateCards /></RequireRole></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><RequireRole role="tenant_admin"><Settings /></RequireRole></ProtectedRoute>} />
+            <Route path="/accounts" element={<ProtectedRoute><RequireRole role={["tenant_admin", "admin"]}><Accounts /></RequireRole></ProtectedRoute>} />
+            <Route path="/employees" element={<ProtectedRoute><RequireRole role={["tenant_admin", "admin"]}><Employees /></RequireRole></ProtectedRoute>} />
+            <Route path="/rate-cards" element={<ProtectedRoute><RequireRole role={["tenant_admin", "admin"]}><RateCards /></RequireRole></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><RequireRole role={["tenant_admin", "admin"]}><Settings /></RequireRole></ProtectedRoute>} />
             <Route path="/repair-access" element={<RepairTechAccess />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
