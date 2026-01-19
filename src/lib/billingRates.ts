@@ -30,7 +30,9 @@ const SERVICE_TO_ITEM_TYPE_FIELD: Record<string, string> = {
   oversized: 'oversize_rate',
   overweight: 'overweight_rate',
   unstackable: 'unstackable_extra_fee',
+  crate_disposal: 'crated_rate',
   crated: 'crated_rate',
+  minor_touchup: 'minor_touchup_rate',
   received_without_id: 'received_without_id_rate',
   
   // Flag-based billing (mapped to their rate fields)
@@ -38,6 +40,7 @@ const SERVICE_TO_ITEM_TYPE_FIELD: Record<string, string> = {
   is_overweight: 'overweight_rate',
   is_unstackable: 'unstackable_extra_fee',
   is_crated: 'crated_rate',
+  needs_minor_touchup: 'minor_touchup_rate',
   received_without_id_flag: 'received_without_id_rate',
 };
 
@@ -46,12 +49,15 @@ const ACCESSORIAL_SERVICES = new Set([
   'oversized',
   'overweight',
   'unstackable',
+  'crate_disposal',
   'crated',
+  'minor_touchup',
   'received_without_id',
   'is_oversize',
   'is_overweight',
   'is_unstackable',
   'is_crated',
+  'needs_minor_touchup',
   'received_without_id_flag',
 ]);
 
@@ -206,7 +212,7 @@ export async function syncItemTypeRatesToDefaultRateCard(
       shipping_rate: 'shipping',
       assembly_rate: 'assembly',
       inspection_fee: 'inspection',
-      minor_touchup_rate: 'repair',
+      minor_touchup_rate: 'minor_touchup',
       storage_rate: 'storage',
       will_call_rate: 'will_call',
       disposal_rate: 'disposal',
@@ -215,7 +221,7 @@ export async function syncItemTypeRatesToDefaultRateCard(
       oversize_rate: 'oversized',
       overweight_rate: 'overweight',
       unstackable_extra_fee: 'unstackable',
-      crated_rate: 'crated',
+      crated_rate: 'crate_disposal',
       received_without_id_rate: 'received_without_id',
     };
 
@@ -291,7 +297,8 @@ export function flagToServiceType(flagName: string): string {
     is_oversize: 'oversized',
     is_overweight: 'overweight',
     is_unstackable: 'unstackable',
-    is_crated: 'crated',
+    is_crated: 'crate_disposal',
+    needs_minor_touchup: 'minor_touchup',
     received_without_id: 'received_without_id',
   };
   
@@ -326,7 +333,7 @@ export async function populateRateCardFromItemTypes(
       shipping_rate: 'shipping',
       assembly_rate: 'assembly',
       inspection_fee: 'inspection',
-      minor_touchup_rate: 'repair',
+      minor_touchup_rate: 'minor_touchup',
       storage_rate: 'storage',
       will_call_rate: 'will_call',
       disposal_rate: 'disposal',
@@ -335,7 +342,7 @@ export async function populateRateCardFromItemTypes(
       oversize_rate: 'oversized',
       overweight_rate: 'overweight',
       unstackable_extra_fee: 'unstackable',
-      crated_rate: 'crated',
+      crated_rate: 'crate_disposal',
       received_without_id_rate: 'received_without_id',
       pull_for_delivery_rate: 'pull_for_delivery',
       custom_packaging_rate: 'custom_packaging',

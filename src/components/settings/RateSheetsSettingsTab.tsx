@@ -53,6 +53,7 @@ interface RateRow {
   category: string | null;
   charge_unit: string | null;
   item_type_id: string | null;
+  item_type_name: string | null;
   isNew?: boolean;
 }
 
@@ -79,7 +80,8 @@ const SERVICE_OPTIONS = [
   { value: 'oversized', label: 'Oversized', category: 'accessorial' },
   { value: 'overweight', label: 'Overweight', category: 'accessorial' },
   { value: 'unstackable', label: 'Unstackable', category: 'accessorial' },
-  { value: 'crated', label: 'Crated', category: 'accessorial' },
+  { value: 'crate_disposal', label: 'Crate Disposal', category: 'accessorial' },
+  { value: 'minor_touchup', label: 'Minor Touch Up', category: 'accessorial' },
   { value: 'received_without_id', label: 'Received Without ID', category: 'accessorial' },
 ];
 
@@ -118,7 +120,7 @@ export function RateSheetsSettingsTab() {
       if (cardsError) throw cardsError;
       setRateCards(cardsData || []);
 
-      // Fetch all rate details with rate card info
+      // Fetch all rate details with rate card info and item type info
       const { data: ratesData, error: ratesError } = await supabase
         .from('rate_card_details')
         .select(`
@@ -129,7 +131,8 @@ export function RateSheetsSettingsTab() {
           category,
           charge_unit,
           item_type_id,
-          rate_cards!inner(rate_card_name, rate_card_code, tenant_id)
+          rate_cards!inner(rate_card_name, rate_card_code, tenant_id),
+          item_types(name)
         `)
         .eq('rate_cards.tenant_id', profile.tenant_id)
         .is('rate_cards.deleted_at', null)
@@ -147,6 +150,7 @@ export function RateSheetsSettingsTab() {
         category: r.category,
         charge_unit: r.charge_unit,
         item_type_id: r.item_type_id,
+        item_type_name: r.item_types?.name || null,
       }));
 
       setRates(formattedRates);
@@ -198,6 +202,7 @@ export function RateSheetsSettingsTab() {
       category: 'item_service',
       charge_unit: 'per_item',
       item_type_id: null,
+      item_type_name: null,
       isNew: true,
     };
 
@@ -471,7 +476,10 @@ export function RateSheetsSettingsTab() {
                 <MobileDataCardHeader>
                   <div>
                     <MobileDataCardTitle>{toLabel(rate.service_type)}</MobileDataCardTitle>
-                    <MobileDataCardDescription>{rate.rate_card_name}</MobileDataCardDescription>
+                    <MobileDataCardDescription>
+                      {rate.rate_card_name}
+                      {rate.item_type_name && ` • ${rate.item_type_name}`}
+                    </MobileDataCardDescription>
                   </div>
                   {getCategoryBadge(rate.category)}
                 </MobileDataCardHeader>
@@ -545,6 +553,7 @@ export function RateSheetsSettingsTab() {
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
                   <TableHead>Service Type</TableHead>
+                  <TableHead>Item Type</TableHead>
                   <TableHead>Rate Card</TableHead>
                   <TableHead>Rate Type</TableHead>
                   <TableHead className="w-32">Rate</TableHead>
@@ -574,6 +583,11 @@ export function RateSheetsSettingsTab() {
                       ) : (
                         <span className="font-medium">{toLabel(rate.service_type)}</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-muted-foreground text-sm">
+                        {rate.item_type_name || '—'}
+                      </span>
                     </TableCell>
                     <TableCell>
                       {isEditing(rate.id) ? (

@@ -2594,7 +2594,9 @@ export type Database = {
           item_type_id: string | null
           link: string | null
           metadata: Json | null
+          minor_touchup_status: string | null
           needs_inspection: boolean | null
+          needs_minor_touchup: boolean | null
           needs_repair: boolean | null
           needs_warehouse_assembly: boolean | null
           notify_dispatch: boolean | null
@@ -2634,7 +2636,9 @@ export type Database = {
           item_type_id?: string | null
           link?: string | null
           metadata?: Json | null
+          minor_touchup_status?: string | null
           needs_inspection?: boolean | null
+          needs_minor_touchup?: boolean | null
           needs_repair?: boolean | null
           needs_warehouse_assembly?: boolean | null
           notify_dispatch?: boolean | null
@@ -2674,7 +2678,9 @@ export type Database = {
           item_type_id?: string | null
           link?: string | null
           metadata?: Json | null
+          minor_touchup_status?: string | null
           needs_inspection?: boolean | null
+          needs_minor_touchup?: boolean | null
           needs_repair?: boolean | null
           needs_warehouse_assembly?: boolean | null
           notify_dispatch?: boolean | null
