@@ -1,0 +1,163 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+
+export interface TenantPreferences {
+  id: string;
+  tenant_id: string;
+  // Storage & Inspection (ACTIVE)
+  free_storage_days: number;
+  will_call_minimum: number;
+  should_create_inspections: boolean;
+  // Billing & Rate Settings (only daily_storage_rate ACTIVE)
+  daily_storage_rate_per_cuft: number;
+  // Future billing rates
+  shipment_minimum: number | null;
+  hourly_rate: number | null;
+  base_rate_includes_pieces: number | null;
+  additional_piece_rate: number | null;
+  items_to_switch_to_hourly: number | null;
+  max_assemblies_in_base_rate: number | null;
+  base_order_minutes: number | null;
+  extra_stop_rate: number | null;
+  high_rise_additional_piece_fee: number | null;
+  exchange_order_addition: number | null;
+  extra_furniture_moving_minimum: number | null;
+  // Cancellation (future)
+  late_cancellation_fee: number | null;
+  removal_first_2_pieces: number | null;
+  removal_extra_piece_default: number | null;
+  // Custom Fields (future)
+  order_field_label: string | null;
+  order_field_required: boolean | null;
+  custom_field_1_label: string | null;
+  custom_field_1_required: boolean | null;
+  // Operational Rules (future)
+  require_signature_to_finish: boolean | null;
+  allow_typed_name_as_signature: boolean | null;
+  allow_billing_to_consumer: boolean | null;
+  allow_billing_to_account: boolean | null;
+  allow_felt_pads: boolean | null;
+  // Scheduling (future)
+  default_order_bill_to: string | null;
+  morning_starts_at: string | null;
+  window_length_hours: number | null;
+  reservation_cut_off_time: string | null;
+  reservation_prep_days_required: number | null;
+  num_reservation_date_choices: number | null;
+  minutes_before_arrival_notification: number | null;
+  // Breaks (future)
+  break_minutes: number | null;
+  break_every_hours: number | null;
+  // Default Notes
+  default_shipment_notes: string | null;
+  // Legal Links (ACTIVE)
+  terms_of_service_url: string | null;
+  privacy_policy_url: string | null;
+  // Timestamps
+  created_at: string;
+  updated_at: string;
+}
+
+export type TenantPreferencesUpdate = Partial<Omit<TenantPreferences, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>;
+
+export function useTenantPreferences() {
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  const [preferences, setPreferences] = useState<TenantPreferences | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const fetchPreferences = useCallback(async () => {
+    if (!profile?.tenant_id) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('tenant_preferences')
+        .select('*')
+        .eq('tenant_id', profile.tenant_id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setPreferences(data as unknown as TenantPreferences);
+      } else {
+        // Auto-create default preferences if none exist
+        const { data: newPrefs, error: insertError } = await supabase
+          .from('tenant_preferences')
+          .insert({ tenant_id: profile.tenant_id })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        setPreferences(newPrefs as unknown as TenantPreferences);
+      }
+    } catch (error) {
+      console.error('Error fetching tenant preferences:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load preferences',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [profile?.tenant_id, toast]);
+
+  useEffect(() => {
+    fetchPreferences();
+  }, [fetchPreferences]);
+
+  const updatePreferences = async (updates: TenantPreferencesUpdate): Promise<boolean> => {
+    if (!profile?.tenant_id || !preferences?.id) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No preferences to update',
+      });
+      return false;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('tenant_preferences')
+        .update(updates as Record<string, unknown>)
+        .eq('id', preferences.id);
+
+      if (error) throw error;
+
+      setPreferences(prev => prev ? { ...prev, ...updates } : null);
+      
+      toast({
+        title: 'Preferences Saved',
+        description: 'Your preferences have been updated.',
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating preferences:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save preferences',
+      });
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return {
+    preferences,
+    loading,
+    saving,
+    updatePreferences,
+    refetch: fetchPreferences,
+  };
+}

@@ -1092,11 +1092,18 @@ export type Database = {
           brand_primary_color: string
           brand_support_email: string | null
           created_at: string
+          custom_email_domain: string | null
+          dkim_verified: boolean | null
+          email_domain_verified: boolean | null
+          email_verification_token: string | null
+          email_verification_type: string | null
+          email_verified_at: string | null
           from_email: string | null
           from_name: string | null
           id: string
           portal_base_url: string | null
           sms_sender_id: string | null
+          spf_verified: boolean | null
           tenant_id: string
           updated_at: string
         }
@@ -1105,11 +1112,18 @@ export type Database = {
           brand_primary_color?: string
           brand_support_email?: string | null
           created_at?: string
+          custom_email_domain?: string | null
+          dkim_verified?: boolean | null
+          email_domain_verified?: boolean | null
+          email_verification_token?: string | null
+          email_verification_type?: string | null
+          email_verified_at?: string | null
           from_email?: string | null
           from_name?: string | null
           id?: string
           portal_base_url?: string | null
           sms_sender_id?: string | null
+          spf_verified?: boolean | null
           tenant_id: string
           updated_at?: string
         }
@@ -1118,11 +1132,18 @@ export type Database = {
           brand_primary_color?: string
           brand_support_email?: string | null
           created_at?: string
+          custom_email_domain?: string | null
+          dkim_verified?: boolean | null
+          email_domain_verified?: boolean | null
+          email_verification_token?: string | null
+          email_verification_type?: string | null
+          email_verified_at?: string | null
           from_email?: string | null
           from_name?: string | null
           id?: string
           portal_base_url?: string | null
           sms_sender_id?: string | null
+          spf_verified?: boolean | null
           tenant_id?: string
           updated_at?: string
         }
@@ -2605,6 +2626,7 @@ export type Database = {
           quantity: number
           received_at: string | null
           received_without_id: boolean | null
+          released_at: string | null
           repair_photos: Json | null
           repair_status: string | null
           room: string | null
@@ -2647,6 +2669,7 @@ export type Database = {
           quantity?: number
           received_at?: string | null
           received_without_id?: boolean | null
+          released_at?: string | null
           repair_photos?: Json | null
           repair_status?: string | null
           room?: string | null
@@ -2689,6 +2712,7 @@ export type Database = {
           quantity?: number
           received_at?: string | null
           received_without_id?: boolean | null
+          released_at?: string | null
           repair_photos?: Json | null
           repair_status?: string | null
           room?: string | null
@@ -4616,6 +4640,152 @@ export type Database = {
             foreignKeyName: "tenant_legal_pages_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_preferences: {
+        Row: {
+          additional_piece_rate: number | null
+          allow_billing_to_account: boolean | null
+          allow_billing_to_consumer: boolean | null
+          allow_felt_pads: boolean | null
+          allow_typed_name_as_signature: boolean | null
+          base_order_minutes: number | null
+          base_rate_includes_pieces: number | null
+          break_every_hours: number | null
+          break_minutes: number | null
+          created_at: string
+          custom_field_1_label: string | null
+          custom_field_1_required: boolean | null
+          daily_storage_rate_per_cuft: number
+          default_order_bill_to: string | null
+          default_shipment_notes: string | null
+          exchange_order_addition: number | null
+          extra_furniture_moving_minimum: number | null
+          extra_stop_rate: number | null
+          free_storage_days: number
+          high_rise_additional_piece_fee: number | null
+          hourly_rate: number | null
+          id: string
+          items_to_switch_to_hourly: number | null
+          late_cancellation_fee: number | null
+          max_assemblies_in_base_rate: number | null
+          minutes_before_arrival_notification: number | null
+          morning_starts_at: string | null
+          num_reservation_date_choices: number | null
+          order_field_label: string | null
+          order_field_required: boolean | null
+          privacy_policy_url: string | null
+          removal_extra_piece_default: number | null
+          removal_first_2_pieces: number | null
+          require_signature_to_finish: boolean | null
+          reservation_cut_off_time: string | null
+          reservation_prep_days_required: number | null
+          shipment_minimum: number | null
+          should_create_inspections: boolean
+          tenant_id: string
+          terms_of_service_url: string | null
+          updated_at: string
+          will_call_minimum: number
+          window_length_hours: number | null
+        }
+        Insert: {
+          additional_piece_rate?: number | null
+          allow_billing_to_account?: boolean | null
+          allow_billing_to_consumer?: boolean | null
+          allow_felt_pads?: boolean | null
+          allow_typed_name_as_signature?: boolean | null
+          base_order_minutes?: number | null
+          base_rate_includes_pieces?: number | null
+          break_every_hours?: number | null
+          break_minutes?: number | null
+          created_at?: string
+          custom_field_1_label?: string | null
+          custom_field_1_required?: boolean | null
+          daily_storage_rate_per_cuft?: number
+          default_order_bill_to?: string | null
+          default_shipment_notes?: string | null
+          exchange_order_addition?: number | null
+          extra_furniture_moving_minimum?: number | null
+          extra_stop_rate?: number | null
+          free_storage_days?: number
+          high_rise_additional_piece_fee?: number | null
+          hourly_rate?: number | null
+          id?: string
+          items_to_switch_to_hourly?: number | null
+          late_cancellation_fee?: number | null
+          max_assemblies_in_base_rate?: number | null
+          minutes_before_arrival_notification?: number | null
+          morning_starts_at?: string | null
+          num_reservation_date_choices?: number | null
+          order_field_label?: string | null
+          order_field_required?: boolean | null
+          privacy_policy_url?: string | null
+          removal_extra_piece_default?: number | null
+          removal_first_2_pieces?: number | null
+          require_signature_to_finish?: boolean | null
+          reservation_cut_off_time?: string | null
+          reservation_prep_days_required?: number | null
+          shipment_minimum?: number | null
+          should_create_inspections?: boolean
+          tenant_id: string
+          terms_of_service_url?: string | null
+          updated_at?: string
+          will_call_minimum?: number
+          window_length_hours?: number | null
+        }
+        Update: {
+          additional_piece_rate?: number | null
+          allow_billing_to_account?: boolean | null
+          allow_billing_to_consumer?: boolean | null
+          allow_felt_pads?: boolean | null
+          allow_typed_name_as_signature?: boolean | null
+          base_order_minutes?: number | null
+          base_rate_includes_pieces?: number | null
+          break_every_hours?: number | null
+          break_minutes?: number | null
+          created_at?: string
+          custom_field_1_label?: string | null
+          custom_field_1_required?: boolean | null
+          daily_storage_rate_per_cuft?: number
+          default_order_bill_to?: string | null
+          default_shipment_notes?: string | null
+          exchange_order_addition?: number | null
+          extra_furniture_moving_minimum?: number | null
+          extra_stop_rate?: number | null
+          free_storage_days?: number
+          high_rise_additional_piece_fee?: number | null
+          hourly_rate?: number | null
+          id?: string
+          items_to_switch_to_hourly?: number | null
+          late_cancellation_fee?: number | null
+          max_assemblies_in_base_rate?: number | null
+          minutes_before_arrival_notification?: number | null
+          morning_starts_at?: string | null
+          num_reservation_date_choices?: number | null
+          order_field_label?: string | null
+          order_field_required?: boolean | null
+          privacy_policy_url?: string | null
+          removal_extra_piece_default?: number | null
+          removal_first_2_pieces?: number | null
+          require_signature_to_finish?: boolean | null
+          reservation_cut_off_time?: string | null
+          reservation_prep_days_required?: number | null
+          shipment_minimum?: number | null
+          should_create_inspections?: boolean
+          tenant_id?: string
+          terms_of_service_url?: string | null
+          updated_at?: string
+          will_call_minimum?: number
+          window_length_hours?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_preferences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
