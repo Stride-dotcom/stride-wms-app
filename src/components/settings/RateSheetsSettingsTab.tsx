@@ -617,7 +617,7 @@ export function RateSheetsSettingsTab() {
                     <TableCell>
                       {isEditing(rate.id) ? (
                         <Select
-                          value={getEditValue(rate, 'category') as string}
+                          value={(getEditValue(rate, 'category') as string) || 'item_service'}
                           onValueChange={(val) => handleEditChange(rate.id, 'category', val)}
                         >
                           <SelectTrigger className="w-32">
@@ -629,7 +629,7 @@ export function RateSheetsSettingsTab() {
                           </SelectContent>
                         </Select>
                       ) : (
-                        getCategoryBadge(getEditValue(rate, 'category') as string)
+                        getCategoryBadge((getEditValue(rate, 'category') as string) || 'item_service')
                       )}
                     </TableCell>
                     <TableCell>
