@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -62,6 +63,7 @@ const TAB_OPTIONS = [
 export default function Settings() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
@@ -232,6 +234,22 @@ export default function Settings() {
 
   // Filter tabs based on admin status
   const visibleTabs = TAB_OPTIONS.filter(tab => !tab.adminOnly || isAdmin);
+
+  // Support deep-linking to a specific settings tab via /settings?tab=communications
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && tabFromUrl !== activeTab && visibleTabs.some(t => t.value === tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams, visibleTabs, activeTab]);
+
+  // Keep the URL in sync when users click tabs
+  useEffect(() => {
+    const current = searchParams.get('tab');
+    if (current !== activeTab) {
+      setSearchParams({ tab: activeTab }, { replace: true });
+    }
+  }, [activeTab, searchParams, setSearchParams]);
 
   if (loading) {
     return (

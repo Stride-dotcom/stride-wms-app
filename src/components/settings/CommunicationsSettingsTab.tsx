@@ -165,7 +165,10 @@ export function CommunicationsSettingsTab() {
             onUpdateAlert={updateAlert}
             onDeleteAlert={deleteAlert}
             onEditTemplate={handleEditTemplate}
-            onNavigateToEditor={(alertId) => navigate(`/templates/${alertId}`)}
+            onNavigateToEditor={(alertId, options) => {
+              const tab = options?.tab;
+              navigate(`/templates/${alertId}${tab ? `?tab=${tab}` : ''}`);
+            }}
           />
         </TabsContent>
 

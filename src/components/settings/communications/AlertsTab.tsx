@@ -44,11 +44,13 @@ import { format } from 'date-fns';
 
 interface AlertsTabProps {
   alerts: CommunicationAlert[];
-  onCreateAlert: (alert: Omit<CommunicationAlert, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>) => Promise<CommunicationAlert | null>;
+  onCreateAlert: (
+    alert: Omit<CommunicationAlert, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>
+  ) => Promise<CommunicationAlert | null>;
   onUpdateAlert: (id: string, updates: Partial<CommunicationAlert>) => Promise<boolean>;
   onDeleteAlert: (id: string) => Promise<boolean>;
   onEditTemplate: (alertId: string, channel: 'email' | 'sms') => void;
-  onNavigateToEditor?: (alertId: string) => void;
+  onNavigateToEditor?: (alertId: string, options?: { tab?: 'recipients' | 'email-html' | 'email-text' | 'sms' | 'brand' }) => void;
 }
 
 export function AlertsTab({
@@ -182,15 +184,21 @@ export function AlertsTab({
                         checked={alert.channels.email}
                         onCheckedChange={() => toggleChannel(alert, 'email')}
                       />
-                      {alert.channels.email && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEditTemplate(alert.id, 'email')}
-                        >
-                          <Edit2 className="h-3 w-3" />
-                        </Button>
-                      )}
+                        {alert.channels.email && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (onNavigateToEditor) {
+                                onNavigateToEditor(alert.id, { tab: 'email-html' });
+                              } else {
+                                onEditTemplate(alert.id, 'email');
+                              }
+                            }}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                        )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -199,15 +207,21 @@ export function AlertsTab({
                         checked={alert.channels.sms}
                         onCheckedChange={() => toggleChannel(alert, 'sms')}
                       />
-                      {alert.channels.sms && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEditTemplate(alert.id, 'sms')}
-                        >
-                          <Edit2 className="h-3 w-3" />
-                        </Button>
-                      )}
+                        {alert.channels.sms && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (onNavigateToEditor) {
+                                onNavigateToEditor(alert.id, { tab: 'sms' });
+                              } else {
+                                onEditTemplate(alert.id, 'sms');
+                              }
+                            }}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                        )}
                     </div>
                   </TableCell>
                   <TableCell>
