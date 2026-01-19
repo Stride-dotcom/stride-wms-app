@@ -26,6 +26,11 @@ const handler = async (req: Request): Promise<Response> => {
     const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
 
     if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
+      console.error("Missing Twilio credentials:", {
+        hasAccountSid: !!twilioAccountSid,
+        hasAuthToken: !!twilioAuthToken,
+        hasPhoneNumber: !!twilioPhoneNumber,
+      });
       throw new Error("Twilio credentials not configured. Please add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER secrets.");
     }
 
@@ -33,7 +38,10 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { to_phone, body, tenant_id, entity_type, entity_id }: TestSmsRequest = await req.json();
+    const requestBody = await req.json();
+    console.log("Received request body:", JSON.stringify(requestBody));
+    
+    const { to_phone, body, tenant_id, entity_type, entity_id }: TestSmsRequest = requestBody;
 
     if (!to_phone || !body || !tenant_id) {
       throw new Error("Missing required fields: to_phone, body, tenant_id");

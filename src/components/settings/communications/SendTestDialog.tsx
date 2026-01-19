@@ -105,27 +105,35 @@ export function SendTestDialog({
   };
 
   const handleSend = async () => {
+    const { type: entityType, id: entityId } = parseDataSource();
+
+    if (activeChannel === 'email') {
+      if (!email) {
+        toast({ variant: 'destructive', title: 'Email required', description: 'Please enter an email address' });
+        return;
+      }
+    } else {
+      if (!phone) {
+        toast({ variant: 'destructive', title: 'Phone required', description: 'Please enter a phone number' });
+        return;
+      }
+    }
+
     setIsSending(true);
 
     try {
-      const { type: entityType, id: entityId } = parseDataSource();
-
       if (activeChannel === 'email') {
-        if (!email) {
-          toast({ variant: 'destructive', title: 'Email required', description: 'Please enter an email address' });
-          return;
-        }
-
         // Save preference if checked
         if (rememberEmail && email !== testEmail) {
           await setTestEmail(email);
         }
 
-        const { error } = await supabase.functions.invoke('send-test-email', {
+        console.log('Sending test email to:', email);
+        const { data, error } = await supabase.functions.invoke('send-test-email', {
           body: {
             to_email: email,
             subject: subject || 'Test Email',
-            body_html: bodyHtml,
+            body_html: bodyHtml || '<p>This is a test email.</p>',
             from_name: fromName,
             from_email: fromEmail,
             tenant_id: tenantId,
@@ -134,6 +142,7 @@ export function SendTestDialog({
           },
         });
 
+        console.log('Email response:', data, error);
         if (error) throw error;
 
         toast({
@@ -141,26 +150,31 @@ export function SendTestDialog({
           description: `Email sent to ${email}`,
         });
       } else {
-        if (!phone) {
-          toast({ variant: 'destructive', title: 'Phone required', description: 'Please enter a phone number' });
-          return;
-        }
-
         // Save preference if checked
         if (rememberPhone && phone !== testPhone) {
           await setTestPhone(phone);
         }
 
-        const { error } = await supabase.functions.invoke('send-test-sms', {
+        // Use bodyText for SMS, fall back to stripped HTML if needed
+        let smsBody = bodyText;
+        if (!smsBody && bodyHtml) {
+          const div = document.createElement('div');
+          div.innerHTML = bodyHtml;
+          smsBody = div.textContent || div.innerText || '';
+        }
+
+        console.log('Sending test SMS to:', phone, 'body:', smsBody);
+        const { data, error } = await supabase.functions.invoke('send-test-sms', {
           body: {
             to_phone: phone,
-            body: bodyText || bodyHtml,
+            body: smsBody || 'This is a test SMS message.',
             tenant_id: tenantId,
             entity_type: entityType,
             entity_id: entityId,
           },
         });
 
+        console.log('SMS response:', data, error);
         if (error) throw error;
 
         toast({
