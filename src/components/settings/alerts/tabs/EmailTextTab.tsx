@@ -125,7 +125,7 @@ export function EmailTextTab({
       </div>
 
       {/* Editor / Preview */}
-      <div className="flex-1 overflow-hidden min-h-0">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {editorMode === 'edit' ? (
           <Textarea
             value={body}

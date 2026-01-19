@@ -186,10 +186,19 @@ export function SendTestDialog({
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error sending test:', error);
+      
+      // Extract detailed error message if available
+      let errorMessage = 'An error occurred';
+      if (error?.context?.body?.error) {
+        errorMessage = error.context.body.error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         variant: 'destructive',
         title: 'Failed to send test',
-        description: error.message || 'An error occurred',
+        description: errorMessage,
       });
     } finally {
       setIsSending(false);

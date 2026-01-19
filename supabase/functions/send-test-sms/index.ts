@@ -34,6 +34,12 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Twilio credentials not configured. Please add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER secrets.");
     }
 
+    // Validate Twilio Account SID format
+    if (!twilioAccountSid.startsWith('AC') || twilioAccountSid.length !== 34) {
+      console.error("Invalid TWILIO_ACCOUNT_SID format. Expected: AC + 32 hex characters");
+      throw new Error("TWILIO_ACCOUNT_SID appears invalid. It should start with 'AC' followed by 32 characters.");
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
