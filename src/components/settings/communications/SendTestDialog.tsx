@@ -198,143 +198,145 @@ export function SendTestDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[90dvh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Send Test Alert</DialogTitle>
           <DialogDescription>
             Send a test notification to verify your template looks correct
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeChannel} onValueChange={(v) => setActiveChannel(v as 'email' | 'sms')}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="email" className="gap-2">
-              <Mail className="h-4 w-4" />
-              Email
-            </TabsTrigger>
-            <TabsTrigger value="sms" className="gap-2">
-              <MessageSquare className="h-4 w-4" />
-              SMS
-            </TabsTrigger>
-          </TabsList>
+        <div className="flex-1 overflow-y-auto min-h-0 space-y-4">
+          <Tabs value={activeChannel} onValueChange={(v) => setActiveChannel(v as 'email' | 'sms')}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="email" className="gap-2">
+                <Mail className="h-4 w-4" />
+                Email
+              </TabsTrigger>
+              <TabsTrigger value="sms" className="gap-2">
+                <MessageSquare className="h-4 w-4" />
+                SMS
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="email" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="test-email">Email Address</Label>
-              <Input
-                id="test-email"
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="remember-email"
-                checked={rememberEmail}
-                onCheckedChange={(checked) => setRememberEmail(checked === true)}
-              />
-              <Label htmlFor="remember-email" className="text-sm text-muted-foreground">
-                Remember for next time
-              </Label>
-            </div>
-          </TabsContent>
+            <TabsContent value="email" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="test-email">Email Address</Label>
+                <Input
+                  id="test-email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="remember-email"
+                  checked={rememberEmail}
+                  onCheckedChange={(checked) => setRememberEmail(checked === true)}
+                />
+                <Label htmlFor="remember-email" className="text-sm text-muted-foreground">
+                  Remember for next time
+                </Label>
+              </div>
+            </TabsContent>
 
-          <TabsContent value="sms" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="test-phone">Phone Number</Label>
-              <Input
-                id="test-phone"
-                type="tel"
-                placeholder="+1 (555) 123-4567"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Include country code for international numbers
-              </p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="remember-phone"
-                checked={rememberPhone}
-                onCheckedChange={(checked) => setRememberPhone(checked === true)}
-              />
-              <Label htmlFor="remember-phone" className="text-sm text-muted-foreground">
-                Remember for next time
-              </Label>
-            </div>
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="sms" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="test-phone">Phone Number</Label>
+                <Input
+                  id="test-phone"
+                  type="tel"
+                  placeholder="+1 (555) 123-4567"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Include country code for international numbers
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="remember-phone"
+                  checked={rememberPhone}
+                  onCheckedChange={(checked) => setRememberPhone(checked === true)}
+                />
+                <Label htmlFor="remember-phone" className="text-sm text-muted-foreground">
+                  Remember for next time
+                </Label>
+              </div>
+            </TabsContent>
+          </Tabs>
 
-        <div className="space-y-2 pt-2">
-          <Label>Test Data Source</Label>
-          <Select value={dataSource} onValueChange={setDataSource}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select data source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="sample">
-                <span className="flex items-center gap-2">
-                  Use sample data
-                </span>
-              </SelectItem>
-              
-              {shipments.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2">
-                    <Package className="h-3 w-3" />
-                    Recent Shipments
-                  </div>
-                  {shipments.map((s) => (
-                    <SelectItem key={s.id} value={`shipment:${s.id}`}>
-                      {s.shipment_number} {s.account_name ? `- ${s.account_name}` : ''}
-                    </SelectItem>
-                  ))}
-                </>
-              )}
+          <div className="space-y-2 pt-2">
+            <Label>Test Data Source</Label>
+            <Select value={dataSource} onValueChange={setDataSource}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select data source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sample">
+                  <span className="flex items-center gap-2">
+                    Use sample data
+                  </span>
+                </SelectItem>
+                
+                {shipments.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2">
+                      <Package className="h-3 w-3" />
+                      Recent Shipments
+                    </div>
+                    {shipments.map((s) => (
+                      <SelectItem key={s.id} value={`shipment:${s.id}`}>
+                        {s.shipment_number} {s.account_name ? `- ${s.account_name}` : ''}
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
 
-              {tasks.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2">
-                    <ClipboardList className="h-3 w-3" />
-                    Recent Tasks
-                  </div>
-                  {tasks.map((t) => (
-                    <SelectItem key={t.id} value={`task:${t.id}`}>
-                      {t.title} ({t.task_type})
-                    </SelectItem>
-                  ))}
-                </>
-              )}
+                {tasks.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2">
+                      <ClipboardList className="h-3 w-3" />
+                      Recent Tasks
+                    </div>
+                    {tasks.map((t) => (
+                      <SelectItem key={t.id} value={`task:${t.id}`}>
+                        {t.title} ({t.task_type})
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
 
-              {items.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2">
-                    <Box className="h-3 w-3" />
-                    Recent Items
-                  </div>
-                  {items.map((i) => (
-                    <SelectItem key={i.id} value={`item:${i.id}`}>
-                      {i.item_code} {i.description ? `- ${i.description.slice(0, 30)}` : ''}
-                    </SelectItem>
-                  ))}
-                </>
-              )}
-            </SelectContent>
-          </Select>
+                {items.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2">
+                      <Box className="h-3 w-3" />
+                      Recent Items
+                    </div>
+                    {items.map((i) => (
+                      <SelectItem key={i.id} value={`item:${i.id}`}>
+                        {i.item_code} {i.description ? `- ${i.description.slice(0, 30)}` : ''}
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Preview */}
+          <div className="rounded-lg border bg-muted/50 p-3">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Preview</p>
+            <ScrollArea className="h-[80px]">
+              <p className="text-sm">{getPreviewText()}</p>
+            </ScrollArea>
+          </div>
         </div>
 
-        {/* Preview */}
-        <div className="rounded-lg border bg-muted/50 p-3">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Preview</p>
-          <ScrollArea className="h-[80px]">
-            <p className="text-sm">{getPreviewText()}</p>
-          </ScrollArea>
-        </div>
-
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="flex-shrink-0 gap-2 sm:gap-0 pt-4 border-t mt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>

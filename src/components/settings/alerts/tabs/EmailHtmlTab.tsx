@@ -138,9 +138,9 @@ export function EmailHtmlTab({
   }
 
   return (
-    <div className={`flex flex-col h-full ${isFullscreen ? 'fixed inset-0 z-50 bg-background' : ''}`}>
+    <div className={`flex flex-col ${isFullscreen ? 'fixed inset-0 z-50 bg-background' : 'h-full min-h-0'}`}>
       {/* Toolbar */}
-      <div className="flex items-center justify-between p-4 border-b bg-card">
+      <div className="flex items-center justify-between p-4 border-b bg-card flex-shrink-0">
         <div className="flex items-center gap-2">
           <Tabs value={editorMode} onValueChange={(v) => setEditorMode(v as 'code' | 'preview')}>
             <TabsList>
@@ -199,7 +199,7 @@ export function EmailHtmlTab({
       </div>
 
       {/* Subject Line */}
-      <div className="p-4 border-b bg-muted/30">
+      <div className="p-4 border-b bg-muted/30 flex-shrink-0">
         <div className="flex items-center gap-4">
           <Label className="text-sm font-medium min-w-[60px]">Subject</Label>
           <Input
@@ -212,12 +212,12 @@ export function EmailHtmlTab({
       </div>
 
       {/* Editor / Preview */}
-      <div className="flex-1 overflow-hidden min-h-0">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {editorMode === 'code' ? (
           <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            className="w-full h-full font-mono text-sm resize-none rounded-none border-0 focus-visible:ring-0"
+            className="w-full h-full min-h-[300px] font-mono text-sm resize-none rounded-none border-0 focus-visible:ring-0"
             placeholder="Enter your HTML template here..."
           />
         ) : (
@@ -245,7 +245,9 @@ export function EmailHtmlTab({
       </div>
 
       {/* Variables Table at bottom */}
-      <VariablesTable onInsertVariable={insertVariable} />
+      <div className="flex-shrink-0">
+        <VariablesTable onInsertVariable={insertVariable} />
+      </div>
 
       {/* Version History Sheet */}
       <Sheet open={showVersions} onOpenChange={setShowVersions}>
