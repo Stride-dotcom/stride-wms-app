@@ -38,7 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Mail, MessageSquare, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Mail, MessageSquare, Trash2, Edit2, ExternalLink } from 'lucide-react';
 import { CommunicationAlert, TRIGGER_EVENTS } from '@/hooks/useCommunications';
 import { format } from 'date-fns';
 
@@ -48,6 +48,7 @@ interface AlertsTabProps {
   onUpdateAlert: (id: string, updates: Partial<CommunicationAlert>) => Promise<boolean>;
   onDeleteAlert: (id: string) => Promise<boolean>;
   onEditTemplate: (alertId: string, channel: 'email' | 'sms') => void;
+  onNavigateToEditor?: (alertId: string) => void;
 }
 
 export function AlertsTab({
@@ -56,6 +57,7 @@ export function AlertsTab({
   onUpdateAlert,
   onDeleteAlert,
   onEditTemplate,
+  onNavigateToEditor,
 }: AlertsTabProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [alertToDelete, setAlertToDelete] = useState<CommunicationAlert | null>(null);
@@ -217,13 +219,25 @@ export function AlertsTab({
                     {format(new Date(alert.updated_at), 'MMM d, yyyy')}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setAlertToDelete(alert)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {onNavigateToEditor && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onNavigateToEditor(alert.id)}
+                          title="Edit Template"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setAlertToDelete(alert)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

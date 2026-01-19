@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +28,7 @@ interface Account {
 
 export function CommunicationsSettingsTab() {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const {
     alerts,
     templates,
@@ -163,6 +165,7 @@ export function CommunicationsSettingsTab() {
             onUpdateAlert={updateAlert}
             onDeleteAlert={deleteAlert}
             onEditTemplate={handleEditTemplate}
+            onNavigateToEditor={(alertId) => navigate(`/templates/${alertId}`)}
           />
         </TabsContent>
 
