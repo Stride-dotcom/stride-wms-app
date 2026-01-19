@@ -4884,6 +4884,8 @@ export type Database = {
           created_at: string
           hidden_cards: Json | null
           id: string
+          test_email: string | null
+          test_phone: string | null
           updated_at: string
           user_id: string
         }
@@ -4892,6 +4894,8 @@ export type Database = {
           created_at?: string
           hidden_cards?: Json | null
           id?: string
+          test_email?: string | null
+          test_phone?: string | null
           updated_at?: string
           user_id: string
         }
@@ -4900,6 +4904,8 @@ export type Database = {
           created_at?: string
           hidden_cards?: Json | null
           id?: string
+          test_email?: string | null
+          test_phone?: string | null
           updated_at?: string
           user_id?: string
         }
