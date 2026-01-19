@@ -22,14 +22,14 @@ interface DevUser {
 }
 
 const DEV_USERS: DevUser[] = [
-  { role: 'admin', email: 'admin-test@demo.com', password: 'TestPassword123!', label: 'Admin', icon: Shield },
-  { role: 'tenant_admin', email: 'admin@demo.com', password: 'TestPassword123!', label: 'Tenant Admin', icon: Building2 },
-  { role: 'manager', email: 'manager-test@demo.com', password: 'TestPassword123!', label: 'Manager', icon: Users },
-  { role: 'warehouse', email: 'warehouse-ops@demo.com', password: 'TestPassword123!', label: 'Warehouse', icon: Warehouse },
-  { role: 'warehouse_staff', email: 'warehouse@demo.com', password: 'TestPassword123!', label: 'WH Staff', icon: Package },
-  { role: 'client_user', email: 'client-test@demo.com', password: 'TestPassword123!', label: 'Client', icon: User },
-  { role: 'ops_viewer', email: 'client@demo.com', password: 'TestPassword123!', label: 'Ops Viewer', icon: Eye },
-  { role: 'repair_tech', email: 'repair-test@demo.com', password: 'TestPassword123!', label: 'Repair Tech', icon: Wrench },
+  { role: 'admin', email: 'admin@demo.com', password: 'demo123', label: 'Admin', icon: Shield },
+  { role: 'tenant_admin', email: 'admin@demo.com', password: 'demo123', label: 'Tenant Admin', icon: Building2 },
+  { role: 'manager', email: 'manager@demo.com', password: 'demo123', label: 'Manager', icon: Users },
+  { role: 'warehouse', email: 'warehouse@demo.com', password: 'demo123', label: 'Warehouse', icon: Warehouse },
+  { role: 'warehouse_staff', email: 'warehouse@demo.com', password: 'demo123', label: 'WH Staff', icon: Package },
+  { role: 'client_user', email: 'client@demo.com', password: 'demo123', label: 'Client', icon: User },
+  { role: 'ops_viewer', email: 'client@demo.com', password: 'demo123', label: 'Ops Viewer', icon: Eye },
+  { role: 'repair_tech', email: 'warehouse@demo.com', password: 'demo123', label: 'Repair Tech', icon: Wrench },
 ];
 
 const loginSchema = z.object({
