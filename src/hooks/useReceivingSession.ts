@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { getServiceRate } from '@/lib/billingRates';
+import { queueShipmentReceivedAlert } from '@/lib/alertQueue';
 
 interface ReceivingSession {
   id: string;
@@ -295,6 +296,22 @@ export function useReceivingSession(shipmentId: string | undefined) {
             }
           }
         }
+      }
+
+      // Queue shipment.received alert
+      const { data: shipmentData } = await supabase
+        .from('shipments')
+        .select('shipment_number')
+        .eq('id', session.shipment_id)
+        .single();
+      
+      if (shipmentData && profile.tenant_id) {
+        await queueShipmentReceivedAlert(
+          profile.tenant_id,
+          session.shipment_id,
+          shipmentData.shipment_number || session.shipment_id,
+          verificationData.received_items.length
+        );
       }
 
       setSession(null);

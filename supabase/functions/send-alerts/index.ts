@@ -19,7 +19,6 @@ interface AlertPayload {
 }
 
 async function getManagerEmails(supabase: any, tenantId: string): Promise<string[]> {
-  // Get admin and manager users for this tenant
   const { data: users } = await supabase
     .from('users')
     .select(`
@@ -43,8 +42,29 @@ async function getManagerEmails(supabase: any, tenantId: string): Promise<string
     .filter(Boolean);
 }
 
-async function getTenantBranding(supabase: any, tenantId: string): Promise<{ logoUrl: string | null; companyName: string | null }> {
+async function getAccountContactEmail(supabase: any, accountId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('accounts')
+    .select('primary_contact_email, alerts_contact_email')
+    .eq('id', accountId)
+    .single();
+  
+  return data?.alerts_contact_email || data?.primary_contact_email || null;
+}
+
+async function getTenantBranding(supabase: any, tenantId: string): Promise<{ 
+  logoUrl: string | null; 
+  companyName: string | null;
+  supportEmail: string | null;
+  portalBaseUrl: string | null;
+}> {
   try {
+    const { data: brandSettings } = await supabase
+      .from('communication_brand_settings')
+      .select('brand_logo_url, brand_support_email, portal_base_url')
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
     const { data: settings } = await supabase
       .from('tenant_company_settings')
       .select('logo_url, company_name')
@@ -58,59 +78,30 @@ async function getTenantBranding(supabase: any, tenantId: string): Promise<{ log
       .single();
 
     return {
-      logoUrl: settings?.logo_url || null,
+      logoUrl: brandSettings?.brand_logo_url || settings?.logo_url || null,
       companyName: settings?.company_name || tenant?.name || 'Warehouse System',
+      supportEmail: brandSettings?.brand_support_email || null,
+      portalBaseUrl: brandSettings?.portal_base_url || null,
     };
   } catch {
-    return { logoUrl: null, companyName: 'Warehouse System' };
+    return { logoUrl: null, companyName: 'Warehouse System', supportEmail: null, portalBaseUrl: null };
   }
 }
 
+// Replace both {{variable}} and [[variable]] syntax
 function replaceTemplateVariables(html: string, variables: Record<string, string>): string {
   let result = html;
   for (const [key, value] of Object.entries(variables)) {
-    result = result.replace(new RegExp(`{{${key}}}`, 'g'), value || '');
+    // Replace both {{key}} and [[key]] syntax
+    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value || '');
+    result = result.replace(new RegExp(`\\[\\[${key}\\]\\]`, 'g'), value || '');
   }
   return result;
 }
 
-function wrapEmailWithBranding(html: string, logoUrl: string | null, companyName: string): string {
-  // Check if the HTML already has full document structure (from new templates)
-  if (html.includes('<!DOCTYPE html>') || html.includes('<html')) {
-    // Template is already complete, just replace brand variables
-    let result = html;
-    result = result.replace(/{{brand_logo_url}}/g, logoUrl || '');
-    result = result.replace(/{{tenant_name}}/g, companyName);
-    return result;
-  }
-  
-  // Legacy fallback for old-style templates without full HTML
-  const logoHtml = logoUrl 
-    ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 60px; max-width: 200px; margin-bottom: 20px;" />`
-    : `<h1 style="color: #1f2937; margin-bottom: 20px;">${companyName}</h1>`;
-
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #374151; margin: 0; padding: 0; background-color: #f3f4f6;">
-      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: white; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          <div style="text-align: center; margin-bottom: 24px;">
-            ${logoHtml}
-          </div>
-          ${html}
-        </div>
-        <div style="text-align: center; padding: 20px; color: #6b7280; font-size: 12px;">
-          <p>This is an automated message from ${companyName}.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+function wrapEmailWithBranding(html: string, variables: Record<string, string>): string {
+  // Replace template variables in the HTML
+  return replaceTemplateVariables(html, variables);
 }
 
 async function generateItemsTableHtml(supabase: any, itemIds: string[]): Promise<string> {
@@ -123,7 +114,6 @@ async function generateItemsTableHtml(supabase: any, itemIds: string[]): Promise
   
   if (!items || items.length === 0) return '<p style="color:#6b7280;font-size:14px;text-align:center;">No items found</p>';
   
-  // Cowboy-style table with clean, minimal design
   const rows = items.map((item: any, index: number) => `
     <tr style="background-color:${index % 2 === 0 ? '#ffffff' : '#f9fafb'};">
       <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;font-weight:500;color:#111111;">${item.item_code || 'N/A'}</td>
@@ -163,6 +153,200 @@ async function generateItemsListText(supabase: any, itemIds: string[]): Promise<
   return items.map((item: any) => `• ${item.item_code}: ${item.description || 'N/A'}`).join('\n');
 }
 
+// Fetch entity data and build variables for template substitution
+async function buildTemplateVariables(
+  supabase: any,
+  alertType: string,
+  entityType: string,
+  entityId: string,
+  tenantId: string
+): Promise<{ variables: Record<string, string>; itemIds: string[] }> {
+  const branding = await getTenantBranding(supabase, tenantId);
+  
+  const variables: Record<string, string> = {
+    tenant_name: branding.companyName || 'Warehouse System',
+    brand_logo_url: branding.logoUrl || '',
+    brand_support_email: branding.supportEmail || 'support@example.com',
+    portal_base_url: branding.portalBaseUrl || '',
+    created_at: new Date().toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }),
+  };
+  
+  let itemIds: string[] = [];
+
+  try {
+    // Fetch entity-specific data based on entity type
+    if (entityType === 'shipment') {
+      const { data: shipment } = await supabase
+        .from('shipments')
+        .select(`
+          *,
+          account:accounts(account_name, primary_contact_name, primary_contact_email)
+        `)
+        .eq('id', entityId)
+        .single();
+
+      if (shipment) {
+        variables.shipment_number = shipment.shipment_number || entityId;
+        variables.shipment_status = shipment.status || 'Unknown';
+        variables.shipment_vendor = shipment.vendor || 'N/A';
+        variables.account_name = shipment.account?.account_name || 'N/A';
+        variables.account_contact_name = shipment.account?.primary_contact_name || 'Customer';
+        variables.account_contact_email = shipment.account?.primary_contact_email || '';
+        variables.shipment_link = `${branding.portalBaseUrl}/shipments/${entityId}`;
+
+        // Get shipment items
+        const { data: shipmentItems } = await supabase
+          .from('items')
+          .select('id')
+          .eq('receiving_shipment_id', entityId);
+        
+        if (shipmentItems) {
+          itemIds = shipmentItems.map((i: any) => i.id);
+          variables.items_count = String(itemIds.length);
+        } else {
+          variables.items_count = '0';
+        }
+      }
+    } else if (entityType === 'item') {
+      const { data: item } = await supabase
+        .from('items')
+        .select(`
+          *,
+          account:accounts(account_name, primary_contact_name, primary_contact_email)
+        `)
+        .eq('id', entityId)
+        .single();
+
+      if (item) {
+        variables.item_code = item.item_code || entityId;
+        variables.item_id = item.item_code || entityId;
+        variables.item_description = item.description || 'N/A';
+        variables.item_location = item.current_location || 'Unknown';
+        variables.account_name = item.account?.account_name || item.client_account || 'N/A';
+        variables.account_contact_name = item.account?.primary_contact_name || 'Customer';
+        variables.item_photos_link = `${branding.portalBaseUrl}/inventory/${entityId}`;
+        variables.items_count = '1';
+        itemIds = [entityId];
+      }
+    } else if (entityType === 'task') {
+      const { data: task } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          account:accounts(account_name, primary_contact_name, primary_contact_email),
+          assigned_user:users!tasks_assigned_to_fkey(first_name, last_name, email),
+          completed_by_user:users!tasks_completed_by_fkey(first_name, last_name)
+        `)
+        .eq('id', entityId)
+        .single();
+
+      if (task) {
+        variables.task_type = task.task_type || 'Task';
+        variables.task_title = task.title || 'Untitled Task';
+        variables.task_due_date = task.due_date 
+          ? new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : 'No due date';
+        variables.account_name = task.account?.account_name || 'N/A';
+        variables.account_contact_name = task.account?.primary_contact_name || 'Customer';
+        variables.task_link = `${branding.portalBaseUrl}/tasks`;
+        
+        if (task.assigned_user) {
+          variables.assigned_to_name = `${task.assigned_user.first_name || ''} ${task.assigned_user.last_name || ''}`.trim() || 'Unassigned';
+        }
+        
+        if (task.completed_by_user) {
+          variables.created_by_name = `${task.completed_by_user.first_name || ''} ${task.completed_by_user.last_name || ''}`.trim() || 'Someone';
+        } else {
+          variables.created_by_name = 'Someone';
+        }
+
+        // Get task items
+        const { data: taskItems } = await supabase
+          .from('task_items')
+          .select('item_id')
+          .eq('task_id', entityId);
+        
+        if (taskItems) {
+          itemIds = taskItems.map((ti: any) => ti.item_id);
+          variables.items_count = String(itemIds.length);
+        } else {
+          variables.items_count = '0';
+        }
+      }
+    } else if (entityType === 'invoice') {
+      const { data: invoice } = await supabase
+        .from('invoices')
+        .select(`
+          *,
+          account:accounts(account_name, primary_contact_name, primary_contact_email)
+        `)
+        .eq('id', entityId)
+        .single();
+
+      if (invoice) {
+        variables.invoice_number = invoice.invoice_number || entityId;
+        variables.amount_due = invoice.total_amount 
+          ? `$${Number(invoice.total_amount).toFixed(2)}` 
+          : '$0.00';
+        variables.account_name = invoice.account?.account_name || 'N/A';
+        variables.account_contact_name = invoice.account?.primary_contact_name || 'Customer';
+        variables.account_contact_email = invoice.account?.primary_contact_email || '';
+        variables.items_count = '0';
+      }
+    }
+  } catch (error) {
+    console.error('Error building template variables:', error);
+  }
+
+  return { variables, itemIds };
+}
+
+async function getTemplateForAlert(
+  supabase: any,
+  alertType: string,
+  tenantId: string,
+  channel: 'email' | 'sms' = 'email'
+): Promise<{ subjectTemplate: string; bodyTemplate: string } | null> {
+  try {
+    // First try to find a communication_alert with matching trigger_event
+    const { data: alert } = await supabase
+      .from('communication_alerts')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('trigger_event', alertType)
+      .eq('is_enabled', true)
+      .maybeSingle();
+
+    if (alert) {
+      // Get the template for this alert
+      const { data: template } = await supabase
+        .from('communication_templates')
+        .select('subject_template, body_template')
+        .eq('alert_id', alert.id)
+        .eq('channel', channel)
+        .maybeSingle();
+
+      if (template) {
+        return {
+          subjectTemplate: template.subject_template || '',
+          bodyTemplate: template.body_template || '',
+        };
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching template:', error);
+    return null;
+  }
+}
+
+// Generate default email content for legacy alerts
 async function generateEmailContent(
   alertType: string, 
   entityType: string,
@@ -318,14 +502,12 @@ const handler = async (req: Request): Promise<Response> => {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
       console.error("RESEND_API_KEY not configured");
-      // Mark all as pending for retry when key is added
       return new Response(JSON.stringify({ error: "Email service not configured. Add RESEND_API_KEY secret." }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Import Resend
     const { Resend } = await import("https://esm.sh/resend@2.0.0");
     const resend = new Resend(resendApiKey);
 
@@ -334,24 +516,51 @@ const handler = async (req: Request): Promise<Response> => {
 
     for (const alert of pendingAlerts) {
       try {
+        // Build template variables from entity data
+        const { variables, itemIds } = await buildTemplateVariables(
+          supabase,
+          alert.alert_type,
+          alert.entity_type,
+          alert.entity_id,
+          alert.tenant_id
+        );
+
+        // Generate items table HTML
+        const itemsTableHtml = await generateItemsTableHtml(supabase, itemIds);
+        const itemsListText = await generateItemsListText(supabase, itemIds);
+        variables.items_table_html = itemsTableHtml;
+        variables.items_list_text = itemsListText;
+
         // Get recipient emails
         let recipients = alert.recipient_emails || [];
         if (recipients.length === 0) {
-          // Fall back to manager emails
           recipients = await getManagerEmails(supabase, alert.tenant_id);
         }
 
         if (recipients.length === 0) {
           console.log(`No recipients for alert ${alert.id}`);
+          await supabase
+            .from('alert_queue')
+            .update({ status: 'failed', error_message: 'No recipients found' })
+            .eq('id', alert.id);
+          failed++;
           continue;
         }
 
-        // Generate email content if not provided
+        // Try to get custom template first
+        const customTemplate = await getTemplateForAlert(supabase, alert.alert_type, alert.tenant_id, 'email');
+        
         let subject = alert.subject;
         let html = alert.body_html;
         let text = alert.body_text;
 
-        if (!html || !text) {
+        if (customTemplate && customTemplate.bodyTemplate) {
+          // Use custom template with variable substitution
+          subject = replaceTemplateVariables(customTemplate.subjectTemplate || subject, variables);
+          html = replaceTemplateVariables(customTemplate.bodyTemplate, variables);
+          text = html.replace(/<[^>]+>/g, ''); // Strip HTML for text version
+        } else if (!html || !text) {
+          // Fall back to legacy content generation
           const content = await generateEmailContent(
             alert.alert_type,
             alert.entity_type,
@@ -363,25 +572,24 @@ const handler = async (req: Request): Promise<Response> => {
           text = text || content.text;
         }
 
-        // Get tenant branding
-        const branding = await getTenantBranding(supabase, alert.tenant_id);
-
-        // Wrap HTML with branding
-        const brandedHtml = wrapEmailWithBranding(html!, branding.logoUrl, branding.companyName || 'Warehouse System');
+        // Apply variable substitution to all content
+        subject = replaceTemplateVariables(subject, variables);
+        html = replaceTemplateVariables(html!, variables);
+        text = replaceTemplateVariables(text!, variables);
 
         // Get custom email domain settings
         const { data: brandSettings } = await supabase
           .from('communication_brand_settings')
-          .select('custom_email_domain, from_name, email_domain_verified')
+          .select('custom_email_domain, from_name, from_email, email_domain_verified')
           .eq('tenant_id', alert.tenant_id)
           .maybeSingle();
 
-        // Determine from email - use verified custom domain or fallback to resend.dev
+        // Determine from email
         let fromEmail = 'alerts@resend.dev';
-        let fromName = branding.companyName || 'Warehouse System';
+        let fromName = variables.tenant_name || 'Warehouse System';
 
-        if (brandSettings?.email_domain_verified && brandSettings?.custom_email_domain) {
-          fromEmail = brandSettings.custom_email_domain;
+        if (brandSettings?.email_domain_verified && brandSettings?.from_email) {
+          fromEmail = brandSettings.from_email;
           if (brandSettings?.from_name) {
             fromName = brandSettings.from_name;
           }
@@ -392,7 +600,7 @@ const handler = async (req: Request): Promise<Response> => {
           from: `${fromName} <${fromEmail}>`,
           to: recipients,
           subject: subject,
-          html: brandedHtml,
+          html: html,
           text: text,
         });
 
@@ -408,10 +616,10 @@ const handler = async (req: Request): Promise<Response> => {
           .eq('id', alert.id);
 
         sent++;
+        console.log(`Alert ${alert.id} sent successfully to ${recipients.length} recipients`);
       } catch (alertError) {
         console.error(`Error processing alert ${alert.id}:`, alertError);
 
-        // Mark as failed
         await supabase
           .from('alert_queue')
           .update({
