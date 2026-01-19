@@ -11,12 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Bell, FileText, Variable, Palette, Building2 } from 'lucide-react';
+import { Bell, FileText, Building2 } from 'lucide-react';
 import { useCommunications } from '@/hooks/useCommunications';
 import { AlertsTab } from './communications/AlertsTab';
 import { TemplatesTab } from './communications/TemplatesTab';
-import { VariablesTab } from './communications/VariablesTab';
-import { DesignElementsTab } from './communications/DesignElementsTab';
 import { BrandSettingsCard } from './communications/BrandSettingsCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -70,7 +68,7 @@ export function CommunicationsSettingsTab() {
   const handleEditTemplate = (alertId: string, channel: 'email' | 'sms') => {
     setSelectedAlertId(alertId);
     setSelectedChannel(channel);
-    setActiveTab('templates');
+    setActiveTab('editor');
   };
 
   const handleCloseTemplateEditor = () => {
@@ -81,20 +79,20 @@ export function CommunicationsSettingsTab() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-10 w-[400px]" />
+        <Skeleton className="h-10 w-full sm:w-[400px]" />
         <Skeleton className="h-[400px] w-full" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-1 sm:px-0">
       {/* Account Scope Selector */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <Building2 className="h-5 w-5 text-muted-foreground" />
+              <Building2 className="h-5 w-5 text-muted-foreground flex-shrink-0" />
               <div>
                 <CardTitle className="text-base">Template Scope</CardTitle>
                 <CardDescription>
@@ -102,12 +100,12 @@ export function CommunicationsSettingsTab() {
                 </CardDescription>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
               <Label htmlFor="account-scope" className="text-sm text-muted-foreground">
                 Viewing:
               </Label>
               <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                <SelectTrigger className="w-[280px]" id="account-scope">
+                <SelectTrigger className="w-full sm:w-[280px]" id="account-scope">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -145,24 +143,16 @@ export function CommunicationsSettingsTab() {
         onUpdate={updateBrandSettings}
       />
 
-      {/* Main Tabs */}
+      {/* Simplified 2-Tab Layout */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 max-w-[600px]">
-          <TabsTrigger value="alerts" className="gap-2">
+        <TabsList className="grid w-full grid-cols-2 max-w-full sm:max-w-[400px]">
+          <TabsTrigger value="alerts" className="gap-1 sm:gap-2">
             <Bell className="h-4 w-4" />
-            Alerts
+            <span className="hidden xs:inline sm:inline">Alerts</span>
           </TabsTrigger>
-          <TabsTrigger value="templates" className="gap-2">
+          <TabsTrigger value="editor" className="gap-1 sm:gap-2">
             <FileText className="h-4 w-4" />
-            Templates
-          </TabsTrigger>
-          <TabsTrigger value="variables" className="gap-2">
-            <Variable className="h-4 w-4" />
-            Variables
-          </TabsTrigger>
-          <TabsTrigger value="design" className="gap-2">
-            <Palette className="h-4 w-4" />
-            Design Elements
+            <span className="hidden xs:inline sm:inline">Template Editor</span>
           </TabsTrigger>
         </TabsList>
 
@@ -176,7 +166,7 @@ export function CommunicationsSettingsTab() {
           />
         </TabsContent>
 
-        <TabsContent value="templates" className="mt-6">
+        <TabsContent value="editor" className="mt-6">
           <TemplatesTab
             alerts={alerts}
             templates={templates}
@@ -190,14 +180,6 @@ export function CommunicationsSettingsTab() {
             revertToVersion={revertToVersion}
             onClose={handleCloseTemplateEditor}
           />
-        </TabsContent>
-
-        <TabsContent value="variables" className="mt-6">
-          <VariablesTab />
-        </TabsContent>
-
-        <TabsContent value="design" className="mt-6">
-          <DesignElementsTab designElements={designElements} />
         </TabsContent>
       </Tabs>
     </div>
