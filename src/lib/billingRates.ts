@@ -314,8 +314,7 @@ export async function populateRateCardFromItemTypes(
     const { data: itemTypes } = await supabase
       .from('item_types')
       .select('id, receiving_rate, shipping_rate, assembly_rate, inspection_fee, minor_touchup_rate, storage_rate, will_call_rate, disposal_rate, picking_rate, packing_rate, oversize_rate, overweight_rate, unstackable_extra_fee, crated_rate, received_without_id_rate, pull_for_delivery_rate, custom_packaging_rate, pallet_sale_rate')
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null);
+      .eq('tenant_id', tenantId);
 
     if (!itemTypes || itemTypes.length === 0) {
       return { inserted: 0, updated: 0 };
