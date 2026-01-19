@@ -55,7 +55,7 @@ export function BrandSettingsCard({ brandSettings, onUpdate }: BrandSettingsCard
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Palette className="h-5 w-5 text-primary" />
+          <Palette className="h-5 w-5 text-primary flex-shrink-0" />
           <div>
             <CardTitle>Brand Settings</CardTitle>
             <CardDescription>
@@ -91,7 +91,7 @@ export function BrandSettingsCard({ brandSettings, onUpdate }: BrandSettingsCard
                   id="brand_primary_color"
                   value={formData.brand_primary_color}
                   onChange={(e) => setFormData(prev => ({ ...prev, brand_primary_color: e.target.value }))}
-                  className="w-10 h-10 rounded border cursor-pointer"
+                  className="w-10 h-10 rounded border cursor-pointer flex-shrink-0"
                 />
                 <Input
                   value={formData.brand_primary_color}
@@ -180,8 +180,9 @@ export function BrandSettingsCard({ brandSettings, onUpdate }: BrandSettingsCard
           </div>
         </div>
 
-        <div className="flex justify-end pt-4 border-t">
-          <Button onClick={handleSave} disabled={isSaving}>
+        {/* Save Button - Full width on mobile */}
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end pt-4 border-t gap-2">
+          <Button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto">
             <Save className="mr-2 h-4 w-4" />
             {isSaving ? 'Saving...' : 'Save Brand Settings'}
           </Button>

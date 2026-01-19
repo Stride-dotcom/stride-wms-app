@@ -6,6 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Building, Users, Warehouse, Save, Plus, Package, DollarSign, Clock } from 'lucide-react';
@@ -38,11 +45,26 @@ interface TenantInfo {
   status: string;
 }
 
+const TAB_OPTIONS = [
+  { value: 'profile', label: 'Profile' },
+  { value: 'organization', label: 'Organization' },
+  { value: 'employees', label: 'Employees' },
+  { value: 'communications', label: 'Communications' },
+  { value: 'billing', label: 'Billing' },
+  { value: 'labor', label: 'Labor', adminOnly: true },
+  { value: 'rate-cards', label: 'Rate Cards' },
+  { value: 'item-types', label: 'Item Types' },
+  { value: 'warehouses', label: 'Warehouses' },
+  { value: 'locations', label: 'Locations' },
+  { value: 'users', label: 'Users' },
+];
+
 export default function Settings() {
   const { profile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('profile');
   const [tenant, setTenant] = useState<TenantInfo | null>(null);
   const [profileData, setProfileData] = useState({
     firstName: '',
@@ -208,6 +230,9 @@ export default function Settings() {
     refetchWarehouses();
   };
 
+  // Filter tabs based on admin status
+  const visibleTabs = TAB_OPTIONS.filter(tab => !tab.adminOnly || isAdmin);
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -220,7 +245,7 @@ export default function Settings() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 px-2 sm:px-0">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
           <p className="text-muted-foreground">
@@ -228,8 +253,25 @@ export default function Settings() {
           </p>
         </div>
 
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="flex-wrap h-auto gap-1">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          {/* Mobile: Dropdown navigation */}
+          <div className="sm:hidden">
+            <Select value={activeTab} onValueChange={setActiveTab}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select section" />
+              </SelectTrigger>
+              <SelectContent>
+                {visibleTabs.map((tab) => (
+                  <SelectItem key={tab.value} value={tab.value}>
+                    {tab.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Desktop: Tab navigation */}
+          <TabsList className="hidden sm:flex flex-wrap h-auto gap-1">
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="organization">Organization</TabsTrigger>
             <TabsTrigger value="employees">Employees</TabsTrigger>
@@ -331,7 +373,7 @@ export default function Settings() {
 
           <TabsContent value="warehouses">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-medium flex items-center gap-2">
                     <Warehouse className="h-5 w-5" />
@@ -341,7 +383,7 @@ export default function Settings() {
                     Manage your warehouse locations and configurations
                   </p>
                 </div>
-                <Button onClick={handleCreateWarehouse}>
+                <Button onClick={handleCreateWarehouse} className="w-full sm:w-auto">
                   <Plus className="mr-2 h-4 w-4" />
                   Add Warehouse
                 </Button>
@@ -372,7 +414,7 @@ export default function Settings() {
 
           <TabsContent value="users">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-medium flex items-center gap-2">
                     <Users className="h-5 w-5" />
