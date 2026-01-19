@@ -297,3 +297,102 @@ export function flagToServiceType(flagName: string): string {
   
   return mapping[flagName] || flagName;
 }
+
+/**
+ * Populate a rate card with all item type rates as a starting template
+ * Called when a new rate card is created or when syncing existing cards
+ */
+export async function populateRateCardFromItemTypes(
+  tenantId: string,
+  rateCardId: string
+): Promise<{ inserted: number; updated: number }> {
+  let inserted = 0;
+  let updated = 0;
+
+  try {
+    // 1. Fetch all item types for this tenant
+    const { data: itemTypes } = await supabase
+      .from('item_types')
+      .select('id, receiving_rate, shipping_rate, assembly_rate, inspection_fee, minor_touchup_rate, storage_rate, will_call_rate, disposal_rate, picking_rate, packing_rate, oversize_rate, overweight_rate, unstackable_extra_fee, crated_rate, received_without_id_rate, pull_for_delivery_rate, custom_packaging_rate, pallet_sale_rate')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null);
+
+    if (!itemTypes || itemTypes.length === 0) {
+      return { inserted: 0, updated: 0 };
+    }
+
+    // 2. Service type mapping
+    const fieldToService: Record<string, string> = {
+      receiving_rate: 'receiving',
+      shipping_rate: 'shipping',
+      assembly_rate: 'assembly',
+      inspection_fee: 'inspection',
+      minor_touchup_rate: 'repair',
+      storage_rate: 'storage',
+      will_call_rate: 'will_call',
+      disposal_rate: 'disposal',
+      picking_rate: 'picking',
+      packing_rate: 'packing',
+      oversize_rate: 'oversized',
+      overweight_rate: 'overweight',
+      unstackable_extra_fee: 'unstackable',
+      crated_rate: 'crated',
+      received_without_id_rate: 'received_without_id',
+      pull_for_delivery_rate: 'pull_for_delivery',
+      custom_packaging_rate: 'custom_packaging',
+      pallet_sale_rate: 'pallet_sale',
+    };
+
+    // 3. Get existing rate card details
+    const { data: existingDetails } = await supabase
+      .from('rate_card_details')
+      .select('id, service_type, item_type_id')
+      .eq('rate_card_id', rateCardId);
+
+    const existingMap = new Map(
+      (existingDetails || []).map(d => [`${d.service_type}-${d.item_type_id}`, d.id])
+    );
+
+    // 4. Build upsert operations
+    for (const itemType of itemTypes) {
+      for (const [field, serviceType] of Object.entries(fieldToService)) {
+        const rate = (itemType as any)[field];
+        if (rate != null && rate > 0) {
+          const isAccessorial = ACCESSORIAL_SERVICES.has(serviceType);
+          const key = `${serviceType}-${itemType.id}`;
+          const existingId = existingMap.get(key);
+
+          if (existingId) {
+            // Update existing
+            await supabase
+              .from('rate_card_details')
+              .update({ 
+                rate,
+                category: isAccessorial ? 'accessorial' : 'item_service',
+              })
+              .eq('id', existingId);
+            updated++;
+          } else {
+            // Insert new
+            await supabase
+              .from('rate_card_details')
+              .insert({
+                rate_card_id: rateCardId,
+                service_type: serviceType,
+                rate,
+                item_type_id: itemType.id,
+                category: isAccessorial ? 'accessorial' : 'item_service',
+                charge_unit: 'per_item',
+              });
+            inserted++;
+          }
+        }
+      }
+    }
+
+    return { inserted, updated };
+  } catch (error) {
+    console.error('Error populating rate card from item types:', error);
+    throw error;
+  }
+}

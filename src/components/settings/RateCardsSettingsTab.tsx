@@ -38,6 +38,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { populateRateCardFromItemTypes } from '@/lib/billingRates';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -236,16 +237,34 @@ export function RateCardsSettingsTab() {
           description: 'The rate card has been updated successfully.',
         });
       } else {
-        const { error } = await supabase
+        const { data: newCard, error } = await supabase
           .from('rate_cards')
-          .insert(rateCardData);
+          .insert(rateCardData)
+          .select('id')
+          .single();
 
         if (error) throw error;
 
-        toast({
-          title: 'Rate Card Created',
-          description: 'The rate card has been created successfully.',
-        });
+        // Auto-populate rates from item types
+        if (newCard?.id) {
+          try {
+            const result = await populateRateCardFromItemTypes(profile.tenant_id, newCard.id);
+            toast({
+              title: 'Rate Card Created',
+              description: `Created with ${result.inserted} rates from item types.`,
+            });
+          } catch {
+            toast({
+              title: 'Rate Card Created',
+              description: 'Rate card created, but failed to populate rates from item types.',
+            });
+          }
+        } else {
+          toast({
+            title: 'Rate Card Created',
+            description: 'The rate card has been created successfully.',
+          });
+        }
       }
 
       setDialogOpen(false);
