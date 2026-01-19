@@ -265,6 +265,17 @@ async function buildTemplateVariables(
           variables.created_by_name = 'Someone';
         }
 
+        // Calculate days overdue for task.overdue alerts
+        if (alertType === 'task.overdue' && task.due_date) {
+          const dueDate = new Date(task.due_date);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          dueDate.setHours(0, 0, 0, 0);
+          const diffTime = today.getTime() - dueDate.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          variables.task_days_overdue = String(Math.max(0, diffDays));
+        }
+
         // Get task items
         const { data: taskItems } = await supabase
           .from('task_items')
