@@ -91,7 +91,7 @@ serve(async (req: Request): Promise<Response> => {
       
       // Check if domain already exists
       if (resendData.message?.includes("already exists") || resendData.name === "validation_error") {
-        // Try to get existing domain
+        // Try to get existing domain from list
         const listResponse = await fetch("https://api.resend.com/domains", {
           method: "GET",
           headers: {
@@ -103,14 +103,27 @@ serve(async (req: Request): Promise<Response> => {
         const existingDomain = listData.data?.find((d: any) => d.name === domain);
         
         if (existingDomain) {
-          // Update database with existing domain info
+          // Fetch full domain details including DNS records
+          const detailResponse = await fetch(`https://api.resend.com/domains/${existingDomain.id}`, {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${resendApiKey}`,
+            },
+          });
+          
+          const domainDetails = await detailResponse.json();
+          console.log("Domain details from Resend:", domainDetails);
+          
+          const records = domainDetails.records || [];
+          
+          // Update database with full domain info including DNS records
           await supabase
             .from("communication_brand_settings")
             .upsert({
               tenant_id: profile.tenant_id,
               resend_domain_id: existingDomain.id,
-              resend_dns_records: existingDomain.records || [],
-              email_domain_verified: existingDomain.status === "verified",
+              resend_dns_records: records,
+              email_domain_verified: domainDetails.status === "verified",
             }, {
               onConflict: "tenant_id",
             });
@@ -119,9 +132,11 @@ serve(async (req: Request): Promise<Response> => {
             JSON.stringify({
               success: true,
               domain_id: existingDomain.id,
-              status: existingDomain.status,
-              records: existingDomain.records || [],
-              message: "Domain already registered with Resend",
+              status: domainDetails.status,
+              records: records,
+              message: records.length > 0 
+                ? "Domain registered. Add the DNS records below to your domain settings."
+                : "Domain already registered with Resend",
             }),
             {
               status: 200,
