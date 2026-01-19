@@ -49,7 +49,7 @@ const TAB_OPTIONS = [
   { value: 'profile', label: 'Profile' },
   { value: 'organization', label: 'Organization' },
   { value: 'employees', label: 'Employees' },
-  { value: 'communications', label: 'Alerts' },
+  { value: 'communications', label: 'Communications' },
   { value: 'billing', label: 'Billing' },
   { value: 'labor', label: 'Labor', adminOnly: true },
   { value: 'rate-sheets', label: 'Rate Sheets' },
@@ -275,7 +275,7 @@ export default function Settings() {
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="organization">Organization</TabsTrigger>
             <TabsTrigger value="employees">Employees</TabsTrigger>
-            <TabsTrigger value="communications">Alerts</TabsTrigger>
+            <TabsTrigger value="communications">Communications</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
             <TabsTrigger value="rate-sheets">Rate Sheets</TabsTrigger>
