@@ -87,9 +87,11 @@ const handler = async (req: Request): Promise<Response> => {
     const senderName = from_name || brandSettings?.from_name || companyName;
     const senderEmail = from_email || brandSettings?.from_email || 'onboarding@resend.dev';
 
+    console.log("Sending test email to:", to_email, "from:", senderEmail);
+    
     const emailResponse = await resend.emails.send({
       from: `${senderName} <${senderEmail}>`,
-      to: [to_email],
+      to: to_email, // Resend accepts string or array
       subject: `[TEST] ${subject}`,
       html: wrappedHtml,
     });
