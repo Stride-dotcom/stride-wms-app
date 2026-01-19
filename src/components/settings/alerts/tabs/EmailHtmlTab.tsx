@@ -3,16 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardContent } from '@/components/ui/card';
 import { 
   Code, 
   Eye, 
-  Variable, 
   Save, 
-  Send, 
   History,
   Smartphone,
   Monitor,
@@ -26,7 +24,7 @@ import {
   CommunicationTemplateVersion,
   COMMUNICATION_VARIABLES 
 } from '@/hooks/useCommunications';
-import { VariablesDrawer } from '@/components/settings/communications/VariablesDrawer';
+import { VariablesTable } from '../VariablesTable';
 import {
   Sheet,
   SheetContent,
@@ -55,7 +53,6 @@ export function EmailHtmlTab({
   const [body, setBody] = useState('');
   const [editorMode, setEditorMode] = useState<'code' | 'preview'>('code');
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
-  const [showVariables, setShowVariables] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<CommunicationTemplateVersion[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -95,10 +92,6 @@ export function EmailHtmlTab({
     setBody(prev => prev + variable);
   }, []);
 
-  const insertDesignElement = useCallback((element: CommunicationDesignElement) => {
-    setBody(prev => prev + element.html_snippet);
-  }, []);
-
   const getSampleData = (): Record<string, string> => {
     const data: Record<string, string> = {};
     COMMUNICATION_VARIABLES.forEach(v => {
@@ -119,9 +112,11 @@ export function EmailHtmlTab({
     let subjectPreview = subject;
     
     Object.entries(sampleData).forEach(([key, value]) => {
-      const regex = new RegExp(`{{${key}}}`, 'g');
-      html = html.replace(regex, value);
-      subjectPreview = subjectPreview.replace(regex, value);
+      // Support both {{}} and [[]] syntax
+      const regexBraces = new RegExp(`{{${key}}}`, 'g');
+      const regexBrackets = new RegExp(`\\[\\[${key}\\]\\]`, 'g');
+      html = html.replace(regexBraces, value).replace(regexBrackets, value);
+      subjectPreview = subjectPreview.replace(regexBraces, value).replace(regexBrackets, value);
     });
 
     return { html, subject: subjectPreview };
@@ -176,10 +171,6 @@ export function EmailHtmlTab({
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowVariables(true)}>
-            <Variable className="h-4 w-4 mr-2" />
-            Variables
-          </Button>
           <Button variant="outline" size="sm" onClick={loadVersions}>
             <History className="h-4 w-4 mr-2" />
             History
@@ -206,13 +197,13 @@ export function EmailHtmlTab({
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Email subject line..."
-            className="flex-1"
+            className="flex-1 font-mono"
           />
         </div>
       </div>
 
       {/* Editor / Preview */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden min-h-0">
         {editorMode === 'code' ? (
           <Textarea
             value={body}
@@ -244,14 +235,8 @@ export function EmailHtmlTab({
         )}
       </div>
 
-      {/* Variables Drawer */}
-      <VariablesDrawer
-        open={showVariables}
-        onOpenChange={setShowVariables}
-        designElements={designElements}
-        onInsertVariable={insertVariable}
-        onInsertDesignElement={insertDesignElement}
-      />
+      {/* Variables Table at bottom */}
+      <VariablesTable onInsertVariable={insertVariable} />
 
       {/* Version History Sheet */}
       <Sheet open={showVersions} onOpenChange={setShowVersions}>
