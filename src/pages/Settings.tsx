@@ -37,6 +37,7 @@ import { OrganizationSettingsTab } from '@/components/settings/OrganizationSetti
 import { RateSheetsSettingsTab } from '@/components/settings/RateSheetsSettingsTab';
 import { CommunicationsSettingsTab } from '@/components/settings/CommunicationsSettingsTab';
 import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
+import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
 
 interface TenantInfo {
   id: string;
@@ -50,6 +51,7 @@ const TAB_OPTIONS = [
   { value: 'organization', label: 'Organization' },
   { value: 'employees', label: 'Employees' },
   { value: 'communications', label: 'Communications' },
+  { value: 'alerts', label: 'Alerts' },
   { value: 'billing', label: 'Billing' },
   { value: 'labor', label: 'Labor', adminOnly: true },
   { value: 'rate-sheets', label: 'Rate Sheets' },
@@ -276,6 +278,7 @@ export default function Settings() {
             <TabsTrigger value="organization">Organization</TabsTrigger>
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="communications">Communications</TabsTrigger>
+            <TabsTrigger value="alerts">Alerts</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
             <TabsTrigger value="rate-sheets">Rate Sheets</TabsTrigger>
@@ -351,6 +354,10 @@ export default function Settings() {
 
           <TabsContent value="communications">
             <CommunicationsSettingsTab />
+          </TabsContent>
+
+          <TabsContent value="alerts">
+            <AlertsSettingsTab />
           </TabsContent>
 
           <TabsContent value="billing">
