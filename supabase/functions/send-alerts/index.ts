@@ -66,7 +66,25 @@ async function getTenantBranding(supabase: any, tenantId: string): Promise<{ log
   }
 }
 
+function replaceTemplateVariables(html: string, variables: Record<string, string>): string {
+  let result = html;
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.replace(new RegExp(`{{${key}}}`, 'g'), value || '');
+  }
+  return result;
+}
+
 function wrapEmailWithBranding(html: string, logoUrl: string | null, companyName: string): string {
+  // Check if the HTML already has full document structure (from new templates)
+  if (html.includes('<!DOCTYPE html>') || html.includes('<html')) {
+    // Template is already complete, just replace brand variables
+    let result = html;
+    result = result.replace(/{{brand_logo_url}}/g, logoUrl || '');
+    result = result.replace(/{{tenant_name}}/g, companyName);
+    return result;
+  }
+  
+  // Legacy fallback for old-style templates without full HTML
   const logoHtml = logoUrl 
     ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 60px; max-width: 200px; margin-bottom: 20px;" />`
     : `<h1 style="color: #1f2937; margin-bottom: 20px;">${companyName}</h1>`;
@@ -96,32 +114,33 @@ function wrapEmailWithBranding(html: string, logoUrl: string | null, companyName
 }
 
 async function generateItemsTableHtml(supabase: any, itemIds: string[]): Promise<string> {
-  if (!itemIds || itemIds.length === 0) return '<p style="color:#6b7280;">No items</p>';
+  if (!itemIds || itemIds.length === 0) return '<p style="color:#6b7280;font-size:14px;text-align:center;">No items</p>';
   
   const { data: items } = await supabase
     .from('items')
     .select('item_code, description, vendor, current_location')
     .in('id', itemIds);
   
-  if (!items || items.length === 0) return '<p style="color:#6b7280;">No items found</p>';
+  if (!items || items.length === 0) return '<p style="color:#6b7280;font-size:14px;text-align:center;">No items found</p>';
   
-  const rows = items.map((item: any) => `
-    <tr>
-      <td style="padding:12px;border-bottom:1px solid #e5e7eb;">${item.item_code || 'N/A'}</td>
-      <td style="padding:12px;border-bottom:1px solid #e5e7eb;">${item.description || 'N/A'}</td>
-      <td style="padding:12px;border-bottom:1px solid #e5e7eb;">${item.vendor || 'N/A'}</td>
-      <td style="padding:12px;border-bottom:1px solid #e5e7eb;">${item.current_location || 'N/A'}</td>
+  // Cowboy-style table with clean, minimal design
+  const rows = items.map((item: any, index: number) => `
+    <tr style="background-color:${index % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+      <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;font-weight:500;color:#111111;">${item.item_code || 'N/A'}</td>
+      <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#374151;">${item.description || 'N/A'}</td>
+      <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;">${item.vendor || 'N/A'}</td>
+      <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;">${item.current_location || 'N/A'}</td>
     </tr>
   `).join('');
   
   return `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;border-collapse:collapse;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
       <thead>
-        <tr style="background-color:#f3f4f6;">
-          <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Item ID</th>
-          <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Description</th>
-          <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Vendor</th>
-          <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Location</th>
+        <tr style="background-color:#111111;">
+          <th style="padding:14px 16px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;letter-spacing:0.3px;">Item ID</th>
+          <th style="padding:14px 16px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;letter-spacing:0.3px;">Description</th>
+          <th style="padding:14px 16px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;letter-spacing:0.3px;">Vendor</th>
+          <th style="padding:14px 16px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;letter-spacing:0.3px;">Location</th>
         </tr>
       </thead>
       <tbody>
@@ -129,6 +148,19 @@ async function generateItemsTableHtml(supabase: any, itemIds: string[]): Promise
       </tbody>
     </table>
   `;
+}
+
+async function generateItemsListText(supabase: any, itemIds: string[]): Promise<string> {
+  if (!itemIds || itemIds.length === 0) return 'No items';
+  
+  const { data: items } = await supabase
+    .from('items')
+    .select('item_code, description')
+    .in('id', itemIds);
+  
+  if (!items || items.length === 0) return 'No items found';
+  
+  return items.map((item: any) => `• ${item.item_code}: ${item.description || 'N/A'}`).join('\n');
 }
 
 async function generateEmailContent(

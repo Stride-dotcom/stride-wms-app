@@ -278,17 +278,17 @@ export function TemplatesTab({
       html = html.replace(/{{portal_base_url}}/g, brandSettings.portal_base_url || 'https://portal.example.com');
     }
 
-    // Sample items list for preview (card style)
+    // Sample items list for preview (card style) - Cowboy design
     const sampleItemsHtml = `
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;">
         <tr>
-          <td style="background-color:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;border-left:4px solid #FD5A2A;">
+          <td style="background-color:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;">
             <table width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td style="font-weight:600;color:#111111;">1x Office Chair</td>
+                <td style="font-weight:600;color:#111111;font-size:15px;">1x Office Chair</td>
               </tr>
               <tr>
-                <td style="color:#6b7280;font-size:14px;padding-top:4px;">ITM-001 • Supplier Inc • Aisle A, Rack 5</td>
+                <td style="color:#6b7280;font-size:13px;padding-top:6px;">ITM-001 • Supplier Inc • Aisle A, Rack 5</td>
               </tr>
             </table>
           </td>
@@ -297,35 +297,35 @@ export function TemplatesTab({
     `;
     html = html.replace(/{{items_list_html}}/g, sampleItemsHtml);
 
-    // Sample items table for preview (table style)
+    // Sample items table for preview - Cowboy design with dark header
     const sampleItemsTableHtml = `
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;border-collapse:collapse;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
         <thead>
-          <tr style="background-color:#f3f4f6;">
-            <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Item ID</th>
-            <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Description</th>
-            <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Vendor</th>
-            <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;color:#374151;">Location</th>
+          <tr style="background-color:#111111;">
+            <th style="padding:14px 16px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;letter-spacing:0.3px;">Item ID</th>
+            <th style="padding:14px 16px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;letter-spacing:0.3px;">Description</th>
+            <th style="padding:14px 16px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;letter-spacing:0.3px;">Vendor</th>
+            <th style="padding:14px 16px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;letter-spacing:0.3px;">Location</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">ITM-001</td>
-            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Office Chair - Black</td>
-            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Supplier Inc</td>
-            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Aisle A, Rack 5</td>
+          <tr style="background-color:#ffffff;">
+            <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;font-weight:500;color:#111111;">ITM-001</td>
+            <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#374151;">Office Chair - Black</td>
+            <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Supplier Inc</td>
+            <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Aisle A, Rack 5</td>
           </tr>
-          <tr>
-            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">ITM-002</td>
-            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Standing Desk - Oak</td>
-            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Furniture Co</td>
-            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Aisle B, Rack 2</td>
+          <tr style="background-color:#f9fafb;">
+            <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;font-weight:500;color:#111111;">ITM-002</td>
+            <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#374151;">Standing Desk - Oak</td>
+            <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Furniture Co</td>
+            <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Aisle B, Rack 2</td>
           </tr>
-          <tr>
-            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">ITM-003</td>
-            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Monitor Stand</td>
-            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Tech Supply</td>
-            <td style="padding:12px;border-bottom:1px solid #e5e7eb;">Aisle A, Rack 5</td>
+          <tr style="background-color:#ffffff;">
+            <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;font-weight:500;color:#111111;">ITM-003</td>
+            <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#374151;">Monitor Stand</td>
+            <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Tech Supply</td>
+            <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Aisle A, Rack 5</td>
           </tr>
         </tbody>
       </table>
