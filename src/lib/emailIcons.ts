@@ -55,6 +55,9 @@ export const ICON_BOXES_GRAY = `data:image/svg+xml;base64,${btoa(`<svg xmlns="ht
 // Hand truck/Dolly - Blue (for receiving)
 export const ICON_DOLLY_BLUE = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18L6 6.5C6 5.11929 7.11929 4 8.5 4H8.5C9.88071 4 11 5.11929 11 6.5V8"/><path d="M6 18H4"/><path d="M6 18C6 19.6569 7.34315 21 9 21C10.6569 21 12 19.6569 12 18"/><rect x="11" y="6" width="8" height="10" rx="1"/></svg>`)}`;
 
+// User Plus - Blue (for employee invite)
+export const ICON_USER_PLUS_BLUE = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>`)}`;
+
 // Export icon map for easy access by trigger event
 export const EMAIL_ICONS = {
   truck_green: ICON_TRUCK_GREEN,
@@ -75,11 +78,13 @@ export const EMAIL_ICONS = {
   forklift_gray: ICON_FORKLIFT_GRAY,
   boxes_gray: ICON_BOXES_GRAY,
   dolly_blue: ICON_DOLLY_BLUE,
+  user_plus_blue: ICON_USER_PLUS_BLUE,
 } as const;
 
 export type EmailIconKey = keyof typeof EMAIL_ICONS;
 
 // Email template configuration for each trigger event
+// Using fun, friendly, but professional messaging style
 export interface EmailTemplateConfig {
   icon: EmailIconKey;
   accentColor: string;
@@ -91,211 +96,243 @@ export interface EmailTemplateConfig {
   ctaLink: string;
   includeItemsTable: boolean;
   isUrgent?: boolean;
+  smsTemplate: string;
 }
 
-// Template configurations for all 17 trigger events
+// Template configurations for all 17 trigger events - Fun, Friendly, Professional!
 export const EMAIL_TEMPLATE_CONFIGS: Record<string, EmailTemplateConfig> = {
   'shipment.received': {
     icon: 'truck_green',
     accentColor: '#16a34a',
     buttonColor: '#111111',
-    headerLine1: 'Shipment',
-    headerLine2: 'Received',
-    description: 'Your shipment {{shipment_number}} from {{shipment_vendor}} has arrived and been processed at our facility. {{items_count}} items are now checked in.',
-    ctaText: 'View Shipment',
-    ctaLink: '{{shipment_link}}',
+    headerLine1: 'Your shipment',
+    headerLine2: 'has arrived!',
+    description: 'Great news, [[account_contact_name]]! Your shipment [[shipment_number]] just arrived at our facility. We\'ve checked in [[items_count]] items and they\'re safe and sound.',
+    ctaText: 'View Shipment Details',
+    ctaLink: '[[shipment_link]]',
     includeItemsTable: true,
+    smsTemplate: '📦 [[tenant_name]]: Your shipment [[shipment_number]] has arrived! [[items_count]] items checked in safely. View details: [[portal_base_url]]',
   },
   'shipment.status_changed': {
     icon: 'truck_blue',
     accentColor: '#2563eb',
     buttonColor: '#111111',
-    headerLine1: 'Status',
-    headerLine2: 'Updated',
-    description: 'Shipment {{shipment_number}} status has been updated to {{shipment_status}}.',
-    ctaText: 'View Shipment',
-    ctaLink: '{{shipment_link}}',
+    headerLine1: 'Shipment',
+    headerLine2: 'Update',
+    description: 'Heads up! Your shipment [[shipment_number]] status has changed to [[shipment_status]]. We\'re keeping you in the loop every step of the way.',
+    ctaText: 'Track Your Shipment',
+    ctaLink: '[[shipment_link]]',
     includeItemsTable: false,
+    smsTemplate: '🚚 [[tenant_name]]: Shipment [[shipment_number]] is now [[shipment_status]]. Track it: [[portal_base_url]]',
   },
   'shipment.completed': {
     icon: 'check_green',
     accentColor: '#16a34a',
     buttonColor: '#111111',
-    headerLine1: 'Shipment',
-    headerLine2: 'Complete',
-    description: 'Shipment {{shipment_number}} has been fully processed and completed. All {{items_count}} items have been received.',
-    ctaText: 'View Details',
-    ctaLink: '{{shipment_link}}',
+    headerLine1: 'All done!',
+    headerLine2: 'Shipment complete.',
+    description: 'Your shipment [[shipment_number]] is fully processed. All [[items_count]] items have been received and logged. Everything\'s ready to go!',
+    ctaText: 'View Summary',
+    ctaLink: '[[shipment_link]]',
     includeItemsTable: true,
+    smsTemplate: '✅ [[tenant_name]]: Shipment [[shipment_number]] complete! All [[items_count]] items received. Details: [[portal_base_url]]',
   },
   'item.received': {
     icon: 'package_green',
     accentColor: '#16a34a',
     buttonColor: '#111111',
-    headerLine1: 'Item',
-    headerLine2: 'Received',
-    description: 'Item {{item_id}} has been received and logged at {{item_location}}.',
+    headerLine1: 'Item safely',
+    headerLine2: 'received!',
+    description: 'Your item [[item_code]] has been received and stored at [[item_location]]. We\'ve got it covered!',
     ctaText: 'View Item',
-    ctaLink: '{{item_photos_link}}',
+    ctaLink: '[[item_photos_link]]',
     includeItemsTable: false,
+    smsTemplate: '📦 [[tenant_name]]: Item [[item_code]] received and stored at [[item_location]]. View: [[portal_base_url]]',
   },
   'item.damaged': {
     icon: 'warning_red',
     accentColor: '#dc2626',
     buttonColor: '#dc2626',
     headerLine1: 'Damage',
-    headerLine2: 'Reported',
-    description: 'A photo has been flagged as showing damage that requires your immediate attention.',
-    ctaText: 'View Photos',
-    ctaLink: '{{item_photos_link}}',
+    headerLine2: 'Detected',
+    description: 'We noticed something that needs your attention. Item [[item_code]] has been flagged for potential damage. Please review the photos and let us know how you\'d like to proceed.',
+    ctaText: 'Review Photos Now',
+    ctaLink: '[[item_photos_link]]',
     includeItemsTable: false,
     isUrgent: true,
+    smsTemplate: '🚨 URGENT [[tenant_name]]: Damage reported on item [[item_code]]. Please review photos immediately: [[portal_base_url]]',
   },
   'item.location_changed': {
     icon: 'location_blue',
     accentColor: '#2563eb',
     buttonColor: '#111111',
-    headerLine1: 'Item',
-    headerLine2: 'Moved',
-    description: 'Item {{item_id}} has been moved to a new location: {{item_location}}.',
-    ctaText: 'View Item',
-    ctaLink: '{{item_photos_link}}',
+    headerLine1: 'Item on',
+    headerLine2: 'the move!',
+    description: 'Just letting you know: item [[item_code]] has been relocated to [[item_location]]. Same great care, new spot!',
+    ctaText: 'View Item Location',
+    ctaLink: '[[item_photos_link]]',
     includeItemsTable: false,
+    smsTemplate: '📍 [[tenant_name]]: Item [[item_code]] moved to [[item_location]]. View: [[portal_base_url]]',
   },
   'task.created': {
     icon: 'clipboard_blue',
     accentColor: '#2563eb',
     buttonColor: '#111111',
-    headerLine1: 'New Task',
-    headerLine2: 'Created',
-    description: 'A new {{task_type}} task has been created and is due on {{task_due_date}}.',
-    ctaText: 'View Task',
-    ctaLink: '{{task_link}}',
+    headerLine1: 'New task',
+    headerLine2: 'incoming!',
+    description: 'A new [[task_type]] task has been created and is due on [[task_due_date]]. Time to make things happen!',
+    ctaText: 'View Task Details',
+    ctaLink: '[[task_link]]',
     includeItemsTable: true,
+    smsTemplate: '📋 [[tenant_name]]: New [[task_type]] task created, due [[task_due_date]]. View: [[portal_base_url]]',
   },
   'task.assigned': {
     icon: 'clipboard_blue',
     accentColor: '#2563eb',
     buttonColor: '#111111',
-    headerLine1: 'Task',
-    headerLine2: 'Assigned',
-    description: 'You have been assigned a {{task_type}} task due on {{task_due_date}}.',
-    ctaText: 'View Task',
-    ctaLink: '{{task_link}}',
+    headerLine1: 'You\'ve been',
+    headerLine2: 'assigned!',
+    description: 'You\'re up! A [[task_type]] task has been assigned to you, due [[task_due_date]]. You\'ve got this!',
+    ctaText: 'Start Task',
+    ctaLink: '[[task_link]]',
     includeItemsTable: true,
+    smsTemplate: '👋 [[tenant_name]]: You\'re assigned to [[task_type]] task due [[task_due_date]]. Get started: [[portal_base_url]]',
   },
   'task.completed': {
     icon: 'check_green',
     accentColor: '#16a34a',
     buttonColor: '#111111',
     headerLine1: 'Task',
-    headerLine2: 'Complete',
-    description: 'The {{task_type}} task has been completed successfully by {{created_by_name}}.',
-    ctaText: 'View Details',
-    ctaLink: '{{task_link}}',
+    headerLine2: 'complete!',
+    description: 'Nice work! The [[task_type]] task has been completed by [[created_by_name]]. Another one done!',
+    ctaText: 'View Results',
+    ctaLink: '[[task_link]]',
     includeItemsTable: true,
+    smsTemplate: '✅ [[tenant_name]]: [[task_type]] task completed by [[created_by_name]]. View: [[portal_base_url]]',
   },
   'task.overdue': {
     icon: 'clock_red',
     accentColor: '#dc2626',
     buttonColor: '#dc2626',
-    headerLine1: 'Task',
-    headerLine2: 'Overdue',
-    description: 'This task was due on {{task_due_date}} and requires immediate attention.',
+    headerLine1: 'Running',
+    headerLine2: 'behind!',
+    description: 'This [[task_type]] task was due on [[task_due_date]] and needs your attention. Let\'s get it wrapped up!',
     ctaText: 'Complete Task Now',
-    ctaLink: '{{task_link}}',
+    ctaLink: '[[task_link]]',
     includeItemsTable: true,
     isUrgent: true,
+    smsTemplate: '⏰ OVERDUE [[tenant_name]]: [[task_type]] task was due [[task_due_date]]. Action needed: [[portal_base_url]]',
   },
   'release.created': {
     icon: 'truck_orange',
     accentColor: '#FD5A2A',
     buttonColor: '#111111',
     headerLine1: 'Release',
-    headerLine2: 'Created',
-    description: 'A {{release_type}} release has been created with {{items_count}} items. Amount due: {{amount_due}}.',
+    headerLine2: 'ready!',
+    description: 'A [[release_type]] release has been created with [[items_count]] items. Amount due: [[amount_due]]. Ready when you are!',
     ctaText: 'View Release',
-    ctaLink: '{{release_link}}',
+    ctaLink: '[[release_link]]',
     includeItemsTable: true,
+    smsTemplate: '📤 [[tenant_name]]: [[release_type]] release created. [[items_count]] items, [[amount_due]] due. View: [[portal_base_url]]',
   },
   'release.approved': {
     icon: 'check_green',
     accentColor: '#16a34a',
     buttonColor: '#111111',
-    headerLine1: 'Release',
-    headerLine2: 'Approved',
-    description: 'Release {{release_number}} has been approved and is ready for processing.',
+    headerLine1: 'Approved!',
+    headerLine2: 'Let\'s roll.',
+    description: 'Release [[release_number]] has been approved and is ready for processing. Full speed ahead!',
     ctaText: 'View Release',
-    ctaLink: '{{release_link}}',
+    ctaLink: '[[release_link]]',
     includeItemsTable: true,
+    smsTemplate: '✅ [[tenant_name]]: Release [[release_number]] approved! Ready for processing. View: [[portal_base_url]]',
   },
   'release.completed': {
     icon: 'check_green',
     accentColor: '#16a34a',
     buttonColor: '#111111',
-    headerLine1: 'Release',
-    headerLine2: 'Complete',
-    description: 'Release {{release_number}} has been completed on {{release_completed_at}}.',
-    ctaText: 'View Details',
-    ctaLink: '{{release_link}}',
+    headerLine1: 'Out the',
+    headerLine2: 'door!',
+    description: 'Release [[release_number]] has been completed on [[release_completed_at]]. Thanks for your business!',
+    ctaText: 'View Summary',
+    ctaLink: '[[release_link]]',
     includeItemsTable: true,
+    smsTemplate: '🎉 [[tenant_name]]: Release [[release_number]] completed! Thank you for your business. Details: [[portal_base_url]]',
   },
   'invoice.created': {
     icon: 'document_orange',
     accentColor: '#FD5A2A',
     buttonColor: '#FD5A2A',
     headerLine1: 'New',
-    headerLine2: 'Invoice',
-    description: 'A new invoice has been created for your account. Amount due: {{amount_due}}.',
-    ctaText: 'View Invoice',
-    ctaLink: '{{portal_base_url}}',
+    headerLine2: 'invoice!',
+    description: 'Your invoice is ready! Amount due: [[amount_due]]. Click below to view and pay at your convenience.',
+    ctaText: 'View & Pay Invoice',
+    ctaLink: '[[portal_base_url]]',
     includeItemsTable: false,
+    smsTemplate: '📄 [[tenant_name]]: New invoice ready - [[amount_due]] due. View & pay: [[portal_base_url]]',
   },
   'invoice.sent': {
     icon: 'document_orange',
     accentColor: '#2563eb',
     buttonColor: '#111111',
     headerLine1: 'Invoice',
-    headerLine2: 'Sent',
-    description: 'Your invoice has been sent to {{account_contact_email}}.',
+    headerLine2: 'on its way!',
+    description: 'Your invoice has been sent to [[account_contact_email]]. Keep an eye on your inbox!',
     ctaText: 'View Invoice',
-    ctaLink: '{{portal_base_url}}',
+    ctaLink: '[[portal_base_url]]',
     includeItemsTable: false,
+    smsTemplate: '📧 [[tenant_name]]: Invoice sent to [[account_contact_email]]. View it: [[portal_base_url]]',
   },
   'payment.received': {
     icon: 'dollar_green',
     accentColor: '#16a34a',
     buttonColor: '#111111',
     headerLine1: 'Payment',
-    headerLine2: 'Received',
-    description: 'We have received your payment. Thank you for your business!',
+    headerLine2: 'received!',
+    description: 'Thank you! We\'ve received your payment of [[amount_paid]]. You\'re all set!',
     ctaText: 'View Account',
-    ctaLink: '{{portal_base_url}}',
+    ctaLink: '[[portal_base_url]]',
     includeItemsTable: false,
+    smsTemplate: '💚 [[tenant_name]]: Payment of [[amount_paid]] received. Thank you! View: [[portal_base_url]]',
+  },
+  'employee.invited': {
+    icon: 'user_plus_blue',
+    accentColor: '#2563eb',
+    buttonColor: '#2563eb',
+    headerLine1: 'You\'re',
+    headerLine2: 'invited!',
+    description: 'Welcome to the team! [[tenant_name]] has invited you to join their warehouse management system. Click below to set up your account and get started.',
+    ctaText: 'Accept Invitation',
+    ctaLink: '[[invite_link]]',
+    includeItemsTable: false,
+    smsTemplate: '🎉 [[tenant_name]]: You\'re invited! Set up your account: [[invite_link]]',
   },
   'custom': {
     icon: 'boxes_gray',
     accentColor: '#6b7280',
     buttonColor: '#111111',
-    headerLine1: 'Alert',
-    headerLine2: 'Notification',
-    description: 'This is a notification from {{tenant_name}}.',
+    headerLine1: 'Heads',
+    headerLine2: 'up!',
+    description: 'This is a notification from [[tenant_name]]. Click below for more details.',
     ctaText: 'View Details',
-    ctaLink: '{{portal_base_url}}',
+    ctaLink: '[[portal_base_url]]',
     includeItemsTable: false,
+    smsTemplate: '📢 [[tenant_name]]: You have a new notification. View details: [[portal_base_url]]',
   },
 };
 
-// Build the Cowboy-inspired email template HTML
+// Build the Cowboy-inspired email template HTML - Clean, Modern, Fun!
 export function buildEmailTemplate(triggerEvent: string): string {
   const config = EMAIL_TEMPLATE_CONFIGS[triggerEvent] || EMAIL_TEMPLATE_CONFIGS['custom'];
   const iconDataUri = EMAIL_ICONS[config.icon];
   
   const urgentBanner = config.isUrgent ? `
               <!-- Urgent Banner -->
-              <div style="background-color:${config.accentColor};color:#ffffff;padding:12px 24px;text-align:center;font-weight:600;font-size:14px;letter-spacing:0.5px;">
-                ⚠️ URGENT - ACTION REQUIRED
-              </div>` : '';
+              <tr>
+                <td style="background-color:${config.accentColor};color:#ffffff;padding:12px 24px;text-align:center;font-weight:600;font-size:14px;letter-spacing:0.5px;">
+                  ⚠️ ACTION REQUIRED
+                </td>
+              </tr>` : '';
 
   return `<!DOCTYPE html>
 <html>
@@ -312,8 +349,8 @@ export function buildEmailTemplate(triggerEvent: string): string {
           
           <!-- Logo Header -->
           <tr>
-            <td style="padding:32px 40px;text-align:center;">
-              <img src="{{brand_logo_url}}" alt="{{tenant_name}}" style="max-height:32px;max-width:200px;" onerror="this.style.display='none'">
+            <td style="padding:24px 0;text-align:center;">
+              <img src="[[brand_logo_url]]" alt="[[tenant_name]]" style="max-height:40px;max-width:180px;" onerror="this.style.display='none'">
             </td>
           </tr>
           
@@ -322,10 +359,6 @@ export function buildEmailTemplate(triggerEvent: string): string {
             <td>
               <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -1px rgba(0,0,0,0.06);">
                 ${urgentBanner}
-                <!-- Accent Bar -->
-                <tr>
-                  <td style="background-color:${config.accentColor};height:4px;"></td>
-                </tr>
                 
                 <!-- Content -->
                 <tr>
@@ -334,27 +367,27 @@ export function buildEmailTemplate(triggerEvent: string): string {
                     <!-- Icon -->
                     <table width="100%" cellpadding="0" cellspacing="0" border="0">
                       <tr>
-                        <td align="center" style="padding-bottom:32px;">
-                          <img src="${iconDataUri}" width="64" height="64" alt="" style="display:block;">
+                        <td align="center" style="padding-bottom:24px;">
+                          <img src="${iconDataUri}" width="72" height="72" alt="" style="display:block;">
                         </td>
                       </tr>
                     </table>
                     
                     <!-- Bold Split Headline -->
-                    <h1 style="margin:0;font-size:42px;font-weight:700;color:#111111;line-height:1.1;letter-spacing:-0.5px;">
+                    <h1 style="margin:0;font-size:48px;font-weight:700;color:#111111;line-height:1.1;letter-spacing:-0.5px;">
                       ${config.headerLine1}<br>${config.headerLine2}
                     </h1>
                     
                     <!-- Description -->
-                    <p style="margin:24px auto 32px;font-size:16px;color:#6b7280;line-height:1.6;max-width:400px;">
+                    <p style="margin:24px auto 32px;font-size:17px;color:#6b7280;line-height:1.7;max-width:420px;">
                       ${config.description}
                     </p>
                     
                     <!-- CTA Button -->
                     <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
                       <tr>
-                        <td style="background-color:${config.buttonColor};border-radius:24px;">
-                          <a href="${config.ctaLink}" target="_blank" style="display:inline-block;padding:16px 32px;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;letter-spacing:0.3px;">
+                        <td style="background-color:${config.buttonColor};border-radius:50px;">
+                          <a href="${config.ctaLink}" target="_blank" style="display:inline-block;padding:16px 40px;color:#ffffff;text-decoration:none;font-weight:600;font-size:16px;letter-spacing:0.3px;">
                             ${config.ctaText}
                           </a>
                         </td>
@@ -367,16 +400,16 @@ export function buildEmailTemplate(triggerEvent: string): string {
                         <td style="background-color:#f9fafb;border-radius:12px;padding:24px;text-align:left;">
                           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:14px;">
                             <tr>
-                              <td style="padding:6px 0;color:#6b7280;width:120px;">Account:</td>
-                              <td style="padding:6px 0;color:#111111;font-weight:500;">{{account_name}}</td>
+                              <td style="padding:8px 0;color:#6b7280;width:120px;">Account:</td>
+                              <td style="padding:8px 0;color:#111111;font-weight:600;">[[account_name]]</td>
                             </tr>
                             <tr>
-                              <td style="padding:6px 0;color:#6b7280;">Date:</td>
-                              <td style="padding:6px 0;color:#111111;font-weight:500;">{{created_at}}</td>
+                              <td style="padding:8px 0;color:#6b7280;">Date:</td>
+                              <td style="padding:8px 0;color:#111111;font-weight:600;">[[created_at]]</td>
                             </tr>
                             <tr>
-                              <td style="padding:6px 0;color:#6b7280;">Items:</td>
-                              <td style="padding:6px 0;color:#111111;font-weight:500;">{{items_count}}</td>
+                              <td style="padding:8px 0;color:#6b7280;">Items:</td>
+                              <td style="padding:8px 0;color:#111111;font-weight:600;">[[items_count]]</td>
                             </tr>
                           </table>
                         </td>
@@ -386,8 +419,8 @@ export function buildEmailTemplate(triggerEvent: string): string {
                     ${config.includeItemsTable ? `
                     <!-- Items Table -->
                     <div style="margin-top:32px;text-align:left;">
-                      <p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#111111;">Items:</p>
-                      {{items_table_html}}
+                      <p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#111111;">Items included:</p>
+                      [[items_table_html]]
                     </div>
                     ` : ''}
                     
@@ -397,14 +430,28 @@ export function buildEmailTemplate(triggerEvent: string): string {
             </td>
           </tr>
           
+          <!-- Divider -->
+          <tr>
+            <td style="padding:32px 0 0;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="border-top:1px solid #e5e7eb;"></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
           <!-- Footer -->
           <tr>
-            <td style="padding:40px 20px;text-align:center;">
+            <td style="padding:32px 20px 40px;text-align:center;">
+              <!-- Company Logo in Footer -->
+              <img src="[[brand_logo_url]]" alt="[[tenant_name]]" style="max-height:24px;max-width:120px;margin-bottom:16px;opacity:0.7;" onerror="this.style.display='none'">
+              
               <p style="margin:0 0 12px;font-size:13px;color:#9ca3af;">
-                Questions? Contact us at <a href="mailto:{{brand_support_email}}" style="color:#6b7280;text-decoration:underline;">{{brand_support_email}}</a>
+                Questions? Reach out at <a href="mailto:[[brand_support_email]]" style="color:#6b7280;text-decoration:underline;">[[brand_support_email]]</a>
               </p>
               <p style="margin:0;font-size:12px;color:#9ca3af;">
-                © {{tenant_name}}
+                © [[tenant_name]] • All rights reserved
               </p>
             </td>
           </tr>
@@ -417,16 +464,8 @@ export function buildEmailTemplate(triggerEvent: string): string {
 </html>`;
 }
 
-// Build SMS template
+// Build SMS template - Fun, Friendly, and informative!
 export function buildSmsTemplate(triggerEvent: string): string {
   const config = EMAIL_TEMPLATE_CONFIGS[triggerEvent] || EMAIL_TEMPLATE_CONFIGS['custom'];
-  const urgentPrefix = config.isUrgent ? '🚨 URGENT: ' : '';
-  
-  return `${urgentPrefix}{{tenant_name}}: ${config.headerLine1} ${config.headerLine2}
-
-${config.description.replace(/{{/g, '').replace(/}}/g, '').substring(0, 80)}...
-
-{{items_count}} item(s).
-
-View: {{portal_base_url}}`;
+  return config.smsTemplate;
 }
