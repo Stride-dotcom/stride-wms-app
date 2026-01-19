@@ -8,6 +8,7 @@ import { BillingRatesSection } from './BillingRatesSection';
 import { LegalLinksSection } from './LegalLinksSection';
 import { DefaultNotesSection } from './DefaultNotesSection';
 import { ComingSoonSection } from './ComingSoonSection';
+import { EmailDomainSection } from './EmailDomainSection';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -180,6 +181,9 @@ export function PreferencesContent() {
         onTermsOfServiceUrlChange={(value) => setFormData(prev => ({ ...prev, terms_of_service_url: value }))}
         onPrivacyPolicyUrlChange={(value) => setFormData(prev => ({ ...prev, privacy_policy_url: value }))}
       />
+
+      {/* Email Domain Configuration */}
+      <EmailDomainSection />
 
       {/* Save Button */}
       <div className="flex justify-end">
