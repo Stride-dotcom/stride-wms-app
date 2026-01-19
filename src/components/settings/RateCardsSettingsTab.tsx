@@ -31,7 +31,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Loader2, Plus, DollarSign, Pencil, Trash2 } from 'lucide-react';
+import { Search, Loader2, Plus, DollarSign, Pencil, Trash2, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -93,8 +93,35 @@ export function RateCardsSettingsTab() {
   const [saving, setSaving] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingRateCard, setDeletingRateCard] = useState<RateCard | null>(null);
+  const [syncingCards, setSyncingCards] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { profile } = useAuth();
+
+  const handleSyncFromItemTypes = async (rateCardId: string) => {
+    if (!profile?.tenant_id) return;
+
+    setSyncingCards(prev => new Set(prev).add(rateCardId));
+    try {
+      const result = await populateRateCardFromItemTypes(profile.tenant_id, rateCardId);
+      toast({
+        title: 'Sync Complete',
+        description: `Updated ${result.updated} rates, added ${result.inserted} new rates.`,
+      });
+    } catch (error) {
+      console.error('Error syncing rates from item types:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Sync Failed',
+        description: 'Failed to sync rates from item types.',
+      });
+    } finally {
+      setSyncingCards(prev => {
+        const next = new Set(prev);
+        next.delete(rateCardId);
+        return next;
+      });
+    }
+  };
 
   const form = useForm<RateCardFormData>({
     resolver: zodResolver(rateCardSchema),
@@ -355,14 +382,36 @@ export function RateCardsSettingsTab() {
                   </div>
                 </MobileDataCardContent>
                 <MobileDataCardActions>
-                  <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => handleEdit(card)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSyncFromItemTypes(card.id);
+                    }}
+                    disabled={syncingCards.has(card.id)}
+                    title="Sync from Item Types"
+                  >
+                    <RefreshCw className={syncingCards.has(card.id) ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEdit(card);
+                    }}
+                  >
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-11 w-11"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setDeletingRateCard(card);
                       setDeleteDialogOpen(true);
                     }}
@@ -384,7 +433,7 @@ export function RateCardsSettingsTab() {
                   <TableHead>Status</TableHead>
                   <TableHead>Effective Date</TableHead>
                   <TableHead>Expiration</TableHead>
-                  <TableHead className="w-[100px]">Actions</TableHead>
+                  <TableHead className="w-[140px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -408,27 +457,36 @@ export function RateCardsSettingsTab() {
                         ? format(new Date(card.expiration_date), 'MMM d, yyyy')
                         : 'No expiration'}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(card)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setDeletingRateCard(card);
-                            setDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleSyncFromItemTypes(card.id)}
+                            disabled={syncingCards.has(card.id)}
+                            title="Sync from Item Types"
+                          >
+                            <RefreshCw className={syncingCards.has(card.id) ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(card)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setDeletingRateCard(card);
+                              setDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
