@@ -4,36 +4,56 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mail, CheckCircle, XCircle, Loader2, Copy, Info } from 'lucide-react';
+import { Mail, CheckCircle, XCircle, Loader2, Copy, Info, Globe, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
+interface DnsRecord {
+  record?: string;
+  name: string;
+  type: string;
+  value: string;
+  status?: string;
+  ttl?: string;
+  priority?: number;
+}
+
 interface EmailDomainSettings {
   custom_email_domain: string | null;
   email_domain_verified: boolean;
-  email_verification_type: 'simple' | 'dns' | null;
   dkim_verified: boolean;
   spf_verified: boolean;
+  resend_domain_id: string | null;
+  resend_dns_records: DnsRecord[] | null;
 }
+
+type RegistrationStatus = 'not_registered' | 'pending_dns' | 'verified';
 
 export function EmailDomainSection() {
   const { profile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [registering, setRegistering] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [settings, setSettings] = useState<EmailDomainSettings>({
     custom_email_domain: null,
     email_domain_verified: false,
-    email_verification_type: null,
     dkim_verified: false,
     spf_verified: false,
+    resend_domain_id: null,
+    resend_dns_records: null,
   });
   const [customEmail, setCustomEmail] = useState('');
-  const [verificationType, setVerificationType] = useState<'simple' | 'dns'>('simple');
+  const [dnsRecords, setDnsRecords] = useState<DnsRecord[]>([]);
+
+  const registrationStatus: RegistrationStatus = settings.email_domain_verified
+    ? 'verified'
+    : settings.resend_domain_id
+    ? 'pending_dns'
+    : 'not_registered';
 
   useEffect(() => {
     if (profile?.tenant_id) {
@@ -47,16 +67,29 @@ export function EmailDomainSection() {
     try {
       const { data, error } = await supabase
         .from('communication_brand_settings')
-        .select('custom_email_domain, email_domain_verified, email_verification_type, dkim_verified, spf_verified')
+        .select('custom_email_domain, email_domain_verified, dkim_verified, spf_verified, resend_domain_id, resend_dns_records')
         .eq('tenant_id', profile.tenant_id)
         .maybeSingle();
 
       if (error) throw error;
 
       if (data) {
-        setSettings(data as EmailDomainSettings);
+        const records = Array.isArray(data.resend_dns_records) 
+          ? data.resend_dns_records as unknown as DnsRecord[]
+          : null;
+        
+        setSettings({
+          custom_email_domain: data.custom_email_domain,
+          email_domain_verified: data.email_domain_verified || false,
+          dkim_verified: data.dkim_verified || false,
+          spf_verified: data.spf_verified || false,
+          resend_domain_id: data.resend_domain_id,
+          resend_dns_records: records,
+        });
         setCustomEmail(data.custom_email_domain || '');
-        setVerificationType((data.email_verification_type as 'simple' | 'dns') || 'simple');
+        if (records) {
+          setDnsRecords(records);
+        }
       }
     } catch (error) {
       console.error('Error fetching email domain settings:', error);
@@ -70,18 +103,11 @@ export function EmailDomainSection() {
 
     setSaving(true);
     try {
-      // Extract domain from email
-      const domain = customEmail.includes('@') ? customEmail.split('@')[1] : null;
-
       const { error } = await supabase
         .from('communication_brand_settings')
         .upsert({
           tenant_id: profile.tenant_id,
           custom_email_domain: customEmail || null,
-          email_verification_type: verificationType,
-          email_domain_verified: false, // Reset verification when settings change
-          dkim_verified: false,
-          spf_verified: false,
         }, {
           onConflict: 'tenant_id',
         });
@@ -91,15 +117,11 @@ export function EmailDomainSection() {
       setSettings(prev => ({
         ...prev,
         custom_email_domain: customEmail || null,
-        email_verification_type: verificationType,
-        email_domain_verified: false,
-        dkim_verified: false,
-        spf_verified: false,
       }));
 
       toast({
         title: 'Settings Saved',
-        description: 'Email domain settings have been updated. Please verify your domain.',
+        description: 'Email address has been updated.',
       });
     } catch (error) {
       console.error('Error saving email settings:', error);
@@ -113,16 +135,62 @@ export function EmailDomainSection() {
     }
   };
 
-  const handleVerify = async () => {
+  const handleRegisterDomain = async () => {
     if (!profile?.tenant_id || !customEmail) return;
+
+    const domain = customEmail.includes('@') ? customEmail.split('@')[1] : null;
+    if (!domain) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Email',
+        description: 'Please enter a valid email address with a domain.',
+      });
+      return;
+    }
+
+    setRegistering(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('register-email-domain', {
+        body: { domain },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setSettings(prev => ({
+          ...prev,
+          resend_domain_id: data.domain_id,
+          resend_dns_records: data.records,
+          email_domain_verified: data.status === 'verified',
+        }));
+        setDnsRecords(data.records || []);
+
+        toast({
+          title: 'Domain Registered',
+          description: data.message || 'Domain registered with Resend. Please add the DNS records below.',
+        });
+      } else {
+        throw new Error(data.error || 'Failed to register domain');
+      }
+    } catch (error: any) {
+      console.error('Error registering domain:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Registration Error',
+        description: error.message || 'Failed to register email domain',
+      });
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    if (!profile?.tenant_id || !settings.resend_domain_id) return;
 
     setVerifying(true);
     try {
       const { data, error } = await supabase.functions.invoke('verify-email-domain', {
-        body: {
-          email: customEmail,
-          verificationType,
-        },
+        body: {},
       });
 
       if (error) throw error;
@@ -134,16 +202,22 @@ export function EmailDomainSection() {
           dkim_verified: data.dkim_verified || false,
           spf_verified: data.spf_verified || false,
         }));
+        if (data.records) {
+          setDnsRecords(data.records);
+        }
 
         toast({
           title: 'Domain Verified',
-          description: 'Your email domain has been verified successfully.',
+          description: 'Your email domain has been verified successfully. Emails will now be sent from your custom domain.',
         });
       } else {
+        if (data.records) {
+          setDnsRecords(data.records);
+        }
         toast({
           variant: 'destructive',
-          title: 'Verification Failed',
-          description: data.message || 'Could not verify domain. Please check your DNS settings.',
+          title: 'Verification Pending',
+          description: data.message || 'Please check your DNS settings and try again.',
         });
       }
     } catch (error: any) {
@@ -190,113 +264,29 @@ export function EmailDomainSection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Custom Email Input */}
-        <div className="space-y-2">
-          <Label htmlFor="custom_email">Custom Sender Email</Label>
-          <Input
-            id="custom_email"
-            type="email"
-            placeholder="notifications@yourcompany.com"
-            value={customEmail}
-            onChange={(e) => setCustomEmail(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Emails will be sent from this address instead of the default
-          </p>
-        </div>
-
-        {/* Verification Type */}
-        <div className="space-y-3">
-          <Label>Verification Method</Label>
-          <RadioGroup
-            value={verificationType}
-            onValueChange={(value) => setVerificationType(value as 'simple' | 'dns')}
-            className="space-y-2"
-          >
-            <div className="flex items-start space-x-3 p-3 rounded-lg border">
-              <RadioGroupItem value="simple" id="simple" className="mt-1" />
-              <div>
-                <Label htmlFor="simple" className="font-medium cursor-pointer">Simple Verification</Label>
-                <p className="text-sm text-muted-foreground">
-                  Quick setup - we'll send a verification link to your email
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start space-x-3 p-3 rounded-lg border">
-              <RadioGroupItem value="dns" id="dns" className="mt-1" />
-              <div>
-                <Label htmlFor="dns" className="font-medium cursor-pointer">DNS Verification</Label>
-                <p className="text-sm text-muted-foreground">
-                  Full email deliverability with SPF and DKIM records
-                </p>
-              </div>
-            </div>
-          </RadioGroup>
-        </div>
-
-        {/* DNS Instructions - Show when DNS verification is selected */}
-        {verificationType === 'dns' && customEmail && (
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription className="space-y-4">
-              <p className="font-medium">Add these DNS records to your domain:</p>
-              
-              <div className="space-y-3">
-                <div className="bg-muted rounded p-3 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">SPF Record (TXT)</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2"
-                      onClick={() => copyToClipboard(`v=spf1 include:_spf.resend.com ~all`)}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <code className="text-xs block break-all">v=spf1 include:_spf.resend.com ~all</code>
-                </div>
-
-                <div className="bg-muted rounded p-3 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">DKIM Record (TXT)</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2"
-                      onClick={() => copyToClipboard(`resend._domainkey.${domain}`)}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <code className="text-xs block">Host: resend._domainkey.{domain}</code>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Value will be provided after you save and verify
-                  </p>
-                </div>
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Verification Status */}
-        <div className="flex items-center gap-4">
+        {/* Registration Status */}
+        <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Status:</span>
-            {settings.email_domain_verified ? (
-              <Badge variant="default" className="gap-1">
-                <CheckCircle className="h-3 w-3" />
-                Verified
+            {registrationStatus === 'verified' ? (
+              <Badge variant="default" className="gap-1 bg-green-600">
+                <ShieldCheck className="h-3 w-3" />
+                Verified & Active
+              </Badge>
+            ) : registrationStatus === 'pending_dns' ? (
+              <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800 border-amber-200">
+                <Globe className="h-3 w-3" />
+                Pending DNS Setup
               </Badge>
             ) : (
               <Badge variant="secondary" className="gap-1">
                 <XCircle className="h-3 w-3" />
-                Not Verified
+                Not Registered
               </Badge>
             )}
           </div>
 
-          {verificationType === 'dns' && settings.email_domain_verified && (
+          {registrationStatus === 'verified' && (
             <>
               <div className="flex items-center gap-1">
                 <span className="text-xs text-muted-foreground">SPF:</span>
@@ -318,23 +308,137 @@ export function EmailDomainSection() {
           )}
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-2">
-          <Button onClick={handleSave} disabled={saving || !customEmail}>
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Settings
-          </Button>
-          {customEmail && (
-            <Button
-              variant="outline"
-              onClick={handleVerify}
-              disabled={verifying || !settings.custom_email_domain}
-            >
-              {verifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Verify Domain
-            </Button>
-          )}
+        {/* Custom Email Input */}
+        <div className="space-y-2">
+          <Label htmlFor="custom_email">Custom Sender Email</Label>
+          <Input
+            id="custom_email"
+            type="email"
+            placeholder="notifications@yourcompany.com"
+            value={customEmail}
+            onChange={(e) => setCustomEmail(e.target.value)}
+            disabled={registrationStatus === 'verified'}
+          />
+          <p className="text-xs text-muted-foreground">
+            {registrationStatus === 'verified'
+              ? 'Emails are being sent from this address.'
+              : 'Emails will be sent from this address once verified.'}
+          </p>
         </div>
+
+        {/* Step 1: Save & Register */}
+        {registrationStatus === 'not_registered' && (
+          <div className="space-y-4">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                <p className="font-medium mb-2">Step 1: Register Your Domain</p>
+                <p className="text-sm text-muted-foreground">
+                  Enter your desired sender email address above, then click "Register Domain" to start the verification process.
+                  We'll provide you with DNS records to add to your domain.
+                </p>
+              </AlertDescription>
+            </Alert>
+            <div className="flex gap-2">
+              <Button onClick={handleSave} disabled={saving || !customEmail} variant="outline">
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Email
+              </Button>
+              <Button onClick={handleRegisterDomain} disabled={registering || !customEmail}>
+                {registering && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Globe className="mr-2 h-4 w-4" />
+                Register Domain
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: DNS Records */}
+        {registrationStatus === 'pending_dns' && dnsRecords.length > 0 && (
+          <div className="space-y-4">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                <p className="font-medium mb-2">Step 2: Add DNS Records</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Add the following DNS records to your domain ({domain}). Once added, click "Verify Domain" to complete setup.
+                </p>
+                
+                <div className="space-y-3">
+                  {dnsRecords.map((record, index) => (
+                    <div key={index} className="bg-background rounded p-3 space-y-2 border">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {record.record || record.type}
+                          </Badge>
+                          {record.status && (
+                            <Badge 
+                              variant={record.status === 'verified' ? 'default' : 'secondary'}
+                              className={record.status === 'verified' ? 'bg-green-600 text-xs' : 'text-xs'}
+                            >
+                              {record.status}
+                            </Badge>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2"
+                          onClick={() => copyToClipboard(record.value)}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex gap-2 text-xs">
+                          <span className="font-medium text-muted-foreground w-12">Name:</span>
+                          <code className="flex-1 break-all">{record.name}</code>
+                        </div>
+                        <div className="flex gap-2 text-xs">
+                          <span className="font-medium text-muted-foreground w-12">Type:</span>
+                          <code>{record.type}</code>
+                        </div>
+                        <div className="flex gap-2 text-xs">
+                          <span className="font-medium text-muted-foreground w-12">Value:</span>
+                          <code className="flex-1 break-all text-[10px]">{record.value}</code>
+                        </div>
+                        {record.priority !== undefined && (
+                          <div className="flex gap-2 text-xs">
+                            <span className="font-medium text-muted-foreground w-12">Priority:</span>
+                            <code>{record.priority}</code>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </AlertDescription>
+            </Alert>
+            
+            <div className="flex gap-2">
+              <Button onClick={handleVerify} disabled={verifying}>
+                {verifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                Verify Domain
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Verified */}
+        {registrationStatus === 'verified' && (
+          <Alert className="border-green-200 bg-green-50">
+            <ShieldCheck className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">
+              <p className="font-medium">Domain Verified!</p>
+              <p className="text-sm">
+                Your email domain has been verified. All communication alerts will be sent from{' '}
+                <strong>{customEmail}</strong>.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
       </CardContent>
     </Card>
   );

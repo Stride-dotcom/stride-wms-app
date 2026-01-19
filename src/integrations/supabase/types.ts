@@ -1102,6 +1102,8 @@ export type Database = {
           from_name: string | null
           id: string
           portal_base_url: string | null
+          resend_dns_records: Json | null
+          resend_domain_id: string | null
           sms_sender_id: string | null
           spf_verified: boolean | null
           tenant_id: string
@@ -1122,6 +1124,8 @@ export type Database = {
           from_name?: string | null
           id?: string
           portal_base_url?: string | null
+          resend_dns_records?: Json | null
+          resend_domain_id?: string | null
           sms_sender_id?: string | null
           spf_verified?: boolean | null
           tenant_id: string
@@ -1142,6 +1146,8 @@ export type Database = {
           from_name?: string | null
           id?: string
           portal_base_url?: string | null
+          resend_dns_records?: Json | null
+          resend_domain_id?: string | null
           sms_sender_id?: string | null
           spf_verified?: boolean | null
           tenant_id?: string

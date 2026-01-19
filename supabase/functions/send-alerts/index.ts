@@ -369,9 +369,27 @@ const handler = async (req: Request): Promise<Response> => {
         // Wrap HTML with branding
         const brandedHtml = wrapEmailWithBranding(html!, branding.logoUrl, branding.companyName || 'Warehouse System');
 
+        // Get custom email domain settings
+        const { data: brandSettings } = await supabase
+          .from('communication_brand_settings')
+          .select('custom_email_domain, from_name, email_domain_verified')
+          .eq('tenant_id', alert.tenant_id)
+          .maybeSingle();
+
+        // Determine from email - use verified custom domain or fallback to resend.dev
+        let fromEmail = 'alerts@resend.dev';
+        let fromName = branding.companyName || 'Warehouse System';
+
+        if (brandSettings?.email_domain_verified && brandSettings?.custom_email_domain) {
+          fromEmail = brandSettings.custom_email_domain;
+          if (brandSettings?.from_name) {
+            fromName = brandSettings.from_name;
+          }
+        }
+
         // Send email
         const { error: sendError } = await resend.emails.send({
-          from: `${branding.companyName || 'Warehouse System'} <alerts@resend.dev>`,
+          from: `${fromName} <${fromEmail}>`,
           to: recipients,
           subject: subject,
           html: brandedHtml,

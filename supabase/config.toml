@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.send-alerts]
 verify_jwt = false
+
+[functions.verify-email-domain]
+verify_jwt = false
+
+[functions.register-email-domain]
+verify_jwt = false
