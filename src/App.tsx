@@ -27,6 +27,7 @@ import RepairTechAccess from "./pages/RepairTechAccess";
 import ScanHub from "./pages/ScanHub";
 import NotFound from "./pages/NotFound";
 import { AIClientBot } from "./components/ai/AIClientBot";
+import TemplateEdit from "./pages/TemplateEdit";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ const App = () => (
             <Route path="/employees" element={<ProtectedRoute><RequireRole role="tenant_admin"><Employees /></RequireRole></ProtectedRoute>} />
             <Route path="/rate-cards" element={<ProtectedRoute><RequireRole role="tenant_admin"><RateCards /></RequireRole></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><RequireRole role="tenant_admin"><Settings /></RequireRole></ProtectedRoute>} />
+            <Route path="/settings/templates/:alertId" element={<ProtectedRoute><RequireRole role="tenant_admin"><TemplateEdit /></RequireRole></ProtectedRoute>} />
             <Route path="/repair-access" element={<RepairTechAccess />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

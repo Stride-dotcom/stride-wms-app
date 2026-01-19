@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -47,7 +48,7 @@ interface AlertsTabProps {
   onCreateAlert: (alert: Omit<CommunicationAlert, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>) => Promise<CommunicationAlert | null>;
   onUpdateAlert: (id: string, updates: Partial<CommunicationAlert>) => Promise<boolean>;
   onDeleteAlert: (id: string) => Promise<boolean>;
-  onEditTemplate: (alertId: string, channel: 'email' | 'sms') => void;
+  onEditTemplate?: (alertId: string, channel: 'email' | 'sms') => void;
 }
 
 export function AlertsTab({
@@ -55,8 +56,8 @@ export function AlertsTab({
   onCreateAlert,
   onUpdateAlert,
   onDeleteAlert,
-  onEditTemplate,
 }: AlertsTabProps) {
+  const navigate = useNavigate();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [alertToDelete, setAlertToDelete] = useState<CommunicationAlert | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -184,7 +185,7 @@ export function AlertsTab({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => onEditTemplate(alert.id, 'email')}
+                          onClick={() => navigate(`/settings/templates/${alert.id}?channel=email`)}
                         >
                           <Edit2 className="h-3 w-3" />
                         </Button>
@@ -201,7 +202,7 @@ export function AlertsTab({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => onEditTemplate(alert.id, 'sms')}
+                          onClick={() => navigate(`/settings/templates/${alert.id}?channel=sms`)}
                         >
                           <Edit2 className="h-3 w-3" />
                         </Button>
