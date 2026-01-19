@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -64,7 +65,12 @@ export function AlertsTab({
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [alertToDelete, setAlertToDelete] = useState<CommunicationAlert | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
+  const getEditorHref = (
+    id: string,
+    tab?: 'recipients' | 'email-html' | 'email-text' | 'sms' | 'brand'
+  ) => `/templates/${id}${tab ? `?tab=${tab}` : ''}`;
+
   const [formData, setFormData] = useState({
     name: '',
     key: '',
@@ -184,21 +190,29 @@ export function AlertsTab({
                         checked={alert.channels.email}
                         onCheckedChange={() => toggleChannel(alert, 'email')}
                       />
-                        {alert.channels.email && (
+                      {alert.channels.email && (
+                        onNavigateToEditor ? (
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              if (onNavigateToEditor) {
-                                onNavigateToEditor(alert.id, { tab: 'email-html' });
-                              } else {
-                                onEditTemplate(alert.id, 'email');
-                              }
-                            }}
+                            asChild
+                            title="Edit email template"
+                          >
+                            <Link to={getEditorHref(alert.id, 'email-html')}>
+                              <Edit2 className="h-3 w-3" />
+                            </Link>
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onEditTemplate(alert.id, 'email')}
+                            title="Edit email template"
                           >
                             <Edit2 className="h-3 w-3" />
                           </Button>
-                        )}
+                        )
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -207,21 +221,29 @@ export function AlertsTab({
                         checked={alert.channels.sms}
                         onCheckedChange={() => toggleChannel(alert, 'sms')}
                       />
-                        {alert.channels.sms && (
+                      {alert.channels.sms && (
+                        onNavigateToEditor ? (
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              if (onNavigateToEditor) {
-                                onNavigateToEditor(alert.id, { tab: 'sms' });
-                              } else {
-                                onEditTemplate(alert.id, 'sms');
-                              }
-                            }}
+                            asChild
+                            title="Edit SMS template"
+                          >
+                            <Link to={getEditorHref(alert.id, 'sms')}>
+                              <Edit2 className="h-3 w-3" />
+                            </Link>
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onEditTemplate(alert.id, 'sms')}
+                            title="Edit SMS template"
                           >
                             <Edit2 className="h-3 w-3" />
                           </Button>
-                        )}
+                        )
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -238,10 +260,12 @@ export function AlertsTab({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => onNavigateToEditor(alert.id)}
-                          title="Edit Template"
+                          asChild
+                          title="Open in Template Editor"
                         >
-                          <ExternalLink className="h-4 w-4" />
+                          <Link to={getEditorHref(alert.id)}>
+                            <ExternalLink className="h-4 w-4" />
+                          </Link>
                         </Button>
                       )}
                       <Button
