@@ -1,15 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Code, Eye, Variable, Save, MessageSquare, AlertCircle } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Code, Eye, Save, MessageSquare, AlertCircle } from 'lucide-react';
 import { 
   CommunicationTemplate, 
   COMMUNICATION_VARIABLES 
 } from '@/hooks/useCommunications';
-import { VariablesDrawer } from '@/components/settings/communications/VariablesDrawer';
+import { VariablesTable } from '../VariablesTable';
 
 interface SmsTabProps {
   template: CommunicationTemplate | null;
@@ -25,7 +24,6 @@ export function SmsTab({
 }: SmsTabProps) {
   const [body, setBody] = useState('');
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
-  const [showVariables, setShowVariables] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -77,8 +75,10 @@ export function SmsTab({
     let text = body;
     
     Object.entries(sampleData).forEach(([key, value]) => {
-      const regex = new RegExp(`{{${key}}}`, 'g');
-      text = text.replace(regex, value);
+      // Support both {{}} and [[]] syntax
+      const regexBraces = new RegExp(`{{${key}}}`, 'g');
+      const regexBrackets = new RegExp(`\\[\\[${key}\\]\\]`, 'g');
+      text = text.replace(regexBraces, value).replace(regexBrackets, value);
     });
 
     return text;
@@ -118,16 +118,10 @@ export function SmsTab({
           </Tabs>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowVariables(true)}>
-            <Variable className="h-4 w-4 mr-2" />
-            Variables
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            <Save className="h-4 w-4 mr-2" />
-            {isSaving ? 'Saving...' : 'Save'}
-          </Button>
-        </div>
+        <Button onClick={handleSave} disabled={isSaving}>
+          <Save className="h-4 w-4 mr-2" />
+          {isSaving ? 'Saving...' : 'Save'}
+        </Button>
       </div>
 
       {/* Character Counter */}
@@ -154,7 +148,7 @@ export function SmsTab({
       </div>
 
       {/* Editor / Preview */}
-      <div className="flex-1 overflow-hidden p-4">
+      <div className="flex-1 overflow-hidden min-h-0 p-4">
         {editorMode === 'edit' ? (
           <Textarea
             value={body}
@@ -213,13 +207,8 @@ export function SmsTab({
         )}
       </div>
 
-      {/* Variables Drawer */}
-      <VariablesDrawer
-        open={showVariables}
-        onOpenChange={setShowVariables}
-        designElements={[]}
-        onInsertVariable={insertVariable}
-      />
+      {/* Variables Table at bottom */}
+      <VariablesTable onInsertVariable={insertVariable} />
     </div>
   );
 }

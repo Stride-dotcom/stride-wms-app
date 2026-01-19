@@ -3,14 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Code, Eye, Variable, Save, FileText } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Code, Eye, Save, FileText } from 'lucide-react';
 import { 
   CommunicationTemplate, 
   COMMUNICATION_VARIABLES 
 } from '@/hooks/useCommunications';
-import { VariablesDrawer } from '@/components/settings/communications/VariablesDrawer';
+import { VariablesTable } from '../VariablesTable';
 
 interface EmailTextTabProps {
   template: CommunicationTemplate | null;
@@ -24,7 +24,6 @@ export function EmailTextTab({
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
-  const [showVariables, setShowVariables] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -63,9 +62,11 @@ export function EmailTextTab({
     let subjectPreview = subject;
     
     Object.entries(sampleData).forEach(([key, value]) => {
-      const regex = new RegExp(`{{${key}}}`, 'g');
-      text = text.replace(regex, value);
-      subjectPreview = subjectPreview.replace(regex, value);
+      // Support both {{}} and [[]] syntax
+      const regexBraces = new RegExp(`{{${key}}}`, 'g');
+      const regexBrackets = new RegExp(`\\[\\[${key}\\]\\]`, 'g');
+      text = text.replace(regexBraces, value).replace(regexBrackets, value);
+      subjectPreview = subjectPreview.replace(regexBraces, value).replace(regexBrackets, value);
     });
 
     return { text, subject: subjectPreview };
@@ -104,16 +105,10 @@ export function EmailTextTab({
           </Tabs>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowVariables(true)}>
-            <Variable className="h-4 w-4 mr-2" />
-            Variables
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            <Save className="h-4 w-4 mr-2" />
-            {isSaving ? 'Saving...' : 'Save'}
-          </Button>
-        </div>
+        <Button onClick={handleSave} disabled={isSaving}>
+          <Save className="h-4 w-4 mr-2" />
+          {isSaving ? 'Saving...' : 'Save'}
+        </Button>
       </div>
 
       {/* Subject Line */}
@@ -124,13 +119,13 @@ export function EmailTextTab({
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Email subject line..."
-            className="flex-1"
+            className="flex-1 font-mono"
           />
         </div>
       </div>
 
       {/* Editor / Preview */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden min-h-0">
         {editorMode === 'edit' ? (
           <Textarea
             value={body}
@@ -157,13 +152,8 @@ export function EmailTextTab({
         )}
       </div>
 
-      {/* Variables Drawer */}
-      <VariablesDrawer
-        open={showVariables}
-        onOpenChange={setShowVariables}
-        designElements={[]}
-        onInsertVariable={insertVariable}
-      />
+      {/* Variables Table at bottom */}
+      <VariablesTable onInsertVariable={insertVariable} />
     </div>
   );
 }
