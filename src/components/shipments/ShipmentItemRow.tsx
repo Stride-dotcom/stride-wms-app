@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { ItemTypeCombobox } from '@/components/items/ItemTypeCombobox';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
 import { useAuth } from '@/contexts/AuthContext';
@@ -150,7 +150,7 @@ export function ShipmentItemRow({
   const canEdit = isInbound && !isCompleted;
 
   return (
-    <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+    <>
       <TableRow 
         className={cn(
           "cursor-pointer hover:bg-muted/50",
@@ -170,15 +170,18 @@ export function ShipmentItemRow({
 
         {/* Expand toggle */}
         <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-6 w-6">
-              {isExpanded ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-            </Button>
-          </CollapsibleTrigger>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </Button>
         </TableCell>
 
         {/* Item Code */}
@@ -289,7 +292,7 @@ export function ShipmentItemRow({
       </TableRow>
 
       {/* Expanded Details */}
-      <CollapsibleContent asChild>
+      {isExpanded && (
         <TableRow className="bg-muted/20 hover:bg-muted/30">
           <TableCell colSpan={9} className="p-4">
             <div className="grid gap-4 md:grid-cols-3">
@@ -327,7 +330,7 @@ export function ShipmentItemRow({
             </div>
           </TableCell>
         </TableRow>
-      </CollapsibleContent>
-    </Collapsible>
+      )}
+    </>
   );
 }
