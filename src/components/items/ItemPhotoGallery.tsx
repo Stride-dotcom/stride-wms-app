@@ -108,17 +108,17 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
             className="w-full h-full object-cover"
           />
 
-          {/* Overlay badges */}
+          {/* Overlay badges - High contrast styling */}
           <div className="absolute top-1 left-1 flex gap-1 flex-wrap">
             {photo.is_primary && (
-              <Badge className="h-6 text-xs bg-primary px-2">
-                <Star className="h-3 w-3 mr-1" />
+              <Badge className="h-6 text-xs bg-amber-500 text-white px-2 shadow-md border border-amber-600">
+                <Star className="h-3 w-3 mr-1 fill-current" />
                 Primary
               </Badge>
             )}
             {photo.needs_attention && (
-              <Badge variant="destructive" className="h-6 text-xs px-2">
-                <AlertTriangle className="h-3 w-3 mr-1" />
+              <Badge className="h-6 text-xs bg-red-600 text-white px-2 shadow-md border border-red-700">
+                <AlertTriangle className="h-3 w-3 mr-1 fill-current" />
                 Attention
               </Badge>
             )}
@@ -148,7 +148,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-8 w-8 text-white hover:text-primary"
+                    className="h-8 w-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/20"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleSetPrimary(photo.id);
@@ -160,7 +160,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                 <Button
                   size="icon"
                   variant="ghost"
-                  className={`h-8 w-8 ${photo.needs_attention ? 'text-red-500' : 'text-white'} hover:text-red-500`}
+                  className={`h-8 w-8 ${photo.needs_attention ? 'text-red-400 bg-red-500/20' : 'text-white'} hover:text-red-400 hover:bg-red-500/20`}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleToggleAttention(photo.id, photo.needs_attention);
@@ -171,7 +171,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-8 w-8 text-white hover:text-destructive"
+                  className="h-8 w-8 text-white hover:text-destructive hover:bg-destructive/20"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDelete(photo.id);
@@ -332,10 +332,10 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
             <DialogTitle className="flex items-center gap-2">
               {lightboxPhoto?.file_name}
               {lightboxPhoto?.is_primary && (
-                <Badge><Star className="h-3 w-3 mr-1" />Primary</Badge>
+                <Badge className="bg-amber-500 text-white"><Star className="h-3 w-3 mr-1 fill-current" />Primary</Badge>
               )}
               {lightboxPhoto?.needs_attention && (
-                <Badge variant="destructive">
+                <Badge className="bg-red-600 text-white">
                   <AlertTriangle className="h-3 w-3 mr-1" />Needs Attention
                 </Badge>
               )}

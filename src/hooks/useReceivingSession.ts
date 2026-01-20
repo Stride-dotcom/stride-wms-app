@@ -175,22 +175,23 @@ export function useReceivingSession(shipmentId: string | undefined) {
           .single();
 
         if (shipment) {
-          // Get the account to check auto_inspection settings
+          // Get the account to check auto_inspection and auto_assembly settings
           const { data: account } = await supabase
             .from('accounts')
-            .select('auto_inspection_on_receiving')
+            .select('auto_inspection_on_receiving, auto_assembly_on_receiving')
             .eq('id', shipment.account_id)
             .single();
 
-          // Get tenant preferences for should_create_inspections
+          // Get tenant preferences for should_create_inspections and auto_assembly
           const { data: tenantPreferences } = await supabase
             .from('tenant_preferences')
-            .select('should_create_inspections')
+            .select('should_create_inspections, auto_assembly_on_receiving')
             .eq('tenant_id', profile.tenant_id)
             .maybeSingle();
 
           // Use tenant preference if set, otherwise fall back to account setting
           const shouldCreateInspections = tenantPreferences?.should_create_inspections || account?.auto_inspection_on_receiving;
+          const shouldCreateAssembly = tenantPreferences?.auto_assembly_on_receiving || account?.auto_assembly_on_receiving;
 
           for (const item of verificationData.received_items) {
             // Generate item code
@@ -250,6 +251,40 @@ export function useReceivingSession(shipmentId: string | undefined) {
                     task_id: taskData.id,
                     item_id: newItem.id,
                   });
+              }
+            }
+
+            // Create assembly task if tenant preference or account setting is enabled
+            if (shouldCreateAssembly && newItem) {
+              // Create the assembly task
+              const { data: assemblyTaskData } = await supabase
+                .from('tasks')
+                .insert({
+                  tenant_id: profile.tenant_id,
+                  title: `Assemble: ${item.description}`,
+                  task_type: 'Assembly',
+                  status: 'pending',
+                  priority: 'medium',
+                  account_id: shipment.account_id,
+                  warehouse_id: shipment.warehouse_id,
+                })
+                .select('id')
+                .single();
+
+              // Link the item to the task via task_items
+              if (assemblyTaskData) {
+                await supabase
+                  .from('task_items')
+                  .insert({
+                    task_id: assemblyTaskData.id,
+                    item_id: newItem.id,
+                  });
+                
+                // Update item's assembly_status
+                await (supabase
+                  .from('items') as any)
+                  .update({ assembly_status: 'in_queue' })
+                  .eq('id', newItem.id);
               }
             }
 

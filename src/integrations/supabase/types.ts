@@ -4705,6 +4705,8 @@ export type Database = {
           allow_billing_to_consumer: boolean | null
           allow_felt_pads: boolean | null
           allow_typed_name_as_signature: boolean | null
+          auto_assembly_on_receiving: boolean | null
+          auto_repair_on_damage: boolean | null
           base_order_minutes: number | null
           base_rate_includes_pieces: number | null
           break_every_hours: number | null
@@ -4731,6 +4733,7 @@ export type Database = {
           order_field_label: string | null
           order_field_required: boolean | null
           privacy_policy_url: string | null
+          receiving_charge_minimum: number | null
           removal_extra_piece_default: number | null
           removal_first_2_pieces: number | null
           require_signature_to_finish: boolean | null
@@ -4751,6 +4754,8 @@ export type Database = {
           allow_billing_to_consumer?: boolean | null
           allow_felt_pads?: boolean | null
           allow_typed_name_as_signature?: boolean | null
+          auto_assembly_on_receiving?: boolean | null
+          auto_repair_on_damage?: boolean | null
           base_order_minutes?: number | null
           base_rate_includes_pieces?: number | null
           break_every_hours?: number | null
@@ -4777,6 +4782,7 @@ export type Database = {
           order_field_label?: string | null
           order_field_required?: boolean | null
           privacy_policy_url?: string | null
+          receiving_charge_minimum?: number | null
           removal_extra_piece_default?: number | null
           removal_first_2_pieces?: number | null
           require_signature_to_finish?: boolean | null
@@ -4797,6 +4803,8 @@ export type Database = {
           allow_billing_to_consumer?: boolean | null
           allow_felt_pads?: boolean | null
           allow_typed_name_as_signature?: boolean | null
+          auto_assembly_on_receiving?: boolean | null
+          auto_repair_on_damage?: boolean | null
           base_order_minutes?: number | null
           base_rate_includes_pieces?: number | null
           break_every_hours?: number | null
@@ -4823,6 +4831,7 @@ export type Database = {
           order_field_label?: string | null
           order_field_required?: boolean | null
           privacy_policy_url?: string | null
+          receiving_charge_minimum?: number | null
           removal_extra_piece_default?: number | null
           removal_first_2_pieces?: number | null
           require_signature_to_finish?: boolean | null
@@ -4961,6 +4970,41 @@ export type Database = {
             foreignKeyName: "user_dashboard_preferences_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_preferences: {
+        Row: {
+          created_at: string | null
+          id: string
+          preference_key: string
+          preference_value: Json
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          preference_key: string
+          preference_value?: Json
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          preference_key?: string
+          preference_value?: Json
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },

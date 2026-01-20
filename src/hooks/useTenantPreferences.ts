@@ -10,9 +10,13 @@ export interface TenantPreferences {
   free_storage_days: number;
   will_call_minimum: number;
   should_create_inspections: boolean;
-  // Billing & Rate Settings (only daily_storage_rate ACTIVE)
+  // Auto-task settings (ACTIVE)
+  auto_assembly_on_receiving: boolean;
+  auto_repair_on_damage: boolean;
+  // Billing & Rate Settings (ACTIVE)
   daily_storage_rate_per_cuft: number;
   sales_tax_rate: number;
+  receiving_charge_minimum: number;
   // Future billing rates
   shipment_minimum: number | null;
   hourly_rate: number | null;
