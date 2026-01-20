@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScanDocumentButton, DocumentList } from '@/components/scanner';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -410,7 +411,7 @@ export function EmployeeDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <Tabs defaultValue="details">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className={`grid w-full ${isAdmin && employee ? 'grid-cols-4' : isAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <TabsTrigger value="details" className="gap-2">
                   <User className="h-4 w-4" />
                   Details
@@ -423,6 +424,11 @@ export function EmployeeDialog({
                   <TabsTrigger value="pay" className="gap-2">
                     <DollarSign className="h-4 w-4" />
                     Pay
+                  </TabsTrigger>
+                )}
+                {employee && isAdmin && (
+                  <TabsTrigger value="documents" className="gap-2">
+                    Documents
                   </TabsTrigger>
                 )}
               </TabsList>
@@ -678,6 +684,28 @@ export function EmployeeDialog({
                         <FormMessage />
                       </FormItem>
                     )}
+                  />
+                </TabsContent>
+              )}
+
+              {/* Documents Tab - for existing employees, admin only */}
+              {employee && isAdmin && (
+                <TabsContent value="documents" className="space-y-4 pt-4">
+                  <div className="rounded-lg bg-muted/50 p-4 mb-4">
+                    <p className="text-sm text-muted-foreground">
+                      Upload sensitive documents like ID cards or certifications. These are only visible to administrators.
+                    </p>
+                  </div>
+                  <div className="flex justify-end mb-4">
+                    <ScanDocumentButton
+                      context={{ type: 'employee', employeeId: employee.id, employeeName: `${employee.first_name || ''} ${employee.last_name || ''}`.trim() }}
+                      isSensitive={true}
+                      onSuccess={() => {}}
+                    />
+                  </div>
+                  <DocumentList
+                    contextType="employee"
+                    contextId={employee.id}
                   />
                 </TabsContent>
               )}
