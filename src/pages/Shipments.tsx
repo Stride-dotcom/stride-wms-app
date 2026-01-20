@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PageHeader } from '@/components/ui/page-header';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -182,14 +183,13 @@ export default function Shipments() {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Shipments</h1>
-            <p className="text-muted-foreground">
-              Manage incoming and outbound shipments
-            </p>
-          </div>
+          <PageHeader
+            primaryText="Logistics"
+            accentText="Console"
+            description="Manage incoming and outbound shipments"
+          />
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate('/shipments/return/new')}>
+            <Button variant="secondary" onClick={() => navigate('/shipments/return/new')}>
               <Plus className="mr-2 h-4 w-4" />
               Create Return
             </Button>

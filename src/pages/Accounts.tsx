@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { PageHeader } from '@/components/ui/page-header';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -157,12 +158,11 @@ export default function Accounts() {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Accounts</h1>
-            <p className="text-muted-foreground">
-              Manage client accounts and billing information
-            </p>
-          </div>
+          <PageHeader
+            primaryText="Client"
+            accentText="Directory"
+            description="Manage client accounts and billing information"
+          />
           <div className="flex gap-2">
             <input
               ref={fileInputRef}
@@ -171,7 +171,7 @@ export default function Accounts() {
               onChange={handleFileChange}
               className="hidden"
             />
-            <Button variant="outline" onClick={handleImportClick}>
+            <Button variant="secondary" onClick={handleImportClick}>
               <Upload className="mr-2 h-4 w-4" />
               Import
             </Button>

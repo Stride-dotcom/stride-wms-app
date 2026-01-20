@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PageHeader } from '@/components/ui/page-header';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -246,12 +247,11 @@ export default function Settings() {
   return (
     <DashboardLayout>
       <div className="space-y-6 px-2 sm:px-0">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-          <p className="text-muted-foreground">
-            Manage your account and organization settings
-          </p>
-        </div>
+        <PageHeader
+          primaryText="System"
+          accentText="Config"
+          description="Manage your account and organization settings"
+        />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {/* Mobile: Dropdown navigation */}
