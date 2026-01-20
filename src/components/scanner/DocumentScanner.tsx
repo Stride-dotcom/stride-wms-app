@@ -28,7 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import type { DocumentContext, ScanState, UploadProgress } from '@/lib/scanner/types';
+import type { DocumentContext, ScanState, UploadProgress, OcrResult } from '@/lib/scanner/types';
 import {
   isNative,
   scanDocument,
@@ -43,12 +43,14 @@ import {
   fileToDataUrl,
 } from '@/lib/scanner';
 import { uploadDocument } from '@/lib/scanner/uploadService';
+import { performOcr } from '@/lib/scanner/ocrService';
 
 interface DocumentScannerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   context: DocumentContext;
   isSensitive?: boolean;
+  enableOcr?: boolean;
   onSuccess?: (documentId: string) => void;
   onError?: (error: Error) => void;
   initialMode?: 'camera' | 'upload';
@@ -59,6 +61,7 @@ export function DocumentScanner({
   onOpenChange,
   context,
   isSensitive = false,
+  enableOcr = false,
   onSuccess,
   onError,
   initialMode = 'camera',
@@ -243,14 +246,27 @@ export function DocumentScanner({
       // Complete the session to generate PDF
       const scanOutput = await completeScannerSession(sessionId);
       
-      // Upload the document
+      // Perform OCR if enabled and we have page images
+      let ocrResult: OcrResult | null = null;
+      if (enableOcr && scanOutput.pageImageUris.length > 0) {
+        setUploadProgress({ stage: 'preparing', percentage: 30 });
+        try {
+          ocrResult = await performOcr(scanOutput.pageImageUris);
+        } catch (ocrErr) {
+          console.warn('OCR failed, continuing without OCR:', ocrErr);
+          // Continue without OCR - don't block upload
+        }
+      }
+      
+      // Upload the document with OCR result
       const result = await uploadDocument(
         scanOutput,
         context,
-        null, // No OCR on web for now
+        ocrResult,
         {
           label: documentLabel || undefined,
           isSensitive,
+          enableOcr,
         },
         setUploadProgress
       );
