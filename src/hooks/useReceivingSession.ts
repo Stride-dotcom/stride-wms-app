@@ -29,6 +29,11 @@ interface VerificationData {
   [key: string]: unknown;
 }
 
+export interface FinishSessionResult {
+  success: boolean;
+  createdItemIds: string[];
+}
+
 export function useReceivingSession(shipmentId: string | undefined) {
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -138,10 +143,11 @@ export function useReceivingSession(shipmentId: string | undefined) {
   const finishSession = async (
     verificationData: VerificationData,
     createItems: boolean = true
-  ) => {
-    if (!session || !profile?.tenant_id) return false;
+  ): Promise<FinishSessionResult> => {
+    if (!session || !profile?.tenant_id) return { success: false, createdItemIds: [] };
 
     setLoading(true);
+    const createdItemIds: string[] = [];
     try {
       // Update session
       const { error: sessionError } = await supabase
@@ -224,6 +230,11 @@ export function useReceivingSession(shipmentId: string | undefined) {
             if (itemError) {
               console.error('Error creating item:', itemError);
               continue;
+            }
+
+            // Track created item ID for label printing
+            if (newItem) {
+              createdItemIds.push(newItem.id);
             }
 
             // Create inspection task if tenant preference or account setting is enabled
@@ -379,7 +390,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
         description: 'Shipment has been received and items created.',
       });
 
-      return true;
+      return { success: true, createdItemIds };
     } catch (error: any) {
       console.error('Error finishing session:', error);
       toast({
@@ -387,7 +398,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
         title: 'Error',
         description: error.message || 'Failed to complete receiving',
       });
-      return false;
+      return { success: false, createdItemIds: [] };
     } finally {
       setLoading(false);
     }
