@@ -361,7 +361,7 @@ export function InventoryImportDialog({
               size: item.size || null,
               current_location_id: locationId || null,
               sidemark: item.project || null,
-              status: item.dateReleased ? 'released' : 'available',
+              status: item.dateReleased ? 'released' : 'active',
               assembly_status: parseAssemblyStatus(item.assemblyStatus),
               repair_status: parseRepairStatus(item.repairStatus),
               received_at: parseDateUtil(item.dateReceived),

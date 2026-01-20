@@ -205,7 +205,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
               item_code: itemCode,
               description: item.description,
               quantity: item.quantity,
-              status: 'available',
+              status: 'active',
               receiving_shipment_id: session.shipment_id,
               received_at: new Date().toISOString(),
             };

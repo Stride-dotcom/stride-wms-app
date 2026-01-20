@@ -49,7 +49,9 @@ import {
   DollarSign,
   Link as LinkIcon,
   ExternalLink,
+  PackageX,
 } from 'lucide-react';
+import { QuickReleaseDialog } from '@/components/inventory/QuickReleaseDialog';
 
 interface ItemDetail {
   id: string;
@@ -133,6 +135,7 @@ export default function ItemDetail() {
   const [selectedTaskType, setSelectedTaskType] = useState<string>('');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
 
   // Check if user is a client (simplified check)
   const isClientUser = false; // Will be determined by role system
@@ -289,11 +292,7 @@ export default function ItemDetail() {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      available: 'default',
-      in_stock: 'default',
-      reserved: 'secondary',
-      damaged: 'destructive',
-      shipped: 'outline',
+      active: 'default',
       released: 'outline',
       disposed: 'destructive',
     };
@@ -418,6 +417,14 @@ export default function ItemDetail() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Release Button - Only show for active items */}
+            {!isClientUser && item.status === 'active' && (
+              <Button variant="default" onClick={() => setReleaseDialogOpen(true)}>
+                <PackageX className="mr-2 h-4 w-4" />
+                Release
+              </Button>
+            )}
 
             {/* Actions Menu */}
             {!isClientUser && (
@@ -747,6 +754,22 @@ export default function ItemDetail() {
           warehouseName: item.warehouse?.name || '',
           locationCode: item.location?.code || '',
         }] : []}
+      />
+
+      <QuickReleaseDialog
+        open={releaseDialogOpen}
+        onOpenChange={setReleaseDialogOpen}
+        selectedItems={item ? [{
+          id: item.id,
+          item_code: item.item_code,
+          description: item.description,
+          quantity: item.quantity,
+          warehouse_id: item.warehouse?.id,
+        }] : []}
+        onSuccess={() => {
+          setReleaseDialogOpen(false);
+          fetchItem();
+        }}
       />
     </DashboardLayout>
   );

@@ -160,7 +160,7 @@ export function useDashboardStats() {
           `, { count: 'exact' })
           .eq('current_location_id', receivingDockLocation.id)
           .is('deleted_at', null)
-          .eq('status', 'in_stock')
+          .eq('status', 'active')
           .order('received_at', { ascending: true })
           .limit(20);
 
@@ -175,7 +175,7 @@ export function useDashboardStats() {
             location:locations(code, name)
           `, { count: 'exact' })
           .is('deleted_at', null)
-          .eq('status', 'in_stock')
+          .eq('status', 'active')
           .order('received_at', { ascending: true })
           .limit(20);
 

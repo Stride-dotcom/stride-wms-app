@@ -89,12 +89,8 @@ interface ItemEditDialogProps {
 }
 
 const STATUS_OPTIONS = [
-  { value: 'available', label: 'Available' },
-  { value: 'reserved', label: 'Reserved' },
-  { value: 'damaged', label: 'Damaged' },
-  { value: 'in_transit', label: 'In Transit' },
-  { value: 'shipped', label: 'Shipped' },
-  { value: 'released', label: 'Released' },
+  { value: 'active', label: 'Active' },
+  { value: 'released', label: 'Released', disabled: true },
 ];
 
 const SIZE_UNITS = [
@@ -148,7 +144,7 @@ export function ItemEditDialog({
       size_unit: '',
       room: '',
       link: '',
-      status: 'available',
+      status: 'active',
       item_type_id: '',
       account_id: '',
     },
@@ -165,7 +161,7 @@ export function ItemEditDialog({
         size_unit: item.size_unit || '',
         room: item.room || '',
         link: item.link || '',
-        status: item.status || 'available',
+        status: item.status || 'active',
         item_type_id: item.item_type_id || '',
         account_id: item.account_id || '',
       });
@@ -186,7 +182,7 @@ export function ItemEditDialog({
         size_unit: data.size_unit || null,
         room: data.room || null,
         link: data.link || null,
-        status: data.status || 'available',
+        status: data.status || 'active',
         item_type_id: data.item_type_id || null,
         account_id: data.account_id || null,
       };
@@ -324,7 +320,11 @@ export function ItemEditDialog({
                       </FormControl>
                       <SelectContent>
                         {STATUS_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
+                          <SelectItem 
+                            key={opt.value} 
+                            value={opt.value}
+                            disabled={'disabled' in opt && opt.disabled}
+                          >
                             {opt.label}
                           </SelectItem>
                         ))}
