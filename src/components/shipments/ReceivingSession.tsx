@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -25,8 +26,7 @@ import {
 } from '@/components/ui/table';
 import { useReceivingSession } from '@/hooks/useReceivingSession';
 import { PhotoCapture } from './PhotoCapture';
-import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
-import { DocumentList } from '@/components/scanner/DocumentList';
+import { DocumentCapture } from '@/components/scanner/DocumentCapture';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import {
@@ -88,6 +88,7 @@ export function ReceivingSession({
   const [receivedItems, setReceivedItems] = useState<{ description: string; quantity: number; receivedWithoutId: boolean }[]>([]);
   const [showFinishDialog, setShowFinishDialog] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [ocrEnabled, setOcrEnabled] = useState(true);
 
   useEffect(() => {
     fetchSession();
@@ -302,28 +303,29 @@ export function ReceivingSession({
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-base">
                 <FileText className="h-4 w-4" />
                 Receiving Documents
               </CardTitle>
-              <ScanDocumentButton
-                context={{ type: 'shipment', shipmentId }}
-                onSuccess={() => {
-                  toast({ title: 'Document saved', description: 'The document has been uploaded.' });
-                }}
-                label="Scan"
-                size="sm"
-              />
+              <div className="flex items-center gap-2">
+                <Label htmlFor="ocr-toggle" className="text-sm text-muted-foreground">
+                  OCR
+                </Label>
+                <Switch
+                  id="ocr-toggle"
+                  checked={ocrEnabled}
+                  onCheckedChange={setOcrEnabled}
+                />
+              </div>
             </div>
           </CardHeader>
           <CardContent>
-            <DocumentList
-              contextType="shipment"
-              contextId={shipmentId}
-              compact
-              maxItems={5}
+            <DocumentCapture
+              context={{ type: 'shipment', shipmentId }}
+              maxDocuments={10}
+              ocrEnabled={ocrEnabled}
             />
           </CardContent>
         </Card>
