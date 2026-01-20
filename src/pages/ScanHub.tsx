@@ -420,7 +420,7 @@ export default function ScanHub() {
             description="High-speed warehouse operations hub"
           />
           
-          <div className="flex flex-col gap-6 w-full max-w-xl">
+          <div className="flex flex-col gap-6 w-full max-w-xl mx-auto">
             {/* Move Card */}
             <button
               onClick={() => selectMode('move')}
@@ -437,8 +437,8 @@ export default function ScanHub() {
               </div>
               
               {/* Large icon container */}
-              <div className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center flex-shrink-0">
-                <Move className="h-10 w-10 text-primary-foreground group-hover:scale-110 transition-transform duration-200" />
+              <div className="w-24 h-28 rounded-3xl bg-primary flex items-center justify-center flex-shrink-0">
+                <Move className="h-12 w-12 text-primary-foreground group-hover:scale-110 transition-transform duration-200" />
               </div>
               
               {/* Text on right */}
@@ -467,8 +467,8 @@ export default function ScanHub() {
               </div>
               
               {/* Large icon container */}
-              <div className="w-20 h-20 rounded-3xl bg-secondary flex items-center justify-center flex-shrink-0">
-                <Layers className="h-10 w-10 text-foreground group-hover:scale-110 transition-transform duration-200" />
+              <div className="w-24 h-28 rounded-3xl bg-secondary flex items-center justify-center flex-shrink-0">
+                <Layers className="h-12 w-12 text-foreground group-hover:scale-110 transition-transform duration-200" />
               </div>
               
               {/* Text on right */}
@@ -497,8 +497,8 @@ export default function ScanHub() {
               </div>
               
               {/* Large icon container */}
-              <div className="w-20 h-20 rounded-3xl bg-info flex items-center justify-center flex-shrink-0">
-                <Search className="h-10 w-10 text-info-foreground group-hover:scale-110 transition-transform duration-200" />
+              <div className="w-24 h-28 rounded-3xl bg-info flex items-center justify-center flex-shrink-0">
+                <Search className="h-12 w-12 text-info-foreground group-hover:scale-110 transition-transform duration-200" />
               </div>
               
               {/* Text on right */}
