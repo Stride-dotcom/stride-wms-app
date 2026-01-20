@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { PageHeader } from '@/components/ui/page-header';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -287,12 +288,11 @@ export default function Billing() {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Billing & Invoices</h1>
-            <p className="text-muted-foreground">
-              Create invoices from billable charges
-            </p>
-          </div>
+          <PageHeader
+            primaryText="Revenue"
+            accentText="Ledger"
+            description="Create invoices from billable charges"
+          />
         </div>
 
         <Tabs defaultValue="create" className="space-y-6">

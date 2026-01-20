@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { PageHeader } from '@/components/ui/page-header';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -413,7 +414,7 @@ export default function ScanHub() {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
-          <h1 className="text-2xl font-bold mb-8">Scan Hub</h1>
+          <PageHeader primaryText="Scan" accentText="Matrix" />
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
             {/* Move Card */}

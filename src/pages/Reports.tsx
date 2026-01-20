@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { PageHeader } from '@/components/ui/page-header';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -128,12 +129,11 @@ export default function Reports() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-          <p className="text-muted-foreground">
-            Analytics, insights, and invoicing for your warehouse operations
-          </p>
-        </div>
+        <PageHeader
+          primaryText="Insight"
+          accentText="Analytics"
+          description="Analytics, insights, and invoicing for your warehouse operations"
+        />
 
         <Tabs defaultValue="analytics">
           <TabsList>

@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '@/components/ui/page-header';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -238,12 +239,11 @@ export default function Dashboard() {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Welcome back{profile?.first_name ? `, ${profile.first_name}` : ''}! Here's an overview of your warehouse.
-            </p>
-          </div>
+          <PageHeader
+            primaryText="Command"
+            accentText="Center"
+            description={`Welcome back${profile?.first_name ? `, ${profile.first_name}` : ''}! Here's an overview of your warehouse.`}
+          />
           <div className="flex gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

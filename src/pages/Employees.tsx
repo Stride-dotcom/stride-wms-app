@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { PageHeader } from '@/components/ui/page-header';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -285,12 +286,11 @@ export default function Employees() {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Employees</h1>
-            <p className="text-muted-foreground">
-              Manage your team members and their access
-            </p>
-          </div>
+          <PageHeader
+            primaryText="Personnel"
+            accentText="Matrix"
+            description="Manage your team members and their access"
+          />
           <div className="flex gap-2">
             <input
               ref={fileInputRef}
@@ -313,7 +313,7 @@ export default function Employees() {
                 Invite Selected ({selectedIds.size})
               </Button>
             )}
-            <Button variant="outline" onClick={handleImportClick}>
+            <Button variant="secondary" onClick={handleImportClick}>
               <Upload className="mr-2 h-4 w-4" />
               Import
             </Button>
