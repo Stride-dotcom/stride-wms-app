@@ -152,7 +152,7 @@ export default function RepairTechAccess() {
       case 'completed':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'in_progress':
-        return <Clock className="h-4 w-4 text-blue-500" />;
+        return <Clock className="h-4 w-4 text-amber-500" />;
       default:
         return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
     }

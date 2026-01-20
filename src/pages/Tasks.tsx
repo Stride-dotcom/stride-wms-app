@@ -57,7 +57,7 @@ import {
 const statusColors: Record<string, string> = {
   in_queue: 'bg-yellow-100 text-yellow-800',
   pending: 'bg-yellow-100 text-yellow-800',
-  in_progress: 'bg-blue-100 text-blue-800',
+  in_progress: 'bg-amber-100 text-amber-800',
   completed: 'bg-green-100 text-green-800',
   unable_to_complete: 'bg-red-100 text-red-800',
   cancelled: 'bg-gray-100 text-gray-800',
@@ -74,7 +74,7 @@ const statusLabels: Record<string, string> = {
 
 const priorityColors: Record<string, string> = {
   low: 'bg-gray-100 text-gray-800',
-  medium: 'bg-blue-100 text-blue-800',
+  medium: 'bg-amber-100 text-amber-800',
   high: 'bg-orange-100 text-orange-800',
   urgent: 'bg-red-100 text-red-800',
 };
@@ -291,8 +291,8 @@ export default function Tasks() {
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilters(f => ({ ...f, status: 'in_progress' }))}>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <ClipboardList className="h-6 w-6 text-blue-600" />
+                <div className="p-3 bg-amber-100 rounded-lg">
+                  <ClipboardList className="h-6 w-6 text-amber-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.inProgress}</p>

@@ -4,8 +4,8 @@
 // Truck icon - Green (for shipment received)
 export const ICON_TRUCK_GREEN = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18h2.586a1 1 0 0 0 .707-.293l3.414-3.414a1 1 0 0 0 .293-.707V13a1 1 0 0 0-1-1h-4v6z"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>`)}`;
 
-// Truck icon - Blue (for status changed)
-export const ICON_TRUCK_BLUE = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18h2.586a1 1 0 0 0 .707-.293l3.414-3.414a1 1 0 0 0 .293-.707V13a1 1 0 0 0-1-1h-4v6z"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>`)}`;
+// Truck icon - Primary/Orange (for status changed)
+export const ICON_TRUCK_PRIMARY = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18h2.586a1 1 0 0 0 .707-.293l3.414-3.414a1 1 0 0 0 .293-.707V13a1 1 0 0 0-1-1h-4v6z"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>`)}`;
 
 // Truck icon - Orange (for releases/outbound)
 export const ICON_TRUCK_ORANGE = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#FD5A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18h2.586a1 1 0 0 0 .707-.293l3.414-3.414a1 1 0 0 0 .293-.707V13a1 1 0 0 0-1-1h-4v6z"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>`)}`;
@@ -19,8 +19,8 @@ export const ICON_WARNING_RED = `data:image/svg+xml;base64,${btoa(`<svg xmlns="h
 // Red X Circle (for unable to complete)
 export const ICON_X_CIRCLE_RED = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="#fef2f2" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`)}`;
 
-// Clipboard icon - Blue (for tasks)
-export const ICON_CLIPBOARD_BLUE = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14l2 2 4-4"/></svg>`)}`;
+// Clipboard icon - Primary/Orange (for tasks)
+export const ICON_CLIPBOARD_PRIMARY = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14l2 2 4-4"/></svg>`)}`;
 
 // Clock alert - Red (for overdue)
 export const ICON_CLOCK_RED = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="#fef2f2" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`)}`;
@@ -28,8 +28,8 @@ export const ICON_CLOCK_RED = `data:image/svg+xml;base64,${btoa(`<svg xmlns="htt
 // Check circle - Green (for completed/success)
 export const ICON_CHECK_GREEN = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="#f0fdf4" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`)}`;
 
-// Location pin - Blue (for location changes)
-export const ICON_LOCATION_BLUE = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`)}`;
+// Location pin - Primary/Orange (for location changes)
+export const ICON_LOCATION_PRIMARY = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`)}`;
 
 // Document/Invoice - Orange (for invoices)
 export const ICON_DOCUMENT_ORANGE = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#FD5A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`)}`;
@@ -43,8 +43,8 @@ export const ICON_WRENCH_AMBER = `data:image/svg+xml;base64,${btoa(`<svg xmlns="
 // User pickup - Green (for will call)
 export const ICON_USER_GREEN = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`)}`;
 
-// Magnifying glass - Blue (for inspection)
-export const ICON_MAGNIFY_BLUE = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`)}`;
+// Magnifying glass - Primary/Orange (for inspection)
+export const ICON_MAGNIFY_PRIMARY = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`)}`;
 
 // Forklift - Gray (for warehouse ops)
 export const ICON_FORKLIFT_GRAY = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12H5a2 2 0 0 0-2 2v5"/><circle cx="13" cy="19" r="2"/><circle cx="5" cy="19" r="2"/><path d="M8 19h3m5-17v17h6M6 12V7c0-1.1.9-2 2-2h3l5 5"/></svg>`)}`;
@@ -52,33 +52,33 @@ export const ICON_FORKLIFT_GRAY = `data:image/svg+xml;base64,${btoa(`<svg xmlns=
 // Boxes/Package stack - Gray (for custom/generic)
 export const ICON_BOXES_GRAY = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>`)}`;
 
-// Hand truck/Dolly - Blue (for receiving)
-export const ICON_DOLLY_BLUE = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18L6 6.5C6 5.11929 7.11929 4 8.5 4H8.5C9.88071 4 11 5.11929 11 6.5V8"/><path d="M6 18H4"/><path d="M6 18C6 19.6569 7.34315 21 9 21C10.6569 21 12 19.6569 12 18"/><rect x="11" y="6" width="8" height="10" rx="1"/></svg>`)}`;
+// Hand truck/Dolly - Primary/Orange (for receiving)
+export const ICON_DOLLY_PRIMARY = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18L6 6.5C6 5.11929 7.11929 4 8.5 4H8.5C9.88071 4 11 5.11929 11 6.5V8"/><path d="M6 18H4"/><path d="M6 18C6 19.6569 7.34315 21 9 21C10.6569 21 12 19.6569 12 18"/><rect x="11" y="6" width="8" height="10" rx="1"/></svg>`)}`;
 
-// User Plus - Blue (for employee invite)
-export const ICON_USER_PLUS_BLUE = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>`)}`;
+// User Plus - Primary/Orange (for employee invite)
+export const ICON_USER_PLUS_PRIMARY = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>`)}`;
 
 // Export icon map for easy access by trigger event
 export const EMAIL_ICONS = {
   truck_green: ICON_TRUCK_GREEN,
-  truck_blue: ICON_TRUCK_BLUE,
+  truck_primary: ICON_TRUCK_PRIMARY,
   truck_orange: ICON_TRUCK_ORANGE,
   package_green: ICON_PACKAGE_GREEN,
   warning_red: ICON_WARNING_RED,
   x_circle_red: ICON_X_CIRCLE_RED,
-  clipboard_blue: ICON_CLIPBOARD_BLUE,
+  clipboard_primary: ICON_CLIPBOARD_PRIMARY,
   clock_red: ICON_CLOCK_RED,
   check_green: ICON_CHECK_GREEN,
-  location_blue: ICON_LOCATION_BLUE,
+  location_primary: ICON_LOCATION_PRIMARY,
   document_orange: ICON_DOCUMENT_ORANGE,
   dollar_green: ICON_DOLLAR_GREEN,
   wrench_amber: ICON_WRENCH_AMBER,
   user_green: ICON_USER_GREEN,
-  magnify_blue: ICON_MAGNIFY_BLUE,
+  magnify_primary: ICON_MAGNIFY_PRIMARY,
   forklift_gray: ICON_FORKLIFT_GRAY,
   boxes_gray: ICON_BOXES_GRAY,
-  dolly_blue: ICON_DOLLY_BLUE,
-  user_plus_blue: ICON_USER_PLUS_BLUE,
+  dolly_primary: ICON_DOLLY_PRIMARY,
+  user_plus_primary: ICON_USER_PLUS_PRIMARY,
 } as const;
 
 export type EmailIconKey = keyof typeof EMAIL_ICONS;
@@ -114,8 +114,8 @@ export const EMAIL_TEMPLATE_CONFIGS: Record<string, EmailTemplateConfig> = {
     smsTemplate: '📦 [[tenant_name]]: Your shipment [[shipment_number]] has arrived! [[items_count]] items checked in safely. View details: [[portal_base_url]]',
   },
   'shipment.status_changed': {
-    icon: 'truck_blue',
-    accentColor: '#2563eb',
+    icon: 'truck_primary',
+    accentColor: '#ea580c',
     buttonColor: '#111111',
     headerLine1: 'Shipment',
     headerLine2: 'Update',
@@ -163,8 +163,8 @@ export const EMAIL_TEMPLATE_CONFIGS: Record<string, EmailTemplateConfig> = {
     smsTemplate: '🚨 URGENT [[tenant_name]]: Damage reported on item [[item_code]]. Please review photos immediately: [[portal_base_url]]',
   },
   'item.location_changed': {
-    icon: 'location_blue',
-    accentColor: '#2563eb',
+    icon: 'location_primary',
+    accentColor: '#ea580c',
     buttonColor: '#111111',
     headerLine1: 'Item on',
     headerLine2: 'the move!',
@@ -175,8 +175,8 @@ export const EMAIL_TEMPLATE_CONFIGS: Record<string, EmailTemplateConfig> = {
     smsTemplate: '📍 [[tenant_name]]: Item [[item_code]] moved to [[item_location]]. View: [[portal_base_url]]',
   },
   'task.created': {
-    icon: 'clipboard_blue',
-    accentColor: '#2563eb',
+    icon: 'clipboard_primary',
+    accentColor: '#ea580c',
     buttonColor: '#111111',
     headerLine1: 'New task',
     headerLine2: 'incoming!',
@@ -187,8 +187,8 @@ export const EMAIL_TEMPLATE_CONFIGS: Record<string, EmailTemplateConfig> = {
     smsTemplate: '📋 [[tenant_name]]: New [[task_type]] task created, due [[task_due_date]]. View: [[portal_base_url]]',
   },
   'task.assigned': {
-    icon: 'clipboard_blue',
-    accentColor: '#2563eb',
+    icon: 'clipboard_primary',
+    accentColor: '#ea580c',
     buttonColor: '#111111',
     headerLine1: 'You\'ve been',
     headerLine2: 'assigned!',
@@ -273,7 +273,7 @@ export const EMAIL_TEMPLATE_CONFIGS: Record<string, EmailTemplateConfig> = {
   },
   'invoice.sent': {
     icon: 'document_orange',
-    accentColor: '#2563eb',
+    accentColor: '#ea580c',
     buttonColor: '#111111',
     headerLine1: 'Invoice',
     headerLine2: 'on its way!',
@@ -296,9 +296,9 @@ export const EMAIL_TEMPLATE_CONFIGS: Record<string, EmailTemplateConfig> = {
     smsTemplate: '💚 [[tenant_name]]: Payment of [[amount_paid]] received. Thank you! View: [[portal_base_url]]',
   },
   'employee.invited': {
-    icon: 'user_plus_blue',
-    accentColor: '#2563eb',
-    buttonColor: '#2563eb',
+    icon: 'user_plus_primary',
+    accentColor: '#ea580c',
+    buttonColor: '#ea580c',
     headerLine1: 'You\'re',
     headerLine2: 'invited!',
     description: 'Welcome to the team! [[tenant_name]] has invited you to join their warehouse management system. Click below to set up your account and get started.',

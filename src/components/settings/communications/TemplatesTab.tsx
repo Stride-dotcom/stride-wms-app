@@ -334,7 +334,7 @@ export function TemplatesTab({
                 Messages
               </div>
               <div className="p-4 min-h-[300px] sm:min-h-[400px] bg-[#f3f4f6]">
-                <div className="bg-[#007AFF] text-white rounded-2xl rounded-tl-sm p-3 max-w-[85%] text-sm whitespace-pre-wrap">
+                <div className="bg-primary text-primary-foreground rounded-2xl rounded-tl-sm p-3 max-w-[85%] text-sm whitespace-pre-wrap">
                   {formData.body_template.replace(/{{(\w+)}}/g, (_, key) => {
                     const variable = COMMUNICATION_VARIABLES.find(v => v.key === key);
                     return variable?.sample || `[${key}]`;

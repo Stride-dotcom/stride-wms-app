@@ -161,7 +161,7 @@ export default function ShipmentsList() {
   const getReleaseTypeBadge = (type: string | null) => {
     if (!type) return null;
     const colors: Record<string, string> = {
-      will_call: 'bg-blue-100 text-blue-800',
+      will_call: 'bg-amber-100 text-amber-800',
       disposal: 'bg-orange-100 text-orange-800',
     };
     return (
