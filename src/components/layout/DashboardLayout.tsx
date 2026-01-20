@@ -46,7 +46,7 @@ const navItems: NavItem[] = [
   { label: 'Tasks', href: '/tasks', icon: ClipboardList },
   { label: 'Scan Hub', href: '/scan', icon: ScanLine },
   
-  { label: 'Reports', href: '/reports', icon: BarChart3 },
+  { label: 'Reports', href: '/reports', icon: BarChart3, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Accounts', href: '/accounts', icon: Users, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Employees', href: '/employees', icon: Building2, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Settings', href: '/settings', icon: Settings, requiredRole: ['admin', 'tenant_admin'] },
