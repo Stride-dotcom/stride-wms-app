@@ -58,7 +58,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 const priorityColors: Record<string, string> = {
   low: 'bg-gray-100 text-gray-800',
-  medium: 'bg-blue-100 text-blue-800',
+  medium: 'bg-amber-100 text-amber-800',
   high: 'bg-orange-100 text-orange-800',
   urgent: 'bg-red-100 text-red-800',
 };
@@ -66,9 +66,9 @@ const priorityColors: Record<string, string> = {
 const statusColors: Record<string, string> = {
   in_queue: 'bg-yellow-100 text-yellow-800',
   pending: 'bg-yellow-100 text-yellow-800',
-  in_progress: 'bg-blue-100 text-blue-800',
+  in_progress: 'bg-amber-100 text-amber-800',
   scheduled: 'bg-purple-100 text-purple-800',
-  in_transit: 'bg-blue-100 text-blue-800',
+  in_transit: 'bg-amber-100 text-amber-800',
 };
 
 interface SortableCardProps {
@@ -195,7 +195,7 @@ export default function Dashboard() {
     },
     assembly: {
       title: 'Need to Assemble',
-      icon: <Wrench className="h-5 w-5 text-blue-500" />,
+      icon: <Wrench className="h-5 w-5 text-amber-500" />,
       value: stats.needToAssemble,
       description: 'Pending assemblies by due date',
       type: 'assembly',

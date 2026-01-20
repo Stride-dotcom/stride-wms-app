@@ -133,8 +133,8 @@ export default function Shipments() {
       description: 'Expected & in-progress inbound shipments',
       count: counts.incoming,
       icon: Package,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-100',
       href: '/shipments/incoming',
     },
     {

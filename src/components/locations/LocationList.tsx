@@ -138,7 +138,7 @@ export function LocationList({
 
   const getTypeBadge = (type: string) => {
     const colors: Record<string, string> = {
-      zone: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      zone: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
       aisle: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
       bay: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
       bin: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
