@@ -35,7 +35,7 @@ import { BillingChargeTemplatesTab } from '@/components/settings/BillingChargeTe
 import { EmployeesSettingsTab } from '@/components/settings/EmployeesSettingsTab';
 import { OrganizationSettingsTab } from '@/components/settings/OrganizationSettingsTab';
 import { RateSheetsSettingsTab } from '@/components/settings/RateSheetsSettingsTab';
-import { CommunicationsSettingsTab } from '@/components/settings/CommunicationsSettingsTab';
+
 import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
 import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
 
@@ -50,7 +50,6 @@ const TAB_OPTIONS = [
   { value: 'profile', label: 'Profile' },
   { value: 'organization', label: 'Organization' },
   { value: 'employees', label: 'Employees' },
-  { value: 'communications', label: 'Communications' },
   { value: 'alerts', label: 'Alerts' },
   { value: 'billing', label: 'Billing' },
   { value: 'labor', label: 'Labor', adminOnly: true },
@@ -277,7 +276,6 @@ export default function Settings() {
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="organization">Organization</TabsTrigger>
             <TabsTrigger value="employees">Employees</TabsTrigger>
-            <TabsTrigger value="communications">Communications</TabsTrigger>
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
@@ -352,9 +350,6 @@ export default function Settings() {
             <EmployeesSettingsTab />
           </TabsContent>
 
-          <TabsContent value="communications">
-            <CommunicationsSettingsTab />
-          </TabsContent>
 
           <TabsContent value="alerts">
             <AlertsSettingsTab />
