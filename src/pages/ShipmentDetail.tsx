@@ -94,7 +94,7 @@ interface ShipmentItem {
   expected_sidemark: string | null;
   expected_item_type_id: string | null;
   expected_quantity: number | null;
-  received_quantity: number | null;
+  actual_quantity: number | null;
   status: string;
   item?: {
     item_code: string;
@@ -472,7 +472,7 @@ export default function ShipmentDetail() {
               id: item.id,
               expected_description: item.expected_description,
               expected_quantity: item.expected_quantity,
-              received_quantity: item.received_quantity,
+              actual_quantity: item.actual_quantity,
             }))}
             onComplete={fetchShipment}
             onPhotosChange={handlePhotosChange}

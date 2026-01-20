@@ -33,7 +33,7 @@ interface ShipmentItem {
   expected_sidemark: string | null;
   expected_item_type_id: string | null;
   expected_quantity: number | null;
-  received_quantity: number | null;
+  actual_quantity: number | null;
   status: string;
   item?: {
     item_code: string;
@@ -236,7 +236,7 @@ export function ShipmentItemRow({
 
         {/* Received Qty */}
         <TableCell className="text-right">
-          {item.received_quantity || '-'}
+          {item.actual_quantity || '-'}
         </TableCell>
 
         {/* Status */}
