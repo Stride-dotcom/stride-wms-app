@@ -5526,23 +5526,22 @@ export type Database = {
     Views: {
       v_items_with_location: {
         Row: {
-          assembly_status: string | null
+          account_id: string | null
           client_account: string | null
           created_at: string | null
           current_location_id: string | null
           deleted_at: string | null
           description: string | null
           id: string | null
-          inspection_status: string | null
           item_code: string | null
           location_code: string | null
+          location_id: string | null
           location_name: string | null
           location_type: string | null
           metadata: Json | null
           primary_photo_url: string | null
           quantity: number | null
           received_at: string | null
-          repair_status: string | null
           room: string | null
           sidemark: string | null
           size: number | null
@@ -5559,6 +5558,13 @@ export type Database = {
           {
             foreignKeyName: "items_current_location_id_fkey"
             columns: ["current_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_current_location_id_fkey"
+            columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
             referencedColumns: ["id"]
