@@ -238,7 +238,7 @@ export function BillingChargeTemplatesTab() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5" />
-                Billing Charge Templates
+                Custom Charge Templates
               </CardTitle>
               <CardDescription>
                 Create reusable charge templates for quick billing
