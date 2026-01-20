@@ -22,6 +22,7 @@ export function PreferencesContent() {
     will_call_minimum: 30,
     should_create_inspections: false,
     daily_storage_rate_per_cuft: 0.04,
+    sales_tax_rate: 0,
     default_shipment_notes: '',
     terms_of_service_url: '',
     privacy_policy_url: '',
@@ -35,6 +36,7 @@ export function PreferencesContent() {
         will_call_minimum: preferences.will_call_minimum,
         should_create_inspections: preferences.should_create_inspections,
         daily_storage_rate_per_cuft: preferences.daily_storage_rate_per_cuft,
+        sales_tax_rate: preferences.sales_tax_rate || 0,
         default_shipment_notes: preferences.default_shipment_notes || '',
         terms_of_service_url: preferences.terms_of_service_url || '',
         privacy_policy_url: preferences.privacy_policy_url || '',
@@ -48,6 +50,7 @@ export function PreferencesContent() {
       will_call_minimum: formData.will_call_minimum,
       should_create_inspections: formData.should_create_inspections,
       daily_storage_rate_per_cuft: formData.daily_storage_rate_per_cuft,
+      sales_tax_rate: formData.sales_tax_rate,
       default_shipment_notes: formData.default_shipment_notes || null,
       terms_of_service_url: formData.terms_of_service_url || null,
       privacy_policy_url: formData.privacy_policy_url || null,
@@ -80,6 +83,8 @@ export function PreferencesContent() {
       <BillingRatesSection
         dailyStorageRatePerCuft={formData.daily_storage_rate_per_cuft}
         onDailyStorageRateChange={(value) => setFormData(prev => ({ ...prev, daily_storage_rate_per_cuft: value }))}
+        salesTaxRate={formData.sales_tax_rate}
+        onSalesTaxRateChange={(value) => setFormData(prev => ({ ...prev, sales_tax_rate: value }))}
         shipmentMinimum={preferences?.shipment_minimum}
         hourlyRate={preferences?.hourly_rate}
         baseRateIncludesPieces={preferences?.base_rate_includes_pieces}
