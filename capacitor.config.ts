@@ -18,6 +18,11 @@ const config: CapacitorConfig = {
       style: 'default',
       backgroundColor: '#ffffff',
     },
+    DocumentScanner: {
+      galleryImportAllowed: true,
+      pageLimit: 20,
+      resultFormats: 'PDF,JPEG',
+    },
   },
 };
 

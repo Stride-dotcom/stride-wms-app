@@ -30,6 +30,7 @@ import { SignaturePad } from '@/components/shipments/SignaturePad';
 import { PhotoCapture } from '@/components/shipments/PhotoCapture';
 import { ReceivingSession } from '@/components/shipments/ReceivingSession';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
+import { ScanDocumentButton, DocumentList } from '@/components/scanner';
 import { format } from 'date-fns';
 import { 
   ArrowLeft, 
@@ -584,32 +585,42 @@ export default function ShipmentDetail() {
             </CardContent>
           </Card>
 
-          {/* Photos & Documents Card */}
+          {/* Documents Card - with scanner integration */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="h-5 w-5" />
-                Photos & Documents
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Documents
+                </CardTitle>
+                <ScanDocumentButton
+                  context={{ type: 'shipment', shipmentId: shipment.id, vendor: shipment.carrier || undefined }}
+                  onSuccess={() => {
+                    toast({ title: 'Document saved', description: 'The document has been uploaded.' });
+                  }}
+                  label="Scan"
+                  size="sm"
+                />
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Scanned Documents */}
+              <DocumentList
+                contextType="shipment"
+                contextId={shipment.id}
+                compact
+                maxItems={5}
+              />
+              
+              <Separator />
+              
+              {/* Legacy photo capture for receiving photos */}
               <PhotoCapture
                 entityType="shipment"
                 entityId={shipment.id}
                 onPhotosChange={(urls) => handlePhotosChange('photos', urls)}
                 existingPhotos={shipment.receiving_photos || []}
                 label="Receiving Photos"
-              />
-              
-              <Separator />
-              
-              <PhotoCapture
-                entityType="shipment"
-                entityId={shipment.id}
-                onPhotosChange={(urls) => handlePhotosChange('documents', urls)}
-                existingPhotos={shipment.receiving_documents || []}
-                label="Documents"
-                acceptDocuments
               />
             </CardContent>
           </Card>
