@@ -321,6 +321,33 @@ export default function ShipmentDetail() {
     );
   };
 
+  // Get selectable items (only those with item_id) - must be before early returns
+  const selectableItems = useMemo(() => 
+    shipment?.items.filter(item => item.item_id !== null) || [],
+    [shipment?.items]
+  );
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedItems(new Set(selectableItems.map(item => item.item_id!)));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const handleSelectItem = (itemId: string, checked: boolean) => {
+    const newSelected = new Set(selectedItems);
+    if (checked) {
+      newSelected.add(itemId);
+    } else {
+      newSelected.delete(itemId);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const allSelected = selectableItems.length > 0 && selectableItems.every(item => selectedItems.has(item.item_id!));
+  const someSelected = selectableItems.some(item => selectedItems.has(item.item_id!));
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -346,33 +373,6 @@ export default function ShipmentDetail() {
   }
 
   const isCompleted = shipment.status === 'completed' || shipment.status === 'received';
-
-  // Get selectable items (only those with item_id)
-  const selectableItems = useMemo(() => 
-    shipment.items.filter(item => item.item_id !== null),
-    [shipment.items]
-  );
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedItems(new Set(selectableItems.map(item => item.item_id!)));
-    } else {
-      setSelectedItems(new Set());
-    }
-  };
-
-  const handleSelectItem = (itemId: string, checked: boolean) => {
-    const newSelected = new Set(selectedItems);
-    if (checked) {
-      newSelected.add(itemId);
-    } else {
-      newSelected.delete(itemId);
-    }
-    setSelectedItems(newSelected);
-  };
-
-  const allSelected = selectableItems.length > 0 && selectableItems.every(item => selectedItems.has(item.item_id!));
-  const someSelected = selectableItems.some(item => selectedItems.has(item.item_id!));
 
   return (
     <DashboardLayout>
