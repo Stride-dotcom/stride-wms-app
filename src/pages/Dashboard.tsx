@@ -34,6 +34,9 @@ import {
   Settings2,
   Eye,
   EyeOff,
+  Trash2,
+  Play,
+  Check,
 } from 'lucide-react';
 import {
   DndContext,
@@ -110,6 +113,8 @@ export default function Dashboard() {
     stats, 
     inspectionTasks, 
     assemblyTasks, 
+    willCallTasks,
+    disposalTasks,
     incomingShipments,
     putAwayItems,
     loading, 
@@ -146,7 +151,7 @@ export default function Dashboard() {
     );
   };
 
-  const handleCardClick = (type: 'inspection' | 'assembly' | 'shipments' | 'putaway') => {
+  const handleCardClick = (type: 'inspection' | 'assembly' | 'shipments' | 'putaway' | 'willcall' | 'disposal') => {
     switch (type) {
       case 'inspection':
         navigate('/tasks?type=Inspection');
@@ -159,6 +164,12 @@ export default function Dashboard() {
         break;
       case 'putaway':
         navigate('/inventory?location=receiving');
+        break;
+      case 'willcall':
+        navigate('/tasks?type=Will%20Call');
+        break;
+      case 'disposal':
+        navigate('/tasks?type=Disposal');
         break;
     }
   };
@@ -174,7 +185,7 @@ export default function Dashboard() {
     }
   };
 
-  const cardConfigs: Record<string, { title: string; icon: React.ReactNode; value: number; description: string; type: 'inspection' | 'assembly' | 'shipments' | 'putaway' }> = {
+  const cardConfigs: Record<string, { title: string; icon: React.ReactNode; value: number; description: string; type: 'inspection' | 'assembly' | 'shipments' | 'putaway' | 'willcall' | 'disposal' }> = {
     inspection: {
       title: 'Need to Inspect',
       icon: <ClipboardCheck className="h-5 w-5 text-yellow-500" />,
@@ -202,6 +213,20 @@ export default function Dashboard() {
       value: stats.putAwayCount,
       description: 'Items at Receiving Dock',
       type: 'putaway',
+    },
+    willcall: {
+      title: 'Will Call',
+      icon: <Truck className="h-5 w-5 text-orange-500" />,
+      value: stats.willCallCount,
+      description: 'Pending pickups',
+      type: 'willcall',
+    },
+    disposal: {
+      title: 'Disposal',
+      icon: <Trash2 className="h-5 w-5 text-red-500" />,
+      value: stats.disposalCount,
+      description: 'Items to dispose',
+      type: 'disposal',
     },
   };
 
@@ -436,6 +461,175 @@ export default function Dashboard() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Will Call & Disposal Tasks */}
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Will Call Tasks */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Truck className="h-5 w-5 text-orange-500" />
+                      Will Call Pickups
+                    </CardTitle>
+                    <CardDescription>Pending customer pickups</CardDescription>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => handleCardClick('willcall')}>
+                    View All <ArrowRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {willCallTasks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground p-4">No pending will call pickups</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Task</TableHead>
+                          <TableHead>Account</TableHead>
+                          <TableHead>Due</TableHead>
+                          <TableHead className="w-[100px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {willCallTasks.slice(0, 5).map((task) => (
+                          <TableRow 
+                            key={task.id} 
+                            className="cursor-pointer hover:bg-muted/50"
+                          >
+                            <TableCell 
+                              className="font-medium"
+                              onClick={() => navigate(`/tasks?id=${task.id}`)}
+                            >
+                              {task.title}
+                            </TableCell>
+                            <TableCell onClick={() => navigate(`/tasks?id=${task.id}`)}>
+                              {task.account?.account_name || '-'}
+                            </TableCell>
+                            <TableCell onClick={() => navigate(`/tasks?id=${task.id}`)}>
+                              {formatDueDate(task.due_date)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                {task.status === 'in_queue' && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="h-7 px-2"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/tasks?id=${task.id}&action=start`);
+                                    }}
+                                  >
+                                    <Play className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                {task.status === 'in_progress' && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="default" 
+                                    className="h-7 px-2"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/tasks?id=${task.id}&action=complete`);
+                                    }}
+                                  >
+                                    <Check className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Disposal Tasks */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Trash2 className="h-5 w-5 text-red-500" />
+                      Disposal Queue
+                    </CardTitle>
+                    <CardDescription>Items awaiting disposal</CardDescription>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => handleCardClick('disposal')}>
+                    View All <ArrowRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {disposalTasks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground p-4">No items pending disposal</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Task</TableHead>
+                          <TableHead>Account</TableHead>
+                          <TableHead>Due</TableHead>
+                          <TableHead className="w-[100px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {disposalTasks.slice(0, 5).map((task) => (
+                          <TableRow 
+                            key={task.id} 
+                            className="cursor-pointer hover:bg-muted/50"
+                          >
+                            <TableCell 
+                              className="font-medium"
+                              onClick={() => navigate(`/tasks?id=${task.id}`)}
+                            >
+                              {task.title}
+                            </TableCell>
+                            <TableCell onClick={() => navigate(`/tasks?id=${task.id}`)}>
+                              {task.account?.account_name || '-'}
+                            </TableCell>
+                            <TableCell onClick={() => navigate(`/tasks?id=${task.id}`)}>
+                              {formatDueDate(task.due_date)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                {task.status === 'in_queue' && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="h-7 px-2"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/tasks?id=${task.id}&action=start`);
+                                    }}
+                                  >
+                                    <Play className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                {task.status === 'in_progress' && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="default" 
+                                    className="h-7 px-2"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/tasks?id=${task.id}&action=complete`);
+                                    }}
+                                  >
+                                    <Check className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Put Away List */}
             <Card>
