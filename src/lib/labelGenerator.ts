@@ -330,7 +330,7 @@ export function downloadPDF(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-// Helper to convert blob to base64 for sessionStorage transfer
+// Helper to convert blob to base64 for localStorage transfer
 async function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -350,18 +350,20 @@ export class PrintPopupBlockedError extends Error {
 
 // Helper to open print preview page (user clicks Print button there)
 export async function printLabels(blob: Blob, filename: string = 'labels.pdf'): Promise<void> {
-  // Convert blob to base64 for sessionStorage transfer
   const base64 = await blobToBase64(blob);
-  sessionStorage.setItem('printPreviewPdf', base64);
-  sessionStorage.setItem('printPreviewFilename', filename);
   
-  // Navigate to print preview page where user will click Print button
+  // Store PDF data in localStorage for transfer to print preview page
+  // Note: localStorage is shared between tabs, unlike sessionStorage
+  localStorage.setItem('printPreviewPdf', base64);
+  localStorage.setItem('printPreviewFilename', filename);
+  
+  // Open print preview page in new tab - user will click Print button there
   const printWindow = window.open('/print-preview', '_blank');
   
   if (!printWindow) {
-    // Clean up sessionStorage if popup was blocked
-    sessionStorage.removeItem('printPreviewPdf');
-    sessionStorage.removeItem('printPreviewFilename');
+    // Clean up if popup was blocked
+    localStorage.removeItem('printPreviewPdf');
+    localStorage.removeItem('printPreviewFilename');
     throw new PrintPopupBlockedError();
   }
 }
