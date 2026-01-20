@@ -189,42 +189,66 @@ export default function Dashboard() {
   const cardConfigs: Record<string, { title: string; icon: React.ReactNode; value: number; description: string; type: 'inspection' | 'assembly' | 'shipments' | 'putaway' | 'willcall' | 'disposal' }> = {
     inspection: {
       title: 'Need to Inspect',
-      icon: <ClipboardCheck className="h-5 w-5 text-yellow-500" />,
+      icon: (
+        <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center">
+          <ClipboardCheck className="h-6 w-6 text-yellow-500" />
+        </div>
+      ),
       value: stats.needToInspect,
       description: 'Pending inspections by due date',
       type: 'inspection',
     },
     assembly: {
       title: 'Need to Assemble',
-      icon: <Wrench className="h-5 w-5 text-amber-500" />,
+      icon: (
+        <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+          <Wrench className="h-6 w-6 text-amber-500" />
+        </div>
+      ),
       value: stats.needToAssemble,
       description: 'Pending assemblies by due date',
       type: 'assembly',
     },
     shipments: {
       title: 'Incoming Shipments',
-      icon: <Truck className="h-5 w-5 text-green-500" />,
+      icon: (
+        <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+          <Truck className="h-6 w-6 text-green-500" />
+        </div>
+      ),
       value: stats.incomingShipments,
       description: 'Expected by ETA date',
       type: 'shipments',
     },
     putaway: {
       title: 'Put Away',
-      icon: <Package className="h-5 w-5 text-purple-500" />,
+      icon: (
+        <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+          <Package className="h-6 w-6 text-purple-500" />
+        </div>
+      ),
       value: stats.putAwayCount,
       description: 'Items at Receiving Dock',
       type: 'putaway',
     },
     willcall: {
       title: 'Will Call',
-      icon: <Truck className="h-5 w-5 text-orange-500" />,
+      icon: (
+        <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+          <Truck className="h-6 w-6 text-orange-500" />
+        </div>
+      ),
       value: stats.willCallCount,
       description: 'Pending pickups',
       type: 'willcall',
     },
     disposal: {
       title: 'Disposal',
-      icon: <Trash2 className="h-5 w-5 text-red-500" />,
+      icon: (
+        <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+          <Trash2 className="h-6 w-6 text-red-500" />
+        </div>
+      ),
       value: stats.disposalCount,
       description: 'Items to dispose',
       type: 'disposal',

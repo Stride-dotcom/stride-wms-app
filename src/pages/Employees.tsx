@@ -287,8 +287,8 @@ export default function Employees() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <PageHeader
-            primaryText="Personnel"
-            accentText="Matrix"
+            primaryText="Company"
+            accentText="Staff"
             description="Manage your team members and their access"
           />
           <div className="flex gap-2">

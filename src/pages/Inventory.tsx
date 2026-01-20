@@ -407,11 +407,12 @@ export default function Inventory() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12">
+                      <TableHead className="w-10">
                         <Checkbox
                           checked={selectedItems.size === filteredItems.length && filteredItems.length > 0}
                           onCheckedChange={toggleSelectAll}
                           aria-label="Select all"
+                          className="h-3.5 w-3.5"
                         />
                       </TableHead>
                       <TableHead className="w-12">Photo</TableHead>
@@ -437,6 +438,7 @@ export default function Inventory() {
                             checked={selectedItems.has(item.id)}
                             onCheckedChange={() => toggleItemSelection(item.id)}
                             aria-label={`Select ${item.item_code}`}
+                            className="h-3.5 w-3.5"
                           />
                         </TableCell>
                         <TableCell>
