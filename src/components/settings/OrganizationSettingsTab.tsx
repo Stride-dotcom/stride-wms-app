@@ -195,10 +195,6 @@ export function OrganizationSettingsTab() {
             <Settings2 className="h-4 w-4" />
             Preferences
           </TabsTrigger>
-          <TabsTrigger value="communications" className="gap-2">
-            <Mail className="h-4 w-4" />
-            Communications
-          </TabsTrigger>
           <TabsTrigger value="due-dates" className="gap-2">
             <Bell className="h-4 w-4" />
             Due Dates
@@ -427,79 +423,6 @@ export function OrganizationSettingsTab() {
               <PreferencesContent />
             </TabsContent>
 
-            {/* Communications Tab */}
-            <TabsContent value="communications">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Mail className="h-5 w-5" />
-                    Email Settings
-                  </CardTitle>
-                  <CardDescription>
-                    Configure email signatures and communication preferences
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="email_signature_enabled"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Email Signature</FormLabel>
-                          <FormDescription>
-                            Include organization signature in outgoing emails
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="email_signature_custom_text"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Custom Signature Text</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Best regards,&#10;The Team at [Company Name]&#10;Phone: (555) 123-4567"
-                            rows={4}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Custom text to append to all outgoing emails
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex justify-end">
-                    <Button type="submit" disabled={saving}>
-                      {saving ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="mr-2 h-4 w-4" />
-                          Save Changes
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
           </form>
         </Form>
 
