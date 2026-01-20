@@ -188,10 +188,16 @@ export default function Shipments() {
               Manage incoming and outbound shipments
             </p>
           </div>
-          <Button onClick={() => navigate('/shipments/new')}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Shipment
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate('/shipments/return/new')}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Return
+            </Button>
+            <Button onClick={() => navigate('/shipments/new')}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Shipment
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
