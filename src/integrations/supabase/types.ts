@@ -233,6 +233,73 @@ export type Database = {
           },
         ]
       }
+      account_room_suggestions: {
+        Row: {
+          account_id: string
+          created_at: string
+          id: string
+          last_used_at: string
+          room: string
+          usage_count: number
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          id?: string
+          last_used_at?: string
+          room: string
+          usage_count?: number
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          id?: string
+          last_used_at?: string
+          room?: string
+          usage_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_room_suggestions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      account_sidemarks: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          sidemark: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          sidemark: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          sidemark?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_sidemarks_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_task_permissions: {
         Row: {
           account_id: string
@@ -2252,6 +2319,7 @@ export type Database = {
       item_custom_field_values: {
         Row: {
           created_at: string
+          custom_field_id: string | null
           deleted_at: string | null
           field_key: string
           id: string
@@ -2261,6 +2329,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_field_id?: string | null
           deleted_at?: string | null
           field_key: string
           id?: string
@@ -2270,6 +2339,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_field_id?: string | null
           deleted_at?: string | null
           field_key?: string
           id?: string
@@ -2278,6 +2348,13 @@ export type Database = {
           value?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "item_custom_field_values_custom_field_id_fkey"
+            columns: ["custom_field_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_custom_fields"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "item_custom_field_values_item_id_fkey"
             columns: ["item_id"]
@@ -4558,6 +4635,47 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_custom_fields: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          field_name: string
+          field_order: number
+          field_type: string
+          id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          field_name: string
+          field_order?: number
+          field_type?: string
+          id?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          field_name?: string
+          field_order?: number
+          field_type?: string
+          id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_custom_fields_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
