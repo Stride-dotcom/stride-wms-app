@@ -265,6 +265,7 @@ export function DocumentCapture({
         onOpenChange={setScannerOpen}
         context={context}
         isSensitive={false}
+        enableOcr={ocrEnabled}
         onSuccess={handleScanSuccess}
         onError={handleScanError}
         initialMode="camera"
