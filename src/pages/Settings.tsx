@@ -31,7 +31,7 @@ import { UserList } from '@/components/settings/UserList';
 import { UserDialog } from '@/components/settings/UserDialog';
 import { InviteUserDialog } from '@/components/settings/InviteUserDialog';
 import { ItemTypesSettingsTab } from '@/components/settings/ItemTypesSettingsTab';
-import { BillingChargeTemplatesTab } from '@/components/settings/BillingChargeTemplatesTab';
+// BillingChargeTemplatesTab moved to RateSheetsSettingsTab
 import { EmployeesSettingsTab } from '@/components/settings/EmployeesSettingsTab';
 import { OrganizationSettingsTab } from '@/components/settings/OrganizationSettingsTab';
 import { RateSheetsSettingsTab } from '@/components/settings/RateSheetsSettingsTab';
@@ -51,7 +51,6 @@ const TAB_OPTIONS = [
   { value: 'organization', label: 'Organization' },
   { value: 'employees', label: 'Employees' },
   { value: 'alerts', label: 'Alerts' },
-  { value: 'billing', label: 'Billing' },
   { value: 'labor', label: 'Labor', adminOnly: true },
   { value: 'rate-sheets', label: 'Rate Sheets' },
   { value: 'item-types', label: 'Item Types' },
@@ -277,7 +276,6 @@ export default function Settings() {
             <TabsTrigger value="organization">Organization</TabsTrigger>
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
-            <TabsTrigger value="billing">Billing</TabsTrigger>
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
             <TabsTrigger value="rate-sheets">Rate Sheets</TabsTrigger>
             <TabsTrigger value="item-types">Item Types</TabsTrigger>
@@ -355,9 +353,7 @@ export default function Settings() {
             <AlertsSettingsTab />
           </TabsContent>
 
-          <TabsContent value="billing">
-            <BillingChargeTemplatesTab />
-          </TabsContent>
+          {/* Billing tab removed - charge templates moved to Rate Sheets */}
 
           {isAdmin && (
             <TabsContent value="labor">
