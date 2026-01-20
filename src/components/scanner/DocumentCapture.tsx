@@ -256,7 +256,7 @@ export function DocumentCapture({
 
       {/* Counter */}
       <p className="text-xs text-muted-foreground">
-        {documents.length}/{maxDocuments} documents
+        {documents.length}/{maxDocuments} documents uploaded
       </p>
 
       {/* Document Scanner Dialog - Opens directly to camera */}

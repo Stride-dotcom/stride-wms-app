@@ -130,7 +130,7 @@ export function PhotoCapture({
 
   return (
     <div className="space-y-3">
-      <Label>{label}</Label>
+      {label && <Label>{label}</Label>}
 
       {/* Photo Grid */}
       {photos.length > 0 && (
