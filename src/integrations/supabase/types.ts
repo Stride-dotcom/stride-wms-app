@@ -5421,6 +5421,7 @@ export type Database = {
           location_name: string | null
           location_type: string | null
           metadata: Json | null
+          primary_photo_url: string | null
           quantity: number | null
           received_at: string | null
           repair_status: string | null
