@@ -3953,31 +3953,40 @@ export type Database = {
           charge_amount: number
           charge_description: string | null
           charge_name: string
+          charge_type: string | null
           created_at: string | null
           created_by: string | null
           id: string
           task_id: string
+          template_id: string | null
           tenant_id: string
+          updated_at: string | null
         }
         Insert: {
           charge_amount: number
           charge_description?: string | null
           charge_name: string
+          charge_type?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
           task_id: string
+          template_id?: string | null
           tenant_id: string
+          updated_at?: string | null
         }
         Update: {
           charge_amount?: number
           charge_description?: string | null
           charge_name?: string
+          charge_type?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
           task_id?: string
+          template_id?: string | null
           tenant_id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -3992,6 +4001,13 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_custom_charges_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "billing_charge_templates"
             referencedColumns: ["id"]
           },
           {
