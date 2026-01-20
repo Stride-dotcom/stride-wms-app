@@ -38,6 +38,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Plus, Trash2, ArrowLeft, Upload, Download } from 'lucide-react';
 import { ItemTypeCombobox } from '@/components/items/ItemTypeCombobox';
 import { ShipmentItemsImportDialog, ParsedShipmentItem } from '@/components/shipments/ShipmentItemsImportDialog';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { MobileDataCard, MobileDataCardHeader, MobileDataCardTitle, MobileDataCardContent, MobileDataCardActions } from '@/components/ui/mobile-data-card';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const expectedItemSchema = z.object({
   quantity: z.coerce.number().min(1, 'Quantity must be at least 1'),
@@ -81,6 +85,7 @@ export default function ShipmentCreate() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { profile } = useAuth();
+  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -244,14 +249,14 @@ export default function ShipmentCreate() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 md:gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/shipments')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Create Shipment</h1>
-            <p className="text-muted-foreground">
-              Shipment number will be auto-generated • Item IDs assigned at receiving
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Create Shipment</h1>
+            <p className="text-sm text-muted-foreground truncate md:text-base">
+              Auto-generated number • IDs assigned at receiving
             </p>
           </div>
         </div>
@@ -264,7 +269,7 @@ export default function ShipmentCreate() {
                 <CardDescription>Basic information about the expected shipment</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="account_id"
@@ -316,7 +321,7 @@ export default function ShipmentCreate() {
                   />
                 </div>
 
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <FormField
                     control={form.control}
                     name="expected_arrival_date"
@@ -396,24 +401,15 @@ export default function ShipmentCreate() {
             </Card>
 
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
                     <CardTitle>Shipment Items</CardTitle>
-                    <CardDescription>
+                    <CardDescription className="hidden md:block">
                       Items expected on this shipment. Item ID Codes will be assigned when received.
                     </CardDescription>
                   </div>
                   <div className="flex gap-2">
-                    <a
-                      href="/shipment-items-template.csv"
-                      download="shipment-items-template.csv"
-                    >
-                      <Button type="button" variant="outline" size="sm">
-                        <Download className="mr-2 h-4 w-4" />
-                        Template
-                      </Button>
-                    </a>
                     <input
                       type="file"
                       id="import-items-file"
@@ -421,137 +417,290 @@ export default function ShipmentCreate() {
                       onChange={handleFileSelect}
                       className="hidden"
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => document.getElementById('import-items-file')?.click()}
-                    >
-                      <Upload className="mr-2 h-4 w-4" />
-                      Import
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        append({ quantity: 1, vendor: '', description: '', item_type_id: '', sidemark: '' })
-                      }
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Item
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <a
+                            href="/shipment-items-template.csv"
+                            download="shipment-items-template.csv"
+                          >
+                            <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0 md:h-9 md:w-auto md:px-3">
+                              <Download className="h-4 w-4 md:mr-2" />
+                              <span className="hidden md:inline">Template</span>
+                            </Button>
+                          </a>
+                        </TooltipTrigger>
+                        <TooltipContent className="md:hidden">
+                          <p>Download Template</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9 w-9 p-0 md:h-9 md:w-auto md:px-3"
+                            onClick={() => document.getElementById('import-items-file')?.click()}
+                          >
+                            <Upload className="h-4 w-4 md:mr-2" />
+                            <span className="hidden md:inline">Import</span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="md:hidden">
+                          <p>Import Items</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9 w-9 p-0 md:h-9 md:w-auto md:px-3"
+                            onClick={() =>
+                              append({ quantity: 1, vendor: '', description: '', item_type_id: '', sidemark: '' })
+                            }
+                          >
+                            <Plus className="h-4 w-4 md:mr-2" />
+                            <span className="hidden md:inline">Add Item</span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="md:hidden">
+                          <p>Add Item</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-20">Qty *</TableHead>
-                        <TableHead className="w-40">Vendor *</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead className="w-40">Item Type</TableHead>
-                        <TableHead className="w-32">Sidemark</TableHead>
-                        <TableHead className="w-12"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {fields.map((field, index) => (
-                        <TableRow key={field.id}>
-                          <TableCell>
-                            <FormField
-                              control={form.control}
-                              name={`expected_items.${index}.quantity`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      min={1}
-                                      className="w-full"
-                                      {...field}
-                                    />
-                                  </FormControl>
-                                </FormItem>
+                {/* Desktop Table View */}
+                {!isMobile && (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-20">Qty *</TableHead>
+                          <TableHead className="w-40">Vendor *</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead className="w-40">Item Type</TableHead>
+                          <TableHead className="w-32">Sidemark</TableHead>
+                          <TableHead className="w-12"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {fields.map((field, index) => (
+                          <TableRow key={field.id}>
+                            <TableCell>
+                              <FormField
+                                control={form.control}
+                                name={`expected_items.${index}.quantity`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        min={1}
+                                        className="w-full"
+                                        {...field}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <FormField
+                                control={form.control}
+                                name={`expected_items.${index}.vendor`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input placeholder="Vendor" {...field} />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <FormField
+                                control={form.control}
+                                name={`expected_items.${index}.description`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input placeholder="Item description" {...field} />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <FormField
+                                control={form.control}
+                                name={`expected_items.${index}.item_type_id`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <ItemTypeCombobox
+                                        itemTypes={itemTypes}
+                                        value={field.value || ''}
+                                        onChange={field.onChange}
+                                        placeholder="Type"
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <FormField
+                                control={form.control}
+                                name={`expected_items.${index}.sidemark`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Input placeholder="Sidemark" {...field} />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {fields.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => remove(index)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
                               )}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <FormField
-                              control={form.control}
-                              name={`expected_items.${index}.vendor`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <Input placeholder="Vendor" {...field} />
-                                  </FormControl>
-                                </FormItem>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                {/* Mobile Card View */}
+                {isMobile && (
+                  <div className="space-y-3">
+                    {fields.map((field, index) => {
+                      const itemType = itemTypes.find(
+                        (t) => t.id === form.watch(`expected_items.${index}.item_type_id`)
+                      );
+                      return (
+                        <MobileDataCard key={field.id} className="relative">
+                          <MobileDataCardHeader>
+                            <MobileDataCardTitle className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground">Item {index + 1}</span>
+                              {itemType && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {itemType.name}
+                                </Badge>
                               )}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <FormField
-                              control={form.control}
-                              name={`expected_items.${index}.description`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <Input placeholder="Item description" {...field} />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <FormField
-                              control={form.control}
-                              name={`expected_items.${index}.item_type_id`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <ItemTypeCombobox
-                                      itemTypes={itemTypes}
-                                      value={field.value || ''}
-                                      onChange={field.onChange}
-                                      placeholder="Type"
-                                    />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <FormField
-                              control={form.control}
-                              name={`expected_items.${index}.sidemark`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <Input placeholder="Sidemark" {...field} />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell>
+                            </MobileDataCardTitle>
                             {fields.length > 1 && (
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
+                                className="h-8 w-8 -mr-2 -mt-1"
                                 onClick={() => remove(index)}
                               >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
                             )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                          </MobileDataCardHeader>
+                          <MobileDataCardContent className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              <FormField
+                                control={form.control}
+                                name={`expected_items.${index}.quantity`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Qty *</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        min={1}
+                                        className="h-11"
+                                        {...field}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name={`expected_items.${index}.vendor`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Vendor *</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="Vendor" className="h-11" {...field} />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                            <FormField
+                              control={form.control}
+                              name={`expected_items.${index}.description`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-xs">Description</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="Item description" className="h-11" {...field} />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            <div className="grid grid-cols-2 gap-3">
+                              <FormField
+                                control={form.control}
+                                name={`expected_items.${index}.item_type_id`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Item Type</FormLabel>
+                                    <FormControl>
+                                      <ItemTypeCombobox
+                                        itemTypes={itemTypes}
+                                        value={field.value || ''}
+                                        onChange={field.onChange}
+                                        placeholder="Select type"
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name={`expected_items.${index}.sidemark`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Sidemark</FormLabel>
+                                    <FormControl>
+                                      <Input placeholder="Sidemark" className="h-11" {...field} />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </MobileDataCardContent>
+                        </MobileDataCard>
+                      );
+                    })}
+                  </div>
+                )}
                 {form.formState.errors.expected_items?.root && (
                   <p className="text-sm text-destructive mt-2">
                     {form.formState.errors.expected_items.root.message}
@@ -560,11 +709,11 @@ export default function ShipmentCreate() {
               </CardContent>
             </Card>
 
-            <div className="flex justify-end gap-4">
-              <Button type="button" variant="outline" onClick={() => navigate('/shipments')}>
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:gap-4">
+              <Button type="button" variant="outline" className="h-11 sm:h-10" onClick={() => navigate('/shipments')}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} className="h-11 sm:h-10">
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Shipment
               </Button>
