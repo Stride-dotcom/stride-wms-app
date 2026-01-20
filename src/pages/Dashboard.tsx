@@ -295,7 +295,8 @@ export default function Dashboard() {
                     return (
                       <SortableCard key={cardId} id={cardId}>
                         <Card 
-                          className="cursor-pointer hover:shadow-md transition-shadow"
+                          className="cursor-pointer hover:shadow-lg hover:border-primary/30 transition-all duration-300 animate-float-in fill-forwards"
+                          style={{ animationDelay: `${(visibleCards.indexOf(cardId) + 1) * 100}ms`, opacity: 0 }}
                           onClick={() => handleCardClick(config.type)}
                         >
                           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pl-10">

@@ -12,52 +12,52 @@
     --primary: 14 100% 57%;
     --primary-foreground: 0 0% 100%;
 
-    /* Background - Obsidian Dark */
-    --background: 0 0% 7%;
-    --foreground: 0 0% 95%;
+    /* Background - Light (Main Content Area) */
+    --background: 0 0% 96%;
+    --foreground: 0 0% 9%;
 
-    /* Cards - Dark Surface */
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 95%;
+    /* Cards - Pure White */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
 
-    /* Popover */
-    --popover: 0 0% 12%;
-    --popover-foreground: 0 0% 95%;
+    /* Popover - White */
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
 
-    /* Secondary - Medium Gray */
-    --secondary: 0 0% 20%;
-    --secondary-foreground: 0 0% 95%;
+    /* Secondary - Light Gray */
+    --secondary: 0 0% 92%;
+    --secondary-foreground: 0 0% 9%;
 
-    /* Muted */
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 60%;
+    /* Muted - Soft Gray */
+    --muted: 0 0% 94%;
+    --muted-foreground: 0 0% 45%;
 
     /* Accent - Subtle Orange Tint */
-    --accent: 14 30% 15%;
-    --accent-foreground: 14 100% 65%;
+    --accent: 14 100% 96%;
+    --accent-foreground: 14 100% 45%;
 
     /* Destructive - Red */
     --destructive: 0 72% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Borders */
-    --border: 0 0% 18%;
-    --input: 0 0% 15%;
+    /* Borders - Light Gray */
+    --border: 0 0% 88%;
+    --input: 0 0% 92%;
     --ring: 14 100% 57%;
 
     /* Border Radius */
     --radius: 2rem;
 
-    /* Sidebar - Gradient handled in component, fallback color */
+    /* Sidebar - DARK (Gradient handled in component) */
     --sidebar-background: 0 0% 8%;
-    --sidebar-foreground: 0 0% 90%;
+    --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 14 100% 57%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 15%;
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 0 0% 15%;
     --sidebar-ring: 14 100% 57%;
-    --sidebar-muted: 0 0% 50%;
+    --sidebar-muted: 0 0% 70%;
 
     /* Status Colors */
     --success: 142 71% 45%;
@@ -67,21 +67,21 @@
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
 
-    /* Chart Colors - Warm Palette for Dark Mode */
+    /* Chart Colors - Warm Palette */
     --chart-1: 14 100% 57%;
     --chart-2: 27 95% 60%;
     --chart-3: 43 96% 56%;
     --chart-4: 47 95% 53%;
     --chart-5: 0 0% 45%;
 
-    /* Shadow System - Adjusted for Dark Mode */
-    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.3);
-    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.3);
-    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.4), 0 1px 2px -1px hsl(0 0% 0% / 0.4);
-    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.4), 0 2px 4px -2px hsl(0 0% 0% / 0.4);
-    --shadow-lg: 0 20px 25px -5px hsl(0 0% 0% / 0.4), 0 8px 10px -6px hsl(0 0% 0% / 0.4);
-    --shadow-xl: 0 25px 50px -12px hsl(0 0% 0% / 0.5);
-    --shadow-2xl: 0 50px 100px -20px hsl(0 0% 0% / 0.6);
+    /* Shadow System */
+    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.08);
+    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.1), 0 2px 4px -2px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 20px 25px -5px hsl(0 0% 0% / 0.1), 0 8px 10px -6px hsl(0 0% 0% / 0.1);
+    --shadow-xl: 0 25px 50px -12px hsl(0 0% 0% / 0.15);
+    --shadow-2xl: 0 50px 100px -20px hsl(0 0% 0% / 0.2);
     
     /* Glow Effects */
     --glow-primary: 0 0 20px hsl(14 100% 57% / 0.4);
@@ -250,4 +250,25 @@
     --cascade-delay: 0ms;
     animation-delay: var(--cascade-delay);
   }
+}
+
+/* Global interactive icon hover animation */
+button svg,
+a svg,
+[role="button"] svg,
+.cursor-pointer svg {
+  transition: transform 0.2s ease-out;
+}
+
+button:hover svg,
+a:hover svg,
+[role="button"]:hover svg,
+.cursor-pointer:hover svg {
+  transform: scale(1.15);
+}
+
+/* Prevent double-scaling for icons with explicit animations */
+.no-icon-scale svg,
+.no-icon-scale:hover svg {
+  transform: none !important;
 }
