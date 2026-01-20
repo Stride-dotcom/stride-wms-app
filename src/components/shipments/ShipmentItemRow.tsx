@@ -158,7 +158,7 @@ export function ShipmentItemRow({
         )}
       >
         {/* Select checkbox */}
-        <TableCell onClick={(e) => e.stopPropagation()}>
+        <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
           {item.item_id && (
             <Checkbox
               checked={isSelected}
@@ -169,7 +169,7 @@ export function ShipmentItemRow({
         </TableCell>
 
         {/* Expand toggle */}
-        <TableCell onClick={(e) => e.stopPropagation()}>
+        <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
           <CollapsibleTrigger asChild>
             <Button variant="ghost" size="icon" className="h-6 w-6">
               {isExpanded ? (
@@ -183,14 +183,14 @@ export function ShipmentItemRow({
 
         {/* Item Code */}
         <TableCell 
-          className="font-medium"
+          className="w-28 font-medium"
           onClick={handleRowClick}
         >
           {item.item?.item_code || '-'}
         </TableCell>
 
         {/* Vendor */}
-        <TableCell onClick={isEditing ? (e) => e.stopPropagation() : handleRowClick}>
+        <TableCell className="w-32" onClick={isEditing ? (e) => e.stopPropagation() : handleRowClick}>
           {isEditing ? (
             <AutocompleteInput
               value={editVendor}
@@ -205,7 +205,7 @@ export function ShipmentItemRow({
         </TableCell>
 
         {/* Description */}
-        <TableCell onClick={isEditing ? (e) => e.stopPropagation() : handleRowClick}>
+        <TableCell className="min-w-[180px]" onClick={isEditing ? (e) => e.stopPropagation() : handleRowClick}>
           {isEditing ? (
             <AutocompleteInput
               value={editDescription}
@@ -220,7 +220,7 @@ export function ShipmentItemRow({
         </TableCell>
 
         {/* Expected Qty */}
-        <TableCell className="text-right" onClick={isEditing ? (e) => e.stopPropagation() : undefined}>
+        <TableCell className="w-28 text-right" onClick={isEditing ? (e) => e.stopPropagation() : undefined}>
           {isEditing ? (
             <Input
               type="number"
@@ -235,17 +235,17 @@ export function ShipmentItemRow({
         </TableCell>
 
         {/* Received Qty */}
-        <TableCell className="text-right">
+        <TableCell className="w-28 text-right">
           {item.actual_quantity || '-'}
         </TableCell>
 
         {/* Status */}
-        <TableCell>
+        <TableCell className="w-24">
           <Badge variant="outline">{item.status}</Badge>
         </TableCell>
 
         {/* Actions */}
-        <TableCell onClick={(e) => e.stopPropagation()}>
+        <TableCell className="w-16" onClick={(e) => e.stopPropagation()}>
           {canEdit && (
             <div className="flex items-center gap-1">
               {isEditing ? (
