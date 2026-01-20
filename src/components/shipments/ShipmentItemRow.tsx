@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { ItemPreviewCard } from '@/components/items/ItemPreviewCard';
 import { ChevronDown, ChevronRight, Loader2, Save, X, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -185,11 +186,22 @@ export function ShipmentItemRow({
         </TableCell>
 
         {/* Item Code */}
-        <TableCell 
-          className="w-28 font-medium"
-          onClick={handleRowClick}
-        >
-          {item.item?.item_code || '-'}
+        <TableCell className="w-28 font-medium">
+          {item.item_id ? (
+            <ItemPreviewCard itemId={item.item_id}>
+              <span 
+                className="text-primary hover:underline cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRowClick();
+                }}
+              >
+                {item.item?.item_code || '-'}
+              </span>
+            </ItemPreviewCard>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )}
         </TableCell>
 
         {/* Vendor */}

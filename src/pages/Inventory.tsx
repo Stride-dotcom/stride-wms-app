@@ -44,6 +44,7 @@ import { ItemLabelData } from '@/lib/labelGenerator';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
+import { ItemPreviewCard } from '@/components/items/ItemPreviewCard';
 import {
   MobileDataCard,
   MobileDataCardHeader,
@@ -279,8 +280,16 @@ export default function Inventory() {
                   <TableBody>{filteredAndSortedItems.map((item) => (
                     <TableRow key={item.id} className={`cursor-pointer hover:bg-muted/50 ${selectedItems.has(item.id) ? 'bg-muted/30' : ''}`} onClick={() => navigate(`/inventory/${item.id}`)}>
                       <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={() => toggleItemSelection(item.id)} className="h-3.5 w-3.5" /></TableCell>
-                      <TableCell>{item.primary_photo_url ? <img src={item.primary_photo_url} alt={item.item_code} className="h-8 w-8 rounded object-cover" /> : <div className="h-8 w-8 rounded bg-muted flex items-center justify-center"><Package className="h-4 w-4 text-muted-foreground" /></div>}</TableCell>
-                      <TableCell className="font-medium">{item.item_code}</TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <ItemPreviewCard itemId={item.id}>
+                          {item.primary_photo_url ? <img src={item.primary_photo_url} alt={item.item_code} className="h-8 w-8 rounded object-cover cursor-pointer" /> : <div className="h-8 w-8 rounded bg-muted flex items-center justify-center"><Package className="h-4 w-4 text-muted-foreground" /></div>}
+                        </ItemPreviewCard>
+                      </TableCell>
+                      <TableCell className="font-medium" onClick={(e) => e.stopPropagation()}>
+                        <ItemPreviewCard itemId={item.id}>
+                          <span className="text-primary hover:underline cursor-pointer" onClick={() => navigate(`/inventory/${item.id}`)}>{item.item_code}</span>
+                        </ItemPreviewCard>
+                      </TableCell>
                       <TableCell>{item.vendor || '-'}</TableCell>
                       <TableCell className="line-clamp-1">{item.description || '-'}</TableCell>
                       <TableCell className="text-right">{item.quantity}</TableCell>
