@@ -7,6 +7,8 @@ export interface DashboardStats {
   needToAssemble: number;
   incomingShipments: number;
   putAwayCount: number;
+  willCallCount: number;
+  disposalCount: number;
 }
 
 export interface TaskItem {
@@ -51,9 +53,13 @@ export function useDashboardStats() {
     needToAssemble: 0,
     incomingShipments: 0,
     putAwayCount: 0,
+    willCallCount: 0,
+    disposalCount: 0,
   });
   const [inspectionTasks, setInspectionTasks] = useState<TaskItem[]>([]);
   const [assemblyTasks, setAssemblyTasks] = useState<TaskItem[]>([]);
+  const [willCallTasks, setWillCallTasks] = useState<TaskItem[]>([]);
+  const [disposalTasks, setDisposalTasks] = useState<TaskItem[]>([]);
   const [incomingShipments, setIncomingShipments] = useState<ShipmentItem[]>([]);
   const [putAwayItems, setPutAwayItems] = useState<PutAwayItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,6 +93,34 @@ export function useDashboardStats() {
         `, { count: 'exact' })
         .eq('tenant_id', profile.tenant_id)
         .eq('task_type', 'Assembly')
+        .not('status', 'in', '("completed","cancelled","unable_to_complete")')
+        .is('deleted_at', null)
+        .order('due_date', { ascending: true, nullsFirst: false })
+        .limit(10);
+
+      // Fetch Will Call tasks (not completed, ordered by due date)
+      const { data: willCalls, count: willCallCount } = await (supabase
+        .from('tasks') as any)
+        .select(`
+          id, title, task_type, due_date, priority, status,
+          account:accounts(account_name)
+        `, { count: 'exact' })
+        .eq('tenant_id', profile.tenant_id)
+        .eq('task_type', 'Will Call')
+        .not('status', 'in', '("completed","cancelled","unable_to_complete")')
+        .is('deleted_at', null)
+        .order('due_date', { ascending: true, nullsFirst: false })
+        .limit(10);
+
+      // Fetch Disposal tasks (not completed, ordered by due date)
+      const { data: disposals, count: disposalCount } = await (supabase
+        .from('tasks') as any)
+        .select(`
+          id, title, task_type, due_date, priority, status,
+          account:accounts(account_name)
+        `, { count: 'exact' })
+        .eq('tenant_id', profile.tenant_id)
+        .eq('task_type', 'Disposal')
         .not('status', 'in', '("completed","cancelled","unable_to_complete")')
         .is('deleted_at', null)
         .order('due_date', { ascending: true, nullsFirst: false })
@@ -159,10 +193,14 @@ export function useDashboardStats() {
         needToAssemble: assemblyCount || 0,
         incomingShipments: shipmentCount || 0,
         putAwayCount: putAwayCount,
+        willCallCount: willCallCount || 0,
+        disposalCount: disposalCount || 0,
       });
 
       setInspectionTasks(inspections || []);
       setAssemblyTasks(assemblies || []);
+      setWillCallTasks(willCalls || []);
+      setDisposalTasks(disposals || []);
       setIncomingShipments(shipments || []);
       setPutAwayItems(putAwayData);
     } catch (error) {
@@ -180,6 +218,8 @@ export function useDashboardStats() {
     stats,
     inspectionTasks,
     assemblyTasks,
+    willCallTasks,
+    disposalTasks,
     incomingShipments,
     putAwayItems,
     loading,

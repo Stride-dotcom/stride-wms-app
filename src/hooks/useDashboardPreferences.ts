@@ -12,6 +12,8 @@ const DEFAULT_CARD_ORDER = [
   'assembly',
   'shipments',
   'putaway',
+  'willcall',
+  'disposal',
 ];
 
 export function useDashboardPreferences() {
