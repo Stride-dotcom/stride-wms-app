@@ -41,8 +41,17 @@ import {
   FileText,
   Image as ImageIcon,
   Printer,
-  ClipboardList
+  ClipboardList,
+  Trash2,
+  ChevronDown,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 
@@ -103,6 +112,7 @@ export default function ShipmentDetail() {
   // For item selection and task creation
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showTaskDialog, setShowTaskDialog] = useState(false);
+  const [preSelectedTaskType, setPreSelectedTaskType] = useState<string | undefined>(undefined);
   
   // For signature
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -617,10 +627,39 @@ export default function ShipmentDetail() {
               </CardDescription>
             </div>
             {selectedItems.size > 0 && (
-              <Button onClick={() => setShowTaskDialog(true)}>
-                <ClipboardList className="mr-2 h-4 w-4" />
-                Create Task ({selectedItems.size})
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button>
+                    <ClipboardList className="mr-2 h-4 w-4" />
+                    Create Task ({selectedItems.size})
+                    <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => {
+                    setPreSelectedTaskType(undefined);
+                    setShowTaskDialog(true);
+                  }}>
+                    <ClipboardList className="mr-2 h-4 w-4" />
+                    Create Task
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => {
+                    setPreSelectedTaskType('Will Call');
+                    setShowTaskDialog(true);
+                  }}>
+                    <Truck className="mr-2 h-4 w-4" />
+                    Will Call
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    setPreSelectedTaskType('Disposal');
+                    setShowTaskDialog(true);
+                  }}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Disposal
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </CardHeader>
           <CardContent>
@@ -758,11 +797,16 @@ export default function ShipmentDetail() {
         open={showTaskDialog}
         onOpenChange={(open) => {
           setShowTaskDialog(open);
-          if (!open) setSelectedItems(new Set());
+          if (!open) {
+            setSelectedItems(new Set());
+            setPreSelectedTaskType(undefined);
+          }
         }}
         selectedItemIds={Array.from(selectedItems)}
+        preSelectedTaskType={preSelectedTaskType}
         onSuccess={() => {
           setSelectedItems(new Set());
+          setPreSelectedTaskType(undefined);
           setShowTaskDialog(false);
         }}
       />
