@@ -227,7 +227,8 @@ export function useReceivingSession(shipmentId: string | undefined) {
 
             // Create inspection task if tenant preference or account setting is enabled
             if (shouldCreateInspections && newItem) {
-              await supabase
+              // Create the inspection task
+              const { data: taskData } = await supabase
                 .from('tasks')
                 .insert({
                   tenant_id: profile.tenant_id,
@@ -237,7 +238,19 @@ export function useReceivingSession(shipmentId: string | undefined) {
                   priority: 'medium',
                   account_id: shipment.account_id,
                   warehouse_id: shipment.warehouse_id,
-                });
+                })
+                .select('id')
+                .single();
+
+              // Link the item to the task via task_items
+              if (taskData) {
+                await supabase
+                  .from('task_items')
+                  .insert({
+                    task_id: taskData.id,
+                    item_id: newItem.id,
+                  });
+              }
             }
 
             // Get receiving rate using unified rate lookup
