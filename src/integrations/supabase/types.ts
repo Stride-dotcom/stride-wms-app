@@ -5543,6 +5543,7 @@ export type Database = {
           quantity: number | null
           received_at: string | null
           repair_status: string | null
+          room: string | null
           sidemark: string | null
           size: number | null
           size_unit: string | null
