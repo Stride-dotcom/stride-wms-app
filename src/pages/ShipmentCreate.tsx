@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -83,9 +83,13 @@ interface ItemType {
 
 export default function ShipmentCreate() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { profile } = useAuth();
   const isMobile = useIsMobile();
+  
+  // Detect if this is a return shipment based on route
+  const isReturnShipment = location.pathname.includes('/return/');
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -186,6 +190,7 @@ export default function ShipmentCreate() {
         .insert({
           tenant_id: profile.tenant_id,
           shipment_type: 'inbound',
+          release_type: isReturnShipment ? 'return' : null,
           status: 'expected',
           account_id: data.account_id,
           warehouse_id: data.warehouse_id,
@@ -254,7 +259,9 @@ export default function ShipmentCreate() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="min-w-0 flex-1">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Create Shipment</h1>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+              {isReturnShipment ? 'Create Return Shipment' : 'Create Shipment'}
+            </h1>
             <p className="text-sm text-muted-foreground truncate md:text-base">
               Auto-generated number • IDs assigned at receiving
             </p>

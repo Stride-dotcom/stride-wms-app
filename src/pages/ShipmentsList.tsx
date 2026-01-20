@@ -224,7 +224,7 @@ export default function ShipmentsList() {
             <Card>
               <CardHeader>
                 <CardTitle>
-                  {activeTab === 'inbound' ? 'Incoming' : 'Outbound'} Shipments
+                  {activeTab === 'inbound' ? 'Incoming' : activeTab === 'received' ? 'Received' : 'Outbound'} Shipments
                 </CardTitle>
                 <CardDescription>
                   {filteredShipments.length} shipments found
