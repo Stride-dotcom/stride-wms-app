@@ -31,6 +31,8 @@ import { PhotoCapture } from '@/components/shipments/PhotoCapture';
 import { ReceivingSession } from '@/components/shipments/ReceivingSession';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { ScanDocumentButton, DocumentList } from '@/components/scanner';
+import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
+import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDialog';
 import { format } from 'date-fns';
 import { 
   ArrowLeft, 
@@ -88,12 +90,16 @@ interface ShipmentItem {
   id: string;
   item_id: string | null;
   expected_description: string | null;
+  expected_vendor: string | null;
+  expected_sidemark: string | null;
+  expected_item_type_id: string | null;
   expected_quantity: number | null;
   received_quantity: number | null;
   status: string;
   item?: {
     item_code: string;
     description: string | null;
+    vendor: string | null;
   } | null;
 }
 
@@ -114,6 +120,7 @@ export default function ShipmentDetail() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [preSelectedTaskType, setPreSelectedTaskType] = useState<string | undefined>(undefined);
+  const [showAddItemDialog, setShowAddItemDialog] = useState(false);
   
   // For signature
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -140,11 +147,11 @@ export default function ShipmentDetail() {
 
       if (error) throw error;
 
-      // Fetch shipment items
+      // Fetch shipment items with vendor data
       const { data: items } = await (supabase.from('shipment_items') as any)
         .select(`
           *,
-          items(item_code, description)
+          items(item_code, description, vendor)
         `)
         .eq('shipment_id', id);
 
@@ -637,45 +644,68 @@ export default function ShipmentDetail() {
                   : 'Items included in this release'}
               </CardDescription>
             </div>
-            {selectedItems.size > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button>
-                    <ClipboardList className="mr-2 h-4 w-4" />
-                    Create Task ({selectedItems.size})
-                    <ChevronDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => {
-                    setPreSelectedTaskType(undefined);
-                    setShowTaskDialog(true);
-                  }}>
-                    <ClipboardList className="mr-2 h-4 w-4" />
-                    Create Task
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => {
-                    setPreSelectedTaskType('Will Call');
-                    setShowTaskDialog(true);
-                  }}>
-                    <Truck className="mr-2 h-4 w-4" />
-                    Will Call
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => {
-                    setPreSelectedTaskType('Disposal');
-                    setShowTaskDialog(true);
-                  }}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Disposal
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Add Item Button - only for inbound, not completed */}
+              {shipment.shipment_type === 'inbound' && !isCompleted && (
+                <Button variant="outline" onClick={() => setShowAddItemDialog(true)}>
+                  <Package className="mr-2 h-4 w-4" />
+                  Add Item
+                </Button>
+              )}
+              
+              {selectedItems.size > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button>
+                      <ClipboardList className="mr-2 h-4 w-4" />
+                      Create Task ({selectedItems.size})
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => {
+                      setPreSelectedTaskType(undefined);
+                      setShowTaskDialog(true);
+                    }}>
+                      <ClipboardList className="mr-2 h-4 w-4" />
+                      Create Task
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => {
+                      setPreSelectedTaskType('Will Call');
+                      setShowTaskDialog(true);
+                    }}>
+                      <Truck className="mr-2 h-4 w-4" />
+                      Will Call
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      setPreSelectedTaskType('Disposal');
+                      setShowTaskDialog(true);
+                    }}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Disposal
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {shipment.items.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">No items in this shipment</p>
+              <div className="text-center py-8">
+                <Package className="mx-auto h-12 w-12 text-muted-foreground" />
+                <p className="mt-2 text-sm text-muted-foreground">No items in this shipment</p>
+                {shipment.shipment_type === 'inbound' && !isCompleted && (
+                  <Button 
+                    variant="outline" 
+                    className="mt-4"
+                    onClick={() => setShowAddItemDialog(true)}
+                  >
+                    <Package className="mr-2 h-4 w-4" />
+                    Add Expected Item
+                  </Button>
+                )}
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -688,47 +718,27 @@ export default function ShipmentDetail() {
                         disabled={selectableItems.length === 0}
                       />
                     </TableHead>
+                    <TableHead className="w-10"></TableHead>
                     <TableHead>Item Code</TableHead>
                     <TableHead>Description</TableHead>
+                    <TableHead>Vendor</TableHead>
                     <TableHead className="text-right">Expected Qty</TableHead>
                     <TableHead className="text-right">Received Qty</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="w-16"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {shipment.items.map((item) => (
-                    <TableRow 
+                    <ShipmentItemRow
                       key={item.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                    >
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        {item.item_id && (
-                          <Checkbox
-                            checked={selectedItems.has(item.item_id)}
-                            onCheckedChange={(checked) => handleSelectItem(item.item_id!, !!checked)}
-                            aria-label={`Select ${item.item?.item_code || 'item'}`}
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell 
-                        className="font-medium"
-                        onClick={() => item.item_id && navigate(`/inventory/${item.item_id}`)}
-                      >
-                        {item.item?.item_code || '-'}
-                      </TableCell>
-                      <TableCell onClick={() => item.item_id && navigate(`/inventory/${item.item_id}`)}>
-                        {item.item?.description || item.expected_description || '-'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {item.expected_quantity || '-'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {item.received_quantity || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{item.status}</Badge>
-                      </TableCell>
-                    </TableRow>
+                      item={item}
+                      isSelected={item.item_id ? selectedItems.has(item.item_id) : false}
+                      onSelect={(checked) => item.item_id && handleSelectItem(item.item_id, checked)}
+                      onUpdate={fetchShipment}
+                      isInbound={shipment.shipment_type === 'inbound'}
+                      isCompleted={isCompleted}
+                    />
                   ))}
                 </TableBody>
               </Table>
@@ -820,6 +830,14 @@ export default function ShipmentDetail() {
           setPreSelectedTaskType(undefined);
           setShowTaskDialog(false);
         }}
+      />
+
+      {/* Add Item Dialog */}
+      <AddShipmentItemDialog
+        open={showAddItemDialog}
+        onOpenChange={setShowAddItemDialog}
+        shipmentId={shipment.id}
+        onSuccess={fetchShipment}
       />
     </DashboardLayout>
   );
