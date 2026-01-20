@@ -399,7 +399,7 @@ export default function ShipmentDetail() {
                 {getStatusBadge(shipment.status)}
               </div>
               <p className="text-muted-foreground">
-                {shipment.shipment_type === 'inbound' ? 'Incoming Shipment' : 
+                {shipment.shipment_type === 'inbound' ? 'Shipment Order' : 
                   shipment.release_type === 'will_call' ? 'Will Call Pickup' : 'Disposal'}
               </p>
             </div>
@@ -592,45 +592,6 @@ export default function ShipmentDetail() {
             </CardContent>
           </Card>
 
-          {/* Documents Card - with scanner integration */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Documents
-                </CardTitle>
-                <ScanDocumentButton
-                  context={{ type: 'shipment', shipmentId: shipment.id, vendor: shipment.carrier || undefined }}
-                  onSuccess={() => {
-                    toast({ title: 'Document saved', description: 'The document has been uploaded.' });
-                  }}
-                  label="Scan"
-                  size="sm"
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Scanned Documents */}
-              <DocumentList
-                contextType="shipment"
-                contextId={shipment.id}
-                compact
-                maxItems={5}
-              />
-              
-              <Separator />
-              
-              {/* Legacy photo capture for receiving photos */}
-              <PhotoCapture
-                entityType="shipment"
-                entityId={shipment.id}
-                onPhotosChange={(urls) => handlePhotosChange('photos', urls)}
-                existingPhotos={shipment.receiving_photos || []}
-                label="Receiving Photos"
-              />
-            </CardContent>
-          </Card>
         </div>
 
         {/* Items Card */}
@@ -720,8 +681,8 @@ export default function ShipmentDetail() {
                     </TableHead>
                     <TableHead className="w-10"></TableHead>
                     <TableHead>Item Code</TableHead>
-                    <TableHead>Description</TableHead>
                     <TableHead>Vendor</TableHead>
+                    <TableHead>Description</TableHead>
                     <TableHead className="text-right">Expected Qty</TableHead>
                     <TableHead className="text-right">Received Qty</TableHead>
                     <TableHead>Status</TableHead>

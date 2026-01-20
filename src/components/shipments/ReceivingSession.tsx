@@ -25,6 +25,9 @@ import {
 } from '@/components/ui/table';
 import { useReceivingSession } from '@/hooks/useReceivingSession';
 import { PhotoCapture } from './PhotoCapture';
+import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
+import { DocumentList } from '@/components/scanner/DocumentList';
+import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import {
   Loader2,
@@ -77,6 +80,8 @@ export function ReceivingSession({
     finishSession,
     cancelSession,
   } = useReceivingSession(shipmentId);
+
+  const { toast } = useToast();
 
   const [notes, setNotes] = useState('');
   const [trackingNumbers, setTrackingNumbers] = useState<string[]>(['']);
@@ -298,19 +303,27 @@ export function ReceivingSession({
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileText className="h-4 w-4" />
-              Receiving Documents
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileText className="h-4 w-4" />
+                Receiving Documents
+              </CardTitle>
+              <ScanDocumentButton
+                context={{ type: 'shipment', shipmentId }}
+                onSuccess={() => {
+                  toast({ title: 'Document saved', description: 'The document has been uploaded.' });
+                }}
+                label="Scan"
+                size="sm"
+              />
+            </div>
           </CardHeader>
           <CardContent>
-            <PhotoCapture
-              entityType="shipment"
-              entityId={shipmentId}
-              onPhotosChange={(urls) => onPhotosChange('documents', urls)}
-              existingPhotos={existingDocuments}
-              label=""
-              acceptDocuments
+            <DocumentList
+              contextType="shipment"
+              contextId={shipmentId}
+              compact
+              maxItems={5}
             />
           </CardContent>
         </Card>
