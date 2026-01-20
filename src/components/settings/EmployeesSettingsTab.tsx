@@ -199,30 +199,114 @@ export function EmployeesSettingsTab() {
     }
   };
 
-  const handleInviteUser = async () => {
-    if (!profile?.tenant_id || !inviteData.email) return;
+  const handleCreateEmployee = async (sendInvite: boolean) => {
+    if (!profile?.tenant_id || !inviteData.email) {
+      toast({
+        variant: 'destructive',
+        title: 'Validation Error',
+        description: 'Email is required.',
+      });
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(inviteData.email)) {
+      toast({
+        variant: 'destructive',
+        title: 'Validation Error',
+        description: 'Please enter a valid email address.',
+      });
+      return;
+    }
 
     setSaving(true);
     try {
-      // Create invite in auth (this would normally trigger an email)
-      const { data: authData, error: authError } = await supabase.auth.admin.inviteUserByEmail(
-        inviteData.email
-      );
+      // Check if user with this email already exists
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', inviteData.email.toLowerCase())
+        .eq('tenant_id', profile.tenant_id)
+        .is('deleted_at', null)
+        .maybeSingle();
 
-      if (authError) {
-        // If we can't use admin API, just create the user record
+      if (existingUser) {
         toast({
           variant: 'destructive',
-          title: 'Note',
-          description: 'User invitation requires admin privileges. Please add user manually.',
+          title: 'User Exists',
+          description: 'An employee with this email already exists.',
         });
+        setSaving(false);
         return;
       }
 
-      toast({
-        title: 'Invitation Sent',
-        description: `An invitation has been sent to ${inviteData.email}.`,
-      });
+      // Generate invite token
+      const inviteToken = crypto.randomUUID();
+
+      // Create user record in users table
+      const { data: newUser, error: userError } = await supabase
+        .from('users')
+        .insert({
+          email: inviteData.email.toLowerCase(),
+          first_name: inviteData.first_name || null,
+          last_name: inviteData.last_name || null,
+          labor_rate: inviteData.labor_rate || null,
+          tenant_id: profile.tenant_id,
+          status: 'pending',
+          password_hash: 'pending',
+          invite_token: inviteToken,
+        })
+        .select('id')
+        .single();
+
+      if (userError) {
+        console.error('Error creating user:', userError);
+        throw new Error('Failed to create employee record');
+      }
+
+      // Assign role if selected
+      if (inviteData.role_id && inviteData.role_id !== 'none') {
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: newUser.id,
+            role_id: inviteData.role_id,
+          });
+
+        if (roleError) {
+          console.error('Error assigning role:', roleError);
+          // Don't fail the whole operation, just log it
+        }
+      }
+
+      // Send invite email if requested
+      if (sendInvite) {
+        const { error: inviteError } = await supabase.functions.invoke('send-employee-invite', {
+          body: {
+            user_id: newUser.id,
+            tenant_id: profile.tenant_id,
+          },
+        });
+
+        if (inviteError) {
+          console.error('Error sending invite:', inviteError);
+          toast({
+            title: 'Employee Created',
+            description: `Employee saved but invitation email failed to send. You can resend later.`,
+          });
+        } else {
+          toast({
+            title: 'Invitation Sent',
+            description: `An invitation has been sent to ${inviteData.email}.`,
+          });
+        }
+      } else {
+        toast({
+          title: 'Employee Created',
+          description: `${inviteData.first_name || inviteData.email} has been added as an employee.`,
+        });
+      }
 
       setInviteDialogOpen(false);
       setInviteData({
@@ -232,12 +316,13 @@ export function EmployeesSettingsTab() {
         role_id: 'none',
         labor_rate: 0,
       });
+      fetchEmployees();
     } catch (error) {
-      console.error('Error inviting user:', error);
+      console.error('Error creating employee:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to send invitation.',
+        description: error instanceof Error ? error.message : 'Failed to create employee.',
       });
     } finally {
       setSaving(false);
@@ -503,12 +588,26 @@ export function EmployeesSettingsTab() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>
               Cancel
             </Button>
             <Button
-              onClick={handleInviteUser}
+              variant="secondary"
+              onClick={() => handleCreateEmployee(false)}
+              disabled={saving || !inviteData.email}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Only'
+              )}
+            </Button>
+            <Button
+              onClick={() => handleCreateEmployee(true)}
               disabled={saving || !inviteData.email}
             >
               {saving ? (
@@ -517,7 +616,7 @@ export function EmployeesSettingsTab() {
                   Sending...
                 </>
               ) : (
-                'Send Invitation'
+                'Save & Send Invitation'
               )}
             </Button>
           </DialogFooter>
