@@ -303,7 +303,7 @@ export function ReceivingSession({
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-base">
                 <FileText className="h-4 w-4" />
