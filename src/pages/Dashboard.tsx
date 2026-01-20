@@ -344,9 +344,14 @@ export default function Dashboard() {
               {/* Inspection Tasks */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg">Inspections Due</CardTitle>
-                    <CardDescription>Upcoming inspection tasks</CardDescription>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center">
+                      <ClipboardCheck className="h-5 w-5 text-yellow-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">Inspections Due</CardTitle>
+                      <CardDescription>Upcoming inspection tasks</CardDescription>
+                    </div>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => handleCardClick('inspection')}>
                     View All <ArrowRight className="ml-1 h-4 w-4" />
@@ -391,9 +396,14 @@ export default function Dashboard() {
               {/* Assembly Tasks */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg">Assemblies Due</CardTitle>
-                    <CardDescription>Upcoming assembly tasks</CardDescription>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                      <Wrench className="h-5 w-5 text-amber-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">Assemblies Due</CardTitle>
+                      <CardDescription>Upcoming assembly tasks</CardDescription>
+                    </div>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => handleCardClick('assembly')}>
                     View All <ArrowRight className="ml-1 h-4 w-4" />
@@ -439,9 +449,14 @@ export default function Dashboard() {
             {/* Incoming Shipments */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">Incoming Shipments</CardTitle>
-                  <CardDescription>Expected shipments by ETA</CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+                    <Truck className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Incoming Shipments</CardTitle>
+                    <CardDescription>Expected shipments by ETA</CardDescription>
+                  </div>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => handleCardClick('shipments')}>
                   View All <ArrowRight className="ml-1 h-4 w-4" />
@@ -492,12 +507,14 @@ export default function Dashboard() {
               {/* Will Call Tasks */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
                       <Truck className="h-5 w-5 text-orange-500" />
-                      Will Call Pickups
-                    </CardTitle>
-                    <CardDescription>Pending customer pickups</CardDescription>
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">Will Call Pickups</CardTitle>
+                      <CardDescription>Pending customer pickups</CardDescription>
+                    </div>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => handleCardClick('willcall')}>
                     View All <ArrowRight className="ml-1 h-4 w-4" />
@@ -575,12 +592,14 @@ export default function Dashboard() {
               {/* Disposal Tasks */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
                       <Trash2 className="h-5 w-5 text-red-500" />
-                      Disposal Queue
-                    </CardTitle>
-                    <CardDescription>Items awaiting disposal</CardDescription>
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">Disposal Queue</CardTitle>
+                      <CardDescription>Items awaiting disposal</CardDescription>
+                    </div>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => handleCardClick('disposal')}>
                     View All <ArrowRight className="ml-1 h-4 w-4" />
@@ -659,9 +678,14 @@ export default function Dashboard() {
             {/* Put Away List */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">Put Away List</CardTitle>
-                  <CardDescription>Items at Receiving Dock that need to be put away</CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                    <Package className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Put Away List</CardTitle>
+                    <CardDescription>Items at Receiving Dock that need to be put away</CardDescription>
+                  </div>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => handleCardClick('putaway')}>
                   View All <ArrowRight className="ml-1 h-4 w-4" />
