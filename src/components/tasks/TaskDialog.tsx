@@ -41,6 +41,7 @@ import { useTaskCustomCharges } from '@/hooks/useTaskCustomCharges';
 import { format } from 'date-fns';
 import { Loader2, CalendarIcon, Plus, X, Search, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 import { TaskCustomChargesSection } from './TaskCustomChargesSection';
 
 interface TaskDialogProps {
@@ -76,6 +77,7 @@ export function TaskDialog({
   onSuccess,
 }: TaskDialogProps) {
   const { profile } = useAuth();
+  const { toast } = useToast();
   const { taskTypes, createTaskType } = useTaskTypes();
   const { getDueDateForTaskType } = useDueDateRules();
   const { warehouses } = useWarehouses();
@@ -258,17 +260,26 @@ export function TaskDialog({
       const account = accounts.find(a => a.id === accountId);
       if (!account) return;
 
-      const { data } = await (supabase
+      const { data, error } = await (supabase
         .from('items') as any)
         .select('id, item_code, description, vendor, sidemark, client_account, warehouse_id')
         .eq('client_account', account.account_name)
-        .eq('status', 'in_stock')
+        // Items status is now 'active' (legacy 'in_stock' was migrated)
+        .neq('status', 'released')
+        .neq('status', 'disposed')
         .is('deleted_at', null)
         .order('item_code');
 
+      if (error) throw error;
+
       setAccountItems(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching account items:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Could not load items',
+        description: error?.message || 'Please try again.',
+      });
     } finally {
       setLoadingItems(false);
     }
@@ -379,8 +390,8 @@ export function TaskDialog({
       setLoading(true);
 
       // Collect all item IDs
-      const allItemIds = isFromInventory 
-        ? selectedItemIds 
+      const allItemIds = isFromInventory
+        ? selectedItemIds
         : selectedItems.map(i => i.id);
 
       const taskData = {
@@ -396,20 +407,25 @@ export function TaskDialog({
         account_id: formData.account_id === 'none' ? null : formData.account_id || null,
         status: task ? task.status : 'in_queue', // New tasks start as in_queue
         bill_to: formData.bill_to,
-        bill_to_customer_name: formData.bill_to === 'customer' ? formData.bill_to_customer_name : null,
-        bill_to_customer_email: formData.bill_to === 'customer' ? formData.bill_to_customer_email : null,
+        bill_to_customer_name:
+          formData.bill_to === 'customer' ? formData.bill_to_customer_name : null,
+        bill_to_customer_email:
+          formData.bill_to === 'customer' ? formData.bill_to_customer_email : null,
       };
 
       if (task) {
-        // Update existing task
         const { error } = await (supabase
           .from('tasks') as any)
           .update(taskData)
           .eq('id', task.id);
 
         if (error) throw error;
+
+        toast({
+          title: 'Task Updated',
+          description: 'Your changes were saved.',
+        });
       } else {
-        // Create new task
         const { data: newTask, error } = await (supabase
           .from('tasks') as any)
           .insert(taskData)
@@ -425,17 +441,31 @@ export function TaskDialog({
             item_id: itemId,
           }));
 
-          await (supabase.from('task_items') as any).insert(taskItems);
+          const { error: taskItemsError } = await (supabase
+            .from('task_items') as any)
+            .insert(taskItems);
+
+          if (taskItemsError) throw taskItemsError;
 
           // Update inventory status to in_queue
           await updateInventoryStatus(allItemIds, formData.task_type, 'in_queue');
         }
+
+        toast({
+          title: 'Task Created',
+          description: 'Your task is now in the queue.',
+        });
       }
 
       onSuccess();
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving task:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Could not save task',
+        description: error?.message || 'Please try again.',
+      });
     } finally {
       setLoading(false);
     }
@@ -543,26 +573,39 @@ export function TaskDialog({
                   </div>
                 ) : filteredItems.length > 0 ? (
                   <div className="border rounded-md max-h-48 overflow-y-auto">
-                    {filteredItems.map(item => (
-                      <div
-                        key={item.id}
-                        className="flex items-center gap-3 p-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
-                        onClick={() => toggleItemSelection(item)}
-                      >
-                        <Checkbox
-                          checked={selectedItems.some(i => i.id === item.id)}
-                          onCheckedChange={() => toggleItemSelection(item)}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm">{item.item_code}</div>
-                          <div className="text-xs text-muted-foreground truncate">
-                            {[item.description, item.vendor, item.sidemark]
-                              .filter(Boolean)
-                              .join(' • ')}
+                    {filteredItems.map(item => {
+                      const isSelected = selectedItems.some(i => i.id === item.id);
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex items-center gap-3 p-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
+                          onClick={() => toggleItemSelection(item)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              toggleItemSelection(item);
+                            }
+                          }}
+                        >
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleItemSelection(item)}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm">{item.item_code}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {[item.description, item.vendor, item.sidemark]
+                                .filter(Boolean)
+                                .join(' • ')}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : accountItems.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
