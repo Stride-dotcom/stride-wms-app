@@ -413,15 +413,19 @@ export default function ScanHub() {
   if (mode === null) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
-          <PageHeader primaryText="Scan" accentText="Matrix" />
+        <div className="space-y-6">
+          <PageHeader
+            primaryText="Scan"
+            accentText="Hub"
+            description="High-speed warehouse operations hub"
+          />
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
+          <div className="flex flex-col gap-6 w-full max-w-xl">
             {/* Move Card */}
             <button
               onClick={() => selectMode('move')}
               className={cn(
-                "group relative overflow-hidden flex flex-col items-start p-6",
+                "group relative overflow-hidden flex items-center gap-6 p-6",
                 "rounded-3xl bg-card border-2 border-transparent",
                 "transition-all duration-300 text-left",
                 "hover:border-primary hover:shadow-xl hover:shadow-primary/10"
@@ -429,27 +433,29 @@ export default function ScanHub() {
             >
               {/* Background watermark icon */}
               <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
-                <Move className="h-32 w-32 text-primary" />
+                <Move className="h-40 w-40 text-primary" />
               </div>
               
-              {/* Small icon in colored container */}
-              <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4">
-                <Move className="h-7 w-7 text-primary-foreground group-hover:scale-110 transition-transform duration-200" />
+              {/* Large icon container */}
+              <div className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center flex-shrink-0">
+                <Move className="h-10 w-10 text-primary-foreground group-hover:scale-110 transition-transform duration-200" />
               </div>
               
-              <span className="text-xl font-bold text-foreground">Move</span>
-              <span className="text-sm text-muted-foreground mt-1">Single item transfer</span>
-              
-              <span className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wide mt-4">
-                LAUNCH SCANNER <ArrowRight className="h-4 w-4" />
-              </span>
+              {/* Text on right */}
+              <div className="flex flex-col items-start flex-1">
+                <span className="text-2xl font-bold text-foreground">Move</span>
+                <span className="text-sm text-muted-foreground mt-1">Scan item, then scan destination</span>
+                <span className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wide mt-3">
+                  LAUNCH SCANNER <ArrowRight className="h-4 w-4" />
+                </span>
+              </div>
             </button>
 
             {/* Batch Move Card */}
             <button
               onClick={() => selectMode('batch')}
               className={cn(
-                "group relative overflow-hidden flex flex-col items-start p-6",
+                "group relative overflow-hidden flex items-center gap-6 p-6",
                 "rounded-3xl bg-card border-2 border-transparent",
                 "transition-all duration-300 text-left",
                 "hover:border-muted-foreground/50 hover:shadow-xl hover:shadow-muted/20"
@@ -457,27 +463,29 @@ export default function ScanHub() {
             >
               {/* Background watermark icon */}
               <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
-                <Layers className="h-32 w-32 text-muted-foreground" />
+                <Layers className="h-40 w-40 text-muted-foreground" />
               </div>
               
-              {/* Small icon in colored container */}
-              <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mb-4">
-                <Layers className="h-7 w-7 text-foreground group-hover:scale-110 transition-transform duration-200" />
+              {/* Large icon container */}
+              <div className="w-20 h-20 rounded-3xl bg-secondary flex items-center justify-center flex-shrink-0">
+                <Layers className="h-10 w-10 text-foreground group-hover:scale-110 transition-transform duration-200" />
               </div>
               
-              <span className="text-xl font-bold text-foreground">Batch Move</span>
-              <span className="text-sm text-muted-foreground mt-1">Multiple items at once</span>
-              
-              <span className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wide mt-4">
-                LAUNCH SCANNER <ArrowRight className="h-4 w-4" />
-              </span>
+              {/* Text on right */}
+              <div className="flex flex-col items-start flex-1">
+                <span className="text-2xl font-bold text-foreground">Batch Move</span>
+                <span className="text-sm text-muted-foreground mt-1">Scan multiple items, then scan destination</span>
+                <span className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wide mt-3">
+                  LAUNCH SCANNER <ArrowRight className="h-4 w-4" />
+                </span>
+              </div>
             </button>
 
             {/* Look Up Card */}
             <button
               onClick={() => selectMode('lookup')}
               className={cn(
-                "group relative overflow-hidden flex flex-col items-start p-6",
+                "group relative overflow-hidden flex items-center gap-6 p-6",
                 "rounded-3xl bg-card border-2 border-transparent",
                 "transition-all duration-300 text-left",
                 "hover:border-info hover:shadow-xl hover:shadow-info/10"
@@ -485,20 +493,22 @@ export default function ScanHub() {
             >
               {/* Background watermark icon */}
               <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
-                <Search className="h-32 w-32 text-info" />
+                <Search className="h-40 w-40 text-info" />
               </div>
               
-              {/* Small icon in colored container */}
-              <div className="w-14 h-14 rounded-2xl bg-info flex items-center justify-center mb-4">
-                <Search className="h-7 w-7 text-info-foreground group-hover:scale-110 transition-transform duration-200" />
+              {/* Large icon container */}
+              <div className="w-20 h-20 rounded-3xl bg-info flex items-center justify-center flex-shrink-0">
+                <Search className="h-10 w-10 text-info-foreground group-hover:scale-110 transition-transform duration-200" />
               </div>
               
-              <span className="text-xl font-bold text-foreground">Look Up</span>
-              <span className="text-sm text-muted-foreground mt-1">View item details</span>
-              
-              <span className="flex items-center gap-2 text-info text-xs font-semibold uppercase tracking-wide mt-4">
-                LAUNCH SCANNER <ArrowRight className="h-4 w-4" />
-              </span>
+              {/* Text on right */}
+              <div className="flex flex-col items-start flex-1">
+                <span className="text-2xl font-bold text-foreground">Look Up</span>
+                <span className="text-sm text-muted-foreground mt-1">Scan to view item details</span>
+                <span className="flex items-center gap-2 text-info text-xs font-semibold uppercase tracking-wide mt-3">
+                  LAUNCH SCANNER <ArrowRight className="h-4 w-4" />
+                </span>
+              </div>
             </button>
           </div>
         </div>
