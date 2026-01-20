@@ -713,7 +713,7 @@ export default function ShipmentDetail() {
                 )}
               </div>
             ) : (
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10">
@@ -725,12 +725,12 @@ export default function ShipmentDetail() {
                       />
                     </TableHead>
                     <TableHead className="w-10"></TableHead>
-                    <TableHead>Item Code</TableHead>
-                    <TableHead>Vendor</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Expected Qty</TableHead>
-                    <TableHead className="text-right">Received Qty</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="w-28">Item Code</TableHead>
+                    <TableHead className="w-32">Vendor</TableHead>
+                    <TableHead className="min-w-[180px]">Description</TableHead>
+                    <TableHead className="w-28 text-right">Expected Qty</TableHead>
+                    <TableHead className="w-28 text-right">Received Qty</TableHead>
+                    <TableHead className="w-24">Status</TableHead>
                     <TableHead className="w-16"></TableHead>
                   </TableRow>
                 </TableHeader>
