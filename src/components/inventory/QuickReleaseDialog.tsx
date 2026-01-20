@@ -102,7 +102,7 @@ export function QuickReleaseDialog({
         shipment_id: shipment.id,
         item_id: item.id,
         expected_quantity: item.quantity,
-        received_quantity: item.quantity,
+        actual_quantity: item.quantity,
         expected_description: item.description,
         status: 'completed',
       }));

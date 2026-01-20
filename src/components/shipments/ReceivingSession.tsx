@@ -46,7 +46,7 @@ interface ShipmentItem {
   id: string;
   expected_description: string | null;
   expected_quantity: number | null;
-  received_quantity: number | null;
+  actual_quantity: number | null;
 }
 
 interface ReceivingSessionProps {
