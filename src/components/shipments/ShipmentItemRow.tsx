@@ -189,21 +189,6 @@ export function ShipmentItemRow({
           {item.item?.item_code || '-'}
         </TableCell>
 
-        {/* Description */}
-        <TableCell onClick={isEditing ? (e) => e.stopPropagation() : handleRowClick}>
-          {isEditing ? (
-            <AutocompleteInput
-              value={editDescription}
-              onChange={setEditDescription}
-              suggestions={descriptionSuggestions}
-              placeholder="Description"
-              className="h-8"
-            />
-          ) : (
-            item.item?.description || item.expected_description || '-'
-          )}
-        </TableCell>
-
         {/* Vendor */}
         <TableCell onClick={isEditing ? (e) => e.stopPropagation() : handleRowClick}>
           {isEditing ? (
@@ -216,6 +201,21 @@ export function ShipmentItemRow({
             />
           ) : (
             item.item?.vendor || item.expected_vendor || '-'
+          )}
+        </TableCell>
+
+        {/* Description */}
+        <TableCell onClick={isEditing ? (e) => e.stopPropagation() : handleRowClick}>
+          {isEditing ? (
+            <AutocompleteInput
+              value={editDescription}
+              onChange={setEditDescription}
+              suggestions={descriptionSuggestions}
+              placeholder="Description"
+              className="h-8"
+            />
+          ) : (
+            item.item?.description || item.expected_description || '-'
           )}
         </TableCell>
 
