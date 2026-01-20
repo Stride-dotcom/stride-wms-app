@@ -318,12 +318,23 @@ export function downloadPDF(blob: Blob, filename: string): void {
 // Helper to open print dialog
 export async function printLabels(blob: Blob): Promise<void> {
   const url = URL.createObjectURL(blob);
+  
+  // Use an anchor tag with target="_blank" to avoid popup blocking
   const printWindow = window.open(url, '_blank');
+  
   if (printWindow) {
+    // Wait for the window to load before triggering print
     printWindow.onload = () => {
-      printWindow.print();
+      setTimeout(() => {
+        printWindow.print();
+      }, 100);
     };
+  } else {
+    // If popup was blocked, fall back to download
+    console.warn('Popup blocked, falling back to download');
+    downloadPDF(blob, 'labels.pdf');
   }
+  
   // Clean up after a delay
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }

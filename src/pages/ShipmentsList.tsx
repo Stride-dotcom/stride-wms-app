@@ -58,15 +58,24 @@ export default function ShipmentsList() {
   const directionParam = searchParams.get('direction');
   
   // Determine view mode based on URL path
-  const isReceivedView = location.pathname === '/shipments/received';
+  const getInitialTab = () => {
+    if (location.pathname === '/shipments/received' || location.pathname === '/shipments/released') {
+      return 'received';
+    }
+    if (location.pathname === '/shipments/outbound') {
+      return 'outbound';
+    }
+    if (directionParam === 'outbound') {
+      return 'outbound';
+    }
+    return 'inbound';
+  };
   
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<string>(
-    isReceivedView ? 'received' : (directionParam === 'outbound' ? 'outbound' : 'inbound')
-  );
+  const [activeTab, setActiveTab] = useState<string>(getInitialTab());
 
   useEffect(() => {
     fetchShipments();
@@ -98,10 +107,13 @@ export default function ShipmentsList() {
         .limit(100);
 
       // Filter by status for received view, otherwise by shipment type
+      // Also exclude received/completed items from inbound/outbound tabs
       if (activeTab === 'received') {
         query = query.in('status', ['received', 'completed']);
-      } else {
-        query = query.eq('shipment_type', activeTab);
+      } else if (activeTab === 'inbound') {
+        query = query.eq('shipment_type', 'inbound').not('status', 'in', '("received","completed")');
+      } else if (activeTab === 'outbound') {
+        query = query.eq('shipment_type', 'outbound').not('status', 'in', '("received","completed")');
       }
 
       const { data, error } = await query;

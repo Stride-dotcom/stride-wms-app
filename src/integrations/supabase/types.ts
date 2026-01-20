@@ -1768,6 +1768,44 @@ export type Database = {
           },
         ]
       }
+      field_suggestions: {
+        Row: {
+          created_at: string | null
+          field_name: string
+          id: string
+          last_used_at: string | null
+          tenant_id: string
+          usage_count: number | null
+          value: string
+        }
+        Insert: {
+          created_at?: string | null
+          field_name: string
+          id?: string
+          last_used_at?: string | null
+          tenant_id: string
+          usage_count?: number | null
+          value: string
+        }
+        Update: {
+          created_at?: string | null
+          field_name?: string
+          id?: string
+          last_used_at?: string | null
+          tenant_id?: string
+          usage_count?: number | null
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "field_suggestions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       file_attachments: {
         Row: {
           created_at: string
@@ -3160,6 +3198,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           id: string
+          is_taxable: boolean | null
           item_type_id: string | null
           metadata: Json | null
           minimum_charge: number | null
@@ -3176,6 +3215,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          is_taxable?: boolean | null
           item_type_id?: string | null
           metadata?: Json | null
           minimum_charge?: number | null
@@ -3192,6 +3232,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          is_taxable?: boolean | null
           item_type_id?: string | null
           metadata?: Json | null
           minimum_charge?: number | null
@@ -3673,6 +3714,7 @@ export type Database = {
           release_to_name: string | null
           release_to_phone: string | null
           release_type: string | null
+          return_type: string | null
           shipment_number: string
           shipment_type: string
           signature_data: string | null
@@ -3710,6 +3752,7 @@ export type Database = {
           release_to_name?: string | null
           release_to_phone?: string | null
           release_type?: string | null
+          return_type?: string | null
           shipment_number: string
           shipment_type?: string
           signature_data?: string | null
@@ -3747,6 +3790,7 @@ export type Database = {
           release_to_name?: string | null
           release_to_phone?: string | null
           release_type?: string | null
+          return_type?: string | null
           shipment_number?: string
           shipment_type?: string
           signature_data?: string | null
@@ -4692,6 +4736,7 @@ export type Database = {
           require_signature_to_finish: boolean | null
           reservation_cut_off_time: string | null
           reservation_prep_days_required: number | null
+          sales_tax_rate: number | null
           shipment_minimum: number | null
           should_create_inspections: boolean
           tenant_id: string
@@ -4737,6 +4782,7 @@ export type Database = {
           require_signature_to_finish?: boolean | null
           reservation_cut_off_time?: string | null
           reservation_prep_days_required?: number | null
+          sales_tax_rate?: number | null
           shipment_minimum?: number | null
           should_create_inspections?: boolean
           tenant_id: string
@@ -4782,6 +4828,7 @@ export type Database = {
           require_signature_to_finish?: boolean | null
           reservation_cut_off_time?: string | null
           reservation_prep_days_required?: number | null
+          sales_tax_rate?: number | null
           shipment_minimum?: number | null
           should_create_inspections?: boolean
           tenant_id?: string

@@ -577,14 +577,13 @@ export function AccountDialog({
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-4 sm:grid-cols-8 mb-4 gap-1 h-auto">
+                <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 mb-4 gap-1 h-auto">
                   <TabsTrigger value="basic" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Basic</TabsTrigger>
                   <TabsTrigger value="contacts" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Contacts</TabsTrigger>
                   <TabsTrigger value="pricing" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Pricing</TabsTrigger>
                   <TabsTrigger value="billing" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Billing</TabsTrigger>
                   <TabsTrigger value="automations" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Automations</TabsTrigger>
                   <TabsTrigger value="inventory" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Inventory</TabsTrigger>
-                  <TabsTrigger value="communications" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Comms</TabsTrigger>
                   <TabsTrigger value="permissions" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Permissions</TabsTrigger>
                 </TabsList>
 
@@ -1532,80 +1531,6 @@ export function AccountDialog({
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </TabsContent>
-
-                  {/* Communications Tab */}
-                  <TabsContent value="communications" className="space-y-4 mt-0">
-                    <p className="text-sm text-muted-foreground">
-                      Configure email communication preferences for this account.
-                    </p>
-
-                    <FormField
-                      control={form.control}
-                      name="use_tenant_email_defaults"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <FormLabel className="font-normal">Use Tenant Email Defaults</FormLabel>
-                            <FormDescription>
-                              Use the default email templates from tenant settings
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="disable_email_communications"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <FormLabel className="font-normal">Disable Email Communications</FormLabel>
-                            <FormDescription>
-                              Completely disable all automated emails for this account
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="copy_from_account_id"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Copy Email Settings From Account</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Don't copy from another account" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="none">Don't copy from another account</SelectItem>
-                              {accounts
-                                .filter((a) => a.id !== accountId)
-                                .map((account) => (
-                                  <SelectItem key={account.id} value={account.id}>
-                                    {account.account_name}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>
-                            Copy email configuration from an existing account
-                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}

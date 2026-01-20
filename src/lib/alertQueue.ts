@@ -86,6 +86,24 @@ export async function queueShipmentCompletedAlert(
 }
 
 /**
+ * Queue a return shipment created alert
+ */
+export async function queueReturnShipmentCreatedAlert(
+  tenantId: string,
+  shipmentId: string,
+  shipmentNumber: string,
+  returnReason?: string
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'shipment.return_created',
+    entityType: 'shipment',
+    entityId: shipmentId,
+    subject: `🔄 Return Shipment ${shipmentNumber} created${returnReason ? ` - ${returnReason}` : ''}`,
+  });
+}
+
+/**
  * Queue a task created alert
  */
 export async function queueTaskCreatedAlert(

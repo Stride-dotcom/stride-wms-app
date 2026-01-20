@@ -29,6 +29,7 @@ import { ItemFlagsSection } from '@/components/items/ItemFlagsSection';
 import { ItemNotesSection } from '@/components/items/ItemNotesSection';
 import { RepairQuoteSection } from '@/components/items/RepairQuoteSection';
 import { ItemPhotoGallery } from '@/components/items/ItemPhotoGallery';
+import { ItemHistoryTab } from '@/components/items/ItemHistoryTab';
 import { ItemEditDialog } from '@/components/items/ItemEditDialog';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
@@ -64,6 +65,7 @@ interface ItemDetail {
   room: string | null;
   link: string | null;
   item_type_id: string | null;
+  account_id: string | null;
   received_at: string | null;
   created_at: string;
   assembly_status: string | null;
@@ -391,6 +393,22 @@ export default function ItemDetail() {
                     </Badge>
                   )}
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openTaskMenu('Will Call')}>
+                  Will Call
+                  {tasks.filter(t => t.task_type === 'Will Call' && t.status !== 'completed').length > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {tasks.filter(t => t.task_type === 'Will Call' && t.status !== 'completed').length}
+                    </Badge>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openTaskMenu('Disposal')}>
+                  Disposal
+                  {tasks.filter(t => t.task_type === 'Disposal' && t.status !== 'completed').length > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {tasks.filter(t => t.task_type === 'Disposal' && t.status !== 'completed').length}
+                    </Badge>
+                  )}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => {
                   setSelectedTaskType('');
@@ -686,49 +704,7 @@ export default function ItemDetail() {
 
           {!isClientUser && (
             <TabsContent value="history" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <History className="h-5 w-5" />
-                    Movement History
-                  </CardTitle>
-                  <CardDescription>Location changes and movements</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {movements.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-4">No movement history</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Action</TableHead>
-                          <TableHead>From</TableHead>
-                          <TableHead>To</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Note</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {movements.map((movement) => (
-                          <TableRow key={movement.id}>
-                            <TableCell className="font-medium">
-                              {movement.action_type.replace('_', ' ')}
-                            </TableCell>
-                            <TableCell>{movement.from_location?.code || '-'}</TableCell>
-                            <TableCell>{movement.to_location?.code || '-'}</TableCell>
-                            <TableCell>
-                              {format(new Date(movement.moved_at), 'MMM d, yyyy h:mm a')}
-                            </TableCell>
-                            <TableCell className="max-w-[200px] truncate">
-                              {movement.note || '-'}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
+              <ItemHistoryTab itemId={item.id} />
             </TabsContent>
           )}
 
@@ -744,6 +720,7 @@ export default function ItemDetail() {
         open={taskDialogOpen}
         onOpenChange={setTaskDialogOpen}
         selectedItemIds={[item.id]}
+        preSelectedTaskType={selectedTaskType}
         onSuccess={() => {
           setTaskDialogOpen(false);
           fetchTasks();
