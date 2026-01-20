@@ -38,9 +38,9 @@ export default function PrintPreview() {
   const [filename, setFilename] = useState<string>('labels.pdf');
 
   useEffect(() => {
-    // Retrieve PDF data from sessionStorage
-    const pdfData = sessionStorage.getItem('printPreviewPdf');
-    const storedFilename = sessionStorage.getItem('printPreviewFilename');
+    // Retrieve PDF data from localStorage (shared between tabs, unlike sessionStorage)
+    const pdfData = localStorage.getItem('printPreviewPdf');
+    const storedFilename = localStorage.getItem('printPreviewFilename');
     
     if (pdfData) {
       try {
@@ -52,9 +52,9 @@ export default function PrintPreview() {
           setFilename(storedFilename);
         }
         
-        // Clean up sessionStorage
-        sessionStorage.removeItem('printPreviewPdf');
-        sessionStorage.removeItem('printPreviewFilename');
+        // Clean up localStorage after reading
+        localStorage.removeItem('printPreviewPdf');
+        localStorage.removeItem('printPreviewFilename');
       } catch (err) {
         console.error('Error loading PDF:', err);
         setError('Failed to load the PDF. Please try again.');

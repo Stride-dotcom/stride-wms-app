@@ -113,6 +113,7 @@ export default function ShipmentDetail() {
 
   // Permission check for printing: warehouse staff+
   const canPrintLabels = isAdmin || 
+    hasRole('tenant_admin') ||
     hasRole('warehouse_staff') || 
     hasRole('warehouse') ||
     hasRole('manager');
