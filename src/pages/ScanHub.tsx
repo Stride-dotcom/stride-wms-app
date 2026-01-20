@@ -415,32 +415,89 @@ export default function ScanHub() {
         <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
           <h1 className="text-2xl font-bold mb-8">Scan Hub</h1>
           
-          <div className="grid grid-cols-1 gap-6 w-full max-w-md">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
+            {/* Move Card */}
             <button
               onClick={() => selectMode('move')}
-              className="flex flex-col items-center justify-center p-8 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95 shadow-lg"
+              className={cn(
+                "group relative overflow-hidden flex flex-col items-start p-6",
+                "rounded-3xl bg-card border-2 border-transparent",
+                "transition-all duration-300 text-left",
+                "hover:border-primary hover:shadow-xl hover:shadow-primary/10"
+              )}
             >
-              <Move className="h-16 w-16 mb-4" />
-              <span className="text-2xl font-bold">Move</span>
-              <span className="text-sm opacity-80 mt-1">Single item</span>
+              {/* Background watermark icon */}
+              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
+                <Move className="h-32 w-32 text-primary" />
+              </div>
+              
+              {/* Small icon in colored container */}
+              <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4">
+                <Move className="h-7 w-7 text-primary-foreground group-hover:scale-110 transition-transform duration-200" />
+              </div>
+              
+              <span className="text-xl font-bold text-foreground">Move</span>
+              <span className="text-sm text-muted-foreground mt-1">Single item transfer</span>
+              
+              <span className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wide mt-4">
+                LAUNCH SCANNER <ArrowRight className="h-4 w-4" />
+              </span>
             </button>
 
+            {/* Batch Move Card */}
             <button
               onClick={() => selectMode('batch')}
-              className="flex flex-col items-center justify-center p-8 rounded-2xl bg-secondary text-secondary-foreground hover:bg-secondary/90 transition-all active:scale-95 shadow-lg"
+              className={cn(
+                "group relative overflow-hidden flex flex-col items-start p-6",
+                "rounded-3xl bg-card border-2 border-transparent",
+                "transition-all duration-300 text-left",
+                "hover:border-muted-foreground/50 hover:shadow-xl hover:shadow-muted/20"
+              )}
             >
-              <Layers className="h-16 w-16 mb-4" />
-              <span className="text-2xl font-bold">Batch Move</span>
-              <span className="text-sm opacity-80 mt-1">Multiple items</span>
+              {/* Background watermark icon */}
+              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
+                <Layers className="h-32 w-32 text-muted-foreground" />
+              </div>
+              
+              {/* Small icon in colored container */}
+              <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mb-4">
+                <Layers className="h-7 w-7 text-foreground group-hover:scale-110 transition-transform duration-200" />
+              </div>
+              
+              <span className="text-xl font-bold text-foreground">Batch Move</span>
+              <span className="text-sm text-muted-foreground mt-1">Multiple items at once</span>
+              
+              <span className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wide mt-4">
+                LAUNCH SCANNER <ArrowRight className="h-4 w-4" />
+              </span>
             </button>
 
+            {/* Look Up Card */}
             <button
               onClick={() => selectMode('lookup')}
-              className="flex flex-col items-center justify-center p-8 rounded-2xl bg-muted text-foreground hover:bg-muted/80 transition-all active:scale-95 shadow-lg border"
+              className={cn(
+                "group relative overflow-hidden flex flex-col items-start p-6",
+                "rounded-3xl bg-card border-2 border-transparent",
+                "transition-all duration-300 text-left",
+                "hover:border-info hover:shadow-xl hover:shadow-info/10"
+              )}
             >
-              <Search className="h-16 w-16 mb-4" />
-              <span className="text-2xl font-bold">Look Up</span>
-              <span className="text-sm opacity-80 mt-1">View item details</span>
+              {/* Background watermark icon */}
+              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
+                <Search className="h-32 w-32 text-info" />
+              </div>
+              
+              {/* Small icon in colored container */}
+              <div className="w-14 h-14 rounded-2xl bg-info flex items-center justify-center mb-4">
+                <Search className="h-7 w-7 text-info-foreground group-hover:scale-110 transition-transform duration-200" />
+              </div>
+              
+              <span className="text-xl font-bold text-foreground">Look Up</span>
+              <span className="text-sm text-muted-foreground mt-1">View item details</span>
+              
+              <span className="flex items-center gap-2 text-info text-xs font-semibold uppercase tracking-wide mt-4">
+                LAUNCH SCANNER <ArrowRight className="h-4 w-4" />
+              </span>
             </button>
           </div>
         </div>

@@ -331,6 +331,33 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
         )}
       />
 
+      {/* Scanner frame with glowing orange corner brackets - only when active */}
+      {status === 'active' && (
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Top-left corner */}
+          <div className="absolute top-4 left-4 w-12 h-12 border-l-4 border-t-4 border-primary rounded-tl-2xl shadow-[0_0_15px_hsl(14_100%_57%/0.5)]" />
+          {/* Top-right corner */}
+          <div className="absolute top-4 right-4 w-12 h-12 border-r-4 border-t-4 border-primary rounded-tr-2xl shadow-[0_0_15px_hsl(14_100%_57%/0.5)]" />
+          {/* Bottom-left corner */}
+          <div className="absolute bottom-4 left-4 w-12 h-12 border-l-4 border-b-4 border-primary rounded-bl-2xl shadow-[0_0_15px_hsl(14_100%_57%/0.5)]" />
+          {/* Bottom-right corner */}
+          <div className="absolute bottom-4 right-4 w-12 h-12 border-r-4 border-b-4 border-primary rounded-br-2xl shadow-[0_0_15px_hsl(14_100%_57%/0.5)]" />
+          
+          {/* Animated scan line */}
+          <div className="absolute inset-x-8 h-1 bg-gradient-to-r from-transparent via-primary to-transparent rounded-full animate-scan shadow-[0_0_20px_hsl(14_100%_57%/0.6)]" />
+        </div>
+      )}
+
+      {/* Sensor Active indicator - only when active */}
+      {status === 'active' && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-background/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
+          <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+          <span className="text-xs text-primary uppercase tracking-wider font-medium">
+            Sensor Active
+          </span>
+        </div>
+      )}
+
       {/* Camera blocked by embedded preview - show new-tab action */}
       {scanning && isCameraBlocked && status === "idle" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/95 rounded-2xl p-6">
