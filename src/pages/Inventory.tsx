@@ -32,9 +32,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Package, Loader2, Filter, Truck, Trash2, ClipboardList, Upload, Printer, AlertTriangle } from 'lucide-react';
+import { Search, Package, Loader2, Filter, Truck, Trash2, ClipboardList, Upload, Printer, AlertTriangle, PackageX } from 'lucide-react';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { InventoryImportDialog } from '@/components/settings/InventoryImportDialog';
+import { QuickReleaseDialog } from '@/components/inventory/QuickReleaseDialog';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations } from '@/hooks/useLocations';
@@ -80,6 +81,7 @@ export default function Inventory() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [validationMessage, setValidationMessage] = useState('');
+  const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { warehouses } = useWarehouses();
@@ -125,15 +127,12 @@ export default function Inventory() {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      available: 'default',
-      reserved: 'secondary',
-      damaged: 'destructive',
-      shipped: 'outline',
+      active: 'default',
+      released: 'outline',
+      disposed: 'destructive',
     };
     return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
   };
-
-  const uniqueStatuses = [...new Set(items.map((item) => item.status))];
 
   const toggleItemSelection = (itemId: string) => {
     const newSelected = new Set(selectedItems);
@@ -154,6 +153,17 @@ export default function Inventory() {
   };
 
   const getSelectedItemsData = () => {
+    return items.filter(item => selectedItems.has(item.id)).map(item => ({
+      id: item.id,
+      item_code: item.item_code,
+      description: item.description,
+      quantity: item.quantity,
+      client_account: item.client_account,
+      warehouse_id: item.warehouse_id,
+    }));
+  };
+
+  const getSelectedItemsForRelease = () => {
     return items.filter(item => selectedItems.has(item.id)).map(item => ({
       id: item.id,
       item_code: item.item_code,
@@ -197,6 +207,11 @@ export default function Inventory() {
   const handleTaskSuccess = () => {
     setSelectedItems(new Set());
     setPreSelectedTaskType('');
+    fetchItems();
+  };
+
+  const handleReleaseSuccess = () => {
+    setSelectedItems(new Set());
     fetchItems();
   };
 
@@ -295,6 +310,13 @@ export default function Inventory() {
                   <Printer className="mr-2 h-4 w-4" />
                   Print Labels ({selectedItems.size})
                 </Button>
+                <Button
+                  variant="default"
+                  onClick={() => setReleaseDialogOpen(true)}
+                >
+                  <PackageX className="mr-2 h-4 w-4" />
+                  Release ({selectedItems.size})
+                </Button>
               </>
             )}
             <Button variant="secondary" onClick={handleImportClick}>
@@ -333,15 +355,10 @@ export default function Inventory() {
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active (Default)</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="released">Released</SelectItem>
                   <SelectItem value="disposed">Disposed</SelectItem>
-                  {uniqueStatuses.filter(s => s !== 'released' && s !== 'disposed').map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -511,6 +528,13 @@ export default function Inventory() {
         open={printLabelsDialogOpen}
         onOpenChange={setPrintLabelsDialogOpen}
         items={getSelectedItemsForLabels()}
+      />
+
+      <QuickReleaseDialog
+        open={releaseDialogOpen}
+        onOpenChange={setReleaseDialogOpen}
+        selectedItems={getSelectedItemsForRelease()}
+        onSuccess={handleReleaseSuccess}
       />
 
       {/* Validation Error Dialog */}
