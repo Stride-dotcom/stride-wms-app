@@ -108,10 +108,40 @@ export function useInvoices() {
     if (!profile?.tenant_id) return null;
 
     try {
+      // Fetch tenant preferences for sales tax rate
+      const { data: preferences } = await supabase
+        .from('tenant_preferences')
+        .select('sales_tax_rate')
+        .eq('tenant_id', profile.tenant_id)
+        .maybeSingle();
+
+      const salesTaxRate = preferences?.sales_tax_rate || 0;
+
+      // Fetch rate card details to check which services are taxable
+      const serviceTypes = [...new Set(lineItems.map(item => item.service_type).filter(Boolean))];
+      let taxableServices = new Set<string>();
+
+      if (serviceTypes.length > 0 && salesTaxRate > 0) {
+        const { data: rateDetails } = await supabase
+          .from('rate_card_details')
+          .select('service_type, is_taxable')
+          .in('service_type', serviceTypes)
+          .eq('is_taxable', true);
+
+        if (rateDetails) {
+          taxableServices = new Set(rateDetails.map(r => r.service_type));
+        }
+      }
+
       // Generate invoice number
       const invoiceNumber = `INV-${Date.now()}`;
       const subtotal = lineItems.reduce((sum, item) => sum + item.line_total, 0);
-      const taxAmount = 0; // Can be configured later
+
+      // Calculate tax only for taxable line items
+      const taxableTotal = lineItems
+        .filter(item => item.service_type && taxableServices.has(item.service_type))
+        .reduce((sum, item) => sum + item.line_total, 0);
+      const taxAmount = taxableTotal * salesTaxRate;
       const totalAmount = subtotal + taxAmount;
 
       // Create invoice

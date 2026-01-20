@@ -7,6 +7,8 @@ import { DollarSign } from 'lucide-react';
 interface BillingRatesSectionProps {
   dailyStorageRatePerCuft: number;
   onDailyStorageRateChange: (value: number) => void;
+  salesTaxRate: number;
+  onSalesTaxRateChange: (value: number) => void;
   // Future fields (read-only display)
   shipmentMinimum?: number | null;
   hourlyRate?: number | null;
@@ -17,6 +19,8 @@ interface BillingRatesSectionProps {
 export function BillingRatesSection({
   dailyStorageRatePerCuft,
   onDailyStorageRateChange,
+  salesTaxRate,
+  onSalesTaxRateChange,
   shipmentMinimum,
   hourlyRate,
   baseRateIncludesPieces,
@@ -34,27 +38,52 @@ export function BillingRatesSection({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Active Field */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Label htmlFor="daily_storage_rate">Daily Storage Rate per cu ft</Label>
-            <Badge variant="default" className="text-xs">Active</Badge>
+        {/* Active Fields */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="daily_storage_rate">Daily Storage Rate per cu ft</Label>
+              <Badge variant="default" className="text-xs">Active</Badge>
+            </div>
+            <div className="relative max-w-xs">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+              <Input
+                id="daily_storage_rate"
+                type="number"
+                min="0"
+                step="0.0001"
+                value={dailyStorageRatePerCuft}
+                onChange={(e) => onDailyStorageRateChange(parseFloat(e.target.value) || 0)}
+                className="pl-7"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Storage charge = item cubic feet × this rate × days in storage
+            </p>
           </div>
-          <div className="relative max-w-xs">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-            <Input
-              id="daily_storage_rate"
-              type="number"
-              min="0"
-              step="0.0001"
-              value={dailyStorageRatePerCuft}
-              onChange={(e) => onDailyStorageRateChange(parseFloat(e.target.value) || 0)}
-              className="pl-7"
-            />
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="sales_tax_rate">Sales Tax Rate</Label>
+              <Badge variant="default" className="text-xs">Active</Badge>
+            </div>
+            <div className="relative max-w-xs">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+              <Input
+                id="sales_tax_rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={(salesTaxRate * 100).toFixed(2)}
+                onChange={(e) => onSalesTaxRateChange((parseFloat(e.target.value) || 0) / 100)}
+                className="pr-8"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Applied to taxable charges on invoices
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Storage charge = item cubic feet × this rate × days in storage
-          </p>
         </div>
 
         {/* Future Fields - Coming Soon */}

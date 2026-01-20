@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, Loader2, Plus, FileSpreadsheet, Trash2, Save, X, RefreshCw } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { populateRateCardFromItemTypes } from '@/lib/billingRates';
@@ -54,6 +55,7 @@ interface RateRow {
   charge_unit: string | null;
   item_type_id: string | null;
   item_type_name: string | null;
+  is_taxable: boolean;
   isNew?: boolean;
 }
 
@@ -131,6 +133,7 @@ export function RateSheetsSettingsTab() {
           category,
           charge_unit,
           item_type_id,
+          is_taxable,
           rate_cards!inner(rate_card_name, rate_card_code, tenant_id),
           item_types(name)
         `)
@@ -151,6 +154,7 @@ export function RateSheetsSettingsTab() {
         charge_unit: r.charge_unit,
         item_type_id: r.item_type_id,
         item_type_name: r.item_types?.name || null,
+        is_taxable: r.is_taxable || false,
       }));
 
       setRates(formattedRates);
@@ -204,6 +208,7 @@ export function RateSheetsSettingsTab() {
       charge_unit: 'per_item',
       item_type_id: null,
       item_type_name: null,
+      is_taxable: false,
       isNew: true,
     };
 
@@ -285,6 +290,7 @@ export function RateSheetsSettingsTab() {
             category: updatedRate.category,
             charge_unit: updatedRate.charge_unit || 'per_item',
             item_type_id: updatedRate.item_type_id,
+            is_taxable: updatedRate.is_taxable,
           })
           .select('id')
           .single();
@@ -311,6 +317,7 @@ export function RateSheetsSettingsTab() {
             rate: updatedRate.rate,
             category: updatedRate.category,
             charge_unit: updatedRate.charge_unit,
+            is_taxable: updatedRate.is_taxable,
           })
           .eq('id', rate.id);
 
@@ -561,6 +568,7 @@ export function RateSheetsSettingsTab() {
                   <TableHead>Rate Card</TableHead>
                   <TableHead>Rate Type</TableHead>
                   <TableHead className="w-32">Rate</TableHead>
+                  <TableHead className="w-20 text-center">Taxable</TableHead>
                   <TableHead className="w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -644,6 +652,12 @@ export function RateSheetsSettingsTab() {
                           className="w-24 h-8"
                         />
                       </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Switch
+                        checked={getEditValue(rate, 'is_taxable') as boolean}
+                        onCheckedChange={(checked) => handleEditChange(rate.id, 'is_taxable', checked)}
+                      />
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">

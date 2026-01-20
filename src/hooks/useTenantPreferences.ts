@@ -12,6 +12,7 @@ export interface TenantPreferences {
   should_create_inspections: boolean;
   // Billing & Rate Settings (only daily_storage_rate ACTIVE)
   daily_storage_rate_per_cuft: number;
+  sales_tax_rate: number;
   // Future billing rates
   shipment_minimum: number | null;
   hourly_rate: number | null;
