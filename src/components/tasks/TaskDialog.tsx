@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -131,7 +131,21 @@ export function TaskDialog({
     }
   }, [open, selectedItemIds]);
 
+  // Track if the dialog has been initialized for this open session
+  const initializedRef = useRef(false);
+
+  // Initialize form only when dialog opens or task changes - NOT on every getDueDateForTaskType change
   useEffect(() => {
+    if (!open) {
+      initializedRef.current = false;
+      return;
+    }
+
+    // Only initialize once per dialog open
+    if (initializedRef.current && !task) {
+      return;
+    }
+
     if (task) {
       setFormData({
         description: task.description || '',
@@ -149,7 +163,7 @@ export function TaskDialog({
     } else {
       // Reset form and apply preSelectedTaskType if provided
       const initialTaskType = preSelectedTaskType || '';
-      const dueDate = preSelectedTaskType ? getDueDateForTaskType(preSelectedTaskType) : null;
+      const dueDate = initialTaskType ? getDueDateForTaskType(initialTaskType) : null;
       
       setFormData({
         description: '',
@@ -168,7 +182,9 @@ export function TaskDialog({
       setAccountItems([]);
       setItemSearchQuery('');
     }
-  }, [task, open, preSelectedTaskType, getDueDateForTaskType]);
+
+    initializedRef.current = true;
+  }, [task, open, preSelectedTaskType]);
 
   // Auto-populate account and warehouse when items are selected from inventory
   useEffect(() => {

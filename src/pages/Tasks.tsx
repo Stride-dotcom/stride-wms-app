@@ -244,9 +244,9 @@ export default function Tasks() {
             accentText="Queue"
             description="Manage inspections, assemblies, repairs, and other tasks"
           />
-          <Button onClick={() => handleCreate()} className="gap-2">
-            <Plus className="h-4 w-4" />
-            <span>Create Task</span>
+          <Button onClick={() => handleCreate()}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Task
           </Button>
         </div>
 
