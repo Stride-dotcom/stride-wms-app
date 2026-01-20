@@ -130,14 +130,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - Gradient Background */}
       <aside
         className={cn(
-          'fixed top-0 left-0 z-50 h-full w-64 bg-card border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0',
+          'fixed top-0 left-0 z-50 h-full w-64 bg-gradient-to-b from-[#1a1a1a] to-[#0d0d0d] border-r border-border/30 transform transition-transform duration-300 ease-bounce lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="flex h-16 items-center justify-between px-4 border-b">
+        <div className="flex h-16 items-center justify-between px-4 border-b border-border/30">
           <Link to="/" className="flex items-center gap-2">
             {tenantLogo ? (
               <img 
@@ -146,23 +146,23 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 className="h-8 w-8 object-contain rounded"
               />
             ) : (
-              <div className="p-1.5 bg-primary rounded-lg">
+              <div className="p-1.5 bg-primary rounded-lg shadow-[0_0_12px_hsl(14_100%_57%/0.4)]">
                 <Package className="h-5 w-5 text-primary-foreground" />
               </div>
             )}
-            <span className="font-bold text-lg">{tenantName}</span>
+            <span className="font-bold text-lg text-foreground">{tenantName}</span>
           </Link>
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="lg:hidden text-foreground"
             onClick={() => setSidebarOpen(false)}
           >
             <X className="h-5 w-5" />
           </Button>
         </div>
 
-        <nav className="p-4 space-y-1">
+        <nav className="p-4 space-y-1 relative">
           {filteredNavItems.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -171,14 +171,29 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 to={item.href}
                 onClick={() => setSidebarOpen(false)}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
                   isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    ? 'text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
                 )}
               >
-                <item.icon className="h-5 w-5" />
-                {item.label}
+                {/* Animated Indicator Pill */}
+                {isActive && (
+                  <span
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_hsl(14_100%_57%/0.6)] animate-indicator-bounce"
+                  />
+                )}
+                {/* Active background */}
+                {isActive && (
+                  <span className="absolute inset-0 bg-primary/20 rounded-lg" />
+                )}
+                <item.icon
+                  className={cn(
+                    'h-5 w-5 relative z-10 transition-all duration-200',
+                    isActive && 'text-primary drop-shadow-[0_0_8px_hsl(14_100%_57%/0.6)]'
+                  )}
+                />
+                <span className="relative z-10">{item.label}</span>
               </Link>
             );
           })}
@@ -187,8 +202,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Main content */}
       <div className="lg:pl-64 flex flex-col flex-1 min-h-0">
-        {/* Header */}
-        <header className="sticky top-0 z-30 shrink-0 bg-background/95 backdrop-blur border-b flex items-center justify-between px-4 lg:px-6 pt-safe h-[calc(4rem+env(safe-area-inset-top,0px))]">
+        {/* Header - Glassmorphism */}
+        <header className="sticky top-0 z-30 shrink-0 glass border-b border-white/10 flex items-center justify-between px-4 lg:px-6 pt-safe h-[calc(4rem+env(safe-area-inset-top,0px))]">
           <Button
             variant="ghost"
             size="icon"
@@ -230,8 +245,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </DropdownMenu>
         </header>
 
-        {/* Page content - scrollable */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-safe">{children}</main>
+        {/* Page content - scrollable with page transition */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-safe animate-fade-in">{children}</main>
       </div>
     </div>
   );
