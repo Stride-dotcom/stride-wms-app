@@ -36,6 +36,7 @@ import { SidemarkInlineEdit } from '@/components/items/SidemarkInlineEdit';
 import { RoomInlineEdit } from '@/components/items/RoomInlineEdit';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
+import { ScanDocumentButton, DocumentList } from '@/components/scanner';
 import { format } from 'date-fns';
 import { 
   ArrowLeft, 
@@ -54,6 +55,7 @@ import {
   ExternalLink,
   PackageX,
   Settings,
+  FileText,
 } from 'lucide-react';
 import { QuickReleaseDialog } from '@/components/inventory/QuickReleaseDialog';
 
@@ -526,6 +528,10 @@ export default function ItemDetail() {
           <TabsList>
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="photos">Photos</TabsTrigger>
+            <TabsTrigger value="documents">
+              <FileText className="mr-1 h-3 w-3" />
+              Docs
+            </TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
             {!isClientUser && <TabsTrigger value="history">History</TabsTrigger>}
             {!isClientUser && (
@@ -770,6 +776,39 @@ export default function ItemDetail() {
 
           <TabsContent value="photos" className="mt-6">
             <ItemPhotoGallery itemId={item.id} isClientUser={isClientUser} />
+          </TabsContent>
+
+          <TabsContent value="documents" className="mt-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Documents
+                    </CardTitle>
+                    <CardDescription>
+                      Scanned documents and files for this item
+                    </CardDescription>
+                  </div>
+                  {!isClientUser && (
+                    <ScanDocumentButton
+                      context={{ type: 'item', itemId: item.id, description: item.description || undefined }}
+                      onSuccess={() => {
+                        toast({ title: 'Document saved' });
+                      }}
+                    />
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <DocumentList
+                  contextType="item"
+                  contextId={item.id}
+                  showSearch
+                />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="notes" className="mt-6">
