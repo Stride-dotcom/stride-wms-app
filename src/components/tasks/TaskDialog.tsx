@@ -484,19 +484,19 @@ export function TaskDialog({
               )}
             </div>
 
-            {/* Account - shown at top when creating from tasks menu */}
+            {/* Account - shown when creating from tasks menu (optional) */}
             {!isFromInventory && (
               <div className="space-y-2">
-                <Label>Account *</Label>
+                <Label>Account</Label>
                 <Select
                   value={formData.account_id}
                   onValueChange={handleAccountChange}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select account to view items" />
+                    <SelectValue placeholder="Select account (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Select an account</SelectItem>
+                    <SelectItem value="none">No account</SelectItem>
                     {accounts.map(acc => (
                       <SelectItem key={acc.id} value={acc.id}>
                         {acc.account_name}
