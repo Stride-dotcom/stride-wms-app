@@ -33,7 +33,7 @@ const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
         {...props}
       />
     );
-  },
+  }
 );
 Badge.displayName = "Badge";
 
