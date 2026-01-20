@@ -57,6 +57,7 @@ interface ReceivingSessionProps {
   shipmentNumber: string;
   expectedItems: ShipmentItem[];
   onComplete: () => void;
+  onReceivingComplete?: (itemIds: string[]) => void;
   onPhotosChange: (type: 'photos' | 'documents', urls: string[]) => void;
   existingPhotos: string[];
   existingDocuments: string[];
@@ -67,6 +68,7 @@ export function ReceivingSession({
   shipmentNumber,
   expectedItems,
   onComplete,
+  onReceivingComplete,
   onPhotosChange,
   existingPhotos,
   existingDocuments,
@@ -179,11 +181,15 @@ export function ReceivingSession({
       notes,
     };
 
-    const success = await finishSession(verificationData);
+    const result = await finishSession(verificationData);
     setFinishing(false);
 
-    if (success) {
+    if (result.success) {
       setShowFinishDialog(false);
+      // Trigger print prompt callback with created item IDs
+      if (result.createdItemIds.length > 0) {
+        onReceivingComplete?.(result.createdItemIds);
+      }
       onComplete();
     }
   };

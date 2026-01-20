@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { usePermissions } from '@/hooks/usePermissions';
 import { SignaturePad } from '@/components/shipments/SignaturePad';
 import { PhotoCapture } from '@/components/shipments/PhotoCapture';
 import { ReceivingSession } from '@/components/shipments/ReceivingSession';
@@ -55,6 +56,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 
@@ -107,6 +109,13 @@ export default function ShipmentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { hasRole, isAdmin } = usePermissions();
+
+  // Permission check for printing: warehouse staff+
+  const canPrintLabels = isAdmin || 
+    hasRole('warehouse_worker') || 
+    hasRole('warehouse_manager') ||
+    hasRole('manager');
 
   const [shipment, setShipment] = useState<ShipmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -335,6 +344,37 @@ export default function ShipmentDetail() {
     [shipment?.items]
   );
 
+  // Check if there are any received items for printing
+  const hasReceivedItems = useMemo(() => 
+    shipment?.items.some(i => i.item_id !== null) || false,
+    [shipment?.items]
+  );
+
+  // Handler for receiving session completion - triggers print prompt
+  const handleReceivingComplete = useCallback(async (itemIds: string[]) => {
+    if (itemIds.length === 0) return;
+
+    // Fetch item details for labels
+    const { data: receivedItems } = await (supabase.from('items') as any)
+      .select('id, item_code, description, vendor, client_account, sidemark, locations(code), warehouses(name)')
+      .in('id', itemIds);
+
+    if (receivedItems && receivedItems.length > 0) {
+      const labelsData: ItemLabelData[] = receivedItems.map((item: any) => ({
+        id: item.id,
+        itemCode: item.item_code,
+        description: item.description || '',
+        vendor: item.vendor || '',
+        account: item.client_account || shipment?.account?.account_name || '',
+        sidemark: item.sidemark || '',
+        warehouseName: item.warehouses?.name || shipment?.warehouse?.name || '',
+        locationCode: item.locations?.code || '',
+      }));
+      setReceivedItemsForLabels(labelsData);
+      setShowPrintPrompt(true);
+    }
+  }, [shipment?.account?.account_name, shipment?.warehouse?.name]);
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedItems(new Set(selectableItems.map(item => item.item_id!)));
@@ -406,52 +446,55 @@ export default function ShipmentDetail() {
           </div>
           
           <div className="flex flex-wrap gap-2">
-            {shipment.shipment_type === 'inbound' && (
-              <Button variant="outline" onClick={() => {
-                // Fetch items for printing
-                const itemIds = shipment.items
-                  .map(i => i.item_id)
-                  .filter((id): id is string => id !== null);
-                
-                if (itemIds.length === 0) {
-                  toast({
-                    title: 'No items to print',
-                    description: 'Complete receiving first to create items for labeling.',
-                    variant: 'destructive',
-                  });
-                  return;
-                }
-                
-                (async () => {
-                  const { data: receivedItems } = await (supabase.from('items') as any)
-                    .select('id, item_code, description, vendor, client_account, sidemark, locations(code), warehouses(name)')
-                    .in('id', itemIds);
-                  
-                  if (receivedItems && receivedItems.length > 0) {
-                    const labelsData: ItemLabelData[] = receivedItems.map((item: any) => ({
-                      id: item.id,
-                      itemCode: item.item_code,
-                      description: item.description || '',
-                      vendor: item.vendor || '',
-                      account: item.client_account || shipment.account?.account_name || '',
-                      sidemark: item.sidemark || '',
-                      warehouseName: item.warehouses?.name || shipment.warehouse?.name || '',
-                      locationCode: item.locations?.code || '',
-                    }));
-                    setReceivedItemsForLabels(labelsData);
-                    setShowPrintDialog(true);
-                  } else {
-                    toast({
-                      title: 'No items to print',
-                      description: 'Complete receiving first to create items for labeling.',
-                      variant: 'destructive',
-                    });
-                  }
-                })();
-              }}>
-                <Printer className="mr-2 h-4 w-4" />
-                Print Labels
-              </Button>
+            {/* Print Labels - always visible for inbound when user has permission */}
+            {shipment.shipment_type === 'inbound' && canPrintLabels && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Button 
+                        variant="outline" 
+                        disabled={!hasReceivedItems}
+                        onClick={() => {
+                          // Fetch items for printing
+                          const itemIds = shipment.items
+                            .map(i => i.item_id)
+                            .filter((id): id is string => id !== null);
+                          
+                          (async () => {
+                            const { data: receivedItems } = await (supabase.from('items') as any)
+                              .select('id, item_code, description, vendor, client_account, sidemark, locations(code), warehouses(name)')
+                              .in('id', itemIds);
+                            
+                            if (receivedItems && receivedItems.length > 0) {
+                              const labelsData: ItemLabelData[] = receivedItems.map((item: any) => ({
+                                id: item.id,
+                                itemCode: item.item_code,
+                                description: item.description || '',
+                                vendor: item.vendor || '',
+                                account: item.client_account || shipment.account?.account_name || '',
+                                sidemark: item.sidemark || '',
+                                warehouseName: item.warehouses?.name || shipment.warehouse?.name || '',
+                                locationCode: item.locations?.code || '',
+                              }));
+                              setReceivedItemsForLabels(labelsData);
+                              setShowPrintDialog(true);
+                            }
+                          })();
+                        }}
+                      >
+                        <Printer className="mr-2 h-4 w-4" />
+                        Print Labels
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  {!hasReceivedItems && (
+                    <TooltipContent>
+                      <p>Complete receiving first to print labels</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             )}
             
             {!isCompleted && (
@@ -475,6 +518,7 @@ export default function ShipmentDetail() {
               actual_quantity: item.actual_quantity,
             }))}
             onComplete={fetchShipment}
+            onReceivingComplete={handleReceivingComplete}
             onPhotosChange={handlePhotosChange}
             existingPhotos={shipment.receiving_photos || []}
             existingDocuments={shipment.receiving_documents || []}
