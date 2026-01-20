@@ -1723,6 +1723,87 @@ export type Database = {
           },
         ]
       }
+      documents: {
+        Row: {
+          context_id: string | null
+          context_type: string
+          created_at: string | null
+          created_by: string
+          deleted_at: string | null
+          file_name: string
+          file_size: number | null
+          id: string
+          is_sensitive: boolean | null
+          label: string | null
+          mime_type: string | null
+          notes: string | null
+          ocr_pages: Json | null
+          ocr_status: string | null
+          ocr_text: string | null
+          page_count: number | null
+          storage_key: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          context_id?: string | null
+          context_type: string
+          created_at?: string | null
+          created_by: string
+          deleted_at?: string | null
+          file_name: string
+          file_size?: number | null
+          id?: string
+          is_sensitive?: boolean | null
+          label?: string | null
+          mime_type?: string | null
+          notes?: string | null
+          ocr_pages?: Json | null
+          ocr_status?: string | null
+          ocr_text?: string | null
+          page_count?: number | null
+          storage_key: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          context_id?: string | null
+          context_type?: string
+          created_at?: string | null
+          created_by?: string
+          deleted_at?: string | null
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          is_sensitive?: boolean | null
+          label?: string | null
+          mime_type?: string | null
+          notes?: string | null
+          ocr_pages?: Json | null
+          ocr_status?: string | null
+          ocr_text?: string | null
+          page_count?: number | null
+          storage_key?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       due_date_rules: {
         Row: {
           account_id: string | null
@@ -5641,6 +5722,7 @@ export type Database = {
       }
     }
     Functions: {
+      can_access_document: { Args: { doc_id: string }; Returns: boolean }
       check_past_due_tasks: { Args: never; Returns: undefined }
       current_user_id: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
