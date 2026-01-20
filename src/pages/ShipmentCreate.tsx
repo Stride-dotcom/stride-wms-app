@@ -35,7 +35,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Plus, Trash2, ArrowLeft, Upload } from 'lucide-react';
+import { Loader2, Plus, Trash2, ArrowLeft, Upload, Download } from 'lucide-react';
 import { ItemTypeCombobox } from '@/components/items/ItemTypeCombobox';
 import { ShipmentItemsImportDialog, ParsedShipmentItem } from '@/components/shipments/ShipmentItemsImportDialog';
 
@@ -405,6 +405,15 @@ export default function ShipmentCreate() {
                     </CardDescription>
                   </div>
                   <div className="flex gap-2">
+                    <a
+                      href="/shipment-items-template.csv"
+                      download="shipment-items-template.csv"
+                    >
+                      <Button type="button" variant="outline" size="sm">
+                        <Download className="mr-2 h-4 w-4" />
+                        Template
+                      </Button>
+                    </a>
                     <input
                       type="file"
                       id="import-items-file"

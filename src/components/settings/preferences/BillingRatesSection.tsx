@@ -9,6 +9,10 @@ interface BillingRatesSectionProps {
   onDailyStorageRateChange: (value: number) => void;
   salesTaxRate: number;
   onSalesTaxRateChange: (value: number) => void;
+  willCallMinimum: number;
+  onWillCallMinimumChange: (value: number) => void;
+  receivingChargeMinimum: number;
+  onReceivingChargeMinimumChange: (value: number) => void;
   // Future fields (read-only display)
   shipmentMinimum?: number | null;
   hourlyRate?: number | null;
@@ -21,11 +25,22 @@ export function BillingRatesSection({
   onDailyStorageRateChange,
   salesTaxRate,
   onSalesTaxRateChange,
+  willCallMinimum,
+  onWillCallMinimumChange,
+  receivingChargeMinimum,
+  onReceivingChargeMinimumChange,
   shipmentMinimum,
   hourlyRate,
   baseRateIncludesPieces,
   additionalPieceRate,
 }: BillingRatesSectionProps) {
+  // Handle text input for sales tax rate
+  const handleSalesTaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^0-9.]/g, '');
+    const numValue = parseFloat(value) || 0;
+    onSalesTaxRateChange(numValue / 100);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -49,11 +64,13 @@ export function BillingRatesSection({
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
               <Input
                 id="daily_storage_rate"
-                type="number"
-                min="0"
-                step="0.0001"
+                type="text"
+                inputMode="decimal"
                 value={dailyStorageRatePerCuft}
-                onChange={(e) => onDailyStorageRateChange(parseFloat(e.target.value) || 0)}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9.]/g, '');
+                  onDailyStorageRateChange(parseFloat(value) || 0);
+                }}
                 className="pl-7"
               />
             </div>
@@ -68,20 +85,66 @@ export function BillingRatesSection({
               <Badge variant="default" className="text-xs">Active</Badge>
             </div>
             <div className="relative max-w-xs">
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
               <Input
                 id="sales_tax_rate"
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={(salesTaxRate * 100).toFixed(2)}
-                onChange={(e) => onSalesTaxRateChange((parseFloat(e.target.value) || 0) / 100)}
+                onChange={handleSalesTaxChange}
                 className="pr-8"
               />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
             </div>
             <p className="text-xs text-muted-foreground">
               Applied to taxable charges on invoices
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="will_call_minimum">Will Call Minimum</Label>
+              <Badge variant="default" className="text-xs">Active</Badge>
+            </div>
+            <div className="relative max-w-xs">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+              <Input
+                id="will_call_minimum"
+                type="text"
+                inputMode="decimal"
+                value={willCallMinimum}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9.]/g, '');
+                  onWillCallMinimumChange(parseFloat(value) || 0);
+                }}
+                className="pl-7"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Minimum charge for will call orders
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="receiving_charge_minimum">Receiving Charge Minimum</Label>
+              <Badge variant="default" className="text-xs">Active</Badge>
+            </div>
+            <div className="relative max-w-xs">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+              <Input
+                id="receiving_charge_minimum"
+                type="text"
+                inputMode="decimal"
+                value={receivingChargeMinimum}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9.]/g, '');
+                  onReceivingChargeMinimumChange(parseFloat(value) || 0);
+                }}
+                className="pl-7"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Minimum charge for receiving items
             </p>
           </div>
         </div>

@@ -21,8 +21,11 @@ export function PreferencesContent() {
     free_storage_days: 0,
     will_call_minimum: 30,
     should_create_inspections: false,
+    auto_assembly_on_receiving: false,
+    auto_repair_on_damage: false,
     daily_storage_rate_per_cuft: 0.04,
     sales_tax_rate: 0,
+    receiving_charge_minimum: 0,
     default_shipment_notes: '',
     terms_of_service_url: '',
     privacy_policy_url: '',
@@ -35,8 +38,11 @@ export function PreferencesContent() {
         free_storage_days: preferences.free_storage_days,
         will_call_minimum: preferences.will_call_minimum,
         should_create_inspections: preferences.should_create_inspections,
+        auto_assembly_on_receiving: preferences.auto_assembly_on_receiving || false,
+        auto_repair_on_damage: preferences.auto_repair_on_damage || false,
         daily_storage_rate_per_cuft: preferences.daily_storage_rate_per_cuft,
         sales_tax_rate: preferences.sales_tax_rate || 0,
+        receiving_charge_minimum: preferences.receiving_charge_minimum || 0,
         default_shipment_notes: preferences.default_shipment_notes || '',
         terms_of_service_url: preferences.terms_of_service_url || '',
         privacy_policy_url: preferences.privacy_policy_url || '',
@@ -49,8 +55,11 @@ export function PreferencesContent() {
       free_storage_days: formData.free_storage_days,
       will_call_minimum: formData.will_call_minimum,
       should_create_inspections: formData.should_create_inspections,
+      auto_assembly_on_receiving: formData.auto_assembly_on_receiving,
+      auto_repair_on_damage: formData.auto_repair_on_damage,
       daily_storage_rate_per_cuft: formData.daily_storage_rate_per_cuft,
       sales_tax_rate: formData.sales_tax_rate,
+      receiving_charge_minimum: formData.receiving_charge_minimum,
       default_shipment_notes: formData.default_shipment_notes || null,
       terms_of_service_url: formData.terms_of_service_url || null,
       privacy_policy_url: formData.privacy_policy_url || null,
@@ -73,11 +82,13 @@ export function PreferencesContent() {
       {/* Active Sections */}
       <StorageInspectionSection
         freeStorageDays={formData.free_storage_days}
-        willCallMinimum={formData.will_call_minimum}
         shouldCreateInspections={formData.should_create_inspections}
+        shouldAutoAssembly={formData.auto_assembly_on_receiving}
+        shouldAutoRepair={formData.auto_repair_on_damage}
         onFreeStorageDaysChange={(value) => setFormData(prev => ({ ...prev, free_storage_days: value }))}
-        onWillCallMinimumChange={(value) => setFormData(prev => ({ ...prev, will_call_minimum: value }))}
         onShouldCreateInspectionsChange={(value) => setFormData(prev => ({ ...prev, should_create_inspections: value }))}
+        onShouldAutoAssemblyChange={(value) => setFormData(prev => ({ ...prev, auto_assembly_on_receiving: value }))}
+        onShouldAutoRepairChange={(value) => setFormData(prev => ({ ...prev, auto_repair_on_damage: value }))}
       />
 
       <BillingRatesSection
@@ -85,6 +96,10 @@ export function PreferencesContent() {
         onDailyStorageRateChange={(value) => setFormData(prev => ({ ...prev, daily_storage_rate_per_cuft: value }))}
         salesTaxRate={formData.sales_tax_rate}
         onSalesTaxRateChange={(value) => setFormData(prev => ({ ...prev, sales_tax_rate: value }))}
+        willCallMinimum={formData.will_call_minimum}
+        onWillCallMinimumChange={(value) => setFormData(prev => ({ ...prev, will_call_minimum: value }))}
+        receivingChargeMinimum={formData.receiving_charge_minimum}
+        onReceivingChargeMinimumChange={(value) => setFormData(prev => ({ ...prev, receiving_charge_minimum: value }))}
         shipmentMinimum={preferences?.shipment_minimum}
         hourlyRate={preferences?.hourly_rate}
         baseRateIncludesPieces={preferences?.base_rate_includes_pieces}
