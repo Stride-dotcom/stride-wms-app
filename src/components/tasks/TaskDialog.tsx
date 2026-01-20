@@ -766,7 +766,7 @@ export function TaskDialog({
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={loading || !formData.task_type || (!isFromInventory && formData.account_id === 'none')}
+            disabled={loading || !formData.task_type}
           >
             {loading ? (
               <>

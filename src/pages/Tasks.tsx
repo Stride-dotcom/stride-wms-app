@@ -51,8 +51,6 @@ import {
   Play,
   XCircle,
   ListTodo,
-  Truck,
-  ChevronDown,
 } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
@@ -246,30 +244,10 @@ export default function Tasks() {
             accentText="Queue"
             description="Manage inspections, assemblies, repairs, and other tasks"
           />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Task
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => handleCreate()}>
-                <ClipboardList className="mr-2 h-4 w-4" />
-                Create Task
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleCreate('Will Call')}>
-                <Truck className="mr-2 h-4 w-4" />
-                Will Call
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleCreate('Disposal')}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Disposal
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button onClick={() => handleCreate()}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Task
+          </Button>
         </div>
 
         {/* Stats Cards */}
