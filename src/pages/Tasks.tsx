@@ -50,6 +50,8 @@ import {
   Play,
   XCircle,
   ListTodo,
+  Truck,
+  ChevronDown,
 } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
@@ -90,6 +92,7 @@ export default function Tasks() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [preSelectedTaskType, setPreSelectedTaskType] = useState<string | undefined>(undefined);
   const [unableToCompleteTask, setUnableToCompleteTask] = useState<Task | null>(null);
   const [willCallTask, setWillCallTask] = useState<Task | null>(null);
   const [willCallItems, setWillCallItems] = useState<Array<{ id: string; item_code: string; description: string | null }>>([]);
@@ -136,14 +139,16 @@ export default function Tasks() {
     setDialogOpen(true);
   };
 
-  const handleCreate = () => {
+  const handleCreate = (taskType?: string) => {
     setEditingTask(null);
+    setPreSelectedTaskType(taskType);
     setDialogOpen(true);
   };
 
   const handleDialogSuccess = () => {
     setDialogOpen(false);
     setEditingTask(null);
+    setPreSelectedTaskType(undefined);
     refetch();
   };
 
@@ -241,10 +246,30 @@ export default function Tasks() {
               Manage inspections, assemblies, repairs, and other tasks
             </p>
           </div>
-          <Button onClick={handleCreate}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Task
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Task
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => handleCreate()}>
+                <ClipboardList className="mr-2 h-4 w-4" />
+                Create Task
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleCreate('Will Call')}>
+                <Truck className="mr-2 h-4 w-4" />
+                Will Call
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleCreate('Disposal')}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Disposal
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Stats Cards */}
@@ -537,6 +562,7 @@ export default function Tasks() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         task={editingTask}
+        preSelectedTaskType={preSelectedTaskType}
         onSuccess={handleDialogSuccess}
       />
 
