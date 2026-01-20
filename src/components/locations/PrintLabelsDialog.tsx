@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Loader2, Printer, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { generateLocationLabelsPDF } from '@/lib/labelGenerator';
+import { generateLocationLabelsPDF, printLabels, downloadPDF, PrintPopupBlockedError } from '@/lib/labelGenerator';
 
 interface PrintLabelsDialogProps {
   open: boolean;
@@ -34,35 +34,59 @@ export function PrintLabelsDialog({
     return new Map(warehouses.map((w) => [w.id, w]));
   }, [warehouses]);
 
-  const handleGeneratePDF = async () => {
+  const getLabelData = () => {
+    return locations.map((location) => {
+      const warehouse = warehouseMap.get(location.warehouse_id);
+      return {
+        code: location.code,
+        name: location.name || '',
+        type: location.type,
+        warehouseName: warehouse?.name || '',
+        warehouseCode: warehouse?.code || '',
+      };
+    });
+  };
+
+  const handlePrint = async () => {
     try {
       setGenerating(true);
-
-      const labelData = locations.map((location) => {
-        const warehouse = warehouseMap.get(location.warehouse_id);
-        return {
-          code: location.code,
-          name: location.name || '',
-          type: location.type,
-          warehouseName: warehouse?.name || '',
-          warehouseCode: warehouse?.code || '',
-        };
-      });
-
+      const labelData = getLabelData();
       const pdfBlob = await generateLocationLabelsPDF(labelData);
+      const filename = `location-labels-${new Date().toISOString().split('T')[0]}.pdf`;
       
-      // Create download link
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `location-labels-${new Date().toISOString().split('T')[0]}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      await printLabels(pdfBlob, filename);
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error printing labels:', error);
+      if (error instanceof PrintPopupBlockedError) {
+        toast({
+          variant: 'destructive',
+          title: 'Print Window Blocked',
+          description: 'Your browser or an extension (ad blocker/privacy tool) blocked the print window. Please allow popups for this site or try downloading the PDF instead.',
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to print labels. Please try downloading instead.',
+        });
+      }
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      setGenerating(true);
+      const labelData = getLabelData();
+      const pdfBlob = await generateLocationLabelsPDF(labelData);
+      const filename = `location-labels-${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      downloadPDF(pdfBlob, filename);
 
       toast({
-        title: 'Labels generated',
+        title: 'Labels downloaded',
         description: `${locations.length} label${locations.length !== 1 ? 's' : ''} ready for printing.`,
       });
 
@@ -112,17 +136,25 @@ export function PrintLabelsDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={generating}>
             Cancel
           </Button>
-          <Button onClick={handleGeneratePDF} disabled={generating || locations.length === 0}>
+          <Button variant="outline" onClick={handleDownload} disabled={generating || locations.length === 0}>
             {generating ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Download className="mr-2 h-4 w-4" />
             )}
             Download PDF
+          </Button>
+          <Button onClick={handlePrint} disabled={generating || locations.length === 0}>
+            {generating ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="mr-2 h-4 w-4" />
+            )}
+            Print Labels
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -303,6 +303,21 @@ export async function generateItemLabelsPDF(items: ItemLabelData[]): Promise<Blo
   return doc.output('blob');
 }
 
+/**
+ * PRINTING STANDARD (GLOBAL)
+ * 
+ * 1. Use native browser print dialog only
+ * 2. Print must be triggered by direct user click (no auto-print on load)
+ * 3. Do not use hidden iframes
+ * 4. Use dedicated printable view route (/print-preview)
+ * 5. Call window.print() only after user-initiated navigation
+ * 
+ * If Chrome shows ERR_BLOCKED_BY_CLIENT:
+ * - Browser extensions (ad blockers, privacy tools) can block print calls
+ * - Provide user guidance via toast notification
+ * - Offer download as fallback
+ */
+
 // Helper to trigger download
 export function downloadPDF(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -315,26 +330,38 @@ export function downloadPDF(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-// Helper to open print dialog
-export async function printLabels(blob: Blob): Promise<void> {
-  const url = URL.createObjectURL(blob);
-  
-  // Use an anchor tag with target="_blank" to avoid popup blocking
-  const printWindow = window.open(url, '_blank');
-  
-  if (printWindow) {
-    // Wait for the window to load before triggering print
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print();
-      }, 100);
-    };
-  } else {
-    // If popup was blocked, fall back to download
-    console.warn('Popup blocked, falling back to download');
-    downloadPDF(blob, 'labels.pdf');
+// Helper to convert blob to base64 for sessionStorage transfer
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Custom error for popup blocked
+export class PrintPopupBlockedError extends Error {
+  constructor() {
+    super('POPUP_BLOCKED');
+    this.name = 'PrintPopupBlockedError';
   }
+}
+
+// Helper to open print preview page (user clicks Print button there)
+export async function printLabels(blob: Blob, filename: string = 'labels.pdf'): Promise<void> {
+  // Convert blob to base64 for sessionStorage transfer
+  const base64 = await blobToBase64(blob);
+  sessionStorage.setItem('printPreviewPdf', base64);
+  sessionStorage.setItem('printPreviewFilename', filename);
   
-  // Clean up after a delay
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  // Navigate to print preview page where user will click Print button
+  const printWindow = window.open('/print-preview', '_blank');
+  
+  if (!printWindow) {
+    // Clean up sessionStorage if popup was blocked
+    sessionStorage.removeItem('printPreviewPdf');
+    sessionStorage.removeItem('printPreviewFilename');
+    throw new PrintPopupBlockedError();
+  }
 }

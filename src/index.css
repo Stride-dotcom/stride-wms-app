@@ -238,6 +238,11 @@
     filter: drop-shadow(var(--glow-primary-intense));
   }
 
+  /* Hide elements when printing */
+  .no-print {
+    @apply print:hidden;
+  }
+
   /* Animation fill mode utility */
   .fill-forwards {
     animation-fill-mode: forwards;

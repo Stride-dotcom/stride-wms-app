@@ -25,6 +25,7 @@ import Billing from "./pages/Billing";
 import Employees from "./pages/Employees";
 import RepairTechAccess from "./pages/RepairTechAccess";
 import ScanHub from "./pages/ScanHub";
+import PrintPreview from "./pages/PrintPreview";
 import NotFound from "./pages/NotFound";
 import { AIClientBot } from "./components/ai/AIClientBot";
 
@@ -61,6 +62,7 @@ const App = () => (
             <Route path="/rate-cards" element={<ProtectedRoute><RequireRole role="tenant_admin"><RateCards /></RequireRole></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><RequireRole role="tenant_admin"><Settings /></RequireRole></ProtectedRoute>} />
             <Route path="/repair-access" element={<RepairTechAccess />} />
+            <Route path="/print-preview" element={<PrintPreview />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <AIClientBot />

@@ -9,7 +9,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Loader2, Printer, Download } from 'lucide-react';
-import { generateItemLabelsPDF, downloadPDF, printLabels, ItemLabelData } from '@/lib/labelGenerator';
+import { generateItemLabelsPDF, downloadPDF, printLabels, PrintPopupBlockedError, ItemLabelData } from '@/lib/labelGenerator';
+import { useToast } from '@/hooks/use-toast';
 
 interface PrintLabelsDialogProps {
   open: boolean;
@@ -27,6 +28,7 @@ export function PrintLabelsDialog({
   description,
 }: PrintLabelsDialogProps) {
   const [generating, setGenerating] = useState(false);
+  const { toast } = useToast();
 
   const handlePrint = async () => {
     if (items.length === 0) return;
@@ -34,10 +36,26 @@ export function PrintLabelsDialog({
     setGenerating(true);
     try {
       const blob = await generateItemLabelsPDF(items);
-      await printLabels(blob);
+      const filename = items.length === 1 
+        ? `label-${items[0].itemCode}.pdf`
+        : `labels-${items.length}-items.pdf`;
+      await printLabels(blob, filename);
       onOpenChange(false);
     } catch (error) {
       console.error('Error generating labels:', error);
+      if (error instanceof PrintPopupBlockedError) {
+        toast({
+          variant: 'destructive',
+          title: 'Print Window Blocked',
+          description: 'Your browser or an extension (ad blocker/privacy tool) blocked the print window. Please allow popups for this site or try downloading the PDF instead.',
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Print Error',
+          description: 'Failed to generate labels. Please try downloading instead.',
+        });
+      }
     } finally {
       setGenerating(false);
     }
