@@ -31,6 +31,9 @@ import { RepairQuoteSection } from '@/components/items/RepairQuoteSection';
 import { ItemPhotoGallery } from '@/components/items/ItemPhotoGallery';
 import { ItemHistoryTab } from '@/components/items/ItemHistoryTab';
 import { ItemEditDialog } from '@/components/items/ItemEditDialog';
+import { ItemAdvancedTab } from '@/components/items/ItemAdvancedTab';
+import { SidemarkInlineEdit } from '@/components/items/SidemarkInlineEdit';
+import { RoomInlineEdit } from '@/components/items/RoomInlineEdit';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 import { format } from 'date-fns';
@@ -50,6 +53,7 @@ import {
   Link as LinkIcon,
   ExternalLink,
   PackageX,
+  Settings,
 } from 'lucide-react';
 import { QuickReleaseDialog } from '@/components/inventory/QuickReleaseDialog';
 
@@ -314,6 +318,42 @@ export default function ItemDetail() {
     );
   };
 
+  const handleSidemarkSave = async (newValue: string): Promise<boolean> => {
+    if (!item) return false;
+    try {
+      const { error } = await (supabase.from('items') as any)
+        .update({ sidemark: newValue || null })
+        .eq('id', item.id);
+      
+      if (error) throw error;
+      setItem({ ...item, sidemark: newValue || null });
+      toast({ title: 'Sidemark updated' });
+      return true;
+    } catch (error) {
+      console.error('Error updating sidemark:', error);
+      toast({ title: 'Error', description: 'Failed to update sidemark', variant: 'destructive' });
+      return false;
+    }
+  };
+
+  const handleRoomSave = async (newValue: string): Promise<boolean> => {
+    if (!item) return false;
+    try {
+      const { error } = await (supabase.from('items') as any)
+        .update({ room: newValue || null })
+        .eq('id', item.id);
+      
+      if (error) throw error;
+      setItem({ ...item, room: newValue || null });
+      toast({ title: 'Room updated' });
+      return true;
+    } catch (error) {
+      console.error('Error updating room:', error);
+      toast({ title: 'Error', description: 'Failed to update room', variant: 'destructive' });
+      return false;
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -488,6 +528,12 @@ export default function ItemDetail() {
             <TabsTrigger value="photos">Photos</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
             {!isClientUser && <TabsTrigger value="history">History</TabsTrigger>}
+            {!isClientUser && (
+              <TabsTrigger value="advanced">
+                <Settings className="mr-1 h-3 w-3" />
+                Advanced
+              </TabsTrigger>
+            )}
             {item.needs_repair && <TabsTrigger value="repair">Repair</TabsTrigger>}
           </TabsList>
 
@@ -503,6 +549,13 @@ export default function ItemDetail() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4 text-sm">
+                    {/* Status - now prominent with badge */}
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground">Status</span>
+                      <div className="mt-1">
+                        {getStatusBadge(item.status)}
+                      </div>
+                    </div>
                     <div>
                       <span className="text-muted-foreground">Quantity</span>
                       <p className="font-medium">{item.quantity}</p>
@@ -515,17 +568,31 @@ export default function ItemDetail() {
                       <span className="text-muted-foreground">Client Account</span>
                       <p className="font-medium">{item.client_account || '-'}</p>
                     </div>
+                    {/* Sidemark - inline editable */}
                     <div>
                       <span className="text-muted-foreground">Sidemark</span>
-                      <p className="font-medium">{item.sidemark || '-'}</p>
+                      <SidemarkInlineEdit
+                        value={item.sidemark || ''}
+                        accountId={item.account_id}
+                        onSave={handleSidemarkSave}
+                        placeholder="Add sidemark"
+                        disabled={isClientUser}
+                      />
                     </div>
                     <div>
                       <span className="text-muted-foreground">Vendor</span>
                       <p className="font-medium">{item.vendor || '-'}</p>
                     </div>
+                    {/* Room - inline editable */}
                     <div>
                       <span className="text-muted-foreground">Room</span>
-                      <p className="font-medium">{item.room || '-'}</p>
+                      <RoomInlineEdit
+                        value={item.room || ''}
+                        accountId={item.account_id}
+                        onSave={handleRoomSave}
+                        placeholder="Add room"
+                        disabled={isClientUser}
+                      />
                     </div>
                     <div>
                       <span className="text-muted-foreground">Size</span>
@@ -712,6 +779,12 @@ export default function ItemDetail() {
           {!isClientUser && (
             <TabsContent value="history" className="mt-6">
               <ItemHistoryTab itemId={item.id} />
+            </TabsContent>
+          )}
+
+          {!isClientUser && (
+            <TabsContent value="advanced" className="mt-6">
+              <ItemAdvancedTab itemId={item.id} />
             </TabsContent>
           )}
 
