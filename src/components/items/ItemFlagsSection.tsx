@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBillingEvents } from '@/hooks/useBillingEvents';
+import { useTenantPreferences } from '@/hooks/useTenantPreferences';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -36,6 +37,7 @@ interface ItemFlags {
 
 interface ItemFlagsSectionProps {
   itemId: string;
+  accountId?: string;
   flags: ItemFlags;
   onFlagsChange: (flags: ItemFlags) => void;
   isClientUser?: boolean;
@@ -64,13 +66,75 @@ const FLAG_CONFIG: FlagConfig[] = [
 
 export function ItemFlagsSection({
   itemId,
+  accountId,
   flags,
   onFlagsChange,
   isClientUser = false,
 }: ItemFlagsSectionProps) {
+  const { profile } = useAuth();
   const { toast } = useToast();
   const { createFlagBillingEvent } = useBillingEvents();
+  const { preferences } = useTenantPreferences();
   const [updating, setUpdating] = useState<string | null>(null);
+
+  // Helper to create a repair task automatically
+  const createRepairTask = async () => {
+    if (!profile?.tenant_id) return;
+
+    try {
+      // Get item details for task title
+      const { data: item } = await (supabase
+        .from('items') as any)
+        .select('item_code, client_account, warehouse_id')
+        .eq('id', itemId)
+        .single();
+
+      // Find account_id from client_account name
+      let taskAccountId = accountId;
+      if (!taskAccountId && item?.client_account) {
+        const { data: account } = await supabase
+          .from('accounts')
+          .select('id')
+          .eq('account_name', item.client_account)
+          .maybeSingle();
+        taskAccountId = account?.id;
+      }
+
+      // Create the repair task
+      const { data: newTask, error } = await (supabase
+        .from('tasks') as any)
+        .insert({
+          tenant_id: profile.tenant_id,
+          title: `Repair - ${item?.item_code || '1 item'}`,
+          task_type: 'Repair',
+          status: 'in_queue',
+          priority: 'medium',
+          warehouse_id: item?.warehouse_id || null,
+          account_id: taskAccountId || null,
+          bill_to: 'account',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Link item to task
+      if (newTask) {
+        await (supabase.from('task_items') as any).insert({
+          task_id: newTask.id,
+          item_id: itemId,
+        });
+
+        toast({
+          title: 'Repair Task Created',
+          description: 'An automatic repair task has been created for this item.',
+        });
+      }
+    } catch (error) {
+      console.error('Error creating repair task:', error);
+      // Don't show error toast - the flag update was successful
+    }
+  };
 
   const handleFlagChange = async (flagKey: keyof ItemFlags, value: boolean) => {
     // Client users can only edit needs_repair and needs_inspection
@@ -114,6 +178,11 @@ export function ItemFlagsSection({
       const config = FLAG_CONFIG.find(f => f.key === flagKey);
       if (config?.billable && value) {
         await createFlagBillingEvent(itemId, flagKey, value);
+      }
+
+      // Auto-create repair task when needs_repair is enabled and preference is set
+      if (flagKey === 'needs_repair' && value && preferences?.auto_repair_on_damage) {
+        await createRepairTask();
       }
 
       // Update local state including status changes

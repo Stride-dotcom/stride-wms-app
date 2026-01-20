@@ -16,9 +16,9 @@ import { TaskCustomCharge, ChargeTemplate } from '@/hooks/useTaskCustomCharges';
 interface TaskCustomChargesSectionProps {
   charges: TaskCustomCharge[];
   templates: ChargeTemplate[];
-  onAddCharge: (chargeName: string, chargeAmount: number, templateId?: string, chargeType?: string, chargeDescription?: string) => Promise<void>;
-  onUpdateCharge: (chargeId: string, updates: { charge_name?: string; charge_amount?: number }) => Promise<void>;
-  onDeleteCharge: (chargeId: string) => Promise<void>;
+  onAddCharge: (chargeName: string, chargeAmount: number, templateId?: string, chargeType?: string, chargeDescription?: string) => Promise<TaskCustomCharge | void>;
+  onUpdateCharge: (chargeId: string, updates: { charge_name?: string; charge_amount?: number; charge_description?: string }) => Promise<boolean | void>;
+  onDeleteCharge: (chargeId: string) => Promise<boolean | void>;
   totalCharges: number;
   disabled?: boolean;
 }

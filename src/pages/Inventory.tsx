@@ -61,6 +61,7 @@ interface Item {
   warehouse_id: string | null;
   warehouse_name: string | null;
   received_at: string | null;
+  primary_photo_url: string | null;
 }
 
 export default function Inventory() {
@@ -89,9 +90,9 @@ export default function Inventory() {
 
   const fetchItems = async () => {
     try {
-      const { data, error } = await supabase
-        .from('v_items_with_location')
-        .select('id, item_code, description, status, quantity, client_account, sidemark, vendor, location_code, location_name, warehouse_id, warehouse_name, received_at')
+      const { data, error } = await (supabase
+        .from('v_items_with_location') as any)
+        .select('id, item_code, description, status, quantity, client_account, sidemark, vendor, location_code, location_name, warehouse_id, warehouse_name, received_at, primary_photo_url')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(100);
@@ -413,6 +414,7 @@ export default function Inventory() {
                           aria-label="Select all"
                         />
                       </TableHead>
+                      <TableHead className="w-12">Photo</TableHead>
                       <TableHead>Item Code</TableHead>
                       <TableHead>Vendor</TableHead>
                       <TableHead>Description</TableHead>
@@ -436,6 +438,19 @@ export default function Inventory() {
                             onCheckedChange={() => toggleItemSelection(item.id)}
                             aria-label={`Select ${item.item_code}`}
                           />
+                        </TableCell>
+                        <TableCell>
+                          {item.primary_photo_url ? (
+                            <img
+                              src={item.primary_photo_url}
+                              alt={item.item_code}
+                              className="h-8 w-8 rounded object-cover"
+                            />
+                          ) : (
+                            <div className="h-8 w-8 rounded bg-muted flex items-center justify-center">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="font-medium">{item.item_code}</TableCell>
                         <TableCell>{item.vendor || '-'}</TableCell>

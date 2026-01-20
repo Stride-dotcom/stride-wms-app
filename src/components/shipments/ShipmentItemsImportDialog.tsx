@@ -8,8 +8,25 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, CheckCircle, AlertTriangle, X } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2, CheckCircle, AlertTriangle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { parseFileToRows, canonicalizeHeader, parseNumber } from '@/lib/importUtils';
 
@@ -27,6 +44,11 @@ export interface ParsedShipmentItem {
   description: string;
   item_type_id: string;
   sidemark: string;
+}
+
+interface EditableItem extends ParsedShipmentItem {
+  _id: number; // Temporary ID for tracking
+  _hasError: boolean;
 }
 
 interface ImportResult {
@@ -68,7 +90,7 @@ export function ShipmentItemsImportDialog({
 }: ShipmentItemsImportDialogProps) {
   const { toast } = useToast();
   const [parsing, setParsing] = useState(false);
-  const [parsedItems, setParsedItems] = useState<ParsedShipmentItem[]>([]);
+  const [editableItems, setEditableItems] = useState<EditableItem[]>([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
@@ -76,7 +98,7 @@ export function ShipmentItemsImportDialog({
     if (open && file) {
       parseFile(file);
     } else {
-      setParsedItems([]);
+      setEditableItems([]);
       setParseErrors([]);
       setImportResult(null);
     }
@@ -84,7 +106,7 @@ export function ShipmentItemsImportDialog({
 
   const parseFile = async (file: File) => {
     setParsing(true);
-    setParsedItems([]);
+    setEditableItems([]);
     setParseErrors([]);
     setImportResult(null);
 
@@ -110,7 +132,7 @@ export function ShipmentItemsImportDialog({
         return;
       }
 
-      const items: ParsedShipmentItem[] = [];
+      const items: EditableItem[] = [];
       const errors: string[] = [];
       let successCount = 0;
       let failedCount = 0;
@@ -161,6 +183,8 @@ export function ShipmentItemsImportDialog({
           }
 
           items.push({
+            _id: i,
+            _hasError: false,
             quantity,
             vendor,
             description,
@@ -175,7 +199,7 @@ export function ShipmentItemsImportDialog({
         }
       }
 
-      setParsedItems(items);
+      setEditableItems(items);
       setParseErrors(errors);
       setImportResult({
         success: successCount,
@@ -190,49 +214,72 @@ export function ShipmentItemsImportDialog({
     }
   };
 
+  const updateItem = (id: number, field: keyof ParsedShipmentItem, value: string | number) => {
+    setEditableItems(prev => prev.map(item => {
+      if (item._id === id) {
+        const updated = { ...item, [field]: value };
+        // Validate: vendor is required
+        updated._hasError = !updated.vendor.trim();
+        return updated;
+      }
+      return item;
+    }));
+  };
+
+  const removeItem = (id: number) => {
+    setEditableItems(prev => prev.filter(item => item._id !== id));
+  };
+
   const handleImport = () => {
-    if (parsedItems.length === 0) {
+    // Validate all items
+    const validItems = editableItems.filter(item => item.vendor.trim());
+    const invalidCount = editableItems.length - validItems.length;
+
+    if (validItems.length === 0) {
       toast({
         variant: 'destructive',
-        title: 'No items to import',
-        description: 'The file contains no valid items to import.',
+        title: 'No valid items',
+        description: 'All items are missing required vendor field.',
       });
       return;
     }
 
-    onImport(parsedItems);
+    // Convert to ParsedShipmentItem format (strip internal fields)
+    const itemsToImport: ParsedShipmentItem[] = validItems.map(({ quantity, vendor, description, item_type_id, sidemark }) => ({
+      quantity,
+      vendor,
+      description,
+      item_type_id,
+      sidemark,
+    }));
+
+    onImport(itemsToImport);
     
-    if (importResult) {
-      if (importResult.failed === 0) {
-        toast({
-          title: 'Import Successful',
-          description: `Successfully added ${importResult.success} items.`,
-        });
-      } else if (importResult.success > 0) {
-        toast({
-          variant: 'default',
-          title: 'Partial Import',
-          description: `Added ${importResult.success} items. ${importResult.failed} rows had errors.`,
-        });
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Import Failed',
-          description: `All ${importResult.failed} rows had errors.`,
-        });
-      }
+    if (invalidCount === 0) {
+      toast({
+        title: 'Import Successful',
+        description: `Successfully added ${validItems.length} items.`,
+      });
+    } else {
+      toast({
+        variant: 'default',
+        title: 'Partial Import',
+        description: `Added ${validItems.length} items. ${invalidCount} items were skipped due to missing vendor.`,
+      });
     }
     
     onOpenChange(false);
   };
 
+  const validItemCount = editableItems.filter(item => item.vendor.trim()).length;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Import Shipment Items</DialogTitle>
           <DialogDescription>
-            Import items from a CSV or Excel file. Required column: Vendor
+            Review and edit items before importing. Required field: Vendor
           </DialogDescription>
         </DialogHeader>
 
@@ -247,7 +294,7 @@ export function ShipmentItemsImportDialog({
             </div>
           )}
 
-          {!parsing && parseErrors.length > 0 && parsedItems.length === 0 && (
+          {!parsing && parseErrors.length > 0 && editableItems.length === 0 && (
             <div className="rounded-md bg-destructive/10 p-4">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
@@ -263,68 +310,112 @@ export function ShipmentItemsImportDialog({
             </div>
           )}
 
-          {!parsing && importResult && (
+          {!parsing && importResult && editableItems.length > 0 && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-md bg-green-50 p-4 border border-green-200">
+                <div className="rounded-md bg-green-50 dark:bg-green-950/30 p-4 border border-green-200 dark:border-green-800">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-5 w-5 text-green-600" />
                     <div>
-                      <p className="font-medium text-green-800">Ready to import</p>
-                      <p className="text-sm text-green-600">{importResult.success} items</p>
+                      <p className="font-medium text-green-800 dark:text-green-200">Ready to import</p>
+                      <p className="text-sm text-green-600 dark:text-green-400">{validItemCount} items</p>
                     </div>
                   </div>
                 </div>
 
                 {importResult.failed > 0 && (
-                  <div className="rounded-md bg-amber-50 p-4 border border-amber-200">
+                  <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 p-4 border border-amber-200 dark:border-amber-800">
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="h-5 w-5 text-amber-600" />
                       <div>
-                        <p className="font-medium text-amber-800">Errors</p>
-                        <p className="text-sm text-amber-600">{importResult.failed} rows skipped</p>
+                        <p className="font-medium text-amber-800 dark:text-amber-200">Parse Errors</p>
+                        <p className="text-sm text-amber-600 dark:text-amber-400">{importResult.failed} rows had issues</p>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
 
-              {importResult.errors.length > 0 && (
-                <div className="rounded-md bg-muted p-3 max-h-32 overflow-y-auto">
-                  <p className="text-sm font-medium mb-1">Error details:</p>
-                  <ul className="text-xs text-muted-foreground space-y-1">
-                    {importResult.errors.map((err, i) => (
-                      <li key={i}>{err}</li>
+              {/* Editable Preview Table */}
+              <ScrollArea className="h-[400px] rounded-md border">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background z-10">
+                    <TableRow>
+                      <TableHead className="w-20">Qty</TableHead>
+                      <TableHead className="w-48">Vendor *</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="w-40">Item Type</TableHead>
+                      <TableHead className="w-32">Sidemark</TableHead>
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {editableItems.map((item) => (
+                      <TableRow key={item._id} className={item._hasError ? 'bg-destructive/10' : ''}>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={item.quantity}
+                            onChange={(e) => updateItem(item._id, 'quantity', parseInt(e.target.value) || 1)}
+                            className="w-16 h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.vendor}
+                            onChange={(e) => updateItem(item._id, 'vendor', e.target.value)}
+                            placeholder="Required"
+                            className={`h-8 ${!item.vendor.trim() ? 'border-destructive' : ''}`}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.description}
+                            onChange={(e) => updateItem(item._id, 'description', e.target.value)}
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={item.item_type_id || 'none'}
+                            onValueChange={(value) => updateItem(item._id, 'item_type_id', value === 'none' ? '' : value)}
+                          >
+                            <SelectTrigger className="h-8">
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              {itemTypes.map((type) => (
+                                <SelectItem key={type.id} value={type.id}>
+                                  {type.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.sidemark}
+                            onChange={(e) => updateItem(item._id, 'sidemark', e.target.value)}
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => removeItem(item._id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </ul>
-                </div>
-              )}
-
-              {parsedItems.length > 0 && (
-                <div className="rounded-md border p-3 max-h-48 overflow-y-auto">
-                  <p className="text-sm font-medium mb-2">Preview (first 5 items):</p>
-                  <div className="space-y-2">
-                    {parsedItems.slice(0, 5).map((item, i) => (
-                      <div key={i} className="text-xs bg-muted/50 p-2 rounded">
-                        <span className="font-medium">Qty: {item.quantity}</span>
-                        <span className="mx-2">|</span>
-                        <span>{item.vendor}</span>
-                        {item.description && (
-                          <>
-                            <span className="mx-2">|</span>
-                            <span className="text-muted-foreground">{item.description}</span>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                    {parsedItems.length > 5 && (
-                      <p className="text-xs text-muted-foreground">
-                        ...and {parsedItems.length - 5} more items
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
             </div>
           )}
         </div>
@@ -335,10 +426,10 @@ export function ShipmentItemsImportDialog({
           </Button>
           <Button
             onClick={handleImport}
-            disabled={parsing || parsedItems.length === 0}
+            disabled={parsing || validItemCount === 0}
           >
             {parsing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Import {parsedItems.length} Items
+            Import {validItemCount} Items
           </Button>
         </DialogFooter>
       </DialogContent>
