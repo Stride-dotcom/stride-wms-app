@@ -26,6 +26,8 @@ interface ScanDocumentButtonProps {
   label?: string;
   className?: string;
   showDropdown?: boolean;
+  /** When true, skips dropdown and goes directly to camera mode */
+  directToCamera?: boolean;
 }
 
 export function ScanDocumentButton({
@@ -38,6 +40,7 @@ export function ScanDocumentButton({
   label = 'Scan Document',
   className,
   showDropdown = true,
+  directToCamera = false,
 }: ScanDocumentButtonProps) {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanMode, setScanMode] = useState<'camera' | 'upload'>('camera');
@@ -59,6 +62,33 @@ export function ScanDocumentButton({
 
   // On native, use native scanner directly
   if (isNative()) {
+    return (
+      <>
+        <Button
+          variant={variant}
+          size={size}
+          onClick={() => handleOpenScanner('camera')}
+          className={className}
+        >
+          <ScanLine className="mr-2 h-4 w-4" />
+          {label}
+        </Button>
+
+        <DocumentScanner
+          open={scannerOpen}
+          onOpenChange={setScannerOpen}
+          context={context}
+          isSensitive={isSensitive}
+          onSuccess={handleSuccess}
+          onError={handleError}
+          initialMode={scanMode}
+        />
+      </>
+    );
+  }
+
+  // If directToCamera is true, skip dropdown and go straight to camera
+  if (directToCamera) {
     return (
       <>
         <Button
