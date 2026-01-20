@@ -13,11 +13,6 @@ export default {
       },
     },
     extend: {
-      fontFamily: {
-        sans: ['Open Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        serif: ['Libre Caslon Text', 'ui-serif', 'Georgia', 'serif'],
-        mono: ['Roboto Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
-      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
