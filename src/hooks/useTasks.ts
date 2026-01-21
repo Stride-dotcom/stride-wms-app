@@ -228,7 +228,15 @@ export function useTasks(filters?: {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[createTask] Insert failed:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Failed to create task',
+          description: error.message || 'Database error while creating task',
+        });
+        return null;
+      }
 
       // Add task items if provided
       if (itemIds && itemIds.length > 0 && task) {
@@ -237,7 +245,10 @@ export function useTasks(filters?: {
           item_id: itemId,
         }));
 
-        await (supabase.from('task_items') as any).insert(taskItems);
+        const { error: itemsError } = await (supabase.from('task_items') as any).insert(taskItems);
+        if (itemsError) {
+          console.error('[createTask] Failed to add task items:', itemsError);
+        }
 
         // Update inventory status to in_queue
         await updateInventoryStatus(task.id, taskData.task_type || '', 'in_queue');
@@ -255,12 +266,12 @@ export function useTasks(filters?: {
 
       fetchTasks();
       return task;
-    } catch (error) {
-      console.error('Error creating task:', error);
+    } catch (error: any) {
+      console.error('[createTask] Exception:', error);
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to create task',
+        title: 'Failed to create task',
+        description: error?.message || 'An unexpected error occurred',
       });
       return null;
     }
@@ -597,11 +608,21 @@ export function useTasks(filters?: {
   const updateTaskStatus = async (taskId: string, status: string) => {
     try {
       // Get task info first
-      const { data: taskData } = await (supabase
+      const { data: taskData, error: fetchError } = await (supabase
         .from('tasks') as any)
         .select('task_type')
         .eq('id', taskId)
         .single();
+
+      if (fetchError) {
+        console.error('[updateTaskStatus] Failed to fetch task:', fetchError);
+        toast({
+          variant: 'destructive',
+          title: 'Failed to update status',
+          description: fetchError.message || 'Could not find task',
+        });
+        return false;
+      }
 
       const updates: any = { status };
       
@@ -617,7 +638,15 @@ export function useTasks(filters?: {
         .update(updates)
         .eq('id', taskId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('[updateTaskStatus] Update failed:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Failed to update status',
+          description: error.message || 'Database error while updating task',
+        });
+        return false;
+      }
 
       // Update inventory status
       if (taskData) {
@@ -631,12 +660,12 @@ export function useTasks(filters?: {
 
       fetchTasks();
       return true;
-    } catch (error) {
-      console.error('Error updating task status:', error);
+    } catch (error: any) {
+      console.error('[updateTaskStatus] Exception:', error);
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to update status',
+        title: 'Failed to update status',
+        description: error?.message || 'An unexpected error occurred',
       });
       return false;
     }
@@ -649,7 +678,15 @@ export function useTasks(filters?: {
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', taskId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('[deleteTask] Delete failed:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Failed to delete task',
+          description: error.message || 'Database error while deleting task',
+        });
+        return false;
+      }
 
       toast({
         title: 'Task Deleted',
@@ -658,12 +695,12 @@ export function useTasks(filters?: {
 
       fetchTasks();
       return true;
-    } catch (error) {
-      console.error('Error deleting task:', error);
+    } catch (error: any) {
+      console.error('[deleteTask] Exception:', error);
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to delete task',
+        title: 'Failed to delete task',
+        description: error?.message || 'An unexpected error occurred',
       });
       return false;
     }
