@@ -10,7 +10,7 @@ import {
 import {
   Popover,
   PopoverContent,
-  PopoverTrigger,
+  PopoverAnchor,
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
@@ -56,7 +56,8 @@ export function AutocompleteInput({
     setInputValue(newValue);
     onChange(newValue);
     
-    if (newValue.trim() && filteredSuggestions.length > 0) {
+    // Open suggestions when typing
+    if (suggestions.length > 0) {
       setOpen(true);
     }
   };
@@ -77,14 +78,14 @@ export function AutocompleteInput({
   };
 
   const handleFocus = () => {
-    if (filteredSuggestions.length > 0) {
+    if (suggestions.length > 0) {
       setOpen(true);
     }
   };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+      <PopoverAnchor asChild>
         <Input
           ref={inputRef}
           value={inputValue}
@@ -95,11 +96,17 @@ export function AutocompleteInput({
           className={cn(className)}
           {...props}
         />
-      </PopoverTrigger>
+      </PopoverAnchor>
       <PopoverContent 
-        className="w-[--radix-popover-trigger-width] p-0" 
+        className="w-[--radix-popover-trigger-width] p-0 z-50 bg-popover border shadow-md" 
         align="start"
         onOpenAutoFocus={(e) => e.preventDefault()}
+        onInteractOutside={(e) => {
+          // Don't close if clicking on the input
+          if (inputRef.current?.contains(e.target as Node)) {
+            e.preventDefault();
+          }
+        }}
       >
         <Command>
           <CommandList>
