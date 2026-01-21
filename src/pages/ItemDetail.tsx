@@ -35,6 +35,7 @@ import { ItemAdvancedTab } from '@/components/items/ItemAdvancedTab';
 import { SidemarkInlineEdit } from '@/components/items/SidemarkInlineEdit';
 import { RoomInlineEdit } from '@/components/items/RoomInlineEdit';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
+import { AddBillingChargeDialog } from '@/components/items/AddBillingChargeDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 import { ScanDocumentButton, DocumentList } from '@/components/scanner';
 import { format } from 'date-fns';
@@ -48,8 +49,6 @@ import {
   Edit,
   MoreHorizontal,
   Printer,
-  Truck,
-  Trash2,
   DollarSign,
   Link as LinkIcon,
   ExternalLink,
@@ -142,6 +141,7 @@ export default function ItemDetail() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
+  const [billingChargeDialogOpen, setBillingChargeDialogOpen] = useState(false);
 
   // Check if user is a client (simplified check)
   const isClientUser = false; // Will be determined by role system
@@ -481,22 +481,7 @@ export default function ItemDetail() {
                     <Printer className="mr-2 h-4 w-4" />
                     Print 4x6 Label
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => {
-                    setSelectedTaskType('Will Call');
-                    setTaskDialogOpen(true);
-                  }}>
-                    <Truck className="mr-2 h-4 w-4" />
-                    Create Will Call
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => {
-                    setSelectedTaskType('Disposal');
-                    setTaskDialogOpen(true);
-                  }}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Create Disposal
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setBillingChargeDialogOpen(true)}>
                     <DollarSign className="mr-2 h-4 w-4" />
                     Add Billing Charge
                   </DropdownMenuItem>
@@ -881,6 +866,17 @@ export default function ItemDetail() {
         onSuccess={() => {
           setReleaseDialogOpen(false);
           fetchItem();
+        }}
+      />
+
+      <AddBillingChargeDialog
+        open={billingChargeDialogOpen}
+        onOpenChange={setBillingChargeDialogOpen}
+        itemId={item?.id || ''}
+        itemCode={item?.item_code || ''}
+        accountId={item?.account_id || null}
+        onSuccess={() => {
+          setBillingChargeDialogOpen(false);
         }}
       />
     </DashboardLayout>

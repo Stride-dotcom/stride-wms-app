@@ -64,14 +64,14 @@ export function QuickReleaseDialog({
 
     setSubmitting(true);
     try {
-      // Get current user's profile
+      // Get current user's profile - users.id IS the auth.uid() in this schema
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       const { data: profile } = await (supabase
         .from('users') as any)
         .select('id, tenant_id')
-        .eq('auth_id', user.id)
+        .eq('id', user.id)
         .single();
 
       if (!profile) throw new Error('User profile not found');

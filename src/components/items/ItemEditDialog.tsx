@@ -118,7 +118,7 @@ export function ItemEditDialog({
         supabase
           .from('item_types')
           .select('id, name')
-          .is('deleted_at', null)
+          .eq('is_active', true)
           .order('name'),
         supabase
           .from('accounts')
