@@ -843,6 +843,7 @@ export default function ShipmentDetail() {
         open={showAddItemDialog}
         onOpenChange={setShowAddItemDialog}
         shipmentId={shipment.id}
+        accountId={shipment.account?.id}
         onSuccess={fetchShipment}
       />
     </DashboardLayout>

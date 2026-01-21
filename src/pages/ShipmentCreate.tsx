@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import {
   Form,
   FormControl,
@@ -35,6 +36,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
 import { Loader2, Plus, Trash2, ArrowLeft, Upload, Download } from 'lucide-react';
 import { ItemTypeCombobox } from '@/components/items/ItemTypeCombobox';
 import { ShipmentItemsImportDialog, ParsedShipmentItem } from '@/components/shipments/ShipmentItemsImportDialog';
@@ -87,6 +89,11 @@ export default function ShipmentCreate() {
   const { toast } = useToast();
   const { profile } = useAuth();
   const isMobile = useIsMobile();
+  
+  // Field suggestions for async autocomplete
+  const { suggestions: vendorSuggestions, addOrUpdateSuggestion: addVendorSuggestion } = useFieldSuggestions('vendor');
+  const { suggestions: descriptionSuggestions, addOrUpdateSuggestion: addDescSuggestion } = useFieldSuggestions('description');
+  const { suggestions: sidemarkSuggestions, addOrUpdateSuggestion: addSidemarkSuggestion } = useFieldSuggestions('sidemark');
   
   // Detect if this is a return shipment based on route
   const isReturnShipment = location.pathname.includes('/return/');
@@ -528,7 +535,12 @@ export default function ShipmentCreate() {
                                 render={({ field }) => (
                                   <FormItem>
                                     <FormControl>
-                                      <Input placeholder="Vendor" {...field} />
+                                      <AutocompleteInput
+                                        value={field.value || ''}
+                                        onChange={field.onChange}
+                                        suggestions={vendorSuggestions}
+                                        placeholder="Vendor"
+                                      />
                                     </FormControl>
                                   </FormItem>
                                 )}
@@ -541,7 +553,12 @@ export default function ShipmentCreate() {
                                 render={({ field }) => (
                                   <FormItem>
                                     <FormControl>
-                                      <Input placeholder="Item description" {...field} />
+                                      <AutocompleteInput
+                                        value={field.value || ''}
+                                        onChange={field.onChange}
+                                        suggestions={descriptionSuggestions}
+                                        placeholder="Item description"
+                                      />
                                     </FormControl>
                                   </FormItem>
                                 )}
@@ -572,7 +589,12 @@ export default function ShipmentCreate() {
                                 render={({ field }) => (
                                   <FormItem>
                                     <FormControl>
-                                      <Input placeholder="Sidemark" {...field} />
+                                      <AutocompleteInput
+                                        value={field.value || ''}
+                                        onChange={field.onChange}
+                                        suggestions={sidemarkSuggestions}
+                                        placeholder="Sidemark"
+                                      />
                                     </FormControl>
                                   </FormItem>
                                 )}
@@ -653,7 +675,13 @@ export default function ShipmentCreate() {
                                   <FormItem>
                                     <FormLabel className="text-xs">Vendor *</FormLabel>
                                     <FormControl>
-                                      <Input placeholder="Vendor" className="h-11" {...field} />
+                                      <AutocompleteInput
+                                        value={field.value || ''}
+                                        onChange={field.onChange}
+                                        suggestions={vendorSuggestions}
+                                        placeholder="Vendor"
+                                        className="h-11"
+                                      />
                                     </FormControl>
                                   </FormItem>
                                 )}
@@ -666,7 +694,13 @@ export default function ShipmentCreate() {
                                 <FormItem>
                                   <FormLabel className="text-xs">Description</FormLabel>
                                   <FormControl>
-                                    <Input placeholder="Item description" className="h-11" {...field} />
+                                    <AutocompleteInput
+                                      value={field.value || ''}
+                                      onChange={field.onChange}
+                                      suggestions={descriptionSuggestions}
+                                      placeholder="Item description"
+                                      className="h-11"
+                                    />
                                   </FormControl>
                                 </FormItem>
                               )}
@@ -696,7 +730,13 @@ export default function ShipmentCreate() {
                                   <FormItem>
                                     <FormLabel className="text-xs">Sidemark</FormLabel>
                                     <FormControl>
-                                      <Input placeholder="Sidemark" className="h-11" {...field} />
+                                      <AutocompleteInput
+                                        value={field.value || ''}
+                                        onChange={field.onChange}
+                                        suggestions={sidemarkSuggestions}
+                                        placeholder="Sidemark"
+                                        className="h-11"
+                                      />
                                     </FormControl>
                                   </FormItem>
                                 )}
