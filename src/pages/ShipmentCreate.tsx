@@ -128,14 +128,14 @@ export default function ShipmentCreate() {
           .is('deleted_at', null)
           .order('name');
 
-        // Fetch item types
+        // Fetch item types (no deleted_at - use is_active only)
         const itemTypesRes = await (supabase
           .from('item_types') as any)
-          .select('id, name')
+          .select('id, name, is_active, sort_order')
           .eq('tenant_id', profile.tenant_id)
           .eq('is_active', true)
-          .is('deleted_at', null)
-          .order('name');
+          .order('sort_order', { ascending: true, nullsFirst: true })
+          .order('name', { ascending: true });
 
         if (accountsRes.error) {
           console.error('[ShipmentCreate] accounts fetch:', accountsRes.error);
