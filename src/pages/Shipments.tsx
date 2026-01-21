@@ -67,12 +67,12 @@ export default function Shipments() {
     try {
       // Fetch counts in parallel
       const [incomingRes, outboundRes, recentReceivedRes, recentReleasedRes] = await Promise.all([
-        // Incoming: expected or receiving inbound shipments
+        // Incoming: expected or in_progress inbound shipments (valid statuses only)
         supabase
           .from('shipments')
           .select('id', { count: 'exact', head: true })
           .eq('shipment_type', 'inbound')
-          .in('status', ['expected', 'receiving'])
+          .in('status', ['expected', 'in_progress'])
           .is('deleted_at', null),
         // Outbound: expected or in_progress outbound shipments
         supabase
@@ -85,17 +85,15 @@ export default function Shipments() {
         supabase
           .from('shipments')
           .select('id, shipment_number, status, created_at, received_at, accounts(account_name)')
-          .eq('shipment_type', 'inbound')
-          .eq('status', 'received')
+          .in('status', ['received'])
           .is('deleted_at', null)
           .order('received_at', { ascending: false })
           .limit(5),
-        // Recent released: last 5 completed outbound
+        // Recent released: last 5 released/completed shipments
         supabase
           .from('shipments')
           .select('id, shipment_number, status, created_at, completed_at, accounts(account_name)')
-          .eq('shipment_type', 'outbound')
-          .eq('status', 'completed')
+          .in('status', ['released', 'completed'])
           .is('deleted_at', null)
           .order('completed_at', { ascending: false })
           .limit(5),

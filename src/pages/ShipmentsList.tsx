@@ -84,27 +84,25 @@ export default function ShipmentsList() {
           .eq('tenant_id', profile.tenant_id)
           .is('deleted_at', null);
 
-        // Apply tab-specific filters
+        // Apply tab-specific filters (using valid DB statuses only)
         switch (activeTab) {
           case 'incoming':
             query = query
               .eq('shipment_type', 'inbound')
-              .in('status', ['expected', 'receiving']);
+              .in('status', ['expected', 'in_progress']);
             break;
           case 'outbound':
             query = query
               .eq('shipment_type', 'outbound')
-              .in('status', ['pending', 'in_progress']);
+              .in('status', ['expected', 'in_progress']);
             break;
           case 'received':
             query = query
-              .eq('shipment_type', 'inbound')
-              .in('status', ['received', 'partial']);
+              .in('status', ['received']);
             break;
           case 'released':
             query = query
-              .eq('shipment_type', 'outbound')
-              .eq('status', 'completed');
+              .in('status', ['released', 'completed']);
             break;
         }
 
@@ -187,11 +185,9 @@ export default function ShipmentsList() {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       expected: 'secondary',
-      receiving: 'default',
-      received: 'default',
-      partial: 'destructive',
-      pending: 'secondary',
       in_progress: 'default',
+      received: 'default',
+      released: 'default',
       completed: 'default',
       cancelled: 'outline',
     };

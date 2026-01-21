@@ -2905,6 +2905,7 @@ export type Database = {
           quantity: number
           received_at: string | null
           received_without_id: boolean | null
+          receiving_shipment_id: string | null
           released_at: string | null
           repair_photos: Json | null
           repair_status: string | null
@@ -2948,6 +2949,7 @@ export type Database = {
           quantity?: number
           received_at?: string | null
           received_without_id?: boolean | null
+          receiving_shipment_id?: string | null
           released_at?: string | null
           repair_photos?: Json | null
           repair_status?: string | null
@@ -2991,6 +2993,7 @@ export type Database = {
           quantity?: number
           received_at?: string | null
           received_without_id?: boolean | null
+          receiving_shipment_id?: string | null
           released_at?: string | null
           repair_photos?: Json | null
           repair_status?: string | null
@@ -3017,6 +3020,13 @@ export type Database = {
             columns: ["item_type_id"]
             isOneToOne: false
             referencedRelation: "item_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_receiving_shipment_id_fkey"
+            columns: ["receiving_shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
             referencedColumns: ["id"]
           },
           {
