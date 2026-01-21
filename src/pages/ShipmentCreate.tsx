@@ -1,81 +1,31 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useForm, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { AutocompleteInput } from '@/components/ui/autocomplete-input';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
-import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
-import { Loader2, Plus, Trash2, ArrowLeft, Upload, Download } from 'lucide-react';
-import { ItemTypeCombobox } from '@/components/items/ItemTypeCombobox';
-import { ShipmentItemsImportDialog, ParsedShipmentItem } from '@/components/shipments/ShipmentItemsImportDialog';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { MobileDataCard, MobileDataCardHeader, MobileDataCardTitle, MobileDataCardContent, MobileDataCardActions } from '@/components/ui/mobile-data-card';
-import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Plus, Trash2, Loader2, Save, ArrowLeft } from 'lucide-react';
 
-const expectedItemSchema = z.object({
-  quantity: z.coerce.number().min(1, 'Quantity must be at least 1'),
-  vendor: z.string().min(1, 'Vendor is required'),
-  description: z.string().optional(),
-  item_type_id: z.string().optional(),
-  sidemark: z.string().optional(),
-});
-
-const shipmentSchema = z.object({
-  account_id: z.string().min(1, 'Account is required'),
-  warehouse_id: z.string().min(1, 'Warehouse is required'),
-  expected_arrival_date: z.string().optional(),
-  carrier: z.string().optional(),
-  tracking_number: z.string().optional(),
-  po_number: z.string().optional(),
-  notes: z.string().optional(),
-  expected_items: z.array(expectedItemSchema).min(1, 'At least one item is required'),
-});
-
-type ShipmentFormData = z.infer<typeof shipmentSchema>;
+// ============================================
+// TYPES
+// ============================================
 
 interface Account {
   id: string;
-  account_name: string;
-  account_code: string;
+  name: string;
 }
 
 interface Warehouse {
   id: string;
   name: string;
-  code: string;
 }
 
 interface ItemType {
@@ -83,175 +33,223 @@ interface ItemType {
   name: string;
 }
 
+interface ExpectedItem {
+  id: string;
+  description: string;
+  vendor: string;
+  sidemark: string;
+  quantity: number;
+  item_type_id: string;
+}
+
+// ============================================
+// COMPONENT
+// ============================================
+
 export default function ShipmentCreate() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
   const { profile } = useAuth();
-  const isMobile = useIsMobile();
-  
-  // Field suggestions for async autocomplete
-  const { suggestions: vendorSuggestions, addOrUpdateSuggestion: addVendorSuggestion } = useFieldSuggestions('vendor');
-  const { suggestions: descriptionSuggestions, addOrUpdateSuggestion: addDescSuggestion } = useFieldSuggestions('description');
-  const { suggestions: sidemarkSuggestions, addOrUpdateSuggestion: addSidemarkSuggestion } = useFieldSuggestions('sidemark');
-  
-  // Detect if this is a return shipment based on route
-  const isReturnShipment = location.pathname.includes('/return/');
+  const { toast } = useToast();
+
+  // Determine shipment type from route
+  const isReturn = location.pathname.includes('/return/');
+  const shipmentType = 'inbound';
+
+  // Form state
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
-  const [fetchingData, setFetchingData] = useState(true);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [importFile, setImportFile] = useState<File | null>(null);
 
-  const form = useForm<ShipmentFormData>({
-    resolver: zodResolver(shipmentSchema),
-    defaultValues: {
-      account_id: '',
-      warehouse_id: '',
-      expected_arrival_date: '',
-      carrier: '',
-      tracking_number: '',
-      po_number: '',
-      notes: '',
-      expected_items: [
-        { quantity: 1, vendor: '', description: '', item_type_id: '', sidemark: '' },
-      ],
-    },
-  });
+  // Shipment fields
+  const [accountId, setAccountId] = useState<string>('');
+  const [warehouseId, setWarehouseId] = useState<string>('');
+  const [carrier, setCarrier] = useState('');
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [poNumber, setPoNumber] = useState('');
+  const [expectedArrivalDate, setExpectedArrivalDate] = useState('');
+  const [notes, setNotes] = useState('');
 
-  const { fields, append, remove, replace } = useFieldArray({
-    control: form.control,
-    name: 'expected_items',
-  });
+  // Expected items
+  const [expectedItems, setExpectedItems] = useState<ExpectedItem[]>([
+    { id: crypto.randomUUID(), description: '', vendor: '', sidemark: '', quantity: 1, item_type_id: '' }
+  ]);
 
-  const handleImportItems = (importedItems: ParsedShipmentItem[]) => {
-    // Replace all existing items with imported items
-    replace(importedItems);
-    setImportDialogOpen(false);
-    setImportFile(null);
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImportFile(file);
-      setImportDialogOpen(true);
-    }
-    e.target.value = '';
-  };
-
+  // ------------------------------------------
+  // Fetch reference data
+  // ------------------------------------------
   useEffect(() => {
-    fetchInitialData();
-  }, []);
+    if (!profile?.tenant_id) return;
 
-  const fetchInitialData = async () => {
-    try {
-      const [accountsRes, warehousesRes, itemTypesRes] = await Promise.all([
-        supabase
-          .from('accounts')
-          .select('id, account_name, account_code')
-          .eq('status', 'active')
-          .is('deleted_at', null)
-          .order('account_name'),
-        supabase
-          .from('warehouses')
-          .select('id, name, code')
-          .is('deleted_at', null)
-          .order('name'),
-        supabase
-          .from('item_types')
-          .select('id, name')
-          .eq('is_active', true)
-          .order('name'),
-      ]);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [accountsRes, warehousesRes, itemTypesRes] = await Promise.all([
+          supabase
+            .from('accounts')
+            .select('id, name')
+            .eq('tenant_id', profile.tenant_id)
+            .is('deleted_at', null)
+            .order('name'),
+          supabase
+            .from('warehouses')
+            .select('id, name')
+            .eq('tenant_id', profile.tenant_id)
+            .is('deleted_at', null)
+            .order('name'),
+          supabase
+            .from('item_types')
+            .select('id, name')
+            .eq('tenant_id', profile.tenant_id)
+            .is('deleted_at', null)
+            .order('name'),
+        ]);
 
-      setAccounts(accountsRes.data || []);
-      setWarehouses(warehousesRes.data || []);
-      setItemTypes(itemTypesRes.data || []);
-    } catch (error) {
-      console.error('Error fetching initial data:', error);
-    } finally {
-      setFetchingData(false);
-    }
+        if (accountsRes.error) {
+          console.error('[ShipmentCreate] accounts fetch:', accountsRes.error);
+        }
+        if (warehousesRes.error) {
+          console.error('[ShipmentCreate] warehouses fetch:', warehousesRes.error);
+        }
+        if (itemTypesRes.error) {
+          console.error('[ShipmentCreate] itemTypes fetch:', itemTypesRes.error);
+        }
+
+        setAccounts(accountsRes.data || []);
+        setWarehouses(warehousesRes.data || []);
+        setItemTypes(itemTypesRes.data || []);
+
+        // Set default warehouse if only one exists
+        if (warehousesRes.data?.length === 1) {
+          setWarehouseId(warehousesRes.data[0].id);
+        }
+      } catch (err) {
+        console.error('[ShipmentCreate] fetchData exception:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [profile?.tenant_id]);
+
+  // ------------------------------------------
+  // Item management
+  // ------------------------------------------
+  const addItem = () => {
+    setExpectedItems([
+      ...expectedItems,
+      { id: crypto.randomUUID(), description: '', vendor: '', sidemark: '', quantity: 1, item_type_id: '' }
+    ]);
   };
 
-  const onSubmit = async (data: ShipmentFormData) => {
-    if (!profile?.tenant_id) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'No tenant found. Please log in again.',
-      });
+  const removeItem = (id: string) => {
+    if (expectedItems.length === 1) return;
+    setExpectedItems(expectedItems.filter(item => item.id !== id));
+  };
+
+  const updateItem = (id: string, field: keyof ExpectedItem, value: string | number) => {
+    setExpectedItems(expectedItems.map(item => 
+      item.id === id ? { ...item, [field]: value } : item
+    ));
+  };
+
+  // ------------------------------------------
+  // Submit handler
+  // ------------------------------------------
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!profile?.tenant_id || !profile?.id) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Not authenticated' });
       return;
     }
 
-    try {
-      setLoading(true);
+    if (!accountId) {
+      toast({ variant: 'destructive', title: 'Validation Error', description: 'Please select an account' });
+      return;
+    }
 
-      // Create the shipment (shipment_number will be auto-generated by trigger)
-      // Note: Using type assertion until Supabase types are regenerated
-      const { data: shipment, error: shipmentError } = await (supabase
-        .from('shipments') as any)
+    if (!warehouseId) {
+      toast({ variant: 'destructive', title: 'Validation Error', description: 'Please select a warehouse' });
+      return;
+    }
+
+    // Filter out empty items
+    const validItems = expectedItems.filter(item => item.description.trim() || item.quantity > 0);
+    if (validItems.length === 0) {
+      toast({ variant: 'destructive', title: 'Validation Error', description: 'Please add at least one expected item' });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Create shipment - shipment_number is auto-generated by trigger
+      const { data: shipment, error: shipmentError } = await supabase
+        .from('shipments')
         .insert({
           tenant_id: profile.tenant_id,
-          shipment_type: 'inbound',
-          release_type: isReturnShipment ? 'return' : null,
+          shipment_number: `SHP-${Date.now()}`, // Temporary, will be replaced by trigger
+          shipment_type: shipmentType,
           status: 'expected',
-          account_id: data.account_id,
-          warehouse_id: data.warehouse_id,
-          expected_arrival_date: data.expected_arrival_date || null,
-          carrier: data.carrier || null,
-          tracking_number: data.tracking_number || null,
-          po_number: data.po_number || null,
-          notes: data.notes || null,
+          account_id: accountId,
+          warehouse_id: warehouseId,
+          carrier: carrier || null,
+          tracking_number: trackingNumber || null,
+          po_number: poNumber || null,
+          expected_arrival_date: expectedArrivalDate || null,
+          notes: notes || null,
+          release_type: isReturn ? 'return' : null,
           created_by: profile.id,
         })
         .select('id, shipment_number')
         .single();
 
-      if (shipmentError) throw shipmentError;
+      if (shipmentError) {
+        console.error('[ShipmentCreate] create shipment failed:', shipmentError);
+        toast({ variant: 'destructive', title: 'Error', description: shipmentError.message });
+        return;
+      }
 
-      // Create expected items
-      const itemsToInsert = data.expected_items.map((item) => ({
+      // Create shipment items
+      const shipmentItems = validItems.map(item => ({
         shipment_id: shipment.id,
-        expected_quantity: item.quantity,
-        expected_vendor: item.vendor,
         expected_description: item.description || null,
-        expected_item_type_id: item.item_type_id || null,
+        expected_vendor: item.vendor || null,
         expected_sidemark: item.sidemark || null,
+        expected_quantity: item.quantity,
+        expected_item_type_id: item.item_type_id || null,
         status: 'pending',
       }));
 
-      const { error: itemsError } = await (supabase
-        .from('shipment_items') as any)
-        .insert(itemsToInsert);
+      const { error: itemsError } = await supabase
+        .from('shipment_items')
+        .insert(shipmentItems);
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        console.error('[ShipmentCreate] create shipment_items failed:', itemsError);
+        toast({ variant: 'destructive', title: 'Warning', description: 'Shipment created but items failed to save' });
+      }
 
-      toast({
-        title: 'Shipment created',
-        description: `Expected shipment ${shipment.shipment_number} has been created.`,
-      });
-
-      navigate('/shipments');
-    } catch (error) {
-      console.error('Error creating shipment:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to create shipment. Please try again.',
-      });
+      toast({ title: 'Shipment Created', description: `${shipment.shipment_number} created successfully` });
+      navigate(`/shipments/${shipment.id}`);
+    } catch (err) {
+      console.error('[ShipmentCreate] handleSubmit exception:', err);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to create shipment' });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  if (fetchingData) {
+  // ------------------------------------------
+  // Render
+  // ------------------------------------------
+  if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-[50vh]">
+        <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
@@ -260,522 +258,220 @@ export default function ShipmentCreate() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center gap-3 md:gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/shipments')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-              {isReturnShipment ? 'Create Return Shipment' : 'Create Shipment'}
-            </h1>
-            <p className="text-sm text-muted-foreground truncate md:text-base">
-              Auto-generated number • IDs assigned at receiving
-            </p>
-          </div>
+      <div className="flex items-center gap-4 mb-6">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold">
+            {isReturn ? 'Create Return Shipment' : 'Create Inbound Shipment'}
+          </h1>
+          <p className="text-muted-foreground">Enter shipment details and expected items</p>
         </div>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Shipment Details</CardTitle>
-                <CardDescription>Basic information about the expected shipment</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="account_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Account *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select account" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {accounts.map((account) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.account_name} ({account.account_code})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="warehouse_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Warehouse *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select warehouse" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {warehouses.map((wh) => (
-                              <SelectItem key={wh.id} value={wh.id}>
-                                {wh.name} ({wh.code})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="expected_arrival_date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Expected Arrival</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="carrier"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Carrier</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., UPS, FedEx" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="tracking_number"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tracking Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Tracking #" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="po_number"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>PO Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Purchase Order #" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Notes</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Additional notes about this shipment..."
-                          className="resize-none"
-                          rows={2}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <CardTitle>Shipment Items</CardTitle>
-                    <CardDescription className="hidden md:block">
-                      Items expected on this shipment. Item ID Codes will be assigned when received.
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="file"
-                      id="import-items-file"
-                      accept=".csv,.xlsx,.xls"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                    />
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <a
-                            href="/shipment-items-template.csv"
-                            download="shipment-items-template.csv"
-                          >
-                            <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0 md:h-9 md:w-auto md:px-3">
-                              <Download className="h-4 w-4 md:mr-2" />
-                              <span className="hidden md:inline">Template</span>
-                            </Button>
-                          </a>
-                        </TooltipTrigger>
-                        <TooltipContent className="md:hidden">
-                          <p>Download Template</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-9 w-9 p-0 md:h-9 md:w-auto md:px-3"
-                            onClick={() => document.getElementById('import-items-file')?.click()}
-                          >
-                            <Upload className="h-4 w-4 md:mr-2" />
-                            <span className="hidden md:inline">Import</span>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="md:hidden">
-                          <p>Import Items</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-9 w-9 p-0 md:h-9 md:w-auto md:px-3"
-                            onClick={() =>
-                              append({ quantity: 1, vendor: '', description: '', item_type_id: '', sidemark: '' })
-                            }
-                          >
-                            <Plus className="h-4 w-4 md:mr-2" />
-                            <span className="hidden md:inline">Add Item</span>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="md:hidden">
-                          <p>Add Item</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {/* Desktop Table View */}
-                {!isMobile && (
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-20">Qty *</TableHead>
-                          <TableHead className="w-40">Vendor *</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead className="w-40">Item Type</TableHead>
-                          <TableHead className="w-32">Sidemark</TableHead>
-                          <TableHead className="w-12"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {fields.map((field, index) => (
-                          <TableRow key={field.id}>
-                            <TableCell>
-                              <FormField
-                                control={form.control}
-                                name={`expected_items.${index}.quantity`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        min={1}
-                                        className="w-full"
-                                        {...field}
-                                      />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <FormField
-                                control={form.control}
-                                name={`expected_items.${index}.vendor`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <AutocompleteInput
-                                        value={field.value || ''}
-                                        onChange={field.onChange}
-                                        suggestions={vendorSuggestions}
-                                        placeholder="Vendor"
-                                      />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <FormField
-                                control={form.control}
-                                name={`expected_items.${index}.description`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <AutocompleteInput
-                                        value={field.value || ''}
-                                        onChange={field.onChange}
-                                        suggestions={descriptionSuggestions}
-                                        placeholder="Item description"
-                                      />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <FormField
-                                control={form.control}
-                                name={`expected_items.${index}.item_type_id`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <ItemTypeCombobox
-                                        itemTypes={itemTypes}
-                                        value={field.value || ''}
-                                        onChange={field.onChange}
-                                        placeholder="Type"
-                                      />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <FormField
-                                control={form.control}
-                                name={`expected_items.${index}.sidemark`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <AutocompleteInput
-                                        value={field.value || ''}
-                                        onChange={field.onChange}
-                                        suggestions={sidemarkSuggestions}
-                                        placeholder="Sidemark"
-                                      />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              {fields.length > 1 && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => remove(index)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-
-                {/* Mobile Card View */}
-                {isMobile && (
-                  <div className="space-y-3">
-                    {fields.map((field, index) => {
-                      const itemType = itemTypes.find(
-                        (t) => t.id === form.watch(`expected_items.${index}.item_type_id`)
-                      );
-                      return (
-                        <MobileDataCard key={field.id} className="relative">
-                          <MobileDataCardHeader>
-                            <MobileDataCardTitle className="flex items-center gap-2">
-                              <span className="text-sm text-muted-foreground">Item {index + 1}</span>
-                              {itemType && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {itemType.name}
-                                </Badge>
-                              )}
-                            </MobileDataCardTitle>
-                            {fields.length > 1 && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 -mr-2 -mt-1"
-                                onClick={() => remove(index)}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            )}
-                          </MobileDataCardHeader>
-                          <MobileDataCardContent className="space-y-3">
-                            <div className="grid grid-cols-2 gap-3">
-                              <FormField
-                                control={form.control}
-                                name={`expected_items.${index}.quantity`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Qty *</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        min={1}
-                                        className="h-11"
-                                        {...field}
-                                      />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name={`expected_items.${index}.vendor`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Vendor *</FormLabel>
-                                    <FormControl>
-                                      <AutocompleteInput
-                                        value={field.value || ''}
-                                        onChange={field.onChange}
-                                        suggestions={vendorSuggestions}
-                                        placeholder="Vendor"
-                                        className="h-11"
-                                      />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                            <FormField
-                              control={form.control}
-                              name={`expected_items.${index}.description`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className="text-xs">Description</FormLabel>
-                                  <FormControl>
-                                    <AutocompleteInput
-                                      value={field.value || ''}
-                                      onChange={field.onChange}
-                                      suggestions={descriptionSuggestions}
-                                      placeholder="Item description"
-                                      className="h-11"
-                                    />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                            <div className="grid grid-cols-2 gap-3">
-                              <FormField
-                                control={form.control}
-                                name={`expected_items.${index}.item_type_id`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Item Type</FormLabel>
-                                    <FormControl>
-                                      <ItemTypeCombobox
-                                        itemTypes={itemTypes}
-                                        value={field.value || ''}
-                                        onChange={field.onChange}
-                                        placeholder="Select type"
-                                      />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name={`expected_items.${index}.sidemark`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Sidemark</FormLabel>
-                                    <FormControl>
-                                      <AutocompleteInput
-                                        value={field.value || ''}
-                                        onChange={field.onChange}
-                                        suggestions={sidemarkSuggestions}
-                                        placeholder="Sidemark"
-                                        className="h-11"
-                                      />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                          </MobileDataCardContent>
-                        </MobileDataCard>
-                      );
-                    })}
-                  </div>
-                )}
-                {form.formState.errors.expected_items?.root && (
-                  <p className="text-sm text-destructive mt-2">
-                    {form.formState.errors.expected_items.root.message}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:gap-4">
-              <Button type="button" variant="outline" className="h-11 sm:h-10" onClick={() => navigate('/shipments')}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading} className="h-11 sm:h-10">
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Shipment
-              </Button>
-            </div>
-          </form>
-        </Form>
-
-        <ShipmentItemsImportDialog
-          open={importDialogOpen}
-          onOpenChange={setImportDialogOpen}
-          file={importFile}
-          itemTypes={itemTypes}
-          onImport={handleImportItems}
-        />
       </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
+        {/* Shipment Details */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Shipment Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="account">Account *</Label>
+                <Select value={accountId} onValueChange={setAccountId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map(account => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="warehouse">Warehouse *</Label>
+                <Select value={warehouseId} onValueChange={setWarehouseId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select warehouse" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {warehouses.map(warehouse => (
+                      <SelectItem key={warehouse.id} value={warehouse.id}>
+                        {warehouse.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="carrier">Carrier</Label>
+                <Input
+                  id="carrier"
+                  value={carrier}
+                  onChange={(e) => setCarrier(e.target.value)}
+                  placeholder="e.g., FedEx, UPS"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tracking">Tracking Number</Label>
+                <Input
+                  id="tracking"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  placeholder="Enter tracking number"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="po">PO Number</Label>
+                <Input
+                  id="po"
+                  value={poNumber}
+                  onChange={(e) => setPoNumber(e.target.value)}
+                  placeholder="Purchase order number"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="arrival">Expected Arrival</Label>
+                <Input
+                  id="arrival"
+                  type="date"
+                  value={expectedArrivalDate}
+                  onChange={(e) => setExpectedArrivalDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Additional notes about this shipment"
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Expected Items */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Expected Items</CardTitle>
+            <Button type="button" variant="outline" size="sm" onClick={addItem}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Item
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead>Sidemark</TableHead>
+                  <TableHead className="w-20">Qty</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="w-12"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {expectedItems.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <Input
+                        value={item.description}
+                        onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                        placeholder="Item description"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={item.vendor}
+                        onChange={(e) => updateItem(item.id, 'vendor', e.target.value)}
+                        placeholder="Vendor"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={item.sidemark}
+                        onChange={(e) => updateItem(item.id, 'sidemark', e.target.value)}
+                        placeholder="Sidemark"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Select 
+                        value={item.item_type_id} 
+                        onValueChange={(v) => updateItem(item.id, 'item_type_id', v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {itemTypes.map(type => (
+                            <SelectItem key={type.id} value={type.id}>
+                              {type.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeItem(item.id)}
+                        disabled={expectedItems.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        {/* Actions */}
+        <div className="flex gap-4">
+          <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Create Shipment
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
     </DashboardLayout>
   );
 }

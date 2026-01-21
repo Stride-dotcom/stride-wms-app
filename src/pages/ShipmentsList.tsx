@@ -1,375 +1,370 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useIsMobile } from '@/hooks/use-mobile';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
-import { Search, Package, Loader2, Filter, Plus, Truck, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MobileDataCard } from '@/components/ui/mobile-data-card';
+import { Loader2, Plus, Search, Package, ArrowDownToLine, ArrowUpFromLine, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
-import { useIsMobile } from '@/hooks/use-mobile';
-import {
-  MobileDataCard,
-  MobileDataCardHeader,
-  MobileDataCardTitle,
-  MobileDataCardDescription,
-  MobileDataCardContent,
-} from '@/components/ui/mobile-data-card';
+
+// ============================================
+// TYPES
+// ============================================
 
 interface Shipment {
   id: string;
   shipment_number: string;
   shipment_type: string;
-  release_type: string | null;
   status: string;
   carrier: string | null;
   tracking_number: string | null;
   expected_arrival_date: string | null;
   received_at: string | null;
-  completed_at: string | null;
+  release_type: string | null;
   created_at: string;
-  account_name?: string;
-  warehouse_name?: string;
-  item_count?: number;
+  account_name: string | null;
+  warehouse_name: string | null;
 }
 
+type TabValue = 'incoming' | 'outbound' | 'received' | 'released';
+
+// ============================================
+// COMPONENT
+// ============================================
+
 export default function ShipmentsList() {
-  const isMobile = useIsMobile();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const directionParam = searchParams.get('direction');
-  
-  // Determine view mode based on URL path
-  const getInitialTab = () => {
-    if (location.pathname === '/shipments/received' || location.pathname === '/shipments/released') {
-      return 'received';
-    }
-    if (location.pathname === '/shipments/outbound') {
-      return 'outbound';
-    }
-    if (directionParam === 'outbound') {
-      return 'outbound';
-    }
-    return 'inbound';
-  };
-  
-  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { profile } = useAuth();
+  const isMobile = useIsMobile();
+
+  // State
   const [loading, setLoading] = useState(true);
+  const [shipments, setShipments] = useState<Shipment[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<string>(getInitialTab());
+  const [activeTab, setActiveTab] = useState<TabValue>(
+    (searchParams.get('tab') as TabValue) || 'incoming'
+  );
 
+  // ------------------------------------------
+  // Fetch shipments based on active tab
+  // ------------------------------------------
   useEffect(() => {
-    fetchShipments();
-  }, [activeTab]);
+    if (!profile?.tenant_id) return;
 
-  const fetchShipments = async () => {
-    try {
+    const fetchShipments = async () => {
       setLoading(true);
-      const shipmentsTable = supabase.from('shipments') as any;
-      
-      let query = shipmentsTable
-        .select(`
-          id, 
-          shipment_number, 
-          shipment_type, 
-          release_type,
-          status, 
-          carrier, 
-          tracking_number,
-          expected_arrival_date,
-          received_at,
-          completed_at,
-          created_at,
-          accounts(account_name),
-          warehouses(name)
-        `)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
-        .limit(100);
+      try {
+        let query = supabase
+          .from('shipments')
+          .select(`
+            id,
+            shipment_number,
+            shipment_type,
+            status,
+            carrier,
+            tracking_number,
+            expected_arrival_date,
+            received_at,
+            release_type,
+            created_at,
+            accounts:account_id(name),
+            warehouses:warehouse_id(name)
+          `)
+          .eq('tenant_id', profile.tenant_id)
+          .is('deleted_at', null);
 
-      // Filter by status for received view, otherwise by shipment type
-      // Also exclude received/completed items from inbound/outbound tabs
-      if (activeTab === 'received') {
-        query = query.in('status', ['received', 'completed']);
-      } else if (activeTab === 'inbound') {
-        query = query.eq('shipment_type', 'inbound').not('status', 'in', '("received","completed")');
-      } else if (activeTab === 'outbound') {
-        query = query.eq('shipment_type', 'outbound').not('status', 'in', '("received","completed")');
+        // Apply tab-specific filters
+        switch (activeTab) {
+          case 'incoming':
+            query = query
+              .eq('shipment_type', 'inbound')
+              .in('status', ['expected', 'receiving']);
+            break;
+          case 'outbound':
+            query = query
+              .eq('shipment_type', 'outbound')
+              .in('status', ['pending', 'in_progress']);
+            break;
+          case 'received':
+            query = query
+              .eq('shipment_type', 'inbound')
+              .in('status', ['received', 'partial']);
+            break;
+          case 'released':
+            query = query
+              .eq('shipment_type', 'outbound')
+              .eq('status', 'completed');
+            break;
+        }
+
+        query = query.order('created_at', { ascending: false });
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('[ShipmentsList] fetch failed:', error);
+          return;
+        }
+
+        // Transform data to flatten nested objects
+        const transformedData: Shipment[] = (data || []).map((s: any) => ({
+          id: s.id,
+          shipment_number: s.shipment_number,
+          shipment_type: s.shipment_type,
+          status: s.status,
+          carrier: s.carrier,
+          tracking_number: s.tracking_number,
+          expected_arrival_date: s.expected_arrival_date,
+          received_at: s.received_at,
+          release_type: s.release_type,
+          created_at: s.created_at,
+          account_name: s.accounts?.name || null,
+          warehouse_name: s.warehouses?.name || null,
+        }));
+
+        setShipments(transformedData);
+      } catch (err) {
+        console.error('[ShipmentsList] fetchShipments exception:', err);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const { data, error } = await query;
+    fetchShipments();
+  }, [profile?.tenant_id, activeTab]);
 
-      if (error) throw error;
-      
-      setShipments(
-        (data || []).map((s: any) => ({
-          ...s,
-          account_name: s.accounts?.account_name,
-          warehouse_name: s.warehouses?.name,
-        }))
-      );
-    } catch (error) {
-      console.error('Error fetching shipments:', error);
-    } finally {
-      setLoading(false);
-    }
+  // Update URL when tab changes
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab as TabValue);
+    setSearchParams({ tab });
+    setStatusFilter('all');
   };
 
-  const filteredShipments = shipments.filter((shipment) => {
-    const matchesSearch =
-      shipment.shipment_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      shipment.account_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      shipment.carrier?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      shipment.tracking_number?.toLowerCase().includes(searchQuery.toLowerCase());
+  // ------------------------------------------
+  // Filter shipments
+  // ------------------------------------------
+  const filteredShipments = useMemo(() => {
+    return shipments.filter(shipment => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = 
+          shipment.shipment_number.toLowerCase().includes(query) ||
+          shipment.account_name?.toLowerCase().includes(query) ||
+          shipment.carrier?.toLowerCase().includes(query) ||
+          shipment.tracking_number?.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
 
-    const matchesStatus = statusFilter === 'all' || shipment.status === statusFilter;
+      // Status filter
+      if (statusFilter !== 'all' && shipment.status !== statusFilter) {
+        return false;
+      }
 
-    return matchesSearch && matchesStatus;
-  });
+      return true;
+    });
+  }, [shipments, searchQuery, statusFilter]);
 
+  // Get unique statuses for current tab
+  const uniqueStatuses = useMemo(() => {
+    return [...new Set(shipments.map(s => s.status))];
+  }, [shipments]);
+
+  // ------------------------------------------
+  // Status badge helper
+  // ------------------------------------------
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       expected: 'secondary',
+      receiving: 'default',
+      received: 'default',
+      partial: 'destructive',
+      pending: 'secondary',
       in_progress: 'default',
-      in_transit: 'default',
-      received: 'outline',
-      completed: 'outline',
-      cancelled: 'destructive',
+      completed: 'default',
+      cancelled: 'outline',
     };
-    return <Badge variant={variants[status] || 'default'}>{status.replace('_', ' ')}</Badge>;
+    return <Badge variant={variants[status] || 'secondary'}>{status}</Badge>;
   };
 
-  const getReleaseTypeBadge = (type: string | null) => {
-    if (!type) return null;
-    const colors: Record<string, string> = {
-      will_call: 'bg-amber-100 text-amber-800',
-      disposal: 'bg-orange-100 text-orange-800',
-    };
+  // ------------------------------------------
+  // Tab content renderer
+  // ------------------------------------------
+  const renderTabContent = () => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center h-48">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+
+    if (filteredShipments.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium mb-2">No shipments found</h3>
+          <p className="text-muted-foreground mb-4">
+            {searchQuery || statusFilter !== 'all'
+              ? 'Try adjusting your filters'
+              : 'Create a new shipment to get started'}
+          </p>
+          {activeTab === 'incoming' && (
+            <Button onClick={() => navigate('/shipments/create')}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Shipment
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    if (isMobile) {
+      return (
+        <div className="space-y-4 p-4">
+          {filteredShipments.map((shipment) => (
+            <MobileDataCard
+              key={shipment.id}
+              title={shipment.shipment_number}
+              subtitle={shipment.account_name || 'No account'}
+              onClick={() => navigate(`/shipments/${shipment.id}`)}
+              badges={[
+                { label: shipment.status, variant: shipment.status === 'received' ? 'default' : 'secondary' },
+                ...(shipment.release_type ? [{ label: shipment.release_type, variant: 'outline' as const }] : []),
+              ]}
+              fields={[
+                { label: 'Carrier', value: shipment.carrier || '-' },
+                { label: 'Tracking', value: shipment.tracking_number || '-' },
+                { 
+                  label: activeTab === 'received' ? 'Received' : 'Expected',
+                  value: activeTab === 'received' && shipment.received_at
+                    ? format(new Date(shipment.received_at), 'MMM d, yyyy')
+                    : shipment.expected_arrival_date
+                      ? format(new Date(shipment.expected_arrival_date), 'MMM d, yyyy')
+                      : '-'
+                },
+              ]}
+            />
+          ))}
+        </div>
+      );
+    }
+
     return (
-      <Badge className={colors[type] || ''}>
-        {type === 'will_call' ? 'Will Call' : type}
-      </Badge>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Shipment #</TableHead>
+            <TableHead>Account</TableHead>
+            <TableHead>Carrier</TableHead>
+            <TableHead>Tracking</TableHead>
+            <TableHead>{activeTab === 'received' ? 'Received' : 'Expected'}</TableHead>
+            <TableHead>Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredShipments.map((shipment) => (
+            <TableRow
+              key={shipment.id}
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => navigate(`/shipments/${shipment.id}`)}
+            >
+              <TableCell className="font-medium">{shipment.shipment_number}</TableCell>
+              <TableCell>{shipment.account_name || '-'}</TableCell>
+              <TableCell>{shipment.carrier || '-'}</TableCell>
+              <TableCell>{shipment.tracking_number || '-'}</TableCell>
+              <TableCell>
+                {activeTab === 'received' && shipment.received_at
+                  ? format(new Date(shipment.received_at), 'MMM d, yyyy')
+                  : shipment.expected_arrival_date
+                    ? format(new Date(shipment.expected_arrival_date), 'MMM d, yyyy')
+                    : '-'}
+              </TableCell>
+              <TableCell>{getStatusBadge(shipment.status)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     );
   };
 
-  const uniqueStatuses = [...new Set(shipments.map((s) => s.status))];
-
+  // ------------------------------------------
+  // Render
+  // ------------------------------------------
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/shipments')}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">
-                {activeTab === 'received' 
-                  ? 'Received Shipments' 
-                  : activeTab === 'inbound' 
-                    ? 'Incoming Shipments' 
-                    : 'Outbound Shipments'}
-              </h1>
-              <p className="text-muted-foreground">
-                {activeTab === 'received'
-                  ? 'View completed receiving shipments'
-                  : activeTab === 'inbound' 
-                    ? 'Manage receiving and incoming shipments' 
-                    : 'Manage will call and disposal releases'}
-              </p>
-            </div>
+      <PageHeader
+        title="Shipments"
+        description="Manage inbound and outbound shipments"
+      >
+        <Button onClick={() => navigate('/shipments/create')}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Shipment
+        </Button>
+      </PageHeader>
+
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+          <TabsTrigger value="incoming" className="gap-2">
+            <ArrowDownToLine className="h-4 w-4" />
+            <span className="hidden sm:inline">Incoming</span>
+          </TabsTrigger>
+          <TabsTrigger value="outbound" className="gap-2">
+            <ArrowUpFromLine className="h-4 w-4" />
+            <span className="hidden sm:inline">Outbound</span>
+          </TabsTrigger>
+          <TabsTrigger value="received" className="gap-2">
+            <CheckCircle className="h-4 w-4" />
+            <span className="hidden sm:inline">Received</span>
+          </TabsTrigger>
+          <TabsTrigger value="released" className="gap-2">
+            <Package className="h-4 w-4" />
+            <span className="hidden sm:inline">Released</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search shipments..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
           </div>
-          <Button onClick={() => navigate('/shipments/new')}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Shipment
-          </Button>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {uniqueStatuses.map(status => (
+                <SelectItem key={status} value={status}>{status}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="inbound" className="flex items-center gap-2">
-              <Package className="h-4 w-4" />
-              Incoming
-            </TabsTrigger>
-            <TabsTrigger value="outbound" className="flex items-center gap-2">
-              <Truck className="h-4 w-4" />
-              Outbound
-            </TabsTrigger>
-            <TabsTrigger value="received" className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4" />
-              Received
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value={activeTab} className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {activeTab === 'inbound' ? 'Incoming' : activeTab === 'received' ? 'Received' : 'Outbound'} Shipments
-                </CardTitle>
-                <CardDescription>
-                  {filteredShipments.length} shipments found
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search by shipment #, account, carrier..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full sm:w-48">
-                      <Filter className="mr-2 h-4 w-4" />
-                      <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      {uniqueStatuses.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status.replace('_', ' ')}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {loading ? (
-                  <div className="flex items-center justify-center h-48">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
-                ) : filteredShipments.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Package className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <h3 className="mt-4 text-lg font-semibold">No shipments found</h3>
-                    <p className="text-muted-foreground">
-                      {searchQuery || statusFilter !== 'all'
-                        ? 'Try adjusting your search or filters'
-                        : 'Get started by creating a new shipment'}
-                    </p>
-                  </div>
-                ) : isMobile ? (
-                  <div className="space-y-3">
-                    {filteredShipments.map((shipment) => (
-                      <MobileDataCard
-                        key={shipment.id}
-                        onClick={() => navigate(`/shipments/${shipment.id}`)}
-                      >
-                        <MobileDataCardHeader>
-                          <div>
-                            <MobileDataCardTitle>{shipment.shipment_number}</MobileDataCardTitle>
-                            <MobileDataCardDescription>{shipment.account_name || '-'}</MobileDataCardDescription>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            {getStatusBadge(shipment.status)}
-                            {activeTab === 'outbound' && getReleaseTypeBadge(shipment.release_type)}
-                          </div>
-                        </MobileDataCardHeader>
-                        <MobileDataCardContent>
-                          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                            {activeTab === 'inbound' && (
-                              <div>
-                                <span>Carrier:</span>
-                                <div className="text-foreground">{shipment.carrier || '-'}</div>
-                              </div>
-                            )}
-                            <div>
-                              <span>{activeTab === 'inbound' ? 'Expected:' : 'Created:'}</span>
-                              <div className="text-foreground">
-                                {activeTab === 'inbound'
-                                  ? shipment.expected_arrival_date
-                                    ? format(new Date(shipment.expected_arrival_date), 'MMM d, yyyy')
-                                    : '-'
-                                  : format(new Date(shipment.created_at), 'MMM d, yyyy')}
-                              </div>
-                            </div>
-                            <div>
-                              <span>Warehouse:</span>
-                              <div className="text-foreground">{shipment.warehouse_name || '-'}</div>
-                            </div>
-                          </div>
-                        </MobileDataCardContent>
-                      </MobileDataCard>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Shipment #</TableHead>
-                          {activeTab === 'outbound' && <TableHead>Type</TableHead>}
-                          <TableHead>Status</TableHead>
-                          <TableHead>Account</TableHead>
-                          {activeTab === 'inbound' && <TableHead>Carrier</TableHead>}
-                          <TableHead>
-                            {activeTab === 'inbound' ? 'Expected' : 'Created'}
-                          </TableHead>
-                          <TableHead>Warehouse</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredShipments.map((shipment) => (
-                          <TableRow
-                            key={shipment.id}
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => navigate(`/shipments/${shipment.id}`)}
-                          >
-                            <TableCell className="font-medium">
-                              {shipment.shipment_number}
-                            </TableCell>
-                            {activeTab === 'outbound' && (
-                              <TableCell>
-                                {getReleaseTypeBadge(shipment.release_type)}
-                              </TableCell>
-                            )}
-                            <TableCell>{getStatusBadge(shipment.status)}</TableCell>
-                            <TableCell>{shipment.account_name || '-'}</TableCell>
-                            {activeTab === 'inbound' && (
-                              <TableCell>{shipment.carrier || '-'}</TableCell>
-                            )}
-                            <TableCell>
-                              {activeTab === 'inbound'
-                                ? shipment.expected_arrival_date
-                                  ? format(new Date(shipment.expected_arrival_date), 'MMM d, yyyy')
-                                  : '-'
-                                : format(new Date(shipment.created_at), 'MMM d, yyyy')}
-                            </TableCell>
-                            <TableCell>{shipment.warehouse_name || '-'}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+        {/* Tab Content */}
+        <Card>
+          <CardContent className="p-0 sm:p-6">
+            {renderTabContent()}
+          </CardContent>
+        </Card>
+      </Tabs>
     </DashboardLayout>
   );
 }
