@@ -82,6 +82,7 @@ export function DocumentCapture({
         description: `You can only upload up to ${maxDocuments} documents.`,
         variant: 'destructive',
       });
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
@@ -159,11 +160,24 @@ export function DocumentCapture({
         title: 'Upload complete',
         description: `${filesToUpload.length} document(s) uploaded successfully.`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading files:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Some files failed to upload. Please try again.';
+      if (error.message?.includes('storage')) {
+        errorMessage = 'Storage error: Unable to save files. Please check your connection and try again.';
+      } else if (error.message?.includes('size') || error.message?.includes('large')) {
+        errorMessage = 'One or more files are too large. Please use smaller files (under 10MB each).';
+      } else if (error.message?.includes('permission') || error.message?.includes('unauthorized')) {
+        errorMessage = 'Permission denied. Please refresh the page and try again.';
+      } else if (error.message) {
+        errorMessage = `Upload failed: ${error.message}`;
+      }
+      
       toast({
         title: 'Upload failed',
-        description: 'Some files failed to upload. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

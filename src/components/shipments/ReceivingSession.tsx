@@ -87,7 +87,7 @@ export function ReceivingSession({
 
   const [notes, setNotes] = useState('');
   const [trackingNumbers, setTrackingNumbers] = useState<string[]>(['']);
-  const [receivedItems, setReceivedItems] = useState<{ description: string; quantity: number; receivedWithoutId: boolean }[]>([]);
+  const [receivedItems, setReceivedItems] = useState<{ shipment_item_id?: string; description: string; quantity: number; receivedWithoutId: boolean }[]>([]);
   const [showFinishDialog, setShowFinishDialog] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [ocrEnabled, setOcrEnabled] = useState(true);
@@ -97,10 +97,11 @@ export function ReceivingSession({
   }, [fetchSession]);
 
   useEffect(() => {
-    // Initialize received items from expected items
+    // Initialize received items from expected items - include shipment_item_id for linking
     if (expectedItems.length > 0 && receivedItems.length === 0) {
       setReceivedItems(
         expectedItems.map(item => ({
+          shipment_item_id: item.id,
           description: item.expected_description || '',
           quantity: item.expected_quantity || 0,
           receivedWithoutId: false,

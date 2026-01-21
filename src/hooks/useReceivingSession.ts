@@ -23,7 +23,7 @@ interface ReceivingSession {
 
 interface VerificationData {
   expected_items: { description: string; quantity: number }[];
-  received_items: { description: string; quantity: number; item_id?: string; receivedWithoutId?: boolean }[];
+  received_items: { description: string; quantity: number; item_id?: string; receivedWithoutId?: boolean; shipment_item_id?: string }[];
   discrepancies: { description: string; expected: number; received: number }[];
   backorder_items?: { description: string; quantity: number }[];
   [key: string]: unknown;
@@ -232,9 +232,20 @@ export function useReceivingSession(shipmentId: string | undefined) {
               continue;
             }
 
-            // Track created item ID for label printing
+            // Track created item ID for label printing and link to shipment_item
             if (newItem) {
               createdItemIds.push(newItem.id);
+              
+              // Link the created item back to the shipment_item
+              if (item.shipment_item_id) {
+                await (supabase.from('shipment_items') as any)
+                  .update({ 
+                    item_id: newItem.id, 
+                    status: 'received',
+                    actual_quantity: item.quantity,
+                  })
+                  .eq('id', item.shipment_item_id);
+              }
             }
 
             // Create inspection task if tenant preference or account setting is enabled

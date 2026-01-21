@@ -79,20 +79,22 @@ export function ShipmentItemRow({
   const { suggestions: vendorSuggestions, addOrUpdateSuggestion: addVendorSuggestion } = useFieldSuggestions('vendor');
   const { suggestions: descriptionSuggestions, addOrUpdateSuggestion: addDescSuggestion } = useFieldSuggestions('description');
 
-  // Fetch item types
+  // Fetch item types - both global and tenant-specific
   useEffect(() => {
     const fetchItemTypes = async () => {
-      if (!profile?.tenant_id) return;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('item_types')
         .select('id, name')
-        .eq('tenant_id', profile.tenant_id)
-        .is('deleted_at', null)
+        .eq('is_active', true)
         .order('name');
+      
+      if (error) {
+        console.error('Error fetching item types:', error);
+      }
       setItemTypes(data || []);
     };
     fetchItemTypes();
-  }, [profile?.tenant_id]);
+  }, []);
 
   const handleStartEdit = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -154,9 +156,11 @@ export function ShipmentItemRow({
     <>
       <TableRow 
         className={cn(
-          "cursor-pointer hover:bg-muted/50",
-          isEditing && "bg-muted/30"
+          isEditing && "bg-muted/30",
+          item.item_id && !isEditing && "cursor-pointer hover:bg-muted/50",
+          !item.item_id && "cursor-default"
         )}
+        onClick={!isEditing ? handleRowClick : undefined}
       >
         {/* Select checkbox */}
         <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>

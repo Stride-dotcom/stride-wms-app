@@ -19,7 +19,6 @@ import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { ItemTypeCombobox } from '@/components/items/ItemTypeCombobox';
 import { supabase } from '@/integrations/supabase/client';
 import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
-import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Plus } from 'lucide-react';
 
@@ -32,6 +31,7 @@ interface AddShipmentItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   shipmentId: string;
+  accountId?: string;
   onSuccess: () => void;
 }
 
@@ -39,9 +39,9 @@ export function AddShipmentItemDialog({
   open,
   onOpenChange,
   shipmentId,
+  accountId,
   onSuccess,
 }: AddShipmentItemDialogProps) {
-  const { profile } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
@@ -53,26 +53,29 @@ export function AddShipmentItemDialog({
   const [itemTypeId, setItemTypeId] = useState('');
   const [quantity, setQuantity] = useState('1');
   
-  // Field suggestions
+  // Field suggestions - async search with previously used values
   const { suggestions: vendorSuggestions, addOrUpdateSuggestion: addVendorSuggestion } = useFieldSuggestions('vendor');
   const { suggestions: descriptionSuggestions, addOrUpdateSuggestion: addDescSuggestion } = useFieldSuggestions('description');
+  const { suggestions: sidemarkSuggestions, addOrUpdateSuggestion: addSidemarkSuggestion } = useFieldSuggestions('sidemark');
 
-  // Fetch item types
+  // Fetch item types - both global and tenant-specific (no restrictive filter)
   useEffect(() => {
     const fetchItemTypes = async () => {
-      if (!profile?.tenant_id) return;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('item_types')
         .select('id, name')
-        .eq('tenant_id', profile.tenant_id)
-        .is('deleted_at', null)
+        .eq('is_active', true)
         .order('name');
+      
+      if (error) {
+        console.error('Error fetching item types:', error);
+      }
       setItemTypes(data || []);
     };
     if (open) {
       fetchItemTypes();
     }
-  }, [open, profile?.tenant_id]);
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,9 +99,10 @@ export function AddShipmentItemDialog({
 
       if (error) throw error;
 
-      // Record field usage
+      // Record field usage for future suggestions
       if (vendor) addVendorSuggestion(vendor);
       if (description) addDescSuggestion(description);
+      if (sidemark) addSidemarkSuggestion(sidemark);
 
       toast({ title: 'Item added to shipment' });
       
@@ -164,11 +168,11 @@ export function AddShipmentItemDialog({
 
           <div className="space-y-2">
             <Label htmlFor="sidemark">Sidemark</Label>
-            <Input
-              id="sidemark"
+            <AutocompleteInput
               value={sidemark}
-              onChange={(e) => setSidemark(e.target.value)}
-              placeholder="Customer reference"
+              onChange={setSidemark}
+              suggestions={sidemarkSuggestions}
+              placeholder="Customer reference or sidemark"
             />
           </div>
 

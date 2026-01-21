@@ -105,6 +105,13 @@ export function DocumentScanner({
       setState('scanning');
       setCameraReady(false);
       
+      // Check if camera API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError('Camera is not available on this device. Please use the Upload option instead.');
+        setState('error');
+        return;
+      }
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'environment',
@@ -124,9 +131,37 @@ export function DocumentScanner({
       // Start a new session
       const session = startScannerSession();
       setSessionId(session.id);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Camera error:', err);
-      setError('Could not access camera. Please check permissions.');
+      
+      // Provide specific error messages based on the error type
+      let errorMessage = 'Could not access camera.';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorMessage = 'Camera permission denied. Please allow camera access in your browser settings and try again.';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errorMessage = 'No camera found on this device. Please use the Upload option instead.';
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        errorMessage = 'Camera is in use by another application. Please close other apps using the camera and try again.';
+      } else if (err.name === 'OverconstrainedError') {
+        errorMessage = 'Camera does not support the required settings. Trying with default settings...';
+        // Try again with simpler constraints
+        try {
+          const simpleStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          streamRef.current = simpleStream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = simpleStream;
+            await videoRef.current.play();
+            setCameraReady(true);
+          }
+          const session = startScannerSession();
+          setSessionId(session.id);
+          return; // Success with simple constraints
+        } catch {
+          errorMessage = 'Could not access camera with any settings. Please use the Upload option.';
+        }
+      }
+      
+      setError(errorMessage);
       setState('error');
     }
   };
