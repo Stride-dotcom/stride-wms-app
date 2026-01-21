@@ -50,6 +50,7 @@ import {
   Trash2,
   ChevronDown,
   Pencil,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -61,6 +62,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface ShipmentDetail {
   id: string;
@@ -135,6 +137,10 @@ export default function ShipmentDetail() {
   const [showAddItemDialog, setShowAddItemDialog] = useState(false);
   const [showEditDetailsDialog, setShowEditDetailsDialog] = useState(false);
   
+  // For orphan session handling
+  const [orphanSession, setOrphanSession] = useState<{ id: string; started_at: string } | null>(null);
+  const [cancellingOrphan, setCancellingOrphan] = useState(false);
+  
   // For signature
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [signatureName, setSignatureName] = useState('');
@@ -176,6 +182,24 @@ export default function ShipmentDetail() {
         receiving_photos: data.receiving_photos || [],
         receiving_documents: data.receiving_documents || [],
       });
+
+      // Check for orphan receiving sessions on already-received shipments
+      if (data.status === 'received' || data.status === 'completed') {
+        const { data: activeSession } = await supabase
+          .from('receiving_sessions')
+          .select('id, started_at')
+          .eq('shipment_id', id)
+          .eq('status', 'in_progress')
+          .maybeSingle();
+        
+        if (activeSession) {
+          setOrphanSession(activeSession as { id: string; started_at: string });
+        } else {
+          setOrphanSession(null);
+        }
+      } else {
+        setOrphanSession(null);
+      }
     } catch (error) {
       console.error('Error fetching shipment:', error);
       toast({
@@ -400,6 +424,31 @@ export default function ShipmentDetail() {
   const allSelected = selectableItems.length > 0 && selectableItems.every(item => selectedItems.has(item.item_id!));
   const someSelected = selectableItems.some(item => selectedItems.has(item.item_id!));
 
+  const handleCancelOrphanSession = async () => {
+    if (!orphanSession) return;
+    setCancellingOrphan(true);
+    try {
+      await supabase
+        .from('receiving_sessions')
+        .update({ status: 'cancelled', finished_at: new Date().toISOString() })
+        .eq('id', orphanSession.id);
+      
+      setOrphanSession(null);
+      toast({ 
+        title: 'Session cancelled', 
+        description: 'The stale receiving session has been removed.' 
+      });
+    } catch (error: any) {
+      toast({ 
+        title: 'Error', 
+        description: 'Failed to cancel session', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setCancellingOrphan(false);
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -504,7 +553,7 @@ export default function ShipmentDetail() {
               </TooltipProvider>
             )}
             
-            {!isCompleted && (
+            {!isCompleted && !isReceived && (
               <Button onClick={() => setShowCompleteDialog(true)}>
                 <CheckCircle className="mr-2 h-4 w-4" />
                 {shipment.shipment_type === 'inbound' ? 'Mark as Received' : 'Complete'}
@@ -513,8 +562,30 @@ export default function ShipmentDetail() {
           </div>
         </div>
 
-        {/* Receiving Session - Only show for inbound shipments that aren't completed */}
-        {shipment.shipment_type === 'inbound' && !isCompleted && (
+        {/* Orphan Session Warning Banner */}
+        {orphanSession && (
+          <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertTitle>Stale Receiving Session Found</AlertTitle>
+            <AlertDescription className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span>
+                A receiving session from {format(new Date(orphanSession.started_at), 'MMM d, h:mm a')} was not properly closed.
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleCancelOrphanSession}
+                disabled={cancellingOrphan}
+              >
+                {cancellingOrphan ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                Cancel Session
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Receiving Session - Only show for inbound shipments that aren't completed or received */}
+        {shipment.shipment_type === 'inbound' && !isCompleted && !isReceived && (
           <ReceivingSession
             shipmentId={shipment.id}
             shipmentNumber={shipment.shipment_number}
