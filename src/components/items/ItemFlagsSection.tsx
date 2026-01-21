@@ -177,7 +177,7 @@ export function ItemFlagsSection({
       // Create billing event for billable flags (only when setting to true)
       const config = FLAG_CONFIG.find(f => f.key === flagKey);
       if (config?.billable && value) {
-        await createFlagBillingEvent(itemId, flagKey, value);
+        await createFlagBillingEvent(itemId, flagKey, accountId || null, itemId);
       }
 
       // Auto-create repair task when needs_repair is enabled and preference is set
