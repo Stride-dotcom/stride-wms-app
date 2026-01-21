@@ -43,12 +43,11 @@ export function useItemPreview(itemId: string | undefined) {
         return { item: null, photos: [] };
       }
 
-      // Fetch photos
+      // Fetch photos (item_photos does NOT have deleted_at column)
       const { data: photos, error: photosError } = await supabase
         .from('item_photos')
         .select('id, storage_url, photo_type, is_primary')
         .eq('item_id', itemId)
-        .is('deleted_at', null)
         .order('is_primary', { ascending: false })
         .limit(5);
 

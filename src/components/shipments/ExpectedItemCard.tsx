@@ -89,6 +89,39 @@ export function ExpectedItemCard({
           </Button>
         </div>
 
+        {/* Field order: Qty, Vendor, Description, Item Type, Sidemark */}
+        
+        {/* Row 1: Quantity and Vendor side by side */}
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            label="Qty"
+            name={`item-${item.id}-quantity`}
+            type="number"
+            value={item.quantity}
+            onChange={(v) => onUpdate(item.id, "quantity", parseInt(v) || 1)}
+            min={1}
+            max={9999}
+            required
+            error={errors?.quantity}
+          />
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Vendor</label>
+            <SearchableSelect
+              options={vendorOptions}
+              value={item.vendor}
+              onChange={(v) => {
+                onUpdate(item.id, "vendor", v);
+                if (v && onVendorUsed) onVendorUsed(v);
+              }}
+              placeholder="Select vendor..."
+              searchPlaceholder="Search vendors..."
+              emptyText="No matching vendors"
+              recentKey="shipment-vendors"
+              clearable
+            />
+          </div>
+        </div>
+
         {/* Description - textarea with auto-grow */}
         <FormField
           label="Description"
@@ -103,55 +136,8 @@ export function ExpectedItemCard({
           maxRows={4}
         />
 
-        {/* Vendor with suggestions */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">Vendor</label>
-          <SearchableSelect
-            options={vendorOptions}
-            value={item.vendor}
-            onChange={(v) => {
-              onUpdate(item.id, "vendor", v);
-              if (v && onVendorUsed) onVendorUsed(v);
-            }}
-            placeholder="Select or type vendor..."
-            searchPlaceholder="Search vendors..."
-            emptyText="No matching vendors"
-            recentKey="shipment-vendors"
-            clearable
-          />
-        </div>
-
-        {/* Sidemark with suggestions */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">Sidemark</label>
-          <SearchableSelect
-            options={sidemarkOptions}
-            value={item.sidemark}
-            onChange={(v) => {
-              onUpdate(item.id, "sidemark", v);
-              if (v && onSidemarkUsed) onSidemarkUsed(v);
-            }}
-            placeholder="Select or type sidemark..."
-            searchPlaceholder="Search sidemarks..."
-            emptyText="No matching sidemarks"
-            recentKey="shipment-sidemarks"
-            clearable
-          />
-        </div>
-
-        {/* Quantity and Item Type in a row on larger screens */}
+        {/* Row 2: Item Type and Sidemark side by side */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <FormField
-            label="Quantity"
-            name={`item-${item.id}-quantity`}
-            type="number"
-            value={item.quantity}
-            onChange={(v) => onUpdate(item.id, "quantity", parseInt(v) || 1)}
-            min={1}
-            max={9999}
-            error={errors?.quantity}
-          />
-
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Item Type</label>
             <SearchableSelect
@@ -162,6 +148,23 @@ export function ExpectedItemCard({
               searchPlaceholder="Search types..."
               emptyText="No item types found"
               recentKey="shipment-item-types"
+              clearable
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Sidemark</label>
+            <SearchableSelect
+              options={sidemarkOptions}
+              value={item.sidemark}
+              onChange={(v) => {
+                onUpdate(item.id, "sidemark", v);
+                if (v && onSidemarkUsed) onSidemarkUsed(v);
+              }}
+              placeholder="Select sidemark..."
+              searchPlaceholder="Search sidemarks..."
+              emptyText="No matching sidemarks"
+              recentKey="shipment-sidemarks"
+              clearable
             />
           </div>
         </div>
