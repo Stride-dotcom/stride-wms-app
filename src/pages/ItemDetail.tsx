@@ -132,7 +132,9 @@ export default function ItemDetail() {
   // ============================================
   // RENDER-TIME UUID GUARD - executes before any hooks
   // ============================================
-  if (!id || !isValidUuid(id)) return <Navigate to="/inventory" replace />;
+  if (!id || !isValidUuid(id)) {
+    return <Navigate to="/inventory" replace />;
+  }
 
   // Now we know id is a valid UUID - safe to use hooks
   const navigate = useNavigate();
