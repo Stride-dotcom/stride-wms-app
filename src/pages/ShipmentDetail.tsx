@@ -1,471 +1,268 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { useReceivingSession, ReceivedItemData } from '@/hooks/useReceivingSession';
+import { usePermissions, PERMISSIONS } from '@/hooks/usePermissions';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { usePermissions } from '@/hooks/usePermissions';
-import { SignaturePad } from '@/components/shipments/SignaturePad';
-import { PhotoCapture } from '@/components/shipments/PhotoCapture';
-import { ReceivingSession } from '@/components/shipments/ReceivingSession';
-import { TaskDialog } from '@/components/tasks/TaskDialog';
-import { ScanDocumentButton, DocumentList } from '@/components/scanner';
-import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
-import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDialog';
-import { ShipmentEditDialog } from '@/components/shipments/ShipmentEditDialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
-import { 
-  ArrowLeft, 
-  Loader2, 
-  Package, 
-  Truck, 
-  CheckCircle, 
-  Clock,
-  FileText,
-  Image as ImageIcon,
-  Printer,
-  ClipboardList,
-  Trash2,
-  ChevronDown,
-  Pencil,
-  AlertTriangle,
-} from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
-import { ItemLabelData } from '@/lib/labelGenerator';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-interface ShipmentDetail {
+// ============================================
+// TYPES
+// ============================================
+
+interface ShipmentItem {
+  id: string;
+  expected_description: string | null;
+  expected_vendor: string | null;
+  expected_sidemark: string | null;
+  expected_quantity: number;
+  actual_quantity: number | null;
+  status: string;
+  item_id: string | null;
+  item?: {
+    id: string;
+    item_code: string;
+    description: string | null;
+  } | null;
+}
+
+interface Shipment {
   id: string;
   shipment_number: string;
   shipment_type: string;
-  release_type: string | null;
   status: string;
+  account_id: string | null;
+  warehouse_id: string | null;
   carrier: string | null;
   tracking_number: string | null;
   po_number: string | null;
   expected_arrival_date: string | null;
   received_at: string | null;
-  completed_at: string | null;
-  created_at: string;
   notes: string | null;
   receiving_notes: string | null;
   receiving_photos: string[] | null;
   receiving_documents: string[] | null;
-  signature_data: string | null;
-  signature_name: string | null;
-  signature_timestamp: string | null;
-  release_to_name: string | null;
-  release_to_email: string | null;
-  release_to_phone: string | null;
-  account?: { id: string; account_name: string } | null;
-  warehouse?: { id: string; name: string } | null;
-  items: ShipmentItem[];
+  release_type: string | null;
+  created_at: string;
+  accounts?: { id: string; name: string } | null;
+  warehouses?: { id: string; name: string } | null;
 }
 
-interface ShipmentItem {
-  id: string;
-  item_id: string | null;
-  expected_description: string | null;
-  expected_vendor: string | null;
-  expected_sidemark: string | null;
-  expected_item_type_id: string | null;
-  expected_quantity: number | null;
-  actual_quantity: number | null;
-  status: string;
-  item?: {
-    item_code: string;
-    description: string | null;
-    vendor: string | null;
-  } | null;
-}
+// ============================================
+// COMPONENT
+// ============================================
 
 export default function ShipmentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const { toast } = useToast();
-  const { hasRole, isAdmin } = usePermissions();
+  const { hasPermission } = usePermissions();
 
-  // Permission check for printing: warehouse staff+
-  const canPrintLabels = isAdmin || 
-    hasRole('tenant_admin') ||
-    hasRole('warehouse_staff') || 
-    hasRole('warehouse') ||
-    hasRole('manager');
-
-  const [shipment, setShipment] = useState<ShipmentDetail | null>(null);
+  // State
   const [loading, setLoading] = useState(true);
-  const [completing, setCompleting] = useState(false);
-  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
-  const [showPrintDialog, setShowPrintDialog] = useState(false);
-  const [showPrintPrompt, setShowPrintPrompt] = useState(false);
-  const [receivedItemsForLabels, setReceivedItemsForLabels] = useState<ItemLabelData[]>([]);
-  
-  // For item selection and task creation
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [showTaskDialog, setShowTaskDialog] = useState(false);
-  const [preSelectedTaskType, setPreSelectedTaskType] = useState<string | undefined>(undefined);
-  const [showAddItemDialog, setShowAddItemDialog] = useState(false);
-  const [showEditDetailsDialog, setShowEditDetailsDialog] = useState(false);
-  
-  // For orphan session handling
-  const [orphanSession, setOrphanSession] = useState<{ id: string; started_at: string } | null>(null);
-  const [cancellingOrphan, setCancellingOrphan] = useState(false);
-  
-  // For signature
-  const [signatureData, setSignatureData] = useState<string | null>(null);
-  const [signatureName, setSignatureName] = useState('');
+  const [shipment, setShipment] = useState<Shipment | null>(null);
+  const [items, setItems] = useState<ShipmentItem[]>([]);
+  const [showFinishDialog, setShowFinishDialog] = useState(false);
+  const [receivedItems, setReceivedItems] = useState<ReceivedItemData[]>([]);
+  const [receivingPhotos, setReceivingPhotos] = useState<string[]>([]);
+  const [receivingDocuments, setReceivingDocuments] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (id) {
-      fetchShipment();
-    }
-  }, [id]);
+  // Receiving session hook
+  const {
+    session,
+    loading: sessionLoading,
+    fetchSession,
+    startSession,
+    finishSession,
+    cancelSession,
+  } = useReceivingSession(id);
 
-  const fetchShipment = async () => {
+  // ------------------------------------------
+  // Fetch shipment data
+  // ------------------------------------------
+  const fetchShipment = useCallback(async () => {
+    if (!id || !profile?.tenant_id) return;
+
     try {
-      const shipmentsTable = supabase.from('shipments') as any;
-      
-      const { data, error } = await shipmentsTable
+      // Fetch shipment with related data
+      const { data: shipmentData, error: shipmentError } = await supabase
+        .from('shipments')
         .select(`
           *,
-          accounts(id, account_name),
-          warehouses(id, name)
+          accounts:account_id(id, name),
+          warehouses:warehouse_id(id, name)
         `)
         .eq('id', id)
+        .eq('tenant_id', profile.tenant_id)
+        .is('deleted_at', null)
         .single();
 
-      if (error) throw error;
-
-      // Fetch shipment items with vendor data
-      const { data: items } = await (supabase.from('shipment_items') as any)
-        .select(`
-          *,
-          items(item_code, description, vendor)
-        `)
-        .eq('shipment_id', id);
-
-      setShipment({
-        ...data,
-        account: data.accounts,
-        warehouse: data.warehouses,
-        items: items || [],
-        receiving_photos: data.receiving_photos || [],
-        receiving_documents: data.receiving_documents || [],
-      });
-
-      // Check for orphan receiving sessions on already-received shipments
-      if (data.status === 'received' || data.status === 'completed') {
-        const { data: activeSession } = await supabase
-          .from('receiving_sessions')
-          .select('id, started_at')
-          .eq('shipment_id', id)
-          .eq('status', 'in_progress')
-          .maybeSingle();
-        
-        if (activeSession) {
-          setOrphanSession(activeSession as { id: string; started_at: string });
-        } else {
-          setOrphanSession(null);
-        }
-      } else {
-        setOrphanSession(null);
+      if (shipmentError) {
+        console.error('[ShipmentDetail] fetch shipment failed:', shipmentError);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load shipment' });
+        return;
       }
-    } catch (error) {
-      console.error('Error fetching shipment:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load shipment details.',
-        variant: 'destructive',
-      });
+
+      // Fetch shipment items
+      const { data: itemsData, error: itemsError } = await supabase
+        .from('shipment_items')
+        .select(`
+          id,
+          expected_description,
+          expected_vendor,
+          expected_sidemark,
+          expected_quantity,
+          actual_quantity,
+          status,
+          item_id,
+          item:items!shipment_items_item_id_fkey(id, item_code, description)
+        `)
+        .eq('shipment_id', id)
+        .order('created_at');
+
+      if (itemsError) {
+        console.error('[ShipmentDetail] fetch items failed:', itemsError);
+      }
+
+      setShipment(shipmentData as unknown as Shipment);
+      setItems((itemsData || []) as unknown as ShipmentItem[]);
+
+      // Initialize receiving photos/documents from shipment
+      if (shipmentData.receiving_photos) {
+        setReceivingPhotos(shipmentData.receiving_photos as string[]);
+      }
+      if (shipmentData.receiving_documents) {
+        setReceivingDocuments(shipmentData.receiving_documents as string[]);
+      }
+
+      // Check for active session
+      await fetchSession();
+    } catch (err) {
+      console.error('[ShipmentDetail] fetchShipment exception:', err);
     } finally {
       setLoading(false);
     }
+  }, [id, profile?.tenant_id, fetchSession, toast]);
+
+  useEffect(() => {
+    fetchShipment();
+  }, [fetchShipment]);
+
+  // ------------------------------------------
+  // Initialize received items for finish dialog
+  // ------------------------------------------
+  const openFinishDialog = () => {
+    const initialReceivedItems: ReceivedItemData[] = items.map(item => ({
+      shipment_item_id: item.id,
+      expected_description: item.expected_description,
+      expected_quantity: item.expected_quantity,
+      actual_quantity: item.actual_quantity ?? item.expected_quantity,
+      expected_vendor: item.expected_vendor,
+      expected_sidemark: item.expected_sidemark,
+      expected_item_type_id: null,
+      notes: null,
+      status: 'received' as const,
+    }));
+    setReceivedItems(initialReceivedItems);
+    setShowFinishDialog(true);
   };
 
-  const handleCompleteShipment = async () => {
+  // ------------------------------------------
+  // Update received item quantity
+  // ------------------------------------------
+  const updateReceivedQuantity = (shipmentItemId: string, quantity: number) => {
+    setReceivedItems(prev => prev.map(item => {
+      if (item.shipment_item_id === shipmentItemId) {
+        const status = quantity === 0 ? 'missing' : 
+                       quantity < item.expected_quantity ? 'partial' : 'received';
+        return { ...item, actual_quantity: quantity, status };
+      }
+      return item;
+    }));
+  };
+
+  // ------------------------------------------
+  // Handle finish receiving
+  // ------------------------------------------
+  const handleFinishReceiving = async () => {
     if (!shipment) return;
 
-    // For will call, require signature
-    if (shipment.release_type === 'will_call' && !signatureData && !signatureName) {
-      toast({
-        title: 'Signature required',
-        description: 'Please provide a signature before completing the will call.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setCompleting(true);
-    try {
-      const shipmentsTable = supabase.from('shipments') as any;
-      
-      const updateData: any = {
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-      };
-
-      if (shipment.shipment_type === 'inbound') {
-        updateData.status = 'received';
-        updateData.received_at = new Date().toISOString();
-      }
-
-      if (signatureData) {
-        updateData.signature_data = signatureData;
-        updateData.signature_timestamp = new Date().toISOString();
-      }
-      if (signatureName) {
-        updateData.signature_name = signatureName;
-        updateData.signature_timestamp = new Date().toISOString();
-      }
-
-      const { error } = await shipmentsTable
-        .update(updateData)
-        .eq('id', shipment.id);
-
-      if (error) throw error;
-
-      // Update items status if this is an outbound (will call/disposal)
-      if (shipment.shipment_type === 'outbound') {
-        const itemIds = shipment.items
-          .map(i => i.item_id)
-          .filter((id): id is string => id !== null);
-
-        if (itemIds.length > 0) {
-          await (supabase.from('items') as any)
-            .update({ 
-              status: shipment.release_type === 'disposal' ? 'disposed' : 'released',
-              deleted_at: shipment.release_type === 'disposal' ? new Date().toISOString() : null,
-            })
-            .in('id', itemIds);
-        }
-      }
-
-      toast({
-        title: 'Shipment completed',
-        description: `${shipment.shipment_number} has been marked as ${shipment.shipment_type === 'inbound' ? 'received' : 'completed'}.`,
-      });
-
-      // For inbound shipments, prompt to print labels for received items
-      if (shipment.shipment_type === 'inbound') {
-        // Fetch the actual items that were created/received
-        const itemIds = shipment.items
-          .map(i => i.item_id)
-          .filter((id): id is string => id !== null);
-
-        if (itemIds.length > 0) {
-          const { data: receivedItems } = await (supabase.from('items') as any)
-            .select('id, item_code, description, vendor, client_account, sidemark, location_id, warehouse_id, locations(code), warehouses(name)')
-            .in('id', itemIds);
-
-          if (receivedItems && receivedItems.length > 0) {
-            const labelsData: ItemLabelData[] = receivedItems.map((item: any) => ({
-              id: item.id,
-              itemCode: item.item_code,
-              description: item.description || '',
-              vendor: item.vendor || '',
-              account: item.client_account || shipment.account?.account_name || '',
-              sidemark: item.sidemark || '',
-              warehouseName: item.warehouses?.name || shipment.warehouse?.name || '',
-              locationCode: item.locations?.code || '',
-            }));
-            setReceivedItemsForLabels(labelsData);
-            setShowPrintPrompt(true);
-          }
-        }
-      }
-
-      fetchShipment();
-      setShowCompleteDialog(false);
-    } catch (error: any) {
-      console.error('Error completing shipment:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to complete shipment.',
-        variant: 'destructive',
-      });
-    } finally {
-      setCompleting(false);
-    }
-  };
-
-  const handlePhotosChange = async (type: 'photos' | 'documents', urls: string[]) => {
-    if (!shipment) return;
-
-    try {
-      const shipmentsTable = supabase.from('shipments') as any;
-      const updateData: any = {};
-      
-      if (type === 'photos') {
-        updateData.receiving_photos = urls;
-      } else {
-        updateData.receiving_documents = urls;
-      }
-
-      const { error } = await shipmentsTable
-        .update(updateData)
-        .eq('id', shipment.id);
-
-      if (error) throw error;
-
-      setShipment(prev => prev ? {
-        ...prev,
-        [type === 'photos' ? 'receiving_photos' : 'receiving_documents']: urls,
-      } : null);
-    } catch (error) {
-      console.error('Error updating photos:', error);
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const config: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: any }> = {
-      expected: { variant: 'secondary', icon: Clock },
-      in_progress: { variant: 'default', icon: Package },
-      in_transit: { variant: 'default', icon: Truck },
-      received: { variant: 'outline', icon: CheckCircle },
-      completed: { variant: 'outline', icon: CheckCircle },
-      cancelled: { variant: 'destructive', icon: null },
-    };
-    const statusConfig = config[status] || config.expected;
-    const Icon = statusConfig.icon;
-    
-    return (
-      <Badge variant={statusConfig.variant} className="flex items-center gap-1">
-        {Icon && <Icon className="h-3 w-3" />}
-        {status.replace('_', ' ')}
-      </Badge>
+    const result = await finishSession(
+      receivedItems,
+      {
+        account_id: shipment.account_id,
+        warehouse_id: shipment.warehouse_id || '',
+        account_name: shipment.accounts?.name || null,
+      },
+      receivingPhotos,
+      receivingDocuments
     );
-  };
 
-  // Get selectable items (only those with item_id) - must be before early returns
-  const selectableItems = useMemo(() => 
-    shipment?.items.filter(item => item.item_id !== null) || [],
-    [shipment?.items]
-  );
-
-  // Check if there are any received items for printing
-  const hasReceivedItems = useMemo(() => 
-    shipment?.items.some(i => i.item_id !== null) || false,
-    [shipment?.items]
-  );
-
-  // Handler for receiving session completion - triggers print prompt
-  const handleReceivingComplete = useCallback(async (itemIds: string[]) => {
-    if (itemIds.length === 0) return;
-
-    // Fetch item details for labels
-    const { data: receivedItems } = await (supabase.from('items') as any)
-      .select('id, item_code, description, vendor, client_account, sidemark, locations(code), warehouses(name)')
-      .in('id', itemIds);
-
-    if (receivedItems && receivedItems.length > 0) {
-      const labelsData: ItemLabelData[] = receivedItems.map((item: any) => ({
-        id: item.id,
-        itemCode: item.item_code,
-        description: item.description || '',
-        vendor: item.vendor || '',
-        account: item.client_account || shipment?.account?.account_name || '',
-        sidemark: item.sidemark || '',
-        warehouseName: item.warehouses?.name || shipment?.warehouse?.name || '',
-        locationCode: item.locations?.code || '',
-      }));
-      setReceivedItemsForLabels(labelsData);
-      setShowPrintPrompt(true);
-    }
-  }, [shipment?.account?.account_name, shipment?.warehouse?.name]);
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedItems(new Set(selectableItems.map(item => item.item_id!)));
-    } else {
-      setSelectedItems(new Set());
+    if (result.success) {
+      setShowFinishDialog(false);
+      await fetchShipment();
     }
   };
 
-  const handleSelectItem = (itemId: string, checked: boolean) => {
-    const newSelected = new Set(selectedItems);
-    if (checked) {
-      newSelected.add(itemId);
-    } else {
-      newSelected.delete(itemId);
-    }
-    setSelectedItems(newSelected);
+  // ------------------------------------------
+  // Handle cancel receiving
+  // ------------------------------------------
+  const handleCancelReceiving = async () => {
+    await cancelSession();
+    await fetchShipment();
   };
 
-  const allSelected = selectableItems.length > 0 && selectableItems.every(item => selectedItems.has(item.item_id!));
-  const someSelected = selectableItems.some(item => selectedItems.has(item.item_id!));
-
-  const handleCancelOrphanSession = async () => {
-    if (!orphanSession) return;
-    setCancellingOrphan(true);
-    try {
-      await supabase
-        .from('receiving_sessions')
-        .update({ status: 'cancelled', finished_at: new Date().toISOString() })
-        .eq('id', orphanSession.id);
-      
-      setOrphanSession(null);
-      toast({ 
-        title: 'Session cancelled', 
-        description: 'The stale receiving session has been removed.' 
-      });
-    } catch (error: any) {
-      toast({ 
-        title: 'Error', 
-        description: 'Failed to cancel session', 
-        variant: 'destructive' 
-      });
-    } finally {
-      setCancellingOrphan(false);
-    }
+  // ------------------------------------------
+  // Status badge helper
+  // ------------------------------------------
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+      expected: 'secondary',
+      receiving: 'default',
+      received: 'default',
+      partial: 'destructive',
+      completed: 'default',
+      cancelled: 'outline',
+    };
+    return <Badge variant={variants[status] || 'secondary'}>{status}</Badge>;
   };
 
+  // ------------------------------------------
+  // Render loading state
+  // ------------------------------------------
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-[50vh]">
+        <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
   }
 
+  // ------------------------------------------
+  // Render not found
+  // ------------------------------------------
   if (!shipment) {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
-          <Package className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-4 text-lg font-semibold">Shipment not found</h3>
-          <Button variant="link" onClick={() => navigate('/shipments')}>
+          <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Shipment Not Found</h2>
+          <p className="text-muted-foreground mb-4">This shipment doesn't exist or you don't have access.</p>
+          <Button onClick={() => navigate('/shipments')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Shipments
           </Button>
         </div>
@@ -473,522 +270,278 @@ export default function ShipmentDetail() {
     );
   }
 
-  // Only truly lock editing for 'completed' status (outbound shipments)
-  // For 'received' status (inbound shipments), allow editing
-  const isCompleted = shipment.status === 'completed';
-  const isReceived = shipment.status === 'received';
+  const isInbound = shipment.shipment_type === 'inbound';
+  const canReceive = isInbound && ['expected', 'receiving'].includes(shipment.status);
+  const isReceiving = session !== null;
+  const isReceived = shipment.status === 'received' || shipment.status === 'partial';
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-6">
+        <Button variant="ghost" size="icon" onClick={() => navigate('/shipments')}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">{shipment.shipment_number}</h1>
+            {getStatusBadge(shipment.status)}
+            {shipment.release_type && (
+              <Badge variant="outline">{shipment.release_type}</Badge>
+            )}
+          </div>
+          <p className="text-muted-foreground">
+            {shipment.accounts?.name || 'No account'} • {shipment.warehouses?.name || 'No warehouse'}
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        {canReceive && !isReceiving && hasPermission(PERMISSIONS.SHIPMENTS_RECEIVE) && (
+          <Button onClick={startSession} disabled={sessionLoading}>
+            <Play className="h-4 w-4 mr-2" />
+            Start Receiving
+          </Button>
+        )}
+      </div>
+
+      {/* Receiving In Progress Banner */}
+      {isReceiving && (
+        <Card className="mb-6 border-primary bg-primary/5">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold tracking-tight">
-                  {shipment.shipment_number}
-                </h1>
-                {getStatusBadge(shipment.status)}
+                <div className="h-3 w-3 bg-primary rounded-full animate-pulse" />
+                <span className="font-medium">Receiving in progress</span>
               </div>
-              <p className="text-muted-foreground">
-                {shipment.shipment_type === 'inbound' ? 'Shipment Order' : 
-                  shipment.release_type === 'will_call' ? 'Will Call Pickup' : 'Disposal'}
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex flex-wrap gap-2">
-            {/* Print Labels - always visible for inbound when user has permission */}
-            {shipment.shipment_type === 'inbound' && canPrintLabels && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <Button 
-                        variant="outline" 
-                        disabled={!hasReceivedItems}
-                        onClick={() => {
-                          // Fetch items for printing
-                          const itemIds = shipment.items
-                            .map(i => i.item_id)
-                            .filter((id): id is string => id !== null);
-                          
-                          (async () => {
-                            const { data: receivedItems } = await (supabase.from('items') as any)
-                              .select('id, item_code, description, vendor, client_account, sidemark, locations(code), warehouses(name)')
-                              .in('id', itemIds);
-                            
-                            if (receivedItems && receivedItems.length > 0) {
-                              const labelsData: ItemLabelData[] = receivedItems.map((item: any) => ({
-                                id: item.id,
-                                itemCode: item.item_code,
-                                description: item.description || '',
-                                vendor: item.vendor || '',
-                                account: item.client_account || shipment.account?.account_name || '',
-                                sidemark: item.sidemark || '',
-                                warehouseName: item.warehouses?.name || shipment.warehouse?.name || '',
-                                locationCode: item.locations?.code || '',
-                              }));
-                              setReceivedItemsForLabels(labelsData);
-                              setShowPrintDialog(true);
-                            }
-                          })();
-                        }}
-                      >
-                        <Printer className="mr-2 h-4 w-4" />
-                        Print Labels
-                      </Button>
-                    </div>
-                  </TooltipTrigger>
-                  {!hasReceivedItems && (
-                    <TooltipContent>
-                      <p>Complete receiving first to print labels</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            
-            {!isCompleted && !isReceived && (
-              <Button onClick={() => setShowCompleteDialog(true)}>
-                <CheckCircle className="mr-2 h-4 w-4" />
-                {shipment.shipment_type === 'inbound' ? 'Mark as Received' : 'Complete'}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Orphan Session Warning Banner */}
-        {orphanSession && (
-          <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <AlertTitle>Stale Receiving Session Found</AlertTitle>
-            <AlertDescription className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <span>
-                A receiving session from {format(new Date(orphanSession.started_at), 'MMM d, h:mm a')} was not properly closed.
-              </span>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleCancelOrphanSession}
-                disabled={cancellingOrphan}
-              >
-                {cancellingOrphan ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                Cancel Session
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Receiving Session - Only show for inbound shipments that aren't completed or received */}
-        {shipment.shipment_type === 'inbound' && !isCompleted && !isReceived && (
-          <ReceivingSession
-            shipmentId={shipment.id}
-            shipmentNumber={shipment.shipment_number}
-            expectedItems={shipment.items.map(item => ({
-              id: item.id,
-              expected_description: item.expected_description,
-              expected_quantity: item.expected_quantity,
-              actual_quantity: item.actual_quantity,
-            }))}
-            onComplete={fetchShipment}
-            onReceivingComplete={handleReceivingComplete}
-            onPhotosChange={handlePhotosChange}
-            existingPhotos={shipment.receiving_photos || []}
-            existingDocuments={shipment.receiving_documents || []}
-          />
-        )}
-
-        {/* Photos & Documents - visible for received inbound shipments */}
-        {shipment.shipment_type === 'inbound' && isReceived && (
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <ImageIcon className="h-4 w-4" />
-                  Receiving Photos
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PhotoCapture
-                  entityType="shipment"
-                  entityId={shipment.id}
-                  onPhotosChange={(urls) => handlePhotosChange('photos', urls)}
-                  existingPhotos={shipment.receiving_photos || []}
-                  label=""
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <FileText className="h-4 w-4" />
-                  Receiving Documents
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PhotoCapture
-                  entityType="shipment"
-                  entityId={shipment.id}
-                  onPhotosChange={(urls) => handlePhotosChange('documents', urls)}
-                  existingPhotos={shipment.receiving_documents || []}
-                  label=""
-                  acceptDocuments={true}
-                />
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle>Shipment Details</CardTitle>
-              {shipment.shipment_type === 'inbound' && !isCompleted && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setShowEditDetailsDialog(true)}
-                >
-                  <Pencil className="h-4 w-4 mr-1" />
-                  Edit
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleCancelReceiving}>
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Cancel
                 </Button>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Account</span>
-                  <p className="font-medium">{shipment.account?.account_name || '-'}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Warehouse</span>
-                  <p className="font-medium">{shipment.warehouse?.name || '-'}</p>
-                </div>
-                {shipment.shipment_type === 'inbound' && (
-                  <>
-                    <div>
-                      <span className="text-muted-foreground">Carrier</span>
-                      <p className="font-medium">{shipment.carrier || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Tracking #</span>
-                      <p className="font-medium">{shipment.tracking_number || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">PO Number</span>
-                      <p className="font-medium">{shipment.po_number || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Expected Arrival</span>
-                      <p className="font-medium">
-                        {shipment.expected_arrival_date 
-                          ? format(new Date(shipment.expected_arrival_date), 'MMM d, yyyy')
-                          : '-'}
-                      </p>
-                    </div>
-                  </>
-                )}
-                {shipment.shipment_type === 'outbound' && (
-                  <>
-                    <div>
-                      <span className="text-muted-foreground">Release To</span>
-                      <p className="font-medium">{shipment.release_to_name || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Contact Email</span>
-                      <p className="font-medium">{shipment.release_to_email || '-'}</p>
-                    </div>
-                  </>
-                )}
-                <div>
-                  <span className="text-muted-foreground">Created</span>
-                  <p className="font-medium">
-                    {format(new Date(shipment.created_at), 'MMM d, yyyy h:mm a')}
-                  </p>
-                </div>
-                {(shipment.received_at || shipment.completed_at) && (
-                  <div>
-                    <span className="text-muted-foreground">
-                      {shipment.shipment_type === 'inbound' ? 'Received' : 'Completed'}
-                    </span>
-                    <p className="font-medium">
-                      {format(
-                        new Date(shipment.received_at || shipment.completed_at!),
-                        'MMM d, yyyy h:mm a'
-                      )}
-                    </p>
-                  </div>
-                )}
+                <Button size="sm" onClick={openFinishDialog}>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Finish Receiving
+                </Button>
               </div>
-
-              {shipment.notes && (
-                <>
-                  <Separator />
-                  <div>
-                    <span className="text-sm text-muted-foreground">Notes</span>
-                    <p className="mt-1 text-sm">{shipment.notes}</p>
-                  </div>
-                </>
-              )}
-
-              {/* Signature Display */}
-              {(shipment.signature_data || shipment.signature_name) && (
-                <>
-                  <Separator />
-                  <div>
-                    <span className="text-sm text-muted-foreground">Signature</span>
-                    {shipment.signature_data ? (
-                      <img 
-                        src={shipment.signature_data} 
-                        alt="Signature" 
-                        className="mt-2 max-h-24 border rounded"
-                      />
-                    ) : (
-                      <p className="mt-1 text-2xl font-cursive italic">
-                        {shipment.signature_name}
-                      </p>
-                    )}
-                    {shipment.signature_timestamp && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Signed: {format(new Date(shipment.signature_timestamp), 'MMM d, yyyy h:mm a')}
-                      </p>
-                    )}
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-        </div>
-
-        {/* Items Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Items ({shipment.items.length})</CardTitle>
-              <CardDescription>
-                {shipment.shipment_type === 'inbound' 
-                  ? 'Items expected in this shipment'
-                  : 'Items included in this release'}
-              </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              {/* Add Item Button - only for inbound, not completed, not received */}
-              {shipment.shipment_type === 'inbound' && !isCompleted && !isReceived && (
-                <Button variant="outline" onClick={() => setShowAddItemDialog(true)}>
-                  <Package className="mr-2 h-4 w-4" />
-                  Add Item
-                </Button>
-              )}
-              
-              {selectedItems.size > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button>
-                      <ClipboardList className="mr-2 h-4 w-4" />
-                      Create Task ({selectedItems.size})
-                      <ChevronDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={() => {
-                      setPreSelectedTaskType(undefined);
-                      setShowTaskDialog(true);
-                    }}>
-                      <ClipboardList className="mr-2 h-4 w-4" />
-                      Create Task
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => {
-                      setPreSelectedTaskType('Will Call');
-                      setShowTaskDialog(true);
-                    }}>
-                      <Truck className="mr-2 h-4 w-4" />
-                      Will Call
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => {
-                      setPreSelectedTaskType('Disposal');
-                      setShowTaskDialog(true);
-                    }}>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Disposal
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Shipment Details */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Shipment Details</CardTitle>
           </CardHeader>
-          <CardContent>
-            {shipment.items.length === 0 ? (
-              <div className="text-center py-8">
-                <Package className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">No items in this shipment</p>
-                {shipment.shipment_type === 'inbound' && !isCompleted && !isReceived && (
-                  <Button 
-                    variant="outline" 
-                    className="mt-4"
-                    onClick={() => setShowAddItemDialog(true)}
-                  >
-                    <Package className="mr-2 h-4 w-4" />
-                    Add Expected Item
-                  </Button>
-                )}
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <Label className="text-muted-foreground">Type</Label>
+                <p className="font-medium capitalize">{shipment.shipment_type}</p>
               </div>
-            ) : (
-              <Table className="table-fixed">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">
-                      <Checkbox
-                        checked={allSelected}
-                        onCheckedChange={handleSelectAll}
-                        aria-label="Select all items"
-                        disabled={selectableItems.length === 0}
-                      />
-                    </TableHead>
-                    <TableHead className="w-10"></TableHead>
-                    <TableHead className="w-28">Item Code</TableHead>
-                    <TableHead className="w-32">Vendor</TableHead>
-                    <TableHead className="min-w-[180px]">Description</TableHead>
-                    <TableHead className="w-28 text-right">Expected Qty</TableHead>
-                    <TableHead className="w-28 text-right">Received Qty</TableHead>
-                    <TableHead className="w-24">Status</TableHead>
-                    <TableHead className="w-16"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {shipment.items.map((item) => (
-                    <ShipmentItemRow
-                      key={item.id}
-                      item={item}
-                      isSelected={item.item_id ? selectedItems.has(item.item_id) : false}
-                      onSelect={(checked) => item.item_id && handleSelectItem(item.item_id, checked)}
-                      onUpdate={fetchShipment}
-                      isInbound={shipment.shipment_type === 'inbound'}
-                      isCompleted={isCompleted}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
+              <div>
+                <Label className="text-muted-foreground">Carrier</Label>
+                <p className="font-medium">{shipment.carrier || '-'}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Tracking</Label>
+                <p className="font-medium">{shipment.tracking_number || '-'}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">PO Number</Label>
+                <p className="font-medium">{shipment.po_number || '-'}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Expected Arrival</Label>
+                <p className="font-medium">
+                  {shipment.expected_arrival_date 
+                    ? format(new Date(shipment.expected_arrival_date), 'MMM d, yyyy')
+                    : '-'}
+                </p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Received At</Label>
+                <p className="font-medium">
+                  {shipment.received_at 
+                    ? format(new Date(shipment.received_at), 'MMM d, yyyy h:mm a')
+                    : '-'}
+                </p>
+              </div>
+            </div>
+            {shipment.notes && (
+              <div>
+                <Label className="text-muted-foreground">Notes</Label>
+                <p className="mt-1">{shipment.notes}</p>
+              </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Quick Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Expected Items</span>
+              <span className="font-medium">{items.length}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Received Items</span>
+              <span className="font-medium">
+                {items.filter(i => i.status === 'received').length}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Created</span>
+              <span className="font-medium">
+                {format(new Date(shipment.created_at), 'MMM d, yyyy')}
+              </span>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Complete Dialog */}
-      <AlertDialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
-        <AlertDialogContent className="max-w-lg">
+      {/* Shipment Items */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Items</CardTitle>
+          <CardDescription>Expected and received items for this shipment</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Description</TableHead>
+                <TableHead>Vendor</TableHead>
+                <TableHead>Sidemark</TableHead>
+                <TableHead className="text-center">Expected</TableHead>
+                <TableHead className="text-center">Received</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Inventory</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    No items in this shipment
+                  </TableCell>
+                </TableRow>
+              ) : (
+                items.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.expected_description || '-'}</TableCell>
+                    <TableCell>{item.expected_vendor || '-'}</TableCell>
+                    <TableCell>{item.expected_sidemark || '-'}</TableCell>
+                    <TableCell className="text-center">{item.expected_quantity}</TableCell>
+                    <TableCell className="text-center">{item.actual_quantity ?? '-'}</TableCell>
+                    <TableCell>
+                      <Badge variant={item.status === 'received' ? 'default' : 'secondary'}>
+                        {item.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {item.item ? (
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto"
+                          onClick={() => navigate(`/inventory/${item.item!.id}`)}
+                        >
+                          {item.item.item_code}
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Receiving Notes (shown when received) */}
+      {isReceived && shipment.receiving_notes && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Receiving Notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>{shipment.receiving_notes}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Finish Receiving Dialog */}
+      <AlertDialog open={showFinishDialog} onOpenChange={setShowFinishDialog}>
+        <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {shipment.shipment_type === 'inbound' ? 'Mark as Received' : 'Complete Release'}
-            </AlertDialogTitle>
+            <AlertDialogTitle>Finish Receiving</AlertDialogTitle>
             <AlertDialogDescription>
-              {shipment.release_type === 'will_call'
-                ? 'Please capture the signature from the person picking up the items.'
-                : 'This will mark the shipment as completed.'}
+              Verify the quantities received for each item. This will create inventory items.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          {shipment.release_type === 'will_call' && (
-            <div className="py-4">
-              <SignaturePad
-                onSignatureChange={({ signatureData: sd, signatureName: sn }) => {
-                  setSignatureData(sd);
-                  setSignatureName(sn);
-                }}
-              />
+          <div className="max-h-96 overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-center">Expected</TableHead>
+                  <TableHead className="text-center w-32">Received</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {receivedItems.map((item) => (
+                  <TableRow key={item.shipment_item_id}>
+                    <TableCell>{item.expected_description || '-'}</TableCell>
+                    <TableCell className="text-center">{item.expected_quantity}</TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={item.actual_quantity}
+                        onChange={(e) => updateReceivedQuantity(
+                          item.shipment_item_id,
+                          parseInt(e.target.value) || 0
+                        )}
+                        className="w-20 text-center mx-auto"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={
+                        item.status === 'received' ? 'default' :
+                        item.status === 'partial' ? 'secondary' : 'destructive'
+                      }>
+                        {item.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {receivedItems.some(i => i.status !== 'received') && (
+            <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-md text-sm">
+              <AlertTriangle className="h-4 w-4 text-yellow-600" />
+              <span>Some items have discrepancies. These will be flagged for review.</span>
             </div>
           )}
 
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={completing}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCompleteShipment} disabled={completing}>
-              {completing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {shipment.shipment_type === 'inbound' ? 'Mark as Received' : 'Complete'}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleFinishReceiving}>
+              Complete Receiving
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Print Labels Dialog */}
-      <PrintLabelsDialog
-        open={showPrintDialog}
-        onOpenChange={setShowPrintDialog}
-        items={receivedItemsForLabels}
-        title="Print Item Labels"
-        description={`Print 4x6 labels for ${receivedItemsForLabels.length} received items`}
-      />
-
-      {/* Auto-prompt after receiving */}
-      <AlertDialog open={showPrintPrompt} onOpenChange={setShowPrintPrompt}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Print Labels?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Would you like to print 4x6 labels for the {receivedItemsForLabels.length} items that were just received?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Skip</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              setShowPrintPrompt(false);
-              setShowPrintDialog(true);
-            }}>
-              <Printer className="mr-2 h-4 w-4" />
-              Print Labels
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Task Dialog */}
-      <TaskDialog
-        open={showTaskDialog}
-        onOpenChange={(open) => {
-          setShowTaskDialog(open);
-          if (!open) {
-            setSelectedItems(new Set());
-            setPreSelectedTaskType(undefined);
-          }
-        }}
-        selectedItemIds={Array.from(selectedItems)}
-        preSelectedTaskType={preSelectedTaskType}
-        onSuccess={() => {
-          setSelectedItems(new Set());
-          setPreSelectedTaskType(undefined);
-          setShowTaskDialog(false);
-        }}
-      />
-
-      {/* Add Item Dialog */}
-      <AddShipmentItemDialog
-        open={showAddItemDialog}
-        onOpenChange={setShowAddItemDialog}
-        shipmentId={shipment.id}
-        accountId={shipment.account?.id}
-        onSuccess={fetchShipment}
-      />
-
-      {/* Edit Shipment Details Dialog */}
-      <ShipmentEditDialog
-        open={showEditDetailsDialog}
-        onOpenChange={setShowEditDetailsDialog}
-        shipment={{
-          id: shipment.id,
-          carrier: shipment.carrier,
-          tracking_number: shipment.tracking_number,
-          po_number: shipment.po_number,
-          expected_arrival_date: shipment.expected_arrival_date,
-          notes: shipment.notes,
-        }}
-        onSuccess={fetchShipment}
-      />
     </DashboardLayout>
   );
 }
