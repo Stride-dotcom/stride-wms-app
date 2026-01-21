@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import DashboardLayout from '@/components/layout/DashboardLayout';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -236,26 +236,41 @@ export default function ShipmentsList() {
           {filteredShipments.map((shipment) => (
             <MobileDataCard
               key={shipment.id}
-              title={shipment.shipment_number}
-              subtitle={shipment.account_name || 'No account'}
               onClick={() => navigate(`/shipments/${shipment.id}`)}
-              badges={[
-                { label: shipment.status, variant: shipment.status === 'received' ? 'default' : 'secondary' },
-                ...(shipment.release_type ? [{ label: shipment.release_type, variant: 'outline' as const }] : []),
-              ]}
-              fields={[
-                { label: 'Carrier', value: shipment.carrier || '-' },
-                { label: 'Tracking', value: shipment.tracking_number || '-' },
-                { 
-                  label: activeTab === 'received' ? 'Received' : 'Expected',
-                  value: activeTab === 'received' && shipment.received_at
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="font-medium">{shipment.shipment_number}</div>
+                  <div className="text-sm text-muted-foreground">{shipment.account_name || 'No account'}</div>
+                </div>
+                <div className="flex gap-1">
+                  {getStatusBadge(shipment.status)}
+                  {shipment.release_type && (
+                    <Badge variant="outline">{shipment.release_type}</Badge>
+                  )}
+                </div>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Carrier: </span>
+                  {shipment.carrier || '-'}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Tracking: </span>
+                  {shipment.tracking_number || '-'}
+                </div>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground">
+                    {activeTab === 'received' ? 'Received: ' : 'Expected: '}
+                  </span>
+                  {activeTab === 'received' && shipment.received_at
                     ? format(new Date(shipment.received_at), 'MMM d, yyyy')
                     : shipment.expected_arrival_date
                       ? format(new Date(shipment.expected_arrival_date), 'MMM d, yyyy')
-                      : '-'
-                },
-              ]}
-            />
+                      : '-'}
+                </div>
+              </div>
+            </MobileDataCard>
           ))}
         </div>
       );
@@ -304,15 +319,17 @@ export default function ShipmentsList() {
   // ------------------------------------------
   return (
     <DashboardLayout>
-      <PageHeader
-        title="Shipments"
-        description="Manage inbound and outbound shipments"
-      >
+      <div className="flex justify-between items-center mb-6">
+        <PageHeader
+          primaryText="Shipments"
+          accentText="Management"
+          description="Manage inbound and outbound shipments"
+        />
         <Button onClick={() => navigate('/shipments/create')}>
           <Plus className="h-4 w-4 mr-2" />
           New Shipment
         </Button>
-      </PageHeader>
+      </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">

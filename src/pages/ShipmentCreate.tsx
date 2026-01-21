@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import DashboardLayout from '@/components/layout/DashboardLayout';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ import { Plus, Trash2, Loader2, Save, ArrowLeft } from 'lucide-react';
 
 interface Account {
   id: string;
-  name: string;
+  account_name: string;
 }
 
 interface Warehouse {
@@ -89,10 +89,10 @@ export default function ShipmentCreate() {
         const [accountsRes, warehousesRes, itemTypesRes] = await Promise.all([
           supabase
             .from('accounts')
-            .select('id, name')
+            .select('id, account_name')
             .eq('tenant_id', profile.tenant_id)
             .is('deleted_at', null)
-            .order('name'),
+            .order('account_name'),
           supabase
             .from('warehouses')
             .select('id, name')
@@ -287,7 +287,7 @@ export default function ShipmentCreate() {
                   <SelectContent>
                     {accounts.map(account => (
                       <SelectItem key={account.id} value={account.id}>
-                        {account.name}
+                        {account.account_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
