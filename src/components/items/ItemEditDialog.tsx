@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -51,7 +52,7 @@ const itemSchema = z.object({
   }),
   status: z.string().optional(),
   item_type_id: z.string().optional(),
-  account_id: z.string().optional(),
+  client_account: z.string().optional(),
 });
 
 type ItemFormData = z.infer<typeof itemSchema>;
@@ -83,7 +84,7 @@ interface ItemEditDialogProps {
     link?: string | null;
     status: string;
     item_type_id?: string | null;
-    account_id?: string | null;
+    client_account?: string | null;
   } | null;
   onSuccess: () => void;
 }
@@ -146,7 +147,7 @@ export function ItemEditDialog({
       link: '',
       status: 'active',
       item_type_id: '',
-      account_id: '',
+      client_account: '',
     },
   });
 
@@ -163,7 +164,7 @@ export function ItemEditDialog({
         link: item.link || '',
         status: item.status || 'active',
         item_type_id: item.item_type_id || '',
-        account_id: item.account_id || '',
+        client_account: item.client_account || '',
       });
     }
   }, [open, item]);
@@ -184,7 +185,7 @@ export function ItemEditDialog({
         link: data.link || null,
         status: data.status || 'active',
         item_type_id: data.item_type_id || null,
-        account_id: data.account_id || null,
+        client_account: data.client_account || null,
       };
 
       const { error } = await (supabase.from('items') as any)
@@ -214,7 +215,7 @@ export function ItemEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Edit Item</DialogTitle>
           <DialogDescription>
@@ -222,84 +223,22 @@ export function ItemEditDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Item description..."
-                      className="resize-none"
-                      rows={2}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="item_type_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Item Type</FormLabel>
-                  <FormControl>
-                    <ItemTypeCombobox
-                      itemTypes={itemTypes}
-                      value={field.value || ''}
-                      onChange={field.onChange}
-                      placeholder="Select item type..."
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="account_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Account</FormLabel>
-                  <Select 
-                    onValueChange={(val) => field.onChange(val === '_none_' ? '' : val)} 
-                    value={field.value || '_none_'}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select account..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="_none_">No account</SelectItem>
-                      {accounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.account_name} ({account.account_code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
+        <ScrollArea className="flex-1 max-h-[60vh] pr-4">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="quantity"
+                name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Quantity</FormLabel>
+                    <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Input type="number" min={1} {...field} />
+                      <Textarea
+                        placeholder="Item description..."
+                        className="resize-none"
+                        rows={2}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -308,24 +247,51 @@ export function ItemEditDialog({
 
               <FormField
                 control={form.control}
-                name="status"
+                name="item_type_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <FormLabel>Item Type</FormLabel>
+                    <FormControl>
+                      <ItemTypeCombobox
+                        itemTypes={itemTypes}
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                        placeholder="Select item type..."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="client_account"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Account</FormLabel>
+                    <Select 
+                      onValueChange={(val) => {
+                        if (val === '_none_') {
+                          field.onChange('');
+                        } else {
+                          // Find the account name and store it
+                          const account = accounts.find(a => a.id === val);
+                          field.onChange(account?.account_name || '');
+                        }
+                      }} 
+                      value={accounts.find(a => a.account_name === field.value)?.id || '_none_'}
+                    >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
+                          <SelectValue placeholder="Select account..." />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {STATUS_OPTIONS.map((opt) => (
-                          <SelectItem 
-                            key={opt.value} 
-                            value={opt.value}
-                            disabled={'disabled' in opt && opt.disabled}
-                          >
-                            {opt.label}
+                        <SelectItem value="_none_">No account</SelectItem>
+                        {accounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.account_name} ({account.account_code})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -334,124 +300,169 @@ export function ItemEditDialog({
                   </FormItem>
                 )}
               />
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="sidemark"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Sidemark</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Sidemark" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="vendor"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Vendor</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Vendor" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="room"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Room</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Room / Area" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="link"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Link (URL)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="size"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Size</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="Size" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="size_unit"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Size Unit</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="quantity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Quantity</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Unit" />
-                        </SelectTrigger>
+                        <Input type="number" min={1} {...field} />
                       </FormControl>
-                      <SelectContent>
-                        {SIZE_UNITS.map((unit) => (
-                          <SelectItem key={unit.value} value={unit.value}>
-                            {unit.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {STATUS_OPTIONS.map((opt) => (
+                            <SelectItem 
+                              key={opt.value} 
+                              value={opt.value}
+                              disabled={'disabled' in opt && opt.disabled}
+                            >
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="sidemark"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sidemark</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Sidemark" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="vendor"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Vendor</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Vendor" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="room"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Room</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Room / Area" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="link"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Link (URL)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="https://..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="size"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Size</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="Size" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="size_unit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Size Unit</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Unit" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {SIZE_UNITS.map((unit) => (
+                            <SelectItem key={unit.value} value={unit.value}>
+                              {unit.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </form>
+          </Form>
+        </ScrollArea>
+
+        <DialogFooter className="pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button onClick={form.handleSubmit(onSubmit)} disabled={loading}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save Changes
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
