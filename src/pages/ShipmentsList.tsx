@@ -78,7 +78,7 @@ export default function ShipmentsList() {
             received_at,
             release_type,
             created_at,
-            accounts:account_id(name),
+            accounts:account_id(account_name, account_code),
             warehouses:warehouse_id(name)
           `)
           .eq('tenant_id', profile.tenant_id)
@@ -129,7 +129,7 @@ export default function ShipmentsList() {
           received_at: s.received_at,
           release_type: s.release_type,
           created_at: s.created_at,
-          account_name: s.accounts?.name || null,
+          account_name: s.accounts?.account_name || null,
           warehouse_name: s.warehouses?.name || null,
         }));
 
