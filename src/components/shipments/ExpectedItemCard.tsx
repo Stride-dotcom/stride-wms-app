@@ -3,6 +3,7 @@ import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
+import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { SearchableSelect, SelectOption } from "@/components/ui/searchable-select";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -10,7 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
  * Mobile-first expected item card for shipment creation
  * - Stacked layout on mobile
  * - Uses FormField for all inputs
- * - Uses SearchableSelect for item type
+ * - Uses AutocompleteInput for vendor (free typing + suggestions)
+ * - Uses SearchableSelect for item type (select only)
  * - Supports field suggestions for vendor/sidemark
  */
 
@@ -55,13 +57,13 @@ export function ExpectedItemCard({
   onVendorUsed,
   onSidemarkUsed,
 }: ExpectedItemCardProps) {
-  // Convert suggestions to SelectOption format
-  const vendorOptions = React.useMemo(
+  // Convert suggestions to format for AutocompleteInput
+  const vendorSuggestionOptions = React.useMemo(
     () => vendorSuggestions.map((v) => ({ value: v, label: v })),
     [vendorSuggestions]
   );
 
-  const sidemarkOptions = React.useMemo(
+  const sidemarkSuggestionOptions = React.useMemo(
     () => sidemarkSuggestions.map((s) => ({ value: s, label: s })),
     [sidemarkSuggestions]
   );
@@ -106,18 +108,15 @@ export function ExpectedItemCard({
           />
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Vendor</label>
-            <SearchableSelect
-              options={vendorOptions}
+            <AutocompleteInput
+              suggestions={vendorSuggestionOptions}
               value={item.vendor}
               onChange={(v) => {
                 onUpdate(item.id, "vendor", v);
                 if (v && onVendorUsed) onVendorUsed(v);
               }}
-              placeholder="Select vendor..."
-              searchPlaceholder="Search vendors..."
-              emptyText="No matching vendors"
-              recentKey="shipment-vendors"
-              clearable
+              placeholder="Type vendor name..."
+              className="min-h-[44px] text-base"
             />
           </div>
         </div>
@@ -153,18 +152,15 @@ export function ExpectedItemCard({
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Sidemark</label>
-            <SearchableSelect
-              options={sidemarkOptions}
+            <AutocompleteInput
+              suggestions={sidemarkSuggestionOptions}
               value={item.sidemark}
               onChange={(v) => {
                 onUpdate(item.id, "sidemark", v);
                 if (v && onSidemarkUsed) onSidemarkUsed(v);
               }}
-              placeholder="Select sidemark..."
-              searchPlaceholder="Search sidemarks..."
-              emptyText="No matching sidemarks"
-              recentKey="shipment-sidemarks"
-              clearable
+              placeholder="Type sidemark..."
+              className="min-h-[44px] text-base"
             />
           </div>
         </div>
