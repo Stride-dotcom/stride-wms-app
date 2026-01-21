@@ -22,6 +22,8 @@ import { Filter, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+const ALL_VALUE = '__all__';
+
 export interface InventoryFilters {
   vendor: string;
   accountId: string;
@@ -160,14 +162,19 @@ export function InventoryFiltersSheet({
           <div className="space-y-2">
             <Label>Vendor</Label>
             <Select
-              value={localFilters.vendor}
-              onValueChange={(value) => setLocalFilters({ ...localFilters, vendor: value })}
+              value={localFilters.vendor || ALL_VALUE}
+              onValueChange={(value) =>
+                setLocalFilters({
+                  ...localFilters,
+                  vendor: value === ALL_VALUE ? '' : value,
+                })
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="All vendors" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All vendors</SelectItem>
+                <SelectItem value={ALL_VALUE}>All vendors</SelectItem>
                 {vendors.map((vendor) => (
                   <SelectItem key={vendor} value={vendor}>
                     {vendor}
@@ -181,14 +188,19 @@ export function InventoryFiltersSheet({
           <div className="space-y-2">
             <Label>Account</Label>
             <Select
-              value={localFilters.accountId}
-              onValueChange={(value) => setLocalFilters({ ...localFilters, accountId: value })}
+              value={localFilters.accountId || ALL_VALUE}
+              onValueChange={(value) =>
+                setLocalFilters({
+                  ...localFilters,
+                  accountId: value === ALL_VALUE ? '' : value,
+                })
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="All accounts" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All accounts</SelectItem>
+                <SelectItem value={ALL_VALUE}>All accounts</SelectItem>
                 {accounts.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
                     {account.account_name}
@@ -202,14 +214,19 @@ export function InventoryFiltersSheet({
           <div className="space-y-2">
             <Label>Sidemark</Label>
             <Select
-              value={localFilters.sidemark}
-              onValueChange={(value) => setLocalFilters({ ...localFilters, sidemark: value })}
+              value={localFilters.sidemark || ALL_VALUE}
+              onValueChange={(value) =>
+                setLocalFilters({
+                  ...localFilters,
+                  sidemark: value === ALL_VALUE ? '' : value,
+                })
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="All sidemarks" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All sidemarks</SelectItem>
+                <SelectItem value={ALL_VALUE}>All sidemarks</SelectItem>
                 {sidemarks.map((sidemark) => (
                   <SelectItem key={sidemark} value={sidemark}>
                     {sidemark}
@@ -223,14 +240,19 @@ export function InventoryFiltersSheet({
           <div className="space-y-2">
             <Label>Location</Label>
             <Select
-              value={localFilters.locationId}
-              onValueChange={(value) => setLocalFilters({ ...localFilters, locationId: value })}
+              value={localFilters.locationId || ALL_VALUE}
+              onValueChange={(value) =>
+                setLocalFilters({
+                  ...localFilters,
+                  locationId: value === ALL_VALUE ? '' : value,
+                })
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="All locations" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All locations</SelectItem>
+                <SelectItem value={ALL_VALUE}>All locations</SelectItem>
                 {locations.map((location) => (
                   <SelectItem key={location.id} value={location.id}>
                     {location.code} {location.name && `(${location.name})`}
@@ -244,14 +266,19 @@ export function InventoryFiltersSheet({
           <div className="space-y-2">
             <Label>Warehouse</Label>
             <Select
-              value={localFilters.warehouseId}
-              onValueChange={(value) => setLocalFilters({ ...localFilters, warehouseId: value })}
+              value={localFilters.warehouseId || ALL_VALUE}
+              onValueChange={(value) =>
+                setLocalFilters({
+                  ...localFilters,
+                  warehouseId: value === ALL_VALUE ? '' : value,
+                })
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="All warehouses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All warehouses</SelectItem>
+                <SelectItem value={ALL_VALUE}>All warehouses</SelectItem>
                 {warehouses.map((warehouse) => (
                   <SelectItem key={warehouse.id} value={warehouse.id}>
                     {warehouse.name}
