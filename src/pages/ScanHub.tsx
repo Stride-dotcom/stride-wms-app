@@ -44,6 +44,7 @@ interface ScannedLocation {
   id: string;
   code: string;
   name: string | null;
+  type?: string;
 }
 
 type ScanMode = 'move' | 'batch' | 'lookup' | null;
@@ -124,7 +125,7 @@ export default function ScanHub() {
     if (payload.type === 'location' && payload.id) {
       const loc = locations.find(l => l.id === payload.id);
       if (loc) {
-        return { id: loc.id, code: loc.code, name: loc.name };
+        return { id: loc.id, code: loc.code, name: loc.name, type: loc.type };
       }
     }
     
@@ -133,7 +134,7 @@ export default function ScanHub() {
       l.code.toLowerCase() === (payload.code || input).toLowerCase()
     );
     if (loc) {
-      return { id: loc.id, code: loc.code, name: loc.name };
+      return { id: loc.id, code: loc.code, name: loc.name, type: loc.type };
     }
 
     return null;
@@ -291,10 +292,12 @@ export default function ScanHub() {
   };
 
   // Handle manual location selection from search
-  const handleLocationSelect = (loc: ScannedLocation) => {
+  const handleLocationSelect = (loc: { id: string; code: string; name: string | null }) => {
     setShowLocationSearch(false);
     hapticMedium(); // Location selected
-    setTargetLocation(loc);
+    // Find full location data to get type
+    const fullLoc = locations.find(l => l.id === loc.id);
+    setTargetLocation({ ...loc, type: fullLoc?.type });
     setPhase('confirm');
   };
 
@@ -323,10 +326,19 @@ export default function ScanHub() {
       }
 
       hapticSuccess(); // Move completed successfully
-      toast({
-        title: 'Move Complete',
-        description: `Moved ${successCount} item${successCount !== 1 ? 's' : ''} to ${targetLocation.code}`,
-      });
+      
+      // Show different toast for release locations
+      if (targetLocation.type === 'release') {
+        toast({
+          title: 'Items Released',
+          description: `Released ${successCount} item${successCount !== 1 ? 's' : ''} successfully`,
+        });
+      } else {
+        toast({
+          title: 'Move Complete',
+          description: `Moved ${successCount} item${successCount !== 1 ? 's' : ''} to ${targetLocation.code}`,
+        });
+      }
 
       resetState();
     } catch (error) {

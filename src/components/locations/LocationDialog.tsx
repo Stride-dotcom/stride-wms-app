@@ -37,7 +37,7 @@ import { Location } from '@/hooks/useLocations';
 const locationSchema = z.object({
   code: z.string().min(1, 'Code is required').max(50).regex(/^[A-Z0-9_-]+$/i, 'Code must be alphanumeric with dashes or underscores'),
   name: z.string().optional(),
-  type: z.enum(['zone', 'aisle', 'bay', 'bin', 'shelf']),
+  type: z.enum(['zone', 'aisle', 'bay', 'bin', 'shelf', 'release']),
   warehouse_id: z.string().min(1, 'Warehouse is required'),
   parent_location_id: z.string().optional(),
   capacity: z.number().optional(),
@@ -62,6 +62,7 @@ const LOCATION_TYPES = [
   { value: 'bay', label: 'Bay', description: 'Section of an aisle' },
   { value: 'shelf', label: 'Shelf', description: 'Individual shelf level' },
   { value: 'bin', label: 'Bin', description: 'Specific storage location' },
+  { value: 'release', label: 'Release', description: 'Items moved here are automatically released' },
 ];
 
 export function LocationDialog({
@@ -127,7 +128,7 @@ export function LocationDialog({
       form.reset({
         code: data.code,
         name: data.name || '',
-        type: data.type as 'zone' | 'aisle' | 'bay' | 'bin' | 'shelf',
+        type: data.type as 'zone' | 'aisle' | 'bay' | 'bin' | 'shelf' | 'release',
         warehouse_id: data.warehouse_id,
         parent_location_id: data.parent_location_id || 'none',
         capacity: data.capacity ? Number(data.capacity) : undefined,
