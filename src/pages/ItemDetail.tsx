@@ -57,8 +57,17 @@ import {
   PackageX,
   Settings,
   FileText,
+  Truck,
 } from 'lucide-react';
 import { QuickReleaseDialog } from '@/components/inventory/QuickReleaseDialog';
+
+interface ReceivingShipment {
+  id: string;
+  shipment_number: string;
+  shipment_type: string;
+  status: string;
+  received_at: string | null;
+}
 
 interface ItemDetail {
   id: string;
@@ -83,6 +92,9 @@ interface ItemDetail {
   inspection_photos: string[] | null;
   repair_photos: string[] | null;
   primary_photo_url: string | null;
+  // Receiving shipment
+  receiving_shipment_id: string | null;
+  receiving_shipment?: ReceivingShipment | null;
   // Flags
   is_overweight: boolean;
   is_oversize: boolean;
@@ -124,6 +136,7 @@ interface ShipmentLink {
   shipment_type: string;
   status: string;
   created_at: string;
+  received_at?: string | null;
 }
 
 export default function ItemDetail() {
@@ -167,6 +180,7 @@ export default function ItemDetail() {
 
   const fetchItem = async () => {
     try {
+      // First fetch: item with joined relations
       const { data, error } = await (supabase.from('items') as any)
         .select(`
           *,
@@ -179,11 +193,25 @@ export default function ItemDetail() {
 
       if (error) throw error;
 
+      // If item has a receiving_shipment_id, fetch the shipment details
+      let receivingShipment: ReceivingShipment | null = null;
+      if (data.receiving_shipment_id) {
+        const { data: shipmentData } = await (supabase.from('shipments') as any)
+          .select('id, shipment_number, shipment_type, status, received_at')
+          .eq('id', data.receiving_shipment_id)
+          .single();
+        
+        if (shipmentData) {
+          receivingShipment = shipmentData;
+        }
+      }
+
       setItem({
         ...data,
         location: data.locations,
         warehouse: data.warehouses,
         item_type: data.item_types,
+        receiving_shipment: receivingShipment,
         room: data.room || null,
         link: data.link || null,
         photo_urls: data.photo_urls || [],
@@ -672,7 +700,46 @@ export default function ItemDetail() {
               />
             </div>
 
-            {/* Shipment Links */}
+            {/* Receiving Shipment - Original inbound shipment */}
+            {item.receiving_shipment && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Truck className="h-5 w-5" />
+                    Receiving Shipment
+                  </CardTitle>
+                  <CardDescription>
+                    The inbound shipment this item was received on
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-green-100 text-green-800">inbound</Badge>
+                        <span className="font-medium text-lg">{item.receiving_shipment.shipment_number}</span>
+                      </div>
+                      <Badge variant="secondary">{item.receiving_shipment.status}</Badge>
+                      {item.receiving_shipment.received_at && (
+                        <span className="text-sm text-muted-foreground">
+                          Received: {format(new Date(item.receiving_shipment.received_at), 'MMM d, yyyy')}
+                        </span>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/shipments/${item.receiving_shipment!.id}`)}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Open Shipment
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Related Shipments (via shipment_items) */}
             {shipments.length > 0 && (
               <Card>
                 <CardHeader className="pb-3">
