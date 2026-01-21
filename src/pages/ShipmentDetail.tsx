@@ -82,7 +82,9 @@ export default function ShipmentDetail() {
   // ============================================
   // RENDER-TIME UUID GUARD - executes before any hooks
   // ============================================
-  if (!id || !isValidUuid(id)) return <Navigate to="/shipments" replace />;
+  if (!id || !isValidUuid(id)) {
+    return <Navigate to="/shipments" replace />;
+  }
 
   // Now we know id is a valid UUID - safe to use hooks
   const navigate = useNavigate();
