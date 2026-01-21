@@ -51,6 +51,7 @@ import {
   Play,
   XCircle,
   ListTodo,
+  AlertTriangle,
 } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
@@ -72,9 +73,7 @@ const statusLabels: Record<string, string> = {
 };
 
 const priorityColors: Record<string, string> = {
-  low: 'bg-gray-100 text-gray-800',
-  medium: 'bg-amber-100 text-amber-800',
-  high: 'bg-orange-100 text-orange-800',
+  normal: 'bg-slate-100 text-slate-800',
   urgent: 'bg-red-100 text-red-800',
 };
 
@@ -447,9 +446,16 @@ export default function Tasks() {
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Badge className={priorityColors[task.priority || 'medium'] || ''}>
-                          {task.priority || 'medium'}
-                        </Badge>
+                        {task.priority === 'urgent' ? (
+                          <Badge className="bg-red-100 text-red-800 gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Urgent
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-slate-100 text-slate-800">
+                            Normal
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         {task.due_date ? (

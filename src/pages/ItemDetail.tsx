@@ -36,6 +36,7 @@ import { SidemarkInlineEdit } from '@/components/items/SidemarkInlineEdit';
 import { RoomInlineEdit } from '@/components/items/RoomInlineEdit';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { AddBillingChargeDialog } from '@/components/items/AddBillingChargeDialog';
+import { LinkToShipmentDialog } from '@/components/items/LinkToShipmentDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 import { ScanDocumentButton, DocumentList } from '@/components/scanner';
 import { format } from 'date-fns';
@@ -72,7 +73,6 @@ interface ItemDetail {
   room: string | null;
   link: string | null;
   item_type_id: string | null;
-  account_id: string | null;
   received_at: string | null;
   created_at: string;
   assembly_status: string | null;
@@ -142,6 +142,7 @@ export default function ItemDetail() {
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
   const [billingChargeDialogOpen, setBillingChargeDialogOpen] = useState(false);
+  const [linkShipmentDialogOpen, setLinkShipmentDialogOpen] = useState(false);
 
   // Check if user is a client (simplified check)
   const isClientUser = false; // Will be determined by role system
@@ -485,7 +486,7 @@ export default function ItemDetail() {
                     <DollarSign className="mr-2 h-4 w-4" />
                     Add Billing Charge
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setLinkShipmentDialogOpen(true)}>
                     <LinkIcon className="mr-2 h-4 w-4" />
                     Link to Shipment
                   </DropdownMenuItem>
@@ -564,7 +565,7 @@ export default function ItemDetail() {
                       <span className="text-muted-foreground">Sidemark</span>
                       <SidemarkInlineEdit
                         value={item.sidemark || ''}
-                        accountId={item.account_id}
+                        accountId={null}
                         onSave={handleSidemarkSave}
                         placeholder="Add sidemark"
                         disabled={isClientUser}
@@ -579,7 +580,7 @@ export default function ItemDetail() {
                       <span className="text-muted-foreground">Room</span>
                       <RoomInlineEdit
                         value={item.room || ''}
-                        accountId={item.account_id}
+                        accountId={null}
                         onSave={handleRoomSave}
                         placeholder="Add room"
                         disabled={isClientUser}
@@ -874,9 +875,20 @@ export default function ItemDetail() {
         onOpenChange={setBillingChargeDialogOpen}
         itemId={item?.id || ''}
         itemCode={item?.item_code || ''}
-        accountId={item?.account_id || null}
+        accountId={null}
         onSuccess={() => {
           setBillingChargeDialogOpen(false);
+        }}
+      />
+
+      <LinkToShipmentDialog
+        open={linkShipmentDialogOpen}
+        onOpenChange={setLinkShipmentDialogOpen}
+        itemId={item?.id || ''}
+        itemCode={item?.item_code || ''}
+        onSuccess={() => {
+          setLinkShipmentDialogOpen(false);
+          fetchShipments();
         }}
       />
     </DashboardLayout>

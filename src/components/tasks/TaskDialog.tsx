@@ -110,7 +110,7 @@ export function TaskDialog({
   const [formData, setFormData] = useState({
     description: '',
     task_type: '',
-    priority: 'medium',
+    priority: 'normal',
     due_date: null as Date | null,
     assigned_to: 'unassigned',
     assigned_department: '',
@@ -152,7 +152,7 @@ export function TaskDialog({
       setFormData({
         description: task.description || '',
         task_type: task.task_type,
-        priority: task.priority || 'medium',
+        priority: task.priority || 'normal',
         due_date: task.due_date ? new Date(task.due_date) : null,
         assigned_to: task.assigned_to || 'unassigned',
         assigned_department: task.assigned_department || '',
@@ -170,7 +170,7 @@ export function TaskDialog({
       setFormData({
         description: '',
         task_type: initialTaskType,
-        priority: 'medium',
+        priority: 'normal',
         due_date: dueDate,
         assigned_to: 'unassigned',
         assigned_department: '',
@@ -719,15 +719,24 @@ export function TaskDialog({
                 <Label>Priority</Label>
                 <Select
                   value={formData.priority}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value }))}
+                  onValueChange={(value) => {
+                    // When urgent is selected, auto-set due date to today
+                    if (value === 'urgent') {
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        priority: value,
+                        due_date: new Date()
+                      }));
+                    } else {
+                      setFormData(prev => ({ ...prev, priority: value }));
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="normal">Normal</SelectItem>
                     <SelectItem value="urgent">Urgent</SelectItem>
                   </SelectContent>
                 </Select>
