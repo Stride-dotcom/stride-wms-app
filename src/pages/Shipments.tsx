@@ -1,11 +1,20 @@
+/**
+ * Shipments Hub Page
+ * 
+ * Clean implementation showing counts for incoming/outbound shipments.
+ * Navigation to filtered lists for each category.
+ */
+
 import { useEffect, useState } from 'react';
-import { PageHeader } from '@/components/ui/page-header';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Package, 
   Truck, 
@@ -15,6 +24,7 @@ import {
   ArrowRight,
   Loader2 
 } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface ShipmentCounts {
   incoming: number;
@@ -34,6 +44,9 @@ interface RecentShipment {
 
 export default function Shipments() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  
   const [counts, setCounts] = useState<ShipmentCounts>({
     incoming: 0,
     outbound: 0,
@@ -45,38 +58,41 @@ export default function Shipments() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchShipmentData();
-  }, []);
+    if (profile?.tenant_id) {
+      fetchShipmentData();
+    }
+  }, [profile?.tenant_id]);
 
   const fetchShipmentData = async () => {
     try {
-      // Note: Using type assertion until Supabase types are regenerated
-      const shipmentsTable = supabase.from('shipments') as any;
-      
       // Fetch counts in parallel
       const [incomingRes, outboundRes, recentReceivedRes, recentReleasedRes] = await Promise.all([
-        // Incoming: expected or in_progress inbound shipments
-        shipmentsTable
+        // Incoming: expected or receiving inbound shipments
+        supabase
+          .from('shipments')
           .select('id', { count: 'exact', head: true })
           .eq('shipment_type', 'inbound')
-          .in('status', ['expected', 'in_progress'])
+          .in('status', ['expected', 'receiving'])
           .is('deleted_at', null),
-        // Outbound: Will Call or Disposal releases not yet completed
-        shipmentsTable
+        // Outbound: expected or in_progress outbound shipments
+        supabase
+          .from('shipments')
           .select('id', { count: 'exact', head: true })
           .eq('shipment_type', 'outbound')
           .in('status', ['expected', 'in_progress'])
           .is('deleted_at', null),
         // Recent received: last 5 fully received shipments
-        shipmentsTable
-          .select('id, shipment_number, status, created_at, completed_at, accounts(account_name)')
+        supabase
+          .from('shipments')
+          .select('id, shipment_number, status, created_at, received_at, accounts(account_name)')
           .eq('shipment_type', 'inbound')
           .eq('status', 'received')
           .is('deleted_at', null)
-          .order('completed_at', { ascending: false })
+          .order('received_at', { ascending: false })
           .limit(5),
-        // Recent released: last 5 completed releases
-        shipmentsTable
+        // Recent released: last 5 completed outbound
+        supabase
+          .from('shipments')
           .select('id, shipment_number, status, created_at, completed_at, accounts(account_name)')
           .eq('shipment_type', 'outbound')
           .eq('status', 'completed')
@@ -84,6 +100,20 @@ export default function Shipments() {
           .order('completed_at', { ascending: false })
           .limit(5),
       ]);
+
+      // Check for errors
+      if (incomingRes.error) {
+        console.error('[Shipments] Incoming count failed:', incomingRes.error);
+      }
+      if (outboundRes.error) {
+        console.error('[Shipments] Outbound count failed:', outboundRes.error);
+      }
+      if (recentReceivedRes.error) {
+        console.error('[Shipments] Recent received failed:', recentReceivedRes.error);
+      }
+      if (recentReleasedRes.error) {
+        console.error('[Shipments] Recent released failed:', recentReleasedRes.error);
+      }
 
       setCounts({
         incoming: incomingRes.count || 0,
@@ -99,7 +129,7 @@ export default function Shipments() {
           status: s.status,
           account_name: s.accounts?.account_name,
           created_at: s.created_at,
-          completed_at: s.completed_at,
+          completed_at: s.received_at,
         }))
       );
 
@@ -113,29 +143,30 @@ export default function Shipments() {
           completed_at: s.completed_at,
         }))
       );
-    } catch (error) {
-      console.error('Error fetching shipment data:', error);
+    } catch (error: any) {
+      console.error('[Shipments] Error fetching data:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to load shipment data',
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    return format(new Date(dateStr), 'MMM d, yyyy');
   };
 
   const hubCards = [
     {
       title: 'Incoming Shipments',
-      description: 'Expected & in-progress inbound shipments',
+      description: 'Expected & receiving inbound shipments',
       count: counts.incoming,
       icon: Package,
       color: 'text-amber-600',
-      bgColor: 'bg-amber-100',
+      bgColor: 'bg-amber-100 dark:bg-amber-900/30',
       href: '/shipments/incoming',
     },
     {
@@ -144,7 +175,7 @@ export default function Shipments() {
       count: counts.outbound,
       icon: Truck,
       color: 'text-orange-600',
-      bgColor: 'bg-orange-100',
+      bgColor: 'bg-orange-100 dark:bg-orange-900/30',
       href: '/shipments/outbound',
     },
     {
@@ -153,7 +184,7 @@ export default function Shipments() {
       count: counts.recentReceived,
       icon: CheckCircle,
       color: 'text-green-600',
-      bgColor: 'bg-green-100',
+      bgColor: 'bg-green-100 dark:bg-green-900/30',
       href: '/shipments/received',
       recentItems: recentReceived,
     },
@@ -163,7 +194,7 @@ export default function Shipments() {
       count: counts.recentReleased,
       icon: Clock,
       color: 'text-purple-600',
-      bgColor: 'bg-purple-100',
+      bgColor: 'bg-purple-100 dark:bg-purple-900/30',
       href: '/shipments/released',
       recentItems: recentReleased,
     },
