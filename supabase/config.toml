@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.register-email-domain]
 verify_jwt = false
+
+[functions.log-app-issue]
+verify_jwt = false

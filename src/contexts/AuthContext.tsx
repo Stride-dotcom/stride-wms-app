@@ -76,6 +76,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setProfile(data);
+      
+      // Cache profile for error tracking (includes tenant_id)
+      try {
+        localStorage.setItem('user_profile_cache', JSON.stringify({
+          tenant_id: data.tenant_id,
+        }));
+      } catch {
+        // Ignore localStorage errors
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
     }

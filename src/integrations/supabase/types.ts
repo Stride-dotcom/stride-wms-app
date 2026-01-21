@@ -886,6 +886,83 @@ export type Database = {
         }
         Relationships: []
       }
+      app_issues: {
+        Row: {
+          account_id: string | null
+          action_context: string | null
+          app_version: string | null
+          component_name: string | null
+          created_at: string
+          environment: string
+          error_message: string
+          fingerprint: string
+          http_status: number | null
+          id: string
+          level: string
+          request_summary: Json | null
+          route: string
+          severity: string
+          stack_trace: string | null
+          status: string
+          supabase_error_code: string | null
+          tenant_id: string | null
+          user_id: string | null
+          user_role: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          action_context?: string | null
+          app_version?: string | null
+          component_name?: string | null
+          created_at?: string
+          environment: string
+          error_message: string
+          fingerprint: string
+          http_status?: number | null
+          id?: string
+          level: string
+          request_summary?: Json | null
+          route: string
+          severity?: string
+          stack_trace?: string | null
+          status?: string
+          supabase_error_code?: string | null
+          tenant_id?: string | null
+          user_id?: string | null
+          user_role?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          action_context?: string | null
+          app_version?: string | null
+          component_name?: string | null
+          created_at?: string
+          environment?: string
+          error_message?: string
+          fingerprint?: string
+          http_status?: number | null
+          id?: string
+          level?: string
+          request_summary?: Json | null
+          route?: string
+          severity?: string
+          stack_trace?: string | null
+          status?: string
+          supabase_error_code?: string | null
+          tenant_id?: string | null
+          user_id?: string | null
+          user_role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_issues_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string

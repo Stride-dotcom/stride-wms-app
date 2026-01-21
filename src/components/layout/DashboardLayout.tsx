@@ -28,6 +28,7 @@ import {
   Building2,
   MapPin,
   ScanLine,
+  Bug,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,6 +51,7 @@ const navItems: NavItem[] = [
   { label: 'Accounts', href: '/accounts', icon: Users, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Employees', href: '/employees', icon: Building2, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Settings', href: '/settings', icon: Settings, requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Diagnostics', href: '/diagnostics', icon: Bug, requiredRole: ['admin', 'tenant_admin'] },
 ];
 
 interface DashboardLayoutProps {
