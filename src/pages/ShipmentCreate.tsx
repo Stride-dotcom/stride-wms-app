@@ -19,6 +19,7 @@ import { Plus, Loader2, Save, ArrowLeft } from 'lucide-react';
 interface Account {
   id: string;
   account_name: string;
+  account_code: string | null;
 }
 
 interface Warehouse {
@@ -84,7 +85,11 @@ export default function ShipmentCreate() {
 
   // Convert to SelectOption arrays
   const accountOptions: SelectOption[] = useMemo(
-    () => accounts.map(a => ({ value: a.id, label: a.account_name })),
+    () => accounts.map(a => ({ 
+      value: a.id, 
+      label: a.account_name,
+      subtitle: a.account_code || undefined
+    })),
     [accounts]
   );
 
@@ -107,14 +112,13 @@ export default function ShipmentCreate() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch accounts
+        // Fetch accounts (no is_active column - use deleted_at only)
         const accountsRes = await (supabase
           .from('accounts') as any)
-          .select('id, account_name')
+          .select('id, account_name, account_code')
           .eq('tenant_id', profile.tenant_id)
-          .eq('is_active', true)
           .is('deleted_at', null)
-          .order('account_name');
+          .order('account_name', { ascending: true });
 
         // Fetch warehouses
         const warehousesRes = await (supabase
@@ -135,12 +139,27 @@ export default function ShipmentCreate() {
 
         if (accountsRes.error) {
           console.error('[ShipmentCreate] accounts fetch:', accountsRes.error);
+          toast({
+            variant: 'destructive',
+            title: 'Failed to load accounts',
+            description: accountsRes.error.message
+          });
         }
         if (warehousesRes.error) {
           console.error('[ShipmentCreate] warehouses fetch:', warehousesRes.error);
+          toast({
+            variant: 'destructive',
+            title: 'Failed to load warehouses',
+            description: warehousesRes.error.message
+          });
         }
         if (itemTypesRes.error) {
           console.error('[ShipmentCreate] itemTypes fetch:', itemTypesRes.error);
+          toast({
+            variant: 'destructive',
+            title: 'Failed to load item types',
+            description: itemTypesRes.error.message
+          });
         }
 
         setAccounts(accountsRes.data || []);
