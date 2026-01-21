@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -215,15 +215,15 @@ export function ItemEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Edit Item</DialogTitle>
           <DialogDescription>
             Update details for {item?.item_code}
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 max-h-[60vh] pr-4">
+        <div className="flex-1 overflow-y-auto min-h-0 pr-4">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
@@ -448,9 +448,9 @@ export function ItemEditDialog({
               </div>
             </form>
           </Form>
-        </ScrollArea>
+        </div>
 
-        <DialogFooter className="pt-4">
+        <DialogFooter className="flex-shrink-0 pt-4 border-t">
           <Button
             type="button"
             variant="outline"
