@@ -113,7 +113,7 @@ export default function ShipmentDetail() {
         .from('shipments')
         .select(`
           *,
-          accounts:account_id(id, name),
+          accounts:account_id(id, account_name, account_code),
           warehouses:warehouse_id(id, name)
         `)
         .eq('id', id)

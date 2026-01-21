@@ -269,11 +269,10 @@ export default function Inventory() {
                     <TableHead className="w-10"><Checkbox checked={selectedItems.size === filteredAndSortedItems.length && filteredAndSortedItems.length > 0} onCheckedChange={toggleSelectAll} className="h-3.5 w-3.5" /></TableHead>
                     <TableHead className="w-12">Photo</TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('item_code')}><div className="flex items-center gap-1">Item Code<SortIcon field="item_code" /></div></TableHead>
+                    <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('quantity')}><div className="flex items-center justify-end gap-1">Qty<SortIcon field="quantity" /></div></TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('vendor')}><div className="flex items-center gap-1">Vendor<SortIcon field="vendor" /></div></TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('description')}><div className="flex items-center gap-1">Description<SortIcon field="description" /></div></TableHead>
-                    <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('quantity')}><div className="flex items-center justify-end gap-1">Qty<SortIcon field="quantity" /></div></TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('location_code')}><div className="flex items-center gap-1">Location<SortIcon field="location_code" /></div></TableHead>
-                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('client_account')}><div className="flex items-center gap-1">Client<SortIcon field="client_account" /></div></TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('sidemark')}><div className="flex items-center gap-1">Sidemark<SortIcon field="sidemark" /></div></TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('room')}><div className="flex items-center gap-1">Room<SortIcon field="room" /></div></TableHead>
                   </TableRow></TableHeader>
@@ -290,11 +289,10 @@ export default function Inventory() {
                           <span className="text-primary hover:underline cursor-pointer" onClick={() => navigate(`/inventory/${item.id}`)}>{item.item_code}</span>
                         </ItemPreviewCard>
                       </TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell>
                       <TableCell>{item.vendor || '-'}</TableCell>
                       <TableCell className="line-clamp-1">{item.description || '-'}</TableCell>
-                      <TableCell className="text-right">{item.quantity}</TableCell>
                       <TableCell>{item.location_code ? <span className="text-sm">{item.location_code}{item.warehouse_name && <span className="text-muted-foreground ml-1">({item.warehouse_name})</span>}</span> : '-'}</TableCell>
-                      <TableCell>{item.client_account || '-'}</TableCell>
                       <TableCell>{item.sidemark || '-'}</TableCell>
                       <TableCell>{item.room || '-'}</TableCell>
                     </TableRow>

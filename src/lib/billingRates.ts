@@ -1,17 +1,34 @@
-import { supabase } from '@/integrations/supabase/client';
+/**
+ * Service-based billing rate lookup
+ * 
+ * ARCHITECTURE NOTE: Pricing is SERVICE-BASED, not item-type column-based.
+ * Item Types are for classification only. All pricing should come from:
+ * 1. Account's assigned rate card (rate_card_details)
+ * 2. Default rate card for the tenant
+ * 3. Zero rate (flagged for review)
+ * 
+ * The SERVICE_TO_ITEM_TYPE_FIELD mapping is DEPRECATED and will be removed.
+ * Use rate_card_details with service_type instead.
+ */
 
-export type ServiceCategory = 'item_service' | 'accessorial';
-export type RateSource = 'rate_card' | 'item_type' | 'default';
+import { supabase } from '@/integrations/supabase/client';
+import { SERVICE_CODES, ServiceCode, ServiceCategory } from './itemColumnConfig';
+
+export type RateSource = 'rate_card' | 'default' | 'needs_review';
 
 export interface RateLookupResult {
   rate: number;
   source: RateSource;
   category: ServiceCategory;
+  serviceCode?: ServiceCode;
+  needsReview?: boolean;
 }
 
-// Mapping of service types to their item_type rate field names
-const SERVICE_TO_ITEM_TYPE_FIELD: Record<string, string> = {
-  // Item Services
+/**
+ * @deprecated Use SERVICE_CODES from itemColumnConfig instead
+ * This mapping is kept for backward compatibility during migration
+ */
+const LEGACY_SERVICE_TO_ITEM_TYPE_FIELD: Record<string, string> = {
   receiving: 'receiving_rate',
   shipping: 'shipping_rate',
   assembly: 'assembly_rate',
@@ -22,59 +39,40 @@ const SERVICE_TO_ITEM_TYPE_FIELD: Record<string, string> = {
   disposal: 'disposal_rate',
   picking: 'picking_rate',
   packing: 'packing_rate',
-  pull_for_delivery: 'pull_for_delivery_rate',
-  custom_packaging: 'custom_packaging_rate',
-  pallet_sale: 'pallet_sale_rate',
-  
-  // Accessorial Services (flat fees from item type or rate card)
-  oversized: 'oversize_rate',
+  oversize: 'oversize_rate',
   overweight: 'overweight_rate',
   unstackable: 'unstackable_extra_fee',
   crate_disposal: 'crated_rate',
-  crated: 'crated_rate',
   minor_touchup: 'minor_touchup_rate',
   received_without_id: 'received_without_id_rate',
-  
-  // Flag-based billing (mapped to their rate fields)
-  is_oversize: 'oversize_rate',
-  is_overweight: 'overweight_rate',
-  is_unstackable: 'unstackable_extra_fee',
-  is_crated: 'crated_rate',
-  needs_minor_touchup: 'minor_touchup_rate',
-  received_without_id_flag: 'received_without_id_rate',
 };
 
-// Service types that are accessorial (flat fees, not item-specific processing)
-const ACCESSORIAL_SERVICES = new Set([
-  'oversized',
-  'overweight',
-  'unstackable',
-  'crate_disposal',
-  'crated',
-  'minor_touchup',
-  'received_without_id',
-  'is_oversize',
-  'is_overweight',
-  'is_unstackable',
-  'is_crated',
-  'needs_minor_touchup',
-  'received_without_id_flag',
+// Service types that are accessorial (flat fees)
+const ACCESSORIAL_SERVICES = new Set<string>([
+  SERVICE_CODES.OVERSIZE,
+  SERVICE_CODES.OVERWEIGHT,
+  SERVICE_CODES.UNSTACKABLE,
+  SERVICE_CODES.CRATE_DISPOSAL,
+  SERVICE_CODES.MINOR_TOUCHUP,
+  SERVICE_CODES.RECEIVED_WITHOUT_ID,
 ]);
 
 /**
- * Get the billing rate for a service with proper priority:
- * 1. Account's assigned rate card
- * 2. Item type base rate
- * 3. Default rate (0, flagged for review)
+ * Get the billing rate for a service
+ * Priority: Account rate card → Default rate card → Zero (needs review)
+ * 
+ * Supports both new API (serviceCode) and legacy API (serviceType) for backward compatibility
  */
 export async function getServiceRate(params: {
   accountId: string | null;
-  itemTypeId: string | null;
-  serviceType: string;
+  serviceCode?: ServiceCode;
+  serviceType?: string;
+  itemTypeId?: string | null;
 }): Promise<RateLookupResult> {
-  const { accountId, itemTypeId, serviceType } = params;
-  const normalizedServiceType = serviceType.toLowerCase().replace(/ /g, '_');
-  const isAccessorial = ACCESSORIAL_SERVICES.has(normalizedServiceType);
+  const { accountId, itemTypeId } = params;
+  // Support both serviceCode and legacy serviceType parameter
+  const serviceCode = params.serviceCode || (params.serviceType as ServiceCode);
+  const isAccessorial = ACCESSORIAL_SERVICES.has(serviceCode);
   const category: ServiceCategory = isAccessorial ? 'accessorial' : 'item_service';
 
   // 1. Try account's rate card first
@@ -87,55 +85,93 @@ export async function getServiceRate(params: {
         .single();
 
       if (account?.rate_card_id) {
-        const { data: rateCardDetail } = await supabase
+        // Build query for rate card detail
+        let query = supabase
           .from('rate_card_details')
           .select('rate')
           .eq('rate_card_id', account.rate_card_id)
-          .eq('service_type', normalizedServiceType)
+          .eq('service_type', serviceCode);
+
+        // If item type specified, try to find item-type-specific rate first
+        if (itemTypeId) {
+          const { data: specificRate } = await query
+            .eq('item_type_id', itemTypeId)
+            .single();
+
+          if (specificRate?.rate != null) {
+            return {
+              rate: specificRate.rate,
+              source: 'rate_card',
+              category,
+              serviceCode,
+              needsReview: false,
+            };
+          }
+        }
+
+        // Fall back to general rate for service type
+        const { data: generalRate } = await supabase
+          .from('rate_card_details')
+          .select('rate')
+          .eq('rate_card_id', account.rate_card_id)
+          .eq('service_type', serviceCode)
+          .is('item_type_id', null)
           .single();
 
-        if (rateCardDetail?.rate != null) {
+        if (generalRate?.rate != null) {
           return {
-            rate: rateCardDetail.rate,
+            rate: generalRate.rate,
             source: 'rate_card',
             category,
+            serviceCode,
+            needsReview: false,
           };
         }
       }
     } catch (error) {
-      // Continue to item type fallback
+      // Continue to default rate card
     }
   }
 
-  // 2. Fall back to item type rates
-  if (itemTypeId) {
-    const rateField = SERVICE_TO_ITEM_TYPE_FIELD[normalizedServiceType];
-    if (rateField) {
-      try {
-        const { data: itemType } = await (supabase
-          .from('item_types') as any)
-          .select(rateField)
-          .eq('id', itemTypeId)
-          .single();
+  // 2. Try default rate card for tenant
+  try {
+    const { data: defaultRateCard } = await supabase
+      .from('rate_cards')
+      .select('id')
+      .eq('is_default', true)
+      .is('deleted_at', null)
+      .single();
 
-        if (itemType && itemType[rateField] != null) {
-          return {
-            rate: itemType[rateField],
-            source: 'item_type',
-            category,
-          };
-        }
-      } catch (error) {
-        // Continue to default
+    if (defaultRateCard) {
+      const { data: defaultRate } = await supabase
+        .from('rate_card_details')
+        .select('rate')
+        .eq('rate_card_id', defaultRateCard.id)
+        .eq('service_type', serviceCode)
+        .is('item_type_id', null)
+        .single();
+
+      if (defaultRate?.rate != null) {
+        return {
+          rate: defaultRate.rate,
+          source: 'default',
+          category,
+          serviceCode,
+          needsReview: false,
+        };
       }
     }
+  } catch (error) {
+    // Continue to needs review
   }
 
-  // 3. Default rate (flagged for review)
+  // 3. No rate found - flag for review
   return {
     rate: 0,
-    source: 'default',
+    source: 'needs_review',
     category,
+    serviceCode,
+    needsReview: true,
   };
 }
 
@@ -163,28 +199,104 @@ export async function getAccountIdFromName(accountName: string | null): Promise<
  */
 export async function getBulkServiceRates(params: {
   accountId: string | null;
-  itemTypeId: string | null;
-  serviceTypes: string[];
-}): Promise<Record<string, RateLookupResult>> {
+  serviceCodes: ServiceCode[];
+  itemTypeId?: string | null;
+}): Promise<Record<ServiceCode, RateLookupResult>> {
   const results: Record<string, RateLookupResult> = {};
   
   // Fetch all rates in parallel
   await Promise.all(
-    params.serviceTypes.map(async (serviceType) => {
-      results[serviceType] = await getServiceRate({
+    params.serviceCodes.map(async (serviceCode) => {
+      results[serviceCode] = await getServiceRate({
         accountId: params.accountId,
+        serviceCode,
         itemTypeId: params.itemTypeId,
-        serviceType,
       });
     })
   );
   
-  return results;
+  return results as Record<ServiceCode, RateLookupResult>;
 }
 
 /**
- * Sync item type rates to the default rate card
- * Called when item type rates are updated
+ * Map task type to service code for billing
+ * @deprecated Use taskTypeToServiceCode from itemColumnConfig
+ */
+export function taskTypeToServiceType(taskType: string): string {
+  const mapping: Record<string, string> = {
+    'Receiving': SERVICE_CODES.RECEIVING,
+    'Shipping': SERVICE_CODES.SHIPPING,
+    'Assembly': SERVICE_CODES.ASSEMBLY,
+    'Inspection': SERVICE_CODES.INSPECTION,
+    'Repair': SERVICE_CODES.REPAIR,
+    'Will Call': SERVICE_CODES.WILL_CALL,
+    'Disposal': SERVICE_CODES.DISPOSAL,
+    'Picking': SERVICE_CODES.PICKING,
+    'Packing': SERVICE_CODES.PACKING,
+    'Pull for Delivery': SERVICE_CODES.PULL_FOR_DELIVERY,
+  };
+  
+  return mapping[taskType] || taskType.toLowerCase().replace(/ /g, '_');
+}
+
+/**
+ * Map flag name to service code for billing
+ * @deprecated Use flagToServiceCode from itemColumnConfig
+ */
+export function flagToServiceType(flagName: string): string {
+  const mapping: Record<string, string> = {
+    is_oversize: SERVICE_CODES.OVERSIZE,
+    is_overweight: SERVICE_CODES.OVERWEIGHT,
+    is_unstackable: SERVICE_CODES.UNSTACKABLE,
+    is_crated: SERVICE_CODES.CRATE_DISPOSAL,
+    needs_minor_touchup: SERVICE_CODES.MINOR_TOUCHUP,
+    received_without_id: SERVICE_CODES.RECEIVED_WITHOUT_ID,
+  };
+  
+  return mapping[flagName] || flagName;
+}
+
+/**
+ * Populate a rate card with default rates for all services
+ * This is called when creating a new rate card
+ */
+export async function populateRateCardWithDefaults(
+  rateCardId: string,
+  defaultRates?: Partial<Record<ServiceCode, number>>
+): Promise<{ inserted: number }> {
+  let inserted = 0;
+
+  const servicesToInsert = Object.values(SERVICE_CODES);
+  
+  for (const serviceCode of servicesToInsert) {
+    const rate = defaultRates?.[serviceCode as ServiceCode] ?? 0;
+    const isAccessorial = ACCESSORIAL_SERVICES.has(serviceCode);
+    
+    try {
+      const { error } = await supabase
+        .from('rate_card_details')
+        .insert({
+          rate_card_id: rateCardId,
+          service_type: serviceCode,
+          rate,
+          category: isAccessorial ? 'accessorial' : 'item_service',
+          charge_unit: 'per_item',
+        });
+
+      if (!error) {
+        inserted++;
+      }
+    } catch (error) {
+      console.error(`Error inserting rate for ${serviceCode}:`, error);
+    }
+  }
+
+  return { inserted };
+}
+
+/**
+ * @deprecated Legacy function - Sync item type rates to the default rate card
+ * This function is kept for backward compatibility. New code should use rate_card_details directly.
  */
 export async function syncItemTypeRatesToDefaultRateCard(
   tenantId: string,
@@ -218,7 +330,7 @@ export async function syncItemTypeRatesToDefaultRateCard(
       disposal_rate: 'disposal',
       picking_rate: 'picking',
       packing_rate: 'packing',
-      oversize_rate: 'oversized',
+      oversize_rate: 'oversize',
       overweight_rate: 'overweight',
       unstackable_extra_fee: 'unstackable',
       crated_rate: 'crate_disposal',
@@ -270,44 +382,8 @@ export async function syncItemTypeRatesToDefaultRateCard(
 }
 
 /**
- * Map task type to service type for billing
- */
-export function taskTypeToServiceType(taskType: string): string {
-  const mapping: Record<string, string> = {
-    'Receiving': 'receiving',
-    'Shipping': 'shipping',
-    'Assembly': 'assembly',
-    'Inspection': 'inspection',
-    'Repair': 'repair',
-    'Will Call': 'will_call',
-    'Disposal': 'disposal',
-    'Picking': 'picking',
-    'Packing': 'packing',
-    'Pull for Delivery': 'pull_for_delivery',
-  };
-  
-  return mapping[taskType] || taskType.toLowerCase().replace(/ /g, '_');
-}
-
-/**
- * Map flag name to service type for billing
- */
-export function flagToServiceType(flagName: string): string {
-  const mapping: Record<string, string> = {
-    is_oversize: 'oversized',
-    is_overweight: 'overweight',
-    is_unstackable: 'unstackable',
-    is_crated: 'crate_disposal',
-    needs_minor_touchup: 'minor_touchup',
-    received_without_id: 'received_without_id',
-  };
-  
-  return mapping[flagName] || flagName;
-}
-
-/**
- * Populate a rate card with all item type rates as a starting template
- * Called when a new rate card is created or when syncing existing cards
+ * @deprecated Legacy function - Populate a rate card with all item type rates as a starting template
+ * This function is kept for backward compatibility. New code should use populateRateCardWithDefaults.
  */
 export async function populateRateCardFromItemTypes(
   tenantId: string,
@@ -339,7 +415,7 @@ export async function populateRateCardFromItemTypes(
       disposal_rate: 'disposal',
       picking_rate: 'picking',
       packing_rate: 'packing',
-      oversize_rate: 'oversized',
+      oversize_rate: 'oversize',
       overweight_rate: 'overweight',
       unstackable_extra_fee: 'unstackable',
       crated_rate: 'crate_disposal',
