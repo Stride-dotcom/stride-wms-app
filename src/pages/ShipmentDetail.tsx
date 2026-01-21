@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useReceivingSession } from '@/hooks/useReceivingSession';
 import { usePermissions, PERMISSIONS } from '@/hooks/usePermissions';
+import { isValidUuid } from '@/lib/utils';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -102,10 +103,26 @@ export default function ShipmentDetail() {
   } = useReceivingSession(id);
 
   // ------------------------------------------
+  // UUID validation guard - redirect if invalid
+  // ------------------------------------------
+  useEffect(() => {
+    if (id && !isValidUuid(id)) {
+      console.warn(`[ShipmentDetail] Invalid shipment ID: "${id}" - redirecting`);
+      navigate('/shipments', { replace: true });
+    }
+  }, [id, navigate]);
+
+  // ------------------------------------------
   // Fetch shipment data
   // ------------------------------------------
   const fetchShipment = useCallback(async () => {
     if (!id || !profile?.tenant_id) return;
+
+    // Prevent Supabase query if id is not a valid UUID
+    if (!isValidUuid(id)) {
+      setLoading(false);
+      return;
+    }
 
     try {
       // Fetch shipment with related data

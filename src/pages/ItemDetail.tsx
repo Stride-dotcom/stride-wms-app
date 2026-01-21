@@ -24,6 +24,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { isValidUuid } from '@/lib/utils';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { ItemFlagsSection } from '@/components/items/ItemFlagsSection';
 import { ItemNotesSection } from '@/components/items/ItemNotesSection';
@@ -147,14 +148,21 @@ export default function ItemDetail() {
   // Check if user is a client (simplified check)
   const isClientUser = false; // Will be determined by role system
 
+  // UUID validation guard - redirect if invalid
   useEffect(() => {
-    if (id) {
+    if (id && !isValidUuid(id)) {
+      console.warn(`[ItemDetail] Invalid item ID: "${id}" - redirecting`);
+      navigate('/inventory', { replace: true });
+      return;
+    }
+    
+    if (id && isValidUuid(id)) {
       fetchItem();
       fetchMovements();
       fetchTasks();
       fetchShipments();
     }
-  }, [id]);
+  }, [id, navigate]);
 
   const fetchItem = async () => {
     try {
