@@ -72,7 +72,7 @@ export function ItemTypeCombobox({
             value={search}
             onValueChange={setSearch}
           />
-          <CommandList className="max-h-[200px] overflow-y-auto">
+          <CommandList className="!max-h-[200px] overflow-y-auto">
             <CommandEmpty>No item type found.</CommandEmpty>
             <CommandGroup>
               {filteredTypes.map((type) => (
