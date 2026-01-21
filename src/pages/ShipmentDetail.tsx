@@ -3,9 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useReceivingSession, ReceivedItemData } from '@/hooks/useReceivingSession';
+import { useReceivingSession } from '@/hooks/useReceivingSession';
 import { usePermissions, PERMISSIONS } from '@/hooks/usePermissions';
-import DashboardLayout from '@/components/layout/DashboardLayout';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +34,19 @@ interface ShipmentItem {
     item_code: string;
     description: string | null;
   } | null;
+}
+
+// Local type for received item tracking in UI
+interface ReceivedItemData {
+  shipment_item_id: string;
+  expected_description: string | null;
+  expected_quantity: number;
+  actual_quantity: number;
+  expected_vendor: string | null;
+  expected_sidemark: string | null;
+  expected_item_type_id: string | null;
+  notes: string | null;
+  status: 'received' | 'partial' | 'missing';
 }
 
 interface Shipment {
@@ -198,16 +211,35 @@ export default function ShipmentDetail() {
   const handleFinishReceiving = async () => {
     if (!shipment) return;
 
-    const result = await finishSession(
-      receivedItems,
-      {
-        account_id: shipment.account_id,
-        warehouse_id: shipment.warehouse_id || '',
-        account_name: shipment.accounts?.name || null,
-      },
-      receivingPhotos,
-      receivingDocuments
-    );
+    // Convert local ReceivedItemData to VerificationData format expected by hook
+    const verificationData = {
+      expected_items: items.map(item => ({
+        description: item.expected_description || '',
+        quantity: item.expected_quantity,
+      })),
+      received_items: receivedItems
+        .filter(item => item.status !== 'missing')
+        .map(item => ({
+          description: item.expected_description || '',
+          quantity: item.actual_quantity,
+          shipment_item_id: item.shipment_item_id,
+        })),
+      discrepancies: receivedItems
+        .filter(item => item.actual_quantity !== item.expected_quantity)
+        .map(item => ({
+          description: item.expected_description || '',
+          expected: item.expected_quantity,
+          received: item.actual_quantity,
+        })),
+      backorder_items: receivedItems
+        .filter(item => item.actual_quantity < item.expected_quantity)
+        .map(item => ({
+          description: item.expected_description || '',
+          quantity: item.expected_quantity - item.actual_quantity,
+        })),
+    };
+
+    const result = await finishSession(verificationData, true);
 
     if (result.success) {
       setShowFinishDialog(false);
