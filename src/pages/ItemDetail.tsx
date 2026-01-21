@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -128,6 +128,15 @@ interface ShipmentLink {
 
 export default function ItemDetail() {
   const { id } = useParams<{ id: string }>();
+
+  // ============================================
+  // RENDER-TIME UUID GUARD - executes before any hooks
+  // ============================================
+  if (!id || !isValidUuid(id)) {
+    return <Navigate to="/inventory" replace />;
+  }
+
+  // Now we know id is a valid UUID - safe to use hooks
   const navigate = useNavigate();
   const { toast } = useToast();
   const { profile } = useAuth();
@@ -148,21 +157,13 @@ export default function ItemDetail() {
   // Check if user is a client (simplified check)
   const isClientUser = false; // Will be determined by role system
 
-  // UUID validation guard - redirect if invalid
+  // Fetch data on mount (id is guaranteed valid UUID at this point)
   useEffect(() => {
-    if (id && !isValidUuid(id)) {
-      console.warn(`[ItemDetail] Invalid item ID: "${id}" - redirecting`);
-      navigate('/inventory', { replace: true });
-      return;
-    }
-    
-    if (id && isValidUuid(id)) {
-      fetchItem();
-      fetchMovements();
-      fetchTasks();
-      fetchShipments();
-    }
-  }, [id, navigate]);
+    fetchItem();
+    fetchMovements();
+    fetchTasks();
+    fetchShipments();
+  }, [id]);
 
   const fetchItem = async () => {
     try {

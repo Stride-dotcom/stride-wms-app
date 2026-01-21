@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -78,6 +78,15 @@ interface Shipment {
 
 export default function ShipmentDetail() {
   const { id } = useParams<{ id: string }>();
+
+  // ============================================
+  // RENDER-TIME UUID GUARD - executes before any hooks
+  // ============================================
+  if (!id || !isValidUuid(id)) {
+    return <Navigate to="/shipments" replace />;
+  }
+
+  // Now we know id is a valid UUID - safe to use hooks
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -103,26 +112,10 @@ export default function ShipmentDetail() {
   } = useReceivingSession(id);
 
   // ------------------------------------------
-  // UUID validation guard - redirect if invalid
-  // ------------------------------------------
-  useEffect(() => {
-    if (id && !isValidUuid(id)) {
-      console.warn(`[ShipmentDetail] Invalid shipment ID: "${id}" - redirecting`);
-      navigate('/shipments', { replace: true });
-    }
-  }, [id, navigate]);
-
-  // ------------------------------------------
   // Fetch shipment data
   // ------------------------------------------
   const fetchShipment = useCallback(async () => {
-    if (!id || !profile?.tenant_id) return;
-
-    // Prevent Supabase query if id is not a valid UUID
-    if (!isValidUuid(id)) {
-      setLoading(false);
-      return;
-    }
+    if (!profile?.tenant_id) return;
 
     try {
       // Fetch shipment with related data
