@@ -289,7 +289,7 @@ export function ItemEditDialog({
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="_none_">No account</SelectItem>
-                        {accounts.map((account) => (
+                        {accounts.filter(account => account.id).map((account) => (
                           <SelectItem key={account.id} value={account.id}>
                             {account.account_name} ({account.account_code})
                           </SelectItem>
@@ -322,7 +322,7 @@ export function ItemEditDialog({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || undefined}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select status" />
@@ -427,7 +427,7 @@ export function ItemEditDialog({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Size Unit</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || undefined}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Unit" />
