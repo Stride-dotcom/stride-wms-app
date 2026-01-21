@@ -393,8 +393,20 @@ export default function Tasks() {
               <TableBody>
                 {filteredTasks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      No tasks found. Click "Create Task" to get started.
+                    <TableCell colSpan={8} className="text-center py-12">
+                      <div className="flex flex-col items-center gap-2">
+                        <ClipboardList className="h-10 w-10 text-muted-foreground" />
+                        <p className="text-muted-foreground font-medium">
+                          {searchQuery || filters.status !== 'all' || filters.taskType !== 'all' || filters.warehouseId !== 'all'
+                            ? 'No tasks match your filters'
+                            : 'No tasks yet'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {searchQuery || filters.status !== 'all' || filters.taskType !== 'all' || filters.warehouseId !== 'all'
+                            ? 'Try adjusting your search or filter criteria'
+                            : 'Click "Create Task" to get started'}
+                        </p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (

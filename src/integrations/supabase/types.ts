@@ -388,6 +388,7 @@ export type Database = {
           email_variables: Json | null
           hide_internal_fields_from_clients: boolean | null
           id: string
+          is_active: boolean
           is_master_account: boolean | null
           metadata: Json | null
           net_terms: number | null
@@ -455,6 +456,7 @@ export type Database = {
           email_variables?: Json | null
           hide_internal_fields_from_clients?: boolean | null
           id?: string
+          is_active?: boolean
           is_master_account?: boolean | null
           metadata?: Json | null
           net_terms?: number | null
@@ -522,6 +524,7 @@ export type Database = {
           email_variables?: Json | null
           hide_internal_fields_from_clients?: boolean | null
           id?: string
+          is_active?: boolean
           is_master_account?: boolean | null
           metadata?: Json | null
           net_terms?: number | null
@@ -2693,6 +2696,7 @@ export type Database = {
           cubic_feet: number | null
           custom_packaging_rate: number | null
           default_item_notes: string | null
+          deleted_at: string | null
           delivery_pieces: number | null
           dimension_unit: string | null
           disposal_rate: number | null
@@ -2752,6 +2756,7 @@ export type Database = {
           cubic_feet?: number | null
           custom_packaging_rate?: number | null
           default_item_notes?: string | null
+          deleted_at?: string | null
           delivery_pieces?: number | null
           dimension_unit?: string | null
           disposal_rate?: number | null
@@ -2811,6 +2816,7 @@ export type Database = {
           cubic_feet?: number | null
           custom_packaging_rate?: number | null
           default_item_notes?: string | null
+          deleted_at?: string | null
           delivery_pieces?: number | null
           dimension_unit?: string | null
           disposal_rate?: number | null
