@@ -57,10 +57,10 @@ export default function PrintPreview() {
         localStorage.removeItem('printPreviewFilename');
       } catch (err) {
         console.error('Error loading PDF:', err);
-        setError('Failed to load the PDF. Please try again.');
+        setError('Failed to load the PDF. Please try downloading instead from the previous page.');
       }
     } else {
-      setError('No PDF data found. Please generate labels again.');
+      setError('No PDF data found. Please go back and try generating labels again. If the issue persists, use the "Download PDF" option instead.');
     }
 
     // Cleanup URL on unmount
@@ -131,12 +131,23 @@ export default function PrintPreview() {
 
       {/* PDF Viewer */}
       {pdfUrl ? (
-        <div className="flex-1 w-full">
-          <embed 
-            src={pdfUrl} 
-            type="application/pdf" 
-            className="w-full h-full min-h-[calc(100vh-73px)]"
-          />
+        <div className="flex-1 w-full flex flex-col">
+          <object
+            data={pdfUrl}
+            type="application/pdf"
+            className="w-full flex-1 min-h-[calc(100vh-73px)]"
+          >
+            {/* Fallback for browsers that don't support PDF embedding */}
+            <div className="flex flex-col items-center justify-center p-8 text-center h-full">
+              <p className="text-muted-foreground mb-4">
+                Your browser cannot display the PDF directly. Please use the buttons above to download or print.
+              </p>
+              <Button onClick={handleDownload}>
+                <Download className="mr-2 h-4 w-4" />
+                Download PDF
+              </Button>
+            </div>
+          </object>
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center">
