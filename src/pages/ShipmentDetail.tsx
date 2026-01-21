@@ -34,6 +34,7 @@ import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { ScanDocumentButton, DocumentList } from '@/components/scanner';
 import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
 import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDialog';
+import { ShipmentEditDialog } from '@/components/shipments/ShipmentEditDialog';
 import { format } from 'date-fns';
 import { 
   ArrowLeft, 
@@ -48,6 +49,7 @@ import {
   ClipboardList,
   Trash2,
   ChevronDown,
+  Pencil,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -131,6 +133,7 @@ export default function ShipmentDetail() {
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [preSelectedTaskType, setPreSelectedTaskType] = useState<string | undefined>(undefined);
   const [showAddItemDialog, setShowAddItemDialog] = useState(false);
+  const [showEditDetailsDialog, setShowEditDetailsDialog] = useState(false);
   
   // For signature
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -421,7 +424,10 @@ export default function ShipmentDetail() {
     );
   }
 
-  const isCompleted = shipment.status === 'completed' || shipment.status === 'received';
+  // Only truly lock editing for 'completed' status (outbound shipments)
+  // For 'received' status (inbound shipments), allow editing
+  const isCompleted = shipment.status === 'completed';
+  const isReceived = shipment.status === 'received';
 
   return (
     <DashboardLayout>
@@ -526,11 +532,62 @@ export default function ShipmentDetail() {
           />
         )}
 
+        {/* Photos & Documents - visible for received inbound shipments */}
+        {shipment.shipment_type === 'inbound' && isReceived && (
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <ImageIcon className="h-4 w-4" />
+                  Receiving Photos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PhotoCapture
+                  entityType="shipment"
+                  entityId={shipment.id}
+                  onPhotosChange={(urls) => handlePhotosChange('photos', urls)}
+                  existingPhotos={shipment.receiving_photos || []}
+                  label=""
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileText className="h-4 w-4" />
+                  Receiving Documents
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PhotoCapture
+                  entityType="shipment"
+                  entityId={shipment.id}
+                  onPhotosChange={(urls) => handlePhotosChange('documents', urls)}
+                  existingPhotos={shipment.receiving_documents || []}
+                  label=""
+                  acceptDocuments={true}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Details Card */}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle>Shipment Details</CardTitle>
+              {shipment.shipment_type === 'inbound' && !isCompleted && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowEditDetailsDialog(true)}
+                >
+                  <Pencil className="h-4 w-4 mr-1" />
+                  Edit
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -651,8 +708,8 @@ export default function ShipmentDetail() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              {/* Add Item Button - only for inbound, not completed */}
-              {shipment.shipment_type === 'inbound' && !isCompleted && (
+              {/* Add Item Button - only for inbound, not completed, not received */}
+              {shipment.shipment_type === 'inbound' && !isCompleted && !isReceived && (
                 <Button variant="outline" onClick={() => setShowAddItemDialog(true)}>
                   <Package className="mr-2 h-4 w-4" />
                   Add Item
@@ -701,7 +758,7 @@ export default function ShipmentDetail() {
               <div className="text-center py-8">
                 <Package className="mx-auto h-12 w-12 text-muted-foreground" />
                 <p className="mt-2 text-sm text-muted-foreground">No items in this shipment</p>
-                {shipment.shipment_type === 'inbound' && !isCompleted && (
+                {shipment.shipment_type === 'inbound' && !isCompleted && !isReceived && (
                   <Button 
                     variant="outline" 
                     className="mt-4"
@@ -844,6 +901,21 @@ export default function ShipmentDetail() {
         onOpenChange={setShowAddItemDialog}
         shipmentId={shipment.id}
         accountId={shipment.account?.id}
+        onSuccess={fetchShipment}
+      />
+
+      {/* Edit Shipment Details Dialog */}
+      <ShipmentEditDialog
+        open={showEditDetailsDialog}
+        onOpenChange={setShowEditDetailsDialog}
+        shipment={{
+          id: shipment.id,
+          carrier: shipment.carrier,
+          tracking_number: shipment.tracking_number,
+          po_number: shipment.po_number,
+          expected_arrival_date: shipment.expected_arrival_date,
+          notes: shipment.notes,
+        }}
         onSuccess={fetchShipment}
       />
     </DashboardLayout>
