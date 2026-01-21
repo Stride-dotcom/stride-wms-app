@@ -27,6 +27,7 @@ import RepairTechAccess from "./pages/RepairTechAccess";
 import ScanHub from "./pages/ScanHub";
 import PrintPreview from "./pages/PrintPreview";
 import Diagnostics from "./pages/Diagnostics";
+import ComponentsDemo from "./pages/ComponentsDemo";
 import NotFound from "./pages/NotFound";
 import { AIClientBot } from "./components/ai/AIClientBot";
 
@@ -65,6 +66,7 @@ const App = () => (
             <Route path="/settings" element={<ProtectedRoute><RequireRole role="tenant_admin"><Settings /></RequireRole></ProtectedRoute>} />
             <Route path="/diagnostics" element={<ProtectedRoute><RequireRole role="tenant_admin"><Diagnostics /></RequireRole></ProtectedRoute>} />
             <Route path="/repair-access" element={<RepairTechAccess />} />
+            <Route path="/components-demo" element={<ProtectedRoute><ComponentsDemo /></ProtectedRoute>} />
             <Route path="/print-preview" element={<PrintPreview />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
