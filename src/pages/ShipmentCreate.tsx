@@ -310,7 +310,15 @@ export default function ShipmentCreate() {
       if (itemsToInsert.length > 0) {
         const { error: itemsError } = await (supabase.from("shipment_items") as any).insert(itemsToInsert);
 
-        if (itemsError) throw itemsError;
+        if (itemsError) {
+          console.error("[ShipmentItemsCreate] Insert failed:", itemsError);
+          toast({
+            variant: "destructive",
+            title: "Failed to create shipment items",
+            description: itemsError.message || "Unknown error",
+          });
+          throw itemsError;
+        }
       }
 
       // Record field suggestions for future use

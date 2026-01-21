@@ -3866,6 +3866,7 @@ export type Database = {
           expected_vendor: string | null
           id: string
           item_id: string | null
+          item_type_id: string | null
           notes: string | null
           received_at: string | null
           released_at: string | null
@@ -3883,6 +3884,7 @@ export type Database = {
           expected_vendor?: string | null
           id?: string
           item_id?: string | null
+          item_type_id?: string | null
           notes?: string | null
           received_at?: string | null
           released_at?: string | null
@@ -3900,6 +3902,7 @@ export type Database = {
           expected_vendor?: string | null
           id?: string
           item_id?: string | null
+          item_type_id?: string | null
           notes?: string | null
           received_at?: string | null
           released_at?: string | null
@@ -3927,6 +3930,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_items_item_type_id_fkey"
+            columns: ["item_type_id"]
+            isOneToOne: false
+            referencedRelation: "item_types"
             referencedColumns: ["id"]
           },
           {
