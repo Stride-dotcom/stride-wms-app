@@ -33,11 +33,15 @@ import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ItemTypeCombobox } from './ItemTypeCombobox';
+import { SidemarkSelect } from '@/components/ui/sidemark-select';
+import { ClassSelect } from '@/components/ui/class-select';
 
 const itemSchema = z.object({
   description: z.string().optional(),
   quantity: z.coerce.number().min(1).default(1),
   sidemark: z.string().optional(),
+  sidemark_id: z.string().optional(),
+  class_id: z.string().optional(),
   vendor: z.string().optional(),
   size: z.coerce.number().optional(),
   size_unit: z.string().optional(),
@@ -53,6 +57,7 @@ const itemSchema = z.object({
   status: z.string().optional(),
   item_type_id: z.string().optional(),
   client_account: z.string().optional(),
+  account_id: z.string().optional(),
 });
 
 type ItemFormData = z.infer<typeof itemSchema>;
@@ -77,6 +82,9 @@ interface ItemEditDialogProps {
     description: string | null;
     quantity: number;
     sidemark: string | null;
+    sidemark_id?: string | null;
+    class_id?: string | null;
+    account_id?: string | null;
     vendor: string | null;
     size: number | null;
     size_unit: string | null;
@@ -140,6 +148,9 @@ export function ItemEditDialog({
       description: '',
       quantity: 1,
       sidemark: '',
+      sidemark_id: '',
+      class_id: '',
+      account_id: '',
       vendor: '',
       size: undefined,
       size_unit: '',
@@ -151,12 +162,18 @@ export function ItemEditDialog({
     },
   });
 
+  // Track selected account for sidemark filtering
+  const selectedAccountId = form.watch('account_id');
+
   useEffect(() => {
     if (open && item) {
       form.reset({
         description: item.description || '',
         quantity: item.quantity || 1,
         sidemark: item.sidemark || '',
+        sidemark_id: item.sidemark_id || '',
+        class_id: item.class_id || '',
+        account_id: item.account_id || '',
         vendor: item.vendor || '',
         size: item.size || undefined,
         size_unit: item.size_unit || '',
@@ -178,6 +195,9 @@ export function ItemEditDialog({
         description: data.description || null,
         quantity: data.quantity,
         sidemark: data.sidemark || null,
+        sidemark_id: data.sidemark_id || null,
+        class_id: data.class_id || null,
+        account_id: data.account_id || null,
         vendor: data.vendor || null,
         size: data.size || null,
         size_unit: data.size_unit || null,
@@ -266,7 +286,7 @@ export function ItemEditDialog({
 
               <FormField
                 control={form.control}
-                name="client_account"
+                name="account_id"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Account</FormLabel>
@@ -274,13 +294,16 @@ export function ItemEditDialog({
                       onValueChange={(val) => {
                         if (val === '_none_') {
                           field.onChange('');
+                          form.setValue('client_account', '');
+                          form.setValue('sidemark_id', ''); // Clear sidemark when account changes
                         } else {
-                          // Find the account name and store it
+                          field.onChange(val);
                           const account = accounts.find(a => a.id === val);
-                          field.onChange(account?.account_name || '');
+                          form.setValue('client_account', account?.account_name || '');
+                          form.setValue('sidemark_id', ''); // Clear sidemark when account changes
                         }
                       }} 
-                      value={accounts.find(a => a.account_name === field.value)?.id || '_none_'}
+                      value={field.value || '_none_'}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -300,6 +323,46 @@ export function ItemEditDialog({
                   </FormItem>
                 )}
               />
+
+              {/* Sidemark (structured) and Class selectors */}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="sidemark_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sidemark (Project)</FormLabel>
+                      <FormControl>
+                        <SidemarkSelect
+                          accountId={selectedAccountId}
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Select sidemark..."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="class_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Class (Pricing Tier)</FormLabel>
+                      <FormControl>
+                        <ClassSelect
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Select class..."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField
