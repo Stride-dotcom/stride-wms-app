@@ -221,8 +221,8 @@ export function useRepairQuotes(itemId: string | undefined) {
           tenant_id: profile.tenant_id,
           title: 'Repair - 1 item',
           task_type: 'Repair',
-          status: 'in_queue',
-          priority: 'medium',
+          status: 'pending',
+          priority: 'normal',
         })
         .select()
         .single();

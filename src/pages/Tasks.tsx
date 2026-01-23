@@ -55,7 +55,6 @@ import {
 } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
-  in_queue: 'bg-yellow-100 text-yellow-800',
   pending: 'bg-yellow-100 text-yellow-800',
   in_progress: 'bg-amber-100 text-amber-800',
   completed: 'bg-green-100 text-green-800',
@@ -64,7 +63,6 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-  in_queue: 'In Queue',
   pending: 'Pending',
   in_progress: 'In Progress',
   completed: 'Completed',
@@ -121,7 +119,7 @@ export default function Tasks() {
 
   // Memoize stats to avoid recalculation flicker
   const stats = {
-    inQueue: tasks.filter(t => t.status === 'in_queue' || t.status === 'pending').length,
+    inQueue: tasks.filter(t => t.status === 'pending').length,
     inProgress: tasks.filter(t => t.status === 'in_progress').length,
     completed: tasks.filter(t => t.status === 'completed').length,
     overdue: tasks.filter(t => 
@@ -189,7 +187,7 @@ export default function Tasks() {
   const renderActionButtons = (task: Task) => {
     const buttons = [];
 
-    if (task.status === 'in_queue' || task.status === 'pending') {
+    if (task.status === 'pending') {
       buttons.push(
         <Button
           key="start"
@@ -251,7 +249,7 @@ export default function Tasks() {
 
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-4">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilters(f => ({ ...f, status: 'in_queue' }))}>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilters(f => ({ ...f, status: 'pending' }))}>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-yellow-100 rounded-lg">
@@ -326,7 +324,7 @@ export default function Tasks() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="in_queue">In Queue</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="in_progress">In Progress</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
               <SelectItem value="unable_to_complete">Unable to Complete</SelectItem>
@@ -450,7 +448,7 @@ export default function Tasks() {
                             </Badge>
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="in_queue">In Queue</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
                             <SelectItem value="in_progress">In Progress</SelectItem>
                             <SelectItem value="completed">Completed</SelectItem>
                             <SelectItem value="unable_to_complete">Unable to Complete</SelectItem>
@@ -515,7 +513,7 @@ export default function Tasks() {
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
-                            {(task.status === 'in_queue' || task.status === 'pending') && (
+                            {task.status === 'pending' && (
                               <DropdownMenuItem onClick={() => startTask(task.id)}>
                                 <Play className="mr-2 h-4 w-4" />
                                 Start Task

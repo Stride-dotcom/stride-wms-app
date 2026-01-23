@@ -107,8 +107,8 @@ export function ItemFlagsSection({
           tenant_id: profile.tenant_id,
           title: `Repair - ${item?.item_code || '1 item'}`,
           task_type: 'Repair',
-          status: 'in_queue',
-          priority: 'medium',
+          status: 'pending',
+          priority: 'normal',
           warehouse_id: item?.warehouse_id || null,
           account_id: taskAccountId || null,
           bill_to: 'account',
@@ -156,14 +156,14 @@ export function ItemFlagsSection({
       const updateData: Record<string, any> = {};
       updateData[flagKey] = value;
 
-      // Auto-set corresponding status to 'in_queue' when enabling needs_* flags
+      // Auto-set corresponding status to 'pending' when enabling needs_* flags
       if (value) {
         if (flagKey === 'needs_inspection') {
-          updateData['inspection_status'] = 'in_queue';
+          updateData['inspection_status'] = 'pending';
         } else if (flagKey === 'needs_repair') {
-          updateData['repair_status'] = 'in_queue';
+          updateData['repair_status'] = 'pending';
         } else if (flagKey === 'needs_warehouse_assembly') {
-          updateData['assembly_status'] = 'in_queue';
+          updateData['assembly_status'] = 'pending';
         }
       }
 

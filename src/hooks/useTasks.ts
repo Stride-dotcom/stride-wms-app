@@ -95,7 +95,7 @@ const TASK_TYPE_TO_STATUS_FIELD: Record<string, string> = {
 
 // Map task status to inventory status values
 const TASK_STATUS_TO_INVENTORY_STATUS: Record<string, string> = {
-  'in_queue': 'in_queue',
+  'pending': 'pending',
   'in_progress': 'in_progress',
   'completed': 'completed',
   'unable_to_complete': 'unable_to_complete',
@@ -223,7 +223,7 @@ export function useTasks(filters?: {
         .insert({
           ...taskData,
           tenant_id: profile.tenant_id,
-          status: 'in_queue', // New tasks start as in_queue
+          status: 'pending', // New tasks start as pending
         })
         .select()
         .single();
@@ -250,8 +250,8 @@ export function useTasks(filters?: {
           console.error('[createTask] Failed to add task items:', itemsError);
         }
 
-        // Update inventory status to in_queue
-        await updateInventoryStatus(task.id, taskData.task_type || '', 'in_queue');
+        // Update inventory status to pending
+        await updateInventoryStatus(task.id, taskData.task_type || '', 'pending');
       }
 
       toast({

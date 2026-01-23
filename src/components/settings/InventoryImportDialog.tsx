@@ -148,7 +148,7 @@ const INVENTORY_HEADER_ALIASES: Record<string, keyof ParsedItem> = {
 function parseAssemblyStatus(value: string): string | null {
   if (!value) return null;
   const upper = value.toUpperCase().trim();
-  if (upper.includes('NEEDS') || upper.includes('REQUIRED') || upper === 'YES') return 'in_queue';
+  if (upper.includes('NEEDS') || upper.includes('REQUIRED') || upper === 'YES') return 'pending';
   if (upper.includes('NO') || upper.includes('N/A') || upper === 'NO ASSM REQ') return 'not_required';
   if (upper.includes('COMPLETE') || upper.includes('DONE')) return 'complete';
   if (upper.includes('DO NOT')) return 'not_required';
@@ -159,7 +159,7 @@ function parseRepairStatus(value: string): string | null {
   if (!value) return null;
   const upper = value.toUpperCase().trim();
   if (upper === 'OK' || upper === 'COMPLETE' || upper === 'DONE') return 'complete';
-  if (upper.includes('NEEDS') || upper.includes('REQUIRED')) return 'in_queue';
+  if (upper.includes('NEEDS') || upper.includes('REQUIRED')) return 'pending';
   return null;
 }
 
