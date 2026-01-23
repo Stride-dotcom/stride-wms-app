@@ -312,13 +312,13 @@ export default function ShipmentCreate() {
       const itemsToInsert = expectedItems
         .filter((item) => item.description.trim())
         .map((item) => ({
-          tenant_id: profile.tenant_id,
           shipment_id: shipment.id,
           expected_description: item.description.trim(),
           expected_quantity: item.quantity,
-          vendor: item.vendor || null,
-          sidemark: item.sidemark || null,
-          item_type_id: item.item_type_id || null,
+          // IMPORTANT: shipment_items table uses expected_* columns (see migration 20260118085955...)
+          expected_vendor: item.vendor || null,
+          expected_sidemark: item.sidemark || null,
+          expected_item_type_id: item.item_type_id || null,
           status: "pending",
         }));
 
