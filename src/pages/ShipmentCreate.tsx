@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useFieldSuggestions } from "@/hooks/useFieldSuggestions";
+import { useSidemarks } from "@/hooks/useSidemarks";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,11 +65,15 @@ export default function ShipmentCreate() {
   // Shipment fields
   const [accountId, setAccountId] = useState<string>("");
   const [warehouseId, setWarehouseId] = useState<string>("");
+  const [sidemarkId, setSidemarkId] = useState<string>("");
   const [carrier, setCarrier] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [poNumber, setPoNumber] = useState("");
   const [expectedArrivalDate, setExpectedArrivalDate] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Fetch sidemarks filtered by selected account
+  const { sidemarks, loading: sidemarksLoading } = useSidemarks(accountId || undefined);
 
   // Expected items
   const [expectedItems, setExpectedItems] = useState<ExpectedItemData[]>([
@@ -102,6 +107,15 @@ export default function ShipmentCreate() {
   const itemTypeOptions: SelectOption[] = useMemo(
     () => itemTypes.map((t) => ({ value: t.id, label: t.name })),
     [itemTypes],
+  );
+
+  const sidemarkOptions: SelectOption[] = useMemo(
+    () => sidemarks.map((s) => ({ 
+      value: s.id, 
+      label: s.sidemark_name,
+      subtitle: s.sidemark_code || undefined,
+    })),
+    [sidemarks],
   );
 
   // ------------------------------------------
@@ -276,6 +290,7 @@ export default function ShipmentCreate() {
         tenant_id: profile.tenant_id,
         account_id: accountId,
         warehouse_id: warehouseId,
+        sidemark_id: sidemarkId || null,
         shipment_type: "inbound" as const,
         status: "expected" as const,
         carrier: carrier || null,
@@ -387,6 +402,7 @@ export default function ShipmentCreate() {
                   value={accountId}
                   onChange={(v) => {
                     setAccountId(v);
+                    setSidemarkId(""); // Reset sidemark when account changes
                     if (errors.account) setErrors({ ...errors, account: undefined });
                   }}
                   placeholder="Select account..."
@@ -396,6 +412,23 @@ export default function ShipmentCreate() {
                   error={errors.account}
                 />
               </div>
+
+              {/* Sidemark (filtered by account) */}
+              {accountId && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Sidemark / Project</label>
+                  <SearchableSelect
+                    options={sidemarkOptions}
+                    value={sidemarkId}
+                    onChange={setSidemarkId}
+                    placeholder={sidemarksLoading ? "Loading..." : "Select sidemark (optional)..."}
+                    searchPlaceholder="Search sidemarks..."
+                    emptyText="No sidemarks for this account"
+                    disabled={sidemarksLoading}
+                    clearable
+                  />
+                </div>
+              )}
 
               {/* Warehouse */}
               <div className="space-y-1.5">
