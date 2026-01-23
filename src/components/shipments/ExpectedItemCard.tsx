@@ -20,7 +20,6 @@ export interface ExpectedItemData {
   id: string;
   description: string;
   vendor: string;
-  sidemark: string;
   quantity: number;
   item_type_id: string;
 }
@@ -35,13 +34,11 @@ export interface ExpectedItemCardProps {
   index: number;
   itemTypeOptions: SelectOption[];
   vendorSuggestions: string[];
-  sidemarkSuggestions: string[];
   errors?: ExpectedItemErrors;
   canDelete: boolean;
   onUpdate: (id: string, field: keyof ExpectedItemData, value: string | number) => void;
   onDelete: (id: string) => void;
   onVendorUsed?: (value: string) => void;
-  onSidemarkUsed?: (value: string) => void;
 }
 
 export function ExpectedItemCard({
@@ -49,13 +46,11 @@ export function ExpectedItemCard({
   index,
   itemTypeOptions,
   vendorSuggestions,
-  sidemarkSuggestions,
   errors,
   canDelete,
   onUpdate,
   onDelete,
   onVendorUsed,
-  onSidemarkUsed,
 }: ExpectedItemCardProps) {
   // Convert suggestions to format for AutocompleteInput
   const vendorSuggestionOptions = React.useMemo(
@@ -133,17 +128,17 @@ export function ExpectedItemCard({
           maxRows={4}
         />
 
-        {/* Row 2: Category */}
+        {/* Row 2: Class */}
         <div className="grid grid-cols-1 gap-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Category</label>
+            <label className="text-sm font-medium">Class</label>
             <SearchableSelect
               options={itemTypeOptions}
               value={item.item_type_id}
               onChange={(v) => onUpdate(item.id, "item_type_id", v)}
-              placeholder="Select category..."
-              searchPlaceholder="Search categories..."
-              emptyText="No categories found"
+              placeholder="Select class..."
+              searchPlaceholder="Search classes..."
+              emptyText="No classes found"
               recentKey="shipment-item-types"
               clearable
             />

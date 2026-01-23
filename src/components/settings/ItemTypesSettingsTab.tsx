@@ -433,7 +433,7 @@ export function ItemTypesSettingsTab() {
       if (error) throw error;
 
       toast({
-        title: 'Item Type Deleted',
+        title: 'Class Deleted',
         description: `"${itemToDelete.name}" has been deleted.`,
       });
       
@@ -492,7 +492,7 @@ export function ItemTypesSettingsTab() {
         await syncItemTypeRatesToDefaultRateCard(profile.tenant_id, editingItem.id, rateUpdates);
         
         toast({
-          title: 'Item Type Updated',
+          title: 'Class Updated',
           description: `"${editingItem.name}" has been updated and rates synced.`,
         });
       } else {
@@ -519,7 +519,7 @@ export function ItemTypesSettingsTab() {
         }
         
         toast({
-          title: 'Item Type Created',
+          title: 'Class Created',
           description: `"${editingItem.name}" has been created.`,
         });
       }
@@ -785,10 +785,10 @@ export function ItemTypesSettingsTab() {
         <div>
           <h3 className="text-lg font-medium flex items-center gap-2">
             <Package className="h-5 w-5" />
-            Categories
+            Classes
           </h3>
           <p className="text-sm text-muted-foreground">
-            Manage item categories with pricing rates and attributes
+            Manage item classes with pricing rates and attributes
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -814,7 +814,7 @@ export function ItemTypesSettingsTab() {
           </div>
           <Button onClick={handleCreate}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Category
+            Add Class
           </Button>
         </div>
       </div>
@@ -823,7 +823,7 @@ export function ItemTypesSettingsTab() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search categories..."
+            placeholder="Search classes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -853,7 +853,7 @@ export function ItemTypesSettingsTab() {
               {filteredItemTypes.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                    No item types found. Click "Add Item Type" to create one.
+                    No classes found. Click "Add Class" to create one.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -1018,10 +1018,10 @@ export function ItemTypesSettingsTab() {
         <DialogContent className="max-w-4xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>
-              {editingItem?.id ? 'Edit Item Type' : 'Create Item Type'}
+              {editingItem?.id ? 'Edit Class' : 'Create Class'}
             </DialogTitle>
             <DialogDescription>
-              Configure pricing rates and attributes for this item type
+              Configure pricing rates and attributes for this class
             </DialogDescription>
           </DialogHeader>
           
@@ -1553,7 +1553,7 @@ export function ItemTypesSettingsTab() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Item Type</AlertDialogTitle>
+            <AlertDialogTitle>Delete Class</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete "{itemToDelete?.name}"? This action cannot be undone.
             </AlertDialogDescription>
@@ -1571,7 +1571,7 @@ export function ItemTypesSettingsTab() {
       <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Import Item Types</DialogTitle>
+            <DialogTitle>Import Classes</DialogTitle>
             <DialogDescription>
               {csvData.length} items found in the CSV file.
               {duplicates.length > 0 && (

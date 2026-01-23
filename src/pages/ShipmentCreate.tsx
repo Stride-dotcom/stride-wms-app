@@ -77,16 +77,14 @@ export default function ShipmentCreate() {
 
   // Expected items
   const [expectedItems, setExpectedItems] = useState<ExpectedItemData[]>([
-    { id: crypto.randomUUID(), description: "", vendor: "", sidemark: "", quantity: 1, item_type_id: "" },
+    { id: crypto.randomUUID(), description: "", vendor: "", quantity: 1, item_type_id: "" },
   ]);
 
   // Field suggestions hooks
   const { suggestions: vendorSuggestions, addOrUpdateSuggestion: recordVendor } = useFieldSuggestions("vendor");
-  const { suggestions: sidemarkSuggestions, addOrUpdateSuggestion: recordSidemark } = useFieldSuggestions("sidemark");
 
   // Convert to string arrays for the card
   const vendorValues = useMemo(() => vendorSuggestions.map((s) => s.value), [vendorSuggestions]);
-  const sidemarkValues = useMemo(() => sidemarkSuggestions.map((s) => s.value), [sidemarkSuggestions]);
 
   // Convert to SelectOption arrays
   const accountOptions: SelectOption[] = useMemo(
@@ -198,7 +196,7 @@ export default function ShipmentCreate() {
   const addItem = () => {
     setExpectedItems([
       ...expectedItems,
-      { id: crypto.randomUUID(), description: "", vendor: "", sidemark: "", quantity: 1, item_type_id: "" },
+      { id: crypto.randomUUID(), description: "", vendor: "", quantity: 1, item_type_id: "" },
     ]);
   };
 
@@ -317,7 +315,7 @@ export default function ShipmentCreate() {
           expected_quantity: item.quantity,
           // IMPORTANT: shipment_items table uses expected_* columns (see migration 20260118085955...)
           expected_vendor: item.vendor || null,
-          expected_sidemark: item.sidemark || null,
+          expected_sidemark: null,
           expected_item_type_id: item.item_type_id || null,
           status: "pending",
         }));
@@ -339,7 +337,6 @@ export default function ShipmentCreate() {
       // Record field suggestions for future use
       expectedItems.forEach((item) => {
         if (item.vendor) recordVendor(item.vendor);
-        if (item.sidemark) recordSidemark(item.sidemark);
       });
 
       toast({ title: "Success", description: "Shipment created successfully" });
@@ -516,13 +513,11 @@ export default function ShipmentCreate() {
                   index={index}
                   itemTypeOptions={itemTypeOptions}
                   vendorSuggestions={vendorValues}
-                  sidemarkSuggestions={sidemarkValues}
                   errors={errors.items?.[item.id]}
                   canDelete={expectedItems.length > 1}
                   onUpdate={updateItem}
                   onDelete={removeItem}
                   onVendorUsed={recordVendor}
-                  onSidemarkUsed={recordSidemark}
                 />
               ))}
             </CardContent>
