@@ -10,11 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { SearchableSelect, SelectOption } from "@/components/ui/searchable-select";
-import {
-  ExpectedItemCard,
-  ExpectedItemData,
-  ExpectedItemErrors,
-} from "@/components/shipments/ExpectedItemCard";
+import { ExpectedItemCard, ExpectedItemData, ExpectedItemErrors } from "@/components/shipments/ExpectedItemCard";
 import { Plus, Loader2, Save, ArrowLeft } from "lucide-react";
 
 // ============================================
@@ -69,7 +65,7 @@ export default function ShipmentCreate() {
   // Shipment fields
   const [accountId, setAccountId] = useState<string>("");
   const [warehouseId, setWarehouseId] = useState<string>("");
-  const [sidemarkId, setSidemarkId] = useState<string>(""); // ships on shipments.sidemark_id
+  const [sidemarkId, setSidemarkId] = useState<string>("");
   const [carrier, setCarrier] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [poNumber, setPoNumber] = useState("");
@@ -79,7 +75,7 @@ export default function ShipmentCreate() {
   // Fetch sidemarks filtered by selected account
   const { sidemarks, loading: sidemarksLoading } = useSidemarks(accountId || undefined);
 
-  // Expected items (UI fields). These map into shipment_items.expected_* columns on insert.
+  // Expected items
   const [expectedItems, setExpectedItems] = useState<ExpectedItemData[]>([
     { id: crypto.randomUUID(), description: "", vendor: "", sidemark: "", quantity: 1, item_type_id: "" },
   ]);
@@ -114,141 +110,195 @@ export default function ShipmentCreate() {
   );
 
   const sidemarkOptions: SelectOption[] = useMemo(
-    () =>
-      sidemarks.map((s) => ({
-        value: s.id,
-        label: s.sidemark_name,
-        subtitle: s.sidemark_code || undefined,
-      })),
+    () => sidemarks.map((s) => ({ 
+      value: s.id, 
+      label: s.sidemark_name,
+      subtitle: s.sidemark_code || undefined,
+    })),
     [sidemarks],
   );
 
-  // ============================================
-  // DATA LOADING
-  // ============================================
-
+  // ------------------------------------------
+  // Fetch reference data
+  // ------------------------------------------
   useEffect(() => {
     if (!profile?.tenant_id) return;
 
-    const load = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
-        const [{ data: accountsData, error: accountsError }, { data: warehousesData, error: warehousesError }, { data: itemTypesData, error: itemTypesError }] =
-          await Promise.all([
-            (supabase.from("accounts") as any)
-              .select("id, account_name, account_code")
-              .eq("tenant_id", profile.tenant_id)
-              .is("deleted_at", null)
-              .order("account_name", { ascending: true }),
-            (supabase.from("warehouses") as any)
-              .select("id, name")
-              .eq("tenant_id", profile.tenant_id)
-              .is("deleted_at", null)
-              .order("name", { ascending: true }),
-            (supabase.from("item_types") as any)
-              .select("id, name")
-              .eq("tenant_id", profile.tenant_id)
-              .is("deleted_at", null)
-              .order("name", { ascending: true }),
-          ]);
+        // Fetch accounts (no is_active column - use deleted_at only)
+        const accountsRes = await (supabase.from("accounts") as any)
+          .select("id, account_name, account_code")
+          .eq("tenant_id", profile.tenant_id)
+          .is("deleted_at", null)
+          .order("account_name", { ascending: true });
 
-        if (accountsError) throw accountsError;
-        if (warehousesError) throw warehousesError;
-        if (itemTypesError) throw itemTypesError;
+        // Fetch warehouses
+        const warehousesRes = await (supabase.from("warehouses") as any)
+          .select("id, name")
+          .eq("tenant_id", profile.tenant_id)
+          .is("deleted_at", null)
+          .order("name");
 
-        setAccounts(accountsData || []);
-        setWarehouses(warehousesData || []);
-        setItemTypes(itemTypesData || []);
-      } catch (e: any) {
-        console.error("[ShipmentCreate] load error:", e);
-        toast({ variant: "destructive", title: "Failed to load data", description: e?.message || "Unknown error" });
+        // Fetch item types (no deleted_at - use is_active only)
+        const itemTypesRes = await (supabase.from("item_types") as any)
+          .select("id, name, is_active, sort_order")
+          .eq("tenant_id", profile.tenant_id)
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true, nullsFirst: true })
+          .order("name", { ascending: true });
+
+        if (accountsRes.error) {
+          console.error("[ShipmentCreate] accounts fetch:", accountsRes.error);
+          toast({
+            variant: "destructive",
+            title: "Failed to load accounts",
+            description: accountsRes.error.message,
+          });
+        }
+        if (warehousesRes.error) {
+          console.error("[ShipmentCreate] warehouses fetch:", warehousesRes.error);
+          toast({
+            variant: "destructive",
+            title: "Failed to load warehouses",
+            description: warehousesRes.error.message,
+          });
+        }
+        if (itemTypesRes.error) {
+          console.error("[ShipmentCreate] itemTypes fetch:", itemTypesRes.error);
+          toast({
+            variant: "destructive",
+            title: "Failed to load item types",
+            description: itemTypesRes.error.message,
+          });
+        }
+
+        setAccounts(accountsRes.data || []);
+        setWarehouses(warehousesRes.data || []);
+        setItemTypes(itemTypesRes.data || []);
+
+        // Set default warehouse if only one exists
+        if (warehousesRes.data?.length === 1) {
+          setWarehouseId(warehousesRes.data[0].id);
+        }
+      } catch (err) {
+        console.error("[ShipmentCreate] fetchData exception:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    load();
-  }, [profile?.tenant_id, toast]);
+    fetchData();
+  }, [profile?.tenant_id]);
 
-  // ============================================
-  // ITEM HANDLERS
-  // ============================================
-
+  // ------------------------------------------
+  // Item management
+  // ------------------------------------------
   const addItem = () => {
-    setExpectedItems((prev) => [
-      ...prev,
+    setExpectedItems([
+      ...expectedItems,
       { id: crypto.randomUUID(), description: "", vendor: "", sidemark: "", quantity: 1, item_type_id: "" },
     ]);
   };
 
   const removeItem = (id: string) => {
-    setExpectedItems((prev) => prev.filter((i) => i.id !== id));
-    setErrors((prev) => {
-      if (!prev.items) return prev;
-      const next = { ...prev.items };
-      delete next[id];
-      return { ...prev, items: next };
-    });
+    if (expectedItems.length === 1) return;
+    setExpectedItems(expectedItems.filter((item) => item.id !== id));
+    // Clear item errors
+    if (errors.items?.[id]) {
+      const newItemErrors = { ...errors.items };
+      delete newItemErrors[id];
+      setErrors({ ...errors, items: newItemErrors });
+    }
   };
 
-  const updateItem = (id: string, patch: Partial<ExpectedItemData>) => {
-    setExpectedItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  const updateItem = (id: string, field: keyof ExpectedItemData, value: string | number) => {
+    setExpectedItems(expectedItems.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
+    // Clear field error on change
+    if (errors.items?.[id]?.[field as keyof ExpectedItemErrors]) {
+      const newItemErrors = { ...errors.items };
+      if (newItemErrors[id]) {
+        delete newItemErrors[id][field as keyof ExpectedItemErrors];
+      }
+      setErrors({ ...errors, items: newItemErrors });
+    }
   };
 
-  // ============================================
-  // VALIDATION
-  // ============================================
+  // ------------------------------------------
+  // Validation
+  // ------------------------------------------
+  const validate = (): boolean => {
+    const newErrors: FormErrors = {};
 
-  const validate = () => {
-    const nextErrors: FormErrors = {};
-    if (!accountId) nextErrors.account = "Account is required";
-    if (!warehouseId) nextErrors.warehouse = "Warehouse is required";
+    if (!accountId) {
+      newErrors.account = "Please select an account";
+    }
 
+    if (!warehouseId) {
+      newErrors.warehouse = "Please select a warehouse";
+    }
+
+    // Validate items
     const itemErrors: Record<string, ExpectedItemErrors> = {};
+    let hasItemErrors = false;
+
     expectedItems.forEach((item) => {
-      const e: ExpectedItemErrors = {};
-      if (!item.description?.trim()) e.description = "Description is required";
-      if (!item.quantity || item.quantity < 1) e.quantity = "Qty must be at least 1";
-      // vendor/sidemark/item_type optional
-      if (Object.keys(e).length > 0) itemErrors[item.id] = e;
+      const errs: ExpectedItemErrors = {};
+      if (!item.description.trim()) {
+        errs.description = "Description is required";
+        hasItemErrors = true;
+      }
+      if (item.quantity < 1) {
+        errs.quantity = "Quantity must be at least 1";
+        hasItemErrors = true;
+      }
+      if (Object.keys(errs).length > 0) {
+        itemErrors[item.id] = errs;
+      }
     });
 
-    if (Object.keys(itemErrors).length > 0) nextErrors.items = itemErrors;
+    if (hasItemErrors) {
+      newErrors.items = itemErrors;
+    }
 
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  // ============================================
-  // SUBMIT
-  // ============================================
+  // ------------------------------------------
+  // Submit handler
+  // ------------------------------------------
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  const handleSubmit = async () => {
-    if (!profile?.tenant_id) {
-      toast({ variant: "destructive", title: "Missing tenant", description: "Please sign in again." });
+    if (!profile?.tenant_id || !profile?.id) {
+      toast({ variant: "destructive", title: "Error", description: "Not authenticated" });
       return;
     }
 
     if (!validate()) {
-      toast({ variant: "destructive", title: "Fix errors", description: "Please correct the highlighted fields." });
+      toast({ variant: "destructive", title: "Validation Error", description: "Please fix the errors below" });
       return;
     }
 
     setSaving(true);
+
     try {
       // Create shipment
-      const shipmentPayload: any = {
+      const shipmentPayload = {
         tenant_id: profile.tenant_id,
         account_id: accountId,
         warehouse_id: warehouseId,
         sidemark_id: sidemarkId || null,
-        shipment_type: isReturn ? "outbound" : "inbound",
-        status: "expected",
+        shipment_type: "inbound" as const,
+        status: "expected" as const,
         carrier: carrier || null,
         tracking_number: trackingNumber || null,
         po_number: poNumber || null,
-        expected_arrival_date: expectedArrivalDate ? expectedArrivalDate : null,
+        expected_arrival_date: expectedArrivalDate || null,
         notes: notes || null,
+        created_by: profile.id,
       };
 
       const { data: shipment, error: shipmentError } = await (supabase.from("shipments") as any)
@@ -258,16 +308,14 @@ export default function ShipmentCreate() {
 
       if (shipmentError) throw shipmentError;
 
-      // Create shipment_items
-      // IMPORTANT: shipment_items does NOT have `sidemark` / `vendor` / `item_type_id` columns.
-      // It has expected_* columns: expected_vendor, expected_sidemark, expected_item_type_id.
+      // Create shipment items
       const itemsToInsert = expectedItems
         .filter((item) => item.description.trim())
         .map((item) => ({
-          tenant_id: profile.tenant_id,
           shipment_id: shipment.id,
           expected_description: item.description.trim(),
           expected_quantity: item.quantity,
+          // IMPORTANT: shipment_items table uses expected_* columns (see migration 20260118085955...)
           expected_vendor: item.vendor || null,
           expected_sidemark: item.sidemark || null,
           expected_item_type_id: item.item_type_id || null,
@@ -276,6 +324,7 @@ export default function ShipmentCreate() {
 
       if (itemsToInsert.length > 0) {
         const { error: itemsError } = await (supabase.from("shipment_items") as any).insert(itemsToInsert);
+
         if (itemsError) {
           console.error("[ShipmentItemsCreate] Insert failed:", itemsError);
           toast({
@@ -299,133 +348,206 @@ export default function ShipmentCreate() {
       console.error("[ShipmentCreate] submit error:", err);
       toast({
         variant: "destructive",
-        title: "Error creating shipment",
-        description: err?.message || "Unknown error",
+        title: "Error",
+        description: err.message || "Failed to create shipment",
       });
     } finally {
       setSaving(false);
     }
   };
 
-  // ============================================
-  // RENDER
-  // ============================================
+  // ------------------------------------------
+  // Loading state
+  // ------------------------------------------
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => navigate(-1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
-            <h1 className="text-2xl font-semibold">{isReturn ? "Create Return Shipment" : "Create Shipment"}</h1>
-          </div>
-          <Button onClick={handleSubmit} disabled={saving || loading}>
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Save
+      <div className="container mx-auto max-w-2xl px-4 pb-safe">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-6 pt-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
+            <ArrowLeft className="h-5 w-5" />
           </Button>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold truncate">
+              {isReturn ? "Create Return Shipment" : "Create Inbound Shipment"}
+            </h1>
+            <p className="text-sm text-muted-foreground">Enter shipment details and expected items</p>
+          </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Shipment Details</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <div className="mb-1 text-sm font-medium">Account *</div>
-              <SearchableSelect
-                options={accountOptions}
-                value={accountId}
-                onChange={(v) => {
-                  setAccountId(v);
-                  setSidemarkId(""); // reset when account changes
-                  if (errors.account) setErrors({ ...errors, account: undefined });
-                }}
-                placeholder="Select account..."
-                searchPlaceholder="Search accounts..."
-                emptyText="No accounts found"
-                recentKey="shipment-accounts"
-                error={errors.account}
-              />
-            </div>
-
-            <div>
-              <div className="mb-1 text-sm font-medium">Warehouse *</div>
-              <SearchableSelect
-                options={warehouseOptions}
-                value={warehouseId}
-                onChange={(v) => {
-                  setWarehouseId(v);
-                  if (errors.warehouse) setErrors({ ...errors, warehouse: undefined });
-                }}
-                placeholder="Select warehouse..."
-                searchPlaceholder="Search warehouses..."
-                emptyText="No warehouses found"
-                recentKey="shipment-warehouses"
-                error={errors.warehouse}
-              />
-            </div>
-
-            {/* Sidemark selector (shipments.sidemark_id) */}
-            <div className="md:col-span-2">
-              <div className="mb-1 text-sm font-medium">Sidemark / Project</div>
-              <SearchableSelect
-                options={sidemarkOptions}
-                value={sidemarkId}
-                onChange={(v) => setSidemarkId(v)}
-                placeholder={accountId ? "Select sidemark..." : "Select an account first"}
-                searchPlaceholder="Search sidemarks..."
-                emptyText={accountId ? (sidemarksLoading ? "Loading..." : "No sidemarks found") : "Select an account first"}
-                recentKey="shipment-sidemarks"
-                clearable
-                disabled={!accountId}
-              />
-              <div className="mt-1 text-xs text-muted-foreground">
-                This sets the default project for the shipment. Items created during receiving will inherit this sidemark.
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Shipment Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Shipment Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Account */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">
+                  Account <span className="text-destructive">*</span>
+                </label>
+                <SearchableSelect
+                  options={accountOptions}
+                  value={accountId}
+                  onChange={(v) => {
+                    setAccountId(v);
+                    setSidemarkId(""); // Reset sidemark when account changes
+                    if (errors.account) setErrors({ ...errors, account: undefined });
+                  }}
+                  placeholder="Select account..."
+                  searchPlaceholder="Search accounts..."
+                  emptyText="No accounts found"
+                  recentKey="shipment-accounts"
+                  error={errors.account}
+                />
               </div>
-            </div>
 
-            <FormField label="Carrier" value={carrier} onChange={setCarrier} placeholder="Carrier" />
-            <FormField label="Tracking #" value={trackingNumber} onChange={setTrackingNumber} placeholder="Tracking #" />
-            <FormField label="PO #" value={poNumber} onChange={setPoNumber} placeholder="PO #" />
-            <FormField
-              label="Expected Arrival"
-              value={expectedArrivalDate}
-              onChange={setExpectedArrivalDate}
-              type="date"
-            />
-            <div className="md:col-span-2">
-              <FormField label="Notes" value={notes} onChange={setNotes} placeholder="Notes..." textarea />
-            </div>
-          </CardContent>
-        </Card>
+              {/* Sidemark (filtered by account) */}
+              {accountId && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Sidemark / Project</label>
+                  <SearchableSelect
+                    options={sidemarkOptions}
+                    value={sidemarkId}
+                    onChange={setSidemarkId}
+                    placeholder={sidemarksLoading ? "Loading..." : "Select sidemark (optional)..."}
+                    searchPlaceholder="Search sidemarks..."
+                    emptyText="No sidemarks for this account"
+                    disabled={sidemarksLoading}
+                    clearable
+                  />
+                </div>
+              )}
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Expected Items</CardTitle>
-            <Button variant="outline" onClick={addItem}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Item
-            </Button>
-          </CardHeader>
+              {/* Warehouse */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">
+                  Warehouse <span className="text-destructive">*</span>
+                </label>
+                <SearchableSelect
+                  options={warehouseOptions}
+                  value={warehouseId}
+                  onChange={(v) => {
+                    setWarehouseId(v);
+                    if (errors.warehouse) setErrors({ ...errors, warehouse: undefined });
+                  }}
+                  placeholder="Select warehouse..."
+                  searchPlaceholder="Search warehouses..."
+                  emptyText="No warehouses found"
+                  error={errors.warehouse}
+                />
+              </div>
 
-          <CardContent className="space-y-4">
-            {expectedItems.map((item) => (
-              <ExpectedItemCard
-                key={item.id}
-                item={item}
-                onChange={(patch) => updateItem(item.id, patch)}
-                onRemove={() => removeItem(item.id)}
-                vendorSuggestions={vendorValues}
-                sidemarkSuggestions={sidemarkValues}
-                itemTypeOptions={itemTypeOptions}
-                errors={errors.items?.[item.id]}
+              {/* Carrier & Tracking - side by side on larger screens */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  label="Carrier"
+                  name="carrier"
+                  value={carrier}
+                  onChange={setCarrier}
+                  placeholder="e.g., FedEx, UPS"
+                />
+                <FormField
+                  label="Tracking Number"
+                  name="tracking"
+                  value={trackingNumber}
+                  onChange={setTrackingNumber}
+                  placeholder="Tracking number"
+                />
+              </div>
+
+              {/* PO & Date - side by side on larger screens */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  label="PO Number"
+                  name="po"
+                  value={poNumber}
+                  onChange={setPoNumber}
+                  placeholder="Purchase order number"
+                />
+                <FormField
+                  label="Expected Arrival"
+                  name="arrival"
+                  type="date"
+                  value={expectedArrivalDate}
+                  onChange={setExpectedArrivalDate}
+                />
+              </div>
+
+              {/* Notes */}
+              <FormField
+                label="Notes"
+                name="notes"
+                type="textarea"
+                value={notes}
+                onChange={setNotes}
+                placeholder="Additional notes about this shipment..."
+                minRows={2}
+                maxRows={4}
               />
-            ))}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Expected Items */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
+              <CardTitle className="text-lg">Expected Items</CardTitle>
+              <Button type="button" variant="outline" size="sm" onClick={addItem}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Item
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {expectedItems.map((item, index) => (
+                <ExpectedItemCard
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  itemTypeOptions={itemTypeOptions}
+                  vendorSuggestions={vendorValues}
+                  sidemarkSuggestions={sidemarkValues}
+                  errors={errors.items?.[item.id]}
+                  canDelete={expectedItems.length > 1}
+                  onUpdate={updateItem}
+                  onDelete={removeItem}
+                  onVendorUsed={recordVendor}
+                  onSidemarkUsed={recordSidemark}
+                />
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Submit */}
+          <div className="flex justify-end gap-3 pb-6">
+            <Button type="button" variant="outline" onClick={() => navigate(-1)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving} className="min-w-[140px]">
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Create Shipment
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
       </div>
     </DashboardLayout>
   );
