@@ -138,14 +138,14 @@ export function ExpectedItemCard({
         {/* Row 2: Item Type and Sidemark side by side */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Item Type</label>
+            <label className="text-sm font-medium">Category</label>
             <SearchableSelect
               options={itemTypeOptions}
               value={item.item_type_id}
               onChange={(v) => onUpdate(item.id, "item_type_id", v)}
-              placeholder="Select type..."
-              searchPlaceholder="Search types..."
-              emptyText="No item types found"
+              placeholder="Select category..."
+              searchPlaceholder="Search categories..."
+              emptyText="No categories found"
               recentKey="shipment-item-types"
               clearable
             />

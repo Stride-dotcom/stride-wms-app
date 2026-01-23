@@ -370,6 +370,7 @@ export type Database = {
           billing_type: string | null
           can_delete_accounts: boolean | null
           can_modify_pricing: boolean | null
+          client_sidemark_mode: string | null
           communication_settings: Json | null
           copy_from_account_id: string | null
           created_at: string
@@ -439,6 +440,7 @@ export type Database = {
           billing_type?: string | null
           can_delete_accounts?: boolean | null
           can_modify_pricing?: boolean | null
+          client_sidemark_mode?: string | null
           communication_settings?: Json | null
           copy_from_account_id?: string | null
           created_at?: string
@@ -508,6 +510,7 @@ export type Database = {
           billing_type?: string | null
           can_delete_accounts?: boolean | null
           can_modify_pricing?: boolean | null
+          client_sidemark_mode?: string | null
           communication_settings?: Json | null
           copy_from_account_id?: string | null
           created_at?: string
@@ -5105,7 +5108,7 @@ export type Database = {
           id: string
           is_active: boolean
           notes: string | null
-          sidemark_code: string
+          sidemark_code: string | null
           sidemark_name: string
           tenant_id: string
           updated_at: string
@@ -5117,7 +5120,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           notes?: string | null
-          sidemark_code: string
+          sidemark_code?: string | null
           sidemark_name: string
           tenant_id: string
           updated_at?: string
@@ -5129,7 +5132,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           notes?: string | null
-          sidemark_code?: string
+          sidemark_code?: string | null
           sidemark_name?: string
           tenant_id?: string
           updated_at?: string
@@ -7241,6 +7244,10 @@ export type Database = {
       generate_ninv_number: { Args: never; Returns: string }
       generate_shipment_number: { Args: never; Returns: string }
       generate_stocktake_number: { Args: never; Returns: string }
+      get_client_sidemark_mode: {
+        Args: { p_account_id: string }
+        Returns: string
+      }
       get_current_user_tenant_id: { Args: never; Returns: string }
       get_sidemark_display: { Args: { p_sidemark_id: string }; Returns: string }
       get_user_role: { Args: { _user_id: string }; Returns: string }
