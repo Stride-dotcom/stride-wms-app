@@ -65,7 +65,6 @@ const priorityColors: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  in_queue: 'bg-yellow-100 text-yellow-800',
   pending: 'bg-yellow-100 text-yellow-800',
   in_progress: 'bg-amber-100 text-amber-800',
   scheduled: 'bg-purple-100 text-purple-800',
@@ -553,7 +552,7 @@ export default function Dashboard() {
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1">
-                                {task.status === 'in_queue' && (
+                                {task.status === 'pending' && (
                                   <Button 
                                     size="sm" 
                                     variant="outline" 
@@ -638,7 +637,7 @@ export default function Dashboard() {
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1">
-                                {task.status === 'in_queue' && (
+                                {task.status === 'pending' && (
                                   <Button 
                                     size="sm" 
                                     variant="outline" 

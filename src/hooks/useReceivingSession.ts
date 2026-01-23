@@ -307,7 +307,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
                 // Update item's assembly_status
                 await (supabase
                   .from('items') as any)
-                  .update({ assembly_status: 'in_queue' })
+                  .update({ assembly_status: 'pending' })
                   .eq('id', newItem.id);
               }
             }

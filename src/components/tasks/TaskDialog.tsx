@@ -405,7 +405,7 @@ export function TaskDialog({
         assigned_department: formData.assigned_department || null,
         warehouse_id: formData.warehouse_id === 'none' ? null : formData.warehouse_id || null,
         account_id: formData.account_id === 'none' ? null : formData.account_id || null,
-        status: task ? task.status : 'in_queue', // New tasks start as in_queue
+        status: task ? task.status : 'pending', // New tasks start as pending
         bill_to: formData.bill_to,
         bill_to_customer_name:
           formData.bill_to === 'customer' ? formData.bill_to_customer_name : null,
@@ -447,8 +447,8 @@ export function TaskDialog({
 
           if (taskItemsError) throw taskItemsError;
 
-          // Update inventory status to in_queue
-          await updateInventoryStatus(allItemIds, formData.task_type, 'in_queue');
+          // Update inventory status to pending
+          await updateInventoryStatus(allItemIds, formData.task_type, 'pending');
         }
 
         toast({

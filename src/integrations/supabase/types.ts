@@ -7240,7 +7240,9 @@ export type Database = {
       current_user_id: { Args: never; Returns: string }
       generate_claim_number: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
-      generate_item_code: { Args: { p_tenant_id: string }; Returns: string }
+      generate_item_code:
+        | { Args: never; Returns: string }
+        | { Args: { p_tenant_id: string }; Returns: string }
       generate_ninv_number: { Args: never; Returns: string }
       generate_shipment_number: { Args: never; Returns: string }
       generate_stocktake_number: { Args: never; Returns: string }
