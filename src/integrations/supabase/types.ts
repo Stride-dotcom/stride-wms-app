@@ -380,6 +380,7 @@ export type Database = {
           default_receiving_location_id: string | null
           default_receiving_notes: string | null
           default_receiving_status: string | null
+          default_sidemark_id: string | null
           deleted_at: string | null
           disable_email_communications: boolean | null
           email_html_body_override: string | null
@@ -448,6 +449,7 @@ export type Database = {
           default_receiving_location_id?: string | null
           default_receiving_notes?: string | null
           default_receiving_status?: string | null
+          default_sidemark_id?: string | null
           deleted_at?: string | null
           disable_email_communications?: boolean | null
           email_html_body_override?: string | null
@@ -516,6 +518,7 @@ export type Database = {
           default_receiving_location_id?: string | null
           default_receiving_notes?: string | null
           default_receiving_status?: string | null
+          default_sidemark_id?: string | null
           deleted_at?: string | null
           disable_email_communications?: boolean | null
           email_html_body_override?: string | null
@@ -560,6 +563,13 @@ export type Database = {
             columns: ["default_receiving_location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_default_sidemark_id_fkey"
+            columns: ["default_sidemark_id"]
+            isOneToOne: false
+            referencedRelation: "sidemarks"
             referencedColumns: ["id"]
           },
           {
@@ -1446,6 +1456,57 @@ export type Database = {
           },
           {
             foreignKeyName: "communication_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      containers: {
+        Row: {
+          container_code: string
+          container_type: string | null
+          created_at: string
+          deleted_at: string | null
+          id: string
+          is_active: boolean
+          location_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          container_code: string
+          container_type?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          container_code?: string
+          container_type?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "containers_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "containers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -3101,6 +3162,7 @@ export type Database = {
           deleted_at: string | null
           id: string
           is_active: boolean | null
+          location_type: string | null
           metadata: Json | null
           name: string | null
           parent_location_id: string | null
@@ -3117,6 +3179,7 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           is_active?: boolean | null
+          location_type?: string | null
           metadata?: Json | null
           name?: string | null
           parent_location_id?: string | null
@@ -3133,6 +3196,7 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           is_active?: boolean | null
+          location_type?: string | null
           metadata?: Json | null
           name?: string | null
           parent_location_id?: string | null
@@ -3811,6 +3875,38 @@ export type Database = {
           },
         ]
       }
+      role_permissions: {
+        Row: {
+          allowed: boolean
+          created_at: string
+          id: string
+          permission_key: string
+          role_id: string
+        }
+        Insert: {
+          allowed?: boolean
+          created_at?: string
+          id?: string
+          permission_key: string
+          role_id: string
+        }
+        Update: {
+          allowed?: boolean
+          created_at?: string
+          id?: string
+          permission_key?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roles: {
         Row: {
           created_at: string
@@ -4097,6 +4193,60 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sidemarks: {
+        Row: {
+          account_id: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          sidemark_code: string
+          sidemark_name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          sidemark_code: string
+          sidemark_name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          sidemark_code?: string
+          sidemark_name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sidemarks_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sidemarks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -5174,6 +5324,48 @@ export type Database = {
           },
         ]
       }
+      tenant_settings: {
+        Row: {
+          id: string
+          setting_key: string
+          setting_value: Json | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          setting_key: string
+          setting_value?: Json | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          setting_key?: string
+          setting_value?: Json | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           created_at: string
@@ -5382,6 +5574,7 @@ export type Database = {
       }
       users: {
         Row: {
+          account_id: string | null
           cost_center: string | null
           created_at: string
           deleted_at: string | null
@@ -5406,6 +5599,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_id?: string | null
           cost_center?: string | null
           created_at?: string
           deleted_at?: string | null
@@ -5430,6 +5624,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_id?: string | null
           cost_center?: string | null
           created_at?: string
           deleted_at?: string | null
@@ -5454,6 +5649,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "users_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "users_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -5518,6 +5720,8 @@ export type Database = {
       warehouses: {
         Row: {
           address: string | null
+          address_line1: string | null
+          address_line2: string | null
           city: string | null
           code: string
           country: string | null
@@ -5535,6 +5739,8 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
           city?: string | null
           code: string
           country?: string | null
@@ -5552,6 +5758,8 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
           city?: string | null
           code?: string
           country?: string | null
@@ -5831,6 +6039,7 @@ export type Database = {
       generate_invoice_number: { Args: never; Returns: string }
       generate_shipment_number: { Args: never; Returns: string }
       get_current_user_tenant_id: { Args: never; Returns: string }
+      get_sidemark_display: { Args: { p_sidemark_id: string }; Returns: string }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_communication_admin: { Args: never; Returns: boolean }
@@ -5845,6 +6054,10 @@ export type Database = {
         Returns: boolean
       }
       seed_standard_roles: { Args: { p_tenant_id: string }; Returns: undefined }
+      user_can_access_sidemark: {
+        Args: { p_sidemark_id: string; p_user_id: string }
+        Returns: boolean
+      }
       user_has_permission: {
         Args: { p_permission: string; p_user_id: string }
         Returns: boolean
@@ -5861,10 +6074,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "warehouse" | "client_user"
+      coverage_type: "standard" | "enhanced" | "full" | "pending"
       discount_type: "percentage" | "flat_rate"
       expiration_type: "none" | "date"
       service_scope_type: "all" | "selected"
       usage_limit_type: "unlimited" | "limited"
+      user_status: "pending" | "active" | "inactive"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5993,10 +6208,12 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager", "warehouse", "client_user"],
+      coverage_type: ["standard", "enhanced", "full", "pending"],
       discount_type: ["percentage", "flat_rate"],
       expiration_type: ["none", "date"],
       service_scope_type: ["all", "selected"],
       usage_limit_type: ["unlimited", "limited"],
+      user_status: ["pending", "active", "inactive"],
     },
   },
 } as const
