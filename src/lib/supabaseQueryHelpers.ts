@@ -27,6 +27,9 @@ export const TABLES_WITH_DELETED_AT = new Set([
   'item_custom_field_values',
   'user_roles',
   'roles',
+  'claims',
+  'stocktakes',
+  'sidemarks',
   // NOTE: item_photos does NOT have deleted_at
 ]);
 
