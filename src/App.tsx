@@ -23,6 +23,8 @@ import ShipmentCreate from "./pages/ShipmentCreate";
 import Tasks from "./pages/Tasks";
 import Billing from "./pages/Billing";
 import Employees from "./pages/Employees";
+import Claims from "./pages/Claims";
+import Stocktakes from "./pages/Stocktakes";
 import RepairTechAccess from "./pages/RepairTechAccess";
 import ScanHub from "./pages/ScanHub";
 import PrintPreview from "./pages/PrintPreview";
@@ -59,6 +61,8 @@ const App = () => (
             <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
             <Route path="/scan" element={<ProtectedRoute><ScanHub /></ProtectedRoute>} />
             <Route path="/billing" element={<ProtectedRoute><RequireRole role="tenant_admin"><Billing /></RequireRole></ProtectedRoute>} />
+            <Route path="/claims" element={<ProtectedRoute><RequireRole role="tenant_admin"><Claims /></RequireRole></ProtectedRoute>} />
+            <Route path="/stocktakes" element={<ProtectedRoute><Stocktakes /></ProtectedRoute>} />
             
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/accounts" element={<ProtectedRoute><RequireRole role="tenant_admin"><Accounts /></RequireRole></ProtectedRoute>} />
