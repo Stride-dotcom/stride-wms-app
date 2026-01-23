@@ -9,6 +9,9 @@ export interface DashboardStats {
   putAwayCount: number;
   willCallCount: number;
   disposalCount: number;
+  urgentNeedToInspect: number;
+  urgentNeedToAssemble: number;
+  urgentNeedToRepair: number;
 }
 
 export interface TaskItem {
@@ -55,6 +58,9 @@ export function useDashboardStats() {
     putAwayCount: 0,
     willCallCount: 0,
     disposalCount: 0,
+    urgentNeedToInspect: 0,
+    urgentNeedToAssemble: 0,
+    urgentNeedToRepair: 0,
   });
   const [inspectionTasks, setInspectionTasks] = useState<TaskItem[]>([]);
   const [assemblyTasks, setAssemblyTasks] = useState<TaskItem[]>([]);
@@ -79,7 +85,8 @@ export function useDashboardStats() {
         `, { count: 'exact' })
         .eq('tenant_id', profile.tenant_id)
         .eq('task_type', 'Inspection')
-        .not('status', 'in', '("completed","cancelled","unable_to_complete")')
+        // DB constraint allows only: pending, in_progress, completed, cancelled
+        .not('status', 'in', '("completed","cancelled")')
         .is('deleted_at', null)
         .order('due_date', { ascending: true, nullsFirst: false })
         .limit(10);
@@ -93,7 +100,7 @@ export function useDashboardStats() {
         `, { count: 'exact' })
         .eq('tenant_id', profile.tenant_id)
         .eq('task_type', 'Assembly')
-        .not('status', 'in', '("completed","cancelled","unable_to_complete")')
+        .not('status', 'in', '("completed","cancelled")')
         .is('deleted_at', null)
         .order('due_date', { ascending: true, nullsFirst: false })
         .limit(10);
@@ -107,7 +114,7 @@ export function useDashboardStats() {
         `, { count: 'exact' })
         .eq('tenant_id', profile.tenant_id)
         .eq('task_type', 'Will Call')
-        .not('status', 'in', '("completed","cancelled","unable_to_complete")')
+        .not('status', 'in', '("completed","cancelled")')
         .is('deleted_at', null)
         .order('due_date', { ascending: true, nullsFirst: false })
         .limit(10);
@@ -121,23 +128,25 @@ export function useDashboardStats() {
         `, { count: 'exact' })
         .eq('tenant_id', profile.tenant_id)
         .eq('task_type', 'Disposal')
-        .not('status', 'in', '("completed","cancelled","unable_to_complete")')
+        .not('status', 'in', '("completed","cancelled")')
         .is('deleted_at', null)
         .order('due_date', { ascending: true, nullsFirst: false })
         .limit(10);
 
-      // Fetch incoming shipments (ordered by ETA)
+      // Fetch incoming shipments (ordered by expected arrival)
+      // NOTE: Our schema uses `shipment_type` (inbound|outbound) and statuses
+      // like expected|in_progress|received|released.
       const { data: shipments, count: shipmentCount } = await (supabase
         .from('shipments') as any)
         .select(`
-          id, shipment_number, eta, status, carrier,
+          id, shipment_number, expected_arrival_date, status, carrier,
           account:accounts(account_name)
         `, { count: 'exact' })
         .eq('tenant_id', profile.tenant_id)
-        .eq('direction', 'inbound')
-        .in('status', ['pending', 'in_transit', 'scheduled'])
+        .eq('shipment_type', 'inbound')
+        .in('status', ['expected', 'in_progress'])
         .is('deleted_at', null)
-        .order('eta', { ascending: true, nullsFirst: false })
+        .order('expected_arrival_date', { ascending: true, nullsFirst: false })
         .limit(10);
 
       // Fetch items at Receiving Dock location (need to put away)
@@ -195,6 +204,9 @@ export function useDashboardStats() {
         putAwayCount: putAwayCount,
         willCallCount: willCallCount || 0,
         disposalCount: disposalCount || 0,
+        urgentNeedToInspect: (inspections || []).filter((t: any) => t.priority === 'urgent').length,
+        urgentNeedToAssemble: (assemblies || []).filter((t: any) => t.priority === 'urgent').length,
+        urgentNeedToRepair: 0,
       });
 
       setInspectionTasks(inspections || []);

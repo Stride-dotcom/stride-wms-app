@@ -185,7 +185,7 @@ export default function Dashboard() {
     }
   };
 
-  const cardConfigs: Record<string, { title: string; icon: React.ReactNode; value: number; description: string; type: 'inspection' | 'assembly' | 'shipments' | 'putaway' | 'willcall' | 'disposal' }> = {
+  const cardConfigs: Record<string, { title: string; icon: React.ReactNode; value: number; description: string; type: 'inspection' | 'assembly' | 'shipments' | 'putaway' | 'willcall' | 'disposal'; urgent?: number }> = {
     inspection: {
       title: 'Need to Inspect',
       icon: (
@@ -194,6 +194,7 @@ export default function Dashboard() {
         </div>
       ),
       value: stats.needToInspect,
+      urgent: stats.urgentNeedToInspect,
       description: 'Pending inspections by due date',
       type: 'inspection',
     },
@@ -205,6 +206,7 @@ export default function Dashboard() {
         </div>
       ),
       value: stats.needToAssemble,
+      urgent: stats.urgentNeedToAssemble,
       description: 'Pending assemblies by due date',
       type: 'assembly',
     },
@@ -323,7 +325,14 @@ export default function Dashboard() {
                           onClick={() => handleCardClick(config.type)}
                         >
                           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pl-10">
-                            <CardTitle className="text-sm font-medium">{config.title}</CardTitle>
+                            <div className="flex items-center gap-2">
+                              <CardTitle className="text-sm font-medium">{config.title}</CardTitle>
+                              {typeof config.urgent === 'number' && config.urgent > 0 && (
+                                <span className="rounded-full bg-red-600/10 px-2 py-0.5 text-xs font-semibold text-red-700">
+                                  Urgent: {config.urgent}
+                                </span>
+                              )}
+                            </div>
                             {config.icon}
                           </CardHeader>
                           <CardContent className="pl-10">

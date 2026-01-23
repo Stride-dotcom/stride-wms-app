@@ -63,10 +63,8 @@ export function ExpectedItemCard({
     [vendorSuggestions]
   );
 
-  const sidemarkSuggestionOptions = React.useMemo(
-    () => sidemarkSuggestions.map((s) => ({ value: s, label: s })),
-    [sidemarkSuggestions]
-  );
+  // NOTE: We intentionally do NOT collect per-item sidemark during shipment
+  // creation. Shipment-level sidemark/project will be applied during receiving.
 
   return (
     <Card className="relative">
@@ -135,8 +133,8 @@ export function ExpectedItemCard({
           maxRows={4}
         />
 
-        {/* Row 2: Item Type and Sidemark side by side */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Row 2: Category */}
+        <div className="grid grid-cols-1 gap-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Category</label>
             <SearchableSelect
@@ -148,19 +146,6 @@ export function ExpectedItemCard({
               emptyText="No categories found"
               recentKey="shipment-item-types"
               clearable
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Sidemark</label>
-            <AutocompleteInput
-              suggestions={sidemarkSuggestionOptions}
-              value={item.sidemark}
-              onChange={(v) => {
-                onUpdate(item.id, "sidemark", v);
-                if (v && onSidemarkUsed) onSidemarkUsed(v);
-              }}
-              placeholder="Type sidemark..."
-              className="min-h-[44px] text-base"
             />
           </div>
         </div>
