@@ -173,10 +173,10 @@ export function useReceivingSession(shipmentId: string | undefined) {
 
       // Create inventory items if requested
       if (createItems && verificationData.received_items.length > 0) {
-        // Get shipment details for account info
+        // Get shipment details for account info - include sidemark_id
         const { data: shipment } = await supabase
           .from('shipments')
-          .select('account_id, warehouse_id')
+          .select('account_id, warehouse_id, sidemark_id')
           .eq('id', session.shipment_id)
           .single();
 
@@ -204,10 +204,12 @@ export function useReceivingSession(shipmentId: string | undefined) {
             const itemCode = `ITM-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
             
             // Create item with received_without_id flag if set
+            // Include sidemark_id from shipment if available
             const itemData: Record<string, any> = {
               tenant_id: profile.tenant_id,
               account_id: shipment.account_id,
               warehouse_id: shipment.warehouse_id,
+              sidemark_id: (shipment as any).sidemark_id || null,
               item_code: itemCode,
               description: item.description,
               quantity: item.quantity,
