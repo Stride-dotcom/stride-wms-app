@@ -7256,6 +7256,10 @@ export type Database = {
         Args: { tenant_id_param: string; user_id: string }
         Returns: boolean
       }
+      seed_default_billable_services: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
       seed_standard_roles: { Args: { p_tenant_id: string }; Returns: undefined }
       user_can_access_sidemark: {
         Args: { p_sidemark_id: string; p_user_id: string }
