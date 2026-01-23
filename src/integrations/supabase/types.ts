@@ -2476,6 +2476,74 @@ export type Database = {
           },
         ]
       }
+      item_audit_log: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          field_changed: string | null
+          id: string
+          item_id: string
+          metadata: Json | null
+          new_value: string | null
+          old_value: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          field_changed?: string | null
+          id?: string
+          item_id: string
+          metadata?: Json | null
+          new_value?: string | null
+          old_value?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          field_changed?: string | null
+          id?: string
+          item_id?: string
+          metadata?: Json | null
+          new_value?: string | null
+          old_value?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_audit_log_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_audit_log_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_audit_log_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       item_custom_charges: {
         Row: {
           charge_amount: number
@@ -2593,6 +2661,78 @@ export type Database = {
           },
         ]
       }
+      item_flags: {
+        Row: {
+          applied_at: string
+          applied_by: string | null
+          flag_id: string
+          id: string
+          item_id: string
+          notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          tenant_id: string
+        }
+        Insert: {
+          applied_at?: string
+          applied_by?: string | null
+          flag_id: string
+          id?: string
+          item_id: string
+          notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          tenant_id: string
+        }
+        Update: {
+          applied_at?: string
+          applied_by?: string | null
+          flag_id?: string
+          id?: string
+          item_id?: string
+          notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_flags_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_flags_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_flags_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_flags_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_flags_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       item_notes: {
         Row: {
           created_at: string
@@ -2679,6 +2819,7 @@ export type Database = {
       }
       item_photos: {
         Row: {
+          caption: string | null
           created_at: string
           file_name: string
           file_size: number | null
@@ -2695,6 +2836,7 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          caption?: string | null
           created_at?: string
           file_name: string
           file_size?: number | null
@@ -2711,6 +2853,7 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          caption?: string | null
           created_at?: string
           file_name?: string
           file_size?: number | null
@@ -2943,10 +3086,14 @@ export type Database = {
       }
       items: {
         Row: {
+          account_id: string | null
           assembly_status: string | null
+          class_id: string | null
           client_account: string | null
+          coverage_type: string | null
           created_at: string
           current_location_id: string | null
+          declared_value: number | null
           deleted_at: string | null
           description: string | null
           has_damage: boolean | null
@@ -2959,6 +3106,7 @@ export type Database = {
           is_unstackable: boolean | null
           item_code: string
           item_type_id: string | null
+          last_storage_invoiced_through: string | null
           link: string | null
           metadata: Json | null
           minor_touchup_status: string | null
@@ -2971,13 +3119,16 @@ export type Database = {
           primary_photo_url: string | null
           quantity: number
           received_at: string | null
+          received_date: string | null
           received_without_id: boolean | null
           receiving_shipment_id: string | null
           released_at: string | null
+          released_date: string | null
           repair_photos: Json | null
           repair_status: string | null
           room: string | null
           sidemark: string | null
+          sidemark_id: string | null
           size: number | null
           size_unit: string | null
           status: string
@@ -2987,10 +3138,14 @@ export type Database = {
           warehouse_id: string
         }
         Insert: {
+          account_id?: string | null
           assembly_status?: string | null
+          class_id?: string | null
           client_account?: string | null
+          coverage_type?: string | null
           created_at?: string
           current_location_id?: string | null
+          declared_value?: number | null
           deleted_at?: string | null
           description?: string | null
           has_damage?: boolean | null
@@ -3003,6 +3158,7 @@ export type Database = {
           is_unstackable?: boolean | null
           item_code: string
           item_type_id?: string | null
+          last_storage_invoiced_through?: string | null
           link?: string | null
           metadata?: Json | null
           minor_touchup_status?: string | null
@@ -3015,13 +3171,16 @@ export type Database = {
           primary_photo_url?: string | null
           quantity?: number
           received_at?: string | null
+          received_date?: string | null
           received_without_id?: boolean | null
           receiving_shipment_id?: string | null
           released_at?: string | null
+          released_date?: string | null
           repair_photos?: Json | null
           repair_status?: string | null
           room?: string | null
           sidemark?: string | null
+          sidemark_id?: string | null
           size?: number | null
           size_unit?: string | null
           status?: string
@@ -3031,10 +3190,14 @@ export type Database = {
           warehouse_id: string
         }
         Update: {
+          account_id?: string | null
           assembly_status?: string | null
+          class_id?: string | null
           client_account?: string | null
+          coverage_type?: string | null
           created_at?: string
           current_location_id?: string | null
+          declared_value?: number | null
           deleted_at?: string | null
           description?: string | null
           has_damage?: boolean | null
@@ -3047,6 +3210,7 @@ export type Database = {
           is_unstackable?: boolean | null
           item_code?: string
           item_type_id?: string | null
+          last_storage_invoiced_through?: string | null
           link?: string | null
           metadata?: Json | null
           minor_touchup_status?: string | null
@@ -3059,13 +3223,16 @@ export type Database = {
           primary_photo_url?: string | null
           quantity?: number
           received_at?: string | null
+          received_date?: string | null
           received_without_id?: boolean | null
           receiving_shipment_id?: string | null
           released_at?: string | null
+          released_date?: string | null
           repair_photos?: Json | null
           repair_status?: string | null
           room?: string | null
           sidemark?: string | null
+          sidemark_id?: string | null
           size?: number | null
           size_unit?: string | null
           status?: string
@@ -3075,6 +3242,13 @@ export type Database = {
           warehouse_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "items_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "items_current_location_id_fkey"
             columns: ["current_location_id"]
@@ -3094,6 +3268,13 @@ export type Database = {
             columns: ["receiving_shipment_id"]
             isOneToOne: false
             referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_sidemark_id_fkey"
+            columns: ["sidemark_id"]
+            isOneToOne: false
+            referencedRelation: "sidemarks"
             referencedColumns: ["id"]
           },
           {
@@ -3236,6 +3417,7 @@ export type Database = {
           moved_at: string
           note: string | null
           quantity: number | null
+          tenant_id: string | null
           to_location_id: string | null
         }
         Insert: {
@@ -3251,6 +3433,7 @@ export type Database = {
           moved_at?: string
           note?: string | null
           quantity?: number | null
+          tenant_id?: string | null
           to_location_id?: string | null
         }
         Update: {
@@ -3266,6 +3449,7 @@ export type Database = {
           moved_at?: string
           note?: string | null
           quantity?: number | null
+          tenant_id?: string | null
           to_location_id?: string | null
         }
         Relationships: [
@@ -3288,6 +3472,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
@@ -4044,6 +4235,70 @@ export type Database = {
           },
         ]
       }
+      shipment_media: {
+        Row: {
+          caption: string | null
+          created_at: string
+          file_name: string
+          file_size: number | null
+          id: string
+          media_type: string
+          mime_type: string | null
+          shipment_id: string
+          storage_key: string
+          tenant_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          media_type?: string
+          mime_type?: string | null
+          shipment_id: string
+          storage_key: string
+          tenant_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          media_type?: string
+          mime_type?: string | null
+          shipment_id?: string
+          storage_key?: string
+          tenant_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_media_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_media_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_media_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shipments: {
         Row: {
           account_id: string | null
@@ -4074,6 +4329,7 @@ export type Database = {
           return_type: string | null
           shipment_number: string
           shipment_type: string
+          sidemark_id: string | null
           signature_data: string | null
           signature_name: string | null
           signature_timestamp: string | null
@@ -4112,6 +4368,7 @@ export type Database = {
           return_type?: string | null
           shipment_number: string
           shipment_type?: string
+          sidemark_id?: string | null
           signature_data?: string | null
           signature_name?: string | null
           signature_timestamp?: string | null
@@ -4150,6 +4407,7 @@ export type Database = {
           return_type?: string | null
           shipment_number?: string
           shipment_type?: string
+          sidemark_id?: string | null
           signature_data?: string | null
           signature_name?: string | null
           signature_timestamp?: string | null
@@ -4179,6 +4437,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_sidemark_id_fkey"
+            columns: ["sidemark_id"]
+            isOneToOne: false
+            referencedRelation: "sidemarks"
             referencedColumns: ["id"]
           },
           {
@@ -6033,10 +6298,24 @@ export type Database = {
       }
     }
     Functions: {
+      batch_move_items: {
+        Args: {
+          p_action_type?: string
+          p_item_ids: string[]
+          p_note?: string
+          p_to_location_id: string
+        }
+        Returns: {
+          error_message: string
+          item_id: string
+          success: boolean
+        }[]
+      }
       can_access_document: { Args: { doc_id: string }; Returns: boolean }
       check_past_due_tasks: { Args: never; Returns: undefined }
       current_user_id: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
+      generate_item_code: { Args: { p_tenant_id: string }; Returns: string }
       generate_shipment_number: { Args: never; Returns: string }
       get_current_user_tenant_id: { Args: never; Returns: string }
       get_sidemark_display: { Args: { p_sidemark_id: string }; Returns: string }
@@ -6077,7 +6356,31 @@ export type Database = {
       coverage_type: "standard" | "enhanced" | "full" | "pending"
       discount_type: "percentage" | "flat_rate"
       expiration_type: "none" | "date"
+      item_status_enum: "pending" | "active" | "released" | "disposed" | "lost"
+      media_type_enum: "photo" | "document" | "video"
+      movement_type_enum:
+        | "receiving"
+        | "putaway"
+        | "pick"
+        | "move"
+        | "release"
+        | "stocktake_correction"
+        | "reactivation"
       service_scope_type: "all" | "selected"
+      shipment_item_status_enum:
+        | "pending"
+        | "received"
+        | "partial"
+        | "released"
+        | "cancelled"
+      shipment_status_enum:
+        | "expected"
+        | "in_progress"
+        | "received"
+        | "released"
+        | "completed"
+        | "cancelled"
+      shipment_type_enum: "inbound" | "outbound" | "return" | "disposal"
       usage_limit_type: "unlimited" | "limited"
       user_status: "pending" | "active" | "inactive"
     }
@@ -6211,7 +6514,34 @@ export const Constants = {
       coverage_type: ["standard", "enhanced", "full", "pending"],
       discount_type: ["percentage", "flat_rate"],
       expiration_type: ["none", "date"],
+      item_status_enum: ["pending", "active", "released", "disposed", "lost"],
+      media_type_enum: ["photo", "document", "video"],
+      movement_type_enum: [
+        "receiving",
+        "putaway",
+        "pick",
+        "move",
+        "release",
+        "stocktake_correction",
+        "reactivation",
+      ],
       service_scope_type: ["all", "selected"],
+      shipment_item_status_enum: [
+        "pending",
+        "received",
+        "partial",
+        "released",
+        "cancelled",
+      ],
+      shipment_status_enum: [
+        "expected",
+        "in_progress",
+        "received",
+        "released",
+        "completed",
+        "cancelled",
+      ],
+      shipment_type_enum: ["inbound", "outbound", "return", "disposal"],
       usage_limit_type: ["unlimited", "limited"],
       user_status: ["pending", "active", "inactive"],
     },
