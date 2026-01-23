@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -41,9 +41,17 @@ type TabValue = 'incoming' | 'outbound' | 'received' | 'released';
 // COMPONENT
 // ============================================
 
+const TAB_VALUES = ['incoming', 'outbound', 'received', 'released'] as const;
+
+const TAB_CONFIG: Record<TabValue, { route: string }> = {
+  incoming: { route: '/shipments/incoming' },
+  outbound: { route: '/shipments/outbound' },
+  received: { route: '/shipments/received' },
+  released: { route: '/shipments/released' },
+};
+
 export default function ShipmentsList() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const { profile } = useAuth();
   const isMobile = useIsMobile();
@@ -53,39 +61,19 @@ export default function ShipmentsList() {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const deriveTabFromRoute = (): TabValue => {
-    // If a ?tab= is explicitly present, it wins.
-    const tabParam = (searchParams.get('tab') as TabValue | null) || null;
-    if (tabParam && ['incoming', 'outbound', 'received', 'released'].includes(tabParam)) {
-      return tabParam;
-    }
 
-    // Otherwise infer from pathname so /shipments/received defaults correctly.
-    const p = location.pathname.toLowerCase();
-    if (p.includes('/shipments/received')) return 'received';
-    if (p.includes('/shipments/released')) return 'released';
-    if (p.includes('/shipments/outbound')) return 'outbound';
+  const deriveTabFromRoute = (): TabValue => {
+    const last = location.pathname.split('/').pop();
+    if (last && TAB_VALUES.includes(last as TabValue)) return last as TabValue;
     return 'incoming';
   };
 
-  const [activeTab, setActiveTab] = useState<TabValue>(deriveTabFromRoute);
+  const [activeTab, setActiveTab] = useState<TabValue>(() => deriveTabFromRoute());
 
-  // If user navigates via the dedicated routes (e.g. /shipments/received) without a ?tab,
-  // default the tab to match the route. This prevents the confusing "everything shows incoming" issue.
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam) return;
-    const derived = deriveTabFromRoute();
-    if (derived !== activeTab) setActiveTab(derived);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
-
-  // Keep state in sync when navigating via the 4 hub cards (routes) without ?tab=.
-  useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam) return;
-    const next = deriveTabFromRoute();
-    setActiveTab(next);
+    setActiveTab(deriveTabFromRoute());
+    setStatusFilter('all');
+    setSearchQuery('');
   }, [location.pathname]);
 
   // ------------------------------------------
@@ -176,9 +164,11 @@ export default function ShipmentsList() {
 
   // Update URL when tab changes
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab as TabValue);
-    setSearchParams({ tab });
+    const next = tab as TabValue;
+    setActiveTab(next);
     setStatusFilter('all');
+    setSearchQuery('');
+    navigate(TAB_CONFIG[next].route);
   };
 
   // ------------------------------------------

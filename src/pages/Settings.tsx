@@ -58,7 +58,7 @@ const TAB_OPTIONS = [
   { value: 'sidemarks', label: 'Sidemarks' },
   { value: 'services', label: 'Services' },
   { value: 'rate-sheets', label: 'Rate Sheets' },
-  { value: 'categories', label: 'Categories' },
+  { value: 'categories', label: 'Classes' },
   { value: 'warehouses', label: 'Warehouses' },
   { value: 'locations', label: 'Locations' },
   { value: 'users', label: 'Users' },
@@ -284,7 +284,7 @@ export default function Settings() {
             <TabsTrigger value="sidemarks">Sidemarks</TabsTrigger>
             <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="rate-sheets">Rate Sheets</TabsTrigger>
-            <TabsTrigger value="categories">Categories</TabsTrigger>
+            <TabsTrigger value="categories">Classes</TabsTrigger>
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
