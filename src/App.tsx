@@ -27,6 +27,8 @@ import BillingReport from "./pages/BillingReport";
 import Invoices from "./pages/Invoices";
 import Employees from "./pages/Employees";
 import Claims from "./pages/Claims";
+import ClaimDetail from "./pages/ClaimDetail";
+import CoverageQuickEntry from "./pages/CoverageQuickEntry";
 import Stocktakes from "./pages/Stocktakes";
 import RepairTechAccess from "./pages/RepairTechAccess";
 import ScanHub from "./pages/ScanHub";
@@ -70,6 +72,8 @@ const App = () => (
             <Route path="/billing/report" element={<ProtectedRoute><RequireRole role="tenant_admin"><BillingReport /></RequireRole></ProtectedRoute>} />
             <Route path="/billing/invoices" element={<ProtectedRoute><RequireRole role="tenant_admin"><Invoices /></RequireRole></ProtectedRoute>} />
             <Route path="/claims" element={<ProtectedRoute><RequireRole role="tenant_admin"><Claims /></RequireRole></ProtectedRoute>} />
+            <Route path="/claims/:id" element={<ProtectedRoute><RequireRole role="tenant_admin"><ClaimDetail /></RequireRole></ProtectedRoute>} />
+            <Route path="/coverage" element={<ProtectedRoute><RequireRole role="tenant_admin"><CoverageQuickEntry /></RequireRole></ProtectedRoute>} />
             <Route path="/stocktakes" element={<ProtectedRoute><Stocktakes /></ProtectedRoute>} />
             
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
