@@ -5285,6 +5285,7 @@ export type Database = {
           return_type: string | null
           shipment_number: string
           shipment_type: string
+          sidemark: string | null
           sidemark_id: string | null
           signature_data: string | null
           signature_name: string | null
@@ -5324,6 +5325,7 @@ export type Database = {
           return_type?: string | null
           shipment_number: string
           shipment_type?: string
+          sidemark?: string | null
           sidemark_id?: string | null
           signature_data?: string | null
           signature_name?: string | null
@@ -5363,6 +5365,7 @@ export type Database = {
           return_type?: string | null
           shipment_number?: string
           shipment_type?: string
+          sidemark?: string | null
           sidemark_id?: string | null
           signature_data?: string | null
           signature_name?: string | null
@@ -6169,6 +6172,7 @@ export type Database = {
           priority: string | null
           related_item_id: string | null
           service_date: string | null
+          sidemark: string | null
           started_at: string | null
           started_by: string | null
           status: string
@@ -6214,6 +6218,7 @@ export type Database = {
           priority?: string | null
           related_item_id?: string | null
           service_date?: string | null
+          sidemark?: string | null
           started_at?: string | null
           started_by?: string | null
           status?: string
@@ -6259,6 +6264,7 @@ export type Database = {
           priority?: string | null
           related_item_id?: string | null
           service_date?: string | null
+          sidemark?: string | null
           started_at?: string | null
           started_by?: string | null
           status?: string
