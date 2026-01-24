@@ -1366,6 +1366,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "billing_events_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "billing_events_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
@@ -4819,6 +4826,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "repair_quotes_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "repair_quotes_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
@@ -4830,6 +4844,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_quotes_technician_user_id_fkey"
+            columns: ["technician_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
