@@ -418,12 +418,12 @@ export default function Invoices() {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Sidemark (optional)</label>
-                <Select value={selectedSidemarkId} onValueChange={setSelectedSidemarkId} disabled={!accountId}>
+                <Select value={selectedSidemarkId || '__all__'} onValueChange={(v) => setSelectedSidemarkId(v === '__all__' ? '' : v)} disabled={!accountId}>
                   <SelectTrigger>
                     <SelectValue placeholder="All sidemarks" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All sidemarks</SelectItem>
+                    <SelectItem value="__all__">All sidemarks</SelectItem>
                     {sidemarks.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.sidemark_name}

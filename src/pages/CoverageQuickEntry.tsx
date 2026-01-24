@@ -155,12 +155,12 @@ export default function CoverageQuickEntry() {
                   <SelectItem value="all">All Items</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+              <Select value={selectedAccountId || '__all__'} onValueChange={(v) => setSelectedAccountId(v === '__all__' ? '' : v)}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="All Accounts" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Accounts</SelectItem>
+                  <SelectItem value="__all__">All Accounts</SelectItem>
                   {accounts.map(acc => (
                     <SelectItem key={acc.id} value={acc.id}>{acc.account_name}</SelectItem>
                   ))}
