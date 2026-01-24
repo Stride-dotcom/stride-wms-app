@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/page-header';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -76,16 +77,33 @@ const priorityColors: Record<string, string> = {
 };
 
 export default function Tasks() {
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const { warehouses } = useWarehouses();
   const { taskTypes } = useTaskTypes();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [filters, setFilters] = useState({
-    status: 'all',
-    taskType: 'all',
+  const [filters, setFilters] = useState(() => ({
+    status: searchParams.get('status') || 'all',
+    taskType: searchParams.get('type') || 'all',
     warehouseId: 'all',
-  });
+  }));
+
+  // Sync filters from URL params when they change (e.g. Dashboard tile click)
+  useEffect(() => {
+    const urlStatus = searchParams.get('status');
+    const urlType = searchParams.get('type');
+    if (urlStatus || urlType) {
+      setFilters(f => ({
+        ...f,
+        status: urlStatus || f.status,
+        taskType: urlType || f.taskType,
+      }));
+    }
+  }, [searchParams]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<string>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [preSelectedTaskType, setPreSelectedTaskType] = useState<string | undefined>(undefined);
@@ -112,9 +130,41 @@ export default function Tasks() {
   });
 
   // Filter tasks locally for search (avoid refetch on search)
-  const filteredTasks = tasks.filter(task =>
-    task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    task.task_type.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredTasks = tasks
+    .filter(task =>
+      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.task_type.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      let aVal: any = '';
+      let bVal: any = '';
+      switch (sortField) {
+        case 'title': aVal = a.title; bVal = b.title; break;
+        case 'task_type': aVal = a.task_type; bVal = b.task_type; break;
+        case 'status': aVal = a.status; bVal = b.status; break;
+        case 'priority': aVal = a.priority || ''; bVal = b.priority || ''; break;
+        case 'due_date': aVal = a.due_date || ''; bVal = b.due_date || ''; break;
+        case 'assigned_to':
+          aVal = a.assigned_user ? `${a.assigned_user.first_name} ${a.assigned_user.last_name}` : '';
+          bVal = b.assigned_user ? `${b.assigned_user.first_name} ${b.assigned_user.last_name}` : '';
+          break;
+        default: aVal = a.created_at; bVal = b.created_at; break;
+      }
+      const cmp = String(aVal).localeCompare(String(bVal));
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const SortIndicator = ({ field }: { field: string }) => (
+    sortField === field ? <span className="ml-1">{sortDirection === 'asc' ? '▲' : '▼'}</span> : null
   );
 
   // Memoize stats to avoid recalculation flicker
@@ -378,20 +428,30 @@ export default function Tasks() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Task</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Assigned To</TableHead>
-                  <TableHead>Actions</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort('title')}>
+                    Task<SortIndicator field="title" />
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort('task_type')}>
+                    Type<SortIndicator field="task_type" />
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort('status')}>
+                    Status<SortIndicator field="status" />
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort('priority')}>
+                    Priority<SortIndicator field="priority" />
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort('due_date')}>
+                    Due Date<SortIndicator field="due_date" />
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort('assigned_to')}>
+                    Assigned To<SortIndicator field="assigned_to" />
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTasks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-12">
+                    <TableCell colSpan={6} className="text-center py-12">
                       <div className="flex flex-col items-center gap-2">
                         <ClipboardList className="h-10 w-10 text-muted-foreground" />
                         <p className="text-muted-foreground font-medium">
@@ -409,22 +469,16 @@ export default function Tasks() {
                   </TableRow>
                 ) : (
                   filteredTasks.map((task) => (
-                    <TableRow key={task.id}>
+                    <TableRow
+                      key={task.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => navigate(`/tasks/${task.id}`)}
+                    >
                       <TableCell className="font-medium">
-                        <button
-                          onClick={() => handleEdit(task)}
-                          className="hover:underline text-left"
-                        >
-                          {task.title}
-                        </button>
+                        {task.title}
                         {task.description && (
                           <p className="text-sm text-muted-foreground truncate max-w-[200px]">
                             {task.description}
-                          </p>
-                        )}
-                        {task.status === 'unable_to_complete' && task.unable_to_complete_note && (
-                          <p className="text-xs text-destructive truncate max-w-[200px]">
-                            Note: {task.unable_to_complete_note}
                           </p>
                         )}
                       </TableCell>
@@ -432,28 +486,9 @@ export default function Tasks() {
                         <Badge variant="outline">{task.task_type}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Select
-                          value={task.status}
-                          onValueChange={(value) => {
-                            if (value === 'unable_to_complete') {
-                              setUnableToCompleteTask(task);
-                            } else {
-                              updateTaskStatus(task.id, value);
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="h-7 w-[140px]">
-                            <Badge className={statusColors[task.status] || ''}>
-                              {statusLabels[task.status] || task.status.replace('_', ' ')}
-                            </Badge>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="in_progress">In Progress</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                            <SelectItem value="unable_to_complete">Unable to Complete</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Badge className={statusColors[task.status] || ''}>
+                          {statusLabels[task.status] || task.status.replace('_', ' ')}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         {task.priority === 'urgent' ? (
@@ -470,8 +505,8 @@ export default function Tasks() {
                       <TableCell>
                         {task.due_date ? (
                           <span className={
-                            new Date(task.due_date) < new Date() && 
-                            task.status !== 'completed' && 
+                            new Date(task.due_date) < new Date() &&
+                            task.status !== 'completed' &&
                             task.status !== 'unable_to_complete'
                               ? 'text-red-600 font-medium'
                               : ''
@@ -490,57 +525,6 @@ export default function Tasks() {
                         ) : (
                           <span className="text-muted-foreground">Unassigned</span>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        {renderActionButtons(task)}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEdit(task)}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            {!task.assigned_to && (
-                              <DropdownMenuItem onClick={() => claimTask(task.id)}>
-                                <User className="mr-2 h-4 w-4" />
-                                Claim Task
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            {task.status === 'pending' && (
-                              <DropdownMenuItem onClick={() => startTask(task.id)}>
-                                <Play className="mr-2 h-4 w-4" />
-                                Start Task
-                              </DropdownMenuItem>
-                            )}
-                              {task.status === 'in_progress' && (
-                              <>
-                                <DropdownMenuItem onClick={() => handleCompleteClick(task)}>
-                                  <Check className="mr-2 h-4 w-4" />
-                                  Complete
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setUnableToCompleteTask(task)}>
-                                  <XCircle className="mr-2 h-4 w-4" />
-                                  Unable to Complete
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => deleteTask(task.id)}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))

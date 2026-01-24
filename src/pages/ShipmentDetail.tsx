@@ -14,7 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle, Printer } from 'lucide-react';
+import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle, Printer, Pencil } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { DocumentCapture } from '@/components/scanner';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
@@ -106,6 +107,9 @@ export default function ShipmentDetail() {
   const [showPrintLabelsDialog, setShowPrintLabelsDialog] = useState(false);
   const [createdItemIds, setCreatedItemIds] = useState<string[]>([]);
   const [createdItemsForLabels, setCreatedItemsForLabels] = useState<ItemLabelData[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editNotes, setEditNotes] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Receiving session hook
   const {
@@ -369,12 +373,18 @@ export default function ShipmentDetail() {
         </div>
 
         {/* Action Buttons */}
-        {canReceive && !isReceiving && hasPermission(PERMISSIONS.SHIPMENTS_RECEIVE) && (
-          <Button onClick={startSession} disabled={sessionLoading}>
-            <Play className="h-4 w-4 mr-2" />
-            Start Receiving
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => { setIsEditing(!isEditing); setEditNotes(shipment.notes || ''); }}>
+            <Pencil className="h-4 w-4 mr-2" />
+            {isEditing ? 'Cancel Edit' : 'Edit'}
           </Button>
-        )}
+          {canReceive && !isReceiving && hasPermission(PERMISSIONS.SHIPMENTS_RECEIVE) && (
+            <Button onClick={startSession} disabled={sessionLoading}>
+              <Play className="h-4 w-4 mr-2" />
+              Start Receiving
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Receiving In Progress Banner */}
@@ -396,6 +406,55 @@ export default function ShipmentDetail() {
                   Finish Receiving
                 </Button>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Edit Mode */}
+      {isEditing && (
+        <Card className="mb-6 border-primary/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Edit Shipment</CardTitle>
+            <CardDescription>Update shipment notes and details</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                placeholder="Add notes about this shipment..."
+                rows={4}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={async () => {
+                  setSavingEdit(true);
+                  try {
+                    const { error } = await supabase
+                      .from('shipments')
+                      .update({ notes: editNotes })
+                      .eq('id', shipment.id);
+                    if (error) throw error;
+                    toast({ title: 'Shipment Updated' });
+                    setIsEditing(false);
+                    fetchShipment();
+                  } catch (error) {
+                    toast({ variant: 'destructive', title: 'Error', description: 'Failed to update shipment' });
+                  } finally {
+                    setSavingEdit(false);
+                  }
+                }}
+                disabled={savingEdit}
+              >
+                {savingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+              <Button variant="outline" onClick={() => setIsEditing(false)}>
+                Cancel
+              </Button>
             </div>
           </CardContent>
         </Card>

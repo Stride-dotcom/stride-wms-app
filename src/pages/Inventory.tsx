@@ -45,6 +45,9 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { ItemPreviewCard } from '@/components/items/ItemPreviewCard';
+import { InlineEditableCell } from '@/components/inventory/InlineEditableCell';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   MobileDataCard,
   MobileDataCardHeader,
@@ -105,6 +108,34 @@ export default function Inventory() {
   
   const { warehouses } = useWarehouses();
   const { locations } = useLocations();
+  const { toast } = useToast();
+  const { profile } = useAuth();
+
+  // Compute unique suggestions for inline editing
+  const sidemarkSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach(item => { if (item.sidemark) set.add(item.sidemark); });
+    return Array.from(set).sort();
+  }, [items]);
+
+  const roomSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach(item => { if (item.room) set.add(item.room); });
+    return Array.from(set).sort();
+  }, [items]);
+
+  const handleInlineUpdate = async (itemId: string, field: 'sidemark' | 'room', value: string) => {
+    const { error } = await supabase
+      .from('items')
+      .update({ [field]: value })
+      .eq('id', itemId);
+    if (error) {
+      toast({ title: 'Update failed', description: error.message, variant: 'destructive' });
+      throw error;
+    }
+    // Update local state
+    setItems(prev => prev.map(item => item.id === itemId ? { ...item, [field]: value } : item));
+  };
 
   useEffect(() => {
     fetchItems();
@@ -293,8 +324,22 @@ export default function Inventory() {
                       <TableCell>{item.vendor || '-'}</TableCell>
                       <TableCell className="line-clamp-1">{item.description || '-'}</TableCell>
                       <TableCell>{item.location_code ? <span className="text-sm">{item.location_code}{item.warehouse_name && <span className="text-muted-foreground ml-1">({item.warehouse_name})</span>}</span> : '-'}</TableCell>
-                      <TableCell>{item.sidemark || '-'}</TableCell>
-                      <TableCell>{item.room || '-'}</TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <InlineEditableCell
+                          value={item.sidemark}
+                          suggestions={sidemarkSuggestions}
+                          onSave={(val) => handleInlineUpdate(item.id, 'sidemark', val)}
+                          placeholder="-"
+                        />
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <InlineEditableCell
+                          value={item.room}
+                          suggestions={roomSuggestions}
+                          onSave={(val) => handleInlineUpdate(item.id, 'room', val)}
+                          placeholder="-"
+                        />
+                      </TableCell>
                     </TableRow>
                   ))}</TableBody>
                 </Table>

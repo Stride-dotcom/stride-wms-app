@@ -82,13 +82,13 @@ export default function BillingReport() {
     
     setLoading(true);
     try {
+      // Fetch billing events with account join only (item FK may not exist)
       let query = supabase
         .from("billing_events")
         .select(`
-          id, occurred_at, account_id, item_id, event_type, charge_type, 
+          id, occurred_at, account_id, item_id, event_type, charge_type,
           description, quantity, unit_rate, total_amount, status, invoice_id,
-          accounts!billing_events_account_id_fkey(account_name),
-          items!billing_events_item_id_fkey(item_code)
+          accounts!billing_events_account_id_fkey(account_name)
         `)
         .eq("tenant_id", profile.tenant_id)
         .gte("occurred_at", `${start}T00:00:00.000Z`)
@@ -108,14 +108,27 @@ export default function BillingReport() {
 
       const { data, error } = await query;
       if (error) throw error;
-      
+
+      // Fetch item codes separately to avoid FK relationship issues
+      const itemIds = [...new Set((data || []).map((r: any) => r.item_id).filter(Boolean))];
+      let itemMap: Record<string, string> = {};
+      if (itemIds.length > 0) {
+        const { data: items } = await supabase
+          .from("items")
+          .select("id, item_code")
+          .in("id", itemIds);
+        if (items) {
+          itemMap = Object.fromEntries(items.map((i: any) => [i.id, i.item_code]));
+        }
+      }
+
       // Transform data to flatten joins
       const transformed = (data || []).map((row: any) => ({
         ...row,
         account_name: row.accounts?.account_name || "-",
-        item_code: row.items?.item_code || "-",
+        item_code: row.item_id ? (itemMap[row.item_id] || "-") : "-",
       }));
-      
+
       setRows(transformed);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Unknown error";

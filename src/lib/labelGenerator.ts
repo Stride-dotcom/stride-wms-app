@@ -348,22 +348,51 @@ export class PrintPopupBlockedError extends Error {
   }
 }
 
-// Helper to open print preview page (user clicks Print button there)
+// Helper to print labels using an iframe (avoids popup blockers)
 export async function printLabels(blob: Blob, filename: string = 'labels.pdf'): Promise<void> {
-  const base64 = await blobToBase64(blob);
-  
-  // Store PDF data in localStorage for transfer to print preview page
-  // Note: localStorage is shared between tabs, unlike sessionStorage
-  localStorage.setItem('printPreviewPdf', base64);
-  localStorage.setItem('printPreviewFilename', filename);
-  
-  // Open print preview page in new tab - user will click Print button there
-  const printWindow = window.open('/print-preview', '_blank');
-  
-  if (!printWindow) {
-    // Clean up if popup was blocked
-    localStorage.removeItem('printPreviewPdf');
-    localStorage.removeItem('printPreviewFilename');
-    throw new PrintPopupBlockedError();
-  }
+  const url = URL.createObjectURL(blob);
+
+  // Use a hidden iframe to trigger print without popup
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.top = '-10000px';
+  iframe.style.left = '-10000px';
+  iframe.style.width = '1px';
+  iframe.style.height = '1px';
+  iframe.src = url;
+
+  document.body.appendChild(iframe);
+
+  iframe.onload = () => {
+    try {
+      iframe.contentWindow?.print();
+    } catch {
+      // If iframe print fails (cross-origin), fall back to download
+      downloadLabels(blob, filename);
+    }
+    // Clean up after a delay to allow print dialog to appear
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+      URL.revokeObjectURL(url);
+    }, 60000);
+  };
+
+  iframe.onerror = () => {
+    // Fall back to download if iframe fails
+    document.body.removeChild(iframe);
+    URL.revokeObjectURL(url);
+    downloadLabels(blob, filename);
+  };
+}
+
+// Download labels as a PDF file (fallback)
+export function downloadLabels(blob: Blob, filename: string = 'labels.pdf'): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }

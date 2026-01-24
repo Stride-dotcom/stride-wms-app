@@ -536,10 +536,6 @@ export default function ItemDetail() {
                     <DollarSign className="mr-2 h-4 w-4" />
                     Add Billing Charge
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setLinkShipmentDialogOpen(true)}>
-                    <LinkIcon className="mr-2 h-4 w-4" />
-                    Link to Shipment
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setClaimDialogOpen(true)}>
                     <AlertTriangle className="mr-2 h-4 w-4" />
@@ -758,41 +754,6 @@ export default function ItemDetail() {
                       <ExternalLink className="mr-2 h-4 w-4" />
                       Open Shipment
                     </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Related Shipments (via shipment_items) */}
-            {shipments.length > 0 && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <LinkIcon className="h-5 w-5" />
-                    Linked Shipments
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {shipments.map((shipment) => (
-                      <div
-                        key={shipment.id}
-                        className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Badge variant="outline">{shipment.shipment_type}</Badge>
-                          <span className="font-medium">{shipment.shipment_number}</span>
-                          <Badge variant="secondary">{shipment.status}</Badge>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigate(`/shipments/${shipment.id}`)}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
                   </div>
                 </CardContent>
               </Card>

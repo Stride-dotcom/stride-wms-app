@@ -339,15 +339,26 @@ export function CoverageSelector({
 
         {/* Declared Value */}
         <div className="space-y-2">
-          <Label>Declared Value ($)</Label>
+          <Label>
+            Declared Value ($)
+            {(coverageType === 'full_deductible' || coverageType === 'full_no_deductible') && (
+              <span className="text-destructive ml-1">*</span>
+            )}
+          </Label>
           <Input
             type="number"
             step="0.01"
             value={declaredValue}
             onChange={(e) => setDeclaredValue(e.target.value)}
             placeholder="0.00"
+            required={coverageType === 'full_deductible' || coverageType === 'full_no_deductible'}
             disabled={readOnly || (!isAdmin && currentDeclaredValue !== null && currentCoverage !== 'pending' && currentCoverage !== 'standard')}
           />
+          {(coverageType === 'full_deductible' || coverageType === 'full_no_deductible') && !declaredValue && (
+            <p className="text-xs text-destructive">
+              Declared value is required for full replacement coverage.
+            </p>
+          )}
           {!isAdmin && currentDeclaredValue !== null && currentCoverage !== 'pending' && currentCoverage !== 'standard' && (
             <p className="text-xs text-yellow-500">
               Only administrators can modify declared value after coverage is applied.
@@ -389,7 +400,11 @@ export function CoverageSelector({
 
         {/* Save Button */}
         {!readOnly && hasChanges && (
-          <Button onClick={handleSave} disabled={saving} className="w-full">
+          <Button
+            onClick={handleSave}
+            disabled={saving || ((coverageType === 'full_deductible' || coverageType === 'full_no_deductible') && (!declaredValue || parseFloat(declaredValue) <= 0))}
+            className="w-full"
+          >
             {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             Save Coverage
           </Button>
