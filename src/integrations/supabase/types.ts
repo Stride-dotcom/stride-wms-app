@@ -144,6 +144,48 @@ export type Database = {
           },
         ]
       }
+      account_rate_adjustments: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          percent_adjust: number
+          tenant_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          percent_adjust?: number
+          tenant_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          percent_adjust?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_rate_adjustments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_rate_adjustments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_rate_overrides: {
         Row: {
           account_id: string
@@ -388,6 +430,7 @@ export type Database = {
           email_recipients_override: string | null
           email_subject_override: string | null
           email_variables: Json | null
+          free_storage_days: number | null
           hide_internal_fields_from_clients: boolean | null
           id: string
           is_active: boolean
@@ -458,6 +501,7 @@ export type Database = {
           email_recipients_override?: string | null
           email_subject_override?: string | null
           email_variables?: Json | null
+          free_storage_days?: number | null
           hide_internal_fields_from_clients?: boolean | null
           id?: string
           is_active?: boolean
@@ -528,6 +572,7 @@ export type Database = {
           email_recipients_override?: string | null
           email_subject_override?: string | null
           email_variables?: Json | null
+          free_storage_days?: number | null
           hide_internal_fields_from_clients?: boolean | null
           id?: string
           is_active?: boolean
@@ -1196,6 +1241,7 @@ export type Database = {
         Row: {
           account_id: string | null
           charge_type: string
+          class_id: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -1204,10 +1250,16 @@ export type Database = {
           invoice_id: string | null
           invoiced_at: string | null
           item_id: string | null
+          metadata: Json
           needs_review: boolean | null
+          occurred_at: string
           quantity: number | null
           rate_source: string | null
           service_category: string | null
+          service_id: string | null
+          shipment_id: string | null
+          sidemark_id: string | null
+          status: string
           task_id: string | null
           tenant_id: string
           total_amount: number
@@ -1216,6 +1268,7 @@ export type Database = {
         Insert: {
           account_id?: string | null
           charge_type: string
+          class_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1224,10 +1277,16 @@ export type Database = {
           invoice_id?: string | null
           invoiced_at?: string | null
           item_id?: string | null
+          metadata?: Json
           needs_review?: boolean | null
+          occurred_at?: string
           quantity?: number | null
           rate_source?: string | null
           service_category?: string | null
+          service_id?: string | null
+          shipment_id?: string | null
+          sidemark_id?: string | null
+          status?: string
           task_id?: string | null
           tenant_id: string
           total_amount: number
@@ -1236,6 +1295,7 @@ export type Database = {
         Update: {
           account_id?: string | null
           charge_type?: string
+          class_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1244,16 +1304,51 @@ export type Database = {
           invoice_id?: string | null
           invoiced_at?: string | null
           item_id?: string | null
+          metadata?: Json
           needs_review?: boolean | null
+          occurred_at?: string
           quantity?: number | null
           rate_source?: string | null
           service_category?: string | null
+          service_id?: string | null
+          shipment_id?: string | null
+          sidemark_id?: string | null
+          status?: string
           task_id?: string | null
           tenant_id?: string
           total_amount?: number
           unit_rate?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "billing_events_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "item_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_events_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "billable_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_events_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_events_sidemark_id_fkey"
+            columns: ["sidemark_id"]
+            isOneToOne: false
+            referencedRelation: "sidemarks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       claims: {
         Row: {
@@ -6503,6 +6598,7 @@ export type Database = {
       }
       tenant_settings: {
         Row: {
+          free_storage_days: number | null
           id: string
           setting_key: string
           setting_value: Json | null
@@ -6511,6 +6607,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          free_storage_days?: number | null
           id?: string
           setting_key: string
           setting_value?: Json | null
@@ -6519,6 +6616,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          free_storage_days?: number | null
           id?: string
           setting_key?: string
           setting_value?: Json | null
@@ -7268,6 +7366,10 @@ export type Database = {
       is_warehouse_staff: {
         Args: { tenant_id_param: string; user_id: string }
         Returns: boolean
+      }
+      move_item_sidemark_and_unbilled_events: {
+        Args: { p_item_id: string; p_new_sidemark_id: string }
+        Returns: Json
       }
       seed_default_billable_services: {
         Args: { p_tenant_id: string }

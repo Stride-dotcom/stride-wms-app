@@ -22,6 +22,7 @@ import ShipmentDetail from "./pages/ShipmentDetail";
 import ShipmentCreate from "./pages/ShipmentCreate";
 import Tasks from "./pages/Tasks";
 import Billing from "./pages/Billing";
+import BillingReports from "./pages/BillingReports";
 import Employees from "./pages/Employees";
 import Claims from "./pages/Claims";
 import Stocktakes from "./pages/Stocktakes";
@@ -63,6 +64,7 @@ const App = () => (
             <Route path="/scan" element={<ProtectedRoute><ScanHub /></ProtectedRoute>} />
             <Route path="/scan/item/:codeOrId" element={<ProtectedRoute><ScanItemRedirect /></ProtectedRoute>} />
             <Route path="/billing" element={<ProtectedRoute><RequireRole role="tenant_admin"><Billing /></RequireRole></ProtectedRoute>} />
+            <Route path="/billing/reports" element={<ProtectedRoute><RequireRole role="tenant_admin"><BillingReports /></RequireRole></ProtectedRoute>} />
             <Route path="/claims" element={<ProtectedRoute><RequireRole role="tenant_admin"><Claims /></RequireRole></ProtectedRoute>} />
             <Route path="/stocktakes" element={<ProtectedRoute><Stocktakes /></ProtectedRoute>} />
             
