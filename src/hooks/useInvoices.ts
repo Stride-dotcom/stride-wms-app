@@ -70,6 +70,11 @@ export function useInvoices() {
         .eq("account_id", args.accountId)
         .eq("status", "unbilled");
 
+      // Optional sidemark filter
+      if (args.sidemark) {
+        query = query.eq("sidemark_id", args.sidemark);
+      }
+
       if (args.includeUnbilledBeforePeriod) {
         // Include all unbilled charges up to period end
         query = query.lte("occurred_at", `${args.periodEnd}T23:59:59.999Z`);
@@ -166,15 +171,28 @@ export function useInvoices() {
 
   const voidInvoice = useCallback(async (invoiceId: string): Promise<boolean> => {
     try {
-      // 1) Get all billing event IDs linked to this invoice
-      const { data: lines, error: linesErr } = await supabase
-        .from("invoice_lines")
-        .select("billing_event_id")
+      if (!profile?.tenant_id) {
+        throw new Error("No tenant context");
+      }
+
+      // 1) Get invoice details
+      const { data: invoice, error: invErr } = await supabase
+        .from("invoices")
+        .select("*")
+        .eq("id", invoiceId)
+        .single();
+
+      if (invErr) throw invErr;
+
+      // 2) Get all billing events linked to this invoice
+      const { data: originalEvents, error: eventsErr } = await supabase
+        .from("billing_events")
+        .select("*")
         .eq("invoice_id", invoiceId);
 
-      if (linesErr) throw linesErr;
+      if (eventsErr) throw eventsErr;
 
-      // 2) Void the invoice
+      // 3) Void the invoice
       const { error: voidErr } = await supabase
         .from("invoices")
         .update({ status: "void" })
@@ -182,18 +200,52 @@ export function useInvoices() {
 
       if (voidErr) throw voidErr;
 
-      // 3) Revert billing events back to unbilled
-      const eventIds = (lines || []).map(l => l.billing_event_id).filter(Boolean) as string[];
-      if (eventIds.length > 0) {
-        const { error: revertErr } = await supabase
+      // 4) Create reversal billing_events (negative amounts) for each original event
+      // This maintains audit trail - billing_events are never deleted per Section 5
+      if (originalEvents && originalEvents.length > 0) {
+        const reversalEvents = originalEvents.map((event: any) => ({
+          tenant_id: event.tenant_id,
+          account_id: event.account_id,
+          item_id: event.item_id,
+          task_id: event.task_id,
+          sidemark_id: event.sidemark_id,
+          class_id: event.class_id,
+          shipment_id: event.shipment_id,
+          service_id: event.service_id,
+          event_type: event.event_type,
+          charge_type: event.charge_type,
+          description: `REVERSAL: ${event.description || event.charge_type}`,
+          quantity: -(event.quantity || 1),
+          unit_rate: event.unit_rate,
+          total_amount: -(event.total_amount || 0),
+          status: 'void' as const,
+          occurred_at: new Date().toISOString(),
+          metadata: {
+            reversal_of: event.id,
+            voided_invoice_id: invoiceId,
+            original_occurred_at: event.occurred_at,
+          },
+          created_by: profile.id || null,
+          needs_review: false,
+        }));
+
+        const { error: reversalErr } = await supabase
           .from("billing_events")
-          .update({ status: "unbilled", invoice_id: null, invoiced_at: null })
+          .insert(reversalEvents);
+
+        if (reversalErr) throw reversalErr;
+
+        // 5) Mark original events as void (not deleted)
+        const eventIds = originalEvents.map((e: any) => e.id);
+        const { error: voidEventsErr } = await supabase
+          .from("billing_events")
+          .update({ status: "void" })
           .in("id", eventIds);
 
-        if (revertErr) throw revertErr;
+        if (voidEventsErr) throw voidEventsErr;
       }
 
-      toast({ title: "Invoice voided", description: "Invoice has been voided and charges are now unbilled again." });
+      toast({ title: "Invoice voided", description: "Invoice has been voided with reversal entries created." });
       return true;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -201,7 +253,7 @@ export function useInvoices() {
       toast({ title: "Failed to void invoice", description: message, variant: "destructive" });
       return false;
     }
-  }, [toast]);
+  }, [profile, toast]);
 
   const fetchInvoices = useCallback(async (filters?: {
     accountId?: string;
@@ -267,6 +319,24 @@ export function useInvoices() {
     }
   }, [toast]);
 
+  const updateInvoiceNotes = useCallback(async (invoiceId: string, notes: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from("invoices")
+        .update({ notes })
+        .eq("id", invoiceId);
+      if (error) throw error;
+
+      toast({ title: "Notes saved", description: "Invoice notes have been updated." });
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("updateInvoiceNotes error", err);
+      toast({ title: "Failed to save notes", description: message, variant: "destructive" });
+      return false;
+    }
+  }, [toast]);
+
   return { 
     createInvoiceDraft, 
     markInvoiceSent, 
@@ -274,5 +344,6 @@ export function useInvoices() {
     fetchInvoices, 
     fetchInvoiceLines,
     generateStorageForDate,
+    updateInvoiceNotes,
   };
 }

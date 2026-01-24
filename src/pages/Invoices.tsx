@@ -1,17 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useInvoices, Invoice, InvoiceLine, InvoiceType } from "@/hooks/useInvoices";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, Plus, FileText, Send, Eye, XCircle, Calendar } from "lucide-react";
+import { RefreshCw, Plus, FileText, Send, Eye, XCircle, Calendar, Download, ArrowUpDown, Save, ChevronUp, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { sendEmail, buildInvoiceSentEmail } from "@/lib/email";
 import { queueInvoiceSentAlert } from "@/lib/alertQueue";
@@ -23,13 +24,23 @@ interface Account {
   billing_contact_email: string | null;
 }
 
+interface Sidemark {
+  id: string;
+  sidemark_name: string;
+}
+
+type SortField = 'invoice_number' | 'created_at' | 'total' | 'status';
+type SortDir = 'asc' | 'desc';
+
 export default function Invoices() {
   const { toast } = useToast();
   const { profile } = useAuth();
-  const { createInvoiceDraft, markInvoiceSent, voidInvoice, fetchInvoices, fetchInvoiceLines, generateStorageForDate } = useInvoices();
+  const { createInvoiceDraft, markInvoiceSent, voidInvoice, fetchInvoices, fetchInvoiceLines, generateStorageForDate, updateInvoiceNotes } = useInvoices();
   
   const [accountId, setAccountId] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [sidemarks, setSidemarks] = useState<Sidemark[]>([]);
+  const [selectedSidemarkId, setSelectedSidemarkId] = useState<string>("");
   const [periodStart, setPeriodStart] = useState<string>(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
@@ -41,11 +52,20 @@ export default function Invoices() {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   
+  // Sorting
+  const [sortField, setSortField] = useState<SortField>('created_at');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  
   // Lines dialog
   const [linesDialogOpen, setLinesDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [lines, setLines] = useState<InvoiceLine[]>([]);
   const [loadingLines, setLoadingLines] = useState(false);
+  
+  // Notes editing
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesValue, setNotesValue] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
 
   // Storage generation
   const [storageDate, setStorageDate] = useState<string>(() => {
@@ -71,6 +91,25 @@ export default function Invoices() {
     loadAccounts();
   }, [profile?.tenant_id]);
 
+  // Load sidemarks when account changes
+  useEffect(() => {
+    async function loadSidemarks() {
+      if (!accountId) {
+        setSidemarks([]);
+        setSelectedSidemarkId("");
+        return;
+      }
+      const { data } = await supabase
+        .from("sidemarks")
+        .select("id, sidemark_name")
+        .eq("account_id", accountId)
+        .is("deleted_at", null)
+        .order("sidemark_name");
+      setSidemarks(data || []);
+    }
+    loadSidemarks();
+  }, [accountId]);
+
   const load = async () => {
     setLoading(true);
     const data = await fetchInvoices({ limit: 100 });
@@ -84,6 +123,51 @@ export default function Invoices() {
     }
   }, [profile?.tenant_id]);
 
+  // Sorted invoices
+  const sortedInvoices = useMemo(() => {
+    return [...invoices].sort((a, b) => {
+      let aVal: any, bVal: any;
+      switch (sortField) {
+        case 'invoice_number':
+          aVal = a.invoice_number || '';
+          bVal = b.invoice_number || '';
+          break;
+        case 'total':
+          aVal = Number(a.total) || 0;
+          bVal = Number(b.total) || 0;
+          break;
+        case 'status':
+          aVal = a.status || '';
+          bVal = b.status || '';
+          break;
+        case 'created_at':
+        default:
+          aVal = a.created_at || '';
+          bVal = b.created_at || '';
+          break;
+      }
+      if (sortDir === 'asc') {
+        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+      } else {
+        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+      }
+    });
+  }, [invoices, sortField, sortDir]);
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('desc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    return sortDir === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />;
+  };
+
   const createDraft = async () => {
     if (!accountId) {
       toast({ title: "Account required", description: "Please select an account.", variant: "destructive" });
@@ -95,6 +179,7 @@ export default function Invoices() {
       invoiceType,
       periodStart,
       periodEnd,
+      sidemark: selectedSidemarkId || null,
       includeUnbilledBeforePeriod: includeEarlier,
     });
     if (inv) await load();
@@ -103,11 +188,84 @@ export default function Invoices() {
 
   const openLines = async (invoice: Invoice) => {
     setSelectedInvoice(invoice);
+    setNotesValue(invoice.notes || "");
+    setEditingNotes(false);
     setLinesDialogOpen(true);
     setLoadingLines(true);
     const data = await fetchInvoiceLines(invoice.id);
     setLines(data);
     setLoadingLines(false);
+  };
+
+  const handleSaveNotes = async () => {
+    if (!selectedInvoice) return;
+    setSavingNotes(true);
+    const ok = await updateInvoiceNotes(selectedInvoice.id, notesValue);
+    if (ok) {
+      setSelectedInvoice({ ...selectedInvoice, notes: notesValue });
+      setEditingNotes(false);
+      // Update in list
+      setInvoices(prev => prev.map(inv => inv.id === selectedInvoice.id ? { ...inv, notes: notesValue } : inv));
+    }
+    setSavingNotes(false);
+  };
+
+  // CSV Export for invoice lines
+  const exportLinesCSV = () => {
+    if (!lines.length || !selectedInvoice) return;
+    
+    const headers = ['Service Code', 'Description', 'Quantity', 'Unit Rate', 'Line Total'];
+    const rows = lines.map(line => [
+      line.service_code || '',
+      (line.description || '').replace(/,/g, ';'),
+      line.quantity,
+      Number(line.unit_rate || 0).toFixed(2),
+      Number(line.line_total || 0).toFixed(2),
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${selectedInvoice.invoice_number}_lines.csv`;
+    link.click();
+  };
+
+  // CSV Export for all invoices
+  const exportInvoicesCSV = () => {
+    if (!invoices.length) return;
+    
+    const headers = ['Invoice #', 'Account', 'Type', 'Period Start', 'Period End', 'Status', 'Subtotal', 'Total', 'Created', 'Sent'];
+    const rows = invoices.map(inv => {
+      const account = accounts.find(a => a.id === inv.account_id);
+      return [
+        inv.invoice_number,
+        account?.account_name || inv.account_id.slice(0, 8),
+        inv.invoice_type || '',
+        inv.period_start || '',
+        inv.period_end || '',
+        inv.status,
+        Number(inv.subtotal || 0).toFixed(2),
+        Number(inv.total || 0).toFixed(2),
+        inv.created_at?.slice(0, 10) || '',
+        inv.sent_at?.slice(0, 10) || '',
+      ];
+    });
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `invoices_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
   };
 
   const handleSendInvoice = async (invoice: Invoice) => {
@@ -242,7 +400,7 @@ export default function Invoices() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
               <div className="md:col-span-2 space-y-1">
                 <label className="text-sm font-medium">Account</label>
                 <Select value={accountId} onValueChange={setAccountId}>
@@ -253,6 +411,22 @@ export default function Invoices() {
                     {accounts.map((a) => (
                       <SelectItem key={a.id} value={a.id}>
                         {a.account_code} - {a.account_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Sidemark (optional)</label>
+                <Select value={selectedSidemarkId} onValueChange={setSelectedSidemarkId} disabled={!accountId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All sidemarks" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All sidemarks</SelectItem>
+                    {sidemarks.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.sidemark_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -301,31 +475,55 @@ export default function Invoices() {
 
         {/* Invoices Table */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
               Recent Invoices ({invoices.length})
             </CardTitle>
+            <Button variant="outline" size="sm" onClick={exportInvoicesCSV} disabled={!invoices.length}>
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="border rounded-lg overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Invoice #</TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none" 
+                      onClick={() => toggleSort('invoice_number')}
+                    >
+                      <span className="flex items-center">Invoice # <SortIcon field="invoice_number" /></span>
+                    </TableHead>
                     <TableHead>Account</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Period</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none" 
+                      onClick={() => toggleSort('status')}
+                    >
+                      <span className="flex items-center">Status <SortIcon field="status" /></span>
+                    </TableHead>
                     <TableHead className="text-right">Subtotal</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead 
+                      className="text-right cursor-pointer select-none" 
+                      onClick={() => toggleSort('total')}
+                    >
+                      <span className="flex items-center justify-end">Total <SortIcon field="total" /></span>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none" 
+                      onClick={() => toggleSort('created_at')}
+                    >
+                      <span className="flex items-center">Created <SortIcon field="created_at" /></span>
+                    </TableHead>
                     <TableHead>Sent</TableHead>
                     <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {invoices.map((inv) => {
+                  {sortedInvoices.map((inv) => {
                     const account = accounts.find(a => a.id === inv.account_id);
                     return (
                       <TableRow key={inv.id}>
@@ -389,44 +587,87 @@ export default function Invoices() {
             {loadingLines ? (
               <div className="p-8 text-center text-muted-foreground">Loading lines...</div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Service</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Rate</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lines.map((line) => (
-                    <TableRow key={line.id}>
-                      <TableCell className="font-medium">{line.service_code}</TableCell>
-                      <TableCell>{line.description || "-"}</TableCell>
-                      <TableCell className="text-right">{line.quantity}</TableCell>
-                      <TableCell className="text-right">${Number(line.unit_rate || 0).toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-semibold">${Number(line.line_total || 0).toFixed(2)}</TableCell>
-                    </TableRow>
-                  ))}
-                  {!lines.length && (
+              <>
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                        No lines found
-                      </TableCell>
+                      <TableHead>Service</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Rate</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
                     </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {lines.map((line) => (
+                      <TableRow key={line.id}>
+                        <TableCell className="font-medium">{line.service_code}</TableCell>
+                        <TableCell>{line.description || "-"}</TableCell>
+                        <TableCell className="text-right">{line.quantity}</TableCell>
+                        <TableCell className="text-right">${Number(line.unit_rate || 0).toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-semibold">${Number(line.line_total || 0).toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                    {!lines.length && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          No lines found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+
+                {/* Notes Section */}
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Notes</label>
+                    {!editingNotes && selectedInvoice?.status === 'draft' && (
+                      <Button variant="ghost" size="sm" onClick={() => setEditingNotes(true)}>
+                        Edit
+                      </Button>
+                    )}
+                  </div>
+                  {editingNotes ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={notesValue}
+                        onChange={(e) => setNotesValue(e.target.value)}
+                        placeholder="Add notes for this invoice..."
+                        rows={3}
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={handleSaveNotes} disabled={savingNotes}>
+                          <Save className="h-4 w-4 mr-1" />
+                          {savingNotes ? "Saving..." : "Save"}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => { setEditingNotes(false); setNotesValue(selectedInvoice?.notes || ""); }}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground border rounded p-2 min-h-[60px]">
+                      {selectedInvoice?.notes || "No notes"}
+                    </p>
                   )}
-                </TableBody>
-              </Table>
+                </div>
+              </>
             )}
-            <div className="flex justify-between items-center pt-4 border-t">
+            <DialogFooter className="flex justify-between items-center pt-4 border-t">
               <div className="text-lg font-semibold">
                 Total: ${Number(selectedInvoice?.total || 0).toFixed(2)}
               </div>
-              <Button variant="outline" onClick={() => setLinesDialogOpen(false)}>
-                Close
-              </Button>
-            </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={exportLinesCSV} disabled={!lines.length}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+                <Button variant="outline" onClick={() => setLinesDialogOpen(false)}>
+                  Close
+                </Button>
+              </div>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
