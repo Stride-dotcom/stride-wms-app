@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { queueRepairQuoteReadyAlert } from '@/lib/alertQueue';
 
 export interface RepairQuote {
   id: string;
@@ -89,6 +90,26 @@ export function useRepairQuotes(itemId: string | undefined) {
         .single();
 
       if (error) throw error;
+
+      // Queue repair quote ready alert
+      // Fetch item code and account email for the alert
+      const { data: itemData } = await supabase
+        .from('items')
+        .select('item_code, account_id, accounts!items_account_id_fkey(alerts_contact_email, primary_contact_email)')
+        .eq('id', itemId)
+        .single();
+      
+      if (itemData && profile.tenant_id) {
+        const accountEmail = (itemData.accounts as any)?.alerts_contact_email || 
+                             (itemData.accounts as any)?.primary_contact_email || undefined;
+        await queueRepairQuoteReadyAlert(
+          profile.tenant_id,
+          itemId,
+          itemData.item_code || 'Unknown',
+          quoteData.flat_rate,
+          accountEmail
+        );
+      }
 
       toast({
         title: 'Quote Created',

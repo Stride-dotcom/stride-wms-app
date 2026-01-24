@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RefreshCw, Plus, FileText, Send, Eye, XCircle, Calendar } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { sendEmail, buildInvoiceSentEmail } from "@/lib/email";
+import { queueInvoiceSentAlert } from "@/lib/alertQueue";
 
 interface Account {
   id: string;
@@ -111,16 +112,27 @@ export default function Invoices() {
 
   const handleSendInvoice = async (invoice: Invoice) => {
     const ok = await markInvoiceSent(invoice.id);
-    if (ok) {
+    if (ok && profile?.tenant_id) {
       // Find account email
       const account = accounts.find(a => a.id === invoice.account_id);
+      
+      // Queue alert for standard alert processing
+      await queueInvoiceSentAlert(
+        profile.tenant_id,
+        invoice.id,
+        invoice.invoice_number,
+        invoice.total || 0,
+        account?.billing_contact_email || undefined
+      );
+      
+      // Also send direct email if account has billing contact
       if (account?.billing_contact_email) {
         const emailData = buildInvoiceSentEmail({
           invoiceNumber: invoice.invoice_number,
           accountName: account.account_name,
-          periodStart: invoice.period_start,
-          periodEnd: invoice.period_end,
-          total: invoice.total,
+          periodStart: invoice.period_start || '',
+          periodEnd: invoice.period_end || '',
+          total: invoice.total || 0,
           lineCount: lines.length || 0,
         });
         
@@ -128,7 +140,7 @@ export default function Invoices() {
         if (result.ok) {
           toast({ title: "Email sent", description: `Invoice email sent to ${account.billing_contact_email}` });
         } else {
-          toast({ title: "Email failed", description: result.error || "Could not send email", variant: "destructive" });
+          toast({ title: "Email queued", description: "Invoice alert queued for delivery." });
         }
       }
       await load();
