@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,7 +23,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Shield, DollarSign, Info } from 'lucide-react';
+import { useCurrentUserRole } from '@/hooks/useRoles';
+import { Loader2, Shield, Info } from 'lucide-react';
 
 type CoverageType = 'standard' | 'full_deductible' | 'full_no_deductible' | 'pending';
 
@@ -75,6 +76,7 @@ export function CoverageSelector({
 }: CoverageSelectorProps) {
   const { toast } = useToast();
   const { profile } = useAuth();
+  const { isAdmin } = useCurrentUserRole();
   
   const [coverageType, setCoverageType] = useState<CoverageType>(currentCoverage || 'standard');
   const [declaredValue, setDeclaredValue] = useState(currentDeclaredValue?.toString() || '');
@@ -86,8 +88,6 @@ export function CoverageSelector({
     cost: number;
     delta: number;
   } | null>(null);
-
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'tenant_admin';
 
   // Calculate coverage cost
   const calculateCost = (type: CoverageType, value: number): number => {
@@ -106,7 +106,6 @@ export function CoverageSelector({
 
   const handleSave = async () => {
     const dv = parseFloat(declaredValue);
-    const weight = parseFloat(weightLbs);
 
     // Validation
     if ((coverageType === 'full_deductible' || coverageType === 'full_no_deductible') && (!dv || dv <= 0)) {
@@ -175,7 +174,7 @@ export function CoverageSelector({
         if (pendingChange && pendingChange.delta !== 0) {
           if (pendingChange.delta > 0) {
             // Additional charge
-            await supabase.from('billing_events').insert({
+            await supabase.from('billing_events').insert([{
               tenant_id: profile.tenant_id,
               account_id: accountId,
               sidemark_id: sidemarkId,
@@ -196,20 +195,20 @@ export function CoverageSelector({
                 is_adjustment: true,
               },
               created_by: profile.id,
-            });
+            }]);
           } else {
             // Credit
-            await supabase.from('account_credits').insert({
+            await supabase.from('account_credits').insert([{
               tenant_id: profile.tenant_id,
               account_id: accountId,
               amount: Math.abs(pendingChange.delta),
               reason: `Coverage adjustment credit for item`,
               created_by: profile.id,
-            });
+            }]);
           }
         } else if (!currentCoverage || currentCoverage === 'standard' || currentCoverage === 'pending') {
           // Initial coverage charge
-          await supabase.from('billing_events').insert({
+          await supabase.from('billing_events').insert([{
             tenant_id: profile.tenant_id,
             account_id: accountId,
             sidemark_id: sidemarkId,
@@ -229,7 +228,7 @@ export function CoverageSelector({
               declared_value: dv,
             },
             created_by: profile.id,
-          });
+          }]);
         }
       }
 
