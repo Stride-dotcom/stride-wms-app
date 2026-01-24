@@ -33,7 +33,7 @@ export function ItemTypeCombobox({
   itemTypes,
   value,
   onChange,
-  placeholder = 'Select type...',
+  placeholder = 'Select class...',
   disabled = false,
 }: ItemTypeComboboxProps) {
   const [open, setOpen] = useState(false);
@@ -68,12 +68,12 @@ export function ItemTypeCombobox({
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[200px] p-0" align="start">
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Search types..."
+            placeholder="Search classes..."
             value={search}
             onValueChange={setSearch}
           />
           <CommandList className="!h-[200px] !max-h-[200px] overflow-y-auto">
-            <CommandEmpty>No item type found.</CommandEmpty>
+            <CommandEmpty>No classes found.</CommandEmpty>
             <CommandGroup>
               {filteredTypes.map((type) => (
                 <CommandItem

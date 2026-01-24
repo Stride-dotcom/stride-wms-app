@@ -391,7 +391,7 @@ export function RateCardsSettingsTab() {
                       handleSyncFromItemTypes(card.id);
                     }}
                     disabled={syncingCards.has(card.id)}
-                    title="Sync from Item Types"
+                    title="Sync from Classes"
                   >
                     <RefreshCw className={syncingCards.has(card.id) ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
                   </Button>
@@ -464,7 +464,7 @@ export function RateCardsSettingsTab() {
                             size="icon"
                             onClick={() => handleSyncFromItemTypes(card.id)}
                             disabled={syncingCards.has(card.id)}
-                            title="Sync from Item Types"
+                            title="Sync from Classes"
                           >
                             <RefreshCw className={syncingCards.has(card.id) ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
                           </Button>

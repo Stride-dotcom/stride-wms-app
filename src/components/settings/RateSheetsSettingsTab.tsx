@@ -425,7 +425,7 @@ export function RateSheetsSettingsTab() {
       toast({
         variant: 'destructive',
         title: 'Sync Failed',
-        description: 'Failed to sync rates from item types.',
+        description: 'Failed to sync rates from classes.',
       });
     } finally {
       setSyncing(false);
@@ -456,7 +456,7 @@ export function RateSheetsSettingsTab() {
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleSyncAll} disabled={syncing}>
               <RefreshCw className={syncing ? 'mr-2 h-4 w-4 animate-spin' : 'mr-2 h-4 w-4'} />
-              Sync from Item Types
+              Sync from Classes
             </Button>
             <Button onClick={handleAddNewRate}>
               <Plus className="mr-2 h-4 w-4" />
@@ -470,7 +470,7 @@ export function RateSheetsSettingsTab() {
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by service, item type, rate card..."
+              placeholder="Search by service, class, rate card..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -487,7 +487,7 @@ export function RateSheetsSettingsTab() {
             <FileSpreadsheet className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-4 text-lg font-semibold">No rates found</h3>
             <p className="text-muted-foreground">
-              Click "Sync from Item Types" to populate rates from your item types, or add rates manually.
+              Click "Sync from Classes" to populate rates from your classes, or add rates manually.
             </p>
           </div>
         ) : isMobile ? (

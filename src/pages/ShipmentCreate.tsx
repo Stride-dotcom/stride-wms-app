@@ -164,10 +164,10 @@ export default function ShipmentCreate() {
           });
         }
         if (itemTypesRes.error) {
-          console.error("[ShipmentCreate] itemTypes fetch:", itemTypesRes.error);
+          console.error("[ShipmentCreate] classes fetch:", itemTypesRes.error);
           toast({
             variant: "destructive",
-            title: "Failed to load item types",
+            title: "Failed to load classes",
             description: itemTypesRes.error.message,
           });
         }
