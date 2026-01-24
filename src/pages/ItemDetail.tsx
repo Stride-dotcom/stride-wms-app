@@ -38,6 +38,8 @@ import { RoomInlineEdit } from '@/components/items/RoomInlineEdit';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { AddBillingChargeDialog } from '@/components/items/AddBillingChargeDialog';
 import { LinkToShipmentDialog } from '@/components/items/LinkToShipmentDialog';
+import { CoverageSelector } from '@/components/coverage/CoverageSelector';
+import { ClaimCreateDialog } from '@/components/claims/ClaimCreateDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 import { ScanDocumentButton, DocumentList } from '@/components/scanner';
 import { format } from 'date-fns';
@@ -58,6 +60,8 @@ import {
   Settings,
   FileText,
   Truck,
+  Shield,
+  AlertTriangle,
 } from 'lucide-react';
 import { QuickReleaseDialog } from '@/components/inventory/QuickReleaseDialog';
 
@@ -94,6 +98,10 @@ interface ItemDetail {
   inspection_photos: string[] | null;
   repair_photos: string[] | null;
   primary_photo_url: string | null;
+  // Coverage fields
+  coverage_type: string | null;
+  declared_value: number | null;
+  weight_lbs: number | null;
   // Receiving shipment
   receiving_shipment_id: string | null;
   receiving_shipment?: ReceivingShipment | null;
@@ -168,6 +176,7 @@ export default function ItemDetail() {
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
   const [billingChargeDialogOpen, setBillingChargeDialogOpen] = useState(false);
   const [linkShipmentDialogOpen, setLinkShipmentDialogOpen] = useState(false);
+  const [claimDialogOpen, setClaimDialogOpen] = useState(false);
 
   // Check if user is a client (simplified check)
   const isClientUser = false; // Will be determined by role system
@@ -219,6 +228,9 @@ export default function ItemDetail() {
         photo_urls: data.photo_urls || [],
         inspection_photos: data.inspection_photos || [],
         repair_photos: data.repair_photos || [],
+        coverage_type: data.coverage_type || null,
+        declared_value: data.declared_value || null,
+        weight_lbs: data.weight_lbs || null,
       });
     } catch (error) {
       console.error('Error fetching item:', error);
@@ -529,6 +541,11 @@ export default function ItemDetail() {
                     Link to Shipment
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setClaimDialogOpen(true)}>
+                    <AlertTriangle className="mr-2 h-4 w-4" />
+                    File Claim
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setEditDialogOpen(true)}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit Item
@@ -557,6 +574,12 @@ export default function ItemDetail() {
               Docs
             </TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
+            {!isClientUser && (
+              <TabsTrigger value="coverage">
+                <Shield className="mr-1 h-3 w-3" />
+                Coverage
+              </TabsTrigger>
+            )}
             {!isClientUser && <TabsTrigger value="history">History</TabsTrigger>}
             {!isClientUser && (
               <TabsTrigger value="advanced">
@@ -879,6 +902,21 @@ export default function ItemDetail() {
           </TabsContent>
 
           {!isClientUser && (
+            <TabsContent value="coverage" className="mt-6">
+              <CoverageSelector
+                itemId={item.id}
+                accountId={item.account_id}
+                sidemarkId={item.sidemark_id}
+                classId={item.item_type_id}
+                currentCoverage={item.coverage_type as any}
+                currentDeclaredValue={item.declared_value}
+                currentWeight={item.weight_lbs}
+                onUpdate={() => fetchItem()}
+              />
+            </TabsContent>
+          )}
+
+          {!isClientUser && (
             <TabsContent value="history" className="mt-6">
               <ItemHistoryTab itemId={item.id} />
             </TabsContent>
@@ -970,6 +1008,16 @@ export default function ItemDetail() {
           fetchShipments();
         }}
       />
+
+      {item && (
+        <ClaimCreateDialog
+          open={claimDialogOpen}
+          onOpenChange={setClaimDialogOpen}
+          itemId={item.id}
+          accountId={item.account_id || undefined}
+          sidemarkId={item.sidemark_id || undefined}
+        />
+      )}
     </DashboardLayout>
   );
 }

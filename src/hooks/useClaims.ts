@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { queueClaimFiledAlert, queueClaimStatusChangedAlert, queueClaimApprovedAlert, queueClaimDeniedAlert } from '@/lib/alertQueue';
 import type { Database, Json } from '@/integrations/supabase/types';
 
 type ClaimRow = Database['public']['Tables']['claims']['Row'];
@@ -206,6 +207,14 @@ export function useClaims(filters?: ClaimFilters) {
         description: `Claim ${result.claim_number} has been created`,
       });
 
+      // Queue claim filed alert
+      await queueClaimFiledAlert(
+        profile.tenant_id,
+        result.id,
+        result.claim_number,
+        data.claim_type
+      );
+
       await fetchClaims();
       return result as unknown as Claim;
     } catch (error) {
@@ -259,6 +268,29 @@ export function useClaims(filters?: ClaimFilters) {
         title: 'Claim Updated',
         description: `Claim status changed to ${newStatus.replace('_', ' ')}`,
       });
+
+      // Queue status change alert
+      if (newStatus === 'approved' && additionalData?.approved_payout_amount) {
+        await queueClaimApprovedAlert(
+          profile.tenant_id,
+          claimId,
+          result.claim_number,
+          additionalData.approved_payout_amount
+        );
+      } else if (newStatus === 'denied') {
+        await queueClaimDeniedAlert(
+          profile.tenant_id,
+          claimId,
+          result.claim_number
+        );
+      } else {
+        await queueClaimStatusChangedAlert(
+          profile.tenant_id,
+          claimId,
+          result.claim_number,
+          newStatus
+        );
+      }
 
       await fetchClaims();
       return result as unknown as Claim;

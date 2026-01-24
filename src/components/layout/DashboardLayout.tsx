@@ -55,6 +55,7 @@ const navItems: NavItem[] = [
   { label: 'Billing Report', href: '/billing/report', icon: DollarSign, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Invoices', href: '/billing/invoices', icon: Receipt, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Claims', href: '/claims', icon: FileText, requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Coverage', href: '/coverage', icon: MapPin, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Accounts', href: '/accounts', icon: Users, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Employees', href: '/employees', icon: Building2, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Settings', href: '/settings', icon: Settings, requiredRole: ['admin', 'tenant_admin'] },
