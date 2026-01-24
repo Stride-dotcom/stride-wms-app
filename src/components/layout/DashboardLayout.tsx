@@ -30,6 +30,8 @@ import {
   MapPin,
   ScanLine,
   Bug,
+  DollarSign,
+  Receipt,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,6 +52,8 @@ const navItems: NavItem[] = [
   { label: 'Scan Hub', href: '/scan', icon: ScanLine },
   
   { label: 'Reports', href: '/reports', icon: BarChart3, requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Billing Report', href: '/billing/report', icon: DollarSign, requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Invoices', href: '/billing/invoices', icon: Receipt, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Claims', href: '/claims', icon: FileText, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Accounts', href: '/accounts', icon: Users, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Employees', href: '/employees', icon: Building2, requiredRole: ['admin', 'tenant_admin'] },
