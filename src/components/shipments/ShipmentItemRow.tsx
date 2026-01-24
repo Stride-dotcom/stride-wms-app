@@ -326,7 +326,7 @@ export function ShipmentItemRow({
                 )}
               </div>
               <div>
-                <span className="text-xs text-muted-foreground">Item Type</span>
+                <span className="text-xs text-muted-foreground">Class</span>
                 {isEditing ? (
                   <div className="mt-1">
                     <ItemTypeCombobox

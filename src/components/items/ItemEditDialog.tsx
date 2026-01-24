@@ -270,13 +270,13 @@ export function ItemEditDialog({
                 name="item_type_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Item Type</FormLabel>
+                    <FormLabel>Class</FormLabel>
                     <FormControl>
                       <ItemTypeCombobox
                         itemTypes={itemTypes}
                         value={field.value || ''}
                         onChange={field.onChange}
-                        placeholder="Select item type..."
+                        placeholder="Select class..."
                       />
                     </FormControl>
                     <FormMessage />

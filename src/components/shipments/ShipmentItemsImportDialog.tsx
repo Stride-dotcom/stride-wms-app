@@ -344,7 +344,7 @@ export function ShipmentItemsImportDialog({
                       <TableHead className="w-20">Qty</TableHead>
                       <TableHead className="w-48">Vendor *</TableHead>
                       <TableHead>Description</TableHead>
-                      <TableHead className="w-40">Item Type</TableHead>
+                      <TableHead className="w-40">Class</TableHead>
                       <TableHead className="w-32">Sidemark</TableHead>
                       <TableHead className="w-12"></TableHead>
                     </TableRow>
@@ -382,7 +382,7 @@ export function ShipmentItemsImportDialog({
                             onValueChange={(value) => updateItem(item._id, 'item_type_id', value === 'none' ? '' : value)}
                           >
                             <SelectTrigger className="h-8">
-                              <SelectValue placeholder="Select type" />
+                              <SelectValue placeholder="Select class" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">None</SelectItem>

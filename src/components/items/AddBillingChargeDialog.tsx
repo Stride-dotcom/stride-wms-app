@@ -37,6 +37,8 @@ interface AddBillingChargeDialogProps {
   itemId: string;
   itemCode: string;
   accountId: string | null;
+  sidemarkId?: string | null;
+  classId?: string | null;
   onSuccess: () => void;
 }
 
@@ -46,6 +48,8 @@ export function AddBillingChargeDialog({
   itemId,
   itemCode,
   accountId,
+  sidemarkId,
+  classId,
   onSuccess,
 }: AddBillingChargeDialogProps) {
   const { profile } = useAuth();
@@ -125,16 +129,27 @@ export function AddBillingChargeDialog({
 
     setLoading(true);
     try {
+      // Insert into billing_events ledger (new billing engine)
       const { error } = await supabase
-        .from('custom_billing_charges')
+        .from('billing_events')
         .insert({
           tenant_id: profile.tenant_id,
           item_id: itemId,
           account_id: accountId,
-          charge_name: formData.charge_name.trim(),
-          amount: amount,
+          sidemark_id: sidemarkId || null,
+          class_id: classId || null,
+          event_type: 'addon',
+          charge_type: formData.charge_name.trim(),
           description: formData.description.trim() || null,
-          charge_date: new Date().toISOString(),
+          quantity: 1,
+          unit_rate: amount,
+          total_amount: amount,
+          status: 'unbilled',
+          occurred_at: new Date().toISOString(),
+          metadata: {
+            source: 'manual_charge',
+            template_id: selectedTemplate !== 'custom' ? selectedTemplate : null,
+          },
           created_by: profile.id,
         });
 
