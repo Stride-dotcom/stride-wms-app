@@ -83,7 +83,7 @@ export function useItemNotes(itemId: string | undefined) {
           tenant_id: profile.tenant_id,
           note,
           note_type: noteType,
-          visibility: noteType === 'public' ? 'client' : 'internal',
+          visibility: noteType === 'public' ? 'public' : 'internal',
           parent_note_id: parentNoteId || null,
           created_by: profile.id,
         })
@@ -132,7 +132,7 @@ export function useItemNotes(itemId: string | undefined) {
             tenant_id: profile.tenant_id,
             note: newContent,
             note_type: 'public',
-            visibility: 'client',
+            visibility: 'public',
             parent_note_id: existingNote.parent_note_id,
             version: (existingNote.version || 1) + 1,
             is_current: true,
