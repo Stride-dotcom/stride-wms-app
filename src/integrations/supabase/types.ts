@@ -68,6 +68,42 @@ export type Database = {
           },
         ]
       }
+      account_credits: {
+        Row: {
+          account_id: string
+          amount: number
+          applied_to_invoice_id: string | null
+          claim_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          reason: string | null
+          tenant_id: string
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          applied_to_invoice_id?: string | null
+          claim_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason?: string | null
+          tenant_id: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          applied_to_invoice_id?: string | null
+          claim_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       account_item_type_overrides: {
         Row: {
           account_id: string
@@ -420,6 +456,7 @@ export type Database = {
           credit_limit: number | null
           credit_limit_amount: number | null
           currency: string | null
+          default_coverage_type: string | null
           default_receiving_location_id: string | null
           default_receiving_notes: string | null
           default_receiving_status: string | null
@@ -493,6 +530,7 @@ export type Database = {
           credit_limit?: number | null
           credit_limit_amount?: number | null
           currency?: string | null
+          default_coverage_type?: string | null
           default_receiving_location_id?: string | null
           default_receiving_notes?: string | null
           default_receiving_status?: string | null
@@ -566,6 +604,7 @@ export type Database = {
           credit_limit?: number | null
           credit_limit_amount?: number | null
           currency?: string | null
+          default_coverage_type?: string | null
           default_receiving_location_id?: string | null
           default_receiving_notes?: string | null
           default_receiving_status?: string | null
@@ -1356,27 +1395,132 @@ export type Database = {
           },
         ]
       }
+      claim_attachments: {
+        Row: {
+          claim_id: string
+          created_at: string
+          file_name: string | null
+          id: string
+          is_public: boolean
+          mime_type: string | null
+          size_bytes: number | null
+          storage_path: string
+          tenant_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          claim_id: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          is_public?: boolean
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          tenant_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          claim_id?: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          is_public?: boolean
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          tenant_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_attachments_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claim_audit: {
+        Row: {
+          action: string
+          actor_id: string | null
+          claim_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          claim_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          claim_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_audit_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claims: {
         Row: {
           account_id: string
           approved_amount: number | null
+          approved_payout_amount: number | null
+          assigned_to: string | null
           claim_number: string
           claim_type: string
+          claim_value_calculated: number | null
+          claim_value_requested: number | null
           claimed_amount: number | null
+          coverage_snapshot: Json | null
           coverage_type: string | null
           created_at: string | null
           deductible: number | null
+          deductible_applied: number | null
           deleted_at: string | null
           description: string
+          determination_sent_at: string | null
           documents: Json | null
           filed_at: string | null
           filed_by: string | null
           id: string
+          incident_contact_email: string | null
+          incident_contact_name: string | null
+          incident_contact_phone: string | null
+          incident_location: string | null
           item_id: string | null
+          non_inventory_ref: string | null
+          payout_method: string | null
+          payout_reference: string | null
           photos: Json | null
+          requires_manager_approval: boolean
           resolution_notes: string | null
           resolved_at: string | null
           resolved_by: string | null
+          settlement_acceptance_required: boolean | null
+          settlement_accepted_at: string | null
+          settlement_accepted_by: string | null
+          settlement_terms_text: string | null
+          settlement_terms_version: string | null
           shipment_id: string | null
           sidemark_id: string | null
           status: string
@@ -1386,23 +1530,43 @@ export type Database = {
         Insert: {
           account_id: string
           approved_amount?: number | null
+          approved_payout_amount?: number | null
+          assigned_to?: string | null
           claim_number: string
           claim_type?: string
+          claim_value_calculated?: number | null
+          claim_value_requested?: number | null
           claimed_amount?: number | null
+          coverage_snapshot?: Json | null
           coverage_type?: string | null
           created_at?: string | null
           deductible?: number | null
+          deductible_applied?: number | null
           deleted_at?: string | null
           description: string
+          determination_sent_at?: string | null
           documents?: Json | null
           filed_at?: string | null
           filed_by?: string | null
           id?: string
+          incident_contact_email?: string | null
+          incident_contact_name?: string | null
+          incident_contact_phone?: string | null
+          incident_location?: string | null
           item_id?: string | null
+          non_inventory_ref?: string | null
+          payout_method?: string | null
+          payout_reference?: string | null
           photos?: Json | null
+          requires_manager_approval?: boolean
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          settlement_acceptance_required?: boolean | null
+          settlement_accepted_at?: string | null
+          settlement_accepted_by?: string | null
+          settlement_terms_text?: string | null
+          settlement_terms_version?: string | null
           shipment_id?: string | null
           sidemark_id?: string | null
           status?: string
@@ -1412,23 +1576,43 @@ export type Database = {
         Update: {
           account_id?: string
           approved_amount?: number | null
+          approved_payout_amount?: number | null
+          assigned_to?: string | null
           claim_number?: string
           claim_type?: string
+          claim_value_calculated?: number | null
+          claim_value_requested?: number | null
           claimed_amount?: number | null
+          coverage_snapshot?: Json | null
           coverage_type?: string | null
           created_at?: string | null
           deductible?: number | null
+          deductible_applied?: number | null
           deleted_at?: string | null
           description?: string
+          determination_sent_at?: string | null
           documents?: Json | null
           filed_at?: string | null
           filed_by?: string | null
           id?: string
+          incident_contact_email?: string | null
+          incident_contact_name?: string | null
+          incident_contact_phone?: string | null
+          incident_location?: string | null
           item_id?: string | null
+          non_inventory_ref?: string | null
+          payout_method?: string | null
+          payout_reference?: string | null
           photos?: Json | null
+          requires_manager_approval?: boolean
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          settlement_acceptance_required?: boolean | null
+          settlement_accepted_at?: string | null
+          settlement_accepted_by?: string | null
+          settlement_terms_text?: string | null
+          settlement_terms_version?: string | null
           shipment_id?: string | null
           sidemark_id?: string | null
           status?: string
@@ -3632,6 +3816,10 @@ export type Database = {
           assembly_status: string | null
           class_id: string | null
           client_account: string | null
+          coverage_deductible: number | null
+          coverage_rate: number | null
+          coverage_selected_at: string | null
+          coverage_selected_by: string | null
           coverage_type: string | null
           created_at: string
           current_location_id: string | null
@@ -3678,12 +3866,17 @@ export type Database = {
           updated_at: string
           vendor: string | null
           warehouse_id: string
+          weight_lbs: number | null
         }
         Insert: {
           account_id?: string | null
           assembly_status?: string | null
           class_id?: string | null
           client_account?: string | null
+          coverage_deductible?: number | null
+          coverage_rate?: number | null
+          coverage_selected_at?: string | null
+          coverage_selected_by?: string | null
           coverage_type?: string | null
           created_at?: string
           current_location_id?: string | null
@@ -3730,12 +3923,17 @@ export type Database = {
           updated_at?: string
           vendor?: string | null
           warehouse_id: string
+          weight_lbs?: number | null
         }
         Update: {
           account_id?: string | null
           assembly_status?: string | null
           class_id?: string | null
           client_account?: string | null
+          coverage_deductible?: number | null
+          coverage_rate?: number | null
+          coverage_selected_at?: string | null
+          coverage_selected_by?: string | null
           coverage_type?: string | null
           created_at?: string
           current_location_id?: string | null
@@ -3782,6 +3980,7 @@ export type Database = {
           updated_at?: string
           vendor?: string | null
           warehouse_id?: string
+          weight_lbs?: number | null
         }
         Relationships: [
           {
