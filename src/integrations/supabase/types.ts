@@ -431,6 +431,7 @@ export type Database = {
           email_subject_override: string | null
           email_variables: Json | null
           free_storage_days: number | null
+          global_rate_adjust_pct: number
           hide_internal_fields_from_clients: boolean | null
           id: string
           is_active: boolean
@@ -451,6 +452,7 @@ export type Database = {
           require_sidemark: boolean | null
           restrict_visible_columns: Json | null
           status: string
+          storage_billing_day: number
           tenant_id: string
           updated_at: string
           use_tenant_communication_defaults: boolean | null
@@ -502,6 +504,7 @@ export type Database = {
           email_subject_override?: string | null
           email_variables?: Json | null
           free_storage_days?: number | null
+          global_rate_adjust_pct?: number
           hide_internal_fields_from_clients?: boolean | null
           id?: string
           is_active?: boolean
@@ -522,6 +525,7 @@ export type Database = {
           require_sidemark?: boolean | null
           restrict_visible_columns?: Json | null
           status?: string
+          storage_billing_day?: number
           tenant_id: string
           updated_at?: string
           use_tenant_communication_defaults?: boolean | null
@@ -573,6 +577,7 @@ export type Database = {
           email_subject_override?: string | null
           email_variables?: Json | null
           free_storage_days?: number | null
+          global_rate_adjust_pct?: number
           hide_internal_fields_from_clients?: boolean | null
           id?: string
           is_active?: boolean
@@ -593,6 +598,7 @@ export type Database = {
           require_sidemark?: boolean | null
           restrict_visible_columns?: Json | null
           status?: string
+          storage_billing_day?: number
           tenant_id?: string
           updated_at?: string
           use_tenant_communication_defaults?: boolean | null
@@ -2607,6 +2613,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      invoice_counters: {
+        Row: {
+          next_number: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          next_number?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          next_number?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       invoice_line_items: {
         Row: {
@@ -5456,6 +5480,42 @@ export type Database = {
           },
         ]
       }
+      storage_daily_rollup: {
+        Row: {
+          account_id: string
+          class_id: string | null
+          created_at: string
+          daily_rate: number
+          id: string
+          item_id: string
+          rollup_date: string
+          sidemark_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          account_id: string
+          class_id?: string | null
+          created_at?: string
+          daily_rate: number
+          id?: string
+          item_id: string
+          rollup_date: string
+          sidemark_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          account_id?: string
+          class_id?: string | null
+          created_at?: string
+          daily_rate?: number
+          id?: string
+          item_id?: string
+          rollup_date?: string
+          sidemark_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       subtasks: {
         Row: {
           completed_at: string | null
@@ -7344,6 +7404,10 @@ export type Database = {
       generate_ninv_number: { Args: never; Returns: string }
       generate_shipment_number: { Args: never; Returns: string }
       generate_stocktake_number: { Args: never; Returns: string }
+      generate_storage_for_date: {
+        Args: { p_date: string }
+        Returns: undefined
+      }
       get_client_sidemark_mode: {
         Args: { p_account_id: string }
         Returns: string
@@ -7371,6 +7435,7 @@ export type Database = {
         Args: { p_item_id: string; p_new_sidemark_id: string }
         Returns: Json
       }
+      next_invoice_number: { Args: never; Returns: string }
       seed_default_billable_services: {
         Args: { p_tenant_id: string }
         Returns: undefined
