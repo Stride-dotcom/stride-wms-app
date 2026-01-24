@@ -9,9 +9,13 @@ export interface DashboardStats {
   putAwayCount: number;
   willCallCount: number;
   disposalCount: number;
+  repairCount: number;
+  // Urgent counts
   urgentNeedToInspect: number;
   urgentNeedToAssemble: number;
   urgentNeedToRepair: number;
+  putAwayUrgentCount: number;
+  incomingShipmentsUrgentCount: number;
 }
 
 export interface TaskItem {
@@ -58,9 +62,12 @@ export function useDashboardStats() {
     putAwayCount: 0,
     willCallCount: 0,
     disposalCount: 0,
+    repairCount: 0,
     urgentNeedToInspect: 0,
     urgentNeedToAssemble: 0,
     urgentNeedToRepair: 0,
+    putAwayUrgentCount: 0,
+    incomingShipmentsUrgentCount: 0,
   });
   const [inspectionTasks, setInspectionTasks] = useState<TaskItem[]>([]);
   const [assemblyTasks, setAssemblyTasks] = useState<TaskItem[]>([]);
@@ -85,7 +92,6 @@ export function useDashboardStats() {
         `, { count: 'exact' })
         .eq('tenant_id', profile.tenant_id)
         .eq('task_type', 'Inspection')
-        // DB constraint allows only: pending, in_progress, completed, cancelled
         .not('status', 'in', '("completed","cancelled")')
         .is('deleted_at', null)
         .order('due_date', { ascending: true, nullsFirst: false })
@@ -133,9 +139,21 @@ export function useDashboardStats() {
         .order('due_date', { ascending: true, nullsFirst: false })
         .limit(10);
 
+      // Fetch Repair tasks (not completed, ordered by due date)
+      const { data: repairs, count: repairCount } = await (supabase
+        .from('tasks') as any)
+        .select(`
+          id, title, task_type, due_date, priority, status,
+          account:accounts(account_name)
+        `, { count: 'exact' })
+        .eq('tenant_id', profile.tenant_id)
+        .eq('task_type', 'Repair')
+        .not('status', 'in', '("completed","cancelled")')
+        .is('deleted_at', null)
+        .order('due_date', { ascending: true, nullsFirst: false })
+        .limit(10);
+
       // Fetch incoming shipments (ordered by expected arrival)
-      // NOTE: Our schema uses `shipment_type` (inbound|outbound) and statuses
-      // like expected|in_progress|received|released.
       const { data: shipments, count: shipmentCount } = await (supabase
         .from('shipments') as any)
         .select(`
@@ -150,7 +168,6 @@ export function useDashboardStats() {
         .limit(10);
 
       // Fetch items at Receiving Dock location (need to put away)
-      // First get the receiving dock location
       const { data: receivingDockLocation } = await (supabase
         .from('locations') as any)
         .select('id')
@@ -161,7 +178,7 @@ export function useDashboardStats() {
       let putAwayCount = 0;
 
       if (receivingDockLocation) {
-        const { data: putAwayItems, count } = await (supabase
+        const { data: putAwayItemsResult, count } = await (supabase
           .from('items') as any)
           .select(`
             id, item_code, description, client_account, received_at,
@@ -173,11 +190,11 @@ export function useDashboardStats() {
           .order('received_at', { ascending: true })
           .limit(20);
 
-        putAwayData = putAwayItems || [];
+        putAwayData = putAwayItemsResult || [];
         putAwayCount = count || 0;
       } else {
         // Fallback: get items with location names containing "receiving"
-        const { data: putAwayItems, count } = await (supabase
+        const { data: putAwayItemsResult, count } = await (supabase
           .from('items') as any)
           .select(`
             id, item_code, description, client_account, received_at,
@@ -186,16 +203,40 @@ export function useDashboardStats() {
           .is('deleted_at', null)
           .eq('status', 'active')
           .order('received_at', { ascending: true })
-          .limit(20);
+          .limit(100);
 
         // Filter for receiving locations client-side
-        const filtered = (putAwayItems || []).filter((item: PutAwayItem) => 
+        const filtered = (putAwayItemsResult || []).filter((item: PutAwayItem) => 
           item.location?.code?.toLowerCase().includes('receiving') ||
           item.location?.name?.toLowerCase().includes('receiving')
         );
         putAwayData = filtered;
         putAwayCount = filtered.length;
       }
+
+      // Calculate urgent counts from fetched data
+      const urgentInspections = (inspections || []).filter((t: any) => t.priority === 'urgent').length;
+      const urgentAssemblies = (assemblies || []).filter((t: any) => t.priority === 'urgent').length;
+      const urgentRepairs = (repairs || []).filter((t: any) => t.priority === 'urgent').length;
+
+      // For put away urgent: count items that have been at receiving dock for more than 24 hours
+      const now = new Date();
+      const urgentPutAway = putAwayData.filter((item: PutAwayItem) => {
+        if (!item.received_at) return false;
+        const received = new Date(item.received_at);
+        const hoursAtDock = (now.getTime() - received.getTime()) / (1000 * 60 * 60);
+        return hoursAtDock > 24;
+      }).length;
+
+      // For shipments urgent: count shipments where expected arrival is today or past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const urgentShipments = (shipments || []).filter((s: any) => {
+        if (!s.expected_arrival_date) return false;
+        const eta = new Date(s.expected_arrival_date);
+        eta.setHours(0, 0, 0, 0);
+        return eta <= today;
+      }).length;
 
       setStats({
         needToInspect: inspectCount || 0,
@@ -204,9 +245,12 @@ export function useDashboardStats() {
         putAwayCount: putAwayCount,
         willCallCount: willCallCount || 0,
         disposalCount: disposalCount || 0,
-        urgentNeedToInspect: (inspections || []).filter((t: any) => t.priority === 'urgent').length,
-        urgentNeedToAssemble: (assemblies || []).filter((t: any) => t.priority === 'urgent').length,
-        urgentNeedToRepair: 0,
+        repairCount: repairCount || 0,
+        urgentNeedToInspect: urgentInspections,
+        urgentNeedToAssemble: urgentAssemblies,
+        urgentNeedToRepair: urgentRepairs,
+        putAwayUrgentCount: urgentPutAway,
+        incomingShipmentsUrgentCount: urgentShipments,
       });
 
       setInspectionTasks(inspections || []);
