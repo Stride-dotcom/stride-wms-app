@@ -285,3 +285,80 @@ export async function queuePaymentReceivedAlert(
     subject: `💚 Payment of $${amount.toFixed(2)} received!`,
   });
 }
+
+/**
+ * Queue a claim filed alert
+ */
+export async function queueClaimFiledAlert(
+  tenantId: string,
+  claimId: string,
+  claimNumber: string,
+  claimType: string
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'claim.filed',
+    entityType: 'claim',
+    entityId: claimId,
+    subject: `📋 New Claim Filed: ${claimNumber} (${claimType})`,
+  });
+}
+
+/**
+ * Queue a claim status changed alert
+ */
+export async function queueClaimStatusChangedAlert(
+  tenantId: string,
+  claimId: string,
+  claimNumber: string,
+  newStatus: string,
+  recipientEmail?: string
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'claim.status_changed',
+    entityType: 'claim',
+    entityId: claimId,
+    subject: `📋 Claim ${claimNumber} status updated to ${newStatus}`,
+    recipientEmails: recipientEmail ? [recipientEmail] : undefined,
+  });
+}
+
+/**
+ * Queue a claim approved alert
+ */
+export async function queueClaimApprovedAlert(
+  tenantId: string,
+  claimId: string,
+  claimNumber: string,
+  payoutAmount: number,
+  recipientEmail?: string
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'claim.approved',
+    entityType: 'claim',
+    entityId: claimId,
+    subject: `✅ Claim ${claimNumber} Approved - Payout: $${payoutAmount.toFixed(2)}`,
+    recipientEmails: recipientEmail ? [recipientEmail] : undefined,
+  });
+}
+
+/**
+ * Queue a claim denied alert
+ */
+export async function queueClaimDeniedAlert(
+  tenantId: string,
+  claimId: string,
+  claimNumber: string,
+  recipientEmail?: string
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'claim.denied',
+    entityType: 'claim',
+    entityId: claimId,
+    subject: `❌ Claim ${claimNumber} has been denied`,
+    recipientEmails: recipientEmail ? [recipientEmail] : undefined,
+  });
+}

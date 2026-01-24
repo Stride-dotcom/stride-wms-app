@@ -26,7 +26,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCurrentUserRole } from '@/hooks/useRoles';
 import { Loader2, Shield, Info } from 'lucide-react';
 
-type CoverageType = 'standard' | 'full_deductible' | 'full_no_deductible' | 'pending';
+export type CoverageType = 'standard' | 'full_deductible' | 'full_no_deductible' | 'pending';
 
 interface CoverageSelectorProps {
   itemId: string;
@@ -35,10 +35,11 @@ interface CoverageSelectorProps {
   classId?: string | null;
   currentCoverage?: CoverageType | null;
   currentDeclaredValue?: number | null;
-  currentWeightLbs?: number | null;
+  currentWeight?: number | null;
   isStaff?: boolean;
   readOnly?: boolean;
-  onUpdate?: () => void;
+  compact?: boolean;
+  onUpdate?: (coverageType: CoverageType, declaredValue: number | null) => void;
 }
 
 const COVERAGE_RATES = {
@@ -69,9 +70,10 @@ export function CoverageSelector({
   classId,
   currentCoverage,
   currentDeclaredValue,
-  currentWeightLbs,
+  currentWeight,
   isStaff = true,
   readOnly = false,
+  compact = false,
   onUpdate,
 }: CoverageSelectorProps) {
   const { toast } = useToast();
@@ -80,7 +82,7 @@ export function CoverageSelector({
   
   const [coverageType, setCoverageType] = useState<CoverageType>(currentCoverage || 'standard');
   const [declaredValue, setDeclaredValue] = useState(currentDeclaredValue?.toString() || '');
-  const [weightLbs, setWeightLbs] = useState(currentWeightLbs?.toString() || '');
+  const [weightLbs, setWeightLbs] = useState(currentWeight?.toString() || '');
   const [saving, setSaving] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingChange, setPendingChange] = useState<{
@@ -233,7 +235,7 @@ export function CoverageSelector({
       }
 
       toast({ title: 'Coverage Updated' });
-      onUpdate?.();
+      onUpdate?.(coverageType, parseFloat(declaredValue) || null);
     } catch (error) {
       console.error('Error saving coverage:', error);
       toast({
@@ -251,7 +253,43 @@ export function CoverageSelector({
   const hasChanges = 
     coverageType !== (currentCoverage || 'standard') ||
     declaredValue !== (currentDeclaredValue?.toString() || '') ||
-    weightLbs !== (currentWeightLbs?.toString() || '');
+    weightLbs !== (currentWeight?.toString() || '');
+
+  // Compact mode for quick entry table
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2">
+        <Select
+          value={coverageType}
+          onValueChange={(v) => setCoverageType(v as CoverageType)}
+          disabled={readOnly}
+        >
+          <SelectTrigger className="w-[160px] h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(COVERAGE_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value} className="text-xs">{label.split('(')[0].trim()}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
+          type="number"
+          step="0.01"
+          value={declaredValue}
+          onChange={(e) => setDeclaredValue(e.target.value)}
+          placeholder="$0.00"
+          className="w-24 h-8 text-xs"
+          disabled={readOnly}
+        />
+        {hasChanges && (
+          <Button size="sm" variant="outline" onClick={handleSave} disabled={saving} className="h-8 px-2">
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <Card>
@@ -290,7 +328,7 @@ export function CoverageSelector({
             value={weightLbs}
             onChange={(e) => setWeightLbs(e.target.value)}
             placeholder="0.0"
-            disabled={readOnly || (!isStaff && currentWeightLbs !== null)}
+            disabled={readOnly || (!isStaff && currentWeight !== null)}
           />
           {weightLbs && coverageType === 'standard' && (
             <p className="text-xs text-muted-foreground">
