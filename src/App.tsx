@@ -21,6 +21,7 @@ import ShipmentsList from "./pages/ShipmentsList";
 import ShipmentDetail from "./pages/ShipmentDetail";
 import ShipmentCreate from "./pages/ShipmentCreate";
 import Tasks from "./pages/Tasks";
+import TaskDetail from "./pages/TaskDetail";
 import Billing from "./pages/Billing";
 import BillingReports from "./pages/BillingReports";
 import BillingReport from "./pages/BillingReport";
@@ -65,6 +66,7 @@ const App = () => (
             <Route path="/shipments/return/new" element={<ProtectedRoute><ShipmentCreate /></ProtectedRoute>} />
             <Route path="/shipments/:id" element={<ProtectedRoute><ShipmentDetail /></ProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+            <Route path="/tasks/:id" element={<ProtectedRoute><TaskDetail /></ProtectedRoute>} />
             <Route path="/scan" element={<ProtectedRoute><ScanHub /></ProtectedRoute>} />
             <Route path="/scan/item/:codeOrId" element={<ProtectedRoute><ScanItemRedirect /></ProtectedRoute>} />
             <Route path="/billing" element={<ProtectedRoute><RequireRole role="tenant_admin"><Billing /></RequireRole></ProtectedRoute>} />

@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MobileDataCard } from '@/components/ui/mobile-data-card';
-import { Loader2, Plus, Search, Package, ArrowDownToLine, ArrowUpFromLine, CheckCircle } from 'lucide-react';
+import { Loader2, Plus, Search, Package, ArrowDownToLine, ArrowUpFromLine, CheckCircle, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 
 // ============================================
@@ -338,11 +338,16 @@ export default function ShipmentsList() {
   return (
     <DashboardLayout>
       <div className="flex justify-between items-center mb-6">
-        <PageHeader
-          primaryText="Shipments"
-          accentText="Management"
-          description="Manage inbound and outbound shipments"
-        />
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/shipments')}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <PageHeader
+            primaryText="Shipments"
+            accentText="Management"
+            description="Manage inbound and outbound shipments"
+          />
+        </div>
         <Button onClick={() => navigate('/shipments/create')}>
           <Plus className="h-4 w-4 mr-2" />
           New Shipment
