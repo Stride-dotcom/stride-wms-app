@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { queueTaskCreatedAlert, queueTaskAssignedAlert, queueTaskCompletedAlert } from '@/lib/alertQueue';
+import { queueTaskCreatedAlert, queueTaskAssignedAlert, queueTaskCompletedAlert, queueInspectionCompletedAlert } from '@/lib/alertQueue';
 import { getServiceRate, taskTypeToServiceType } from '@/lib/billingRates';
 import { createBillingEventsBatch, CreateBillingEventParams } from '@/lib/billing/createBillingEvent';
 
@@ -641,6 +641,32 @@ export function useTasks(filters?: {
 
       // Queue task.completed alert
       await queueTaskCompletedAlert(profile.tenant_id, taskId, taskData.task_type);
+
+      // For Inspection tasks, also queue a specific inspection completed alert
+      if (taskData.task_type === 'Inspection') {
+        // Get first item from task for the alert
+        const { data: firstTaskItem } = await (supabase
+          .from('task_items') as any)
+          .select(`
+            item_id,
+            items:item_id(item_code, has_damage, account_id, accounts!items_account_id_fkey(alerts_contact_email, primary_contact_email))
+          `)
+          .eq('task_id', taskId)
+          .limit(1)
+          .maybeSingle();
+        
+        if (firstTaskItem?.items) {
+          const accountEmail = (firstTaskItem.items.accounts as any)?.alerts_contact_email || 
+                               (firstTaskItem.items.accounts as any)?.primary_contact_email || undefined;
+          await queueInspectionCompletedAlert(
+            profile.tenant_id,
+            taskId,
+            firstTaskItem.items.item_code || 'Unknown',
+            firstTaskItem.items.has_damage || false,
+            accountEmail
+          );
+        }
+      }
 
       fetchTasks();
       return true;

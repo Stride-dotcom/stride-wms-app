@@ -210,6 +210,66 @@ export async function queueInvoiceCreatedAlert(
 }
 
 /**
+ * Queue an invoice sent alert
+ */
+export async function queueInvoiceSentAlert(
+  tenantId: string,
+  invoiceId: string,
+  invoiceNumber: string,
+  amount: number,
+  recipientEmail?: string
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'invoice.sent',
+    entityType: 'invoice',
+    entityId: invoiceId,
+    subject: `📄 Invoice ${invoiceNumber} - $${amount.toFixed(2)}`,
+    recipientEmails: recipientEmail ? [recipientEmail] : undefined,
+  });
+}
+
+/**
+ * Queue a repair quote ready alert
+ */
+export async function queueRepairQuoteReadyAlert(
+  tenantId: string,
+  itemId: string,
+  itemCode: string,
+  quoteAmount: number,
+  recipientEmail?: string
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'repair.quote_ready',
+    entityType: 'item',
+    entityId: itemId,
+    subject: `🔧 Repair Quote Ready - ${itemCode} - $${quoteAmount.toFixed(2)}`,
+    recipientEmails: recipientEmail ? [recipientEmail] : undefined,
+  });
+}
+
+/**
+ * Queue an inspection completed alert
+ */
+export async function queueInspectionCompletedAlert(
+  tenantId: string,
+  taskId: string,
+  itemCode: string,
+  hasDamage: boolean,
+  recipientEmail?: string
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'inspection.completed',
+    entityType: 'task',
+    entityId: taskId,
+    subject: `🔍 Inspection Complete - ${itemCode}${hasDamage ? ' ⚠️ Damage Found' : ''}`,
+    recipientEmails: recipientEmail ? [recipientEmail] : undefined,
+  });
+}
+
+/**
  * Queue a payment received alert
  */
 export async function queuePaymentReceivedAlert(
