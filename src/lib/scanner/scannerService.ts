@@ -124,11 +124,21 @@ export function cancelScannerSession(sessionId: string): void {
 
 /**
  * Scan document using best available method
+ * Always prefers web scanner in browser; native scanners only work in Capacitor/mobile shells.
  */
 export async function scanDocument(
   config?: Partial<ScannerConfig>
 ): Promise<ScanOutput | null> {
-  // Try native scanner first if available
+  // Check if we're in a Capacitor native environment
+  const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor;
+  
+  if (!isCapacitor) {
+    // On web, return null to trigger web scanner dialog UI
+    // The DocumentScanner component handles the web flow
+    return null;
+  }
+  
+  // If capacitor exists, try native, fallback to null for web UI
   if (isNative()) {
     try {
       const isAvailable = await isNativeScannerAvailable();
@@ -140,8 +150,7 @@ export async function scanDocument(
     }
   }
   
-  // Web fallback - return null to indicate manual capture needed
-  // The UI will handle starting a web scanner session
+  // Return null to indicate web UI should handle capture
   return null;
 }
 
