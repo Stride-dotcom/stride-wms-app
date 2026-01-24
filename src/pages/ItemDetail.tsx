@@ -77,6 +77,8 @@ interface ItemDetail {
   quantity: number;
   client_account: string | null;
   sidemark: string | null;
+  sidemark_id: string | null;
+  account_id: string | null;
   vendor: string | null;
   size: number | null;
   size_unit: string | null;
@@ -589,7 +591,7 @@ export default function ItemDetail() {
                       <p className="font-medium">{item.quantity}</p>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Item Type</span>
+                      <span className="text-muted-foreground">Class</span>
                       <p className="font-medium">{item.item_type?.name || '-'}</p>
                     </div>
                     <div>
@@ -950,7 +952,9 @@ export default function ItemDetail() {
         onOpenChange={setBillingChargeDialogOpen}
         itemId={item?.id || ''}
         itemCode={item?.item_code || ''}
-        accountId={null}
+        accountId={item?.account_id || null}
+        sidemarkId={item?.sidemark_id || null}
+        classId={item?.item_type_id || null}
         onSuccess={() => {
           setBillingChargeDialogOpen(false);
         }}

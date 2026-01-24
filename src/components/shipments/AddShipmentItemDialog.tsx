@@ -177,7 +177,7 @@ export function AddShipmentItemDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Item Type</Label>
+            <Label>Class</Label>
             <ItemTypeCombobox
               itemTypes={itemTypes}
               value={itemTypeId}

@@ -546,9 +546,9 @@ export default function RateCards() {
 
                             return (
                               <div className="space-y-2">
-                                <h4 className="font-medium text-sm">Item Type Rates</h4>
+                                <h4 className="font-medium text-sm">Class Rates</h4>
                                 <p className="text-xs text-muted-foreground">
-                                  Rates synced from Item Types (shown read-only here).
+                                  Rates synced from Classes (shown read-only here).
                                 </p>
 
                                 {isMobile ? (
@@ -557,7 +557,7 @@ export default function RateCards() {
                                       <div key={d.id} className="flex items-start justify-between gap-3 p-2 border rounded-md">
                                         <div className="min-w-0">
                                           <div className="text-sm font-medium truncate">
-                                            {d.item_type_id ? (itemTypeNames[d.item_type_id] || 'Unknown Item Type') : '—'}
+                                            {d.item_type_id ? (itemTypeNames[d.item_type_id] || 'Unknown Class') : '—'}
                                           </div>
                                           <div className="text-xs text-muted-foreground">{toLabel(d.service_type)}</div>
                                         </div>
@@ -572,7 +572,7 @@ export default function RateCards() {
                                     <Table>
                                       <TableHeader>
                                         <TableRow>
-                                          <TableHead>Item Type</TableHead>
+                                          <TableHead>Class</TableHead>
                                           <TableHead>Service</TableHead>
                                           <TableHead className="w-32">Rate</TableHead>
                                         </TableRow>
@@ -581,7 +581,7 @@ export default function RateCards() {
                                         {perItemType.map((d) => (
                                           <TableRow key={d.id}>
                                             <TableCell className="font-medium">
-                                              {d.item_type_id ? (itemTypeNames[d.item_type_id] || 'Unknown Item Type') : '—'}
+                                              {d.item_type_id ? (itemTypeNames[d.item_type_id] || 'Unknown Class') : '—'}
                                             </TableCell>
                                             <TableCell>{toLabel(d.service_type)}</TableCell>
                                             <TableCell>${d.rate.toFixed(2)}</TableCell>
