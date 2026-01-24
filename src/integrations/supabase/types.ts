@@ -7251,6 +7251,10 @@ export type Database = {
         Returns: string
       }
       get_current_user_tenant_id: { Args: never; Returns: string }
+      get_or_create_receiving_dock: {
+        Args: { p_warehouse_id: string }
+        Returns: string
+      }
       get_sidemark_display: { Args: { p_sidemark_id: string }; Returns: string }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }

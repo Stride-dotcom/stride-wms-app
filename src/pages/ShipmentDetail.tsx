@@ -14,8 +14,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle, Printer } from 'lucide-react';
 import { format } from 'date-fns';
+import { DocumentCapture } from '@/components/scanner';
+import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
+import { ItemLabelData } from '@/lib/labelGenerator';
 
 // ============================================
 // TYPES
@@ -100,6 +103,9 @@ export default function ShipmentDetail() {
   const [receivedItems, setReceivedItems] = useState<ReceivedItemData[]>([]);
   const [receivingPhotos, setReceivingPhotos] = useState<string[]>([]);
   const [receivingDocuments, setReceivingDocuments] = useState<string[]>([]);
+  const [showPrintLabelsDialog, setShowPrintLabelsDialog] = useState(false);
+  const [createdItemIds, setCreatedItemIds] = useState<string[]>([]);
+  const [createdItemsForLabels, setCreatedItemsForLabels] = useState<ItemLabelData[]>([]);
 
   // Receiving session hook
   const {
@@ -253,6 +259,31 @@ export default function ShipmentDetail() {
 
     if (result.success) {
       setShowFinishDialog(false);
+      setCreatedItemIds(result.createdItemIds);
+      
+      // Fetch created items for label printing
+      if (result.createdItemIds.length > 0) {
+        const { data: createdItems } = await supabase
+          .from('items')
+          .select('id, item_code, description, vendor, sidemark_id')
+          .in('id', result.createdItemIds);
+        
+        if (createdItems) {
+          const labelData: ItemLabelData[] = createdItems.map(item => ({
+            id: item.id,
+            itemCode: item.item_code || '',
+            description: item.description || '',
+            vendor: item.vendor || '',
+            account: shipment?.accounts?.name || '',
+            sidemark: '', // Would need to join sidemark table
+            warehouseName: shipment?.warehouses?.name || '',
+            locationCode: 'RECV-DOCK',
+          }));
+          setCreatedItemsForLabels(labelData);
+          setShowPrintLabelsDialog(true);
+        }
+      }
+      
       await fetchShipment();
     }
   };
@@ -506,6 +537,24 @@ export default function ShipmentDetail() {
         </CardContent>
       </Card>
 
+      {/* Receiving Documents Section (shown during receiving) */}
+      {isReceiving && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Receiving Documents</CardTitle>
+            <CardDescription>Scan or upload receiving paperwork, BOLs, and delivery receipts</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DocumentCapture
+              context={{ type: 'shipment', shipmentId: shipment.id }}
+              maxDocuments={10}
+              ocrEnabled={true}
+              onDocumentAdded={(docId) => console.log('Document added:', docId)}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Receiving Notes (shown when received) */}
       {isReceived && shipment.receiving_notes && (
         <Card className="mt-6">
@@ -584,6 +633,15 @@ export default function ShipmentDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Print Labels Dialog */}
+      <PrintLabelsDialog
+        open={showPrintLabelsDialog}
+        onOpenChange={setShowPrintLabelsDialog}
+        items={createdItemsForLabels}
+        title="Print Item Labels"
+        description={`${createdItemsForLabels.length} items were created from receiving. Print labels now?`}
+      />
     </DashboardLayout>
   );
 }
