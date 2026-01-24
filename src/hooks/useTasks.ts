@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { queueTaskCreatedAlert, queueTaskAssignedAlert, queueTaskCompletedAlert } from '@/lib/alertQueue';
+import { getServiceRate, taskTypeToServiceType } from '@/lib/billingRates';
+import { createBillingEventsBatch, CreateBillingEventParams } from '@/lib/billing/createBillingEvent';
 
 export interface Task {
   id: string;
@@ -211,6 +213,142 @@ export function useTasks(filters?: {
         .in('id', itemIds);
     } catch (error) {
       console.error('Error updating inventory status:', error);
+    }
+  };
+
+  // Helper to create billing events for task completion
+  const createTaskBillingEvents = async (
+    taskId: string,
+    taskType: string,
+    accountId: string | null
+  ) => {
+    if (!profile?.tenant_id || !profile?.id) return;
+
+    try {
+      // Get task items with item details
+      const { data: taskItems } = await (supabase
+        .from('task_items') as any)
+        .select(`
+          item_id,
+          quantity,
+          items:item_id(id, item_type_id, sidemark_id, account_id, item_code)
+        `)
+        .eq('task_id', taskId);
+
+      if (!taskItems || taskItems.length === 0) return;
+
+      // Get service code for this task type
+      const serviceType = taskTypeToServiceType(taskType);
+
+      // Build billing events for each item
+      const billingEvents: CreateBillingEventParams[] = [];
+
+      for (const taskItem of taskItems) {
+        const item = taskItem.items;
+        if (!item) continue;
+
+        const itemAccountId = accountId || item.account_id;
+        if (!itemAccountId) continue;
+
+        // Get the rate for this service and item type
+        const rateResult = await getServiceRate({
+          accountId: itemAccountId,
+          serviceType,
+          itemTypeId: item.item_type_id,
+        });
+
+        const quantity = taskItem.quantity || 1;
+        const unitRate = rateResult.rate;
+        const totalAmount = quantity * unitRate;
+
+        billingEvents.push({
+          tenant_id: profile.tenant_id,
+          account_id: itemAccountId,
+          sidemark_id: item.sidemark_id || null,
+          class_id: item.item_type_id || null,
+          item_id: item.id,
+          task_id: taskId,
+          event_type: 'task_completion',
+          charge_type: serviceType,
+          description: `${taskType}: ${item.item_code}`,
+          quantity,
+          unit_rate: unitRate,
+          total_amount: totalAmount,
+          status: 'unbilled',
+          occurred_at: new Date().toISOString(),
+          metadata: {
+            task_type: taskType,
+            rate_source: rateResult.source,
+            needs_review: rateResult.needsReview,
+          },
+          created_by: profile.id,
+        });
+      }
+
+      if (billingEvents.length > 0) {
+        await createBillingEventsBatch(billingEvents);
+      }
+    } catch (error) {
+      console.error('Error creating task billing events:', error);
+      // Don't throw - billing event creation shouldn't block task completion
+    }
+  };
+
+  // Helper to convert task custom charges to billing events on completion
+  const convertTaskCustomChargesToBillingEvents = async (
+    taskId: string,
+    accountId: string | null
+  ) => {
+    if (!profile?.tenant_id || !profile?.id) return;
+
+    try {
+      // Get task custom charges
+      const { data: customCharges } = await (supabase
+        .from('task_custom_charges') as any)
+        .select('*')
+        .eq('task_id', taskId);
+
+      if (!customCharges || customCharges.length === 0) return;
+
+      // Get task items to link charges to items if possible
+      const { data: taskItems } = await (supabase
+        .from('task_items') as any)
+        .select('item_id, items:item_id(sidemark_id)')
+        .eq('task_id', taskId)
+        .limit(1);
+
+      const firstItem = taskItems?.[0];
+      const sidemarkId = firstItem?.items?.sidemark_id || null;
+      const itemId = firstItem?.item_id || null;
+
+      // Build billing events for each custom charge
+      const billingEvents: CreateBillingEventParams[] = customCharges.map((charge: any) => ({
+        tenant_id: profile.tenant_id,
+        account_id: accountId,
+        sidemark_id: sidemarkId,
+        item_id: itemId,
+        task_id: taskId,
+        event_type: 'addon',
+        charge_type: charge.charge_type || 'addon',
+        description: charge.charge_description || charge.charge_name,
+        quantity: 1,
+        unit_rate: charge.charge_amount,
+        total_amount: charge.charge_amount,
+        status: 'unbilled',
+        occurred_at: new Date().toISOString(),
+        metadata: {
+          custom_charge_id: charge.id,
+          template_id: charge.template_id,
+        },
+        created_by: profile.id,
+      }));
+
+      if (billingEvents.length > 0) {
+        await createBillingEventsBatch(billingEvents);
+      }
+    } catch (error) {
+      console.error('Error converting custom charges to billing events:', error);
+      // Don't throw - shouldn't block task completion
     }
   };
 
@@ -483,6 +621,19 @@ export function useTasks(filters?: {
       // Update inventory status
       await updateInventoryStatus(taskId, taskData.task_type, 'completed');
 
+      // Get task account_id for billing
+      const { data: taskFullData } = await (supabase
+        .from('tasks') as any)
+        .select('account_id')
+        .eq('id', taskId)
+        .single();
+
+      // Create billing events for task completion
+      await createTaskBillingEvents(taskId, taskData.task_type, taskFullData?.account_id);
+
+      // Also convert any task custom charges to billing events
+      await convertTaskCustomChargesToBillingEvents(taskId, taskFullData?.account_id);
+
       toast({
         title: 'Task Completed',
         description: 'Task has been marked as completed.',
@@ -651,6 +802,22 @@ export function useTasks(filters?: {
       // Update inventory status
       if (taskData) {
         await updateInventoryStatus(taskId, taskData.task_type, status);
+      }
+
+      // If completing, create billing events
+      if (status === 'completed' && taskData) {
+        // Get task account_id for billing
+        const { data: taskFullData } = await (supabase
+          .from('tasks') as any)
+          .select('account_id')
+          .eq('id', taskId)
+          .single();
+
+        // Create billing events for task completion
+        await createTaskBillingEvents(taskId, taskData.task_type, taskFullData?.account_id);
+
+        // Also convert any task custom charges to billing events
+        await convertTaskCustomChargesToBillingEvents(taskId, taskFullData?.account_id);
       }
 
       toast({
