@@ -192,13 +192,13 @@ export function ClaimCreateDialog({
   };
 
   const handleSubmit = async () => {
-    if (!description.trim()) return;
+    if (!description.trim() || !selectedAccountId) return;
 
     setIsSubmitting(true);
     try {
       const claim = await createClaim({
         claim_type: claimType,
-        account_id: selectedAccountId || null,
+        account_id: selectedAccountId,
         sidemark_id: selectedSidemarkId || null,
         shipment_id: context === 'shipment' ? selectedShipmentId : null,
         item_id: context === 'item' ? selectedItemId : (initialItemIds?.[0] || null),
@@ -208,8 +208,6 @@ export function ClaimCreateDialog({
         incident_contact_phone: context === 'property' ? incidentContactPhone : null,
         incident_contact_email: context === 'property' ? incidentContactEmail : null,
         description,
-        public_notes: publicNotes || null,
-        internal_notes: internalNotes || null,
       });
 
       if (claim) {

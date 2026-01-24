@@ -2,53 +2,21 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import type { Database, Json } from '@/integrations/supabase/types';
+
+type ClaimRow = Database['public']['Tables']['claims']['Row'];
+type ClaimInsert = Database['public']['Tables']['claims']['Insert'];
+type ClaimUpdate = Database['public']['Tables']['claims']['Update'];
 
 export type ClaimType = 'shipping_damage' | 'manufacture_defect' | 'handling_damage' | 'property_damage' | 'lost_item';
 export type ClaimStatus = 'initiated' | 'under_review' | 'denied' | 'approved' | 'credited' | 'paid' | 'closed';
 
-export interface Claim {
-  id: string;
-  tenant_id: string;
-  claim_number: string;
-  claim_type: ClaimType;
-  status: ClaimStatus;
-  account_id: string | null;
-  sidemark_id: string | null;
-  shipment_id: string | null;
-  item_id: string | null;
-  non_inventory_ref: string | null;
-  incident_location: string | null;
-  incident_contact_name: string | null;
-  incident_contact_phone: string | null;
-  incident_contact_email: string | null;
-  reported_by: string | null;
-  assigned_to: string | null;
-  description: string;
-  internal_notes: string | null;
-  public_notes: string | null;
-  coverage_snapshot: Record<string, unknown> | null;
-  claim_value_requested: number | null;
-  claim_value_calculated: number | null;
-  deductible_applied: number | null;
-  approved_payout_amount: number | null;
-  payout_method: string | null;
-  payout_reference: string | null;
-  requires_manager_approval: boolean;
-  determination_sent_at: string | null;
-  settlement_terms_version: string | null;
-  settlement_terms_text: string | null;
-  settlement_acceptance_required: boolean;
-  settlement_accepted_at: string | null;
-  settlement_accepted_by: string | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-  // Joined fields
+export interface Claim extends ClaimRow {
   account?: { id: string; account_name: string } | null;
   sidemark?: { id: string; sidemark_name: string } | null;
   item?: { id: string; item_code: string; description: string | null } | null;
   shipment?: { id: string; shipment_number: string } | null;
-  reported_by_user?: { id: string; first_name: string | null; last_name: string | null } | null;
+  filed_by_user?: { id: string; first_name: string | null; last_name: string | null } | null;
   assigned_to_user?: { id: string; first_name: string | null; last_name: string | null } | null;
 }
 
@@ -71,9 +39,8 @@ export interface ClaimAudit {
   claim_id: string;
   actor_id: string | null;
   action: string;
-  details: Record<string, unknown> | null;
+  details: Json | null;
   created_at: string;
-  actor?: { id: string; first_name: string | null; last_name: string | null } | null;
 }
 
 export interface ClaimFilters {
@@ -87,7 +54,7 @@ export interface ClaimFilters {
 
 export interface CreateClaimData {
   claim_type: ClaimType;
-  account_id?: string | null;
+  account_id: string;
   sidemark_id?: string | null;
   shipment_id?: string | null;
   item_id?: string | null;
@@ -97,8 +64,6 @@ export interface CreateClaimData {
   incident_contact_phone?: string | null;
   incident_contact_email?: string | null;
   description: string;
-  public_notes?: string | null;
-  internal_notes?: string | null;
 }
 
 // Generate claim number in CLM-XXX-XXXX format
@@ -127,7 +92,7 @@ export function useClaims(filters?: ClaimFilters) {
           sidemark:sidemarks!claims_sidemark_id_fkey(id, sidemark_name),
           item:items!claims_item_id_fkey(id, item_code, description),
           shipment:shipments!claims_shipment_id_fkey(id, shipment_number),
-          reported_by_user:users!claims_filed_by_fkey(id, first_name, last_name)
+          filed_by_user:users!claims_filed_by_fkey(id, first_name, last_name)
         `)
         .eq('tenant_id', profile.tenant_id)
         .is('deleted_at', null)
@@ -160,7 +125,7 @@ export function useClaims(filters?: ClaimFilters) {
       const { data, error } = await query;
 
       if (error) throw error;
-      setClaims((data || []) as Claim[]);
+      setClaims((data || []) as unknown as Claim[]);
     } catch (error) {
       console.error('Error fetching claims:', error);
       toast({
@@ -187,7 +152,7 @@ export function useClaims(filters?: ClaimFilters) {
       const claimNumber = generateClaimNumber();
       
       // Get coverage snapshot if item_id is provided
-      let coverageSnapshot: Record<string, unknown> | null = null;
+      let coverageSnapshot: Json | null = null;
       if (data.item_id) {
         const { data: item } = await supabase
           .from('items')
@@ -195,16 +160,16 @@ export function useClaims(filters?: ClaimFilters) {
           .eq('id', data.item_id)
           .single();
         if (item) {
-          coverageSnapshot = item as Record<string, unknown>;
+          coverageSnapshot = item as Json;
         }
       }
 
-      const insertData = {
+      const insertData: ClaimInsert = {
         tenant_id: profile.tenant_id,
         claim_number: claimNumber,
         claim_type: data.claim_type,
-        status: 'initiated' as ClaimStatus,
-        account_id: data.account_id || null,
+        status: 'initiated',
+        account_id: data.account_id,
         sidemark_id: data.sidemark_id || null,
         shipment_id: data.shipment_id || null,
         item_id: data.item_id || null,
@@ -215,8 +180,6 @@ export function useClaims(filters?: ClaimFilters) {
         incident_contact_email: data.incident_contact_email || null,
         filed_by: profile.id,
         description: data.description,
-        public_notes: data.public_notes || null,
-        internal_notes: data.internal_notes || null,
         coverage_snapshot: coverageSnapshot,
         requires_manager_approval: true,
       };
@@ -230,13 +193,13 @@ export function useClaims(filters?: ClaimFilters) {
       if (error) throw error;
 
       // Create audit entry
-      await supabase.from('claim_audit').insert({
+      await supabase.from('claim_audit').insert([{
         tenant_id: profile.tenant_id,
         claim_id: result.id,
         actor_id: profile.id,
         action: 'created',
-        details: { claim_type: data.claim_type },
-      });
+        details: { claim_type: data.claim_type } as Json,
+      }]);
 
       toast({
         title: 'Claim Filed',
@@ -244,7 +207,7 @@ export function useClaims(filters?: ClaimFilters) {
       });
 
       await fetchClaims();
-      return result as Claim;
+      return result as unknown as Claim;
     } catch (error) {
       console.error('Error creating claim:', error);
       toast({
@@ -259,12 +222,12 @@ export function useClaims(filters?: ClaimFilters) {
   const updateClaimStatus = async (
     claimId: string, 
     newStatus: ClaimStatus, 
-    additionalData?: Partial<Claim>
+    additionalData?: ClaimUpdate
   ): Promise<Claim | null> => {
     if (!profile?.tenant_id || !profile?.id) return null;
 
     try {
-      const updateData: Record<string, unknown> = {
+      const updateData: ClaimUpdate = {
         status: newStatus,
         ...additionalData,
       };
@@ -284,13 +247,13 @@ export function useClaims(filters?: ClaimFilters) {
       if (error) throw error;
 
       // Create audit entry
-      await supabase.from('claim_audit').insert({
+      await supabase.from('claim_audit').insert([{
         tenant_id: profile.tenant_id,
         claim_id: claimId,
         actor_id: profile.id,
         action: `status_changed_to_${newStatus}`,
-        details: additionalData || null,
-      });
+        details: (additionalData || null) as Json,
+      }]);
 
       toast({
         title: 'Claim Updated',
@@ -298,7 +261,7 @@ export function useClaims(filters?: ClaimFilters) {
       });
 
       await fetchClaims();
-      return result as Claim;
+      return result as unknown as Claim;
     } catch (error) {
       console.error('Error updating claim:', error);
       toast({
@@ -310,7 +273,7 @@ export function useClaims(filters?: ClaimFilters) {
     }
   };
 
-  const updateClaim = async (claimId: string, data: Partial<Claim>): Promise<Claim | null> => {
+  const updateClaim = async (claimId: string, data: ClaimUpdate): Promise<Claim | null> => {
     if (!profile?.tenant_id || !profile?.id) return null;
 
     try {
@@ -324,16 +287,16 @@ export function useClaims(filters?: ClaimFilters) {
       if (error) throw error;
 
       // Create audit entry
-      await supabase.from('claim_audit').insert({
+      await supabase.from('claim_audit').insert([{
         tenant_id: profile.tenant_id,
         claim_id: claimId,
         actor_id: profile.id,
         action: 'updated',
-        details: data as Record<string, unknown>,
-      });
+        details: data as unknown as Json,
+      }]);
 
       await fetchClaims();
-      return result as Claim;
+      return result as unknown as Claim;
     } catch (error) {
       console.error('Error updating claim:', error);
       toast({
@@ -405,7 +368,7 @@ export function useClaims(filters?: ClaimFilters) {
       // Create attachment record
       const { data, error } = await supabase
         .from('claim_attachments')
-        .insert({
+        .insert([{
           tenant_id: profile.tenant_id,
           claim_id: claimId,
           storage_path: storagePath,
@@ -414,7 +377,7 @@ export function useClaims(filters?: ClaimFilters) {
           size_bytes: file.size,
           uploaded_by: profile.id,
           is_public: isPublic,
-        })
+        }])
         .select()
         .single();
 
@@ -481,10 +444,7 @@ export function useClaims(filters?: ClaimFilters) {
   const fetchAuditLog = async (claimId: string): Promise<ClaimAudit[]> => {
     const { data, error } = await supabase
       .from('claim_audit')
-      .select(`
-        *,
-        actor:users!claim_audit_actor_id_fkey(id, first_name, last_name)
-      `)
+      .select('*')
       .eq('claim_id', claimId)
       .order('created_at', { ascending: false });
 
@@ -503,13 +463,13 @@ export function useClaims(filters?: ClaimFilters) {
     if (!profile?.tenant_id || !profile?.id) return false;
 
     try {
-      const { error } = await supabase.from('claim_audit').insert({
+      const { error } = await supabase.from('claim_audit').insert([{
         tenant_id: profile.tenant_id,
         claim_id: claimId,
         actor_id: profile.id,
         action,
-        details: details || null,
-      });
+        details: (details || null) as Json,
+      }]);
 
       if (error) throw error;
       return true;
@@ -608,14 +568,14 @@ export function useClaims(filters?: ClaimFilters) {
     if (!profile?.tenant_id || !profile?.id) return false;
 
     try {
-      const { error } = await supabase.from('account_credits').insert({
+      const { error } = await supabase.from('account_credits').insert([{
         tenant_id: profile.tenant_id,
         account_id: accountId,
         claim_id: claimId,
         amount,
         reason,
         created_by: profile.id,
-      });
+      }]);
 
       if (error) throw error;
 

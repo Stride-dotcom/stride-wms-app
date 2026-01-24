@@ -29,13 +29,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Claim, ClaimStatus, useClaims } from '@/hooks/useClaims';
-import { useAuth } from '@/contexts/AuthContext';
+import { useCurrentUserRole } from '@/hooks/useRoles';
 import {
   Loader2,
   ArrowRight,
-  X,
   Check,
-  CreditCard,
   DollarSign,
   XCircle,
 } from 'lucide-react';
@@ -49,7 +47,7 @@ type PayoutMethod = 'credit' | 'check' | 'ach' | 'other';
 
 export function ClaimStatusActions({ claim, onUpdate }: ClaimStatusActionsProps) {
   const { updateClaimStatus, sendDetermination, issueCredit } = useClaims();
-  const { profile } = useAuth();
+  const { isAdmin, isManager } = useCurrentUserRole();
   
   const [loading, setLoading] = useState(false);
   
@@ -69,10 +67,7 @@ export function ClaimStatusActions({ claim, onUpdate }: ClaimStatusActionsProps)
   const [payoutReference, setPayoutReference] = useState('');
   const [settlementTerms, setSettlementTerms] = useState('');
 
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'tenant_admin';
-  const isManager = isAdmin || profile?.role === 'manager';
-
-  const handleStatusChange = async (newStatus: ClaimStatus, additionalData?: Partial<Claim>) => {
+  const handleStatusChange = async (newStatus: ClaimStatus, additionalData?: Record<string, unknown>) => {
     setLoading(true);
     try {
       await updateClaimStatus(claim.id, newStatus, additionalData);
@@ -88,7 +83,7 @@ export function ClaimStatusActions({ claim, onUpdate }: ClaimStatusActionsProps)
 
   const handleDeny = async () => {
     if (!denialReason.trim()) return;
-    await handleStatusChange('denied', { public_notes: denialReason });
+    await handleStatusChange('denied', { resolution_notes: denialReason });
     setShowDenyDialog(false);
     setDenialReason('');
   };

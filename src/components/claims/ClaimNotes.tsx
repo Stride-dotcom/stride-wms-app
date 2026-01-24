@@ -16,36 +16,22 @@ interface ClaimNotesProps {
 
 export function ClaimNotes({ claim, isStaff = true, readOnly = false, onUpdate }: ClaimNotesProps) {
   const { updateClaim, addAuditEntry } = useClaims();
-  const [publicNotes, setPublicNotes] = useState(claim.public_notes || '');
-  const [internalNotes, setInternalNotes] = useState(claim.internal_notes || '');
+  // Use resolution_notes for notes since the table uses that column
+  const [resolutionNotes, setResolutionNotes] = useState(claim.resolution_notes || '');
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  const handlePublicChange = (value: string) => {
-    setPublicNotes(value);
-    setHasChanges(true);
-  };
-
-  const handleInternalChange = (value: string) => {
-    setInternalNotes(value);
+  const handleNotesChange = (value: string) => {
+    setResolutionNotes(value);
     setHasChanges(true);
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updateData: Partial<Claim> = {};
-      
-      if (publicNotes !== claim.public_notes) {
-        updateData.public_notes = publicNotes;
-      }
-      if (isStaff && internalNotes !== claim.internal_notes) {
-        updateData.internal_notes = internalNotes;
-      }
-
-      if (Object.keys(updateData).length > 0) {
-        await updateClaim(claim.id, updateData);
-        await addAuditEntry(claim.id, 'notes_updated', updateData);
+      if (resolutionNotes !== claim.resolution_notes) {
+        await updateClaim(claim.id, { resolution_notes: resolutionNotes });
+        await addAuditEntry(claim.id, 'notes_updated', { resolution_notes: resolutionNotes });
         setHasChanges(false);
         onUpdate?.();
       }
@@ -56,61 +42,49 @@ export function ClaimNotes({ claim, isStaff = true, readOnly = false, onUpdate }
 
   return (
     <div className="space-y-6">
-      {/* Public Notes */}
+      {/* Resolution Notes */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <MessageSquare className="h-4 w-4" />
-            Public Notes
-            <Badge variant="outline" className="ml-2 text-xs">
-              Visible to client
-            </Badge>
+            Notes & Resolution Details
+            {isStaff && (
+              <Badge variant="outline" className="ml-2 text-xs border-yellow-500 text-yellow-500">
+                Staff only
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {readOnly ? (
             <div className="p-3 bg-muted rounded-md min-h-[100px] whitespace-pre-wrap">
-              {publicNotes || 'No public notes'}
+              {resolutionNotes || 'No notes added'}
             </div>
           ) : (
             <Textarea
-              value={publicNotes}
-              onChange={(e) => handlePublicChange(e.target.value)}
-              placeholder="Notes visible to the client..."
-              rows={4}
+              value={resolutionNotes}
+              onChange={(e) => handleNotesChange(e.target.value)}
+              placeholder="Add notes about the claim investigation, resolution details, etc..."
+              rows={6}
             />
           )}
         </CardContent>
       </Card>
 
-      {/* Internal Notes (Staff Only) */}
-      {isStaff && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Lock className="h-4 w-4" />
-              Internal Notes
-              <Badge variant="outline" className="ml-2 text-xs border-yellow-500 text-yellow-500">
-                Staff only
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {readOnly ? (
-              <div className="p-3 bg-muted rounded-md min-h-[100px] whitespace-pre-wrap">
-                {internalNotes || 'No internal notes'}
-              </div>
-            ) : (
-              <Textarea
-                value={internalNotes}
-                onChange={(e) => handleInternalChange(e.target.value)}
-                placeholder="Internal notes (not visible to client)..."
-                rows={4}
-              />
-            )}
-          </CardContent>
-        </Card>
-      )}
+      {/* Description (Read-only) */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Lock className="h-4 w-4" />
+            Original Description
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="p-3 bg-muted rounded-md min-h-[60px] whitespace-pre-wrap">
+            {claim.description || 'No description provided'}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Save Button */}
       {!readOnly && hasChanges && (
