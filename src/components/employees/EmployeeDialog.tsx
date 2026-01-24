@@ -623,8 +623,8 @@ export function EmployeeDialog({
                       <FormItem>
                         <FormLabel>Primary Warehouse</FormLabel>
                         <Select
-                          value={field.value || ''}
-                          onValueChange={field.onChange}
+                          value={field.value || '_none_'}
+                          onValueChange={(v) => field.onChange(v === '_none_' ? '' : v)}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -632,7 +632,7 @@ export function EmployeeDialog({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="_none_">None</SelectItem>
                             {warehouses.map((wh) => (
                               <SelectItem key={wh.id} value={wh.id}>
                                 {wh.name}
