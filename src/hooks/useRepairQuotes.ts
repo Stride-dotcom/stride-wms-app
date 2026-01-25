@@ -426,7 +426,7 @@ export function useRepairQuoteWorkflow() {
           *,
           technician:technicians(id, name, email, markup_percent, hourly_rate),
           account:accounts(id, name:account_name),
-          sidemark:sidemarks(id, name)
+          sidemark:sidemarks(id, name:sidemark_name)
         `)
         .eq('tenant_id', profile.tenant_id)
         .order('created_at', { ascending: false });
@@ -939,7 +939,7 @@ export function useTechQuoteSubmission(token: string | null) {
         .select(`
           *,
           account:accounts(id, name:account_name),
-          sidemark:sidemarks(id, name)
+          sidemark:sidemarks(id, name:sidemark_name)
         `)
         .eq('id', tokenRecord.repair_quote_id)
         .single();
@@ -1191,7 +1191,7 @@ export function useClientQuoteReview(token: string | null) {
         .select(`
           *,
           account:accounts(id, name:account_name),
-          sidemark:sidemarks(id, name),
+          sidemark:sidemarks(id, name:sidemark_name),
           technician:technicians(id, name)
         `)
         .eq('id', tokenRecord.repair_quote_id)
