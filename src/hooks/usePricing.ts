@@ -176,7 +176,7 @@ export function useSizeCategories() {
     queryFn: async () => {
       if (!profile?.tenant_id) return [];
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('classes')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
@@ -184,7 +184,7 @@ export function useSizeCategories() {
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
-      return data as SizeCategory[];
+      return (data || []) as SizeCategory[];
     },
     enabled: !!profile?.tenant_id,
   });
@@ -229,7 +229,7 @@ export function useGlobalServiceRates() {
     queryFn: async () => {
       if (!profile?.tenant_id) return [];
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('billable_services')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
@@ -237,7 +237,7 @@ export function useGlobalServiceRates() {
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
-      return data as GlobalServiceRate[];
+      return (data || []) as GlobalServiceRate[];
     },
     enabled: !!profile?.tenant_id,
   });
@@ -282,8 +282,8 @@ export function useAssemblyTiers() {
     queryFn: async () => {
       if (!profile?.tenant_id) return [];
 
-      const { data, error } = await (supabase
-        .from('assembly_tiers') as any)
+      const { data, error } = await (supabase as any)
+        .from('assembly_tiers')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
         .eq('is_active', true)
@@ -302,8 +302,8 @@ export function useUpdateAssemblyTier() {
   return useMutation({
     mutationFn: async (tier: Partial<AssemblyTier> & { id: string }) => {
       const { id, ...updateData } = tier;
-      const { data, error } = await (supabase
-        .from('assembly_tiers') as any)
+      const { data, error } = await (supabase as any)
+        .from('assembly_tiers')
         .update(updateData)
         .eq('id', id)
         .select()
@@ -335,8 +335,8 @@ export function usePricingFlags() {
     queryFn: async () => {
       if (!profile?.tenant_id) return [];
 
-      const { data, error } = await (supabase
-        .from('pricing_flags') as any)
+      const { data, error } = await (supabase as any)
+        .from('pricing_flags')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
         .order('sort_order', { ascending: true });
@@ -354,8 +354,8 @@ export function useUpdatePricingFlag() {
   return useMutation({
     mutationFn: async (flag: Partial<PricingFlag> & { id: string }) => {
       const { id, ...updateData } = flag;
-      const { data, error } = await (supabase
-        .from('pricing_flags') as any)
+      const { data, error } = await (supabase as any)
+        .from('pricing_flags')
         .update(updateData)
         .eq('id', id)
         .select()
@@ -383,8 +383,8 @@ export function useCreatePricingFlag() {
     mutationFn: async (flag: Partial<PricingFlag> & { flag_key: string; display_name: string }) => {
       if (!profile?.tenant_id) throw new Error('No tenant');
 
-      const { data, error } = await (supabase
-        .from('pricing_flags') as any)
+      const { data, error } = await (supabase as any)
+        .from('pricing_flags')
         .insert({
           ...flag,
           tenant_id: profile.tenant_id,
@@ -663,7 +663,7 @@ export function useSeedDefaultPricing() {
     mutationFn: async () => {
       if (!profile?.tenant_id) throw new Error('No tenant');
 
-      const { error } = await supabase.rpc('seed_default_pricing', {
+      const { error } = await (supabase as any).rpc('seed_default_pricing', {
         p_tenant_id: profile.tenant_id,
       });
 
@@ -706,7 +706,7 @@ export function useCalculateServicePrice() {
     }) => {
       if (!profile?.tenant_id) throw new Error('No tenant');
 
-      const { data, error } = await supabase.rpc('calculate_service_price', {
+      const { data, error } = await (supabase as any).rpc('calculate_service_price', {
         p_tenant_id: profile.tenant_id,
         p_account_id: accountId || null,
         p_service_code: serviceCode,
