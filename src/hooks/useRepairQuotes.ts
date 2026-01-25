@@ -425,7 +425,7 @@ export function useRepairQuoteWorkflow() {
         .select(`
           *,
           technician:technicians(id, name, email, markup_percent, hourly_rate),
-          account:accounts(id, name),
+          account:accounts(id, account_name),
           sidemark:sidemarks(id, name)
         `)
         .eq('tenant_id', profile.tenant_id)
@@ -938,7 +938,7 @@ export function useTechQuoteSubmission(token: string | null) {
         .from('repair_quotes') as any)
         .select(`
           *,
-          account:accounts(id, name),
+          account:accounts(id, account_name),
           sidemark:sidemarks(id, name)
         `)
         .eq('id', tokenRecord.repair_quote_id)
@@ -1190,7 +1190,7 @@ export function useClientQuoteReview(token: string | null) {
         .from('repair_quotes') as any)
         .select(`
           *,
-          account:accounts(id, name),
+          account:accounts(id, account_name),
           sidemark:sidemarks(id, name),
           technician:technicians(id, name)
         `)

@@ -396,7 +396,7 @@ export function useValidateInvitationToken(token: string | null) {
         .from('client_invitations') as any)
         .select(`
           *,
-          accounts:account_id (id, name),
+          accounts:account_id (id, account_name),
           tenants:tenant_id (id, name)
         `)
         .eq('token', token)
