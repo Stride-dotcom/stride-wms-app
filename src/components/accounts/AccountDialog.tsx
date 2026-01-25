@@ -32,11 +32,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ClientPortalSection } from './ClientPortalSection';
 
 const accountSchema = z.object({
   // Basic
@@ -577,7 +578,7 @@ export function AccountDialog({
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 mb-4 gap-1 h-auto">
+                <TabsList className={`grid w-full mb-4 gap-1 h-auto ${isEditing ? 'grid-cols-4 sm:grid-cols-8' : 'grid-cols-4 sm:grid-cols-7'}`}>
                   <TabsTrigger value="basic" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Basic</TabsTrigger>
                   <TabsTrigger value="contacts" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Contacts</TabsTrigger>
                   <TabsTrigger value="pricing" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Pricing</TabsTrigger>
@@ -585,6 +586,12 @@ export function AccountDialog({
                   <TabsTrigger value="automations" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Automations</TabsTrigger>
                   <TabsTrigger value="inventory" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Inventory</TabsTrigger>
                   <TabsTrigger value="permissions" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Permissions</TabsTrigger>
+                  {isEditing && (
+                    <TabsTrigger value="portal" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0 gap-1">
+                      <Users className="h-3 w-3 hidden sm:inline" />
+                      Portal
+                    </TabsTrigger>
+                  )}
                 </TabsList>
 
                 <ScrollArea className="h-[50vh] pr-4">
@@ -1603,6 +1610,16 @@ export function AccountDialog({
                       )}
                     />
                   </TabsContent>
+
+                  {/* Portal Tab - Only shown when editing */}
+                  {isEditing && accountId && (
+                    <TabsContent value="portal" className="mt-0">
+                      <ClientPortalSection
+                        accountId={accountId}
+                        accountName={form.watch('account_name') || 'this account'}
+                      />
+                    </TabsContent>
+                  )}
                 </ScrollArea>
               </Tabs>
 
