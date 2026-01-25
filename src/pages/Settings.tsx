@@ -38,6 +38,7 @@ import { OrganizationSettingsTab } from '@/components/settings/OrganizationSetti
 import { RateSheetsSettingsTab } from '@/components/settings/RateSheetsSettingsTab';
 import { BillableServicesSettingsTab } from '@/components/settings/BillableServicesSettingsTab';
 import { SidemarksSettingsTab } from '@/components/settings/SidemarksSettingsTab';
+import { PricingSettingsTab } from '@/components/settings/PricingSettingsTab';
 
 import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
 import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
@@ -55,6 +56,7 @@ const TAB_OPTIONS = [
   { value: 'employees', label: 'Employees' },
   { value: 'alerts', label: 'Alerts' },
   { value: 'labor', label: 'Labor', adminOnly: true },
+  { value: 'pricing', label: 'Pricing', adminOnly: true },
   { value: 'sidemarks', label: 'Sidemarks' },
   { value: 'services', label: 'Services' },
   { value: 'rate-sheets', label: 'Rate Sheets' },
@@ -281,6 +283,7 @@ export default function Settings() {
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
             <TabsTrigger value="sidemarks">Sidemarks</TabsTrigger>
             <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="rate-sheets">Rate Sheets</TabsTrigger>
@@ -364,6 +367,12 @@ export default function Settings() {
           {isAdmin && (
             <TabsContent value="labor">
               <LaborSettingsTab />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="pricing">
+              <PricingSettingsTab />
             </TabsContent>
           )}
 
