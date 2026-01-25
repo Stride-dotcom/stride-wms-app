@@ -737,14 +737,14 @@ export default function TaskDetailPage() {
             <div className="space-y-2">
               <Label htmlFor="technician">Assign Technician (optional)</Label>
               <Select
-                value={selectedTechnicianId}
-                onValueChange={setSelectedTechnicianId}
+                value={selectedTechnicianId || '_none'}
+                onValueChange={(val) => setSelectedTechnicianId(val === '_none' ? '' : val)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a technician..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No technician (assign later)</SelectItem>
+                  <SelectItem value="_none">No technician (assign later)</SelectItem>
                   {activeTechnicians.map((tech) => (
                     <SelectItem key={tech.id} value={tech.id}>
                       {tech.name} ({tech.markup_percent}% markup)

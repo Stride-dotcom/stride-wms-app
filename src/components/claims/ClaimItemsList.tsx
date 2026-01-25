@@ -28,35 +28,50 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useClaims, ClaimItem, PayoutMethod } from '@/hooks/useClaims';
-import { Package, DollarSign, Wrench, Loader2, Trash2, Edit2, Save, X } from 'lucide-react';
+import { useRepairQuoteWorkflow } from '@/hooks/useRepairQuotes';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { Package, DollarSign, Wrench, Loader2, Trash2, Edit2, Save, X, AlertCircle, Scale, FileText, ExternalLink, ArrowRightLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface ClaimItemsListProps {
   claimId: string;
   claimStatus: string;
+  accountId?: string;
+  sidemarkId?: string;
   onTotalsChange?: (totals: { requested: number; approved: number; deductible: number }) => void;
 }
 
-export function ClaimItemsList({ claimId, claimStatus, onTotalsChange }: ClaimItemsListProps) {
-  const { fetchClaimItems, updateClaimItem, removeClaimItem, calculateItemPayout } = useClaims();
+export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, onTotalsChange }: ClaimItemsListProps) {
+  const navigate = useNavigate();
+  const { profile } = useAuth();
+  const { fetchClaimItems, updateClaimItem, removeClaimItem, calculateItemPayout, calculateClaimPayout } = useClaims();
+  const { createWorkflowQuote } = useRepairQuoteWorkflow();
   const [items, setItems] = useState<ClaimItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     requested_amount: string;
     approved_amount: string;
+    weight_lbs: string;
     repairable: string;
     repair_cost: string;
+    use_repair_cost: boolean;
     payout_method: string;
   }>({
     requested_amount: '',
     approved_amount: '',
+    weight_lbs: '',
     repairable: '',
     repair_cost: '',
+    use_repair_cost: false,
     payout_method: '',
   });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<ClaimItem | null>(null);
+  const [creatingQuote, setCreatingQuote] = useState(false);
 
   const loadItems = async () => {
     setLoading(true);
@@ -87,8 +102,10 @@ export function ClaimItemsList({ claimId, claimStatus, onTotalsChange }: ClaimIt
     setEditForm({
       requested_amount: item.requested_amount?.toString() || '',
       approved_amount: item.approved_amount?.toString() || '',
+      weight_lbs: item.weight_lbs?.toString() || '',
       repairable: item.repairable === null ? '' : item.repairable ? 'yes' : 'no',
       repair_cost: item.repair_cost?.toString() || '',
+      use_repair_cost: item.use_repair_cost || false,
       payout_method: item.payout_method || '',
     });
   };
@@ -98,8 +115,10 @@ export function ClaimItemsList({ claimId, claimStatus, onTotalsChange }: ClaimIt
     setEditForm({
       requested_amount: '',
       approved_amount: '',
+      weight_lbs: '',
       repairable: '',
       repair_cost: '',
+      use_repair_cost: false,
       payout_method: '',
     });
   };
@@ -107,6 +126,7 @@ export function ClaimItemsList({ claimId, claimStatus, onTotalsChange }: ClaimIt
   const saveEditing = async () => {
     if (!editingItemId) return;
 
+    const currentItem = items.find(i => i.id === editingItemId);
     const updates: Partial<ClaimItem> = {};
 
     if (editForm.requested_amount) {
@@ -115,14 +135,25 @@ export function ClaimItemsList({ claimId, claimStatus, onTotalsChange }: ClaimIt
     if (editForm.approved_amount) {
       updates.approved_amount = parseFloat(editForm.approved_amount);
     }
-    if (editForm.repairable !== '') {
+    if (editForm.weight_lbs) {
+      updates.weight_lbs = parseFloat(editForm.weight_lbs);
+    }
+    if (editForm.repairable !== '' && editForm.repairable !== '_none') {
       updates.repairable = editForm.repairable === 'yes';
     }
     if (editForm.repair_cost) {
       updates.repair_cost = parseFloat(editForm.repair_cost);
     }
-    if (editForm.payout_method) {
+    if (editForm.payout_method && editForm.payout_method !== '_none') {
       updates.payout_method = editForm.payout_method as PayoutMethod;
+    }
+
+    // Handle repair determination
+    updates.use_repair_cost = editForm.use_repair_cost;
+    if (editForm.use_repair_cost && !currentItem?.use_repair_cost && profile?.id) {
+      // Newly set - record who made the determination
+      updates.determined_by = profile.id;
+      updates.determined_at = new Date().toISOString();
     }
 
     const success = await updateClaimItem(editingItemId, updates);
@@ -139,6 +170,32 @@ export function ClaimItemsList({ claimId, claimStatus, onTotalsChange }: ClaimIt
       setDeleteDialogOpen(false);
       setItemToDelete(null);
       loadItems();
+    }
+  };
+
+  // Create repair quote for a claim item
+  const handleRequestRepairQuote = async (claimItem: ClaimItem) => {
+    if (!claimItem.item_id || !accountId) return;
+
+    setCreatingQuote(true);
+    try {
+      const quote = await createWorkflowQuote({
+        item_id: claimItem.item_id,
+        account_id: accountId,
+        sidemark_id: sidemarkId,
+      });
+
+      if (quote) {
+        // Link the repair quote to the claim item
+        await supabase
+          .from('claim_items')
+          .update({ repair_quote_id: quote.id })
+          .eq('id', claimItem.id);
+
+        loadItems();
+      }
+    } finally {
+      setCreatingQuote(false);
     }
   };
 
@@ -220,7 +277,7 @@ export function ClaimItemsList({ claimId, claimStatus, onTotalsChange }: ClaimIt
                 <TableRow>
                   <TableHead>Item</TableHead>
                   <TableHead>Coverage</TableHead>
-                  <TableHead className="text-right">Declared</TableHead>
+                  <TableHead className="text-right">Declared/Weight</TableHead>
                   <TableHead className="text-right">Max Payout</TableHead>
                   <TableHead className="text-right">Requested</TableHead>
                   <TableHead className="text-right">Approved</TableHead>
@@ -258,17 +315,50 @@ export function ClaimItemsList({ claimId, claimStatus, onTotalsChange }: ClaimIt
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {item.declared_value != null
-                          ? `$${item.declared_value.toLocaleString()}`
-                          : item.weight_lbs != null
-                          ? `${item.weight_lbs} lbs`
-                          : '-'}
+                        {item.coverage_type === 'standard' ? (
+                          isEditing ? (
+                            <div className="flex items-center gap-1 justify-end">
+                              <Input
+                                type="number"
+                                step="0.1"
+                                placeholder="lbs"
+                                value={editForm.weight_lbs}
+                                onChange={(e) =>
+                                  setEditForm((f) => ({ ...f, weight_lbs: e.target.value }))
+                                }
+                                className="w-20 h-8 text-right"
+                              />
+                              <span className="text-xs text-muted-foreground">lbs</span>
+                            </div>
+                          ) : item.weight_lbs != null ? (
+                            <span className="flex items-center gap-1 justify-end">
+                              <Scale className="h-3 w-3 text-muted-foreground" />
+                              {item.weight_lbs} lbs
+                            </span>
+                          ) : (
+                            <span className="text-yellow-600 dark:text-yellow-400 flex items-center gap-1 justify-end text-xs">
+                              <AlertCircle className="h-3 w-3" />
+                              Need weight
+                            </span>
+                          )
+                        ) : item.declared_value != null ? (
+                          `$${item.declared_value.toLocaleString()}`
+                        ) : (
+                          '-'
+                        )}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
-                        ${maxPayout.maxPayout.toFixed(2)}
+                        <span className={maxPayout.useRepairCost ? 'text-green-600' : ''}>
+                          ${maxPayout.maxPayout.toFixed(2)}
+                        </span>
                         {maxPayout.deductible > 0 && (
                           <span className="text-xs block">
                             (-${maxPayout.deductible} ded.)
+                          </span>
+                        )}
+                        {maxPayout.useRepairCost && maxPayout.repairVsReplace && (
+                          <span className="text-xs text-green-600 block">
+                            (vs ${maxPayout.repairVsReplace.replacementCost.toFixed(0)} replace)
                           </span>
                         )}
                       </TableCell>
@@ -310,26 +400,106 @@ export function ClaimItemsList({ claimId, claimStatus, onTotalsChange }: ClaimIt
                       </TableCell>
                       <TableCell>
                         {isEditing ? (
-                          <Select
-                            value={editForm.repairable}
-                            onValueChange={(v) =>
-                              setEditForm((f) => ({ ...f, repairable: v }))
-                            }
-                          >
-                            <SelectTrigger className="w-20 h-8">
-                              <SelectValue placeholder="-" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">-</SelectItem>
-                              <SelectItem value="yes">Yes</SelectItem>
-                              <SelectItem value="no">No</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="space-y-2">
+                            <Select
+                              value={editForm.repairable || '_none'}
+                              onValueChange={(v) =>
+                                setEditForm((f) => ({ ...f, repairable: v === '_none' ? '' : v }))
+                              }
+                            >
+                              <SelectTrigger className="w-20 h-8">
+                                <SelectValue placeholder="-" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="_none">-</SelectItem>
+                                <SelectItem value="yes">Yes</SelectItem>
+                                <SelectItem value="no">No</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {editForm.repairable === 'yes' && (
+                              <div className="space-y-1.5">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-muted-foreground">$</span>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="Repair cost"
+                                    value={editForm.repair_cost}
+                                    onChange={(e) =>
+                                      setEditForm((f) => ({ ...f, repair_cost: e.target.value }))
+                                    }
+                                    className="w-20 h-7 text-right text-xs"
+                                  />
+                                </div>
+                                {editForm.repair_cost && (
+                                  <div className="flex items-center gap-1.5">
+                                    <Checkbox
+                                      id={`repair-${item.id}`}
+                                      checked={editForm.use_repair_cost}
+                                      onCheckedChange={(checked) =>
+                                        setEditForm((f) => ({ ...f, use_repair_cost: !!checked }))
+                                      }
+                                      className="h-3.5 w-3.5"
+                                    />
+                                    <label htmlFor={`repair-${item.id}`} className="text-xs text-muted-foreground cursor-pointer">
+                                      Use repair cost
+                                    </label>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         ) : item.repairable === true ? (
-                          <Badge variant="outline" className="gap-1">
-                            <Wrench className="h-3 w-3" />
-                            Yes
-                          </Badge>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="gap-1">
+                                <Wrench className="h-3 w-3" />
+                                Yes
+                              </Badge>
+                              {item.repair_quote_id ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 px-2 text-xs"
+                                  onClick={() => navigate('/repair-quotes')}
+                                >
+                                  <ExternalLink className="h-3 w-3 mr-1" />
+                                  Quote
+                                </Button>
+                              ) : canEdit && item.item_id && accountId && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2 text-xs"
+                                  disabled={creatingQuote}
+                                  onClick={() => handleRequestRepairQuote(item)}
+                                >
+                                  {creatingQuote ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <FileText className="h-3 w-3 mr-1" />
+                                      Get Quote
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                            {item.repair_cost != null && (
+                              <div className="text-xs">
+                                <span className="text-muted-foreground">Cost: </span>
+                                <span className={item.use_repair_cost ? 'text-green-600 font-medium' : ''}>
+                                  ${item.repair_cost.toFixed(2)}
+                                </span>
+                                {item.use_repair_cost && (
+                                  <Badge variant="secondary" className="ml-1.5 text-[10px] py-0 px-1">
+                                    <ArrowRightLeft className="h-2.5 w-2.5 mr-0.5" />
+                                    Repair
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         ) : item.repairable === false ? (
                           'No'
                         ) : (
@@ -339,16 +509,16 @@ export function ClaimItemsList({ claimId, claimStatus, onTotalsChange }: ClaimIt
                       <TableCell>
                         {isEditing ? (
                           <Select
-                            value={editForm.payout_method}
+                            value={editForm.payout_method || '_none'}
                             onValueChange={(v) =>
-                              setEditForm((f) => ({ ...f, payout_method: v }))
+                              setEditForm((f) => ({ ...f, payout_method: v === '_none' ? '' : v }))
                             }
                           >
                             <SelectTrigger className="w-24 h-8">
                               <SelectValue placeholder="-" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">-</SelectItem>
+                              <SelectItem value="_none">-</SelectItem>
                               <SelectItem value="credit">Credit</SelectItem>
                               <SelectItem value="check">Check</SelectItem>
                               <SelectItem value="repair_vendor_pay">Vendor</SelectItem>
@@ -417,20 +587,64 @@ export function ClaimItemsList({ claimId, claimStatus, onTotalsChange }: ClaimIt
 
           {/* Totals Summary */}
           <div className="mt-4 pt-4 border-t">
-            <div className="flex justify-end gap-8 text-sm">
-              <div>
-                <span className="text-muted-foreground">Total Requested:</span>{' '}
-                <span className="font-medium">
-                  ${items.reduce((sum, i) => sum + (i.requested_amount || 0), 0).toFixed(2)}
-                </span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Total Approved:</span>{' '}
-                <span className="font-bold text-green-600">
-                  ${items.reduce((sum, i) => sum + (i.approved_amount || 0), 0).toFixed(2)}
-                </span>
-              </div>
-            </div>
+            {(() => {
+              const claimTotals = calculateClaimPayout(items);
+              const hasStandardWithoutWeight = items.some(
+                i => i.coverage_type === 'standard' && !i.weight_lbs
+              );
+
+              return (
+                <div className="space-y-3">
+                  {hasStandardWithoutWeight && (
+                    <div className="flex items-start gap-2 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md">
+                      <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Weight required for accurate payout</p>
+                        <p className="text-xs mt-1 text-yellow-600/80 dark:text-yellow-400/80">
+                          Some items with standard coverage ($0.72/lb) are missing weight.
+                          Edit the item to add weight for accurate payout calculation.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap justify-end gap-x-8 gap-y-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Total Requested:</span>{' '}
+                      <span className="font-medium">
+                        ${items.reduce((sum, i) => sum + (i.requested_amount || 0), 0).toFixed(2)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Max Calculated:</span>{' '}
+                      <span className="font-medium">
+                        ${claimTotals.totalCalculatedPayout.toFixed(2)}
+                      </span>
+                    </div>
+                    {claimTotals.deductibleApplied > 0 && (
+                      <div>
+                        <span className="text-muted-foreground">Deductible (per claim):</span>{' '}
+                        <span className="font-medium text-red-600">
+                          -${claimTotals.deductibleApplied.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-muted-foreground">Net Max Payout:</span>{' '}
+                      <span className="font-bold">
+                        ${claimTotals.netPayout.toFixed(2)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Total Approved:</span>{' '}
+                      <span className="font-bold text-green-600">
+                        ${items.reduce((sum, i) => sum + (i.approved_amount || 0), 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </CardContent>
       </Card>

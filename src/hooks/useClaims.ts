@@ -32,6 +32,10 @@ export interface ClaimItem {
   repairable: boolean | null;
   repair_quote_id: string | null;
   repair_cost: number | null;
+  use_repair_cost: boolean;
+  determination_notes: string | null;
+  determined_by: string | null;
+  determined_at: string | null;
   payout_method: PayoutMethod | null;
   payout_processed: boolean;
   payout_processed_at: string | null;
@@ -776,7 +780,7 @@ export function useClaims(filters?: ClaimFilters) {
 
   const updateClaimItem = async (
     claimItemId: string,
-    updates: Partial<Pick<ClaimItem, 'requested_amount' | 'approved_amount' | 'deductible_applied' | 'repairable' | 'repair_cost' | 'payout_method' | 'item_notes'>>
+    updates: Partial<Pick<ClaimItem, 'requested_amount' | 'approved_amount' | 'deductible_applied' | 'weight_lbs' | 'repairable' | 'repair_cost' | 'use_repair_cost' | 'determination_notes' | 'determined_by' | 'determined_at' | 'payout_method' | 'item_notes'>>
   ): Promise<boolean> => {
     try {
       const { error } = await supabase
@@ -820,43 +824,142 @@ export function useClaims(filters?: ClaimFilters) {
   };
 
   // Calculate payout based on coverage rules
-  const calculateItemPayout = (item: ClaimItem): { maxPayout: number; deductible: number } => {
-    const STANDARD_RATE = 0.60; // $0.60 per lb for standard coverage
-    const DEFAULT_DEDUCTIBLE = 250; // Default deductible for full replacement with deductible
+  // NOTE: Deductible is $300 PER CLAIM (not per item) - apply deductible once at claim level
+  // Repair vs Replace: If item is repairable and has repair_cost, use the lower of repair vs replacement
+  const calculateItemPayout = (item: ClaimItem, applyDeductible: boolean = true): {
+    maxPayout: number;
+    deductible: number;
+    useRepairCost: boolean;
+    repairVsReplace?: { repairCost: number; replacementCost: number };
+  } => {
+    const STANDARD_RATE = 0.72; // $0.72 per lb for standard coverage
+    const CLAIM_DEDUCTIBLE = 300; // $300 deductible per claim for full replacement with deductible
+
+    // Calculate base replacement cost first
+    let replacementCost = 0;
+    let deductible = 0;
 
     switch (item.coverage_type) {
       case 'standard':
-        // $0.60 per lb, no deductible
+        // $0.72 per lb, no deductible
         const weight = item.weight_lbs || 0;
         const rate = item.coverage_rate || STANDARD_RATE;
-        return {
-          maxPayout: weight * rate,
-          deductible: 0,
-        };
+        replacementCost = weight * rate;
+        deductible = 0;
+        break;
 
       case 'full_replacement_deductible':
-        // Declared value minus deductible
+        // Declared value minus deductible (deductible applied once per claim)
         const declaredValue = item.declared_value || 0;
-        const deductible = DEFAULT_DEDUCTIBLE;
-        return {
-          maxPayout: Math.max(0, declaredValue - deductible),
-          deductible,
-        };
+        deductible = applyDeductible ? CLAIM_DEDUCTIBLE : 0;
+        replacementCost = Math.max(0, declaredValue - deductible);
+        break;
 
       case 'full_replacement_no_deductible':
         // Full declared value
-        return {
-          maxPayout: item.declared_value || 0,
-          deductible: 0,
-        };
+        replacementCost = item.declared_value || 0;
+        deductible = 0;
+        break;
 
       default:
         // No coverage - no payout
         return {
           maxPayout: 0,
           deductible: 0,
+          useRepairCost: false,
         };
     }
+
+    // Repair vs Replace logic: If item is repairable and has repair cost, use the lower amount
+    if (item.repairable && item.repair_cost != null && item.repair_cost > 0) {
+      const repairCost = item.repair_cost;
+      const useRepair = repairCost < replacementCost || item.use_repair_cost;
+
+      return {
+        maxPayout: useRepair ? repairCost : replacementCost,
+        deductible,
+        useRepairCost: useRepair,
+        repairVsReplace: {
+          repairCost,
+          replacementCost,
+        },
+      };
+    }
+
+    return {
+      maxPayout: replacementCost,
+      deductible,
+      useRepairCost: false,
+    };
+  };
+
+  // Calculate total claim payout with deductible applied once per claim
+  const calculateClaimPayout = (items: ClaimItem[]): {
+    totalDeclaredValue: number;
+    totalCalculatedPayout: number;
+    deductibleApplied: number;
+    netPayout: number;
+    repairSavings: number;
+    itemBreakdown: Array<{
+      itemId: string;
+      payout: number;
+      coverageType: CoverageType;
+      useRepairCost: boolean;
+      repairVsReplace?: { repairCost: number; replacementCost: number };
+    }>;
+  } => {
+    const CLAIM_DEDUCTIBLE = 300;
+
+    let totalDeclaredValue = 0;
+    let totalCalculatedPayout = 0;
+    let repairSavings = 0;
+    let hasDeductibleCoverage = false;
+    const itemBreakdown: Array<{
+      itemId: string;
+      payout: number;
+      coverageType: CoverageType;
+      useRepairCost: boolean;
+      repairVsReplace?: { repairCost: number; replacementCost: number };
+    }> = [];
+
+    for (const item of items) {
+      // Calculate without deductible first (we apply it once at end)
+      const result = calculateItemPayout(item, false);
+
+      totalCalculatedPayout += result.maxPayout;
+      totalDeclaredValue += item.declared_value || 0;
+
+      // Track repair savings
+      if (result.useRepairCost && result.repairVsReplace) {
+        repairSavings += result.repairVsReplace.replacementCost - result.repairVsReplace.repairCost;
+      }
+
+      // Track if any item has deductible coverage
+      if (item.coverage_type === 'full_replacement_deductible') {
+        hasDeductibleCoverage = true;
+      }
+
+      itemBreakdown.push({
+        itemId: item.item_id || item.non_inventory_ref || item.id,
+        payout: result.maxPayout,
+        coverageType: item.coverage_type,
+        useRepairCost: result.useRepairCost,
+        repairVsReplace: result.repairVsReplace,
+      });
+    }
+
+    // Apply deductible once per claim if any item has deductible coverage
+    const deductibleApplied = hasDeductibleCoverage ? CLAIM_DEDUCTIBLE : 0;
+    const netPayout = Math.max(0, totalCalculatedPayout - deductibleApplied);
+
+    return {
+      totalDeclaredValue,
+      totalCalculatedPayout,
+      deductibleApplied,
+      netPayout,
+      repairSavings,
+      itemBreakdown,
+    };
   };
 
   return {
@@ -887,6 +990,7 @@ export function useClaims(filters?: ClaimFilters) {
     updateClaimItem,
     removeClaimItem,
     calculateItemPayout,
+    calculateClaimPayout,
   };
 }
 

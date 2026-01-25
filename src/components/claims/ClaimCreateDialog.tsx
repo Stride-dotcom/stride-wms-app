@@ -82,6 +82,7 @@ interface Item {
   sidemark_id: string | null;
   coverage_type: string | null;
   declared_value: number | null;
+  weight_lbs: number | null;
   primary_photo_url: string | null;
 }
 
@@ -204,7 +205,7 @@ export function ClaimCreateDialog({
 
     let query = supabase
       .from('items')
-      .select('id, item_code, description, account_id, sidemark_id, coverage_type, declared_value, primary_photo_url')
+      .select('id, item_code, description, account_id, sidemark_id, coverage_type, declared_value, weight_lbs, primary_photo_url')
       .eq('tenant_id', profile?.tenant_id)
       .eq('account_id', selectedAccountId)
       .is('deleted_at', null)
@@ -224,7 +225,7 @@ export function ClaimCreateDialog({
   const loadInitialItems = async (ids: string[]) => {
     const { data } = await supabase
       .from('items')
-      .select('id, item_code, description, account_id, sidemark_id, coverage_type, declared_value, primary_photo_url')
+      .select('id, item_code, description, account_id, sidemark_id, coverage_type, declared_value, weight_lbs, primary_photo_url')
       .in('id', ids);
 
     if (data && data.length > 0) {
@@ -336,7 +337,7 @@ export function ClaimCreateDialog({
 
   const getCoverageLabel = (type: string | null) => {
     switch (type) {
-      case 'standard': return 'Standard ($0.60/lb)';
+      case 'standard': return 'Standard ($0.72/lb)';
       case 'full_replacement_deductible': return 'Full w/ Deductible';
       case 'full_replacement_no_deductible': return 'Full Replacement';
       case 'pending': return 'Pending';
@@ -407,12 +408,15 @@ export function ClaimCreateDialog({
                     </div>
                     <div className="space-y-2">
                       <Label>Sidemark / Project (Optional)</Label>
-                      <Select value={selectedSidemarkId} onValueChange={setSelectedSidemarkId}>
+                      <Select
+                        value={selectedSidemarkId || '_all'}
+                        onValueChange={(v) => setSelectedSidemarkId(v === '_all' ? '' : v)}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Filter by sidemark" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">All Sidemarks</SelectItem>
+                          <SelectItem value="_all">All Sidemarks</SelectItem>
                           {sidemarks.map((sm) => (
                             <SelectItem key={sm.id} value={sm.id}>{sm.sidemark_name}</SelectItem>
                           ))}
@@ -511,31 +515,62 @@ export function ClaimCreateDialog({
 
                     {/* Selected Items Display */}
                     {selectedItems.length > 0 && (
-                      <div className="border rounded-md p-2 space-y-1 max-h-32 overflow-y-auto">
-                        {selectedItems.map((item) => (
-                          <div
-                            key={item.id}
-                            className="flex items-center justify-between gap-2 p-2 bg-muted/50 rounded text-sm"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="font-mono">{item.item_code}</span>
-                              {item.description && (
-                                <span className="text-muted-foreground truncate">
-                                  - {item.description.slice(0, 30)}
-                                </span>
+                      <div className="border rounded-md p-2 space-y-1 max-h-40 overflow-y-auto">
+                        {selectedItems.map((item) => {
+                          const needsWeight = item.coverage_type === 'standard' && !item.weight_lbs;
+                          return (
+                            <div
+                              key={item.id}
+                              className={cn(
+                                "flex items-center justify-between gap-2 p-2 rounded text-sm",
+                                needsWeight ? "bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800" : "bg-muted/50"
                               )}
-                            </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeSelectedItem(item.id)}
-                              className="h-6 w-6 p-0"
                             >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <span className="font-mono">{item.item_code}</span>
+                                {item.description && (
+                                  <span className="text-muted-foreground truncate">
+                                    - {item.description.slice(0, 30)}
+                                  </span>
+                                )}
+                                {needsWeight && (
+                                  <span className="text-yellow-600 dark:text-yellow-400 text-xs flex items-center gap-1 whitespace-nowrap">
+                                    <AlertCircle className="h-3 w-3" />
+                                    Weight required
+                                  </span>
+                                )}
+                                {item.coverage_type === 'standard' && item.weight_lbs && (
+                                  <span className="text-muted-foreground text-xs whitespace-nowrap">
+                                    {item.weight_lbs} lbs
+                                  </span>
+                                )}
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeSelectedItem(item.id)}
+                                className="h-6 w-6 p-0 flex-shrink-0"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Weight Warning */}
+                    {selectedItems.some(i => i.coverage_type === 'standard' && !i.weight_lbs) && (
+                      <div className="flex items-start gap-2 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md">
+                        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium">Weight required for standard coverage</p>
+                          <p className="text-xs mt-1 text-yellow-600/80 dark:text-yellow-400/80">
+                            Some items have standard coverage ($0.72/lb) but no weight recorded.
+                            Weight must be captured on the claim items after filing.
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>

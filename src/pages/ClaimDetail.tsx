@@ -166,7 +166,12 @@ export default function ClaimDetail() {
             </Card>
 
             {/* Claim Items (Multi-Item Support) */}
-            <ClaimItemsList claimId={claim.id} claimStatus={claim.status} />
+            <ClaimItemsList
+              claimId={claim.id}
+              claimStatus={claim.status}
+              accountId={claim.account_id || undefined}
+              sidemarkId={claim.sidemark_id || undefined}
+            />
 
             {/* Incident & Contact Info - Only show if there's incident data */}
             {(claim.incident_contact_name || claim.incident_location || claim.incident_contact_phone || claim.incident_contact_email) && (
