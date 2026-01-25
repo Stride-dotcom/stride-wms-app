@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLocations } from '@/hooks/useLocations';
+import { useStocktakeFreezeCheck } from '@/hooks/useStocktakes';
 import { QRScanner } from '@/components/scan/QRScanner';
 import { ItemSearchOverlay, LocationSearchOverlay } from '@/components/scan/SearchOverlays';
 import {
@@ -57,6 +58,7 @@ export default function ScanHub() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { locations } = useLocations();
+  const { checkFreeze } = useStocktakeFreezeCheck();
   
   const [mode, setMode] = useState<ScanMode>(null);
   const [phase, setPhase] = useState<ScanPhase>('idle');
@@ -306,11 +308,26 @@ export default function ScanHub() {
 
   const executeMove = async () => {
     if (!targetLocation) return;
-    
+
     setProcessing(true);
     try {
       const items = mode === 'move' && scannedItem ? [scannedItem] : batchItems;
       let successCount = 0;
+
+      // Check for freeze moves on all items
+      for (const item of items) {
+        const freezeStatus = await checkFreeze(item.id);
+        if (freezeStatus.isFrozen) {
+          hapticError();
+          toast({
+            variant: 'destructive',
+            title: 'Movement Blocked',
+            description: freezeStatus.message || `Item is frozen by stocktake ${freezeStatus.stocktakeNumber}`,
+          });
+          setProcessing(false);
+          return;
+        }
+      }
 
       for (const item of items) {
         const { error } = await (supabase.from('items') as any)

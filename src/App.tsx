@@ -32,16 +32,20 @@ import Claims from "./pages/Claims";
 import ClaimDetail from "./pages/ClaimDetail";
 import CoverageQuickEntry from "./pages/CoverageQuickEntry";
 import Stocktakes from "./pages/Stocktakes";
+import StocktakeScanView from "./components/stocktakes/StocktakeScanView";
+import StocktakeReport from "./components/stocktakes/StocktakeReport";
 import RepairTechAccess from "./pages/RepairTechAccess";
 import TechQuoteSubmit from "./pages/TechQuoteSubmit";
 import Technicians from "./pages/Technicians";
 import RepairQuotes from "./pages/RepairQuotes";
 import ClientQuoteReview from "./pages/ClientQuoteReview";
 import ClientActivate from "./pages/ClientActivate";
+import ClaimAcceptance from "./pages/ClaimAcceptance";
 import ClientLogin from "./pages/ClientLogin";
 import ClientDashboard from "./pages/ClientDashboard";
 import ClientItems from "./pages/ClientItems";
 import ClientQuotes from "./pages/ClientQuotes";
+import ClientClaims from "./pages/ClientClaims";
 import ScanHub from "./pages/ScanHub";
 import ScanItemRedirect from "./pages/ScanItemRedirect";
 import PrintPreview from "./pages/PrintPreview";
@@ -89,6 +93,8 @@ const App = () => (
             <Route path="/claims/:id" element={<ProtectedRoute><RequireRole role="tenant_admin"><ClaimDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/coverage" element={<ProtectedRoute><RequireRole role="tenant_admin"><CoverageQuickEntry /></RequireRole></ProtectedRoute>} />
             <Route path="/stocktakes" element={<ProtectedRoute><Stocktakes /></ProtectedRoute>} />
+            <Route path="/stocktakes/:id/scan" element={<ProtectedRoute><StocktakeScanView /></ProtectedRoute>} />
+            <Route path="/stocktakes/:id/report" element={<ProtectedRoute><StocktakeReport /></ProtectedRoute>} />
             
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/accounts" element={<ProtectedRoute><RequireRole role="tenant_admin"><Accounts /></RequireRole></ProtectedRoute>} />
@@ -101,11 +107,13 @@ const App = () => (
             <Route path="/repair-access" element={<RepairTechAccess />} />
             <Route path="/quote/tech" element={<TechQuoteSubmit />} />
             <Route path="/quote/review" element={<ClientQuoteReview />} />
+            <Route path="/claim/accept/:token" element={<ClaimAcceptance />} />
             <Route path="/activate" element={<ClientActivate />} />
             <Route path="/client/login" element={<ClientLogin />} />
             <Route path="/client" element={<ProtectedRoute><ClientDashboard /></ProtectedRoute>} />
             <Route path="/client/items" element={<ProtectedRoute><ClientItems /></ProtectedRoute>} />
             <Route path="/client/quotes" element={<ProtectedRoute><ClientQuotes /></ProtectedRoute>} />
+            <Route path="/client/claims" element={<ProtectedRoute><ClientClaims /></ProtectedRoute>} />
             <Route path="/components-demo" element={<ProtectedRoute><ComponentsDemo /></ProtectedRoute>} />
             <Route path="/print-preview" element={<PrintPreview />} />
             <Route path="*" element={<NotFound />} />

@@ -10,6 +10,7 @@ import { LegalLinksSection } from './LegalLinksSection';
 import { DefaultNotesSection } from './DefaultNotesSection';
 import { ComingSoonSection } from './ComingSoonSection';
 import { EmailDomainSection } from './EmailDomainSection';
+import { ClaimSettingsSection } from './ClaimSettingsSection';
 import { SortableCard } from './SortableCard';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,7 @@ import {
 const DEFAULT_CARD_ORDER = [
   'storage-inspection',
   'billing-rates',
+  'claim-settings',
   'custom-field-labels',
   'cancellation-fees',
   'operational-rules',
@@ -174,6 +176,11 @@ export function PreferencesContent() {
           baseRateIncludesPieces={preferences?.base_rate_includes_pieces}
           additionalPieceRate={preferences?.additional_piece_rate}
         />
+      </SortableCard>
+    ),
+    'claim-settings': (
+      <SortableCard id="claim-settings" key="claim-settings">
+        <ClaimSettingsSection />
       </SortableCard>
     ),
     'custom-field-labels': (

@@ -10,15 +10,75 @@ type ClaimInsert = Database['public']['Tables']['claims']['Insert'];
 type ClaimUpdate = Database['public']['Tables']['claims']['Update'];
 
 export type ClaimType = 'shipping_damage' | 'manufacture_defect' | 'handling_damage' | 'property_damage' | 'lost_item';
-export type ClaimStatus = 'initiated' | 'under_review' | 'denied' | 'approved' | 'credited' | 'paid' | 'closed';
+export type ClaimStatus = 'initiated' | 'under_review' | 'pending_approval' | 'pending_acceptance' | 'accepted' | 'declined' | 'denied' | 'approved' | 'credited' | 'paid' | 'closed';
+export type CoverageType = 'standard' | 'full_replacement_deductible' | 'full_replacement_no_deductible' | 'pending' | null;
+export type PayoutMethod = 'credit' | 'check' | 'repair_vendor_pay';
+
+// Claim item for multi-item claims
+export interface ClaimItem {
+  id: string;
+  tenant_id: string;
+  claim_id: string;
+  item_id: string | null;
+  non_inventory_ref: string | null;
+  coverage_type: CoverageType;
+  declared_value: number | null;
+  weight_lbs: number | null;
+  coverage_rate: number | null;
+  requested_amount: number | null;
+  calculated_amount: number | null;
+  approved_amount: number | null;
+  deductible_applied: number | null;
+  repairable: boolean | null;
+  repair_quote_id: string | null;
+  repair_cost: number | null;
+  use_repair_cost: boolean;
+  determination_notes: string | null;
+  determined_by: string | null;
+  determined_at: string | null;
+  payout_method: PayoutMethod | null;
+  payout_processed: boolean;
+  payout_processed_at: string | null;
+  item_notes: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  item?: {
+    id: string;
+    item_code: string;
+    description: string | null;
+    primary_photo_url: string | null;
+  } | null;
+}
+
+export interface ClaimItemInput {
+  item_id?: string;
+  non_inventory_ref?: string;
+  requested_amount?: number;
+  item_notes?: string;
+}
 
 export interface Claim extends ClaimRow {
-  account?: { id: string; account_name: string } | null;
+  account?: { id: string; account_name: string; contact_email?: string } | null;
   sidemark?: { id: string; sidemark_name: string } | null;
   item?: { id: string; item_code: string; description: string | null } | null;
   shipment?: { id: string; shipment_number: string } | null;
   filed_by_user?: { id: string; first_name: string | null; last_name: string | null } | null;
   assigned_to_user?: { id: string; first_name: string | null; last_name: string | null } | null;
+  // Multi-item aggregates
+  item_count?: number;
+  claim_items?: ClaimItem[];
+  // Acceptance workflow fields (from extended claims table)
+  acceptance_token?: string;
+  acceptance_token_expires_at?: string | null;
+  sent_for_acceptance_at?: string | null;
+  sent_for_acceptance_by?: string | null;
+  payout_method?: 'credit' | 'check' | 'ach' | null;
+  settlement_accepted_at?: string | null;
+  settlement_declined_at?: string | null;
+  decline_reason?: string | null;
+  counter_offer_amount?: number | null;
+  counter_offer_notes?: string | null;
 }
 
 export interface ClaimAttachment {
@@ -58,13 +118,18 @@ export interface CreateClaimData {
   account_id: string;
   sidemark_id?: string | null;
   shipment_id?: string | null;
-  item_id?: string | null;
+  item_id?: string | null; // Legacy single item support
+  item_ids?: string[]; // Multi-item support
   non_inventory_ref?: string | null;
   incident_location?: string | null;
   incident_contact_name?: string | null;
   incident_contact_phone?: string | null;
   incident_contact_email?: string | null;
+  incident_date?: string | null;
   description: string;
+  public_notes?: string | null;
+  internal_notes?: string | null;
+  client_initiated?: boolean;
 }
 
 // Generate claim number in CLM-XXX-XXXX format
@@ -151,10 +216,13 @@ export function useClaims(filters?: ClaimFilters) {
 
     try {
       const claimNumber = generateClaimNumber();
-      
-      // Get coverage snapshot if item_id is provided
+
+      // Determine which items to process
+      const itemIds = data.item_ids?.length ? data.item_ids : (data.item_id ? [data.item_id] : []);
+
+      // Get coverage snapshot if single item_id is provided (legacy support)
       let coverageSnapshot: Json | null = null;
-      if (data.item_id) {
+      if (data.item_id && !data.item_ids?.length) {
         const { data: item } = await supabase
           .from('items')
           .select('coverage_type, declared_value, weight_lbs, coverage_deductible, coverage_rate')
@@ -173,7 +241,7 @@ export function useClaims(filters?: ClaimFilters) {
         account_id: data.account_id,
         sidemark_id: data.sidemark_id || null,
         shipment_id: data.shipment_id || null,
-        item_id: data.item_id || null,
+        item_id: data.item_id || null, // Keep for legacy single-item
         non_inventory_ref: data.non_inventory_ref || null,
         incident_location: data.incident_location || null,
         incident_contact_name: data.incident_contact_name || null,
@@ -193,18 +261,47 @@ export function useClaims(filters?: ClaimFilters) {
 
       if (error) throw error;
 
+      // Create claim_items for multi-item support
+      if (itemIds.length > 0) {
+        // Fetch all item details for coverage snapshots
+        const { data: itemsData } = await supabase
+          .from('items')
+          .select('id, coverage_type, declared_value, weight_lbs, coverage_rate')
+          .in('id', itemIds);
+
+        const itemsMap = new Map(itemsData?.map(i => [i.id, i]) || []);
+
+        const claimItemsInsert = itemIds.map(itemId => {
+          const itemData = itemsMap.get(itemId);
+          return {
+            tenant_id: profile.tenant_id,
+            claim_id: result.id,
+            item_id: itemId,
+            coverage_type: itemData?.coverage_type || null,
+            declared_value: itemData?.declared_value || null,
+            weight_lbs: itemData?.weight_lbs || null,
+            coverage_rate: itemData?.coverage_rate || null,
+          };
+        });
+
+        await supabase.from('claim_items').insert(claimItemsInsert);
+      }
+
       // Create audit entry
       await supabase.from('claim_audit').insert([{
         tenant_id: profile.tenant_id,
         claim_id: result.id,
         actor_id: profile.id,
         action: 'created',
-        details: { claim_type: data.claim_type } as Json,
+        details: {
+          claim_type: data.claim_type,
+          item_count: itemIds.length,
+        } as Json,
       }]);
 
       toast({
         title: 'Claim Filed',
-        description: `Claim ${result.claim_number} has been created`,
+        description: `Claim ${result.claim_number} has been created${itemIds.length > 1 ? ` with ${itemIds.length} items` : ''}`,
       });
 
       // Queue claim filed alert
@@ -626,6 +723,256 @@ export function useClaims(filters?: ClaimFilters) {
     }
   };
 
+  // Claim Items (multi-item support)
+  const fetchClaimItems = async (claimId: string): Promise<ClaimItem[]> => {
+    const { data, error } = await supabase
+      .from('claim_items')
+      .select(`
+        *,
+        item:items(id, item_code, description, primary_photo_url)
+      `)
+      .eq('claim_id', claimId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching claim items:', error);
+      return [];
+    }
+    return (data || []) as unknown as ClaimItem[];
+  };
+
+  const addClaimItem = async (
+    claimId: string,
+    itemId: string,
+    notes?: string
+  ): Promise<ClaimItem | null> => {
+    if (!profile?.tenant_id) return null;
+
+    try {
+      // Get item coverage data
+      const { data: itemData } = await supabase
+        .from('items')
+        .select('coverage_type, declared_value, weight_lbs, coverage_rate')
+        .eq('id', itemId)
+        .single();
+
+      const { data, error } = await supabase
+        .from('claim_items')
+        .insert([{
+          tenant_id: profile.tenant_id,
+          claim_id: claimId,
+          item_id: itemId,
+          coverage_type: itemData?.coverage_type || null,
+          declared_value: itemData?.declared_value || null,
+          weight_lbs: itemData?.weight_lbs || null,
+          coverage_rate: itemData?.coverage_rate || null,
+          item_notes: notes || null,
+        }])
+        .select(`
+          *,
+          item:items(id, item_code, description, primary_photo_url)
+        `)
+        .single();
+
+      if (error) throw error;
+
+      toast({ title: 'Item Added to Claim' });
+      return data as unknown as ClaimItem;
+    } catch (error) {
+      console.error('Error adding claim item:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to add item to claim',
+      });
+      return null;
+    }
+  };
+
+  const updateClaimItem = async (
+    claimItemId: string,
+    updates: Partial<Pick<ClaimItem, 'requested_amount' | 'approved_amount' | 'deductible_applied' | 'weight_lbs' | 'repairable' | 'repair_cost' | 'use_repair_cost' | 'determination_notes' | 'determined_by' | 'determined_at' | 'payout_method' | 'item_notes'>>
+  ): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('claim_items')
+        .update(updates)
+        .eq('id', claimItemId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error updating claim item:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update claim item',
+      });
+      return false;
+    }
+  };
+
+  const removeClaimItem = async (claimItemId: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('claim_items')
+        .delete()
+        .eq('id', claimItemId);
+
+      if (error) throw error;
+
+      toast({ title: 'Item Removed from Claim' });
+      return true;
+    } catch (error) {
+      console.error('Error removing claim item:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to remove item from claim',
+      });
+      return false;
+    }
+  };
+
+  // Calculate payout based on coverage rules
+  // NOTE: Deductible is $300 PER CLAIM (not per item) - apply deductible once at claim level
+  // Repair vs Replace: If item is repairable and has repair_cost, use the lower of repair vs replacement
+  const calculateItemPayout = (item: ClaimItem, applyDeductible: boolean = true): {
+    maxPayout: number;
+    deductible: number;
+    useRepairCost: boolean;
+    repairVsReplace?: { repairCost: number; replacementCost: number };
+  } => {
+    const STANDARD_RATE = 0.72; // $0.72 per lb for standard coverage
+    const CLAIM_DEDUCTIBLE = 300; // $300 deductible per claim for full replacement with deductible
+
+    // Calculate base replacement cost first
+    let replacementCost = 0;
+    let deductible = 0;
+
+    switch (item.coverage_type) {
+      case 'standard':
+        // $0.72 per lb, no deductible
+        const weight = item.weight_lbs || 0;
+        const rate = item.coverage_rate || STANDARD_RATE;
+        replacementCost = weight * rate;
+        deductible = 0;
+        break;
+
+      case 'full_replacement_deductible':
+        // Declared value minus deductible (deductible applied once per claim)
+        const declaredValue = item.declared_value || 0;
+        deductible = applyDeductible ? CLAIM_DEDUCTIBLE : 0;
+        replacementCost = Math.max(0, declaredValue - deductible);
+        break;
+
+      case 'full_replacement_no_deductible':
+        // Full declared value
+        replacementCost = item.declared_value || 0;
+        deductible = 0;
+        break;
+
+      default:
+        // No coverage - no payout
+        return {
+          maxPayout: 0,
+          deductible: 0,
+          useRepairCost: false,
+        };
+    }
+
+    // Repair vs Replace logic: If item is repairable and has repair cost, use the lower amount
+    if (item.repairable && item.repair_cost != null && item.repair_cost > 0) {
+      const repairCost = item.repair_cost;
+      const useRepair = repairCost < replacementCost || item.use_repair_cost;
+
+      return {
+        maxPayout: useRepair ? repairCost : replacementCost,
+        deductible,
+        useRepairCost: useRepair,
+        repairVsReplace: {
+          repairCost,
+          replacementCost,
+        },
+      };
+    }
+
+    return {
+      maxPayout: replacementCost,
+      deductible,
+      useRepairCost: false,
+    };
+  };
+
+  // Calculate total claim payout with deductible applied once per claim
+  const calculateClaimPayout = (items: ClaimItem[]): {
+    totalDeclaredValue: number;
+    totalCalculatedPayout: number;
+    deductibleApplied: number;
+    netPayout: number;
+    repairSavings: number;
+    itemBreakdown: Array<{
+      itemId: string;
+      payout: number;
+      coverageType: CoverageType;
+      useRepairCost: boolean;
+      repairVsReplace?: { repairCost: number; replacementCost: number };
+    }>;
+  } => {
+    const CLAIM_DEDUCTIBLE = 300;
+
+    let totalDeclaredValue = 0;
+    let totalCalculatedPayout = 0;
+    let repairSavings = 0;
+    let hasDeductibleCoverage = false;
+    const itemBreakdown: Array<{
+      itemId: string;
+      payout: number;
+      coverageType: CoverageType;
+      useRepairCost: boolean;
+      repairVsReplace?: { repairCost: number; replacementCost: number };
+    }> = [];
+
+    for (const item of items) {
+      // Calculate without deductible first (we apply it once at end)
+      const result = calculateItemPayout(item, false);
+
+      totalCalculatedPayout += result.maxPayout;
+      totalDeclaredValue += item.declared_value || 0;
+
+      // Track repair savings
+      if (result.useRepairCost && result.repairVsReplace) {
+        repairSavings += result.repairVsReplace.replacementCost - result.repairVsReplace.repairCost;
+      }
+
+      // Track if any item has deductible coverage
+      if (item.coverage_type === 'full_replacement_deductible') {
+        hasDeductibleCoverage = true;
+      }
+
+      itemBreakdown.push({
+        itemId: item.item_id || item.non_inventory_ref || item.id,
+        payout: result.maxPayout,
+        coverageType: item.coverage_type,
+        useRepairCost: result.useRepairCost,
+        repairVsReplace: result.repairVsReplace,
+      });
+    }
+
+    // Apply deductible once per claim if any item has deductible coverage
+    const deductibleApplied = hasDeductibleCoverage ? CLAIM_DEDUCTIBLE : 0;
+    const netPayout = Math.max(0, totalCalculatedPayout - deductibleApplied);
+
+    return {
+      totalDeclaredValue,
+      totalCalculatedPayout,
+      deductibleApplied,
+      netPayout,
+      repairSavings,
+      itemBreakdown,
+    };
+  };
+
   return {
     claims,
     loading,
@@ -648,6 +995,13 @@ export function useClaims(filters?: ClaimFilters) {
     requestEscalation,
     // Credits
     issueCredit,
+    // Claim Items (multi-item)
+    fetchClaimItems,
+    addClaimItem,
+    updateClaimItem,
+    removeClaimItem,
+    calculateItemPayout,
+    calculateClaimPayout,
   };
 }
 
@@ -663,6 +1017,10 @@ export const CLAIM_TYPE_LABELS: Record<ClaimType, string> = {
 export const CLAIM_STATUS_LABELS: Record<ClaimStatus, string> = {
   initiated: 'Initiated',
   under_review: 'Under Review',
+  pending_approval: 'Pending Approval',
+  pending_acceptance: 'Pending Client Acceptance',
+  accepted: 'Client Accepted',
+  declined: 'Client Declined',
   denied: 'Denied',
   approved: 'Approved',
   credited: 'Credited',

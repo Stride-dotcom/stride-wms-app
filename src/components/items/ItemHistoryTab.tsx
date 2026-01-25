@@ -13,7 +13,22 @@ import {
   StickyNote,
   Wrench,
   History,
+  Info,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Button } from '@/components/ui/button';
 
 interface HistoryEvent {
   id: string;
@@ -72,9 +87,9 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
         });
       }
 
-      // 2. Fetch billing events
+      // 2. Fetch billing events with calculation metadata
       const { data: billingEvents } = await (supabase.from('billing_events') as any)
-        .select('id, event_type, charge_type, description, total_amount, created_at')
+        .select('id, event_type, charge_type, description, total_amount, created_at, calculation_metadata')
         .eq('item_id', itemId)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -84,10 +99,13 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
           allEvents.push({
             id: `billing-${b.id}`,
             type: 'billing',
-            title: b.charge_type.replace('_', ' ').toUpperCase(),
-            description: `${b.description || b.event_type} - $${b.total_amount.toFixed(2)}`,
+            title: b.charge_type?.replace('_', ' ').toUpperCase() || 'CHARGE',
+            description: `${b.description || b.event_type} - $${b.total_amount?.toFixed(2) || '0.00'}`,
             timestamp: b.created_at,
-            metadata: { amount: b.total_amount },
+            metadata: {
+              amount: b.total_amount,
+              calculation: b.calculation_metadata,
+            },
           });
         });
       }
@@ -311,6 +329,11 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
                     <p className="text-xs text-muted-foreground mt-1">
                       {format(new Date(event.timestamp), 'MMM d, yyyy h:mm a')}
                     </p>
+
+                    {/* Billing Calculation Metadata */}
+                    {event.type === 'billing' && event.metadata?.calculation && (
+                      <BillingMetadataDisplay calculation={event.metadata.calculation} />
+                    )}
                   </div>
                 </div>
               ))}
@@ -319,5 +342,162 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
         </ScrollArea>
       </CardContent>
     </Card>
+  );
+}
+
+// ============================================================================
+// Billing Metadata Display Component
+// Shows detailed calculation breakdown for billing events
+// ============================================================================
+
+interface BillingMetadataDisplayProps {
+  calculation: {
+    service_code?: string;
+    base_rate_source?: string;
+    base_rate?: number;
+    size_category?: string;
+    assembly_tier?: number;
+    flags_applied?: Array<{
+      flag: string;
+      source: string;
+      adds_percent: number;
+      adds_flat: number;
+      adds_minutes: number;
+    }>;
+    rate_after_flags?: number;
+    account_adjustment_percent?: number;
+    rate_after_account_adj?: number;
+    final_rate?: number;
+    final_minutes?: number;
+    flag_key?: string;
+    flag_display_name?: string;
+    triggered_by?: string;
+  };
+}
+
+function BillingMetadataDisplay({ calculation }: BillingMetadataDisplayProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!calculation || Object.keys(calculation).length === 0) {
+    return null;
+  }
+
+  const hasDetailedBreakdown = calculation.base_rate !== undefined ||
+    (calculation.flags_applied && calculation.flags_applied.length > 0) ||
+    calculation.account_adjustment_percent !== undefined;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost" size="sm" className="mt-2 p-1 h-auto text-xs text-muted-foreground hover:text-foreground">
+          <Info className="h-3 w-3 mr-1" />
+          View calculation details
+          {isOpen ? (
+            <ChevronUp className="h-3 w-3 ml-1" />
+          ) : (
+            <ChevronDown className="h-3 w-3 ml-1" />
+          )}
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="mt-2 p-2 bg-background rounded border text-xs space-y-1">
+          {calculation.triggered_by && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Triggered by:</span>
+              <span className="font-medium">{calculation.triggered_by}</span>
+            </div>
+          )}
+
+          {calculation.flag_display_name && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Flag:</span>
+              <span className="font-medium">{calculation.flag_display_name}</span>
+            </div>
+          )}
+
+          {calculation.service_code && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Service:</span>
+              <span className="font-medium">{calculation.service_code}</span>
+            </div>
+          )}
+
+          {calculation.base_rate_source && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Rate source:</span>
+              <span className="font-medium">{calculation.base_rate_source.replace(/_/g, ' ')}</span>
+            </div>
+          )}
+
+          {calculation.size_category && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Size category:</span>
+              <span className="font-medium">{calculation.size_category}</span>
+            </div>
+          )}
+
+          {calculation.assembly_tier && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Assembly tier:</span>
+              <span className="font-medium">Tier {calculation.assembly_tier}</span>
+            </div>
+          )}
+
+          {calculation.base_rate !== undefined && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Base rate:</span>
+              <span className="font-medium">${calculation.base_rate.toFixed(2)}</span>
+            </div>
+          )}
+
+          {calculation.flags_applied && calculation.flags_applied.length > 0 && (
+            <div className="border-t pt-1 mt-1">
+              <span className="text-muted-foreground font-medium">Flags applied:</span>
+              {calculation.flags_applied.map((flag, i) => (
+                <div key={i} className="ml-2 flex justify-between text-xs">
+                  <span>{flag.flag}</span>
+                  <span className="text-muted-foreground">
+                    {flag.adds_percent > 0 && `+${flag.adds_percent}%`}
+                    {flag.adds_flat > 0 && ` +$${flag.adds_flat.toFixed(2)}`}
+                    {flag.adds_minutes > 0 && ` +${flag.adds_minutes}min`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {calculation.rate_after_flags !== undefined && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">After flags:</span>
+              <span className="font-medium">${calculation.rate_after_flags.toFixed(2)}</span>
+            </div>
+          )}
+
+          {calculation.account_adjustment_percent !== undefined && calculation.account_adjustment_percent !== 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Account adjustment:</span>
+              <span className="font-medium">
+                {calculation.account_adjustment_percent > 0 ? '+' : ''}
+                {calculation.account_adjustment_percent}%
+              </span>
+            </div>
+          )}
+
+          {calculation.final_rate !== undefined && (
+            <div className="flex justify-between border-t pt-1 mt-1">
+              <span className="text-muted-foreground font-medium">Final rate:</span>
+              <span className="font-bold text-green-600">${calculation.final_rate.toFixed(2)}</span>
+            </div>
+          )}
+
+          {calculation.final_minutes !== undefined && calculation.final_minutes > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Estimated time:</span>
+              <span className="font-medium">{calculation.final_minutes} min</span>
+            </div>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

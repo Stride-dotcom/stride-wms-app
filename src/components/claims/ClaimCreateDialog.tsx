@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
@@ -12,6 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -19,11 +22,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClaims, ClaimType, CLAIM_TYPE_LABELS } from '@/hooks/useClaims';
-import { Loader2, Package, Truck, AlertTriangle, MapPin } from 'lucide-react';
+import {
+  Loader2,
+  Package,
+  Truck,
+  MapPin,
+  Search,
+  X,
+  ChevronsUpDown,
+  Check,
+  AlertCircle,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ClaimCreateDialogProps {
   open: boolean;
@@ -53,6 +80,10 @@ interface Item {
   description: string | null;
   account_id: string | null;
   sidemark_id: string | null;
+  coverage_type: string | null;
+  declared_value: number | null;
+  weight_lbs: number | null;
+  primary_photo_url: string | null;
 }
 
 interface Shipment {
@@ -62,7 +93,7 @@ interface Shipment {
   sidemark_id: string | null;
 }
 
-type ClaimContext = 'item' | 'shipment' | 'inventory' | 'property';
+type ClaimContext = 'items' | 'shipment' | 'property';
 
 export function ClaimCreateDialog({
   open,
@@ -78,34 +109,36 @@ export function ClaimCreateDialog({
   const { createClaim } = useClaims();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [context, setContext] = useState<ClaimContext>('item');
-  
+  const [context, setContext] = useState<ClaimContext>('items');
+
   // Reference data
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [sidemarks, setSidemarks] = useState<Sidemark[]>([]);
-  
+  const [availableItems, setAvailableItems] = useState<Item[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+
   // Form state
   const [selectedAccountId, setSelectedAccountId] = useState<string>(initialAccountId || '');
   const [selectedSidemarkId, setSelectedSidemarkId] = useState<string>(initialSidemarkId || '');
-  const [selectedItemId, setSelectedItemId] = useState<string>(initialItemId || '');
+  const [selectedItems, setSelectedItems] = useState<Item[]>([]);
+  const [itemSearchQuery, setItemSearchQuery] = useState('');
+  const [itemSelectOpen, setItemSelectOpen] = useState(false);
+
   const [selectedShipmentId, setSelectedShipmentId] = useState<string>(initialShipmentId || '');
-  const [itemSearch, setItemSearch] = useState('');
   const [shipmentSearch, setShipmentSearch] = useState('');
-  const [searchedItems, setSearchedItems] = useState<Item[]>([]);
   const [searchedShipments, setSearchedShipments] = useState<Shipment[]>([]);
-  
+
   // Property damage fields
   const [nonInventoryRef, setNonInventoryRef] = useState('');
   const [incidentLocation, setIncidentLocation] = useState('');
   const [incidentContactName, setIncidentContactName] = useState('');
   const [incidentContactPhone, setIncidentContactPhone] = useState('');
   const [incidentContactEmail, setIncidentContactEmail] = useState('');
-  
+
   // Claim data
   const [claimType, setClaimType] = useState<ClaimType>('handling_damage');
   const [description, setDescription] = useState('');
-  const [publicNotes, setPublicNotes] = useState('');
-  const [internalNotes, setInternalNotes] = useState('');
+  const [incidentDate, setIncidentDate] = useState('');
 
   useEffect(() => {
     if (open && profile?.tenant_id) {
@@ -116,15 +149,35 @@ export function ClaimCreateDialog({
   useEffect(() => {
     if (selectedAccountId) {
       loadSidemarks(selectedAccountId);
+      loadItems();
+    } else {
+      setSidemarks([]);
+      setAvailableItems([]);
     }
   }, [selectedAccountId]);
 
-  // Set initial context based on props
   useEffect(() => {
-    if (initialItemId) setContext('item');
-    else if (initialShipmentId) setContext('shipment');
-    else if (initialItemIds?.length) setContext('inventory');
-  }, [initialItemId, initialShipmentId, initialItemIds]);
+    if (selectedAccountId) {
+      loadItems();
+    }
+  }, [selectedSidemarkId]);
+
+  // Set initial context and items based on props
+  useEffect(() => {
+    if (open) {
+      if (initialShipmentId) {
+        setContext('shipment');
+        setSelectedShipmentId(initialShipmentId);
+      } else if (initialItemIds?.length || initialItemId) {
+        setContext('items');
+        // Load initial items
+        const ids = initialItemIds?.length ? initialItemIds : (initialItemId ? [initialItemId] : []);
+        if (ids.length > 0) {
+          loadInitialItems(ids);
+        }
+      }
+    }
+  }, [open, initialItemId, initialShipmentId, initialItemIds]);
 
   const loadAccounts = async () => {
     const { data } = await supabase
@@ -146,19 +199,42 @@ export function ClaimCreateDialog({
     setSidemarks(data || []);
   };
 
-  const searchItems = async (query: string) => {
-    if (!query || query.length < 2) {
-      setSearchedItems([]);
-      return;
+  const loadItems = async () => {
+    if (!selectedAccountId) return;
+    setLoadingItems(true);
+
+    let query = supabase
+      .from('items')
+      .select('id, item_code, description, account_id, sidemark_id, coverage_type, declared_value, weight_lbs, primary_photo_url')
+      .eq('tenant_id', profile?.tenant_id)
+      .eq('account_id', selectedAccountId)
+      .is('deleted_at', null)
+      .in('status', ['in_storage', 'received'])
+      .order('item_code')
+      .limit(200);
+
+    if (selectedSidemarkId) {
+      query = query.eq('sidemark_id', selectedSidemarkId);
     }
+
+    const { data } = await query;
+    setAvailableItems((data || []) as Item[]);
+    setLoadingItems(false);
+  };
+
+  const loadInitialItems = async (ids: string[]) => {
     const { data } = await supabase
       .from('items')
-      .select('id, item_code, description, account_id, sidemark_id')
-      .eq('tenant_id', profile?.tenant_id)
-      .is('deleted_at', null)
-      .or(`item_code.ilike.%${query}%,description.ilike.%${query}%`)
-      .limit(20);
-    setSearchedItems(data || []);
+      .select('id, item_code, description, account_id, sidemark_id, coverage_type, declared_value, weight_lbs, primary_photo_url')
+      .in('id', ids);
+
+    if (data && data.length > 0) {
+      setSelectedItems(data as Item[]);
+      // Set account from first item if not already set
+      if (!selectedAccountId && data[0].account_id) {
+        setSelectedAccountId(data[0].account_id);
+      }
+    }
   };
 
   const searchShipments = async (query: string) => {
@@ -175,14 +251,6 @@ export function ClaimCreateDialog({
     setSearchedShipments(data || []);
   };
 
-  const handleItemSelect = (item: Item) => {
-    setSelectedItemId(item.id);
-    setItemSearch(item.item_code);
-    if (item.account_id) setSelectedAccountId(item.account_id);
-    if (item.sidemark_id) setSelectedSidemarkId(item.sidemark_id);
-    setSearchedItems([]);
-  };
-
   const handleShipmentSelect = (shipment: Shipment) => {
     setSelectedShipmentId(shipment.id);
     setShipmentSearch(shipment.shipment_number);
@@ -191,8 +259,37 @@ export function ClaimCreateDialog({
     setSearchedShipments([]);
   };
 
+  const toggleItemSelection = (item: Item) => {
+    setSelectedItems(prev => {
+      const isSelected = prev.some(i => i.id === item.id);
+      if (isSelected) {
+        return prev.filter(i => i.id !== item.id);
+      } else {
+        return [...prev, item];
+      }
+    });
+  };
+
+  const removeSelectedItem = (itemId: string) => {
+    setSelectedItems(prev => prev.filter(i => i.id !== itemId));
+  };
+
+  const filteredAvailableItems = useMemo(() => {
+    if (!itemSearchQuery) return availableItems;
+    const query = itemSearchQuery.toLowerCase();
+    return availableItems.filter(
+      item =>
+        item.item_code.toLowerCase().includes(query) ||
+        item.description?.toLowerCase().includes(query)
+    );
+  }, [availableItems, itemSearchQuery]);
+
   const handleSubmit = async () => {
-    if (!description.trim() || !selectedAccountId) return;
+    if (!description.trim()) return;
+    if (context === 'items' && selectedItems.length === 0) {
+      return;
+    }
+    if (context !== 'property' && !selectedAccountId) return;
 
     setIsSubmitting(true);
     try {
@@ -201,12 +298,13 @@ export function ClaimCreateDialog({
         account_id: selectedAccountId,
         sidemark_id: selectedSidemarkId || null,
         shipment_id: context === 'shipment' ? selectedShipmentId : null,
-        item_id: context === 'item' ? selectedItemId : (initialItemIds?.[0] || null),
+        item_ids: context === 'items' ? selectedItems.map(i => i.id) : undefined,
         non_inventory_ref: context === 'property' ? nonInventoryRef : null,
         incident_location: context === 'property' ? incidentLocation : null,
         incident_contact_name: context === 'property' ? incidentContactName : null,
         incident_contact_phone: context === 'property' ? incidentContactPhone : null,
         incident_contact_email: context === 'property' ? incidentContactEmail : null,
+        incident_date: incidentDate || null,
         description,
       });
 
@@ -220,12 +318,12 @@ export function ClaimCreateDialog({
   };
 
   const resetForm = () => {
-    setContext('item');
+    setContext('items');
     setSelectedAccountId(initialAccountId || '');
     setSelectedSidemarkId(initialSidemarkId || '');
-    setSelectedItemId(initialItemId || '');
+    setSelectedItems([]);
+    setItemSearchQuery('');
     setSelectedShipmentId(initialShipmentId || '');
-    setItemSearch('');
     setShipmentSearch('');
     setNonInventoryRef('');
     setIncidentLocation('');
@@ -234,13 +332,32 @@ export function ClaimCreateDialog({
     setIncidentContactEmail('');
     setClaimType('handling_damage');
     setDescription('');
-    setPublicNotes('');
-    setInternalNotes('');
+    setIncidentDate('');
+  };
+
+  const getCoverageLabel = (type: string | null) => {
+    switch (type) {
+      case 'standard': return 'Standard ($0.72/lb)';
+      case 'full_replacement_deductible': return 'Full w/ Deductible';
+      case 'full_replacement_no_deductible': return 'Full Replacement';
+      case 'pending': return 'Pending';
+      default: return 'None';
+    }
+  };
+
+  const getCoverageBadgeVariant = (type: string | null) => {
+    switch (type) {
+      case 'full_replacement_no_deductible': return 'default';
+      case 'full_replacement_deductible': return 'secondary';
+      case 'standard': return 'outline';
+      case 'pending': return 'destructive';
+      default: return 'destructive';
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>File New Claim</DialogTitle>
           <DialogDescription>
@@ -248,233 +365,356 @@ export function ClaimCreateDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Context Selector */}
-          <div className="space-y-2">
-            <Label>Claim Context</Label>
-            <Tabs value={context} onValueChange={(v) => setContext(v as ClaimContext)}>
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="item" className="flex items-center gap-1">
-                  <Package className="h-4 w-4" />
-                  Item
-                </TabsTrigger>
-                <TabsTrigger value="shipment" className="flex items-center gap-1">
-                  <Truck className="h-4 w-4" />
-                  Shipment
-                </TabsTrigger>
-                <TabsTrigger value="inventory" className="flex items-center gap-1">
-                  <Package className="h-4 w-4" />
-                  Multi-Item
-                </TabsTrigger>
-                <TabsTrigger value="property" className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  Property
-                </TabsTrigger>
-              </TabsList>
+        <ScrollArea className="flex-1 pr-4 -mr-4">
+          <div className="space-y-6 py-2">
+            {/* Context Selector */}
+            <div className="space-y-2">
+              <Label>Claim Context</Label>
+              <Tabs value={context} onValueChange={(v) => setContext(v as ClaimContext)}>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="items" className="flex items-center gap-1">
+                    <Package className="h-4 w-4" />
+                    Items
+                  </TabsTrigger>
+                  <TabsTrigger value="shipment" className="flex items-center gap-1">
+                    <Truck className="h-4 w-4" />
+                    Shipment
+                  </TabsTrigger>
+                  <TabsTrigger value="property" className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    Property
+                  </TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="item" className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label>Search Item</Label>
-                  <Input
-                    placeholder="Search by item code or description..."
-                    value={itemSearch}
-                    onChange={(e) => {
-                      setItemSearch(e.target.value);
-                      searchItems(e.target.value);
-                    }}
-                  />
-                  {searchedItems.length > 0 && (
-                    <div className="border rounded-md max-h-40 overflow-y-auto">
-                      {searchedItems.map((item) => (
-                        <div
-                          key={item.id}
-                          className="p-2 hover:bg-muted cursor-pointer text-sm"
-                          onClick={() => handleItemSelect(item)}
-                        >
-                          <span className="font-mono">{item.item_code}</span>
-                          {item.description && (
-                            <span className="text-muted-foreground ml-2">
-                              - {item.description.slice(0, 50)}
+                <TabsContent value="items" className="space-y-4 mt-4">
+                  {/* Account Selection */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Account *</Label>
+                      <Select value={selectedAccountId} onValueChange={(v) => {
+                        setSelectedAccountId(v);
+                        setSelectedSidemarkId('');
+                        setSelectedItems([]);
+                      }}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {accounts.map((acc) => (
+                            <SelectItem key={acc.id} value={acc.id}>{acc.account_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Sidemark / Project (Optional)</Label>
+                      <Select
+                        value={selectedSidemarkId || '_all'}
+                        onValueChange={(v) => setSelectedSidemarkId(v === '_all' ? '' : v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Filter by sidemark" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_all">All Sidemarks</SelectItem>
+                          {sidemarks.map((sm) => (
+                            <SelectItem key={sm.id} value={sm.id}>{sm.sidemark_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Item Multi-Select */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      Select Items *
+                      {selectedItems.length > 0 && (
+                        <Badge variant="secondary">{selectedItems.length} selected</Badge>
+                      )}
+                    </Label>
+
+                    {!selectedAccountId ? (
+                      <div className="text-sm text-muted-foreground border rounded-md p-4 text-center">
+                        <AlertCircle className="h-5 w-5 mx-auto mb-2 text-muted-foreground" />
+                        Select an account first to see available items
+                      </div>
+                    ) : (
+                      <Popover open={itemSelectOpen} onOpenChange={setItemSelectOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={itemSelectOpen}
+                            className="w-full justify-between"
+                          >
+                            <span className="truncate">
+                              {selectedItems.length > 0
+                                ? `${selectedItems.length} item${selectedItems.length > 1 ? 's' : ''} selected`
+                                : 'Search and select items...'}
                             </span>
-                          )}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[500px] p-0" align="start">
+                          <Command shouldFilter={false}>
+                            <CommandInput
+                              placeholder="Search by item code or description..."
+                              value={itemSearchQuery}
+                              onValueChange={setItemSearchQuery}
+                            />
+                            <CommandList>
+                              {loadingItems ? (
+                                <div className="flex items-center justify-center py-6">
+                                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                </div>
+                              ) : filteredAvailableItems.length === 0 ? (
+                                <CommandEmpty>No items found.</CommandEmpty>
+                              ) : (
+                                <CommandGroup className="max-h-64 overflow-auto">
+                                  {filteredAvailableItems.map((item) => {
+                                    const isSelected = selectedItems.some(i => i.id === item.id);
+                                    return (
+                                      <CommandItem
+                                        key={item.id}
+                                        onSelect={() => toggleItemSelection(item)}
+                                        className="flex items-center gap-2 cursor-pointer"
+                                      >
+                                        <Checkbox
+                                          checked={isSelected}
+                                          className="pointer-events-none"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-mono text-sm">{item.item_code}</span>
+                                            <Badge variant={getCoverageBadgeVariant(item.coverage_type)} className="text-xs">
+                                              {getCoverageLabel(item.coverage_type)}
+                                            </Badge>
+                                          </div>
+                                          {item.description && (
+                                            <p className="text-xs text-muted-foreground truncate">
+                                              {item.description}
+                                            </p>
+                                          )}
+                                        </div>
+                                        {item.declared_value && (
+                                          <span className="text-xs text-muted-foreground">
+                                            ${item.declared_value.toLocaleString()}
+                                          </span>
+                                        )}
+                                      </CommandItem>
+                                    );
+                                  })}
+                                </CommandGroup>
+                              )}
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+
+                    {/* Selected Items Display */}
+                    {selectedItems.length > 0 && (
+                      <div className="border rounded-md p-2 space-y-1 max-h-40 overflow-y-auto">
+                        {selectedItems.map((item) => {
+                          const needsWeight = item.coverage_type === 'standard' && !item.weight_lbs;
+                          return (
+                            <div
+                              key={item.id}
+                              className={cn(
+                                "flex items-center justify-between gap-2 p-2 rounded text-sm",
+                                needsWeight ? "bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800" : "bg-muted/50"
+                              )}
+                            >
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <span className="font-mono">{item.item_code}</span>
+                                {item.description && (
+                                  <span className="text-muted-foreground truncate">
+                                    - {item.description.slice(0, 30)}
+                                  </span>
+                                )}
+                                {needsWeight && (
+                                  <span className="text-yellow-600 dark:text-yellow-400 text-xs flex items-center gap-1 whitespace-nowrap">
+                                    <AlertCircle className="h-3 w-3" />
+                                    Weight required
+                                  </span>
+                                )}
+                                {item.coverage_type === 'standard' && item.weight_lbs && (
+                                  <span className="text-muted-foreground text-xs whitespace-nowrap">
+                                    {item.weight_lbs} lbs
+                                  </span>
+                                )}
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeSelectedItem(item.id)}
+                                className="h-6 w-6 p-0 flex-shrink-0"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Weight Warning */}
+                    {selectedItems.some(i => i.coverage_type === 'standard' && !i.weight_lbs) && (
+                      <div className="flex items-start gap-2 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md">
+                        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium">Weight required for standard coverage</p>
+                          <p className="text-xs mt-1 text-yellow-600/80 dark:text-yellow-400/80">
+                            Some items have standard coverage ($0.72/lb) but no weight recorded.
+                            Weight must be captured on the claim items after filing.
+                          </p>
                         </div>
-                      ))}
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="shipment" className="space-y-4 mt-4">
+                  <div className="space-y-2">
+                    <Label>Search Shipment</Label>
+                    <Input
+                      placeholder="Search by shipment number..."
+                      value={shipmentSearch}
+                      onChange={(e) => {
+                        setShipmentSearch(e.target.value);
+                        searchShipments(e.target.value);
+                      }}
+                    />
+                    {searchedShipments.length > 0 && (
+                      <div className="border rounded-md max-h-40 overflow-y-auto">
+                        {searchedShipments.map((shipment) => (
+                          <div
+                            key={shipment.id}
+                            className="p-2 hover:bg-muted cursor-pointer text-sm font-mono"
+                            onClick={() => handleShipmentSelect(shipment)}
+                          >
+                            {shipment.shipment_number}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="property" className="space-y-4 mt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Account</Label>
+                      <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {accounts.map((acc) => (
+                            <SelectItem key={acc.id} value={acc.id}>{acc.account_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="shipment" className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label>Search Shipment</Label>
-                  <Input
-                    placeholder="Search by shipment number..."
-                    value={shipmentSearch}
-                    onChange={(e) => {
-                      setShipmentSearch(e.target.value);
-                      searchShipments(e.target.value);
-                    }}
-                  />
-                  {searchedShipments.length > 0 && (
-                    <div className="border rounded-md max-h-40 overflow-y-auto">
-                      {searchedShipments.map((shipment) => (
-                        <div
-                          key={shipment.id}
-                          className="p-2 hover:bg-muted cursor-pointer text-sm font-mono"
-                          onClick={() => handleShipmentSelect(shipment)}
-                        >
-                          {shipment.shipment_number}
-                        </div>
-                      ))}
+                    <div className="space-y-2">
+                      <Label>Reference ID</Label>
+                      <Input
+                        placeholder="e.g., NINV-000123"
+                        value={nonInventoryRef}
+                        onChange={(e) => setNonInventoryRef(e.target.value)}
+                      />
                     </div>
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="inventory" className="space-y-4 mt-4">
-                <div className="p-4 bg-muted rounded-md">
-                  <p className="text-sm text-muted-foreground">
-                    {initialItemIds?.length 
-                      ? `${initialItemIds.length} items selected from inventory`
-                      : 'Select items from the Inventory page to file a multi-item claim'}
-                  </p>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="property" className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Reference ID</Label>
-                    <Input
-                      placeholder="e.g., NINV-000123"
-                      value={nonInventoryRef}
-                      onChange={(e) => setNonInventoryRef(e.target.value)}
-                    />
+                    <div className="col-span-2 space-y-2">
+                      <Label>Incident Location</Label>
+                      <Input
+                        placeholder="Address or location"
+                        value={incidentLocation}
+                        onChange={(e) => setIncidentLocation(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Contact Name</Label>
+                      <Input
+                        value={incidentContactName}
+                        onChange={(e) => setIncidentContactName(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Contact Phone</Label>
+                      <Input
+                        value={incidentContactPhone}
+                        onChange={(e) => setIncidentContactPhone(e.target.value)}
+                      />
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                      <Label>Contact Email</Label>
+                      <Input
+                        type="email"
+                        value={incidentContactEmail}
+                        onChange={(e) => setIncidentContactEmail(e.target.value)}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Incident Location</Label>
-                    <Input
-                      placeholder="Address or location"
-                      value={incidentLocation}
-                      onChange={(e) => setIncidentLocation(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Contact Name</Label>
-                    <Input
-                      value={incidentContactName}
-                      onChange={(e) => setIncidentContactName(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Contact Phone</Label>
-                    <Input
-                      value={incidentContactPhone}
-                      onChange={(e) => setIncidentContactPhone(e.target.value)}
-                    />
-                  </div>
-                  <div className="col-span-2 space-y-2">
-                    <Label>Contact Email</Label>
-                    <Input
-                      type="email"
-                      value={incidentContactEmail}
-                      onChange={(e) => setIncidentContactEmail(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          {/* Claim Type */}
-          <div className="space-y-2">
-            <Label>Claim Type *</Label>
-            <Select value={claimType} onValueChange={(v) => setClaimType(v as ClaimType)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(CLAIM_TYPE_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Account & Sidemark */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Account</Label>
-              <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select account" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((acc) => (
-                    <SelectItem key={acc.id} value={acc.id}>{acc.account_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                </TabsContent>
+              </Tabs>
             </div>
-            <div className="space-y-2">
-              <Label>Sidemark / Project</Label>
-              <Select value={selectedSidemarkId} onValueChange={setSelectedSidemarkId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select sidemark" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sidemarks.map((sm) => (
-                    <SelectItem key={sm.id} value={sm.id}>{sm.sidemark_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            {/* Claim Type */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Claim Type *</Label>
+                <Select value={claimType} onValueChange={(v) => setClaimType(v as ClaimType)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(CLAIM_TYPE_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Incident Date</Label>
+                <Input
+                  type="date"
+                  value={incidentDate}
+                  onChange={(e) => setIncidentDate(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Description */}
-          <div className="space-y-2">
-            <Label>Description *</Label>
-            <Textarea
-              placeholder="Describe the issue in detail..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-            />
-          </div>
-
-          {/* Notes */}
-          <div className="grid grid-cols-2 gap-4">
+            {/* Description */}
             <div className="space-y-2">
-              <Label>Public Notes</Label>
+              <Label>Description *</Label>
               <Textarea
-                placeholder="Notes visible to client..."
-                value={publicNotes}
-                onChange={(e) => setPublicNotes(e.target.value)}
-                rows={2}
+                placeholder="Describe the issue in detail..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Internal Notes</Label>
-              <Textarea
-                placeholder="Staff-only notes..."
-                value={internalNotes}
-                onChange={(e) => setInternalNotes(e.target.value)}
-                rows={2}
-              />
-            </div>
           </div>
-        </div>
+        </ScrollArea>
 
-        <DialogFooter>
+        <DialogFooter className="pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isSubmitting || !description.trim()}
+            disabled={
+              isSubmitting ||
+              !description.trim() ||
+              (context === 'items' && selectedItems.length === 0) ||
+              (context !== 'property' && !selectedAccountId)
+            }
           >
             {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             File Claim
+            {selectedItems.length > 1 && ` (${selectedItems.length} items)`}
           </Button>
         </DialogFooter>
       </DialogContent>

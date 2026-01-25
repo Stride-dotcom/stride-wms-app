@@ -7,16 +7,21 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, FileText, Clock, User, Package, Truck, Building, DollarSign } from 'lucide-react';
-import { useClaims, CLAIM_TYPE_LABELS, CLAIM_STATUS_LABELS, type Claim, type ClaimAudit } from '@/hooks/useClaims';
+import { useClaims, CLAIM_TYPE_LABELS, CLAIM_STATUS_LABELS, type Claim, type ClaimAudit, type ClaimItem } from '@/hooks/useClaims';
 import { ClaimAttachments } from '@/components/claims/ClaimAttachments';
 import { ClaimNotes } from '@/components/claims/ClaimNotes';
 import { ClaimStatusActions } from '@/components/claims/ClaimStatusActions';
+import { ClaimItemsList } from '@/components/claims/ClaimItemsList';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const statusColors: Record<string, string> = {
   initiated: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
   under_review: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+  pending_approval: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+  pending_acceptance: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+  accepted: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+  declined: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
   denied: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
   approved: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
   credited: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
@@ -27,8 +32,9 @@ const statusColors: Record<string, string> = {
 export default function ClaimDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { claims, loading, fetchAuditLog, refetch } = useClaims();
+  const { claims, loading, fetchAuditLog, fetchClaimItems, refetch } = useClaims();
   const [claim, setClaim] = useState<Claim | null>(null);
+  const [claimItems, setClaimItems] = useState<ClaimItem[]>([]);
   const [auditLog, setAuditLog] = useState<ClaimAudit[]>([]);
   const [loadingAudit, setLoadingAudit] = useState(false);
 
@@ -46,8 +52,19 @@ export default function ClaimDetail() {
         setAuditLog(log);
         setLoadingAudit(false);
       });
+      // Also fetch claim items
+      fetchClaimItems(id).then(setClaimItems);
     }
-  }, [id, fetchAuditLog]);
+  }, [id, fetchAuditLog, fetchClaimItems]);
+
+  // Refetch claim items when claim is refetched
+  const handleRefetch = async () => {
+    await refetch();
+    if (id) {
+      const items = await fetchClaimItems(id);
+      setClaimItems(items);
+    }
+  };
 
   if (loading) {
     return (
@@ -97,7 +114,7 @@ export default function ClaimDetail() {
               </p>
             </div>
           </div>
-          <ClaimStatusActions claim={claim} onUpdate={refetch} />
+          <ClaimStatusActions claim={claim} claimItems={claimItems} onUpdate={handleRefetch} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -161,21 +178,34 @@ export default function ClaimDetail() {
                     <p>{claim.non_inventory_ref}</p>
                   </div>
                 )}
-
-                <Separator />
-
-                {/* Incident Contact */}
-                {(claim.incident_contact_name || claim.incident_location) && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">Incident Information</h4>
-                    {claim.incident_location && <p><strong>Location:</strong> {claim.incident_location}</p>}
-                    {claim.incident_contact_name && <p><strong>Contact:</strong> {claim.incident_contact_name}</p>}
-                    {claim.incident_contact_phone && <p><strong>Phone:</strong> {claim.incident_contact_phone}</p>}
-                    {claim.incident_contact_email && <p><strong>Email:</strong> {claim.incident_contact_email}</p>}
-                  </div>
-                )}
               </CardContent>
             </Card>
+
+            {/* Claim Items (Multi-Item Support) */}
+            <ClaimItemsList
+              claimId={claim.id}
+              claimStatus={claim.status}
+              accountId={claim.account_id || undefined}
+              sidemarkId={claim.sidemark_id || undefined}
+            />
+
+            {/* Incident & Contact Info - Only show if there's incident data */}
+            {(claim.incident_contact_name || claim.incident_location || claim.incident_contact_phone || claim.incident_contact_email) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Incident Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {claim.incident_location && <p><strong>Location:</strong> {claim.incident_location}</p>}
+                  {claim.incident_contact_name && <p><strong>Contact:</strong> {claim.incident_contact_name}</p>}
+                  {claim.incident_contact_phone && <p><strong>Phone:</strong> {claim.incident_contact_phone}</p>}
+                  {claim.incident_contact_email && <p><strong>Email:</strong> {claim.incident_contact_email}</p>}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Tabs */}
             <Tabs defaultValue="attachments">
@@ -190,7 +220,7 @@ export default function ClaimDetail() {
               </TabsContent>
 
               <TabsContent value="notes" className="mt-4">
-                <ClaimNotes claim={claim} onUpdate={refetch} />
+                <ClaimNotes claim={claim} onUpdate={handleRefetch} />
               </TabsContent>
 
               <TabsContent value="audit" className="mt-4">

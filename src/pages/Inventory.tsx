@@ -32,11 +32,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Package, Loader2, Truck, Trash2, ClipboardList, Upload, Printer, AlertTriangle, PackageX, ChevronUp, ChevronDown, FileSpreadsheet } from 'lucide-react';
+import { Search, Package, Loader2, Truck, Trash2, ClipboardList, Upload, Printer, AlertTriangle, PackageX, ChevronUp, ChevronDown, FileSpreadsheet, ShieldAlert } from 'lucide-react';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { InventoryImportDialog } from '@/components/settings/InventoryImportDialog';
 import { QuickReleaseDialog } from '@/components/inventory/QuickReleaseDialog';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
+import { ClaimCreateDialog } from '@/components/claims/ClaimCreateDialog';
 import { InventoryFiltersSheet, InventoryFilters } from '@/components/inventory/InventoryFiltersSheet';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations } from '@/hooks/useLocations';
@@ -106,6 +107,7 @@ export default function Inventory() {
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [validationMessage, setValidationMessage] = useState('');
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
+  const [claimDialogOpen, setClaimDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { warehouses } = useWarehouses();
@@ -282,6 +284,7 @@ export default function Inventory() {
                 <Button variant="outline" onClick={() => { if (hasMultipleAccounts) { setValidationMessage('Cannot create a task for items from different accounts.'); setValidationDialogOpen(true); return; } if (hasMultipleWarehouses) { setValidationMessage('Cannot create a task for items in different warehouses.'); setValidationDialogOpen(true); return; } setTaskDialogOpen(true); }}><ClipboardList className="mr-2 h-4 w-4" />Task ({selectedItems.size})</Button>
                 <Button variant="outline" onClick={() => { if (hasMultipleAccounts) { setValidationMessage('Cannot create a will call for items from different accounts.'); setValidationDialogOpen(true); return; } setPreSelectedTaskType('Will Call'); setTaskDialogOpen(true); }}><Truck className="mr-2 h-4 w-4" />Will Call</Button>
                 <Button variant="outline" onClick={() => { if (hasMultipleAccounts) { setValidationMessage('Cannot create a disposal for items from different accounts.'); setValidationDialogOpen(true); return; } setPreSelectedTaskType('Disposal'); setTaskDialogOpen(true); }}><Trash2 className="mr-2 h-4 w-4" />Dispose</Button>
+                <Button variant="outline" onClick={() => { if (hasMultipleAccounts) { setValidationMessage('Cannot create a claim for items from different accounts.'); setValidationDialogOpen(true); return; } setClaimDialogOpen(true); }}><ShieldAlert className="mr-2 h-4 w-4" />Claim</Button>
                 <Button variant="outline" onClick={() => setPrintLabelsDialogOpen(true)}><Printer className="mr-2 h-4 w-4" />Print</Button>
                 <Button variant="outline" onClick={handleExportExcel}><FileSpreadsheet className="mr-2 h-4 w-4" />Export</Button>
                 <Button variant="default" onClick={() => setReleaseDialogOpen(true)}><PackageX className="mr-2 h-4 w-4" />Release</Button>
@@ -365,6 +368,7 @@ export default function Inventory() {
       <InventoryImportDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} file={importFile} warehouses={warehouses} locations={locations} onSuccess={handleImportSuccess} />
       <PrintLabelsDialog open={printLabelsDialogOpen} onOpenChange={setPrintLabelsDialogOpen} items={getSelectedItemsForLabels()} />
       <QuickReleaseDialog open={releaseDialogOpen} onOpenChange={setReleaseDialogOpen} selectedItems={getSelectedItemsData()} onSuccess={handleReleaseSuccess} />
+      <ClaimCreateDialog open={claimDialogOpen} onOpenChange={(open) => { setClaimDialogOpen(open); if (!open) setSelectedItems(new Set()); }} itemIds={Array.from(selectedItems)} />
       <AlertDialog open={validationDialogOpen} onOpenChange={setValidationDialogOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-destructive" />Cannot Proceed</AlertDialogTitle><AlertDialogDescription>{validationMessage}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogAction onClick={() => setValidationDialogOpen(false)}>OK</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </DashboardLayout>
   );

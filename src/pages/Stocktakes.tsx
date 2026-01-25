@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,15 +21,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   MobileDataCard,
   MobileDataCardHeader,
@@ -36,105 +37,107 @@ import {
   MobileDataCardContent,
   MobileDataCardActions,
 } from '@/components/ui/mobile-data-card';
-import { useStocktakes, StocktakeStatus } from '@/hooks/useStocktakes';
+import { CreateStocktakeDialog } from '@/components/stocktakes/CreateStocktakeDialog';
+import { useStocktakes, StocktakeStatus, CreateStocktakeData } from '@/hooks/useStocktakes';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { 
-  Plus, 
-  Search, 
-  RefreshCw, 
+import {
+  Plus,
+  Search,
+  RefreshCw,
   ClipboardCheck,
   Play,
   CheckCircle,
   XCircle,
-  Calendar,
+  FileEdit,
   Loader2,
   AlertTriangle,
+  Lock,
+  Wrench,
+  DollarSign,
+  ScanLine,
+  FileBarChart,
+  Eye,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
 const statusColors: Record<StocktakeStatus, string> = {
-  planned: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  in_progress: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  completed: 'bg-green-500/20 text-green-400 border-green-500/30',
+  draft: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  active: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  closed: 'bg-green-500/20 text-green-400 border-green-500/30',
   cancelled: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
 };
 
 const statusLabels: Record<StocktakeStatus, string> = {
-  planned: 'Planned',
-  in_progress: 'In Progress',
-  completed: 'Completed',
+  draft: 'Draft',
+  active: 'Active',
+  closed: 'Closed',
   cancelled: 'Cancelled',
 };
 
 export default function Stocktakes() {
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<StocktakeStatus | 'all'>('all');
   const [warehouseFilter, setWarehouseFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [newStocktakeData, setNewStocktakeData] = useState({
-    warehouse_id: '',
-    scheduled_date: '',
-    notes: '',
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'start' | 'close' | 'cancel';
+    id: string;
+    name: string;
+  } | null>(null);
+
   const isMobile = useIsMobile();
   const { warehouses } = useWarehouses();
-  const { 
-    stocktakes, 
-    loading, 
-    refetch, 
-    createStocktake, 
-    startStocktake, 
-    completeStocktake,
+  const {
+    stocktakes,
+    loading,
+    refetch,
+    createStocktake,
+    startStocktake,
+    closeStocktake,
     cancelStocktake,
   } = useStocktakes({
     status: statusFilter === 'all' ? undefined : statusFilter,
     warehouseId: warehouseFilter === 'all' ? undefined : warehouseFilter,
   });
 
-  const filteredStocktakes = stocktakes.filter(st => {
+  const filteredStocktakes = stocktakes.filter((st) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
       st.stocktake_number.toLowerCase().includes(query) ||
-      st.warehouse?.name?.toLowerCase().includes(query) ||
-      st.location?.code?.toLowerCase().includes(query)
+      st.name?.toLowerCase().includes(query) ||
+      st.warehouse?.name?.toLowerCase().includes(query)
     );
   });
 
-  const handleCreateStocktake = async () => {
-    if (!newStocktakeData.warehouse_id) return;
-    
-    setIsSubmitting(true);
+  const handleCreateStocktake = async (data: CreateStocktakeData) => {
+    await createStocktake(data);
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return;
+
     try {
-      await createStocktake({
-        warehouse_id: newStocktakeData.warehouse_id,
-        scheduled_date: newStocktakeData.scheduled_date || null,
-        notes: newStocktakeData.notes || null,
-      });
-      setCreateDialogOpen(false);
-      setNewStocktakeData({ warehouse_id: '', scheduled_date: '', notes: '' });
+      switch (confirmAction.type) {
+        case 'start':
+          await startStocktake(confirmAction.id);
+          break;
+        case 'close':
+          await closeStocktake(confirmAction.id);
+          break;
+        case 'cancel':
+          await cancelStocktake(confirmAction.id);
+          break;
+      }
     } finally {
-      setIsSubmitting(false);
+      setConfirmAction(null);
     }
   };
 
-  const handleStart = async (id: string) => {
-    await startStocktake(id);
-  };
-
-  const handleComplete = async (id: string) => {
-    await completeStocktake(id);
-  };
-
-  const handleCancel = async (id: string) => {
-    await cancelStocktake(id);
-  };
-
   const getStatusBadge = (status: string) => (
-    <Badge className={statusColors[status as StocktakeStatus] || statusColors.planned}>
+    <Badge className={statusColors[status as StocktakeStatus] || statusColors.draft}>
       {statusLabels[status as StocktakeStatus] || status}
     </Badge>
   );
@@ -150,10 +153,10 @@ export default function Stocktakes() {
   };
 
   const stats = {
-    planned: stocktakes.filter(s => s.status === 'planned').length,
-    inProgress: stocktakes.filter(s => s.status === 'in_progress').length,
-    completed: stocktakes.filter(s => s.status === 'completed').length,
-    withVariance: stocktakes.filter(s => s.variance_count && s.variance_count > 0).length,
+    draft: stocktakes.filter((s) => s.status === 'draft').length,
+    active: stocktakes.filter((s) => s.status === 'active').length,
+    closed: stocktakes.filter((s) => s.status === 'closed').length,
+    withVariance: stocktakes.filter((s) => s.variance_count && s.variance_count > 0).length,
   };
 
   return (
@@ -161,14 +164,14 @@ export default function Stocktakes() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            <span className="text-foreground">Cycle</span>{" "}
-            <span className="text-primary">Counts</span>
+            <span className="text-foreground">Stock</span>{' '}
+            <span className="text-primary">take</span>
           </h1>
-          <p className="text-muted-foreground">Schedule and manage inventory stocktakes</p>
+          <p className="text-muted-foreground">Schedule and manage inventory cycle counts</p>
         </div>
         <Button onClick={() => setCreateDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Schedule Count
+          New Stocktake
         </Button>
       </div>
 
@@ -178,10 +181,10 @@ export default function Stocktakes() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Planned</p>
-                <p className="text-2xl font-bold text-blue-400">{stats.planned}</p>
+                <p className="text-sm text-muted-foreground">Draft</p>
+                <p className="text-2xl font-bold text-blue-400">{stats.draft}</p>
               </div>
-              <Calendar className="h-8 w-8 text-blue-400/50" />
+              <FileEdit className="h-8 w-8 text-blue-400/50" />
             </div>
           </CardContent>
         </Card>
@@ -189,8 +192,8 @@ export default function Stocktakes() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">In Progress</p>
-                <p className="text-2xl font-bold text-yellow-400">{stats.inProgress}</p>
+                <p className="text-sm text-muted-foreground">Active</p>
+                <p className="text-2xl font-bold text-yellow-400">{stats.active}</p>
               </div>
               <Play className="h-8 w-8 text-yellow-400/50" />
             </div>
@@ -200,8 +203,8 @@ export default function Stocktakes() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Completed</p>
-                <p className="text-2xl font-bold text-green-400">{stats.completed}</p>
+                <p className="text-sm text-muted-foreground">Closed</p>
+                <p className="text-2xl font-bold text-green-400">{stats.closed}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-400/50" />
             </div>
@@ -233,14 +236,19 @@ export default function Stocktakes() {
                 className="pl-10"
               />
             </div>
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StocktakeStatus | 'all')}>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as StocktakeStatus | 'all')}
+            >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
                 {Object.entries(statusLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -251,7 +259,9 @@ export default function Stocktakes() {
               <SelectContent>
                 <SelectItem value="all">All Warehouses</SelectItem>
                 {warehouses.map((wh) => (
-                  <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>
+                  <SelectItem key={wh.id} value={wh.id}>
+                    {wh.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -274,7 +284,7 @@ export default function Stocktakes() {
               <ClipboardCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No stocktakes found</p>
               <Button variant="link" onClick={() => setCreateDialogOpen(true)}>
-                Schedule your first cycle count
+                Create your first stocktake
               </Button>
             </div>
           ) : isMobile ? (
@@ -282,32 +292,93 @@ export default function Stocktakes() {
               {filteredStocktakes.map((st) => (
                 <MobileDataCard key={st.id}>
                   <MobileDataCardHeader>
-                    <MobileDataCardTitle>{st.stocktake_number}</MobileDataCardTitle>
+                    <MobileDataCardTitle className="flex items-center gap-2">
+                      {st.name || st.stocktake_number}
+                      {st.freeze_moves && (
+                        <Lock className="h-4 w-4 text-yellow-500" title="Movements frozen" />
+                      )}
+                      {st.allow_location_auto_fix && (
+                        <Wrench className="h-4 w-4 text-blue-500" title="Auto-fix enabled" />
+                      )}
+                      {st.billable && (
+                        <DollarSign className="h-4 w-4 text-green-500" title="Billable" />
+                      )}
+                    </MobileDataCardTitle>
                     {getStatusBadge(st.status)}
                   </MobileDataCardHeader>
                   <MobileDataCardContent>
                     <div className="space-y-1 text-muted-foreground">
-                      <div><span className="font-medium">Warehouse:</span> {st.warehouse?.name || 'Unknown'}</div>
-                      <div><span className="font-medium">Location:</span> {st.location?.code || 'All locations'}</div>
-                      <div><span className="font-medium">Scheduled:</span> {st.scheduled_date ? format(new Date(st.scheduled_date), 'MMM d, yyyy') : '-'}</div>
-                      <div><span className="font-medium">Items:</span> {st.counted_item_count || 0} / {st.expected_item_count || 0}</div>
-                      <div><span className="font-medium">Assigned:</span> {st.assigned_user ? `${st.assigned_user.first_name} ${st.assigned_user.last_name}` : '-'}</div>
+                      <div>
+                        <span className="font-medium">Number:</span> {st.stocktake_number}
+                      </div>
+                      <div>
+                        <span className="font-medium">Warehouse:</span>{' '}
+                        {st.warehouse?.name || 'Unknown'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Locations:</span>{' '}
+                        {st.location_ids ? `${(st.location_ids as string[]).length} selected` : 'All'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Items:</span> {st.counted_item_count || 0} /{' '}
+                        {st.expected_item_count || 0}
+                      </div>
+                      {st.closed_at && (
+                        <div>
+                          <span className="font-medium">Closed:</span>{' '}
+                          {format(new Date(st.closed_at), 'MMM d, yyyy h:mm a')}
+                        </div>
+                      )}
+                      {st.variance_count !== null && st.variance_count > 0 && (
+                        <div>{getVarianceBadge(st.variance_count)}</div>
+                      )}
                     </div>
                   </MobileDataCardContent>
                   <MobileDataCardActions>
-                    {st.status === 'planned' && (
+                    {st.status === 'draft' && (
                       <>
-                        <Button size="sm" onClick={() => handleStart(st.id)}>
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            setConfirmAction({ type: 'start', id: st.id, name: st.stocktake_number })
+                          }
+                        >
                           <Play className="h-4 w-4 mr-1" /> Start
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleCancel(st.id)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setConfirmAction({ type: 'cancel', id: st.id, name: st.stocktake_number })
+                          }
+                        >
                           Cancel
                         </Button>
                       </>
                     )}
-                    {st.status === 'in_progress' && (
-                      <Button size="sm" onClick={() => handleComplete(st.id)}>
-                        <CheckCircle className="h-4 w-4 mr-1" /> Complete
+                    {st.status === 'active' && (
+                      <>
+                        <Button size="sm" onClick={() => navigate(`/stocktakes/${st.id}/scan`)}>
+                          <ScanLine className="h-4 w-4 mr-1" /> Scan
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setConfirmAction({ type: 'close', id: st.id, name: st.stocktake_number })
+                          }
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" /> Close
+                        </Button>
+                      </>
+                    )}
+                    {st.status === 'closed' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/stocktakes/${st.id}/report`)}
+                      >
+                        <FileBarChart className="h-4 w-4 mr-1" /> Report
                       </Button>
                     )}
                   </MobileDataCardActions>
@@ -318,25 +389,40 @@ export default function Stocktakes() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Stocktake #</TableHead>
+                  <TableHead>Name / Number</TableHead>
                   <TableHead>Warehouse</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Scheduled</TableHead>
+                  <TableHead>Locations</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Items</TableHead>
                   <TableHead>Variance</TableHead>
-                  <TableHead>Assigned</TableHead>
+                  <TableHead>Options</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredStocktakes.map((st) => (
-                  <TableRow key={st.id}>
-                    <TableCell className="font-mono">{st.stocktake_number}</TableCell>
-                    <TableCell>{st.warehouse?.name || '-'}</TableCell>
-                    <TableCell>{st.location?.code || 'All'}</TableCell>
+                  <TableRow
+                    key={st.id}
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/stocktakes/${st.id}/scan`)}
+                  >
                     <TableCell>
-                      {st.scheduled_date ? format(new Date(st.scheduled_date), 'MMM d, yyyy') : '-'}
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div className="font-medium">{st.name || st.stocktake_number}</div>
+                          {st.name && (
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {st.stocktake_number}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{st.warehouse?.name || '-'}</TableCell>
+                    <TableCell>
+                      {st.location_ids
+                        ? `${(st.location_ids as string[]).length} locations`
+                        : 'All'}
                     </TableCell>
                     <TableCell>{getStatusBadge(st.status)}</TableCell>
                     <TableCell>
@@ -344,27 +430,96 @@ export default function Stocktakes() {
                     </TableCell>
                     <TableCell>{getVarianceBadge(st.variance_count)}</TableCell>
                     <TableCell>
-                      {st.assigned_user 
-                        ? `${st.assigned_user.first_name} ${st.assigned_user.last_name}`
-                        : '-'}
+                      <div className="flex gap-1">
+                        {st.freeze_moves && (
+                          <Lock className="h-4 w-4 text-yellow-500" title="Movements frozen" />
+                        )}
+                        {st.allow_location_auto_fix && (
+                          <Wrench className="h-4 w-4 text-blue-500" title="Auto-fix enabled" />
+                        )}
+                        {st.billable && (
+                          <DollarSign className="h-4 w-4 text-green-500" title="Billable" />
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-2">
-                        {st.status === 'planned' && (
+                        {st.status === 'draft' && (
                           <>
-                            <Button size="sm" variant="ghost" onClick={() => handleStart(st.id)}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                setConfirmAction({
+                                  type: 'start',
+                                  id: st.id,
+                                  name: st.stocktake_number,
+                                })
+                              }
+                              title="Start stocktake"
+                            >
                               <Play className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => handleCancel(st.id)}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                setConfirmAction({
+                                  type: 'cancel',
+                                  id: st.id,
+                                  name: st.stocktake_number,
+                                })
+                              }
+                              title="Cancel stocktake"
+                            >
                               <XCircle className="h-4 w-4" />
                             </Button>
                           </>
                         )}
-                        {st.status === 'in_progress' && (
-                          <Button size="sm" variant="ghost" onClick={() => handleComplete(st.id)}>
-                            <CheckCircle className="h-4 w-4" />
+                        {st.status === 'active' && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => navigate(`/stocktakes/${st.id}/scan`)}
+                              title="Scan items"
+                            >
+                              <ScanLine className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                setConfirmAction({
+                                  type: 'close',
+                                  id: st.id,
+                                  name: st.stocktake_number,
+                                })
+                              }
+                              title="Close stocktake"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        {st.status === 'closed' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => navigate(`/stocktakes/${st.id}/report`)}
+                            title="View report"
+                          >
+                            <FileBarChart className="h-4 w-4" />
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => navigate(`/stocktakes/${st.id}/scan`)}
+                          title="View details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -376,57 +531,52 @@ export default function Stocktakes() {
       </Card>
 
       {/* Create Stocktake Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Schedule Cycle Count</DialogTitle>
-            <DialogDescription>
-              Create a new inventory stocktake for a warehouse or location.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Warehouse *</Label>
-              <Select 
-                value={newStocktakeData.warehouse_id} 
-                onValueChange={(v) => setNewStocktakeData(d => ({ ...d, warehouse_id: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select warehouse" />
-                </SelectTrigger>
-                <SelectContent>
-                  {warehouses.map((wh) => (
-                    <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Scheduled Date</Label>
-              <Input
-                type="date"
-                value={newStocktakeData.scheduled_date}
-                onChange={(e) => setNewStocktakeData(d => ({ ...d, scheduled_date: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                value={newStocktakeData.notes}
-                onChange={(e) => setNewStocktakeData(d => ({ ...d, notes: e.target.value }))}
-                placeholder="Optional notes..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateStocktake} disabled={isSubmitting || !newStocktakeData.warehouse_id}>
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Schedule
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateStocktakeDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onSubmit={handleCreateStocktake}
+      />
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={!!confirmAction} onOpenChange={() => setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction?.type === 'start' && 'Start Stocktake?'}
+              {confirmAction?.type === 'close' && 'Close Stocktake?'}
+              {confirmAction?.type === 'cancel' && 'Cancel Stocktake?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction?.type === 'start' && (
+                <>
+                  This will initialize the expected items list and activate the stocktake{' '}
+                  <strong>{confirmAction.name}</strong>. You can then start scanning items.
+                </>
+              )}
+              {confirmAction?.type === 'close' && (
+                <>
+                  This will finalize the stocktake <strong>{confirmAction.name}</strong> and
+                  generate the variance report. Any unscanned items will be marked as missing.
+                </>
+              )}
+              {confirmAction?.type === 'cancel' && (
+                <>
+                  This will cancel the stocktake <strong>{confirmAction.name}</strong>. This action
+                  cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAction}>
+              {confirmAction?.type === 'start' && 'Start'}
+              {confirmAction?.type === 'close' && 'Close'}
+              {confirmAction?.type === 'cancel' && 'Cancel Stocktake'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }

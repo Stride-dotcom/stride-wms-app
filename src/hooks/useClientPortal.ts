@@ -202,6 +202,143 @@ export function useClientShipments() {
   });
 }
 
+// Get claims for the client's account (with visibility restrictions)
+export function useClientClaims() {
+  const { portalUser, isLoading: contextLoading } = useClientPortalContext();
+
+  return useQuery({
+    queryKey: ['client-claims', portalUser?.account_id],
+    queryFn: async () => {
+      if (!portalUser?.account_id) return [];
+
+      // Clients can only see claims for their account
+      // They can see: initiated, under_review, pending_acceptance, accepted, declined, credited, paid, closed
+      // They CANNOT see internal notes or payout details until sent for acceptance
+      const { data, error } = await supabase
+        .from('claims')
+        .select(`
+          id,
+          claim_number,
+          claim_type,
+          status,
+          description,
+          public_notes,
+          incident_date,
+          created_at,
+          sent_for_acceptance_at,
+          settlement_accepted_at,
+          settlement_declined_at,
+          total_approved_amount,
+          payout_method,
+          client_initiated,
+          sidemark:sidemarks!claims_sidemark_id_fkey(id, sidemark_name),
+          item:items!claims_item_id_fkey(id, item_code, description)
+        `)
+        .eq('account_id', portalUser.account_id)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Filter out payout details for claims not yet sent for acceptance
+      return (data || []).map(claim => ({
+        ...claim,
+        // Only show payout info if claim was sent for acceptance
+        total_approved_amount: claim.sent_for_acceptance_at ? claim.total_approved_amount : null,
+        payout_method: claim.sent_for_acceptance_at ? claim.payout_method : null,
+      }));
+    },
+    enabled: !!portalUser?.account_id && !contextLoading,
+  });
+}
+
+// Get single claim detail for client (with visibility restrictions)
+export function useClientClaimDetail(claimId: string | undefined) {
+  const { portalUser, isLoading: contextLoading } = useClientPortalContext();
+
+  return useQuery({
+    queryKey: ['client-claim-detail', claimId, portalUser?.account_id],
+    queryFn: async () => {
+      if (!portalUser?.account_id || !claimId) return null;
+
+      const { data: claim, error } = await supabase
+        .from('claims')
+        .select(`
+          id,
+          claim_number,
+          claim_type,
+          status,
+          description,
+          public_notes,
+          incident_date,
+          incident_location,
+          incident_contact_name,
+          incident_contact_phone,
+          incident_contact_email,
+          created_at,
+          sent_for_acceptance_at,
+          settlement_accepted_at,
+          settlement_declined_at,
+          settlement_terms_text,
+          total_approved_amount,
+          payout_method,
+          client_initiated,
+          acceptance_token,
+          acceptance_token_expires_at,
+          sidemark:sidemarks!claims_sidemark_id_fkey(id, sidemark_name),
+          item:items!claims_item_id_fkey(id, item_code, description)
+        `)
+        .eq('id', claimId)
+        .eq('account_id', portalUser.account_id)
+        .is('deleted_at', null)
+        .single();
+
+      if (error) throw error;
+      if (!claim) return null;
+
+      // Get claim items (limited view)
+      const { data: items } = await supabase
+        .from('claim_items')
+        .select(`
+          id,
+          coverage_type,
+          declared_value,
+          weight_lbs,
+          approved_amount,
+          repairable,
+          item:items(id, item_code, description, primary_photo_url)
+        `)
+        .eq('claim_id', claimId);
+
+      // Get public attachments only
+      const { data: attachments } = await supabase
+        .from('claim_attachments')
+        .select('*')
+        .eq('claim_id', claimId)
+        .eq('is_public', true)
+        .order('created_at', { ascending: false });
+
+      // Filter visibility based on acceptance status
+      const isSentForAcceptance = !!claim.sent_for_acceptance_at;
+
+      return {
+        ...claim,
+        // Only show financial details if sent for acceptance
+        total_approved_amount: isSentForAcceptance ? claim.total_approved_amount : null,
+        payout_method: isSentForAcceptance ? claim.payout_method : null,
+        settlement_terms_text: isSentForAcceptance ? claim.settlement_terms_text : null,
+        items: items?.map(item => ({
+          ...item,
+          // Hide approved amounts until sent for acceptance
+          approved_amount: isSentForAcceptance ? item.approved_amount : null,
+        })) || [],
+        attachments: attachments || [],
+      };
+    },
+    enabled: !!portalUser?.account_id && !!claimId && !contextLoading,
+  });
+}
+
 // Get dashboard stats
 export function useClientDashboardStats() {
   const { portalUser, isLoading: contextLoading } = useClientPortalContext();

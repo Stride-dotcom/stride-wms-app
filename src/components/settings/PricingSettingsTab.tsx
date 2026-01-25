@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Loader2,
   DollarSign,
@@ -9,6 +9,17 @@ import {
   RefreshCw,
   Save,
   Info,
+  Plus,
+  Trash2,
+  X,
+  AlertCircle,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  Upload,
+  Settings2,
+  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +28,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Table,
   TableBody,
@@ -38,6 +50,29 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   useSizeCategories,
@@ -48,13 +83,61 @@ import {
   useUpdateAssemblyTier,
   usePricingFlags,
   useUpdatePricingFlag,
+  useCreatePricingFlag,
+  useDeletePricingFlag,
   useAccountPricingOverrides,
   useSeedDefaultPricing,
+  useSeedEnhancedFlags,
+  useExportPricingData,
+  useImportPricingData,
+  useAllFlagServiceRules,
   SizeCategory,
   GlobalServiceRate,
   AssemblyTier,
   PricingFlag,
 } from '@/hooks/usePricing';
+import { FlagConfigDialog } from './FlagConfigDialog';
+import { toast } from 'sonner';
+
+// ============================================================================
+// Instructions Component - Reusable help section
+// ============================================================================
+
+function InstructionsSection({
+  title,
+  children,
+  defaultOpen = false
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground mb-4">
+          <HelpCircle className="h-4 w-4" />
+          {title}
+          {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <Alert className="mb-4 bg-muted/50">
+          <Info className="h-4 w-4" />
+          <AlertDescription className="text-sm">
+            {children}
+          </AlertDescription>
+        </Alert>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+// ============================================================================
+// Main Component
+// ============================================================================
 
 export function PricingSettingsTab() {
   return (
@@ -63,11 +146,20 @@ export function PricingSettingsTab() {
         <div>
           <h2 className="text-2xl font-bold">Pricing Configuration</h2>
           <p className="text-muted-foreground">
-            Manage your pricing structure: size categories, service rates, assembly tiers, and flags
+            Manage your complete pricing structure for billing automation
           </p>
         </div>
         <SeedPricingButton />
       </div>
+
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>How Pricing Works</AlertTitle>
+        <AlertDescription>
+          Pricing flows in priority order: <strong>Account-Specific Rates</strong> → <strong>Size Category Rates</strong> → <strong>Global Service Rates</strong>.
+          Flags add percentage surcharges or flat fees on top of calculated rates. Assembly uses tier-based pricing.
+        </AlertDescription>
+      </Alert>
 
       <Tabs defaultValue="size-categories" className="space-y-4">
         <TabsList className="grid w-full grid-cols-5">
@@ -85,7 +177,7 @@ export function PricingSettingsTab() {
           </TabsTrigger>
           <TabsTrigger value="flags" className="gap-2">
             <Flag className="h-4 w-4" />
-            Flags
+            Item Flags
           </TabsTrigger>
           <TabsTrigger value="account-overrides" className="gap-2">
             <Users className="h-4 w-4" />
@@ -118,25 +210,160 @@ export function PricingSettingsTab() {
 }
 
 // ============================================================================
-// Seed Pricing Button
+// Seed Pricing Button + Import/Export
 // ============================================================================
 
 function SeedPricingButton() {
   const seedPricing = useSeedDefaultPricing();
+  const seedEnhancedFlags = useSeedEnhancedFlags();
+  const exportPricing = useExportPricingData();
+  const importPricing = useImportPricingData();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = async () => {
+    try {
+      const data = await exportPricing.mutateAsync();
+
+      // Create downloadable JSON file
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pricing-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Pricing data exported successfully');
+    } catch (error) {
+      // Error handled by mutation
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      await importPricing.mutateAsync({ data, overwrite: true });
+      toast.success('Pricing data imported successfully');
+    } catch (error) {
+      console.error('Import error:', error);
+      toast.error('Failed to import pricing data. Please check the file format.');
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   return (
-    <Button
-      variant="outline"
-      onClick={() => seedPricing.mutate()}
-      disabled={seedPricing.isPending}
-    >
-      {seedPricing.isPending ? (
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-      ) : (
-        <RefreshCw className="mr-2 h-4 w-4" />
-      )}
-      Load Defaults
-    </Button>
+    <div className="flex gap-2">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              onClick={() => seedPricing.mutate()}
+              disabled={seedPricing.isPending}
+            >
+              {seedPricing.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Load Defaults
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Load default pricing data including size categories,<br/>assembly tiers, services, and common flags</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              onClick={() => seedEnhancedFlags.mutate()}
+              disabled={seedEnhancedFlags.isPending}
+            >
+              {seedEnhancedFlags.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
+              )}
+              Add Industry Flags
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Add warehouse industry-specific flags like<br/>Fragile, High Value, White Glove, etc.</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              onClick={handleExport}
+              disabled={exportPricing.isPending}
+            >
+              {exportPricing.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Export
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Export all pricing configuration to JSON</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              onClick={handleImportClick}
+              disabled={importPricing.isPending}
+            >
+              {importPricing.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              Import
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Import pricing configuration from JSON file</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept=".json"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+    </div>
   );
 }
 
@@ -184,11 +411,20 @@ function SizeCategoriesTab() {
       <CardHeader>
         <CardTitle>Size Categories</CardTitle>
         <CardDescription>
-          XS–XL are your core buckets. These drive STORAGE + INSPECTION defaults.
-          Storage is FLAT RATE PER DAY per item.
+          Define storage and inspection rates by item size classification
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <InstructionsSection title="How to configure Size Categories">
+          <div className="space-y-2">
+            <p><strong>Purpose:</strong> Size categories (XS, S, M, L, XL) determine base rates for storage and inspection services based on item dimensions.</p>
+            <p><strong>Storage Rate/Day:</strong> The daily charge for storing one item of this size. Monthly estimates are calculated as (rate × 30 days).</p>
+            <p><strong>Inspection Fee:</strong> The flat fee charged for inspecting one item of this size category.</p>
+            <p><strong>Inspection Minutes:</strong> The estimated time to inspect an item of this size (used for scheduling and labor planning).</p>
+            <p><strong>Example:</strong> A Medium (M) item at $0.75/day costs ~$22.50/month in storage.</p>
+          </div>
+        </InstructionsSection>
+
         <Table>
           <TableHeader>
             <TableRow>
@@ -358,11 +594,24 @@ function ServiceRatesTab() {
       <CardHeader>
         <CardTitle>Global Service Rates</CardTitle>
         <CardDescription>
-          Global base service rates (tenant defaults). These are the rates you charge unless an account override exists.
-          Storage and Inspection are driven by Size Categories.
+          Configure base rates for all billable services
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <InstructionsSection title="How to configure Service Rates">
+          <div className="space-y-2">
+            <p><strong>Purpose:</strong> Define how each service type is priced across your warehouse operations.</p>
+            <p><strong>Pricing Modes:</strong></p>
+            <ul className="list-disc list-inside ml-4 space-y-1">
+              <li><strong>Flat Rate:</strong> Fixed price per unit (e.g., $15 per item for receiving)</li>
+              <li><strong>By Size Category:</strong> Rate varies by item size (XS-XL) - see Size Categories tab</li>
+              <li><strong>By Assembly Tier:</strong> Rate varies by complexity (Tier 1-4) - see Assembly Tiers tab</li>
+              <li><strong>Manual/Quote:</strong> Requires custom quote per job (e.g., custom packaging)</li>
+            </ul>
+            <p><strong>Note:</strong> These are default rates. Individual accounts can have custom pricing overrides.</p>
+          </div>
+        </InstructionsSection>
+
         <Table>
           <TableHeader>
             <TableRow>
@@ -506,11 +755,29 @@ function AssemblyTiersTab() {
       <CardHeader>
         <CardTitle>Assembly Tiers</CardTitle>
         <CardDescription>
-          Assembly pricing is variable. Use tier flags on items: Tier 1 = Very Easy (simple),
-          Tier 2 = Default, Tier 3 = Skilled, Tier 4 = Special Installer / Custom Quote.
+          Configure pricing for assembly services by complexity level
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <InstructionsSection title="How to configure Assembly Tiers">
+          <div className="space-y-2">
+            <p><strong>Purpose:</strong> Assembly pricing varies significantly by complexity. Use tiers to standardize pricing for different job difficulties.</p>
+            <p><strong>Tier Levels:</strong></p>
+            <ul className="list-disc list-inside ml-4 space-y-1">
+              <li><strong>Tier 1 (Very Easy):</strong> Simple assemblies like small shelves, basic furniture (15-20 min)</li>
+              <li><strong>Tier 2 (Default):</strong> Standard furniture assembly, moderate complexity (30-60 min)</li>
+              <li><strong>Tier 3 (Skilled):</strong> Complex assemblies requiring experienced technicians (60-90 min)</li>
+              <li><strong>Tier 4 (Special):</strong> Custom work requiring special installers or manual quotes</li>
+            </ul>
+            <p><strong>Billing Modes:</strong></p>
+            <ul className="list-disc list-inside ml-4 space-y-1">
+              <li><strong>Flat per Item:</strong> Fixed price regardless of actual time</li>
+              <li><strong>Per Minute:</strong> Charge based on actual labor time</li>
+              <li><strong>Manual Quote:</strong> Custom pricing per job</li>
+            </ul>
+          </div>
+        </InstructionsSection>
+
         <Table>
           <TableHeader>
             <TableRow>
@@ -654,39 +921,40 @@ function AssemblyTiersTab() {
 }
 
 // ============================================================================
-// Flags Tab
+// Flags Tab - Enhanced with full CRUD and FlagConfigDialog
 // ============================================================================
 
 function FlagsTab() {
-  const { data: flags = [], isLoading } = usePricingFlags();
-  const updateFlag = useUpdatePricingFlag();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<Partial<PricingFlag>>({});
+  const { data: flags = [], isLoading, refetch } = usePricingFlags();
+  const { data: allServiceRules = [] } = useAllFlagServiceRules();
+  const deleteFlag = useDeletePricingFlag();
 
-  const startEdit = (flag: PricingFlag) => {
-    setEditingId(flag.id);
-    setEditValues({
-      adds_percent: flag.adds_percent,
-      adds_minutes: flag.adds_minutes,
-      applies_to_services: flag.applies_to_services,
-      visible_to_client: flag.visible_to_client,
-      client_can_set: flag.client_can_set,
-      triggers_task_type: flag.triggers_task_type,
-      triggers_alert: flag.triggers_alert,
-      is_active: flag.is_active,
-    });
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [selectedFlag, setSelectedFlag] = useState<PricingFlag | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  const handleEditFlag = (flag: PricingFlag) => {
+    setSelectedFlag(flag);
+    setConfigDialogOpen(true);
   };
 
-  const saveEdit = async () => {
-    if (!editingId) return;
-    await updateFlag.mutateAsync({ id: editingId, ...editValues });
-    setEditingId(null);
-    setEditValues({});
+  const handleAddFlag = () => {
+    setSelectedFlag(null);
+    setConfigDialogOpen(true);
   };
 
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditValues({});
+  const handleDeleteFlag = async (flagId: string) => {
+    await deleteFlag.mutateAsync(flagId);
+    setDeleteConfirm(null);
+  };
+
+  const handleDialogSaved = () => {
+    refetch();
+  };
+
+  // Count service rules per flag
+  const getServiceRulesCount = (flagId: string) => {
+    return allServiceRules.filter((r) => r.flag_id === flagId).length;
   };
 
   if (isLoading) {
@@ -698,170 +966,194 @@ function FlagsTab() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Pricing Flags</CardTitle>
-        <CardDescription>
-          Tenant-customizable flags. Keep flags data-driven so other subscribers can add/hide/remove without code.
-          Flags can add percentage adjustments or extra time to service pricing.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-32">Key</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead className="text-center">Active</TableHead>
-              <TableHead className="text-center">Client Visible</TableHead>
-              <TableHead className="text-right">Adds %</TableHead>
-              <TableHead className="text-right">Adds Min.</TableHead>
-              <TableHead>Applies To</TableHead>
-              <TableHead>Triggers Task</TableHead>
-              <TableHead className="w-24">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {flags.map((flag) => (
-              <TableRow key={flag.id} className={!flag.is_active ? 'opacity-50' : ''}>
-                <TableCell>
-                  <Badge variant="outline">{flag.flag_key}</Badge>
-                </TableCell>
-                <TableCell className="font-medium">{flag.display_name}</TableCell>
-                <TableCell className="text-center">
-                  {editingId === flag.id ? (
-                    <Switch
-                      checked={editValues.is_active ?? true}
-                      onCheckedChange={(checked) =>
-                        setEditValues({ ...editValues, is_active: checked })
-                      }
-                    />
-                  ) : flag.is_active ? (
-                    <Badge className="bg-green-500">Yes</Badge>
-                  ) : (
-                    <Badge variant="secondary">No</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-center">
-                  {editingId === flag.id ? (
-                    <Switch
-                      checked={editValues.visible_to_client ?? true}
-                      onCheckedChange={(checked) =>
-                        setEditValues({ ...editValues, visible_to_client: checked })
-                      }
-                    />
-                  ) : flag.visible_to_client ? (
-                    'Yes'
-                  ) : (
-                    'No'
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  {editingId === flag.id ? (
-                    <Input
-                      type="number"
-                      step="1"
-                      className="w-20 text-right"
-                      value={editValues.adds_percent ?? 0}
-                      onChange={(e) =>
-                        setEditValues({ ...editValues, adds_percent: parseFloat(e.target.value) || 0 })
-                      }
-                    />
-                  ) : flag.adds_percent > 0 ? (
-                    <Badge variant="secondary">+{flag.adds_percent}%</Badge>
-                  ) : (
-                    <span className="text-muted-foreground">0</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  {editingId === flag.id ? (
-                    <Input
-                      type="number"
-                      step="1"
-                      className="w-20 text-right"
-                      value={editValues.adds_minutes ?? 0}
-                      onChange={(e) =>
-                        setEditValues({ ...editValues, adds_minutes: parseInt(e.target.value) || 0 })
-                      }
-                    />
-                  ) : flag.adds_minutes > 0 ? (
-                    `+${flag.adds_minutes} min`
-                  ) : (
-                    <span className="text-muted-foreground">0</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {editingId === flag.id ? (
-                    <Select
-                      value={editValues.applies_to_services || 'ALL'}
-                      onValueChange={(value) =>
-                        setEditValues({ ...editValues, applies_to_services: value })
-                      }
-                    >
-                      <SelectTrigger className="w-28">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALL">All Services</SelectItem>
-                        <SelectItem value="STORAGE">Storage</SelectItem>
-                        <SelectItem value="INSPECTION">Inspection</SelectItem>
-                        <SelectItem value="ASSEMBLY">Assembly</SelectItem>
-                        <SelectItem value="REPAIR">Repair</SelectItem>
-                        <SelectItem value="RECEIVING">Receiving</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Badge variant="outline">{flag.applies_to_services}</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {editingId === flag.id ? (
-                    <Input
-                      className="w-24"
-                      value={editValues.triggers_task_type || ''}
-                      onChange={(e) =>
-                        setEditValues({ ...editValues, triggers_task_type: e.target.value || null })
-                      }
-                      placeholder="none"
-                    />
-                  ) : flag.triggers_task_type ? (
-                    <Badge>{flag.triggers_task_type}</Badge>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {editingId === flag.id ? (
-                    <div className="flex gap-1">
-                      <Button size="sm" onClick={saveEdit} disabled={updateFlag.isPending}>
-                        <Save className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={cancelEdit}>
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button size="sm" variant="ghost" onClick={() => startEdit(flag)}>
-                      Edit
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Item Flags</CardTitle>
+              <CardDescription>
+                Configure flags that can be applied to items with automatic billing, tasks, and alerts
+              </CardDescription>
+            </div>
+            <Button onClick={handleAddFlag}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Flag
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <InstructionsSection title="How to configure Item Flags">
+            <div className="space-y-2">
+              <p><strong>Purpose:</strong> Flags are toggles that can be applied to individual items. When enabled, they can automatically trigger billing events, create tasks, or send alerts.</p>
+              <p><strong>Key Settings:</strong></p>
+              <ul className="list-disc list-inside ml-4 space-y-1">
+                <li><strong>Billable:</strong> Flag represents a chargeable service/surcharge</li>
+                <li><strong>Flat Fee:</strong> Fixed amount charged when flag is enabled</li>
+                <li><strong>Adds %:</strong> Percentage surcharge added to applicable services</li>
+                <li><strong>Per-Service Rules:</strong> Override default pricing for specific services (e.g., Overweight adds +10% to Storage but +20% to Delivery)</li>
+                <li><strong>Creates Billing Event:</strong> Automatically generates a billing record</li>
+                <li><strong>Triggers Task:</strong> Automatically creates a task (e.g., repair, inspection)</li>
+                <li><strong>Triggers Alert:</strong> Sends notification to office staff</li>
+              </ul>
+              <p><strong>Client Visibility:</strong> Control whether clients can see or toggle flags in their portal.</p>
+              <p><strong>Example:</strong> "Overweight" flag with +15% surcharge + $25 flat fee + alert to notify office of heavy item.</p>
+            </div>
+          </InstructionsSection>
 
-        {flags.length === 0 && (
-          <Alert className="mt-4">
-            <Info className="h-4 w-4" />
-            <AlertTitle>No flags configured</AlertTitle>
-            <AlertDescription>
-              Click "Load Defaults" above to populate standard flags (Overweight, Oversize, Crated, etc.).
-            </AlertDescription>
-          </Alert>
-        )}
-      </CardContent>
-    </Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-32">Key</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead className="text-center">Active</TableHead>
+                <TableHead className="text-center">Billable</TableHead>
+                <TableHead className="text-right">Flat Fee</TableHead>
+                <TableHead className="text-right">Adds %</TableHead>
+                <TableHead className="text-center">Service Rules</TableHead>
+                <TableHead className="text-center">Auto Billing</TableHead>
+                <TableHead className="text-center">Auto Task</TableHead>
+                <TableHead className="w-32">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {flags.map((flag) => {
+                const rulesCount = getServiceRulesCount(flag.id);
+                return (
+                  <TableRow key={flag.id} className={!flag.is_active ? 'opacity-50' : ''}>
+                    <TableCell>
+                      <Badge variant="outline">{flag.flag_key}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <span className="font-medium">{flag.display_name}</span>
+                        {flag.description && (
+                          <p className="text-xs text-muted-foreground truncate max-w-48">{flag.description}</p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {flag.is_active ? (
+                        <Badge className="bg-green-500">Yes</Badge>
+                      ) : (
+                        <Badge variant="secondary">No</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {flag.is_billable ? (
+                        <Badge className="bg-amber-500">$</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {flag.flat_fee > 0 ? (
+                        `$${flag.flat_fee.toFixed(2)}`
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {flag.adds_percent > 0 ? (
+                        <Badge variant="secondary">+{flag.adds_percent}%</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {rulesCount > 0 ? (
+                        <Badge variant="outline" className="bg-blue-50">
+                          {rulesCount} rule{rulesCount > 1 ? 's' : ''}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">default</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {flag.creates_billing_event ? (
+                        <Badge className="bg-blue-500">Yes</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {flag.triggers_task_type ? (
+                        <Badge>{flag.triggers_task_type}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="ghost" onClick={() => handleEditFlag(flag)}>
+                                <Settings2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Configure flag settings and per-service rules</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setDeleteConfirm(flag.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+
+          {flags.length === 0 && (
+            <Alert className="mt-4">
+              <Info className="h-4 w-4" />
+              <AlertTitle>No flags configured</AlertTitle>
+              <AlertDescription>
+                Click "Load Defaults" above to populate standard flags, "Add Industry Flags" for warehouse-specific flags, or click "Add Flag" to create custom flags.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Flag Config Dialog */}
+      <FlagConfigDialog
+        open={configDialogOpen}
+        onOpenChange={setConfigDialogOpen}
+        flag={selectedFlag}
+        onSaved={handleDialogSaved}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Flag?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this flag. Any items with this flag will have it removed.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteConfirm && handleDeleteFlag(deleteConfirm)}
+            >
+              {deleteFlag.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -885,11 +1177,20 @@ function AccountOverridesTab() {
       <CardHeader>
         <CardTitle>Account Pricing Overrides</CardTitle>
         <CardDescription>
-          % adjustments per account. Positive values = markup, negative values = discount.
-          These multiply all base rates for that customer.
+          View all account-level pricing adjustments configured in your system
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <InstructionsSection title="How Account Overrides Work">
+          <div className="space-y-2">
+            <p><strong>Purpose:</strong> Apply percentage markup or discount to all services for specific accounts.</p>
+            <p><strong>How to Configure:</strong> Account pricing overrides are set in the individual Account settings page under the "Pricing" tab.</p>
+            <p><strong>Calculation:</strong> Base rate × (1 + adjustment). Example: $100 service with +10% markup = $110.</p>
+            <p><strong>Positive values:</strong> Markup (customer pays more)</p>
+            <p><strong>Negative values:</strong> Discount (customer pays less)</p>
+          </div>
+        </InstructionsSection>
+
         <Table>
           <TableHeader>
             <TableRow>
@@ -932,7 +1233,7 @@ function AccountOverridesTab() {
             <Info className="h-4 w-4" />
             <AlertTitle>No account overrides</AlertTitle>
             <AlertDescription>
-              Account pricing adjustments can be configured in the Account settings under the Pricing tab.
+              Account pricing adjustments can be configured in individual Account settings under the Pricing tab.
               All accounts use standard rates by default.
             </AlertDescription>
           </Alert>

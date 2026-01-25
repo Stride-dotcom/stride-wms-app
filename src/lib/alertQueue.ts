@@ -362,3 +362,127 @@ export async function queueClaimDeniedAlert(
     recipientEmails: recipientEmail ? [recipientEmail] : undefined,
   });
 }
+
+/**
+ * Queue a claim sent for acceptance alert (to client)
+ */
+export async function queueClaimSentForAcceptanceAlert(
+  tenantId: string,
+  claimId: string,
+  claimNumber: string,
+  payoutAmount: number,
+  acceptanceUrl: string,
+  recipientEmail?: string
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'claim.determination_sent',
+    entityType: 'claim',
+    entityId: claimId,
+    subject: `📋 Claim ${claimNumber} Determination Ready - Please Review`,
+    recipientEmails: recipientEmail ? [recipientEmail] : undefined,
+  });
+}
+
+/**
+ * Queue a claim accepted by client alert (to warehouse admins/managers)
+ */
+export async function queueClaimAcceptedByClientAlert(
+  tenantId: string,
+  claimId: string,
+  claimNumber: string,
+  payoutAmount: number,
+  recipientEmails?: string[]
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'claim.client_accepted',
+    entityType: 'claim',
+    entityId: claimId,
+    subject: `✅ Client Accepted Claim ${claimNumber} - Payout: $${payoutAmount.toFixed(2)}`,
+    recipientEmails,
+  });
+}
+
+/**
+ * Queue a claim declined by client alert (to warehouse admins/managers)
+ */
+export async function queueClaimDeclinedByClientAlert(
+  tenantId: string,
+  claimId: string,
+  claimNumber: string,
+  declineReason: string,
+  counterOfferAmount?: number,
+  recipientEmails?: string[]
+): Promise<boolean> {
+  const hasCounter = counterOfferAmount != null;
+  return queueAlert({
+    tenantId,
+    alertType: hasCounter ? 'claim.client_countered' : 'claim.client_declined',
+    entityType: 'claim',
+    entityId: claimId,
+    subject: hasCounter
+      ? `🔄 Client Counter Offer on Claim ${claimNumber} - $${counterOfferAmount.toFixed(2)}`
+      : `❌ Client Declined Claim ${claimNumber}`,
+    recipientEmails,
+  });
+}
+
+/**
+ * Queue a claim attachment added alert (to warehouse when client uploads)
+ */
+export async function queueClaimAttachmentAddedAlert(
+  tenantId: string,
+  claimId: string,
+  claimNumber: string,
+  attachmentType: string,
+  recipientEmails?: string[]
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'claim.attachment_added',
+    entityType: 'claim',
+    entityId: claimId,
+    subject: `📎 New ${attachmentType} added to Claim ${claimNumber}`,
+    recipientEmails,
+  });
+}
+
+/**
+ * Queue a claim note added alert (to warehouse when client adds note)
+ */
+export async function queueClaimNoteAddedAlert(
+  tenantId: string,
+  claimId: string,
+  claimNumber: string,
+  recipientEmails?: string[]
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'claim.note_added',
+    entityType: 'claim',
+    entityId: claimId,
+    subject: `💬 New note added to Claim ${claimNumber}`,
+    recipientEmails,
+  });
+}
+
+/**
+ * Queue a claim requires approval alert (to admins/managers)
+ */
+export async function queueClaimRequiresApprovalAlert(
+  tenantId: string,
+  claimId: string,
+  claimNumber: string,
+  payoutAmount: number,
+  recipientEmails?: string[]
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'claim.requires_approval',
+    entityType: 'claim',
+    entityId: claimId,
+    subject: `⚠️ Claim ${claimNumber} requires approval - $${payoutAmount.toFixed(2)}`,
+    recipientEmails,
+  });
+}

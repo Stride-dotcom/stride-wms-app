@@ -1,13 +1,18 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
-import { useBillingEvents } from '@/hooks/useBillingEvents';
-import { useTenantPreferences } from '@/hooks/useTenantPreferences';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import {
+  usePricingFlags,
+  useItemFlags,
+  useSetItemFlag,
+  useUnsetItemFlag,
+  PricingFlag,
+} from '@/hooks/usePricing';
+import { toast } from 'sonner';
 import {
   AlertTriangle,
   Package,
@@ -19,9 +24,302 @@ import {
   Hammer,
   Bell,
   HelpCircle,
+  Flag,
+  Loader2,
+  DollarSign,
+  Weight,
+  Maximize,
+  GlassWater,
+  Gem,
+  Thermometer,
+  Biohazard,
+  Hand,
+  Zap,
+  Paintbrush,
+  PackageX,
+  FileQuestion,
+  Puzzle,
 } from 'lucide-react';
 
-interface ItemFlags {
+// Icon mapping from flag icon names to Lucide components
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  'flag': Flag,
+  'package': Package,
+  'weight': Weight,
+  'maximize': Maximize,
+  'ruler': Ruler,
+  'layers': Layers,
+  'box': Box,
+  'wrench': Wrench,
+  'search': Search,
+  'hammer': Hammer,
+  'bell': Bell,
+  'help-circle': HelpCircle,
+  'file-question': FileQuestion,
+  'alert-triangle': AlertTriangle,
+  'glass-water': GlassWater,
+  'gem': Gem,
+  'thermometer': Thermometer,
+  'biohazard': Biohazard,
+  'hand': Hand,
+  'zap': Zap,
+  'paintbrush': Paintbrush,
+  'package-x': PackageX,
+  'puzzle': Puzzle,
+};
+
+// Color mapping for flag badges
+const COLOR_MAP: Record<string, string> = {
+  'default': '',
+  'warning': 'bg-amber-500 hover:bg-amber-600',
+  'destructive': 'bg-destructive hover:bg-destructive/90',
+  'success': 'bg-green-500 hover:bg-green-600',
+};
+
+interface ItemFlagsSectionProps {
+  itemId: string;
+  accountId?: string;
+  onFlagsChange?: () => void;
+  isClientUser?: boolean;
+}
+
+export function ItemFlagsSection({
+  itemId,
+  accountId,
+  onFlagsChange,
+  isClientUser = false,
+}: ItemFlagsSectionProps) {
+  const { profile } = useAuth();
+  const [updatingFlag, setUpdatingFlag] = useState<string | null>(null);
+
+  // Fetch all available flags for this tenant
+  const { data: availableFlags = [], isLoading: flagsLoading } = usePricingFlags();
+
+  // Fetch currently set flags for this item
+  const { data: itemFlags = [], isLoading: itemFlagsLoading, refetch: refetchItemFlags } = useItemFlags(itemId);
+
+  // Mutations
+  const setItemFlag = useSetItemFlag();
+  const unsetItemFlag = useUnsetItemFlag();
+
+  // Filter flags based on client visibility
+  const visibleFlags = useMemo(() => {
+    return availableFlags.filter(flag => {
+      if (!flag.is_active) return false;
+      if (isClientUser && !flag.visible_to_client) return false;
+      return true;
+    });
+  }, [availableFlags, isClientUser]);
+
+  // Create a set of currently enabled flag keys for quick lookup
+  const enabledFlagIds = useMemo(() => {
+    return new Set(itemFlags.map(f => f.flag_id));
+  }, [itemFlags]);
+
+  const getIconComponent = (iconName: string | null) => {
+    if (!iconName) return Flag;
+    return ICON_MAP[iconName] || Flag;
+  };
+
+  const handleFlagToggle = async (flag: PricingFlag, currentlyEnabled: boolean) => {
+    // Check if client can edit this flag
+    if (isClientUser && !flag.client_can_set) {
+      toast.error('You do not have permission to change this flag.');
+      return;
+    }
+
+    setUpdatingFlag(flag.id);
+
+    try {
+      if (currentlyEnabled) {
+        // Unset the flag
+        await unsetItemFlag.mutateAsync({
+          itemId,
+          flagKey: flag.flag_key,
+        });
+        toast.success(`${flag.display_name} disabled`);
+      } else {
+        // Set the flag - this will auto-create billing events and tasks as configured
+        const result = await setItemFlag.mutateAsync({
+          itemId,
+          flagKey: flag.flag_key,
+        });
+
+        let message = `${flag.display_name} enabled`;
+        if (result.billing_event_id) {
+          message += ' (billing event created)';
+        }
+        if (result.task_id) {
+          message += ' (task created)';
+        }
+        toast.success(message);
+      }
+
+      // Refetch and notify parent
+      await refetchItemFlags();
+      onFlagsChange?.();
+    } catch (error: any) {
+      console.error('Error toggling flag:', error);
+      toast.error(error.message || 'Failed to update flag');
+    } finally {
+      setUpdatingFlag(null);
+    }
+  };
+
+  // Check if any damage flag is enabled
+  const hasDamage = useMemo(() => {
+    return itemFlags.some(itemFlag => {
+      const flagDef = availableFlags.find(f => f.id === itemFlag.flag_id);
+      return flagDef?.flag_key === 'HAS_DAMAGE';
+    });
+  }, [itemFlags, availableFlags]);
+
+  if (flagsLoading || itemFlagsLoading) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            Item Flags
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="flex items-center gap-3 p-2">
+                <Skeleton className="h-4 w-4" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (visibleFlags.length === 0) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            Item Flags
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            No flags configured. Configure flags in Settings → Pricing → Item Flags.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5" />
+          Item Flags
+          {hasDamage && (
+            <Badge variant="destructive" className="ml-2">
+              Damage Reported
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-3">
+          {visibleFlags.map((flag) => {
+            const Icon = getIconComponent(flag.icon);
+            const isEnabled = enabledFlagIds.has(flag.id);
+            const isUpdating = updatingFlag === flag.id;
+            const canEdit = !isClientUser || flag.client_can_set;
+            const colorClass = flag.color ? COLOR_MAP[flag.color] || '' : '';
+
+            return (
+              <div
+                key={flag.id}
+                className={`flex items-center gap-3 p-2 rounded-md transition-colors ${
+                  !canEdit ? 'opacity-60' : 'hover:bg-muted/50'
+                } ${isEnabled && colorClass ? 'bg-muted/30' : ''}`}
+                title={flag.description || undefined}
+              >
+                <Checkbox
+                  id={`flag-${flag.id}`}
+                  checked={isEnabled}
+                  onCheckedChange={() => handleFlagToggle(flag, isEnabled)}
+                  disabled={!canEdit || isUpdating}
+                />
+                <Label
+                  htmlFor={`flag-${flag.id}`}
+                  className={`flex items-center gap-2 flex-1 ${
+                    canEdit ? 'cursor-pointer' : 'cursor-not-allowed'
+                  }`}
+                >
+                  {isUpdating ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : (
+                    <Icon className={`h-4 w-4 ${
+                      isEnabled && flag.color === 'destructive'
+                        ? 'text-destructive'
+                        : isEnabled && flag.color === 'warning'
+                        ? 'text-amber-500'
+                        : 'text-muted-foreground'
+                    }`} />
+                  )}
+                  <span className="text-sm">{flag.display_name}</span>
+                  <div className="flex items-center gap-1 ml-auto">
+                    {flag.is_billable && (
+                      <Badge variant="outline" className="text-xs px-1">
+                        <DollarSign className="h-3 w-3" />
+                      </Badge>
+                    )}
+                    {flag.triggers_task_type && (
+                      <Badge variant="outline" className="text-xs px-1">
+                        <Hammer className="h-3 w-3" />
+                      </Badge>
+                    )}
+                    {flag.triggers_alert && (
+                      <Badge variant="outline" className="text-xs px-1">
+                        <Bell className="h-3 w-3" />
+                      </Badge>
+                    )}
+                  </div>
+                </Label>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 mt-4 pt-4 border-t text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <DollarSign className="h-3 w-3" />
+            <span>Billable</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Hammer className="h-3 w-3" />
+            <span>Creates Task</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Bell className="h-3 w-3" />
+            <span>Sends Alert</span>
+          </div>
+        </div>
+
+        {isClientUser && (
+          <p className="text-xs text-muted-foreground mt-4">
+            Some flags can only be modified by warehouse staff.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Legacy compatibility - export a type that matches the old interface
+export interface LegacyItemFlags {
   is_overweight: boolean;
   is_oversize: boolean;
   is_unstackable: boolean;
@@ -33,239 +331,4 @@ interface ItemFlags {
   has_damage: boolean;
   received_without_id: boolean;
   needs_minor_touchup: boolean;
-}
-
-interface ItemFlagsSectionProps {
-  itemId: string;
-  accountId?: string;
-  flags: ItemFlags;
-  onFlagsChange: (flags: ItemFlags) => void;
-  isClientUser?: boolean;
-}
-
-interface FlagConfig {
-  key: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  billable: boolean;
-  clientEditable?: boolean;
-}
-
-const FLAG_CONFIG: FlagConfig[] = [
-  { key: 'is_overweight', label: 'Overweight', icon: Package, billable: true },
-  { key: 'is_oversize', label: 'Oversize', icon: Ruler, billable: true },
-  { key: 'is_unstackable', label: 'Unstackable', icon: Layers, billable: true },
-  { key: 'is_crated', label: 'Crate Disposal', icon: Box, billable: true },
-  { key: 'needs_minor_touchup', label: 'Minor Touch Up', icon: Wrench, billable: true },
-  { key: 'received_without_id', label: 'Received Without ID', icon: HelpCircle, billable: true },
-  { key: 'needs_repair', label: 'Needs Repair', icon: Wrench, billable: false, clientEditable: true },
-  { key: 'needs_inspection', label: 'Needs Inspection', icon: Search, billable: false, clientEditable: true },
-  { key: 'needs_warehouse_assembly', label: 'Needs Warehouse Assembly', icon: Hammer, billable: false },
-  { key: 'notify_dispatch', label: 'Notify Dispatch', icon: Bell, billable: false },
-];
-
-export function ItemFlagsSection({
-  itemId,
-  accountId,
-  flags,
-  onFlagsChange,
-  isClientUser = false,
-}: ItemFlagsSectionProps) {
-  const { profile } = useAuth();
-  const { toast } = useToast();
-  const { createFlagBillingEvent } = useBillingEvents();
-  const { preferences } = useTenantPreferences();
-  const [updating, setUpdating] = useState<string | null>(null);
-
-  // Helper to create a repair task automatically
-  const createRepairTask = async () => {
-    if (!profile?.tenant_id) return;
-
-    try {
-      // Get item details for task title
-      const { data: item } = await (supabase
-        .from('items') as any)
-        .select('item_code, client_account, warehouse_id')
-        .eq('id', itemId)
-        .single();
-
-      // Find account_id from client_account name
-      let taskAccountId = accountId;
-      if (!taskAccountId && item?.client_account) {
-        const { data: account } = await supabase
-          .from('accounts')
-          .select('id')
-          .eq('account_name', item.client_account)
-          .maybeSingle();
-        taskAccountId = account?.id;
-      }
-
-      // Create the repair task
-      const { data: newTask, error } = await (supabase
-        .from('tasks') as any)
-        .insert({
-          tenant_id: profile.tenant_id,
-          title: `Repair - ${item?.item_code || '1 item'}`,
-          task_type: 'Repair',
-          status: 'pending',
-          priority: 'normal',
-          warehouse_id: item?.warehouse_id || null,
-          account_id: taskAccountId || null,
-          bill_to: 'account',
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Link item to task
-      if (newTask) {
-        await (supabase.from('task_items') as any).insert({
-          task_id: newTask.id,
-          item_id: itemId,
-        });
-
-        toast({
-          title: 'Repair Task Created',
-          description: 'An automatic repair task has been created for this item.',
-        });
-      }
-    } catch (error) {
-      console.error('Error creating repair task:', error);
-      // Don't show error toast - the flag update was successful
-    }
-  };
-
-  const handleFlagChange = async (flagKey: keyof ItemFlags, value: boolean) => {
-    // Client users can only edit needs_repair and needs_inspection
-    if (isClientUser) {
-      const config = FLAG_CONFIG.find(f => f.key === flagKey);
-      if (!config?.clientEditable) {
-        toast({
-          title: 'Permission Denied',
-          description: 'You do not have permission to change this flag.',
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
-
-    setUpdating(flagKey);
-
-    try {
-      const updateData: Record<string, any> = {};
-      updateData[flagKey] = value;
-
-      // Auto-set corresponding status to 'pending' when enabling needs_* flags
-      if (value) {
-        if (flagKey === 'needs_inspection') {
-          updateData['inspection_status'] = 'pending';
-        } else if (flagKey === 'needs_repair') {
-          updateData['repair_status'] = 'pending';
-        } else if (flagKey === 'needs_warehouse_assembly') {
-          updateData['assembly_status'] = 'pending';
-        }
-      }
-
-      const { error } = await (supabase
-        .from('items') as any)
-        .update(updateData)
-        .eq('id', itemId);
-
-      if (error) throw error;
-
-      // Create billing event for billable flags (only when setting to true)
-      const config = FLAG_CONFIG.find(f => f.key === flagKey);
-      if (config?.billable && value) {
-        await createFlagBillingEvent(itemId, flagKey, accountId || null, itemId);
-      }
-
-      // Auto-create repair task when needs_repair is enabled and preference is set
-      if (flagKey === 'needs_repair' && value && preferences?.auto_repair_on_damage) {
-        await createRepairTask();
-      }
-
-      // Update local state including status changes
-      const updatedFlags = { ...flags, [flagKey]: value };
-      onFlagsChange(updatedFlags);
-
-      toast({
-        title: 'Flag Updated',
-        description: `${config?.label} ${value ? 'enabled' : 'disabled'}.`,
-      });
-    } catch (error) {
-      console.error('Error updating flag:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update flag.',
-        variant: 'destructive',
-      });
-    } finally {
-      setUpdating(null);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5" />
-          Item Flags
-          {flags.has_damage && (
-            <Badge variant="destructive" className="ml-2">
-              Damage Reported
-            </Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-4">
-          {FLAG_CONFIG.map((config) => {
-            const Icon = config.icon;
-            const isDisabled = isClientUser && !config.clientEditable;
-            const isUpdating = updating === config.key;
-            const isChecked = flags[config.key as keyof ItemFlags] || false;
-
-            return (
-              <div
-                key={config.key}
-                className={`flex items-center gap-3 p-2 rounded-md ${
-                  isDisabled ? 'opacity-50' : 'hover:bg-muted/50'
-                }`}
-              >
-                <Checkbox
-                  id={config.key}
-                  checked={isChecked}
-                  onCheckedChange={(checked) =>
-                    handleFlagChange(config.key as keyof ItemFlags, checked as boolean)
-                  }
-                  disabled={isDisabled || isUpdating}
-                />
-                <Label
-                  htmlFor={config.key}
-                  className={`flex items-center gap-2 cursor-pointer ${
-                    isDisabled ? 'cursor-not-allowed' : ''
-                  }`}
-                >
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{config.label}</span>
-                  {config.billable && (
-                    <Badge variant="outline" className="text-xs">
-                      $
-                    </Badge>
-                  )}
-                </Label>
-              </div>
-            );
-          })}
-        </div>
-        
-        {isClientUser && (
-          <p className="text-xs text-muted-foreground mt-4">
-            As a client, you can only modify "Needs Repair" and "Needs Inspection" flags.
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
 }
