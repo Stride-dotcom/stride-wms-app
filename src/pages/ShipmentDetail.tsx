@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { DocumentCapture } from '@/components/scanner';
+import { MultiPhotoCapture } from '@/components/common/MultiPhotoCapture';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 
@@ -679,6 +680,32 @@ export default function ShipmentDetail() {
               )}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      {/* Photos Section */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Photos</CardTitle>
+          <CardDescription>Take multiple photos before saving</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <MultiPhotoCapture
+            entityType="shipment"
+            entityId={shipment.id}
+            tenantId={profile?.tenant_id}
+            existingPhotos={receivingPhotos}
+            maxPhotos={20}
+            label=""
+            onPhotosSaved={async (urls) => {
+              setReceivingPhotos(urls);
+              // Save to shipment
+              await supabase
+                .from('shipments')
+                .update({ receiving_photos: urls })
+                .eq('id', shipment.id);
+            }}
+          />
         </CardContent>
       </Card>
 
