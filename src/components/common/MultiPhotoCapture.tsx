@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, X, Loader2, Save, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Camera, X, Loader2, Save, Image as ImageIcon, Trash2, Download } from 'lucide-react';
 
 interface PendingPhoto {
   id: string;
@@ -78,6 +78,29 @@ export function MultiPhotoCapture({
       return prev.filter(p => p.id !== id);
     });
   }, []);
+
+  // Download a saved photo
+  const handleDownload = useCallback(async (url: string, index: number) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `photo-${index + 1}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast({
+        title: 'Download failed',
+        description: 'Could not download the photo.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
 
   // Remove saved photo
   const removeSavedPhoto = useCallback(async (urlToRemove: string) => {
@@ -169,20 +192,29 @@ export function MultiPhotoCapture({
             {savedPhotos.map((url, index) => (
               <div
                 key={url}
-                className="relative aspect-square rounded-lg border overflow-hidden bg-muted"
+                className="relative aspect-square rounded-lg border overflow-hidden bg-muted group"
               >
                 <img
                   src={url}
                   alt={`Saved ${index + 1}`}
                   className="w-full h-full object-cover"
                 />
-                <button
-                  type="button"
-                  onClick={() => removeSavedPhoto(url)}
-                  className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
-                >
-                  <X className="h-3 w-3" />
-                </button>
+                <div className="absolute top-1 right-1 flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleDownload(url, index)}
+                    className="p-1 bg-blue-500 text-white rounded-full hover:bg-blue-600 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                  >
+                    <Download className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeSavedPhoto(url)}
+                    className="p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
