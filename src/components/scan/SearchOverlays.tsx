@@ -93,7 +93,7 @@ export function ItemSearchOverlay({
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search by item code..."
+            placeholder="Search Item Code"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full h-12 pl-10 pr-4 text-lg bg-muted rounded-xl border-2 border-transparent focus:border-primary focus:outline-none"

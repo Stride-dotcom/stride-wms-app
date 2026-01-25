@@ -74,6 +74,7 @@ interface Item {
   account_id: string | null;
   received_at: string | null;
   primary_photo_url: string | null;
+  coverage_type: string | null;
 }
 
 type SortField = 'item_code' | 'vendor' | 'description' | 'quantity' | 'location_code' | 'client_account' | 'sidemark' | 'room';
@@ -92,6 +93,7 @@ export default function Inventory() {
     sidemark: '',
     locationId: '',
     warehouseId: '',
+    coverageType: '',
   });
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
@@ -145,7 +147,7 @@ export default function Inventory() {
     try {
       const { data, error } = await (supabase
         .from('v_items_with_location') as any)
-        .select('id, item_code, description, status, quantity, client_account, sidemark, vendor, room, location_id, location_code, location_name, warehouse_id, warehouse_name, account_id, received_at, primary_photo_url')
+        .select('id, item_code, description, status, quantity, client_account, sidemark, vendor, room, location_id, location_code, location_name, warehouse_id, warehouse_name, account_id, received_at, primary_photo_url, coverage_type')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(500);
@@ -185,7 +187,17 @@ export default function Inventory() {
       const matchesLocation = !filters.locationId || item.location_id === filters.locationId;
       const matchesWarehouse = !filters.warehouseId || item.warehouse_id === filters.warehouseId;
 
-      return matchesSearch && matchesStatus && matchesVendor && matchesAccount && matchesSidemark && matchesLocation && matchesWarehouse;
+      // Coverage filter
+      let matchesCoverage = true;
+      if (filters.coverageType) {
+        if (filters.coverageType === 'uncovered') {
+          matchesCoverage = !item.coverage_type || item.coverage_type === null;
+        } else {
+          matchesCoverage = item.coverage_type === filters.coverageType;
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesVendor && matchesAccount && matchesSidemark && matchesLocation && matchesWarehouse && matchesCoverage;
     });
 
     // Sort

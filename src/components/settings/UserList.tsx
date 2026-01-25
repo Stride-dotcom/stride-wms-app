@@ -75,6 +75,7 @@ export function UserList({
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [employeeFilter, setEmployeeFilter] = useState<string>('all');
   const { toast } = useToast();
 
   // Get unique role names for filter dropdown (filter out empty strings)
@@ -108,9 +109,17 @@ export function UserList({
       // Status filter
       const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
 
-      return matchesSearch && matchesRole && matchesStatus;
+      // Employee filter (users with labor_rate are employees)
+      let matchesEmployee = true;
+      if (employeeFilter === 'employees') {
+        matchesEmployee = user.labor_rate !== null && user.labor_rate > 0;
+      } else if (employeeFilter === 'non-employees') {
+        matchesEmployee = user.labor_rate === null || user.labor_rate === 0;
+      }
+
+      return matchesSearch && matchesRole && matchesStatus && matchesEmployee;
     });
-  }, [users, searchQuery, roleFilter, statusFilter]);
+  }, [users, searchQuery, roleFilter, statusFilter, employeeFilter]);
 
   const handleDeleteClick = (user: UserWithRoles) => {
     setUserToDelete(user);
@@ -194,7 +203,7 @@ export function UserList({
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>All Users</CardTitle>
+              <CardTitle>Users</CardTitle>
               <CardDescription>
                 {filteredUsers.length} of {users.length} user{users.length !== 1 ? 's' : ''} in your organization
               </CardDescription>
@@ -202,7 +211,7 @@ export function UserList({
             {onInvite && (
               <Button onClick={onInvite}>
                 <UserPlus className="mr-2 h-4 w-4" />
-                Invite User
+                Add User
               </Button>
             )}
           </div>
@@ -242,6 +251,16 @@ export function UserList({
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Users</SelectItem>
+                <SelectItem value="employees">Employees Only</SelectItem>
+                <SelectItem value="non-employees">Non-Employees</SelectItem>
               </SelectContent>
             </Select>
           </div>
