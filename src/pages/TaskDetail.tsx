@@ -9,17 +9,34 @@ import { Label } from '@/components/ui/label';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { UnableToCompleteDialog } from '@/components/tasks/UnableToCompleteDialog';
 import { PhotoCapture } from '@/components/shipments/PhotoCapture';
+import { useTechnicians } from '@/hooks/useTechnicians';
+import { useRepairQuoteWorkflow } from '@/hooks/useRepairQuotes';
 import { format } from 'date-fns';
 import {
   ArrowLeft, Pencil, Play, Check, XCircle, Loader2,
   ClipboardList, User, Calendar, Building2, AlertTriangle,
-  Camera, FileText, MessageSquare, CheckCircle, X,
+  Camera, FileText, MessageSquare, CheckCircle, X, Wrench,
 } from 'lucide-react';
 
 interface TaskDetail {
@@ -91,6 +108,12 @@ export default function TaskDetailPage() {
   const [savingNotes, setSavingNotes] = useState(false);
   const [photos, setPhotos] = useState<string[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
+  const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>('');
+  const [creatingQuote, setCreatingQuote] = useState(false);
+
+  const { activeTechnicians } = useTechnicians();
+  const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
 
   const fetchTask = useCallback(async () => {
     if (!id) return;
@@ -287,6 +310,74 @@ export default function TaskDetailPage() {
     fetchTaskItems();
   };
 
+  const handleCreateQuote = async () => {
+    if (!task || taskItems.length === 0) return;
+
+    setCreatingQuote(true);
+    try {
+      // Get the first item's account and sidemark info
+      const firstItem = taskItems[0];
+      if (!firstItem?.item) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No item data available' });
+        return;
+      }
+
+      // Fetch account and sidemark from first item
+      const { data: itemData } = await supabase
+        .from('items')
+        .select('account_id, sidemark_id')
+        .eq('id', firstItem.item_id)
+        .single();
+
+      if (!itemData?.account_id) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Item must have an account' });
+        return;
+      }
+
+      // Create the quote
+      const quote = await createWorkflowQuote({
+        item_id: firstItem.item_id,
+        account_id: itemData.account_id,
+        sidemark_id: itemData.sidemark_id || undefined,
+        source_task_id: task.id,
+        technician_id: selectedTechnicianId || undefined,
+        item_ids: taskItems.slice(1).map(ti => ti.item_id), // Additional items
+      });
+
+      if (quote) {
+        // If technician was selected, automatically send to them
+        if (selectedTechnicianId) {
+          const token = await sendToTechnician(quote.id);
+          if (token) {
+            const link = `${window.location.origin}/quote/tech?token=${token}`;
+            await navigator.clipboard.writeText(link);
+            toast({
+              title: 'Quote Created & Link Copied',
+              description: 'The technician quote link has been copied to your clipboard.',
+            });
+          }
+        } else {
+          toast({
+            title: 'Quote Created',
+            description: 'Repair quote created. Assign a technician from the Repair Quotes page.',
+          });
+        }
+
+        setQuoteDialogOpen(false);
+        setSelectedTechnicianId('');
+        navigate('/repair-quotes');
+      }
+    } catch (error) {
+      console.error('Error creating quote:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to create repair quote' });
+    } finally {
+      setCreatingQuote(false);
+    }
+  };
+
+  // Check if task can have a quote requested
+  const canRequestQuote = task && taskItems.length > 0 && !['completed', 'unable_to_complete'].includes(task.status);
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -386,6 +477,17 @@ export default function TaskDetailPage() {
                 Fail
               </Button>
             </>
+          )}
+          {/* Request Quote Button */}
+          {canRequestQuote && (
+            <Button
+              variant="secondary"
+              onClick={() => setQuoteDialogOpen(true)}
+              disabled={actionLoading}
+            >
+              <Wrench className="mr-2 h-4 w-4" />
+              Request Repair Quote
+            </Button>
           )}
         </div>
 
@@ -603,6 +705,77 @@ export default function TaskDetailPage() {
         taskTitle={task.title}
         onConfirm={handleUnableToComplete}
       />
+
+      {/* Request Quote Dialog */}
+      <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wrench className="h-5 w-5" />
+              Request Repair Quote
+            </DialogTitle>
+            <DialogDescription>
+              Create a repair quote for the {taskItems.length} item{taskItems.length !== 1 ? 's' : ''} in this task.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Items to Quote</Label>
+              <div className="bg-muted rounded-lg p-3 max-h-32 overflow-y-auto space-y-1">
+                {taskItems.map((ti) => (
+                  <div key={ti.id} className="text-sm flex justify-between">
+                    <span className="font-medium">{ti.item?.item_code || 'Unknown'}</span>
+                    <span className="text-muted-foreground truncate ml-2">
+                      {ti.item?.description || '-'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="technician">Assign Technician (optional)</Label>
+              <Select
+                value={selectedTechnicianId}
+                onValueChange={setSelectedTechnicianId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a technician..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No technician (assign later)</SelectItem>
+                  {activeTechnicians.map((tech) => (
+                    <SelectItem key={tech.id} value={tech.id}>
+                      {tech.name} ({tech.markup_percent}% markup)
+                      {tech.hourly_rate && ` - $${tech.hourly_rate}/hr`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {selectedTechnicianId
+                  ? 'A quote link will be created and copied to your clipboard.'
+                  : 'You can assign a technician later from the Repair Quotes page.'}
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setQuoteDialogOpen(false)}
+              disabled={creatingQuote}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreateQuote} disabled={creatingQuote}>
+              {creatingQuote && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create Quote
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
