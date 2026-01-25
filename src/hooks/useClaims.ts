@@ -10,7 +10,7 @@ type ClaimInsert = Database['public']['Tables']['claims']['Insert'];
 type ClaimUpdate = Database['public']['Tables']['claims']['Update'];
 
 export type ClaimType = 'shipping_damage' | 'manufacture_defect' | 'handling_damage' | 'property_damage' | 'lost_item';
-export type ClaimStatus = 'initiated' | 'under_review' | 'denied' | 'approved' | 'credited' | 'paid' | 'closed';
+export type ClaimStatus = 'initiated' | 'under_review' | 'pending_approval' | 'pending_acceptance' | 'accepted' | 'declined' | 'denied' | 'approved' | 'credited' | 'paid' | 'closed';
 export type CoverageType = 'standard' | 'full_replacement_deductible' | 'full_replacement_no_deductible' | 'pending' | null;
 export type PayoutMethod = 'credit' | 'check' | 'repair_vendor_pay';
 
@@ -59,7 +59,7 @@ export interface ClaimItemInput {
 }
 
 export interface Claim extends ClaimRow {
-  account?: { id: string; account_name: string } | null;
+  account?: { id: string; account_name: string; contact_email?: string } | null;
   sidemark?: { id: string; sidemark_name: string } | null;
   item?: { id: string; item_code: string; description: string | null } | null;
   shipment?: { id: string; shipment_number: string } | null;
@@ -68,6 +68,17 @@ export interface Claim extends ClaimRow {
   // Multi-item aggregates
   item_count?: number;
   claim_items?: ClaimItem[];
+  // Acceptance workflow fields (from extended claims table)
+  acceptance_token?: string;
+  acceptance_token_expires_at?: string | null;
+  sent_for_acceptance_at?: string | null;
+  sent_for_acceptance_by?: string | null;
+  payout_method?: 'credit' | 'check' | 'ach' | null;
+  settlement_accepted_at?: string | null;
+  settlement_declined_at?: string | null;
+  decline_reason?: string | null;
+  counter_offer_amount?: number | null;
+  counter_offer_notes?: string | null;
 }
 
 export interface ClaimAttachment {
@@ -1006,6 +1017,10 @@ export const CLAIM_TYPE_LABELS: Record<ClaimType, string> = {
 export const CLAIM_STATUS_LABELS: Record<ClaimStatus, string> = {
   initiated: 'Initiated',
   under_review: 'Under Review',
+  pending_approval: 'Pending Approval',
+  pending_acceptance: 'Pending Client Acceptance',
+  accepted: 'Client Accepted',
+  declined: 'Client Declined',
   denied: 'Denied',
   approved: 'Approved',
   credited: 'Credited',

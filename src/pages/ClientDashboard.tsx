@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Clock,
   Loader2,
+  Shield,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -318,7 +319,7 @@ export default function ClientDashboard() {
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Link to="/client/items">
                 <Button variant="outline" className="w-full justify-start h-auto py-4">
                   <Package className="mr-3 h-5 w-5" />
@@ -337,6 +338,17 @@ export default function ClientDashboard() {
                     <p className="font-medium">Review Quotes</p>
                     <p className="text-xs text-muted-foreground">
                       Manage repair quotes
+                    </p>
+                  </div>
+                </Button>
+              </Link>
+              <Link to="/client/claims">
+                <Button variant="outline" className="w-full justify-start h-auto py-4">
+                  <Shield className="mr-3 h-5 w-5" />
+                  <div className="text-left">
+                    <p className="font-medium">My Claims</p>
+                    <p className="text-xs text-muted-foreground">
+                      View and file claims
                     </p>
                   </div>
                 </Button>

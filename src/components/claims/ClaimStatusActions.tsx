@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -28,36 +29,43 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Claim, ClaimStatus, useClaims } from '@/hooks/useClaims';
+import { Claim, ClaimStatus, ClaimItem, useClaims } from '@/hooks/useClaims';
 import { useCurrentUserRole } from '@/hooks/useRoles';
+import { SendForAcceptanceDialog } from './SendForAcceptanceDialog';
 import {
   Loader2,
   ArrowRight,
   Check,
   DollarSign,
   XCircle,
+  Send,
+  CheckCircle,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface ClaimStatusActionsProps {
   claim: Claim;
+  claimItems?: ClaimItem[];
   onUpdate?: () => void;
 }
 
 type PayoutMethod = 'credit' | 'check' | 'ach' | 'other';
 
-export function ClaimStatusActions({ claim, onUpdate }: ClaimStatusActionsProps) {
-  const { updateClaimStatus, sendDetermination, issueCredit } = useClaims();
+export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimStatusActionsProps) {
+  const { updateClaimStatus, sendDetermination, issueCredit, fetchClaimItems } = useClaims();
   const { isAdmin, isManager } = useCurrentUserRole();
-  
+
   const [loading, setLoading] = useState(false);
-  
+  const [items, setItems] = useState<ClaimItem[]>(claimItems);
+
   // Dialog states
   const [showDenyDialog, setShowDenyDialog] = useState(false);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showPayoutDialog, setShowPayoutDialog] = useState(false);
   const [showDeterminationDialog, setShowDeterminationDialog] = useState(false);
+  const [showSendForAcceptanceDialog, setShowSendForAcceptanceDialog] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{ action: string; status: ClaimStatus } | null>(null);
-  
+
   // Form data
   const [denialReason, setDenialReason] = useState('');
   const [approvedAmount, setApprovedAmount] = useState('');
@@ -66,6 +74,15 @@ export function ClaimStatusActions({ claim, onUpdate }: ClaimStatusActionsProps)
   const [payoutMethod, setPayoutMethod] = useState<PayoutMethod>('credit');
   const [payoutReference, setPayoutReference] = useState('');
   const [settlementTerms, setSettlementTerms] = useState('');
+
+  // Load claim items if not provided
+  useEffect(() => {
+    if (claimItems.length > 0) {
+      setItems(claimItems);
+    } else if (claim.id) {
+      fetchClaimItems(claim.id).then(setItems);
+    }
+  }, [claim.id, claimItems, fetchClaimItems]);
 
   const handleStatusChange = async (newStatus: ClaimStatus, additionalData?: Record<string, unknown>) => {
     setLoading(true);
@@ -143,6 +160,9 @@ export function ClaimStatusActions({ claim, onUpdate }: ClaimStatusActionsProps)
     await handleStatusChange('closed');
   };
 
+  // Helper to check if all items have been determined
+  const allItemsDetermined = items.length > 0 && items.every(item => item.approved_amount != null);
+
   // Render appropriate buttons based on status
   const renderActions = () => {
     switch (claim.status) {
@@ -153,7 +173,7 @@ export function ClaimStatusActions({ claim, onUpdate }: ClaimStatusActionsProps)
             Move to Under Review
           </Button>
         );
-        
+
       case 'under_review':
         return (
           <div className="flex flex-wrap gap-2">
@@ -161,21 +181,45 @@ export function ClaimStatusActions({ claim, onUpdate }: ClaimStatusActionsProps)
               <XCircle className="h-4 w-4 mr-2" />
               Deny
             </Button>
-            <Button variant="default" onClick={() => setShowApproveDialog(true)} disabled={loading}>
-              <Check className="h-4 w-4 mr-2" />
-              Approve
-            </Button>
-          </div>
-        );
-        
-      case 'approved':
-        return (
-          <div className="flex flex-wrap gap-2">
-            {!claim.determination_sent_at && (
-              <Button variant="outline" onClick={() => setShowDeterminationDialog(true)} disabled={loading}>
-                Send Determination to Client
+            {allItemsDetermined ? (
+              <Button
+                variant="default"
+                onClick={() => setShowSendForAcceptanceDialog(true)}
+                disabled={loading}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Send for Acceptance
+              </Button>
+            ) : (
+              <Button variant="outline" disabled>
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Determine All Items First
               </Button>
             )}
+          </div>
+        );
+
+      case 'pending_acceptance':
+        return (
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
+              Waiting for Client
+            </Badge>
+            {claim.sent_for_acceptance_at && (
+              <span className="text-sm text-muted-foreground">
+                Sent {new Date(claim.sent_for_acceptance_at).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+        );
+
+      case 'accepted':
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Client Accepted
+            </Badge>
             {isManager && (
               <Button onClick={() => setShowPayoutDialog(true)} disabled={loading}>
                 <DollarSign className="h-4 w-4 mr-2" />
@@ -184,16 +228,68 @@ export function ClaimStatusActions({ claim, onUpdate }: ClaimStatusActionsProps)
             )}
           </div>
         );
-        
+
+      case 'declined':
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">
+              <XCircle className="h-3 w-3 mr-1" />
+              Client Declined
+            </Badge>
+            {claim.counter_offer_amount && (
+              <Badge variant="secondary">
+                Counter: ${claim.counter_offer_amount.toFixed(2)}
+              </Badge>
+            )}
+            <Button variant="outline" onClick={handleMoveToReview} disabled={loading}>
+              Re-review Claim
+            </Button>
+          </div>
+        );
+
+      case 'approved':
+        return (
+          <div className="flex flex-wrap gap-2">
+            {!claim.sent_for_acceptance_at && (
+              <Button
+                variant="outline"
+                onClick={() => setShowSendForAcceptanceDialog(true)}
+                disabled={loading}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Send for Acceptance
+              </Button>
+            )}
+            {isManager && claim.settlement_accepted_at && (
+              <Button onClick={() => setShowPayoutDialog(true)} disabled={loading}>
+                <DollarSign className="h-4 w-4 mr-2" />
+                Issue Payout
+              </Button>
+            )}
+          </div>
+        );
+
       case 'credited':
       case 'paid':
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Payout Complete
+            </Badge>
+            <Button variant="outline" onClick={() => setConfirmDialog({ action: 'Close', status: 'closed' })} disabled={loading}>
+              Close Claim
+            </Button>
+          </div>
+        );
+
       case 'denied':
         return (
           <Button variant="outline" onClick={() => setConfirmDialog({ action: 'Close', status: 'closed' })} disabled={loading}>
             Close Claim
           </Button>
         );
-        
+
       default:
         return null;
     }
@@ -395,6 +491,18 @@ export function ClaimStatusActions({ claim, onUpdate }: ClaimStatusActionsProps)
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Send for Acceptance Dialog */}
+      <SendForAcceptanceDialog
+        open={showSendForAcceptanceDialog}
+        onOpenChange={setShowSendForAcceptanceDialog}
+        claim={claim}
+        claimItems={items}
+        onSuccess={() => {
+          setShowSendForAcceptanceDialog(false);
+          onUpdate?.();
+        }}
+      />
     </div>
   );
 }
