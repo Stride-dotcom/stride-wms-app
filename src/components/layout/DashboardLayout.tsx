@@ -26,12 +26,8 @@ import {
   X,
   Users,
   FileText,
-  Building2,
-  MapPin,
   ScanLine,
   Bug,
-  DollarSign,
-  Receipt,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -49,15 +45,11 @@ const navItems: NavItem[] = [
   { label: 'Inventory', href: '/inventory', icon: Boxes },
   { label: 'Tasks', href: '/tasks', icon: ClipboardList },
   { label: 'Cycle Counts', href: '/stocktakes', icon: ClipboardCheck },
-  { label: 'Scan Hub', href: '/scan', icon: ScanLine },
-  
-  { label: 'Reports', href: '/reports', icon: BarChart3, requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Billing Report', href: '/billing/report', icon: DollarSign, requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Invoices', href: '/billing/invoices', icon: Receipt, requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Scan', href: '/scan', icon: ScanLine },
+
+  { label: 'Analytics', href: '/reports', icon: BarChart3, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Claims', href: '/claims', icon: FileText, requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Coverage', href: '/coverage', icon: MapPin, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Accounts', href: '/accounts', icon: Users, requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Employees', href: '/employees', icon: Building2, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Settings', href: '/settings', icon: Settings, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Diagnostics', href: '/diagnostics', icon: Bug, requiredRole: ['admin', 'tenant_admin'] },
 ];

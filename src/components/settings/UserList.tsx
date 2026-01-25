@@ -194,7 +194,7 @@ export function UserList({
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>All Users</CardTitle>
+              <CardTitle>Users</CardTitle>
               <CardDescription>
                 {filteredUsers.length} of {users.length} user{users.length !== 1 ? 's' : ''} in your organization
               </CardDescription>
@@ -202,7 +202,7 @@ export function UserList({
             {onInvite && (
               <Button onClick={onInvite}>
                 <UserPlus className="mr-2 h-4 w-4" />
-                Invite User
+                Add User
               </Button>
             )}
           </div>

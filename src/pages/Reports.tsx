@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { PageHeader } from '@/components/ui/page-header';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { usePermissions } from '@/hooks/usePermissions';
-import { Loader2, Package, ClipboardList, Truck, TrendingUp, FileText, DollarSign } from 'lucide-react';
+import { Loader2, Package, ClipboardList, Truck, TrendingUp, FileText, DollarSign, Receipt } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -19,8 +19,9 @@ import {
   Cell,
   Legend,
 } from 'recharts';
-import { InvoicesTab } from '@/components/reports/InvoicesTab';
 import { LaborCostsTab } from '@/components/reports/LaborCostsTab';
+import { BillingReportTab } from '@/components/reports/BillingReportTab';
+import { InvoicesPageTab } from '@/components/reports/InvoicesPageTab';
 
 interface ReportStats {
   totalItems: number;
@@ -136,7 +137,7 @@ export default function Reports() {
         />
 
         <Tabs defaultValue="analytics">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto gap-1">
             <TabsTrigger value="analytics" className="gap-2">
               <TrendingUp className="h-4 w-4" />
               Analytics
@@ -148,8 +149,14 @@ export default function Reports() {
               </TabsTrigger>
             )}
             {isAdmin && (
-              <TabsTrigger value="invoices" className="gap-2">
+              <TabsTrigger value="billing" className="gap-2">
                 <FileText className="h-4 w-4" />
+                Billing Report
+              </TabsTrigger>
+            )}
+            {isAdmin && (
+              <TabsTrigger value="invoices" className="gap-2">
+                <Receipt className="h-4 w-4" />
                 Invoices
               </TabsTrigger>
             )}
@@ -297,8 +304,14 @@ export default function Reports() {
           )}
 
           {isAdmin && (
+            <TabsContent value="billing" className="mt-6">
+              <BillingReportTab />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
             <TabsContent value="invoices" className="mt-6">
-              <InvoicesTab />
+              <InvoicesPageTab />
             </TabsContent>
           )}
         </Tabs>
