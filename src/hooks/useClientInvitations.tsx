@@ -187,16 +187,8 @@ export function useCreateInvitation() {
       if (data.emailResult.success) {
         // Check if in test mode and show the activation link
         if (data.emailResult.testModeData?.activationLink) {
-          toast.success(
-            <div className="space-y-2">
-              <p className="font-medium">Test Mode: Invitation created</p>
-              <p className="text-xs text-muted-foreground">Email not actually sent. Use this link:</p>
-              <code className="block text-xs bg-muted p-2 rounded break-all">
-                {data.emailResult.testModeData.activationLink}
-              </code>
-            </div>,
-            { duration: 15000 }
-          );
+          console.log('🔗 Activation Link:', data.emailResult.testModeData.activationLink);
+          toast.success('Test Mode: Invitation created - check console for activation link', { duration: 10000 });
         } else {
           toast.success('Invitation sent successfully');
         }
@@ -313,16 +305,8 @@ export function useResendInvitation() {
       if (data.emailResult.success) {
         // Check if in test mode and show the activation link
         if (data.emailResult.testModeData?.activationLink) {
-          toast.success(
-            <div className="space-y-2">
-              <p className="font-medium">Test Mode: Invitation resent</p>
-              <p className="text-xs text-muted-foreground">Email not actually sent. Use this link:</p>
-              <code className="block text-xs bg-muted p-2 rounded break-all">
-                {data.emailResult.testModeData.activationLink}
-              </code>
-            </div>,
-            { duration: 15000 }
-          );
+          console.log('🔗 Activation Link:', data.emailResult.testModeData.activationLink);
+          toast.success('Test Mode: Invitation resent - check console for activation link', { duration: 10000 });
         } else {
           toast.success('Invitation resent successfully');
         }
