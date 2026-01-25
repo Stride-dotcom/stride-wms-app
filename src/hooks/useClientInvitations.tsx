@@ -1,3 +1,4 @@
+// Client invitation management hooks
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -92,11 +93,11 @@ export function useAccountPortalUsers(accountId: string | undefined) {
 // Hook to create and send an invitation
 export function useCreateInvitation() {
   const queryClient = useQueryClient();
-  const { user, dbUser } = useAuth();
+  const { user, profile } = useAuth();
 
   return useMutation({
     mutationFn: async (params: CreateInvitationParams) => {
-      if (!user || !dbUser?.tenant_id) {
+      if (!user || !profile?.tenant_id) {
         throw new Error('Not authenticated');
       }
 
@@ -113,7 +114,7 @@ export function useCreateInvitation() {
       const { data: tenant, error: tenantError } = await supabase
         .from('tenants')
         .select('name')
-        .eq('id', dbUser.tenant_id)
+        .eq('id', profile.tenant_id)
         .single();
 
       if (tenantError) throw tenantError;
@@ -126,7 +127,7 @@ export function useCreateInvitation() {
       const { data: invitation, error: createError } = await (supabase
         .from('client_invitations') as any)
         .insert({
-          tenant_id: dbUser.tenant_id,
+          tenant_id: profile.tenant_id,
           account_id: params.accountId,
           email: params.email,
           first_name: params.firstName || null,
@@ -147,8 +148,8 @@ export function useCreateInvitation() {
       const emailContent = generateClientInvitationEmail({
         recipientName: params.firstName || params.email.split('@')[0],
         accountName: account.account_name,
-        inviterName: dbUser.first_name
-          ? `${dbUser.first_name} ${dbUser.last_name || ''}`.trim()
+        inviterName: profile.first_name
+          ? `${profile.first_name} ${profile.last_name || ''}`.trim()
           : 'The team',
         warehouseName: tenant.name,
         activationLink,
@@ -164,7 +165,7 @@ export function useCreateInvitation() {
         htmlBody: emailContent.html,
         textBody: emailContent.text,
         emailType: 'client_invitation',
-        tenantId: dbUser.tenant_id,
+        tenantId: profile.tenant_id,
         entityType: 'client_invitation',
         entityId: invitation.id,
       });
@@ -213,11 +214,11 @@ export function useCreateInvitation() {
 // Hook to resend an invitation
 export function useResendInvitation() {
   const queryClient = useQueryClient();
-  const { dbUser } = useAuth();
+  const { profile } = useAuth();
 
   return useMutation({
     mutationFn: async (invitationId: string) => {
-      if (!dbUser?.tenant_id) {
+      if (!profile?.tenant_id) {
         throw new Error('Not authenticated');
       }
 
@@ -237,7 +238,7 @@ export function useResendInvitation() {
       const { data: tenant, error: tenantError } = await supabase
         .from('tenants')
         .select('name')
-        .eq('id', dbUser.tenant_id)
+        .eq('id', profile.tenant_id)
         .single();
 
       if (tenantError) throw tenantError;
@@ -273,8 +274,8 @@ export function useResendInvitation() {
       const emailContent = generateClientInvitationEmail({
         recipientName: invitation.first_name || invitation.email.split('@')[0],
         accountName: invitation.accounts?.account_name || 'your account',
-        inviterName: dbUser.first_name
-          ? `${dbUser.first_name} ${dbUser.last_name || ''}`.trim()
+        inviterName: profile.first_name
+          ? `${profile.first_name} ${profile.last_name || ''}`.trim()
           : 'The team',
         warehouseName: tenant.name,
         activationLink,
@@ -290,7 +291,7 @@ export function useResendInvitation() {
         htmlBody: emailContent.html,
         textBody: emailContent.text,
         emailType: 'client_invitation',
-        tenantId: dbUser.tenant_id,
+        tenantId: profile.tenant_id,
         entityType: 'client_invitation',
         entityId: invitation.id,
       });

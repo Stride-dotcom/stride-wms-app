@@ -522,7 +522,7 @@ export function useRepairQuoteWorkflow() {
           item_description: item.description,
         }));
 
-        await (supabase.from('repair_quote_items') as any).insert(quoteItems);
+        await (supabase as any).from('repair_quote_items').insert(quoteItems);
       }
 
       toast({
@@ -622,8 +622,8 @@ export function useRepairQuoteWorkflow() {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 14);
 
-      const { data: tokenData, error: tokenError } = await (supabase
-        .from('repair_quote_tokens') as any)
+      const { data: tokenData, error: tokenError } = await (supabase as any)
+        .from('repair_quote_tokens')
         .insert({
           tenant_id: profile.tenant_id,
           repair_quote_id: quoteId,
@@ -705,8 +705,8 @@ export function useRepairQuoteWorkflow() {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 14);
 
-      const { data: tokenData, error: tokenError } = await (supabase
-        .from('repair_quote_tokens') as any)
+      const { data: tokenData, error: tokenError } = await (supabase as any)
+        .from('repair_quote_tokens')
         .insert({
           tenant_id: profile.tenant_id,
           repair_quote_id: quoteId,
@@ -905,8 +905,8 @@ export function useTechQuoteSubmission(token: string | null) {
       setLoading(true);
 
       // Validate token
-      const { data: tokenRecord, error: tokenError } = await (supabase
-        .from('repair_quote_tokens') as any)
+      const { data: tokenRecord, error: tokenError } = await (supabase as any)
+        .from('repair_quote_tokens')
         .select('*')
         .eq('token', token)
         .eq('token_type', 'tech_quote')
@@ -928,8 +928,8 @@ export function useTechQuoteSubmission(token: string | null) {
       setTokenData(tokenRecord as RepairQuoteToken);
 
       // Update accessed_at
-      await (supabase
-        .from('repair_quote_tokens') as any)
+      await (supabase as any)
+        .from('repair_quote_tokens')
         .update({ accessed_at: new Date().toISOString() })
         .eq('id', tokenRecord.id);
 
@@ -956,8 +956,8 @@ export function useTechQuoteSubmission(token: string | null) {
       setQuote(quoteData as RepairQuoteWorkflow);
 
       // Load quote items with item details
-      const { data: itemsData, error: itemsError } = await (supabase
-        .from('repair_quote_items') as any)
+      const { data: itemsData, error: itemsError } = await (supabase as any)
+        .from('repair_quote_items')
         .select(`
           *,
           item:items(id, item_code, description, status)
@@ -1047,8 +1047,8 @@ export function useTechQuoteSubmission(token: string | null) {
       if (updateError) throw updateError;
 
       // Mark token as used
-      await (supabase
-        .from('repair_quote_tokens') as any)
+      await (supabase as any)
+        .from('repair_quote_tokens')
         .update({ used_at: new Date().toISOString() })
         .eq('id', tokenData.id);
 
@@ -1099,8 +1099,8 @@ export function useTechQuoteSubmission(token: string | null) {
       if (updateError) throw updateError;
 
       // Mark token as used
-      await (supabase
-        .from('repair_quote_tokens') as any)
+      await (supabase as any)
+        .from('repair_quote_tokens')
         .update({ used_at: new Date().toISOString() })
         .eq('id', tokenData.id);
 
@@ -1157,8 +1157,8 @@ export function useClientQuoteReview(token: string | null) {
       setLoading(true);
 
       // Validate token
-      const { data: tokenRecord, error: tokenError } = await (supabase
-        .from('repair_quote_tokens') as any)
+      const { data: tokenRecord, error: tokenError } = await (supabase as any)
+        .from('repair_quote_tokens')
         .select('*')
         .eq('token', token)
         .eq('token_type', 'client_review')
@@ -1180,8 +1180,8 @@ export function useClientQuoteReview(token: string | null) {
       setTokenData(tokenRecord as RepairQuoteToken);
 
       // Update accessed_at
-      await (supabase
-        .from('repair_quote_tokens') as any)
+      await (supabase as any)
+        .from('repair_quote_tokens')
         .update({ accessed_at: new Date().toISOString() })
         .eq('id', tokenRecord.id);
 
@@ -1209,8 +1209,8 @@ export function useClientQuoteReview(token: string | null) {
       setQuote(quoteData as RepairQuoteWorkflow);
 
       // Load quote items with item details
-      const { data: itemsData, error: itemsError } = await (supabase
-        .from('repair_quote_items') as any)
+      const { data: itemsData, error: itemsError } = await (supabase as any)
+        .from('repair_quote_items')
         .select(`
           *,
           item:items(id, item_code, description, status)
@@ -1282,8 +1282,8 @@ export function useClientQuoteReview(token: string | null) {
       if (updateError) throw updateError;
 
       // Mark token as used
-      await (supabase
-        .from('repair_quote_tokens') as any)
+      await (supabase as any)
+        .from('repair_quote_tokens')
         .update({ used_at: new Date().toISOString() })
         .eq('id', tokenData.id);
 
@@ -1336,8 +1336,8 @@ export function useClientQuoteReview(token: string | null) {
       if (updateError) throw updateError;
 
       // Mark token as used
-      await (supabase
-        .from('repair_quote_tokens') as any)
+      await (supabase as any)
+        .from('repair_quote_tokens')
         .update({ used_at: new Date().toISOString() })
         .eq('id', tokenData.id);
 
