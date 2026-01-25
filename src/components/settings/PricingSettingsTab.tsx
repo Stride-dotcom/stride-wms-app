@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Loader2,
   DollarSign,
@@ -16,6 +16,10 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronUp,
+  Download,
+  Upload,
+  Settings2,
+  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,11 +87,17 @@ import {
   useDeletePricingFlag,
   useAccountPricingOverrides,
   useSeedDefaultPricing,
+  useSeedEnhancedFlags,
+  useExportPricingData,
+  useImportPricingData,
+  useAllFlagServiceRules,
   SizeCategory,
   GlobalServiceRate,
   AssemblyTier,
   PricingFlag,
 } from '@/hooks/usePricing';
+import { FlagConfigDialog } from './FlagConfigDialog';
+import { toast } from 'sonner';
 
 // ============================================================================
 // Instructions Component - Reusable help section
@@ -200,34 +210,160 @@ export function PricingSettingsTab() {
 }
 
 // ============================================================================
-// Seed Pricing Button
+// Seed Pricing Button + Import/Export
 // ============================================================================
 
 function SeedPricingButton() {
   const seedPricing = useSeedDefaultPricing();
+  const seedEnhancedFlags = useSeedEnhancedFlags();
+  const exportPricing = useExportPricingData();
+  const importPricing = useImportPricingData();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = async () => {
+    try {
+      const data = await exportPricing.mutateAsync();
+
+      // Create downloadable JSON file
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pricing-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Pricing data exported successfully');
+    } catch (error) {
+      // Error handled by mutation
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      await importPricing.mutateAsync({ data, overwrite: true });
+      toast.success('Pricing data imported successfully');
+    } catch (error) {
+      console.error('Import error:', error);
+      toast.error('Failed to import pricing data. Please check the file format.');
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            onClick={() => seedPricing.mutate()}
-            disabled={seedPricing.isPending}
-          >
-            {seedPricing.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
-            )}
-            Load Defaults
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Load default pricing data including size categories,<br/>assembly tiers, services, and common flags</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <div className="flex gap-2">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              onClick={() => seedPricing.mutate()}
+              disabled={seedPricing.isPending}
+            >
+              {seedPricing.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Load Defaults
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Load default pricing data including size categories,<br/>assembly tiers, services, and common flags</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              onClick={() => seedEnhancedFlags.mutate()}
+              disabled={seedEnhancedFlags.isPending}
+            >
+              {seedEnhancedFlags.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
+              )}
+              Add Industry Flags
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Add warehouse industry-specific flags like<br/>Fragile, High Value, White Glove, etc.</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              onClick={handleExport}
+              disabled={exportPricing.isPending}
+            >
+              {exportPricing.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Export
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Export all pricing configuration to JSON</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              onClick={handleImportClick}
+              disabled={importPricing.isPending}
+            >
+              {importPricing.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              Import
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Import pricing configuration from JSON file</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept=".json"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+    </div>
   );
 }
 
@@ -785,119 +921,40 @@ function AssemblyTiersTab() {
 }
 
 // ============================================================================
-// Flags Tab - Enhanced with full CRUD
+// Flags Tab - Enhanced with full CRUD and FlagConfigDialog
 // ============================================================================
 
-interface NewFlagForm {
-  flag_key: string;
-  display_name: string;
-  description: string;
-  icon: string;
-  color: string;
-  is_billable: boolean;
-  flat_fee: number;
-  adds_percent: number;
-  adds_minutes: number;
-  applies_to_services: string;
-  visible_to_client: boolean;
-  client_can_set: boolean;
-  creates_billing_event: boolean;
-  billing_charge_type: string;
-  triggers_task_type: string;
-  triggers_alert: boolean;
-}
-
-const defaultNewFlag: NewFlagForm = {
-  flag_key: '',
-  display_name: '',
-  description: '',
-  icon: 'flag',
-  color: 'default',
-  is_billable: false,
-  flat_fee: 0,
-  adds_percent: 0,
-  adds_minutes: 0,
-  applies_to_services: 'ALL',
-  visible_to_client: true,
-  client_can_set: false,
-  creates_billing_event: false,
-  billing_charge_type: '',
-  triggers_task_type: '',
-  triggers_alert: false,
-};
-
 function FlagsTab() {
-  const { data: flags = [], isLoading } = usePricingFlags();
-  const updateFlag = useUpdatePricingFlag();
-  const createFlag = useCreatePricingFlag();
+  const { data: flags = [], isLoading, refetch } = usePricingFlags();
+  const { data: allServiceRules = [] } = useAllFlagServiceRules();
   const deleteFlag = useDeletePricingFlag();
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<Partial<PricingFlag>>({});
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [newFlag, setNewFlag] = useState<NewFlagForm>(defaultNewFlag);
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [selectedFlag, setSelectedFlag] = useState<PricingFlag | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  const startEdit = (flag: PricingFlag) => {
-    setEditingId(flag.id);
-    setEditValues({
-      display_name: flag.display_name,
-      description: flag.description,
-      adds_percent: flag.adds_percent,
-      adds_minutes: flag.adds_minutes,
-      flat_fee: flag.flat_fee,
-      applies_to_services: flag.applies_to_services,
-      visible_to_client: flag.visible_to_client,
-      client_can_set: flag.client_can_set,
-      triggers_task_type: flag.triggers_task_type,
-      triggers_alert: flag.triggers_alert,
-      creates_billing_event: flag.creates_billing_event,
-      is_billable: flag.is_billable,
-      is_active: flag.is_active,
-    });
+  const handleEditFlag = (flag: PricingFlag) => {
+    setSelectedFlag(flag);
+    setConfigDialogOpen(true);
   };
 
-  const saveEdit = async () => {
-    if (!editingId) return;
-    await updateFlag.mutateAsync({ id: editingId, ...editValues });
-    setEditingId(null);
-    setEditValues({});
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditValues({});
-  };
-
-  const handleCreateFlag = async () => {
-    if (!newFlag.flag_key || !newFlag.display_name) return;
-
-    await createFlag.mutateAsync({
-      flag_key: newFlag.flag_key.toUpperCase().replace(/\s+/g, '_'),
-      display_name: newFlag.display_name,
-      description: newFlag.description || null,
-      icon: newFlag.icon,
-      color: newFlag.color,
-      is_billable: newFlag.is_billable,
-      flat_fee: newFlag.flat_fee,
-      adds_percent: newFlag.adds_percent,
-      adds_minutes: newFlag.adds_minutes,
-      applies_to_services: newFlag.applies_to_services,
-      visible_to_client: newFlag.visible_to_client,
-      client_can_set: newFlag.client_can_set,
-      creates_billing_event: newFlag.creates_billing_event,
-      billing_charge_type: newFlag.billing_charge_type || null,
-      triggers_task_type: newFlag.triggers_task_type || null,
-      triggers_alert: newFlag.triggers_alert,
-    });
-
-    setShowAddDialog(false);
-    setNewFlag(defaultNewFlag);
+  const handleAddFlag = () => {
+    setSelectedFlag(null);
+    setConfigDialogOpen(true);
   };
 
   const handleDeleteFlag = async (flagId: string) => {
     await deleteFlag.mutateAsync(flagId);
     setDeleteConfirm(null);
+  };
+
+  const handleDialogSaved = () => {
+    refetch();
+  };
+
+  // Count service rules per flag
+  const getServiceRulesCount = (flagId: string) => {
+    return allServiceRules.filter((r) => r.flag_id === flagId).length;
   };
 
   if (isLoading) {
@@ -919,7 +976,7 @@ function FlagsTab() {
                 Configure flags that can be applied to items with automatic billing, tasks, and alerts
               </CardDescription>
             </div>
-            <Button onClick={() => setShowAddDialog(true)}>
+            <Button onClick={handleAddFlag}>
               <Plus className="mr-2 h-4 w-4" />
               Add Flag
             </Button>
@@ -934,7 +991,7 @@ function FlagsTab() {
                 <li><strong>Billable:</strong> Flag represents a chargeable service/surcharge</li>
                 <li><strong>Flat Fee:</strong> Fixed amount charged when flag is enabled</li>
                 <li><strong>Adds %:</strong> Percentage surcharge added to applicable services</li>
-                <li><strong>Adds Minutes:</strong> Extra time added to labor estimates</li>
+                <li><strong>Per-Service Rules:</strong> Override default pricing for specific services (e.g., Overweight adds +10% to Storage but +20% to Delivery)</li>
                 <li><strong>Creates Billing Event:</strong> Automatically generates a billing record</li>
                 <li><strong>Triggers Task:</strong> Automatically creates a task (e.g., repair, inspection)</li>
                 <li><strong>Triggers Alert:</strong> Sends notification to office staff</li>
@@ -953,170 +1010,104 @@ function FlagsTab() {
                 <TableHead className="text-center">Billable</TableHead>
                 <TableHead className="text-right">Flat Fee</TableHead>
                 <TableHead className="text-right">Adds %</TableHead>
-                <TableHead>Applies To</TableHead>
+                <TableHead className="text-center">Service Rules</TableHead>
                 <TableHead className="text-center">Auto Billing</TableHead>
                 <TableHead className="text-center">Auto Task</TableHead>
-                <TableHead className="w-28">Actions</TableHead>
+                <TableHead className="w-32">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {flags.map((flag) => (
-                <TableRow key={flag.id} className={!flag.is_active ? 'opacity-50' : ''}>
-                  <TableCell>
-                    <Badge variant="outline">{flag.flag_key}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <span className="font-medium">{flag.display_name}</span>
-                      {flag.description && (
-                        <p className="text-xs text-muted-foreground truncate max-w-48">{flag.description}</p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {editingId === flag.id ? (
-                      <Switch
-                        checked={editValues.is_active ?? true}
-                        onCheckedChange={(checked) =>
-                          setEditValues({ ...editValues, is_active: checked })
-                        }
-                      />
-                    ) : flag.is_active ? (
-                      <Badge className="bg-green-500">Yes</Badge>
-                    ) : (
-                      <Badge variant="secondary">No</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {editingId === flag.id ? (
-                      <Switch
-                        checked={editValues.is_billable ?? false}
-                        onCheckedChange={(checked) =>
-                          setEditValues({ ...editValues, is_billable: checked })
-                        }
-                      />
-                    ) : flag.is_billable ? (
-                      <Badge className="bg-amber-500">$</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {editingId === flag.id ? (
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="w-20 text-right"
-                        value={editValues.flat_fee ?? 0}
-                        onChange={(e) =>
-                          setEditValues({ ...editValues, flat_fee: parseFloat(e.target.value) || 0 })
-                        }
-                      />
-                    ) : flag.flat_fee > 0 ? (
-                      `$${flag.flat_fee.toFixed(2)}`
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {editingId === flag.id ? (
-                      <Input
-                        type="number"
-                        step="1"
-                        className="w-16 text-right"
-                        value={editValues.adds_percent ?? 0}
-                        onChange={(e) =>
-                          setEditValues({ ...editValues, adds_percent: parseFloat(e.target.value) || 0 })
-                        }
-                      />
-                    ) : flag.adds_percent > 0 ? (
-                      <Badge variant="secondary">+{flag.adds_percent}%</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingId === flag.id ? (
-                      <Select
-                        value={editValues.applies_to_services || 'ALL'}
-                        onValueChange={(value) =>
-                          setEditValues({ ...editValues, applies_to_services: value })
-                        }
-                      >
-                        <SelectTrigger className="w-28">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ALL">All</SelectItem>
-                          <SelectItem value="STORAGE">Storage</SelectItem>
-                          <SelectItem value="INSPECTION">Inspection</SelectItem>
-                          <SelectItem value="ASSEMBLY">Assembly</SelectItem>
-                          <SelectItem value="REPAIR">Repair</SelectItem>
-                          <SelectItem value="RECEIVING">Receiving</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge variant="outline">{flag.applies_to_services}</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {editingId === flag.id ? (
-                      <Switch
-                        checked={editValues.creates_billing_event ?? false}
-                        onCheckedChange={(checked) =>
-                          setEditValues({ ...editValues, creates_billing_event: checked })
-                        }
-                      />
-                    ) : flag.creates_billing_event ? (
-                      <Badge className="bg-blue-500">Yes</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {editingId === flag.id ? (
-                      <Input
-                        className="w-20"
-                        value={editValues.triggers_task_type || ''}
-                        onChange={(e) =>
-                          setEditValues({ ...editValues, triggers_task_type: e.target.value || null })
-                        }
-                        placeholder="none"
-                      />
-                    ) : flag.triggers_task_type ? (
-                      <Badge>{flag.triggers_task_type}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingId === flag.id ? (
-                      <div className="flex gap-1">
-                        <Button size="sm" onClick={saveEdit} disabled={updateFlag.isPending}>
-                          <Save className="h-3 w-3" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={cancelEdit}>
-                          <X className="h-3 w-3" />
-                        </Button>
+              {flags.map((flag) => {
+                const rulesCount = getServiceRulesCount(flag.id);
+                return (
+                  <TableRow key={flag.id} className={!flag.is_active ? 'opacity-50' : ''}>
+                    <TableCell>
+                      <Badge variant="outline">{flag.flag_key}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <span className="font-medium">{flag.display_name}</span>
+                        {flag.description && (
+                          <p className="text-xs text-muted-foreground truncate max-w-48">{flag.description}</p>
+                        )}
                       </div>
-                    ) : (
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {flag.is_active ? (
+                        <Badge className="bg-green-500">Yes</Badge>
+                      ) : (
+                        <Badge variant="secondary">No</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {flag.is_billable ? (
+                        <Badge className="bg-amber-500">$</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {flag.flat_fee > 0 ? (
+                        `$${flag.flat_fee.toFixed(2)}`
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {flag.adds_percent > 0 ? (
+                        <Badge variant="secondary">+{flag.adds_percent}%</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {rulesCount > 0 ? (
+                        <Badge variant="outline" className="bg-blue-50">
+                          {rulesCount} rule{rulesCount > 1 ? 's' : ''}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">default</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {flag.creates_billing_event ? (
+                        <Badge className="bg-blue-500">Yes</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {flag.triggers_task_type ? (
+                        <Badge>{flag.triggers_task_type}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => startEdit(flag)}>
-                          Edit
-                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="ghost" onClick={() => handleEditFlag(flag)}>
+                                <Settings2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Configure flag settings and per-service rules</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                         <Button
                           size="sm"
                           variant="ghost"
                           className="text-destructive hover:text-destructive"
                           onClick={() => setDeleteConfirm(flag.id)}
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
 
@@ -1125,211 +1116,20 @@ function FlagsTab() {
               <Info className="h-4 w-4" />
               <AlertTitle>No flags configured</AlertTitle>
               <AlertDescription>
-                Click "Load Defaults" above to populate standard flags, or click "Add Flag" to create custom flags.
+                Click "Load Defaults" above to populate standard flags, "Add Industry Flags" for warehouse-specific flags, or click "Add Flag" to create custom flags.
               </AlertDescription>
             </Alert>
           )}
         </CardContent>
       </Card>
 
-      {/* Add Flag Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add New Flag</DialogTitle>
-            <DialogDescription>
-              Create a custom flag that can be applied to items. Configure billing, automation, and visibility settings.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="flag_key">Flag Key *</Label>
-                <Input
-                  id="flag_key"
-                  placeholder="e.g., OVERWEIGHT"
-                  value={newFlag.flag_key}
-                  onChange={(e) => setNewFlag({ ...newFlag, flag_key: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
-                />
-                <p className="text-xs text-muted-foreground">Unique identifier (auto-formatted to UPPERCASE_SNAKE_CASE)</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="display_name">Display Name *</Label>
-                <Input
-                  id="display_name"
-                  placeholder="e.g., Overweight Item"
-                  value={newFlag.display_name}
-                  onChange={(e) => setNewFlag({ ...newFlag, display_name: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Describe when this flag should be used and what it means..."
-                value={newFlag.description}
-                onChange={(e) => setNewFlag({ ...newFlag, description: e.target.value })}
-                rows={2}
-              />
-            </div>
-
-            <div className="border-t pt-4">
-              <h4 className="font-medium mb-3">Pricing Configuration</h4>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Flat Fee ($)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={newFlag.flat_fee}
-                    onChange={(e) => setNewFlag({ ...newFlag, flat_fee: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Adds Percent (%)</Label>
-                  <Input
-                    type="number"
-                    step="1"
-                    value={newFlag.adds_percent}
-                    onChange={(e) => setNewFlag({ ...newFlag, adds_percent: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Adds Minutes</Label>
-                  <Input
-                    type="number"
-                    step="1"
-                    value={newFlag.adds_minutes}
-                    onChange={(e) => setNewFlag({ ...newFlag, adds_minutes: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <div className="space-y-2">
-                  <Label>Applies To Services</Label>
-                  <Select
-                    value={newFlag.applies_to_services}
-                    onValueChange={(value) => setNewFlag({ ...newFlag, applies_to_services: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All Services</SelectItem>
-                      <SelectItem value="STORAGE">Storage Only</SelectItem>
-                      <SelectItem value="INSPECTION">Inspection Only</SelectItem>
-                      <SelectItem value="ASSEMBLY">Assembly Only</SelectItem>
-                      <SelectItem value="REPAIR">Repair Only</SelectItem>
-                      <SelectItem value="RECEIVING">Receiving Only</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center space-x-2 pt-6">
-                  <Switch
-                    checked={newFlag.is_billable}
-                    onCheckedChange={(checked) => setNewFlag({ ...newFlag, is_billable: checked })}
-                  />
-                  <Label>Flag is Billable (represents a charge)</Label>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t pt-4">
-              <h4 className="font-medium mb-3">Automation</h4>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={newFlag.creates_billing_event}
-                    onCheckedChange={(checked) => setNewFlag({ ...newFlag, creates_billing_event: checked })}
-                  />
-                  <Label>Auto-create billing event when flag is enabled</Label>
-                </div>
-                {newFlag.creates_billing_event && (
-                  <div className="ml-6 space-y-2">
-                    <Label>Billing Charge Type</Label>
-                    <Input
-                      placeholder="e.g., overweight_handling"
-                      value={newFlag.billing_charge_type}
-                      onChange={(e) => setNewFlag({ ...newFlag, billing_charge_type: e.target.value })}
-                    />
-                  </div>
-                )}
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={!!newFlag.triggers_task_type}
-                    onCheckedChange={(checked) => setNewFlag({ ...newFlag, triggers_task_type: checked ? 'inspection' : '' })}
-                  />
-                  <Label>Auto-create task when flag is enabled</Label>
-                </div>
-                {newFlag.triggers_task_type && (
-                  <div className="ml-6 space-y-2">
-                    <Label>Task Type</Label>
-                    <Select
-                      value={newFlag.triggers_task_type}
-                      onValueChange={(value) => setNewFlag({ ...newFlag, triggers_task_type: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="inspection">Inspection</SelectItem>
-                        <SelectItem value="repair">Repair</SelectItem>
-                        <SelectItem value="assembly">Assembly</SelectItem>
-                        <SelectItem value="touchup">Touch-Up</SelectItem>
-                        <SelectItem value="photography">Photography</SelectItem>
-                        <SelectItem value="custom">Custom</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={newFlag.triggers_alert}
-                    onCheckedChange={(checked) => setNewFlag({ ...newFlag, triggers_alert: checked })}
-                  />
-                  <Label>Send alert/notification when flag is enabled</Label>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t pt-4">
-              <h4 className="font-medium mb-3">Client Portal Settings</h4>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={newFlag.visible_to_client}
-                    onCheckedChange={(checked) => setNewFlag({ ...newFlag, visible_to_client: checked })}
-                  />
-                  <Label>Visible to clients in their portal</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={newFlag.client_can_set}
-                    onCheckedChange={(checked) => setNewFlag({ ...newFlag, client_can_set: checked })}
-                  />
-                  <Label>Clients can toggle this flag on their items</Label>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateFlag}
-              disabled={!newFlag.flag_key || !newFlag.display_name || createFlag.isPending}
-            >
-              {createFlag.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Flag
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Flag Config Dialog */}
+      <FlagConfigDialog
+        open={configDialogOpen}
+        onOpenChange={setConfigDialogOpen}
+        flag={selectedFlag}
+        onSaved={handleDialogSaved}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>

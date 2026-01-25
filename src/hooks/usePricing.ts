@@ -98,6 +98,72 @@ export interface AccountPricingOverride {
   created_by: string | null;
 }
 
+export interface FlagServiceRule {
+  id: string;
+  tenant_id: string;
+  flag_id: string;
+  service_code: string;
+  adds_percent: number;
+  adds_flat_fee: number;
+  adds_minutes: number;
+  multiplier: number;
+  is_active: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AccountServiceSetting {
+  id: string;
+  tenant_id: string;
+  account_id: string;
+  service_code: string;
+  is_enabled: boolean;
+  custom_rate: number | null;
+  custom_percent_adjust: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BillingCalculationBreakdown {
+  service_code: string;
+  calculated_at: string;
+  base_rate_source: string;
+  base_rate: number;
+  size_category?: string;
+  assembly_tier?: number;
+  flags_applied?: Array<{
+    flag: string;
+    source: string;
+    adds_percent: number;
+    adds_flat: number;
+    adds_minutes: number;
+  }>;
+  rate_after_flags?: number;
+  account_adjustment_percent?: number;
+  rate_after_account_adj?: number;
+  final_rate: number;
+  final_minutes: number;
+}
+
+export interface PricingExportData {
+  size_categories: SizeCategory[];
+  assembly_tiers: AssemblyTier[];
+  services: GlobalServiceRate[];
+  flags: PricingFlag[];
+  flag_service_rules: Array<{
+    flag_key: string;
+    service_code: string;
+    adds_percent: number;
+    adds_flat_fee: number;
+    adds_minutes: number;
+    multiplier: number;
+  }>;
+  export_timestamp: string;
+  tenant_id: string;
+}
+
 // ============================================================================
 // Size Categories (Classes) Hooks
 // ============================================================================
@@ -651,6 +717,336 @@ export function useCalculateServicePrice() {
 
       if (error) throw error;
       return data?.[0] as { rate: number; minutes: number; source: string; flags_applied: string[] } | undefined;
+    },
+  });
+}
+
+// ============================================================================
+// Flag Service Rules Hooks (Per-Service Adjustments)
+// ============================================================================
+
+export function useFlagServiceRules(flagId: string | undefined) {
+  return useQuery({
+    queryKey: ['flag-service-rules', flagId],
+    queryFn: async () => {
+      if (!flagId) return [];
+
+      const { data, error } = await (supabase
+        .from('flag_service_rules') as any)
+        .select('*')
+        .eq('flag_id', flagId)
+        .eq('is_active', true);
+
+      if (error) throw error;
+      return data as FlagServiceRule[];
+    },
+    enabled: !!flagId,
+  });
+}
+
+export function useAllFlagServiceRules() {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ['all-flag-service-rules', profile?.tenant_id],
+    queryFn: async () => {
+      if (!profile?.tenant_id) return [];
+
+      const { data, error } = await (supabase
+        .from('flag_service_rules') as any)
+        .select(`
+          *,
+          flag:pricing_flags(flag_key, display_name)
+        `)
+        .eq('tenant_id', profile.tenant_id)
+        .eq('is_active', true);
+
+      if (error) throw error;
+      return data as (FlagServiceRule & { flag: { flag_key: string; display_name: string } })[];
+    },
+    enabled: !!profile?.tenant_id,
+  });
+}
+
+export function useUpsertFlagServiceRule() {
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async (rule: Partial<FlagServiceRule> & { flag_id: string; service_code: string }) => {
+      if (!profile?.tenant_id) throw new Error('No tenant');
+
+      const { data, error } = await (supabase
+        .from('flag_service_rules') as any)
+        .upsert({
+          tenant_id: profile.tenant_id,
+          flag_id: rule.flag_id,
+          service_code: rule.service_code,
+          adds_percent: rule.adds_percent ?? 0,
+          adds_flat_fee: rule.adds_flat_fee ?? 0,
+          adds_minutes: rule.adds_minutes ?? 0,
+          multiplier: rule.multiplier ?? 1,
+          is_active: rule.is_active ?? true,
+          notes: rule.notes,
+        }, {
+          onConflict: 'flag_id,service_code',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['flag-service-rules', variables.flag_id] });
+      queryClient.invalidateQueries({ queryKey: ['all-flag-service-rules'] });
+      toast.success('Flag service rule saved');
+    },
+    onError: (error) => {
+      console.error('Error saving flag service rule:', error);
+      toast.error('Failed to save flag service rule');
+    },
+  });
+}
+
+export function useDeleteFlagServiceRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ flagId, serviceCode }: { flagId: string; serviceCode: string }) => {
+      const { error } = await (supabase
+        .from('flag_service_rules') as any)
+        .delete()
+        .eq('flag_id', flagId)
+        .eq('service_code', serviceCode);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['flag-service-rules', variables.flagId] });
+      queryClient.invalidateQueries({ queryKey: ['all-flag-service-rules'] });
+      toast.success('Flag service rule deleted');
+    },
+    onError: (error) => {
+      console.error('Error deleting flag service rule:', error);
+      toast.error('Failed to delete flag service rule');
+    },
+  });
+}
+
+// ============================================================================
+// Account Service Settings Hooks (Enable/Disable Services per Account)
+// ============================================================================
+
+export function useAccountServiceSettings(accountId: string | undefined) {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ['account-service-settings', accountId],
+    queryFn: async () => {
+      if (!accountId || !profile?.tenant_id) return [];
+
+      const { data, error } = await (supabase
+        .from('account_service_settings') as any)
+        .select('*')
+        .eq('tenant_id', profile.tenant_id)
+        .eq('account_id', accountId);
+
+      if (error) throw error;
+      return data as AccountServiceSetting[];
+    },
+    enabled: !!accountId && !!profile?.tenant_id,
+  });
+}
+
+export function useUpsertAccountServiceSetting() {
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async (setting: Partial<AccountServiceSetting> & { account_id: string; service_code: string }) => {
+      if (!profile?.tenant_id) throw new Error('No tenant');
+
+      const { data, error } = await (supabase
+        .from('account_service_settings') as any)
+        .upsert({
+          tenant_id: profile.tenant_id,
+          account_id: setting.account_id,
+          service_code: setting.service_code,
+          is_enabled: setting.is_enabled ?? true,
+          custom_rate: setting.custom_rate,
+          custom_percent_adjust: setting.custom_percent_adjust,
+          notes: setting.notes,
+        }, {
+          onConflict: 'account_id,service_code',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['account-service-settings', variables.account_id] });
+      toast.success('Account service setting saved');
+    },
+    onError: (error) => {
+      console.error('Error saving account service setting:', error);
+      toast.error('Failed to save account service setting');
+    },
+  });
+}
+
+export function useDeleteAccountServiceSetting() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ accountId, serviceCode }: { accountId: string; serviceCode: string }) => {
+      const { error } = await (supabase
+        .from('account_service_settings') as any)
+        .delete()
+        .eq('account_id', accountId)
+        .eq('service_code', serviceCode);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['account-service-settings', variables.accountId] });
+      toast.success('Account service setting deleted');
+    },
+    onError: (error) => {
+      console.error('Error deleting account service setting:', error);
+      toast.error('Failed to delete account service setting');
+    },
+  });
+}
+
+// ============================================================================
+// Pricing Import/Export Hooks
+// ============================================================================
+
+export function useExportPricingData() {
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!profile?.tenant_id) throw new Error('No tenant');
+
+      const { data, error } = await supabase.rpc('get_pricing_export_data', {
+        p_tenant_id: profile.tenant_id,
+      });
+
+      if (error) throw error;
+      return data as PricingExportData;
+    },
+    onError: (error) => {
+      console.error('Error exporting pricing data:', error);
+      toast.error('Failed to export pricing data');
+    },
+  });
+}
+
+export function useImportPricingData() {
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ data, overwrite }: { data: Partial<PricingExportData>; overwrite: boolean }) => {
+      if (!profile?.tenant_id) throw new Error('No tenant');
+
+      const { data: result, error } = await supabase.rpc('import_pricing_data', {
+        p_tenant_id: profile.tenant_id,
+        p_data: data,
+        p_overwrite: overwrite,
+      });
+
+      if (error) throw error;
+      return result as { success: boolean; imported_counts: Record<string, number> };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['size-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['assembly-tiers'] });
+      queryClient.invalidateQueries({ queryKey: ['pricing-flags'] });
+      queryClient.invalidateQueries({ queryKey: ['global-service-rates'] });
+      queryClient.invalidateQueries({ queryKey: ['all-flag-service-rules'] });
+      toast.success(`Pricing data imported successfully`);
+    },
+    onError: (error) => {
+      console.error('Error importing pricing data:', error);
+      toast.error('Failed to import pricing data');
+    },
+  });
+}
+
+// ============================================================================
+// Enhanced Calculate Service Price V2 (with Metadata)
+// ============================================================================
+
+export function useCalculateServicePriceV2() {
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      accountId,
+      serviceCode,
+      classId,
+      assemblyTierId,
+      itemId,
+    }: {
+      accountId?: string;
+      serviceCode: string;
+      classId?: string;
+      assemblyTierId?: string;
+      itemId?: string;
+    }) => {
+      if (!profile?.tenant_id) throw new Error('No tenant');
+
+      const { data, error } = await supabase.rpc('calculate_service_price_v2', {
+        p_tenant_id: profile.tenant_id,
+        p_account_id: accountId || null,
+        p_service_code: serviceCode,
+        p_class_id: classId || null,
+        p_assembly_tier_id: assemblyTierId || null,
+        p_item_id: itemId || null,
+      });
+
+      if (error) throw error;
+      return data?.[0] as {
+        rate: number;
+        minutes: number;
+        source: string;
+        flags_applied: string[];
+        calculation_breakdown: BillingCalculationBreakdown;
+      } | undefined;
+    },
+  });
+}
+
+// ============================================================================
+// Seed Enhanced Flags (Additional Warehouse-Specific Flags)
+// ============================================================================
+
+export function useSeedEnhancedFlags() {
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!profile?.tenant_id) throw new Error('No tenant');
+
+      const { error } = await supabase.rpc('seed_enhanced_flags', {
+        p_tenant_id: profile.tenant_id,
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pricing-flags'] });
+      toast.success('Enhanced flags added');
+    },
+    onError: (error) => {
+      console.error('Error seeding enhanced flags:', error);
+      toast.error('Failed to add enhanced flags');
     },
   });
 }
