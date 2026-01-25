@@ -11,6 +11,7 @@ import { useClaims, CLAIM_TYPE_LABELS, CLAIM_STATUS_LABELS, type Claim, type Cla
 import { ClaimAttachments } from '@/components/claims/ClaimAttachments';
 import { ClaimNotes } from '@/components/claims/ClaimNotes';
 import { ClaimStatusActions } from '@/components/claims/ClaimStatusActions';
+import { ClaimItemsList } from '@/components/claims/ClaimItemsList';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -161,21 +162,29 @@ export default function ClaimDetail() {
                     <p>{claim.non_inventory_ref}</p>
                   </div>
                 )}
-
-                <Separator />
-
-                {/* Incident Contact */}
-                {(claim.incident_contact_name || claim.incident_location) && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">Incident Information</h4>
-                    {claim.incident_location && <p><strong>Location:</strong> {claim.incident_location}</p>}
-                    {claim.incident_contact_name && <p><strong>Contact:</strong> {claim.incident_contact_name}</p>}
-                    {claim.incident_contact_phone && <p><strong>Phone:</strong> {claim.incident_contact_phone}</p>}
-                    {claim.incident_contact_email && <p><strong>Email:</strong> {claim.incident_contact_email}</p>}
-                  </div>
-                )}
               </CardContent>
             </Card>
+
+            {/* Claim Items (Multi-Item Support) */}
+            <ClaimItemsList claimId={claim.id} claimStatus={claim.status} />
+
+            {/* Incident & Contact Info - Only show if there's incident data */}
+            {(claim.incident_contact_name || claim.incident_location || claim.incident_contact_phone || claim.incident_contact_email) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Incident Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {claim.incident_location && <p><strong>Location:</strong> {claim.incident_location}</p>}
+                  {claim.incident_contact_name && <p><strong>Contact:</strong> {claim.incident_contact_name}</p>}
+                  {claim.incident_contact_phone && <p><strong>Phone:</strong> {claim.incident_contact_phone}</p>}
+                  {claim.incident_contact_email && <p><strong>Email:</strong> {claim.incident_contact_email}</p>}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Tabs */}
             <Tabs defaultValue="attachments">
