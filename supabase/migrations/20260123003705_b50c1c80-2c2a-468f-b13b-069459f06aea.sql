@@ -376,7 +376,7 @@ CREATE TABLE IF NOT EXISTS public.stocktakes (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   deleted_at TIMESTAMPTZ,
-  CONSTRAINT valid_stocktake_status CHECK (status IN ('planned', 'in_progress', 'completed', 'cancelled'))
+  CONSTRAINT valid_stocktake_status CHECK (status IN ('draft', 'planned', 'in_progress', 'completed', 'cancelled'))
 );
 
 -- Stocktake items (individual counts)
