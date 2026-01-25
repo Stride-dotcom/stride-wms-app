@@ -6,6 +6,41 @@
 -- Add more configuration options for billing and automation
 -- ============================================================================
 
+-- First ensure the pricing_flags table exists (create if missing from earlier migration)
+CREATE TABLE IF NOT EXISTS public.pricing_flags (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  flag_key TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  flag_type TEXT NOT NULL DEFAULT 'boolean' CHECK (flag_type IN ('boolean', 'enum', 'number')),
+  is_active BOOLEAN DEFAULT true,
+  visible_to_client BOOLEAN DEFAULT true,
+  client_can_set BOOLEAN DEFAULT false,
+  adds_percent NUMERIC(5,2) DEFAULT 0,
+  adds_minutes INTEGER DEFAULT 0,
+  applies_to_services TEXT DEFAULT 'ALL',
+  triggers_task_type TEXT,
+  triggers_alert BOOLEAN DEFAULT false,
+  sort_order INTEGER DEFAULT 0,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(tenant_id, flag_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pricing_flags_tenant ON public.pricing_flags(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_pricing_flags_key ON public.pricing_flags(tenant_id, flag_key);
+
+ALTER TABLE public.pricing_flags ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Tenant isolation for pricing_flags" ON public.pricing_flags;
+CREATE POLICY "Tenant isolation for pricing_flags"
+ON public.pricing_flags FOR ALL
+USING (tenant_id IN (
+  SELECT tenant_id FROM public.users WHERE id = auth.uid()
+));
+
+-- Now add the enhanced columns
 ALTER TABLE public.pricing_flags
 ADD COLUMN IF NOT EXISTS description TEXT,
 ADD COLUMN IF NOT EXISTS flat_fee NUMERIC(10,2) DEFAULT 0,
@@ -28,6 +63,31 @@ COMMENT ON COLUMN public.pricing_flags.is_billable IS 'Whether this flag represe
 -- Track billing events created and history
 -- ============================================================================
 
+-- Ensure item_flags table exists (create if missing from earlier migration)
+CREATE TABLE IF NOT EXISTS public.item_flags (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  item_id UUID NOT NULL REFERENCES public.items(id) ON DELETE CASCADE,
+  flag_id UUID NOT NULL REFERENCES public.pricing_flags(id) ON DELETE CASCADE,
+  value TEXT DEFAULT 'true',
+  set_by UUID REFERENCES auth.users(id),
+  set_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(item_id, flag_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_item_flags_item ON public.item_flags(item_id);
+CREATE INDEX IF NOT EXISTS idx_item_flags_tenant ON public.item_flags(tenant_id);
+
+ALTER TABLE public.item_flags ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Tenant isolation for item_flags" ON public.item_flags;
+CREATE POLICY "Tenant isolation for item_flags"
+ON public.item_flags FOR ALL
+USING (tenant_id IN (
+  SELECT tenant_id FROM public.users WHERE id = auth.uid()
+));
+
+-- Now add the enhanced columns
 ALTER TABLE public.item_flags
 ADD COLUMN IF NOT EXISTS billing_event_id UUID REFERENCES public.billing_events(id) ON DELETE SET NULL,
 ADD COLUMN IF NOT EXISTS task_id UUID REFERENCES public.tasks(id) ON DELETE SET NULL,
@@ -37,6 +97,39 @@ ADD COLUMN IF NOT EXISTS unset_by UUID REFERENCES auth.users(id);
 
 COMMENT ON COLUMN public.item_flags.billing_event_id IS 'Billing event auto-created when this flag was set';
 COMMENT ON COLUMN public.item_flags.task_id IS 'Task auto-created when this flag was set';
+
+-- ============================================================================
+-- 2.5. ENSURE ASSEMBLY_TIERS TABLE EXISTS
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.assembly_tiers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  tier_number INTEGER NOT NULL,
+  display_name TEXT NOT NULL,
+  billing_mode TEXT NOT NULL DEFAULT 'flat_per_item' CHECK (billing_mode IN ('flat_per_item', 'per_minute', 'manual_quote')),
+  rate NUMERIC(10,2),
+  default_minutes INTEGER,
+  requires_special_installer BOOLEAN DEFAULT false,
+  requires_manual_quote BOOLEAN DEFAULT false,
+  is_active BOOLEAN DEFAULT true,
+  sort_order INTEGER DEFAULT 0,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(tenant_id, tier_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_assembly_tiers_tenant ON public.assembly_tiers(tenant_id);
+
+ALTER TABLE public.assembly_tiers ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Tenant isolation for assembly_tiers" ON public.assembly_tiers;
+CREATE POLICY "Tenant isolation for assembly_tiers"
+ON public.assembly_tiers FOR ALL
+USING (tenant_id IN (
+  SELECT tenant_id FROM public.users WHERE id = auth.uid()
+));
 
 -- ============================================================================
 -- 3. FUNCTION: SET ITEM FLAG WITH AUTO-BILLING AND AUTO-TASK

@@ -59,6 +59,7 @@ COMMENT ON TABLE public.assembly_tiers IS 'Assembly complexity tiers with variab
 -- Enable RLS
 ALTER TABLE public.assembly_tiers ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tenant isolation for assembly_tiers" ON public.assembly_tiers;
 CREATE POLICY "Tenant isolation for assembly_tiers"
 ON public.assembly_tiers FOR ALL
 USING (tenant_id IN (
@@ -103,6 +104,7 @@ COMMENT ON COLUMN public.pricing_flags.triggers_task_type IS 'Auto-create a task
 -- Enable RLS
 ALTER TABLE public.pricing_flags ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tenant isolation for pricing_flags" ON public.pricing_flags;
 CREATE POLICY "Tenant isolation for pricing_flags"
 ON public.pricing_flags FOR ALL
 USING (tenant_id IN (
@@ -133,6 +135,7 @@ COMMENT ON TABLE public.item_flags IS 'Junction table tracking which pricing fla
 -- Enable RLS
 ALTER TABLE public.item_flags ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tenant isolation for item_flags" ON public.item_flags;
 CREATE POLICY "Tenant isolation for item_flags"
 ON public.item_flags FOR ALL
 USING (tenant_id IN (

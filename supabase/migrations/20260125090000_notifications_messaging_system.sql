@@ -22,11 +22,12 @@ CREATE TABLE IF NOT EXISTS public.departments (
 );
 
 -- Index for performance
-CREATE INDEX idx_departments_tenant ON public.departments(tenant_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_departments_tenant ON public.departments(tenant_id) WHERE deleted_at IS NULL;
 
 -- RLS policies
 ALTER TABLE public.departments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "departments_tenant_isolation" ON public.departments;
 CREATE POLICY "departments_tenant_isolation" ON public.departments
   FOR ALL USING (tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid()));
 
@@ -47,12 +48,13 @@ CREATE TABLE IF NOT EXISTS public.user_departments (
 );
 
 -- Index for performance
-CREATE INDEX idx_user_departments_user ON public.user_departments(user_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_user_departments_department ON public.user_departments(department_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_user_departments_user ON public.user_departments(user_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_user_departments_department ON public.user_departments(department_id) WHERE deleted_at IS NULL;
 
 -- RLS policies
 ALTER TABLE public.user_departments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "user_departments_tenant_isolation" ON public.user_departments;
 CREATE POLICY "user_departments_tenant_isolation" ON public.user_departments
   FOR ALL USING (
     EXISTS (
@@ -95,13 +97,14 @@ CREATE TABLE IF NOT EXISTS public.messages (
 );
 
 -- Indexes
-CREATE INDEX idx_messages_tenant ON public.messages(tenant_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_messages_sender ON public.messages(sender_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_messages_created ON public.messages(created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_messages_tenant ON public.messages(tenant_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_messages_sender ON public.messages(sender_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_messages_created ON public.messages(created_at DESC) WHERE deleted_at IS NULL;
 
 -- RLS policies
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "messages_tenant_isolation" ON public.messages;
 CREATE POLICY "messages_tenant_isolation" ON public.messages
   FOR ALL USING (tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid()));
 
@@ -135,13 +138,14 @@ CREATE TABLE IF NOT EXISTS public.message_recipients (
 );
 
 -- Indexes
-CREATE INDEX idx_message_recipients_message ON public.message_recipients(message_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_message_recipients_user ON public.message_recipients(user_id) WHERE deleted_at IS NULL AND is_archived = false;
-CREATE INDEX idx_message_recipients_unread ON public.message_recipients(user_id, is_read) WHERE deleted_at IS NULL AND is_read = false;
+CREATE INDEX IF NOT EXISTS idx_message_recipients_message ON public.message_recipients(message_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_message_recipients_user ON public.message_recipients(user_id) WHERE deleted_at IS NULL AND is_archived = false;
+CREATE INDEX IF NOT EXISTS idx_message_recipients_unread ON public.message_recipients(user_id, is_read) WHERE deleted_at IS NULL AND is_read = false;
 
 -- RLS policies
 ALTER TABLE public.message_recipients ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "message_recipients_user_access" ON public.message_recipients;
 CREATE POLICY "message_recipients_user_access" ON public.message_recipients
   FOR ALL USING (
     user_id = auth.uid() OR
@@ -206,12 +210,13 @@ CREATE TABLE IF NOT EXISTS public.in_app_notifications (
 );
 
 -- Indexes
-CREATE INDEX idx_in_app_notifications_user ON public.in_app_notifications(user_id, is_read, created_at DESC) WHERE deleted_at IS NULL;
-CREATE INDEX idx_in_app_notifications_unread ON public.in_app_notifications(user_id) WHERE deleted_at IS NULL AND is_read = false;
+CREATE INDEX IF NOT EXISTS idx_in_app_notifications_user ON public.in_app_notifications(user_id, is_read, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_in_app_notifications_unread ON public.in_app_notifications(user_id) WHERE deleted_at IS NULL AND is_read = false;
 
 -- RLS policies
 ALTER TABLE public.in_app_notifications ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "in_app_notifications_user_access" ON public.in_app_notifications;
 CREATE POLICY "in_app_notifications_user_access" ON public.in_app_notifications
   FOR ALL USING (user_id = auth.uid());
 
