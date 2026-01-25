@@ -96,8 +96,8 @@ export function RepairQuoteDetailDialog({
 
     setLoadingItems(true);
     try {
-      const { data, error } = await (supabase
-        .from('repair_quote_items') as any)
+      const { data, error } = await (supabase as any)
+        .from('repair_quote_items')
         .select(`
           *,
           item:items(id, item_code, description, status)

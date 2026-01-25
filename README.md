@@ -1,4 +1,5 @@
 # Welcome to your Lovable project
+<!-- sync: 2026-01-25 -->
 
 ## Project info
 
