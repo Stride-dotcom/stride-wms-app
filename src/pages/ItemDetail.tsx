@@ -702,23 +702,11 @@ export default function ItemDetail() {
                 </CardContent>
               </Card>
 
-              {/* Flags Card */}
+              {/* Flags Card - Dynamic flags from pricing_flags table */}
               <ItemFlagsSection
                 itemId={item.id}
-                flags={{
-                  is_overweight: item.is_overweight || false,
-                  is_oversize: item.is_oversize || false,
-                  is_unstackable: item.is_unstackable || false,
-                  is_crated: item.is_crated || false,
-                  needs_repair: item.needs_repair || false,
-                  needs_inspection: item.needs_inspection || false,
-                  needs_warehouse_assembly: item.needs_warehouse_assembly || false,
-                  notify_dispatch: item.notify_dispatch || false,
-                  has_damage: item.has_damage || false,
-                  received_without_id: (item as any).received_without_id || false,
-                  needs_minor_touchup: (item as any).needs_minor_touchup || false,
-                }}
-                onFlagsChange={handleFlagsChange}
+                accountId={item.account_id || undefined}
+                onFlagsChange={() => fetchItem()}
                 isClientUser={isClientUser}
               />
             </div>

@@ -58,15 +58,22 @@ export interface PricingFlag {
   tenant_id: string;
   flag_key: string;
   display_name: string;
+  description: string | null;
   flag_type: 'boolean' | 'enum' | 'number';
   is_active: boolean;
   visible_to_client: boolean;
   client_can_set: boolean;
   adds_percent: number;
   adds_minutes: number;
+  flat_fee: number;
   applies_to_services: string;
   triggers_task_type: string | null;
   triggers_alert: boolean;
+  creates_billing_event: boolean;
+  billing_charge_type: string | null;
+  is_billable: boolean;
+  icon: string;
+  color: string;
   sort_order: number;
   notes: string | null;
 }
@@ -307,12 +314,29 @@ export function useCreatePricingFlag() {
   const { profile } = useAuth();
 
   return useMutation({
-    mutationFn: async (flag: Omit<PricingFlag, 'id' | 'tenant_id'>) => {
+    mutationFn: async (flag: Partial<PricingFlag> & { flag_key: string; display_name: string }) => {
       if (!profile?.tenant_id) throw new Error('No tenant');
 
       const { data, error } = await (supabase
         .from('pricing_flags') as any)
-        .insert({ ...flag, tenant_id: profile.tenant_id })
+        .insert({
+          ...flag,
+          tenant_id: profile.tenant_id,
+          flag_type: flag.flag_type || 'boolean',
+          is_active: flag.is_active ?? true,
+          visible_to_client: flag.visible_to_client ?? true,
+          client_can_set: flag.client_can_set ?? false,
+          adds_percent: flag.adds_percent ?? 0,
+          adds_minutes: flag.adds_minutes ?? 0,
+          flat_fee: flag.flat_fee ?? 0,
+          applies_to_services: flag.applies_to_services || 'ALL',
+          triggers_alert: flag.triggers_alert ?? false,
+          creates_billing_event: flag.creates_billing_event ?? false,
+          is_billable: flag.is_billable ?? false,
+          icon: flag.icon || 'flag',
+          color: flag.color || 'default',
+          sort_order: flag.sort_order ?? 99,
+        })
         .select()
         .single();
 
@@ -326,6 +350,29 @@ export function useCreatePricingFlag() {
     onError: (error) => {
       console.error('Error creating flag:', error);
       toast.error('Failed to create flag');
+    },
+  });
+}
+
+export function useDeletePricingFlag() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (flagId: string) => {
+      const { error } = await (supabase
+        .from('pricing_flags') as any)
+        .delete()
+        .eq('id', flagId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pricing-flags'] });
+      toast.success('Flag deleted');
+    },
+    onError: (error) => {
+      console.error('Error deleting flag:', error);
+      toast.error('Failed to delete flag');
     },
   });
 }
@@ -357,36 +404,75 @@ export function useItemFlags(itemId: string | undefined) {
 
 export function useSetItemFlag() {
   const queryClient = useQueryClient();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ itemId, flagId, value }: { itemId: string; flagId: string; value: string }) => {
-      if (!profile?.tenant_id) throw new Error('No tenant');
-
-      const { data, error } = await (supabase
-        .from('item_flags') as any)
-        .upsert({
-          tenant_id: profile.tenant_id,
-          item_id: itemId,
-          flag_id: flagId,
-          value,
-          set_by: user?.id,
-          set_at: new Date().toISOString(),
-        }, {
-          onConflict: 'item_id,flag_id',
-        })
-        .select()
-        .single();
+    mutationFn: async ({ itemId, flagKey, notes }: { itemId: string; flagKey: string; notes?: string }) => {
+      // Use the RPC function for automatic billing/task creation
+      const { data, error } = await supabase.rpc('set_item_flag', {
+        p_item_id: itemId,
+        p_flag_key: flagKey,
+        p_user_id: user?.id || null,
+        p_notes: notes || null,
+      });
 
       if (error) throw error;
-      return data;
+
+      const result = data as { success: boolean; error?: string; item_flag_id?: string; billing_event_id?: string; task_id?: string };
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to set flag');
+      }
+
+      return result;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['item-flags', variables.itemId] });
+      queryClient.invalidateQueries({ queryKey: ['items', variables.itemId] });
+      if (result.billing_event_id) {
+        queryClient.invalidateQueries({ queryKey: ['billing-events'] });
+      }
+      if (result.task_id) {
+        queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      }
     },
     onError: (error) => {
       console.error('Error setting item flag:', error);
       toast.error('Failed to set flag');
+    },
+  });
+}
+
+export function useUnsetItemFlag() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ itemId, flagKey }: { itemId: string; flagKey: string }) => {
+      // Use the RPC function
+      const { data, error } = await supabase.rpc('unset_item_flag', {
+        p_item_id: itemId,
+        p_flag_key: flagKey,
+        p_user_id: user?.id || null,
+      });
+
+      if (error) throw error;
+
+      const result = data as { success: boolean; error?: string };
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to unset flag');
+      }
+
+      return result;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['item-flags', variables.itemId] });
+      queryClient.invalidateQueries({ queryKey: ['items', variables.itemId] });
+      queryClient.invalidateQueries({ queryKey: ['billing-events'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onError: (error) => {
+      console.error('Error unsetting item flag:', error);
+      toast.error('Failed to remove flag');
     },
   });
 }
