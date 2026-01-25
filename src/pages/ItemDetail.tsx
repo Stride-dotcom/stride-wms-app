@@ -119,6 +119,7 @@ interface ItemDetail {
   location?: { id: string; code: string; name: string | null } | null;
   warehouse?: { id: string; name: string } | null;
   item_type?: { id: string; name: string } | null;
+  account?: { id: string; account_name: string; account_code: string } | null;
 }
 
 interface Movement {
@@ -197,7 +198,8 @@ export default function ItemDetail() {
           *,
           locations(id, code, name),
           warehouses(id, name),
-          item_types(id, name)
+          item_types(id, name),
+          accounts:account_id(id, account_name, account_code)
         `)
         .eq('id', id)
         .single();
@@ -222,6 +224,7 @@ export default function ItemDetail() {
         location: data.locations,
         warehouse: data.warehouses,
         item_type: data.item_types,
+        account: data.accounts,
         receiving_shipment: receivingShipment,
         room: data.room || null,
         link: data.link || null,
@@ -614,8 +617,8 @@ export default function ItemDetail() {
                       <p className="font-medium">{item.item_type?.name || '-'}</p>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Client Account</span>
-                      <p className="font-medium">{item.client_account || '-'}</p>
+                      <span className="text-muted-foreground">Account</span>
+                      <p className="font-medium">{item.account?.account_name || '-'}</p>
                     </div>
                     {/* Sidemark - inline editable */}
                     <div>
@@ -923,7 +926,7 @@ export default function ItemDetail() {
           itemCode: item.item_code,
           description: item.description || '',
           vendor: item.vendor || '',
-          account: item.client_account || '',
+          account: item.account?.account_name || '',
           sidemark: item.sidemark || '',
           warehouseName: item.warehouse?.name || '',
           locationCode: item.location?.code || '',

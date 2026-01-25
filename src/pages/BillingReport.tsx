@@ -5,10 +5,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Download, RefreshCw, Search, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 interface BillingEventRow {
   id: string;
@@ -33,13 +33,28 @@ interface Account {
   account_code: string;
 }
 
+function formatDateMMDDYY(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${mm}/${dd}/${yy}`;
+}
+
 function toCSV(rows: BillingEventRow[]) {
   if (!rows.length) return "";
   const headers = ["occurred_at", "account_name", "item_code", "event_type", "charge_type", "description", "quantity", "unit_rate", "total_amount", "status", "invoice_id"];
   const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const lines = [headers.map(escape).join(",")];
   for (const r of rows) {
-    lines.push(headers.map((h) => escape(r[h as keyof BillingEventRow])).join(","));
+    lines.push(headers.map((h) => {
+      // Format occurred_at as mm/dd/yy
+      if (h === 'occurred_at') {
+        return escape(formatDateMMDDYY(r.occurred_at));
+      }
+      return escape(r[h as keyof BillingEventRow]);
+    }).join(","));
   }
   return lines.join("\n");
 }
@@ -54,8 +69,8 @@ export default function BillingReport() {
     return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
   });
   const [end, setEnd] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [accountId, setAccountId] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [serviceFilter, setServiceFilter] = useState<string>("");
   const [rows, setRows] = useState<BillingEventRow[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -96,11 +111,11 @@ export default function BillingReport() {
         .order("occurred_at", { ascending: false })
         .limit(1000);
 
-      if (accountId && accountId !== "all") {
-        query = query.eq("account_id", accountId);
+      if (selectedAccounts.length > 0) {
+        query = query.in("account_id", selectedAccounts);
       }
-      if (statusFilter && statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
+      if (selectedStatuses.length > 0) {
+        query = query.in("status", selectedStatuses);
       }
       if (serviceFilter.trim()) {
         query = query.ilike("charge_type", `%${serviceFilter.trim()}%`);
@@ -248,33 +263,30 @@ export default function BillingReport() {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Account</label>
-                <Select value={accountId} onValueChange={setAccountId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All accounts" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All accounts</SelectItem>
-                    {accounts.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.account_code} - {a.account_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelect
+                  options={accounts.map((a) => ({
+                    value: a.id,
+                    label: `${a.account_code} - ${a.account_name}`,
+                  }))}
+                  selected={selectedAccounts}
+                  onChange={setSelectedAccounts}
+                  placeholder="All accounts"
+                  emptyMessage="No accounts found"
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Status</label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All statuses</SelectItem>
-                    <SelectItem value="unbilled">Unbilled</SelectItem>
-                    <SelectItem value="invoiced">Invoiced</SelectItem>
-                    <SelectItem value="void">Void</SelectItem>
-                  </SelectContent>
-                </Select>
+                <MultiSelect
+                  options={[
+                    { value: 'unbilled', label: 'Unbilled' },
+                    { value: 'invoiced', label: 'Invoiced' },
+                    { value: 'void', label: 'Void' },
+                  ]}
+                  selected={selectedStatuses}
+                  onChange={setSelectedStatuses}
+                  placeholder="All statuses"
+                  emptyMessage="No statuses found"
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Service (contains)</label>

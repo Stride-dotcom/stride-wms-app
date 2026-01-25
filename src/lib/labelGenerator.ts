@@ -213,43 +213,52 @@ export async function generateItemLabelsPDF(items: ItemLabelData[]): Promise<Blo
     doc.setLineWidth(2);
     doc.rect(MARGIN / 2, MARGIN / 2, LABEL_WIDTH - MARGIN, LABEL_HEIGHT - MARGIN, 'S');
 
-    let yPos = MARGIN + 10;
+    let yPos = MARGIN + 15;
 
-    // Item code (large, bold) - at the top
-    doc.setFontSize(32);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text(item.itemCode, LABEL_WIDTH / 2, yPos + 28, { align: 'center' });
-    yPos += 50;
-
-    // Account (prominent)
+    // 1. Account (large, prominent at top)
     if (item.account) {
-      doc.setFontSize(16);
+      doc.setFontSize(22);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(40, 40, 40);
+      doc.setTextColor(0, 0, 0);
       const accountText = truncateText(doc, item.account, maxTextWidth);
-      doc.text(accountText, LABEL_WIDTH / 2, yPos, { align: 'center' });
-      yPos += 22;
+      doc.text(accountText, LABEL_WIDTH / 2, yPos + 18, { align: 'center' });
+      yPos += 35;
     }
 
-    // Vendor
+    // 2. Sidemark (prominent)
+    if (item.sidemark) {
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(40, 40, 40);
+      const sidemarkText = truncateText(doc, item.sidemark, maxTextWidth);
+      doc.text(sidemarkText, LABEL_WIDTH / 2, yPos, { align: 'center' });
+      yPos += 28;
+    }
+
+    // Horizontal line after account/sidemark
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(1);
+    doc.line(MARGIN + 20, yPos, LABEL_WIDTH - MARGIN - 20, yPos);
+    yPos += 18;
+
+    // 3. Item Code (large, bold)
+    doc.setFontSize(28);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text(item.itemCode, LABEL_WIDTH / 2, yPos + 20, { align: 'center' });
+    yPos += 42;
+
+    // 4. Vendor
     if (item.vendor) {
       doc.setFontSize(14);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(60, 60, 60);
-      const vendorText = truncateText(doc, `Vendor: ${item.vendor}`, maxTextWidth);
+      const vendorText = truncateText(doc, item.vendor, maxTextWidth);
       doc.text(vendorText, LABEL_WIDTH / 2, yPos, { align: 'center' });
-      yPos += 20;
+      yPos += 22;
     }
 
-    // Horizontal line
-    yPos += 5;
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(1);
-    doc.line(MARGIN + 20, yPos, LABEL_WIDTH - MARGIN - 20, yPos);
-    yPos += 15;
-
-    // Description (wrapped, 2 lines max)
+    // 5. Description (wrapped, 2 lines max)
     if (item.description) {
       doc.setFontSize(12);
       doc.setFont('helvetica', 'normal');
@@ -261,40 +270,13 @@ export async function generateItemLabelsPDF(items: ItemLabelData[]): Promise<Blo
       }
     }
 
-    // QR Code (centered, large for easy scanning)
-    const qrSize = 200;
+    // 6. QR Code (centered, large for easy scanning)
+    const qrSize = 180;
     const qrX = (LABEL_WIDTH - qrSize) / 2;
-    const qrY = yPos + 10;
+    const qrY = yPos + 8;
     doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
-    // Bottom section - Location info
-    const bottomY = LABEL_HEIGHT - MARGIN - 50;
-    
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(1);
-    doc.line(MARGIN + 20, bottomY - 15, LABEL_WIDTH - MARGIN - 20, bottomY - 15);
-
-    // Location info
-    if (item.locationCode) {
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Location: ${item.locationCode}`, LABEL_WIDTH / 2, bottomY + 5, {
-        align: 'center',
-      });
-    }
-
-    // Warehouse info
-    if (item.warehouseName) {
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(80, 80, 80);
-      doc.text(item.warehouseName, LABEL_WIDTH / 2, bottomY + 22, {
-        align: 'center',
-      });
-    }
-
-    // Scan instruction
+    // Scan instruction at bottom
     doc.setFontSize(9);
     doc.setTextColor(120, 120, 120);
     doc.text('Scan QR to view item details', LABEL_WIDTH / 2, LABEL_HEIGHT - MARGIN - 8, { align: 'center' });

@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Upload, X, Loader2, Image as ImageIcon, FileText } from 'lucide-react';
+import { Camera, Upload, X, Loader2, Image as ImageIcon, FileText, Download } from 'lucide-react';
 
 interface PhotoCaptureProps {
   entityType: 'item' | 'shipment' | 'receiving' | 'inspection' | 'repair';
@@ -128,6 +128,29 @@ export function PhotoCapture({
     return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
   };
 
+  const handleDownload = async (url: string, index: number) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      const ext = isImageUrl(url) ? 'jpg' : url.split('.').pop() || 'file';
+      a.download = `file-${index + 1}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast({
+        title: 'Download failed',
+        description: 'Could not download the file.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="space-y-3">
       {label && <Label>{label}</Label>}
@@ -138,7 +161,7 @@ export function PhotoCapture({
           {photos.map((url, index) => (
             <div
               key={index}
-              className="relative aspect-square rounded-lg border overflow-hidden bg-muted"
+              className="relative aspect-square rounded-lg border overflow-hidden bg-muted group"
             >
               {isImageUrl(url) ? (
                 <img
@@ -151,13 +174,22 @@ export function PhotoCapture({
                   <FileText className="h-8 w-8 text-muted-foreground" />
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => removePhoto(url)}
-                className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
-              >
-                <X className="h-3 w-3" />
-              </button>
+              <div className="absolute top-1 right-1 flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleDownload(url, index)}
+                  className="p-1 bg-blue-500 text-white rounded-full hover:bg-blue-600 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                >
+                  <Download className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removePhoto(url)}
+                  className="p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
             </div>
           ))}
         </div>

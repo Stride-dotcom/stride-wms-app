@@ -21,7 +21,9 @@ import {
   Loader2,
   ZoomIn,
   Filter,
+  Download,
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ItemPhotoGalleryProps {
   itemId: string;
@@ -39,6 +41,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
     toggleNeedsAttention,
     deletePhoto,
   } = useItemPhotos(itemId);
+  const { toast } = useToast();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +50,28 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
   const [lightboxPhoto, setLightboxPhoto] = useState<ItemPhoto | null>(null);
   const [photoType, setPhotoType] = useState<ItemPhoto['photo_type']>('general');
   const [filterNeedsAttention, setFilterNeedsAttention] = useState(false);
+
+  const handleDownload = async (photo: ItemPhoto) => {
+    try {
+      const response = await fetch(photo.storage_url || '');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = photo.file_name || `photo-${photo.id}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast({
+        title: 'Download failed',
+        description: 'Could not download the photo.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -140,48 +165,61 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
             </div>
           )}
 
-          {/* Hover actions (for staff) - always visible on mobile */}
-          {!isClientUser && (
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-              <div className="flex gap-2 justify-end">
-                {!photo.is_primary && (
+          {/* Hover actions - always visible on mobile */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <div className="flex gap-2 justify-end">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-white hover:text-blue-400 hover:bg-blue-500/20"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownload(photo);
+                }}
+              >
+                <Download className="h-5 w-5" />
+              </Button>
+              {!isClientUser && (
+                <>
+                  {!photo.is_primary && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/20"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSetPrimary(photo.id);
+                      }}
+                    >
+                      <Star className="h-5 w-5" />
+                    </Button>
+                  )}
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-8 w-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/20"
+                    className={`h-8 w-8 ${photo.needs_attention ? 'text-red-400 bg-red-500/20' : 'text-white'} hover:text-red-400 hover:bg-red-500/20`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleSetPrimary(photo.id);
+                      handleToggleAttention(photo.id, photo.needs_attention);
                     }}
                   >
-                    <Star className="h-5 w-5" />
+                    <AlertTriangle className="h-5 w-5" />
                   </Button>
-                )}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className={`h-8 w-8 ${photo.needs_attention ? 'text-red-400 bg-red-500/20' : 'text-white'} hover:text-red-400 hover:bg-red-500/20`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleToggleAttention(photo.id, photo.needs_attention);
-                  }}
-                >
-                  <AlertTriangle className="h-5 w-5" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-white hover:text-destructive hover:bg-destructive/20"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(photo.id);
-                  }}
-                >
-                  <X className="h-5 w-5" />
-                </Button>
-              </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-white hover:text-destructive hover:bg-destructive/20"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(photo.id);
+                    }}
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Zoom icon - hidden on mobile for cleaner UI */}
           <div className="absolute inset-0 hidden sm:flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
@@ -348,42 +386,51 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                 alt={lightboxPhoto.file_name}
                 className="w-full max-h-[70vh] object-contain rounded-lg"
               />
-              {!isClientUser && (
-                <div className="flex gap-2 mt-4 justify-end">
-                  {!lightboxPhoto.is_primary && (
+              <div className="flex gap-2 mt-4 justify-end flex-wrap">
+                <Button
+                  variant="outline"
+                  onClick={() => handleDownload(lightboxPhoto)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+                {!isClientUser && (
+                  <>
+                    {!lightboxPhoto.is_primary && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          handleSetPrimary(lightboxPhoto.id);
+                          setLightboxPhoto(null);
+                        }}
+                      >
+                        <Star className="h-4 w-4 mr-2" />
+                        Set as Primary
+                      </Button>
+                    )}
                     <Button
-                      variant="outline"
+                      variant={lightboxPhoto.needs_attention ? 'secondary' : 'outline'}
                       onClick={() => {
-                        handleSetPrimary(lightboxPhoto.id);
+                        handleToggleAttention(lightboxPhoto.id, lightboxPhoto.needs_attention);
                         setLightboxPhoto(null);
                       }}
                     >
-                      <Star className="h-4 w-4 mr-2" />
-                      Set as Primary
+                      <AlertTriangle className="h-4 w-4 mr-2" />
+                      {lightboxPhoto.needs_attention ? 'Remove Attention Flag' : 'Mark Needs Attention'}
                     </Button>
-                  )}
-                  <Button
-                    variant={lightboxPhoto.needs_attention ? 'secondary' : 'outline'}
-                    onClick={() => {
-                      handleToggleAttention(lightboxPhoto.id, lightboxPhoto.needs_attention);
-                      setLightboxPhoto(null);
-                    }}
-                  >
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    {lightboxPhoto.needs_attention ? 'Remove Attention Flag' : 'Mark Needs Attention'}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      handleDelete(lightboxPhoto.id);
-                      setLightboxPhoto(null);
-                    }}
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Delete
-                  </Button>
-                </div>
-              )}
+                    <Button
+                      variant="destructive"
+                      onClick={() => {
+                        handleDelete(lightboxPhoto.id);
+                        setLightboxPhoto(null);
+                      }}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>

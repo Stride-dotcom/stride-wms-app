@@ -14,10 +14,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle, Printer, Pencil } from 'lucide-react';
+import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle, Printer, Pencil, Plus, ClipboardList } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { DocumentCapture } from '@/components/scanner';
+import { MultiPhotoCapture } from '@/components/common/MultiPhotoCapture';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 
@@ -38,6 +41,10 @@ interface ShipmentItem {
     id: string;
     item_code: string;
     description: string | null;
+    vendor: string | null;
+    sidemark: string | null;
+    room: string | null;
+    current_location?: { code: string } | null;
   } | null;
 }
 
@@ -110,6 +117,9 @@ export default function ShipmentDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [editNotes, setEditNotes] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
+  const [selectedTaskType, setSelectedTaskType] = useState<string>('');
 
   // Receiving session hook
   const {
@@ -147,7 +157,7 @@ export default function ShipmentDetail() {
         return;
       }
 
-      // Fetch shipment items
+      // Fetch shipment items with full item details
       const { data: itemsData, error: itemsError } = await supabase
         .from('shipment_items')
         .select(`
@@ -159,7 +169,15 @@ export default function ShipmentDetail() {
           actual_quantity,
           status,
           item_id,
-          item:items!shipment_items_item_id_fkey(id, item_code, description)
+          item:items!shipment_items_item_id_fkey(
+            id,
+            item_code,
+            description,
+            vendor,
+            sidemark,
+            room,
+            current_location:locations!items_current_location_id_fkey(code)
+          )
         `)
         .eq('shipment_id', id)
         .order('created_at');
@@ -298,6 +316,37 @@ export default function ShipmentDetail() {
   const handleCancelReceiving = async () => {
     await cancelSession();
     await fetchShipment();
+  };
+
+  // ------------------------------------------
+  // Item selection helpers
+  // ------------------------------------------
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedItemIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const receivedItems = items.filter(i => i.item?.id);
+    if (selectedItemIds.size === receivedItems.length) {
+      setSelectedItemIds(new Set());
+    } else {
+      setSelectedItemIds(new Set(receivedItems.map(i => i.item!.id)));
+    }
+  };
+
+  const handleCreateTask = () => {
+    if (selectedItemIds.size === 0 || !selectedTaskType) return;
+    // Navigate to create task page with selected items
+    const itemIds = Array.from(selectedItemIds).join(',');
+    navigate(`/tasks/new?items=${itemIds}&type=${selectedTaskType}`);
   };
 
   // ------------------------------------------
@@ -539,20 +588,56 @@ export default function ShipmentDetail() {
       {/* Shipment Items */}
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Items</CardTitle>
-          <CardDescription>Expected and received items for this shipment</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Items</CardTitle>
+              <CardDescription>Expected and received items for this shipment</CardDescription>
+            </div>
+            {/* Create Task from selected items */}
+            {selectedItemIds.size > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">{selectedItemIds.size} selected</span>
+                <Select value={selectedTaskType} onValueChange={setSelectedTaskType}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Task type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Inspection">Inspection</SelectItem>
+                    <SelectItem value="Assembly">Assembly</SelectItem>
+                    <SelectItem value="Repair">Repair</SelectItem>
+                    <SelectItem value="Will Call">Will Call</SelectItem>
+                    <SelectItem value="Disposal">Disposal</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  onClick={handleCreateTask}
+                  disabled={!selectedTaskType}
+                >
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  Create Task
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Description</TableHead>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={items.filter(i => i.item?.id).length > 0 && selectedItemIds.size === items.filter(i => i.item?.id).length}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="Select all"
+                  />
+                </TableHead>
+                <TableHead>Item Code</TableHead>
+                <TableHead className="text-center">Qty</TableHead>
                 <TableHead>Vendor</TableHead>
+                <TableHead>Description</TableHead>
                 <TableHead>Sidemark</TableHead>
-                <TableHead className="text-center">Expected</TableHead>
-                <TableHead className="text-center">Received</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Inventory</TableHead>
+                <TableHead>Room</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -564,35 +649,63 @@ export default function ShipmentDetail() {
                 </TableRow>
               ) : (
                 items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>{item.expected_description || '-'}</TableCell>
-                    <TableCell>{item.expected_vendor || '-'}</TableCell>
-                    <TableCell>{item.expected_sidemark || '-'}</TableCell>
-                    <TableCell className="text-center">{item.expected_quantity}</TableCell>
-                    <TableCell className="text-center">{item.actual_quantity ?? '-'}</TableCell>
-                    <TableCell>
-                      <Badge variant={item.status === 'received' ? 'default' : 'secondary'}>
-                        {item.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {item.item ? (
-                        <Button
-                          variant="link"
-                          className="p-0 h-auto"
-                          onClick={() => navigate(`/inventory/${item.item!.id}`)}
-                        >
-                          {item.item.item_code}
-                        </Button>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
+                  <TableRow
+                    key={item.id}
+                    className={item.item ? "cursor-pointer hover:bg-muted/50" : ""}
+                    onClick={() => item.item && navigate(`/inventory/${item.item.id}`)}
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {item.item && (
+                        <Checkbox
+                          checked={selectedItemIds.has(item.item.id)}
+                          onCheckedChange={() => toggleItemSelection(item.item!.id)}
+                          aria-label={`Select ${item.item.item_code}`}
+                        />
                       )}
                     </TableCell>
+                    <TableCell className="font-mono font-medium">
+                      {item.item?.item_code || <span className="text-muted-foreground">Pending</span>}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {item.actual_quantity ?? item.expected_quantity}
+                    </TableCell>
+                    <TableCell>{item.item?.vendor || item.expected_vendor || '-'}</TableCell>
+                    <TableCell className="max-w-[200px] truncate">
+                      {item.item?.description || item.expected_description || '-'}
+                    </TableCell>
+                    <TableCell>{item.item?.sidemark || item.expected_sidemark || '-'}</TableCell>
+                    <TableCell>{item.item?.room || '-'}</TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      {/* Photos Section */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Photos</CardTitle>
+          <CardDescription>Take multiple photos before saving</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <MultiPhotoCapture
+            entityType="shipment"
+            entityId={shipment.id}
+            tenantId={profile?.tenant_id}
+            existingPhotos={receivingPhotos}
+            maxPhotos={20}
+            label=""
+            onPhotosSaved={async (urls) => {
+              setReceivingPhotos(urls);
+              // Save to shipment
+              await supabase
+                .from('shipments')
+                .update({ receiving_photos: urls })
+                .eq('id', shipment.id);
+            }}
+          />
         </CardContent>
       </Card>
 

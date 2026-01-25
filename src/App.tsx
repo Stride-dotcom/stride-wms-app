@@ -32,6 +32,10 @@ import ClaimDetail from "./pages/ClaimDetail";
 import CoverageQuickEntry from "./pages/CoverageQuickEntry";
 import Stocktakes from "./pages/Stocktakes";
 import RepairTechAccess from "./pages/RepairTechAccess";
+import TechQuoteSubmit from "./pages/TechQuoteSubmit";
+import Technicians from "./pages/Technicians";
+import RepairQuotes from "./pages/RepairQuotes";
+import ClientQuoteReview from "./pages/ClientQuoteReview";
 import ScanHub from "./pages/ScanHub";
 import ScanItemRedirect from "./pages/ScanItemRedirect";
 import PrintPreview from "./pages/PrintPreview";
@@ -81,10 +85,14 @@ const App = () => (
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/accounts" element={<ProtectedRoute><RequireRole role="tenant_admin"><Accounts /></RequireRole></ProtectedRoute>} />
             <Route path="/employees" element={<ProtectedRoute><RequireRole role="tenant_admin"><Employees /></RequireRole></ProtectedRoute>} />
+            <Route path="/technicians" element={<ProtectedRoute><RequireRole role="tenant_admin"><Technicians /></RequireRole></ProtectedRoute>} />
+            <Route path="/repair-quotes" element={<ProtectedRoute><RequireRole role="tenant_admin"><RepairQuotes /></RequireRole></ProtectedRoute>} />
             <Route path="/rate-cards" element={<ProtectedRoute><RequireRole role="tenant_admin"><RateCards /></RequireRole></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><RequireRole role="tenant_admin"><Settings /></RequireRole></ProtectedRoute>} />
             <Route path="/diagnostics" element={<ProtectedRoute><RequireRole role="tenant_admin"><Diagnostics /></RequireRole></ProtectedRoute>} />
             <Route path="/repair-access" element={<RepairTechAccess />} />
+            <Route path="/quote/tech" element={<TechQuoteSubmit />} />
+            <Route path="/quote/review" element={<ClientQuoteReview />} />
             <Route path="/components-demo" element={<ProtectedRoute><ComponentsDemo /></ProtectedRoute>} />
             <Route path="/print-preview" element={<PrintPreview />} />
             <Route path="*" element={<NotFound />} />

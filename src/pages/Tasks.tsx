@@ -102,8 +102,8 @@ export default function Tasks() {
     }
   }, [searchParams]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortField, setSortField] = useState<string>('created_at');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [sortField, setSortField] = useState<string>('due_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [preSelectedTaskType, setPreSelectedTaskType] = useState<string | undefined>(undefined);
@@ -111,15 +111,19 @@ export default function Tasks() {
   const [willCallTask, setWillCallTask] = useState<Task | null>(null);
   const [willCallItems, setWillCallItems] = useState<Array<{ id: string; item_code: string; description: string | null }>>([]);
 
-  const { 
-    tasks, 
-    loading, 
-    isRefetching, 
-    refetch, 
+  // Fetch ALL tasks for stable tile counts (no filters)
+  const { tasks: allTasks } = useTasks({});
+
+  // Fetch filtered tasks for the table
+  const {
+    tasks,
+    loading,
+    isRefetching,
+    refetch,
     startTask,
-    completeTask, 
+    completeTask,
     markUnableToComplete,
-    claimTask, 
+    claimTask,
     updateTaskStatus,
     deleteTask,
     getTaskItems,
@@ -136,6 +140,17 @@ export default function Tasks() {
       task.task_type.toLowerCase().includes(searchQuery.toLowerCase())
     )
     .sort((a, b) => {
+      // Special handling for due_date: nulls go to end when sorting asc (nearest first)
+      if (sortField === 'due_date') {
+        const aDate = a.due_date;
+        const bDate = b.due_date;
+        if (!aDate && !bDate) return 0;
+        if (!aDate) return 1; // nulls at end
+        if (!bDate) return -1;
+        const cmp = aDate.localeCompare(bDate);
+        return sortDirection === 'asc' ? cmp : -cmp;
+      }
+
       let aVal: any = '';
       let bVal: any = '';
       switch (sortField) {
@@ -143,7 +158,6 @@ export default function Tasks() {
         case 'task_type': aVal = a.task_type; bVal = b.task_type; break;
         case 'status': aVal = a.status; bVal = b.status; break;
         case 'priority': aVal = a.priority || ''; bVal = b.priority || ''; break;
-        case 'due_date': aVal = a.due_date || ''; bVal = b.due_date || ''; break;
         case 'assigned_to':
           aVal = a.assigned_user ? `${a.assigned_user.first_name} ${a.assigned_user.last_name}` : '';
           bVal = b.assigned_user ? `${b.assigned_user.first_name} ${b.assigned_user.last_name}` : '';
@@ -167,15 +181,15 @@ export default function Tasks() {
     sortField === field ? <span className="ml-1">{sortDirection === 'asc' ? '▲' : '▼'}</span> : null
   );
 
-  // Memoize stats to avoid recalculation flicker
+  // Use ALL tasks for stable tile counts (not affected by filters)
   const stats = {
-    inQueue: tasks.filter(t => t.status === 'pending').length,
-    inProgress: tasks.filter(t => t.status === 'in_progress').length,
-    completed: tasks.filter(t => t.status === 'completed').length,
-    overdue: tasks.filter(t => 
-      t.status !== 'completed' && 
+    inQueue: allTasks.filter(t => t.status === 'pending').length,
+    inProgress: allTasks.filter(t => t.status === 'in_progress').length,
+    completed: allTasks.filter(t => t.status === 'completed').length,
+    overdue: allTasks.filter(t =>
+      t.status !== 'completed' &&
       t.status !== 'unable_to_complete' &&
-      t.due_date && 
+      t.due_date &&
       new Date(t.due_date) < new Date()
     ).length,
   };
@@ -285,13 +299,13 @@ export default function Tasks() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <PageHeader
             primaryText="Operations"
             accentText="Queue"
             description="Manage inspections, assemblies, repairs, and other tasks"
           />
-          <Button onClick={() => handleCreate()}>
+          <Button onClick={() => handleCreate()} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Create Task
           </Button>
