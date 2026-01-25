@@ -46,6 +46,7 @@ import ScanHub from "./pages/ScanHub";
 import ScanItemRedirect from "./pages/ScanItemRedirect";
 import PrintPreview from "./pages/PrintPreview";
 import Diagnostics from "./pages/Diagnostics";
+import Messages from "./pages/Messages";
 import ComponentsDemo from "./pages/ComponentsDemo";
 import NotFound from "./pages/NotFound";
 import { AIClientBot } from "./components/ai/AIClientBot";
@@ -79,6 +80,7 @@ const App = () => (
             <Route path="/tasks/:id" element={<ProtectedRoute><TaskDetail /></ProtectedRoute>} />
             <Route path="/scan" element={<ProtectedRoute><ScanHub /></ProtectedRoute>} />
             <Route path="/scan/item/:codeOrId" element={<ProtectedRoute><ScanItemRedirect /></ProtectedRoute>} />
+            <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
             <Route path="/billing" element={<ProtectedRoute><RequireRole role="tenant_admin"><Billing /></RequireRole></ProtectedRoute>} />
             <Route path="/billing/reports" element={<ProtectedRoute><RequireRole role="tenant_admin"><BillingReports /></RequireRole></ProtectedRoute>} />
             <Route path="/billing/report" element={<ProtectedRoute><RequireRole role="tenant_admin"><BillingReport /></RequireRole></ProtectedRoute>} />

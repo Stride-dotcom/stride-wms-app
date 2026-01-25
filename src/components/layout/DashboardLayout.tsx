@@ -31,7 +31,10 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   GripVertical,
+  Bell,
+  MessageSquare,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -66,6 +69,7 @@ const navItems: NavItem[] = [
   { label: 'Tasks', href: '/tasks', icon: ClipboardList },
   { label: 'Cycle Counts', href: '/stocktakes', icon: ClipboardCheck },
   { label: 'Scan', href: '/scan', icon: ScanLine },
+  { label: 'Messages', href: '/messages', icon: MessageSquare },
 
   { label: 'Analytics', href: '/reports', icon: BarChart3, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Claims', href: '/claims', icon: FileText, requiredRole: ['admin', 'tenant_admin'] },
@@ -166,10 +170,34 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [navOrder, setNavOrder] = useState<string[]>([]);
   const [tenantLogo, setTenantLogo] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string>('Stride WMS');
+  const [unreadCount, setUnreadCount] = useState(0);
   const { profile, signOut } = useAuth();
   const { hasRole, isAdmin } = usePermissions();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Fetch unread notification/message count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      if (!profile?.id) return;
+      try {
+        // Try the RPC function first
+        const { data, error } = await supabase.rpc('get_total_unread_count', {
+          p_user_id: profile.id,
+        });
+        if (!error && data !== null) {
+          setUnreadCount(data);
+        }
+      } catch {
+        // Silently fail - tables may not exist yet
+      }
+    };
+    fetchUnreadCount();
+
+    // Set up interval to refresh count periodically
+    const interval = setInterval(fetchUnreadCount, 30000); // Every 30 seconds
+    return () => clearInterval(interval);
+  }, [profile?.id]);
 
   // DnD sensors
   const sensors = useSensors(
@@ -414,6 +442,22 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </Button>
 
           <div className="flex-1" />
+
+          {/* Notification Bell */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative mr-2"
+            onClick={() => navigate('/messages')}
+            title="Messages & Notifications"
+          >
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

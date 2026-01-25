@@ -12,16 +12,33 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, Plus, FileText, Send, Eye, XCircle, Calendar, Download, ArrowUpDown, Save, ChevronUp, ChevronDown } from "lucide-react";
+import { RefreshCw, Plus, FileText, Send, Eye, XCircle, Calendar, Download, ArrowUpDown, Save, ChevronUp, ChevronDown, Printer, Settings2, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { sendEmail, buildInvoiceSentEmail } from "@/lib/email";
 import { queueInvoiceSentAlert } from "@/lib/alertQueue";
+import { downloadInvoicePdf, printInvoicePdf, InvoicePdfData } from "@/lib/invoicePdf";
 
 interface Account {
   id: string;
   account_name: string;
   account_code: string;
+  billing_contact_name: string | null;
   billing_contact_email: string | null;
+  billing_address: string | null;
+  billing_city: string | null;
+  billing_state: string | null;
+  billing_postal_code: string | null;
+  billing_country: string | null;
+  billing_net_terms: number | null;
+}
+
+interface TenantCompanySettings {
+  company_name: string | null;
+  company_address: string | null;
+  company_phone: string | null;
+  company_email: string | null;
+  company_website: string | null;
+  logo_url: string | null;
 }
 
 interface Sidemark {
@@ -29,8 +46,10 @@ interface Sidemark {
   sidemark_name: string;
 }
 
-type SortField = 'invoice_number' | 'created_at' | 'total' | 'status';
+type SortField = 'invoice_number' | 'created_at' | 'total' | 'status' | 'account';
 type SortDir = 'asc' | 'desc';
+type InvoiceGrouping = 'by_sidemark' | 'by_account';
+type LineSortOption = 'date' | 'service' | 'item' | 'amount';
 
 export default function Invoices() {
   const { toast } = useToast();
@@ -75,13 +94,35 @@ export default function Invoices() {
   });
   const [generatingStorage, setGeneratingStorage] = useState(false);
 
+  // Invoice generation options
+  const [invoiceGrouping, setInvoiceGrouping] = useState<InvoiceGrouping>('by_sidemark');
+  const [lineSortOption, setLineSortOption] = useState<LineSortOption>('date');
+
+  // Storage billing period (for monthly storage invoices)
+  const [storagePeriodStart, setStoragePeriodStart] = useState<string>(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  });
+  const [storagePeriodEnd, setStoragePeriodEnd] = useState<string>(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+  });
+  const [generateStorageForPeriod, setGenerateStorageForPeriod] = useState(false);
+
+  // Batch invoice creation
+  const [batchCreating, setBatchCreating] = useState(false);
+  const [selectedAccountsForBatch, setSelectedAccountsForBatch] = useState<string[]>([]);
+
+  // Tenant company settings for PDF
+  const [tenantSettings, setTenantSettings] = useState<TenantCompanySettings | null>(null);
+
   // Load accounts
   useEffect(() => {
     async function loadAccounts() {
       if (!profile?.tenant_id) return;
       const { data } = await supabase
         .from("accounts")
-        .select("id, account_name, account_code, billing_contact_email")
+        .select("id, account_name, account_code, billing_contact_name, billing_contact_email, billing_address, billing_city, billing_state, billing_postal_code, billing_country, billing_net_terms")
         .eq("tenant_id", profile.tenant_id)
         .eq("is_active", true)
         .is("deleted_at", null)
@@ -89,6 +130,20 @@ export default function Invoices() {
       setAccounts(data || []);
     }
     loadAccounts();
+  }, [profile?.tenant_id]);
+
+  // Load tenant company settings
+  useEffect(() => {
+    async function loadTenantSettings() {
+      if (!profile?.tenant_id) return;
+      const { data } = await supabase
+        .from("tenant_company_settings")
+        .select("company_name, company_address, company_phone, company_email, company_website, logo_url")
+        .eq("tenant_id", profile.tenant_id)
+        .maybeSingle();
+      setTenantSettings(data);
+    }
+    loadTenantSettings();
   }, [profile?.tenant_id]);
 
   // Load sidemarks when account changes
@@ -140,6 +195,12 @@ export default function Invoices() {
           aVal = a.status || '';
           bVal = b.status || '';
           break;
+        case 'account':
+          const aAcct = accounts.find(acc => acc.id === a.account_id);
+          const bAcct = accounts.find(acc => acc.id === b.account_id);
+          aVal = aAcct?.account_name || '';
+          bVal = bAcct?.account_name || '';
+          break;
         case 'created_at':
         default:
           aVal = a.created_at || '';
@@ -152,7 +213,24 @@ export default function Invoices() {
         return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
       }
     });
-  }, [invoices, sortField, sortDir]);
+  }, [invoices, sortField, sortDir, accounts]);
+
+  // Sort invoice lines
+  const sortedLines = useMemo(() => {
+    return [...lines].sort((a, b) => {
+      switch (lineSortOption) {
+        case 'service':
+          return (a.service_code || '').localeCompare(b.service_code || '');
+        case 'item':
+          return (a.item_id || '').localeCompare(b.item_id || '');
+        case 'amount':
+          return (Number(b.line_total) || 0) - (Number(a.line_total) || 0);
+        case 'date':
+        default:
+          return 0; // Keep original order (by created_at)
+      }
+    });
+  }, [lines, lineSortOption]);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -174,16 +252,114 @@ export default function Invoices() {
       return;
     }
     setCreating(true);
-    const inv = await createInvoiceDraft({
-      accountId,
-      invoiceType,
-      periodStart,
-      periodEnd,
-      sidemark: selectedSidemarkId || null,
-      includeUnbilledBeforePeriod: includeEarlier,
-    });
-    if (inv) await load();
+
+    // If grouping by sidemark and no specific sidemark selected, create separate invoices for each sidemark
+    if (invoiceGrouping === 'by_sidemark' && !selectedSidemarkId && sidemarks.length > 0) {
+      let createdCount = 0;
+      for (const sidemark of sidemarks) {
+        const inv = await createInvoiceDraft({
+          accountId,
+          invoiceType,
+          periodStart,
+          periodEnd,
+          sidemark: sidemark.id,
+          includeUnbilledBeforePeriod: includeEarlier,
+        });
+        if (inv) createdCount++;
+      }
+      // Also create one for charges without sidemark
+      const inv = await createInvoiceDraft({
+        accountId,
+        invoiceType,
+        periodStart,
+        periodEnd,
+        sidemark: null,
+        includeUnbilledBeforePeriod: includeEarlier,
+      });
+      if (inv) createdCount++;
+
+      if (createdCount > 0) {
+        toast({ title: "Invoices created", description: `Created ${createdCount} invoice draft(s) for ${accounts.find(a => a.id === accountId)?.account_name}.` });
+      }
+      await load();
+    } else {
+      // Single invoice for account (by_account grouping or specific sidemark selected)
+      const inv = await createInvoiceDraft({
+        accountId,
+        invoiceType,
+        periodStart,
+        periodEnd,
+        sidemark: selectedSidemarkId || null,
+        includeUnbilledBeforePeriod: includeEarlier,
+      });
+      if (inv) await load();
+    }
     setCreating(false);
+  };
+
+  // Batch create invoices for multiple accounts
+  const createBatchInvoices = async () => {
+    if (selectedAccountsForBatch.length === 0) {
+      toast({ title: "No accounts selected", description: "Please select at least one account.", variant: "destructive" });
+      return;
+    }
+
+    setBatchCreating(true);
+    let totalCreated = 0;
+
+    for (const acctId of selectedAccountsForBatch) {
+      if (invoiceGrouping === 'by_sidemark') {
+        // Get sidemarks for this account
+        const { data: acctSidemarks } = await supabase
+          .from("sidemarks")
+          .select("id")
+          .eq("account_id", acctId)
+          .is("deleted_at", null);
+
+        if (acctSidemarks && acctSidemarks.length > 0) {
+          for (const sm of acctSidemarks) {
+            const inv = await createInvoiceDraft({
+              accountId: acctId,
+              invoiceType,
+              periodStart,
+              periodEnd,
+              sidemark: sm.id,
+              includeUnbilledBeforePeriod: includeEarlier,
+            });
+            if (inv) totalCreated++;
+          }
+        }
+        // Also create for charges without sidemark
+        const inv = await createInvoiceDraft({
+          accountId: acctId,
+          invoiceType,
+          periodStart,
+          periodEnd,
+          sidemark: null,
+          includeUnbilledBeforePeriod: includeEarlier,
+        });
+        if (inv) totalCreated++;
+      } else {
+        // One invoice per account
+        const inv = await createInvoiceDraft({
+          accountId: acctId,
+          invoiceType,
+          periodStart,
+          periodEnd,
+          sidemark: null,
+          includeUnbilledBeforePeriod: includeEarlier,
+        });
+        if (inv) totalCreated++;
+      }
+    }
+
+    if (totalCreated > 0) {
+      toast({ title: "Batch invoices created", description: `Created ${totalCreated} invoice draft(s).` });
+    }
+
+    await load();
+    setSelectedAccountsForBatch([]);
+    setBatchCreating(false);
   };
 
   const openLines = async (invoice: Invoice) => {
@@ -195,6 +371,77 @@ export default function Invoices() {
     const data = await fetchInvoiceLines(invoice.id);
     setLines(data);
     setLoadingLines(false);
+  };
+
+  // Generate PDF data for an invoice
+  const buildPdfData = (invoice: Invoice, invoiceLines: InvoiceLine[]): InvoicePdfData | null => {
+    const account = accounts.find(a => a.id === invoice.account_id);
+    if (!account) return null;
+
+    // Calculate due date based on net terms
+    const invoiceDate = invoice.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+    const netTerms = account.billing_net_terms || 30;
+    const dueDate = new Date(invoiceDate);
+    dueDate.setDate(dueDate.getDate() + netTerms);
+
+    return {
+      invoiceNumber: invoice.invoice_number,
+      invoiceDate: invoiceDate,
+      dueDate: dueDate.toISOString().slice(0, 10),
+      periodStart: invoice.period_start || '',
+      periodEnd: invoice.period_end || '',
+      invoiceType: invoice.invoice_type || 'manual',
+
+      companyName: tenantSettings?.company_name || 'Stride WMS',
+      companyAddress: tenantSettings?.company_address || undefined,
+      companyPhone: tenantSettings?.company_phone || undefined,
+      companyEmail: tenantSettings?.company_email || undefined,
+      companyWebsite: tenantSettings?.company_website || undefined,
+      companyLogo: tenantSettings?.logo_url || undefined,
+
+      accountName: account.account_name,
+      accountCode: account.account_code,
+      billingContactName: account.billing_contact_name || undefined,
+      billingContactEmail: account.billing_contact_email || undefined,
+      billingAddress: account.billing_address || undefined,
+      billingCity: account.billing_city || undefined,
+      billingState: account.billing_state || undefined,
+      billingPostalCode: account.billing_postal_code || undefined,
+      billingCountry: account.billing_country || undefined,
+
+      lines: invoiceLines.map(line => ({
+        serviceCode: line.service_code || '-',
+        description: line.description || undefined,
+        quantity: line.quantity,
+        unitRate: Number(line.unit_rate) || 0,
+        lineTotal: Number(line.line_total) || 0,
+      })),
+
+      subtotal: Number(invoice.subtotal) || 0,
+      taxRate: Number(invoice.tax_total) > 0 ? 0.1 : undefined,
+      taxAmount: Number(invoice.tax_total) || 0,
+      total: Number(invoice.total) || 0,
+
+      notes: invoice.notes || undefined,
+      paymentTerms: `Net ${netTerms} days`,
+    };
+  };
+
+  const handleDownloadPdf = () => {
+    if (!selectedInvoice) return;
+    const pdfData = buildPdfData(selectedInvoice, sortedLines);
+    if (pdfData) {
+      downloadInvoicePdf(pdfData);
+      toast({ title: "PDF Downloaded", description: `Invoice ${selectedInvoice.invoice_number} downloaded.` });
+    }
+  };
+
+  const handlePrintPdf = () => {
+    if (!selectedInvoice) return;
+    const pdfData = buildPdfData(selectedInvoice, sortedLines);
+    if (pdfData) {
+      printInvoicePdf(pdfData);
+    }
   };
 
   const handleSaveNotes = async () => {
@@ -364,26 +611,126 @@ export default function Invoices() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              Generate Storage Charges
+              Storage Charge Billing
             </CardTitle>
             <CardDescription>
-              Generate daily storage charges for all active items on a specific date
+              Generate storage charges for a date range or specific date. Storage charges are calculated daily based on item rates.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-end gap-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Date</label>
-                <Input 
-                  type="date" 
-                  value={storageDate} 
-                  onChange={(e) => setStorageDate(e.target.value)}
-                  className="w-[200px]"
-                />
+          <CardContent className="space-y-4">
+            {/* Single Day Storage */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Single Day Generation</h4>
+              <div className="flex items-end gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm text-muted-foreground">Date</label>
+                  <Input
+                    type="date"
+                    value={storageDate}
+                    onChange={(e) => setStorageDate(e.target.value)}
+                    className="w-[200px]"
+                  />
+                </div>
+                <Button onClick={handleGenerateStorage} disabled={generatingStorage} variant="outline">
+                  {generatingStorage ? "Generating..." : "Generate for Day"}
+                </Button>
               </div>
-              <Button onClick={handleGenerateStorage} disabled={generatingStorage}>
-                {generatingStorage ? "Generating..." : "Generate Storage"}
-              </Button>
+            </div>
+
+            {/* Period Storage Generation */}
+            <div className="border-t pt-4 space-y-2">
+              <h4 className="text-sm font-medium">Period Storage Generation</h4>
+              <p className="text-xs text-muted-foreground">
+                Generate storage charges for all days in a period. Useful for monthly storage billing.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div className="space-y-1">
+                  <label className="text-sm text-muted-foreground">Period Start</label>
+                  <Input
+                    type="date"
+                    value={storagePeriodStart}
+                    onChange={(e) => setStoragePeriodStart(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm text-muted-foreground">Period End</label>
+                  <Input
+                    type="date"
+                    value={storagePeriodEnd}
+                    onChange={(e) => setStoragePeriodEnd(e.target.value)}
+                  />
+                </div>
+                <Button
+                  onClick={async () => {
+                    setGenerateStorageForPeriod(true);
+                    const startDate = new Date(storagePeriodStart);
+                    const endDate = new Date(storagePeriodEnd);
+                    let current = startDate;
+                    let count = 0;
+                    while (current <= endDate) {
+                      await generateStorageForDate(current.toISOString().slice(0, 10));
+                      count++;
+                      current.setDate(current.getDate() + 1);
+                    }
+                    toast({ title: "Storage charges generated", description: `Generated storage for ${count} day(s).` });
+                    setGenerateStorageForPeriod(false);
+                  }}
+                  disabled={generateStorageForPeriod}
+                >
+                  {generateStorageForPeriod ? "Generating..." : "Generate for Period"}
+                </Button>
+                <div className="text-sm text-muted-foreground">
+                  {Math.ceil((new Date(storagePeriodEnd).getTime() - new Date(storagePeriodStart).getTime()) / (1000 * 60 * 60 * 24)) + 1} day(s)
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="border-t pt-4 space-y-2">
+              <h4 className="text-sm font-medium">Quick Presets</h4>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const d = new Date();
+                    const firstDay = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+                    const lastDay = new Date(d.getFullYear(), d.getMonth(), 0);
+                    setStoragePeriodStart(firstDay.toISOString().slice(0, 10));
+                    setStoragePeriodEnd(lastDay.toISOString().slice(0, 10));
+                  }}
+                >
+                  Last Month
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const d = new Date();
+                    const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
+                    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+                    setStoragePeriodStart(firstDay.toISOString().slice(0, 10));
+                    setStoragePeriodEnd(lastDay.toISOString().slice(0, 10));
+                  }}
+                >
+                  This Month
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const d = new Date();
+                    const lastWeekStart = new Date(d);
+                    lastWeekStart.setDate(d.getDate() - d.getDay() - 7);
+                    const lastWeekEnd = new Date(lastWeekStart);
+                    lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+                    setStoragePeriodStart(lastWeekStart.toISOString().slice(0, 10));
+                    setStoragePeriodEnd(lastWeekEnd.toISOString().slice(0, 10));
+                  }}
+                >
+                  Last Week
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -396,11 +743,11 @@ export default function Invoices() {
               Create Invoice Draft
             </CardTitle>
             <CardDescription>
-              Create a new invoice from unbilled charges for an account
+              Create invoices from unbilled charges with flexible grouping options
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <div className="md:col-span-2 space-y-1">
                 <label className="text-sm font-medium">Account</label>
                 <Select value={accountId} onValueChange={setAccountId}>
@@ -417,13 +764,29 @@ export default function Invoices() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Sidemark (optional)</label>
-                <Select value={selectedSidemarkId || '__all__'} onValueChange={(v) => setSelectedSidemarkId(v === '__all__' ? '' : v)} disabled={!accountId}>
+                <label className="text-sm font-medium">Invoice Grouping</label>
+                <Select value={invoiceGrouping} onValueChange={(v) => setInvoiceGrouping(v as InvoiceGrouping)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="by_sidemark">Separate by Sidemark</SelectItem>
+                    <SelectItem value="by_account">One per Account</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Sidemark {invoiceGrouping === 'by_account' ? '(ignored)' : '(optional)'}</label>
+                <Select
+                  value={selectedSidemarkId || '__all__'}
+                  onValueChange={(v) => setSelectedSidemarkId(v === '__all__' ? '' : v)}
+                  disabled={!accountId || invoiceGrouping === 'by_account'}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="All sidemarks" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__all__">All sidemarks</SelectItem>
+                    <SelectItem value="__all__">All sidemarks (create per sidemark)</SelectItem>
                     {sidemarks.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.sidemark_name}
@@ -442,9 +805,27 @@ export default function Invoices() {
                     <SelectItem value="weekly_services">Weekly Services</SelectItem>
                     <SelectItem value="monthly_storage">Monthly Storage</SelectItem>
                     <SelectItem value="closeout">Closeout</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Line Sorting</label>
+                <Select value={lineSortOption} onValueChange={(v) => setLineSortOption(v as LineSortOption)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date">By Date</SelectItem>
+                    <SelectItem value="service">By Service Type</SelectItem>
+                    <SelectItem value="item">By Item</SelectItem>
+                    <SelectItem value="amount">By Amount (High to Low)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-1">
                 <label className="text-sm font-medium">Period Start</label>
                 <Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
@@ -455,20 +836,90 @@ export default function Invoices() {
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="includeEarlier" 
-                checked={includeEarlier} 
-                onCheckedChange={(checked) => setIncludeEarlier(checked === true)} 
-              />
-              <label htmlFor="includeEarlier" className="text-sm text-muted-foreground">
-                Include unbilled charges earlier than period (catch-up for suspense/unclaimed items)
-              </label>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="includeEarlier"
+                  checked={includeEarlier}
+                  onCheckedChange={(checked) => setIncludeEarlier(checked === true)}
+                />
+                <label htmlFor="includeEarlier" className="text-sm text-muted-foreground">
+                  Include unbilled charges earlier than period (catch-up for suspense/unclaimed items)
+                </label>
+              </div>
             </div>
 
-            <Button onClick={createDraft} disabled={creating || !accountId}>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={createDraft} disabled={creating || !accountId}>
+                <Plus className="h-4 w-4 mr-2" />
+                {creating ? "Creating..." : "Create Draft"}
+              </Button>
+              {invoiceGrouping === 'by_sidemark' && !selectedSidemarkId && sidemarks.length > 0 && (
+                <p className="text-sm text-muted-foreground self-center">
+                  Will create separate invoices for {sidemarks.length} sidemark(s) + 1 for unassigned charges
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Batch Invoice Creation */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Batch Invoice Creation
+            </CardTitle>
+            <CardDescription>
+              Create invoices for multiple accounts at once using the same period and settings
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Accounts</label>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                {accounts.map((a) => (
+                  <div key={a.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`batch-${a.id}`}
+                      checked={selectedAccountsForBatch.includes(a.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedAccountsForBatch(prev => [...prev, a.id]);
+                        } else {
+                          setSelectedAccountsForBatch(prev => prev.filter(id => id !== a.id));
+                        }
+                      }}
+                    />
+                    <label htmlFor={`batch-${a.id}`} className="text-sm cursor-pointer">
+                      {a.account_code} - {a.account_name}
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedAccountsForBatch(accounts.map(a => a.id))}
+                >
+                  Select All
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedAccountsForBatch([])}
+                >
+                  Clear All
+                </Button>
+              </div>
+            </div>
+            <Button
+              onClick={createBatchInvoices}
+              disabled={batchCreating || selectedAccountsForBatch.length === 0}
+            >
               <Plus className="h-4 w-4 mr-2" />
-              {creating ? "Creating..." : "Create Draft"}
+              {batchCreating ? "Creating..." : `Create Invoices for ${selectedAccountsForBatch.length} Account(s)`}
             </Button>
           </CardContent>
         </Card>
@@ -588,6 +1039,23 @@ export default function Invoices() {
               <div className="p-8 text-center text-muted-foreground">Loading lines...</div>
             ) : (
               <>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">{sortedLines.length} line item(s)</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">Sort by:</span>
+                    <Select value={lineSortOption} onValueChange={(v) => setLineSortOption(v as LineSortOption)}>
+                      <SelectTrigger className="w-[150px] h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="date">Date</SelectItem>
+                        <SelectItem value="service">Service Type</SelectItem>
+                        <SelectItem value="item">Item</SelectItem>
+                        <SelectItem value="amount">Amount</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -599,7 +1067,7 @@ export default function Invoices() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {lines.map((line) => (
+                    {sortedLines.map((line) => (
                       <TableRow key={line.id}>
                         <TableCell className="font-medium">{line.service_code}</TableCell>
                         <TableCell>{line.description || "-"}</TableCell>
@@ -608,7 +1076,7 @@ export default function Invoices() {
                         <TableCell className="text-right font-semibold">${Number(line.line_total || 0).toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
-                    {!lines.length && (
+                    {!sortedLines.length && (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                           No lines found
@@ -654,12 +1122,20 @@ export default function Invoices() {
                 </div>
               </>
             )}
-            <DialogFooter className="flex justify-between items-center pt-4 border-t">
+            <DialogFooter className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-4 border-t gap-4">
               <div className="text-lg font-semibold">
                 Total: ${Number(selectedInvoice?.total || 0).toFixed(2)}
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={exportLinesCSV} disabled={!lines.length}>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={!sortedLines.length}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+                <Button variant="outline" size="sm" onClick={handlePrintPdf} disabled={!sortedLines.length}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportLinesCSV} disabled={!sortedLines.length}>
                   <Download className="h-4 w-4 mr-2" />
                   Export CSV
                 </Button>
