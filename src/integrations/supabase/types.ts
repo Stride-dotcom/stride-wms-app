@@ -1776,6 +1776,145 @@ export type Database = {
           },
         ]
       }
+      client_invitations: {
+        Row: {
+          accepted_at: string | null
+          account_id: string
+          client_portal_user_id: string | null
+          created_at: string | null
+          created_by: string | null
+          email: string
+          expires_at: string
+          first_name: string | null
+          id: string
+          last_name: string | null
+          sent_at: string | null
+          status: string
+          tenant_id: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          account_id: string
+          client_portal_user_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email: string
+          expires_at: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          sent_at?: string | null
+          status?: string
+          tenant_id: string
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          account_id?: string
+          client_portal_user_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email?: string
+          expires_at?: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          sent_at?: string | null
+          status?: string
+          tenant_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_invitations_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_invitations_client_portal_user_id_fkey"
+            columns: ["client_portal_user_id"]
+            isOneToOne: false
+            referencedRelation: "client_portal_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_invitations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_portal_users: {
+        Row: {
+          account_id: string
+          auth_user_id: string | null
+          created_at: string | null
+          created_by: string | null
+          email: string
+          first_name: string | null
+          id: string
+          is_active: boolean | null
+          is_primary: boolean | null
+          last_login_at: string | null
+          last_name: string | null
+          phone: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          auth_user_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email: string
+          first_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          last_login_at?: string | null
+          last_name?: string | null
+          phone?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          auth_user_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email?: string
+          first_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          last_login_at?: string | null
+          last_name?: string | null
+          phone?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_users_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_users_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communication_alerts: {
         Row: {
           channels: Json
@@ -2569,6 +2708,62 @@ export type Database = {
           },
           {
             foreignKeyName: "due_date_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_logs: {
+        Row: {
+          created_at: string | null
+          email_type: string
+          entity_id: string | null
+          entity_type: string | null
+          error_message: string | null
+          id: string
+          recipient_email: string
+          recipient_name: string | null
+          resend_id: string | null
+          sent_at: string | null
+          status: string
+          subject: string
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email_type: string
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          id?: string
+          recipient_email: string
+          recipient_name?: string | null
+          resend_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject: string
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email_type?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          id?: string
+          recipient_email?: string
+          recipient_name?: string | null
+          resend_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -4780,51 +4975,121 @@ export type Database = {
       }
       repair_quotes: {
         Row: {
+          account_id: string | null
           approval_status: string | null
           approved_at: string | null
           approved_by: string | null
+          audit_log: Json | null
+          client_responded_at: string | null
+          client_responded_by: string | null
+          client_response: string | null
           created_at: string
           created_by: string | null
+          customer_total: number | null
+          expires_at: string | null
           flat_rate: number | null
           id: string
           item_id: string
+          last_sent_at: string | null
+          markup_applied: number | null
           notes: string | null
+          sidemark_id: string | null
+          source_task_id: string | null
+          status:
+            | Database["public"]["Enums"]["repair_quote_workflow_status"]
+            | null
+          tech_labor_hours: number | null
+          tech_labor_rate: number | null
+          tech_materials_cost: number | null
+          tech_notes: string | null
+          tech_submitted_at: string | null
+          tech_total: number | null
+          technician_id: string | null
           technician_name: string | null
           technician_user_id: string | null
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          account_id?: string | null
           approval_status?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          audit_log?: Json | null
+          client_responded_at?: string | null
+          client_responded_by?: string | null
+          client_response?: string | null
           created_at?: string
           created_by?: string | null
+          customer_total?: number | null
+          expires_at?: string | null
           flat_rate?: number | null
           id?: string
           item_id: string
+          last_sent_at?: string | null
+          markup_applied?: number | null
           notes?: string | null
+          sidemark_id?: string | null
+          source_task_id?: string | null
+          status?:
+            | Database["public"]["Enums"]["repair_quote_workflow_status"]
+            | null
+          tech_labor_hours?: number | null
+          tech_labor_rate?: number | null
+          tech_materials_cost?: number | null
+          tech_notes?: string | null
+          tech_submitted_at?: string | null
+          tech_total?: number | null
+          technician_id?: string | null
           technician_name?: string | null
           technician_user_id?: string | null
           tenant_id: string
           updated_at?: string
         }
         Update: {
+          account_id?: string | null
           approval_status?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          audit_log?: Json | null
+          client_responded_at?: string | null
+          client_responded_by?: string | null
+          client_response?: string | null
           created_at?: string
           created_by?: string | null
+          customer_total?: number | null
+          expires_at?: string | null
           flat_rate?: number | null
           id?: string
           item_id?: string
+          last_sent_at?: string | null
+          markup_applied?: number | null
           notes?: string | null
+          sidemark_id?: string | null
+          source_task_id?: string | null
+          status?:
+            | Database["public"]["Enums"]["repair_quote_workflow_status"]
+            | null
+          tech_labor_hours?: number | null
+          tech_labor_rate?: number | null
+          tech_materials_cost?: number | null
+          tech_notes?: string | null
+          tech_submitted_at?: string | null
+          tech_total?: number | null
+          technician_id?: string | null
           technician_name?: string | null
           technician_user_id?: string | null
           tenant_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "repair_quotes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "repair_quotes_approved_by_fkey"
             columns: ["approved_by"]
@@ -4844,6 +5109,27 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_quotes_sidemark_id_fkey"
+            columns: ["sidemark_id"]
+            isOneToOne: false
+            referencedRelation: "sidemarks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_quotes_source_task_id_fkey"
+            columns: ["source_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_quotes_technician_id_fkey"
+            columns: ["technician_id"]
+            isOneToOne: false
+            referencedRelation: "technicians"
             referencedColumns: ["id"]
           },
           {
@@ -6388,6 +6674,62 @@ export type Database = {
           },
         ]
       }
+      technicians: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          email: string
+          hourly_rate: number | null
+          id: string
+          is_active: boolean | null
+          markup_percent: number | null
+          name: string
+          notes: string | null
+          phone: string | null
+          specialties: string[] | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          email: string
+          hourly_rate?: number | null
+          id?: string
+          is_active?: boolean | null
+          markup_percent?: number | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          specialties?: string[] | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          email?: string
+          hourly_rate?: number | null
+          id?: string
+          is_active?: boolean | null
+          markup_percent?: number | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          specialties?: string[] | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technicians_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_alert_settings: {
         Row: {
           alert_type_id: string
@@ -7717,6 +8059,18 @@ export type Database = {
         | "declined"
         | "expired"
         | "completed"
+      repair_quote_workflow_status:
+        | "draft"
+        | "awaiting_assignment"
+        | "sent_to_tech"
+        | "tech_declined"
+        | "tech_submitted"
+        | "under_review"
+        | "sent_to_client"
+        | "accepted"
+        | "declined"
+        | "expired"
+        | "closed"
       service_scope_type: "all" | "selected"
       shipment_item_status_enum:
         | "pending"
@@ -7894,6 +8248,19 @@ export const Constants = {
         "declined",
         "expired",
         "completed",
+      ],
+      repair_quote_workflow_status: [
+        "draft",
+        "awaiting_assignment",
+        "sent_to_tech",
+        "tech_declined",
+        "tech_submitted",
+        "under_review",
+        "sent_to_client",
+        "accepted",
+        "declined",
+        "expired",
+        "closed",
       ],
       service_scope_type: ["all", "selected"],
       shipment_item_status_enum: [
