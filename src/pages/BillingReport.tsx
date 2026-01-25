@@ -33,13 +33,28 @@ interface Account {
   account_code: string;
 }
 
+function formatDateMMDDYY(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${mm}/${dd}/${yy}`;
+}
+
 function toCSV(rows: BillingEventRow[]) {
   if (!rows.length) return "";
   const headers = ["occurred_at", "account_name", "item_code", "event_type", "charge_type", "description", "quantity", "unit_rate", "total_amount", "status", "invoice_id"];
   const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const lines = [headers.map(escape).join(",")];
   for (const r of rows) {
-    lines.push(headers.map((h) => escape(r[h as keyof BillingEventRow])).join(","));
+    lines.push(headers.map((h) => {
+      // Format occurred_at as mm/dd/yy
+      if (h === 'occurred_at') {
+        return escape(formatDateMMDDYY(r.occurred_at));
+      }
+      return escape(r[h as keyof BillingEventRow]);
+    }).join(","));
   }
   return lines.join("\n");
 }
