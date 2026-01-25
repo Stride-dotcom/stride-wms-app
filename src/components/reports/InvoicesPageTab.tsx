@@ -289,7 +289,7 @@ export function InvoicesPageTab() {
               {sortedInvoices.map((inv) => (
                 <TableRow key={inv.id}>
                   <TableCell className="font-mono">{inv.invoice_number || "-"}</TableCell>
-                  <TableCell>{inv.account_name || "-"}</TableCell>
+                  <TableCell>{String(inv.account_name || "-")}</TableCell>
                   <TableCell>{inv.created_at?.slice(0, 10) || "-"}</TableCell>
                   <TableCell className="text-xs">
                     {inv.period_start?.slice(0, 10)} - {inv.period_end?.slice(0, 10)}
@@ -333,7 +333,7 @@ export function InvoicesPageTab() {
           <DialogHeader>
             <DialogTitle>Invoice {selectedInvoice?.invoice_number}</DialogTitle>
             <DialogDescription>
-              {selectedInvoice?.account_name} • {selectedInvoice?.status && getStatusBadge(selectedInvoice.status)}
+              {String(selectedInvoice?.account_name || '')} • {selectedInvoice?.status && getStatusBadge(selectedInvoice.status)}
             </DialogDescription>
           </DialogHeader>
 
