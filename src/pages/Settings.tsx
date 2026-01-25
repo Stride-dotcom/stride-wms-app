@@ -38,8 +38,7 @@ import { OrganizationSettingsTab } from '@/components/settings/OrganizationSetti
 import { RateSheetsSettingsTab } from '@/components/settings/RateSheetsSettingsTab';
 import { BillableServicesSettingsTab } from '@/components/settings/BillableServicesSettingsTab';
 import { SidemarksSettingsTab } from '@/components/settings/SidemarksSettingsTab';
-// TODO: Enable after running pricing migration (20260125080000_new_pricing_structure.sql)
-// import { PricingSettingsTab } from '@/components/settings/PricingSettingsTab';
+import { PricingSettingsTab } from '@/components/settings/PricingSettingsTab';
 
 import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
 import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
@@ -284,7 +283,7 @@ export default function Settings() {
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
-            {/* {isAdmin && <TabsTrigger value="pricing">Pricing</TabsTrigger>} */}
+            {isAdmin && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
             <TabsTrigger value="sidemarks">Sidemarks</TabsTrigger>
             <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="rate-sheets">Rate Sheets</TabsTrigger>
@@ -371,13 +370,11 @@ export default function Settings() {
             </TabsContent>
           )}
 
-          {/* TODO: Enable after running pricing migration
           {isAdmin && (
             <TabsContent value="pricing">
               <PricingSettingsTab />
             </TabsContent>
           )}
-          */}
 
           <TabsContent value="sidemarks">
             <SidemarksSettingsTab />
