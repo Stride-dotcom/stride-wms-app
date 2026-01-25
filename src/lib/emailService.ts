@@ -28,12 +28,40 @@ export interface EmailResult {
   emailLogId?: string;
   resendId?: string;
   error?: string;
+  // For test mode - contains useful links extracted from email
+  testModeData?: {
+    activationLink?: string;
+    quoteLink?: string;
+  };
 }
 
-// Send email via Supabase Edge Function (which calls Resend)
+// Set to true to use test mode (logs to console/DB instead of sending)
+// In production, set this to false or use an environment variable
+const EMAIL_TEST_MODE = true;
+
+// Extract links from HTML for test mode
+function extractLinksFromHtml(html: string): { activationLink?: string; quoteLink?: string } {
+  const result: { activationLink?: string; quoteLink?: string } = {};
+
+  // Look for activation link
+  const activationMatch = html.match(/href="([^"]*\/activate\?token=[^"]*)"/);
+  if (activationMatch) {
+    result.activationLink = activationMatch[1];
+  }
+
+  // Look for quote links
+  const quoteMatch = html.match(/href="([^"]*\/quote\/[^"]*)"/);
+  if (quoteMatch) {
+    result.quoteLink = quoteMatch[1];
+  }
+
+  return result;
+}
+
+// Send email - uses test mode by default for development
 export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
   try {
-    // First, create an email log entry (if tenant provided)
+    // Create an email log entry (if tenant provided)
     let emailLogId: string | undefined;
 
     if (params.tenantId) {
@@ -45,9 +73,13 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
           recipient_email: params.to,
           recipient_name: params.toName,
           subject: params.subject,
-          status: 'pending',
+          status: EMAIL_TEST_MODE ? 'sent' : 'pending',
           entity_type: params.entityType,
           entity_id: params.entityId,
+          // In test mode, mark as sent immediately
+          sent_at: EMAIL_TEST_MODE ? new Date().toISOString() : null,
+          // Store a note that this was test mode
+          resend_id: EMAIL_TEST_MODE ? 'TEST_MODE' : null,
         })
         .select()
         .single();
@@ -57,7 +89,36 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
       }
     }
 
-    // Call the Edge Function to send email
+    // TEST MODE: Log to console and return success without actually sending
+    if (EMAIL_TEST_MODE) {
+      const links = extractLinksFromHtml(params.htmlBody);
+
+      console.log('========================================');
+      console.log('📧 EMAIL TEST MODE - Email not actually sent');
+      console.log('========================================');
+      console.log(`To: ${params.to}${params.toName ? ` (${params.toName})` : ''}`);
+      console.log(`Subject: ${params.subject}`);
+      console.log(`Type: ${params.emailType}`);
+      if (links.activationLink) {
+        console.log(`🔗 Activation Link: ${links.activationLink}`);
+      }
+      if (links.quoteLink) {
+        console.log(`🔗 Quote Link: ${links.quoteLink}`);
+      }
+      console.log('========================================');
+      console.log('Text Content:');
+      console.log(params.textBody || '(no text version)');
+      console.log('========================================');
+
+      return {
+        success: true,
+        emailLogId,
+        resendId: 'TEST_MODE',
+        testModeData: links,
+      };
+    }
+
+    // PRODUCTION MODE: Call the Edge Function to send email
     const { data, error } = await supabase.functions.invoke('send-email', {
       body: {
         to: params.to,
