@@ -32,6 +32,8 @@ import Claims from "./pages/Claims";
 import ClaimDetail from "./pages/ClaimDetail";
 import CoverageQuickEntry from "./pages/CoverageQuickEntry";
 import Stocktakes from "./pages/Stocktakes";
+import StocktakeScanView from "./components/stocktakes/StocktakeScanView";
+import StocktakeReport from "./components/stocktakes/StocktakeReport";
 import RepairTechAccess from "./pages/RepairTechAccess";
 import TechQuoteSubmit from "./pages/TechQuoteSubmit";
 import Technicians from "./pages/Technicians";
@@ -89,6 +91,8 @@ const App = () => (
             <Route path="/claims/:id" element={<ProtectedRoute><RequireRole role="tenant_admin"><ClaimDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/coverage" element={<ProtectedRoute><RequireRole role="tenant_admin"><CoverageQuickEntry /></RequireRole></ProtectedRoute>} />
             <Route path="/stocktakes" element={<ProtectedRoute><Stocktakes /></ProtectedRoute>} />
+            <Route path="/stocktakes/:id/scan" element={<ProtectedRoute><StocktakeScanView /></ProtectedRoute>} />
+            <Route path="/stocktakes/:id/report" element={<ProtectedRoute><StocktakeReport /></ProtectedRoute>} />
             
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/accounts" element={<ProtectedRoute><RequireRole role="tenant_admin"><Accounts /></RequireRole></ProtectedRoute>} />

@@ -2,33 +2,134 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Database } from '@/integrations/supabase/types';
 
-type StocktakeRow = Database['public']['Tables']['stocktakes']['Row'];
-type StocktakeInsert = Database['public']['Tables']['stocktakes']['Insert'];
-type StocktakeUpdate = Database['public']['Tables']['stocktakes']['Update'];
-type StocktakeItemRow = Database['public']['Tables']['stocktake_items']['Row'];
+// Types
+export type StocktakeStatus = 'draft' | 'active' | 'closed' | 'cancelled';
+export type ScanResult = 'expected' | 'unexpected' | 'wrong_location' | 'released_conflict' | 'duplicate' | 'not_found';
+export type ResultType = 'missing' | 'found_expected' | 'found_wrong_location' | 'found_unexpected' | 'released_found';
 
-export interface Stocktake extends StocktakeRow {
+export interface Stocktake {
+  id: string;
+  tenant_id: string;
+  stocktake_number: string;
+  name: string | null;
+  warehouse_id: string;
+  location_id: string | null; // Legacy single location
+  location_ids: string[] | null; // New multi-location
+  status: StocktakeStatus;
+  freeze_moves: boolean;
+  allow_location_auto_fix: boolean;
+  billable: boolean;
+  include_accounts: string[] | null;
+  scheduled_date: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  closed_at: string | null;
+  closed_by: string | null;
+  created_at: string;
+  created_by: string | null;
+  assigned_to: string | null;
+  expected_item_count: number | null;
+  counted_item_count: number | null;
+  variance_count: number | null;
+  notes: string | null;
+  deleted_at: string | null;
   warehouse?: { id: string; name: string } | null;
-  location?: { id: string; code: string; name: string | null } | null;
+  locations?: { id: string; code: string; name: string | null }[];
   assigned_user?: { id: string; first_name: string | null; last_name: string | null } | null;
 }
 
-export interface StocktakeItem extends StocktakeItemRow {
-  item?: { id: string; item_code: string; description: string | null } | null;
-  expected_location?: { id: string; code: string } | null;
-  found_location?: { id: string; code: string } | null;
+export interface StocktakeExpectedItem {
+  id: string;
+  stocktake_id: string;
+  item_id: string;
+  expected_location_id: string | null;
+  item_code: string;
+  item_description: string | null;
+  account_id: string | null;
+  created_at: string;
+  item?: {
+    id: string;
+    item_code: string;
+    description: string | null;
+    status: string;
+  };
+  expected_location?: {
+    id: string;
+    code: string;
+    name: string | null;
+  };
 }
 
-export type StocktakeStatus = 'planned' | 'in_progress' | 'completed' | 'cancelled';
-export type CountStatus = 'pending' | 'found' | 'missing' | 'discrepancy' | 'resolved';
+export interface StocktakeScan {
+  id: string;
+  stocktake_id: string;
+  scanned_by: string;
+  scanned_at: string;
+  scanned_location_id: string;
+  item_id: string | null;
+  item_code: string | null;
+  scan_result: ScanResult;
+  fault_reason: string | null;
+  auto_fix_applied: boolean;
+  old_location_id: string | null;
+  new_location_id: string | null;
+  scanned_location?: { id: string; code: string };
+  scanned_by_user?: { first_name: string | null; last_name: string | null };
+}
+
+export interface StocktakeResult {
+  id: string;
+  stocktake_id: string;
+  item_id: string | null;
+  item_code: string;
+  expected_location_id: string | null;
+  scanned_location_id: string | null;
+  result: ResultType;
+  resolved: boolean;
+  resolution_notes: string | null;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  expected_location?: { id: string; code: string };
+  scanned_location?: { id: string; code: string };
+  item?: { id: string; item_code: string; description: string | null };
+}
+
+export interface StocktakeScanStats {
+  stocktake_id: string;
+  stocktake_number: string;
+  name: string | null;
+  status: string;
+  expected_item_count: number | null;
+  total_scans: number;
+  unique_items_scanned: number;
+  found_expected: number;
+  found_wrong_location: number;
+  found_unexpected: number;
+  duplicates: number;
+  released_conflicts: number;
+  not_yet_scanned: number;
+}
+
+export interface CreateStocktakeData {
+  name?: string;
+  warehouse_id: string;
+  location_ids?: string[];
+  freeze_moves?: boolean;
+  allow_location_auto_fix?: boolean;
+  billable?: boolean;
+  include_accounts?: string[];
+  scheduled_date?: string | null;
+  notes?: string | null;
+}
 
 export interface StocktakeFilters {
   status?: StocktakeStatus;
   warehouseId?: string;
 }
 
+// Main hook for stocktakes list
 export function useStocktakes(filters?: StocktakeFilters) {
   const [stocktakes, setStocktakes] = useState<Stocktake[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +138,7 @@ export function useStocktakes(filters?: StocktakeFilters) {
 
   const fetchStocktakes = useCallback(async () => {
     if (!profile?.tenant_id) return;
-    
+
     try {
       setLoading(true);
       let query = supabase
@@ -45,12 +146,11 @@ export function useStocktakes(filters?: StocktakeFilters) {
         .select(`
           *,
           warehouse:warehouses!stocktakes_warehouse_id_fkey(id, name),
-          location:locations!stocktakes_location_id_fkey(id, code, name),
           assigned_user:users!stocktakes_assigned_to_fkey(id, first_name, last_name)
         `)
         .eq('tenant_id', profile.tenant_id)
         .is('deleted_at', null)
-        .order('scheduled_date', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (filters?.status) {
         query = query.eq('status', filters.status);
@@ -62,7 +162,7 @@ export function useStocktakes(filters?: StocktakeFilters) {
       const { data, error } = await query;
 
       if (error) throw error;
-      setStocktakes(data || []);
+      setStocktakes((data || []) as Stocktake[]);
     } catch (error) {
       console.error('Error fetching stocktakes:', error);
       toast({
@@ -79,17 +179,25 @@ export function useStocktakes(filters?: StocktakeFilters) {
     fetchStocktakes();
   }, [fetchStocktakes]);
 
-  const createStocktake = async (data: Omit<StocktakeInsert, 'tenant_id' | 'stocktake_number'> & { stocktake_number?: string }) => {
+  const createStocktake = async (data: CreateStocktakeData) => {
     if (!profile?.tenant_id) throw new Error('No tenant');
-    
-    // stocktake_number is auto-generated by trigger, but we need to satisfy TypeScript
-    const insertData = { 
-      ...data, 
+
+    const insertData = {
       tenant_id: profile.tenant_id,
       created_by: profile.id,
-      stocktake_number: data.stocktake_number || '', // Will be overwritten by trigger
+      stocktake_number: '', // Will be set by trigger
+      name: data.name || null,
+      warehouse_id: data.warehouse_id,
+      location_ids: data.location_ids ? JSON.stringify(data.location_ids) : null,
+      freeze_moves: data.freeze_moves ?? false,
+      allow_location_auto_fix: data.allow_location_auto_fix ?? false,
+      billable: data.billable ?? false,
+      include_accounts: data.include_accounts ? JSON.stringify(data.include_accounts) : null,
+      scheduled_date: data.scheduled_date || null,
+      notes: data.notes || null,
+      status: 'draft',
     };
-    
+
     const { data: result, error } = await supabase
       .from('stocktakes')
       .insert([insertData])
@@ -97,21 +205,32 @@ export function useStocktakes(filters?: StocktakeFilters) {
       .single();
 
     if (error) throw error;
-    
+
     toast({
       title: 'Stocktake Created',
-      description: `Stocktake ${result.stocktake_number} has been scheduled`,
+      description: `Stocktake ${result.stocktake_number} has been created`,
     });
-    
+
     await fetchStocktakes();
     return result;
   };
 
   const startStocktake = async (id: string) => {
+    if (!profile?.id) throw new Error('No user');
+
+    // Initialize expected items using RPC
+    const { data: itemCount, error: initError } = await supabase.rpc(
+      'initialize_stocktake_expected_items',
+      { p_stocktake_id: id }
+    );
+
+    if (initError) throw initError;
+
+    // Update status to active
     const { data: result, error } = await supabase
       .from('stocktakes')
       .update({
-        status: 'in_progress',
+        status: 'active',
         started_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -119,42 +238,37 @@ export function useStocktakes(filters?: StocktakeFilters) {
       .single();
 
     if (error) throw error;
+
+    toast({
+      title: 'Stocktake Started',
+      description: `Found ${itemCount} items to count`,
+    });
+
     await fetchStocktakes();
     return result;
   };
 
-  const completeStocktake = async (id: string) => {
-    // Calculate variance
-    const { data: items } = await supabase
-      .from('stocktake_items')
-      .select('status')
-      .eq('stocktake_id', id);
+  const closeStocktake = async (id: string) => {
+    if (!profile?.id) throw new Error('No user');
 
-    const varianceCount = items?.filter(i => 
-      i.status === 'missing' || i.status === 'discrepancy'
-    ).length || 0;
-
-    const { data: result, error } = await supabase
-      .from('stocktakes')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        variance_count: varianceCount,
-        counted_item_count: items?.length || 0,
-      })
-      .eq('id', id)
-      .select()
-      .single();
+    // Use RPC to close and generate results
+    const { data, error } = await supabase.rpc('close_stocktake', {
+      p_stocktake_id: id,
+      p_closed_by: profile.id,
+    });
 
     if (error) throw error;
-    
+
+    const result = data?.[0];
+    const varianceCount = (result?.missing || 0) + (result?.found_wrong_location || 0) + (result?.unexpected || 0);
+
     toast({
-      title: 'Stocktake Completed',
-      description: varianceCount > 0 
+      title: 'Stocktake Closed',
+      description: varianceCount > 0
         ? `Completed with ${varianceCount} variance(s)`
         : 'Completed with no variances',
     });
-    
+
     await fetchStocktakes();
     return result;
   };
@@ -166,6 +280,11 @@ export function useStocktakes(filters?: StocktakeFilters) {
       .eq('id', id);
 
     if (error) throw error;
+
+    toast({
+      title: 'Stocktake Cancelled',
+    });
+
     await fetchStocktakes();
   };
 
@@ -175,42 +294,180 @@ export function useStocktakes(filters?: StocktakeFilters) {
     refetch: fetchStocktakes,
     createStocktake,
     startStocktake,
-    completeStocktake,
+    closeStocktake,
     cancelStocktake,
   };
 }
 
-// Separate hook for stocktake items
-export function useStocktakeItems(stocktakeId: string) {
-  const [items, setItems] = useState<StocktakeItem[]>([]);
+// Hook for a single stocktake with scan functionality
+export function useStocktakeScan(stocktakeId: string) {
+  const [stocktake, setStocktake] = useState<Stocktake | null>(null);
+  const [expectedItems, setExpectedItems] = useState<StocktakeExpectedItem[]>([]);
+  const [scans, setScans] = useState<StocktakeScan[]>([]);
+  const [stats, setStats] = useState<StocktakeScanStats | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { profile } = useAuth();
 
-  const fetchItems = useCallback(async () => {
+  const fetchStocktake = useCallback(async () => {
     if (!stocktakeId) return;
-    
+
+    try {
+      const { data, error } = await supabase
+        .from('stocktakes')
+        .select(`
+          *,
+          warehouse:warehouses!stocktakes_warehouse_id_fkey(id, name)
+        `)
+        .eq('id', stocktakeId)
+        .single();
+
+      if (error) throw error;
+      setStocktake(data as Stocktake);
+    } catch (error) {
+      console.error('Error fetching stocktake:', error);
+    }
+  }, [stocktakeId]);
+
+  const fetchExpectedItems = useCallback(async () => {
+    if (!stocktakeId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('stocktake_expected_items')
+        .select(`
+          *,
+          expected_location:locations!stocktake_expected_items_expected_location_id_fkey(id, code, name)
+        `)
+        .eq('stocktake_id', stocktakeId)
+        .order('item_code');
+
+      if (error) throw error;
+      setExpectedItems((data || []) as StocktakeExpectedItem[]);
+    } catch (error) {
+      console.error('Error fetching expected items:', error);
+    }
+  }, [stocktakeId]);
+
+  const fetchScans = useCallback(async () => {
+    if (!stocktakeId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('stocktake_scans')
+        .select(`
+          *,
+          scanned_location:locations!stocktake_scans_scanned_location_id_fkey(id, code),
+          scanned_by_user:users!stocktake_scans_scanned_by_fkey(first_name, last_name)
+        `)
+        .eq('stocktake_id', stocktakeId)
+        .order('scanned_at', { ascending: false });
+
+      if (error) throw error;
+      setScans((data || []) as StocktakeScan[]);
+    } catch (error) {
+      console.error('Error fetching scans:', error);
+    }
+  }, [stocktakeId]);
+
+  const fetchStats = useCallback(async () => {
+    if (!stocktakeId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('v_stocktake_scan_stats')
+        .select('*')
+        .eq('stocktake_id', stocktakeId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      setStats(data as StocktakeScanStats);
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  }, [stocktakeId]);
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([fetchStocktake(), fetchExpectedItems(), fetchScans(), fetchStats()]);
+    setLoading(false);
+  }, [fetchStocktake, fetchExpectedItems, fetchScans, fetchStats]);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  const recordScan = async (locationId: string, itemId: string, itemCode: string) => {
+    if (!profile?.id) throw new Error('No user');
+
+    const { data, error } = await supabase.rpc('record_stocktake_scan', {
+      p_stocktake_id: stocktakeId,
+      p_scanned_by: profile.id,
+      p_scanned_location_id: locationId,
+      p_item_id: itemId,
+      p_item_code: itemCode,
+    });
+
+    if (error) throw error;
+
+    const result = data?.[0];
+
+    // Refresh data
+    await Promise.all([fetchScans(), fetchStats()]);
+
+    return {
+      scanId: result?.scan_id,
+      result: result?.result as ScanResult,
+      wasExpected: result?.was_expected,
+      expectedLocationId: result?.expected_location_id,
+      autoFixed: result?.auto_fixed,
+      message: result?.message,
+    };
+  };
+
+  return {
+    stocktake,
+    expectedItems,
+    scans,
+    stats,
+    loading,
+    refetch: fetchAll,
+    recordScan,
+  };
+}
+
+// Hook for stocktake results/report
+export function useStocktakeResults(stocktakeId: string) {
+  const [results, setResults] = useState<StocktakeResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+  const { profile } = useAuth();
+
+  const fetchResults = useCallback(async () => {
+    if (!stocktakeId) return;
+
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('stocktake_items')
+        .from('stocktake_results')
         .select(`
           *,
-          item:items!stocktake_items_item_id_fkey(id, item_code, description),
-          expected_location:locations!stocktake_items_expected_location_id_fkey(id, code),
-          found_location:locations!stocktake_items_found_location_id_fkey(id, code)
+          expected_location:locations!stocktake_results_expected_location_id_fkey(id, code),
+          scanned_location:locations!stocktake_results_scanned_location_id_fkey(id, code),
+          item:items!stocktake_results_item_id_fkey(id, item_code, description)
         `)
         .eq('stocktake_id', stocktakeId)
-        .order('created_at');
+        .order('result')
+        .order('item_code');
 
       if (error) throw error;
-      setItems(data || []);
+      setResults((data || []) as StocktakeResult[]);
     } catch (error) {
-      console.error('Error fetching stocktake items:', error);
+      console.error('Error fetching results:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to load stocktake items',
+        description: 'Failed to load stocktake results',
       });
     } finally {
       setLoading(false);
@@ -218,66 +475,69 @@ export function useStocktakeItems(stocktakeId: string) {
   }, [stocktakeId, toast]);
 
   useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+    fetchResults();
+  }, [fetchResults]);
 
-  const recordCount = async (itemId: string, data: {
-    found_location_id?: string;
-    counted_quantity: number;
-    notes?: string;
-  }) => {
+  const resolveResult = async (resultId: string, notes: string) => {
     if (!profile?.id) throw new Error('No user');
 
-    // Determine status based on count
-    const item = items.find(i => i.id === itemId);
-    let status: CountStatus = 'found';
-    
-    if (data.counted_quantity === 0) {
-      status = 'missing';
-    } else if (item && data.counted_quantity !== item.expected_quantity) {
-      status = 'discrepancy';
-    }
-
-    const { data: result, error } = await supabase
-      .from('stocktake_items')
+    const { error } = await supabase
+      .from('stocktake_results')
       .update({
-        found_location_id: data.found_location_id,
-        counted_quantity: data.counted_quantity,
-        notes: data.notes,
-        status,
-        counted_by: profile.id,
-        counted_at: new Date().toISOString(),
+        resolved: true,
+        resolution_notes: notes,
+        resolved_by: profile.id,
+        resolved_at: new Date().toISOString(),
       })
-      .eq('id', itemId)
-      .select()
-      .single();
+      .eq('id', resultId);
 
     if (error) throw error;
-    await fetchItems();
-    return result;
-  };
 
-  const resolveVariance = async (itemId: string, notes: string) => {
-    const { data: result, error } = await supabase
-      .from('stocktake_items')
-      .update({
-        status: 'resolved',
-        notes,
-      })
-      .eq('id', itemId)
-      .select()
-      .single();
+    toast({
+      title: 'Variance Resolved',
+    });
 
-    if (error) throw error;
-    await fetchItems();
-    return result;
+    await fetchResults();
   };
 
   return {
-    items,
+    results,
     loading,
-    refetch: fetchItems,
-    recordCount,
-    resolveVariance,
+    refetch: fetchResults,
+    resolveResult,
   };
+}
+
+// Hook to check freeze status for an item
+export function useStocktakeFreezeCheck() {
+  const { profile } = useAuth();
+
+  const checkFreeze = async (itemId: string): Promise<{
+    isFrozen: boolean;
+    stocktakeId?: string;
+    stocktakeNumber?: string;
+    message?: string;
+  }> => {
+    if (!profile?.tenant_id) return { isFrozen: false };
+
+    const { data, error } = await supabase.rpc('check_stocktake_freeze', {
+      p_item_id: itemId,
+      p_tenant_id: profile.tenant_id,
+    });
+
+    if (error) {
+      console.error('Error checking freeze:', error);
+      return { isFrozen: false };
+    }
+
+    const result = data?.[0];
+    return {
+      isFrozen: result?.is_frozen ?? false,
+      stocktakeId: result?.stocktake_id,
+      stocktakeNumber: result?.stocktake_number,
+      message: result?.message,
+    };
+  };
+
+  return { checkFreeze };
 }
