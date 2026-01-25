@@ -688,7 +688,7 @@ export function useRepairQuoteWorkflow() {
         .from('repair_quotes') as any)
         .select(`
           *,
-          account:accounts(id, name, primary_contact_email)
+          account:accounts(id, name:account_name, primary_contact_email)
         `)
         .eq('id', quoteId)
         .single();
