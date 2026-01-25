@@ -212,25 +212,35 @@ export function InviteUserDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Role *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={!roles || roles.length === 0}
+                  >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a role" />
+                        <SelectValue placeholder={!roles || roles.length === 0 ? "Loading roles..." : "Select a role"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {roles.map((role) => (
-                        <SelectItem key={role.id} value={role.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium capitalize">{role.name}</span>
-                            {role.description && (
-                              <span className="text-xs text-muted-foreground">
-                                {role.description}
-                              </span>
-                            )}
-                          </div>
+                      {(!roles || roles.length === 0) ? (
+                        <SelectItem value="__loading__" disabled>
+                          No roles available
                         </SelectItem>
-                      ))}
+                      ) : (
+                        roles.map((role) => (
+                          <SelectItem key={role.id} value={role.id}>
+                            <div className="flex flex-col">
+                              <span className="font-medium capitalize">{role.name}</span>
+                              {role.description && (
+                                <span className="text-xs text-muted-foreground">
+                                  {role.description}
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormDescription>

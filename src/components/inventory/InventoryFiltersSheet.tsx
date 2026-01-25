@@ -30,6 +30,7 @@ export interface InventoryFilters {
   sidemark: string;
   locationId: string;
   warehouseId: string;
+  coverageType: string;
 }
 
 interface InventoryFiltersSheetProps {
@@ -128,6 +129,7 @@ export function InventoryFiltersSheet({
       sidemark: '',
       locationId: '',
       warehouseId: '',
+      coverageType: '',
     };
     setLocalFilters(clearedFilters);
     onFiltersChange(clearedFilters);
@@ -284,6 +286,32 @@ export function InventoryFiltersSheet({
                     {warehouse.name}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Coverage Filter */}
+          <div className="space-y-2">
+            <Label>Coverage</Label>
+            <Select
+              value={localFilters.coverageType || ALL_VALUE}
+              onValueChange={(value) =>
+                setLocalFilters({
+                  ...localFilters,
+                  coverageType: value === ALL_VALUE ? '' : value,
+                })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All coverage types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>All coverage types</SelectItem>
+                <SelectItem value="uncovered">Uncovered (No coverage)</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="standard">Standard Coverage</SelectItem>
+                <SelectItem value="full_deductible">Full Replacement (w/ deductible)</SelectItem>
+                <SelectItem value="full_no_deductible">Full Replacement (no deductible)</SelectItem>
               </SelectContent>
             </Select>
           </div>

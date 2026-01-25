@@ -237,35 +237,38 @@ export function UserDialog({
                           key={role.id}
                           control={form.control}
                           name="roleIds"
-                          render={({ field }) => (
-                            <FormItem className="flex items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value?.includes(role.id)}
-                                  disabled={isCurrentUser && role.name === 'admin'}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      field.onChange([...field.value, role.id]);
-                                    } else {
-                                      field.onChange(
-                                        field.value?.filter((id) => id !== role.id)
-                                      );
-                                    }
-                                  }}
-                                />
-                              </FormControl>
-                              <div className="flex-1">
-                                <FormLabel className="font-normal cursor-pointer">
-                                  {role.name}
-                                </FormLabel>
-                                {role.description && (
-                                  <p className="text-xs text-muted-foreground">
-                                    {role.description}
-                                  </p>
-                                )}
-                              </div>
-                            </FormItem>
-                          )}
+                          render={({ field }) => {
+                            const currentValue = field.value || [];
+                            return (
+                              <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={currentValue.includes(role.id)}
+                                    disabled={isCurrentUser && role.name === 'admin'}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        field.onChange([...currentValue, role.id]);
+                                      } else {
+                                        field.onChange(
+                                          currentValue.filter((id) => id !== role.id)
+                                        );
+                                      }
+                                    }}
+                                  />
+                                </FormControl>
+                                <div className="flex-1">
+                                  <FormLabel className="font-normal cursor-pointer">
+                                    {role.name}
+                                  </FormLabel>
+                                  {role.description && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {role.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </FormItem>
+                            );
+                          }}
                         />
                       ))
                     )}

@@ -29,7 +29,10 @@ import {
   ChevronRight,
   Keyboard,
   Plus,
+  ArrowLeftRight,
+  Check,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface ScannedItem {
@@ -661,12 +664,134 @@ export default function ScanHub() {
         <div className="flex-1 flex flex-col items-center">
           {/* Camera Scanner - smaller to fit with manual entry */}
           <div className="w-full max-w-sm mb-4">
-            <QRScanner 
+            <QRScanner
               onScan={handleScanResult}
               onError={(error) => console.error('Scanner error:', error)}
               scanning={phase === 'scanning-item' || phase === 'scanning-location'}
             />
           </div>
+
+          {/* Visual Verification Section - shows below scanner for Move/Batch modes */}
+          {mode !== 'lookup' && (
+            <Card className="w-full max-w-md mb-4">
+              <CardContent className="py-4">
+                <div className="flex items-center gap-3">
+                  {/* Item Field */}
+                  <button
+                    onClick={() => setShowItemSearch(true)}
+                    className={cn(
+                      "flex-1 flex items-center gap-2 p-3 rounded-xl border-2 transition-all",
+                      scannedItem || (mode === 'batch' && batchItems.length > 0)
+                        ? "border-primary bg-primary/5"
+                        : "border-dashed border-muted-foreground/30 hover:border-muted-foreground/50"
+                    )}
+                  >
+                    <Package className={cn(
+                      "h-5 w-5 flex-shrink-0",
+                      scannedItem || (mode === 'batch' && batchItems.length > 0) ? "text-primary" : "text-muted-foreground"
+                    )} />
+                    <div className="flex-1 text-left min-w-0">
+                      {mode === 'move' && scannedItem ? (
+                        <>
+                          <p className="font-mono font-bold text-sm truncate">{scannedItem.item_code}</p>
+                          <p className="text-xs text-muted-foreground truncate">{scannedItem.current_location_code || 'No location'}</p>
+                        </>
+                      ) : mode === 'batch' && batchItems.length > 0 ? (
+                        <>
+                          <p className="font-bold text-sm">{batchItems.length} items</p>
+                          <p className="text-xs text-muted-foreground">Tap to add more</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm text-muted-foreground">Item</p>
+                          <p className="text-xs text-muted-foreground/60">Tap to search</p>
+                        </>
+                      )}
+                    </div>
+                    {(scannedItem || (mode === 'batch' && batchItems.length > 0)) && (
+                      <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                    )}
+                  </button>
+
+                  {/* Swap Button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 flex-shrink-0"
+                    onClick={() => {
+                      // Swap logic - clear item and start over with location
+                      if (scannedItem && targetLocation) {
+                        hapticLight();
+                        setScannedItem(null);
+                        setTargetLocation(null);
+                        setPhase('scanning-item');
+                        toast({
+                          title: 'Cleared',
+                          description: 'Scan a new item and location.',
+                        });
+                      }
+                    }}
+                    disabled={!scannedItem && batchItems.length === 0}
+                    title="Swap / Clear"
+                  >
+                    <ArrowLeftRight className="h-4 w-4" />
+                  </Button>
+
+                  {/* Location Field */}
+                  <button
+                    onClick={() => {
+                      if ((scannedItem || batchItems.length > 0)) {
+                        setShowLocationSearch(true);
+                      }
+                    }}
+                    disabled={!scannedItem && batchItems.length === 0}
+                    className={cn(
+                      "flex-1 flex items-center gap-2 p-3 rounded-xl border-2 transition-all",
+                      targetLocation
+                        ? "border-primary bg-primary/5"
+                        : scannedItem || batchItems.length > 0
+                          ? "border-dashed border-primary/50 hover:border-primary animate-pulse"
+                          : "border-dashed border-muted-foreground/30 opacity-50"
+                    )}
+                  >
+                    <MapPin className={cn(
+                      "h-5 w-5 flex-shrink-0",
+                      targetLocation ? "text-primary" : "text-muted-foreground"
+                    )} />
+                    <div className="flex-1 text-left min-w-0">
+                      {targetLocation ? (
+                        <>
+                          <p className="font-mono font-bold text-sm truncate">{targetLocation.code}</p>
+                          <p className="text-xs text-muted-foreground truncate">{targetLocation.name || 'Location'}</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm text-muted-foreground">Location</p>
+                          <p className="text-xs text-muted-foreground/60">
+                            {scannedItem || batchItems.length > 0 ? 'Tap to select' : 'Scan item first'}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    {targetLocation && (
+                      <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Quick Proceed Button when both are filled */}
+                {((scannedItem && targetLocation) || (batchItems.length > 0 && targetLocation)) && (
+                  <Button
+                    className="w-full mt-4"
+                    onClick={() => setPhase('confirm')}
+                  >
+                    <Check className="h-4 w-4 mr-2" />
+                    Proceed to Confirm
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Processing indicator */}
           {processing && (

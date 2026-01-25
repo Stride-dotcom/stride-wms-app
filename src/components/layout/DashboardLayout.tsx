@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -28,9 +28,29 @@ import {
   FileText,
   ScanLine,
   Bug,
+  PanelLeftClose,
+  PanelLeftOpen,
+  GripVertical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface NavItem {
   label: string;
@@ -58,14 +78,151 @@ interface DashboardLayoutProps {
   children: ReactNode;
 }
 
+// Sortable nav item component
+interface SortableNavItemProps {
+  item: NavItem;
+  isActive: boolean;
+  sidebarCollapsed: boolean;
+  onNavigate: () => void;
+}
+
+function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: SortableNavItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.href });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="relative group"
+    >
+      <Link
+        to={item.href}
+        onClick={onNavigate}
+        title={sidebarCollapsed ? item.label : undefined}
+        className={cn(
+          'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
+          isActive
+            ? 'text-white'
+            : 'text-white/80 hover:text-white hover:bg-white/10',
+          sidebarCollapsed && 'lg:justify-center lg:px-2'
+        )}
+      >
+        {/* Animated Indicator Pill */}
+        {isActive && (
+          <span
+            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_hsl(14_100%_57%/0.6)] animate-indicator-bounce"
+          />
+        )}
+        {/* Active background */}
+        {isActive && (
+          <span className="absolute inset-0 bg-primary/20 rounded-lg" />
+        )}
+        <item.icon
+          className={cn(
+            'h-5 w-5 relative z-10 transition-all duration-200 flex-shrink-0',
+            isActive && 'text-primary drop-shadow-[0_0_8px_hsl(14_100%_57%/0.6)]'
+          )}
+        />
+        <span className={cn(
+          "relative z-10 transition-opacity duration-200 flex-1",
+          sidebarCollapsed ? "lg:hidden" : ""
+        )}>{item.label}</span>
+      </Link>
+      {/* Drag handle - only visible on hover and when not collapsed */}
+      {!sidebarCollapsed && (
+        <button
+          {...attributes}
+          {...listeners}
+          className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-white/10 transition-opacity cursor-grab active:cursor-grabbing hidden lg:block"
+          title="Drag to reorder"
+        >
+          <GripVertical className="h-4 w-4 text-white/40" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    // Check localStorage for saved preference
+    const saved = localStorage.getItem('sidebar-collapsed');
+    return saved === 'true';
+  });
+  const [navOrder, setNavOrder] = useState<string[]>([]);
   const [tenantLogo, setTenantLogo] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string>('Stride WMS');
   const { profile, signOut } = useAuth();
   const { hasRole, isAdmin } = usePermissions();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Save sidebar collapsed preference
+  const toggleSidebarCollapsed = () => {
+    const newValue = !sidebarCollapsed;
+    setSidebarCollapsed(newValue);
+    localStorage.setItem('sidebar-collapsed', String(newValue));
+  };
+
+  // Load nav order from localStorage per user
+  useEffect(() => {
+    if (profile?.id) {
+      const savedOrder = localStorage.getItem(`nav-order-${profile.id}`);
+      if (savedOrder) {
+        try {
+          setNavOrder(JSON.parse(savedOrder));
+        } catch {
+          setNavOrder([]);
+        }
+      }
+    }
+  }, [profile?.id]);
+
+  // Save nav order to localStorage
+  const saveNavOrder = (order: string[]) => {
+    if (profile?.id) {
+      localStorage.setItem(`nav-order-${profile.id}`, JSON.stringify(order));
+    }
+    setNavOrder(order);
+  };
+
+  // Handle drag end
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = sortedNavItems.findIndex((item) => item.href === active.id);
+      const newIndex = sortedNavItems.findIndex((item) => item.href === over.id);
+      const newOrder = arrayMove(sortedNavItems, oldIndex, newIndex).map((item) => item.href);
+      saveNavOrder(newOrder);
+    }
+  };
 
   // Fetch tenant logo and name
   useEffect(() => {
@@ -122,6 +279,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return item.requiredRole.some((role) => hasRole(role)) || isAdmin;
   });
 
+  // Sort nav items based on saved order
+  const sortedNavItems = useMemo(() => {
+    if (navOrder.length === 0) return filteredNavItems;
+
+    return [...filteredNavItems].sort((a, b) => {
+      const aIndex = navOrder.indexOf(a.href);
+      const bIndex = navOrder.indexOf(b.href);
+      // Items not in saved order go to the end
+      if (aIndex === -1 && bIndex === -1) return 0;
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+      return aIndex - bIndex;
+    });
+  }, [filteredNavItems, navOrder]);
+
   return (
     <div className="min-h-screen min-h-[100dvh] bg-background flex flex-col">
       {/* Mobile sidebar backdrop */}
@@ -135,16 +307,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Sidebar - Gradient Background */}
       <aside
         className={cn(
-          'fixed top-0 left-0 z-50 h-full w-64 bg-gradient-to-b from-[#1a1a1a] to-[#0d0d0d] border-r border-border/30 transform transition-transform duration-300 ease-bounce lg:translate-x-0',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          'fixed top-0 left-0 z-50 h-full bg-gradient-to-b from-[#1a1a1a] to-[#0d0d0d] border-r border-border/30 transform transition-all duration-300 ease-bounce lg:translate-x-0',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+          sidebarCollapsed ? 'lg:w-16' : 'lg:w-64',
+          'w-64' // Mobile always full width
         )}
       >
-        <div className="flex h-16 items-center justify-between px-4 border-b border-border/30">
+        <div className={cn(
+          "flex h-16 items-center border-b border-border/30",
+          sidebarCollapsed ? "lg:justify-center lg:px-2 px-4" : "justify-between px-4"
+        )}>
           <Link to="/" className="flex items-center gap-2">
             {tenantLogo ? (
-              <img 
-                src={tenantLogo} 
-                alt={tenantName} 
+              <img
+                src={tenantLogo}
+                alt={tenantName}
                 className="h-8 w-8 object-contain rounded"
               />
             ) : (
@@ -152,7 +329,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Package className="h-5 w-5 text-primary-foreground" />
               </div>
             )}
-            <span className="font-bold text-lg text-foreground">{tenantName}</span>
+            <span className={cn(
+              "font-bold text-lg text-foreground transition-opacity duration-200",
+              sidebarCollapsed ? "lg:hidden" : ""
+            )}>{tenantName}</span>
           </Link>
           <Button
             variant="ghost"
@@ -164,46 +344,64 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </Button>
         </div>
 
-        <nav className="p-4 space-y-1 relative">
-          {filteredNavItems.map((item) => {
-            const isActive = location.pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
-                  isActive
-                    ? 'text-white'
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
-                )}
-              >
-                {/* Animated Indicator Pill */}
-                {isActive && (
-                  <span
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_hsl(14_100%_57%/0.6)] animate-indicator-bounce"
-                  />
-                )}
-                {/* Active background */}
-                {isActive && (
-                  <span className="absolute inset-0 bg-primary/20 rounded-lg" />
-                )}
-                <item.icon
-                  className={cn(
-                    'h-5 w-5 relative z-10 transition-all duration-200',
-                    isActive && 'text-primary drop-shadow-[0_0_8px_hsl(14_100%_57%/0.6)]'
-                  )}
+        <nav className={cn(
+          "p-4 space-y-1 relative",
+          sidebarCollapsed && "lg:p-2"
+        )}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={sortedNavItems.map((item) => item.href)}
+              strategy={verticalListSortingStrategy}
+            >
+              {sortedNavItems.map((item) => (
+                <SortableNavItem
+                  key={item.href}
+                  item={item}
+                  isActive={location.pathname === item.href}
+                  sidebarCollapsed={sidebarCollapsed}
+                  onNavigate={() => setSidebarOpen(false)}
                 />
-                <span className="relative z-10">{item.label}</span>
-              </Link>
-            );
-          })}
+              ))}
+            </SortableContext>
+          </DndContext>
         </nav>
+
+        {/* Collapse toggle button - only visible on desktop */}
+        <div className={cn(
+          "absolute bottom-4 hidden lg:flex",
+          sidebarCollapsed ? "left-0 right-0 justify-center" : "left-4 right-4"
+        )}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleSidebarCollapsed}
+            className={cn(
+              "text-white/60 hover:text-white hover:bg-white/10",
+              sidebarCollapsed ? "w-10 h-10 p-0" : "w-full justify-start gap-2"
+            )}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen className="h-5 w-5" />
+            ) : (
+              <>
+                <PanelLeftClose className="h-5 w-5" />
+                <span>Collapse</span>
+              </>
+            )}
+          </Button>
+        </div>
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-64 flex flex-col flex-1 min-h-0">
+      <div className={cn(
+        "flex flex-col flex-1 min-h-0 transition-all duration-300",
+        sidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
+      )}>
         {/* Header - Glassmorphism */}
         <header className="sticky top-0 z-30 shrink-0 glass border-b border-white/10 flex items-center justify-between px-4 lg:px-6 pt-safe h-[calc(4rem+env(safe-area-inset-top,0px))]">
           <Button
