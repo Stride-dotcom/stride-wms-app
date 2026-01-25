@@ -409,35 +409,19 @@ export function ItemEditDialog({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="sidemark"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sidemark</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Sidemark" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="vendor"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Vendor</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Vendor" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="vendor"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vendor</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Vendor" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField
