@@ -96,24 +96,24 @@ export interface AccountPricingOverride {
 // ============================================================================
 
 export function useSizeCategories() {
-  const { dbUser } = useAuth();
+  const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['size-categories', dbUser?.tenant_id],
+    queryKey: ['size-categories', profile?.tenant_id],
     queryFn: async () => {
-      if (!dbUser?.tenant_id) return [];
+      if (!profile?.tenant_id) return [];
 
       const { data, error } = await supabase
         .from('classes')
         .select('*')
-        .eq('tenant_id', dbUser.tenant_id)
+        .eq('tenant_id', profile.tenant_id)
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
       return data as SizeCategory[];
     },
-    enabled: !!dbUser?.tenant_id,
+    enabled: !!profile?.tenant_id,
   });
 }
 
@@ -149,24 +149,24 @@ export function useUpdateSizeCategory() {
 // ============================================================================
 
 export function useGlobalServiceRates() {
-  const { dbUser } = useAuth();
+  const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['global-service-rates', dbUser?.tenant_id],
+    queryKey: ['global-service-rates', profile?.tenant_id],
     queryFn: async () => {
-      if (!dbUser?.tenant_id) return [];
+      if (!profile?.tenant_id) return [];
 
       const { data, error } = await supabase
         .from('billable_services')
         .select('*')
-        .eq('tenant_id', dbUser.tenant_id)
+        .eq('tenant_id', profile.tenant_id)
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
       return data as GlobalServiceRate[];
     },
-    enabled: !!dbUser?.tenant_id,
+    enabled: !!profile?.tenant_id,
   });
 }
 
@@ -202,24 +202,24 @@ export function useUpdateGlobalServiceRate() {
 // ============================================================================
 
 export function useAssemblyTiers() {
-  const { dbUser } = useAuth();
+  const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['assembly-tiers', dbUser?.tenant_id],
+    queryKey: ['assembly-tiers', profile?.tenant_id],
     queryFn: async () => {
-      if (!dbUser?.tenant_id) return [];
+      if (!profile?.tenant_id) return [];
 
       const { data, error } = await (supabase
         .from('assembly_tiers') as any)
         .select('*')
-        .eq('tenant_id', dbUser.tenant_id)
+        .eq('tenant_id', profile.tenant_id)
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
       return data as AssemblyTier[];
     },
-    enabled: !!dbUser?.tenant_id,
+    enabled: !!profile?.tenant_id,
   });
 }
 
@@ -255,23 +255,23 @@ export function useUpdateAssemblyTier() {
 // ============================================================================
 
 export function usePricingFlags() {
-  const { dbUser } = useAuth();
+  const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['pricing-flags', dbUser?.tenant_id],
+    queryKey: ['pricing-flags', profile?.tenant_id],
     queryFn: async () => {
-      if (!dbUser?.tenant_id) return [];
+      if (!profile?.tenant_id) return [];
 
       const { data, error } = await (supabase
         .from('pricing_flags') as any)
         .select('*')
-        .eq('tenant_id', dbUser.tenant_id)
+        .eq('tenant_id', profile.tenant_id)
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
       return data as PricingFlag[];
     },
-    enabled: !!dbUser?.tenant_id,
+    enabled: !!profile?.tenant_id,
   });
 }
 
@@ -304,15 +304,15 @@ export function useUpdatePricingFlag() {
 
 export function useCreatePricingFlag() {
   const queryClient = useQueryClient();
-  const { dbUser } = useAuth();
+  const { profile } = useAuth();
 
   return useMutation({
     mutationFn: async (flag: Omit<PricingFlag, 'id' | 'tenant_id'>) => {
-      if (!dbUser?.tenant_id) throw new Error('No tenant');
+      if (!profile?.tenant_id) throw new Error('No tenant');
 
       const { data, error } = await (supabase
         .from('pricing_flags') as any)
-        .insert({ ...flag, tenant_id: dbUser.tenant_id })
+        .insert({ ...flag, tenant_id: profile.tenant_id })
         .select()
         .single();
 
@@ -357,16 +357,16 @@ export function useItemFlags(itemId: string | undefined) {
 
 export function useSetItemFlag() {
   const queryClient = useQueryClient();
-  const { user, dbUser } = useAuth();
+  const { user, profile } = useAuth();
 
   return useMutation({
     mutationFn: async ({ itemId, flagId, value }: { itemId: string; flagId: string; value: string }) => {
-      if (!dbUser?.tenant_id) throw new Error('No tenant');
+      if (!profile?.tenant_id) throw new Error('No tenant');
 
       const { data, error } = await (supabase
         .from('item_flags') as any)
         .upsert({
-          tenant_id: dbUser.tenant_id,
+          tenant_id: profile.tenant_id,
           item_id: itemId,
           flag_id: flagId,
           value,
@@ -419,12 +419,12 @@ export function useRemoveItemFlag() {
 // ============================================================================
 
 export function useAccountPricingOverrides() {
-  const { dbUser } = useAuth();
+  const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['account-pricing-overrides', dbUser?.tenant_id],
+    queryKey: ['account-pricing-overrides', profile?.tenant_id],
     queryFn: async () => {
-      if (!dbUser?.tenant_id) return [];
+      if (!profile?.tenant_id) return [];
 
       const { data, error } = await supabase
         .from('account_rate_adjustments')
@@ -432,49 +432,49 @@ export function useAccountPricingOverrides() {
           *,
           account:accounts(id, account_code, account_name)
         `)
-        .eq('tenant_id', dbUser.tenant_id);
+        .eq('tenant_id', profile.tenant_id);
 
       if (error) throw error;
       return data;
     },
-    enabled: !!dbUser?.tenant_id,
+    enabled: !!profile?.tenant_id,
   });
 }
 
 export function useAccountPricingOverride(accountId: string | undefined) {
-  const { dbUser } = useAuth();
+  const { profile } = useAuth();
 
   return useQuery({
     queryKey: ['account-pricing-override', accountId],
     queryFn: async () => {
-      if (!accountId || !dbUser?.tenant_id) return null;
+      if (!accountId || !profile?.tenant_id) return null;
 
       const { data, error } = await supabase
         .from('account_rate_adjustments')
         .select('*')
-        .eq('tenant_id', dbUser.tenant_id)
+        .eq('tenant_id', profile.tenant_id)
         .eq('account_id', accountId)
         .maybeSingle();
 
       if (error) throw error;
       return data as AccountPricingOverride | null;
     },
-    enabled: !!accountId && !!dbUser?.tenant_id,
+    enabled: !!accountId && !!profile?.tenant_id,
   });
 }
 
 export function useUpsertAccountPricingOverride() {
   const queryClient = useQueryClient();
-  const { user, dbUser } = useAuth();
+  const { user, profile } = useAuth();
 
   return useMutation({
     mutationFn: async ({ accountId, percentAdjust }: { accountId: string; percentAdjust: number }) => {
-      if (!dbUser?.tenant_id) throw new Error('No tenant');
+      if (!profile?.tenant_id) throw new Error('No tenant');
 
       const { data, error } = await supabase
         .from('account_rate_adjustments')
         .upsert({
-          tenant_id: dbUser.tenant_id,
+          tenant_id: profile.tenant_id,
           account_id: accountId,
           percent_adjust: percentAdjust / 100, // Convert from percentage to decimal
           created_by: user?.id,
@@ -505,14 +505,14 @@ export function useUpsertAccountPricingOverride() {
 
 export function useSeedDefaultPricing() {
   const queryClient = useQueryClient();
-  const { dbUser } = useAuth();
+  const { profile } = useAuth();
 
   return useMutation({
     mutationFn: async () => {
-      if (!dbUser?.tenant_id) throw new Error('No tenant');
+      if (!profile?.tenant_id) throw new Error('No tenant');
 
       const { error } = await supabase.rpc('seed_default_pricing', {
-        p_tenant_id: dbUser.tenant_id,
+        p_tenant_id: profile.tenant_id,
       });
 
       if (error) throw error;
@@ -536,7 +536,7 @@ export function useSeedDefaultPricing() {
 // ============================================================================
 
 export function useCalculateServicePrice() {
-  const { dbUser } = useAuth();
+  const { profile } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -552,10 +552,10 @@ export function useCalculateServicePrice() {
       assemblyTierId?: string;
       itemId?: string;
     }) => {
-      if (!dbUser?.tenant_id) throw new Error('No tenant');
+      if (!profile?.tenant_id) throw new Error('No tenant');
 
       const { data, error } = await supabase.rpc('calculate_service_price', {
-        p_tenant_id: dbUser.tenant_id,
+        p_tenant_id: profile.tenant_id,
         p_account_id: accountId || null,
         p_service_code: serviceCode,
         p_class_id: classId || null,
