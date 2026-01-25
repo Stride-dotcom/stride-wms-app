@@ -73,34 +73,55 @@ export type Database = {
           account_id: string
           amount: number
           applied_to_invoice_id: string | null
+          balance_remaining: number | null
           claim_id: string | null
           created_at: string
           created_by: string | null
+          credit_type: string | null
           id: string
+          notes: string | null
           reason: string | null
+          status: string | null
           tenant_id: string
+          voided_at: string | null
+          voided_by: string | null
+          voided_reason: string | null
         }
         Insert: {
           account_id: string
           amount: number
           applied_to_invoice_id?: string | null
+          balance_remaining?: number | null
           claim_id?: string | null
           created_at?: string
           created_by?: string | null
+          credit_type?: string | null
           id?: string
+          notes?: string | null
           reason?: string | null
+          status?: string | null
           tenant_id: string
+          voided_at?: string | null
+          voided_by?: string | null
+          voided_reason?: string | null
         }
         Update: {
           account_id?: string
           amount?: number
           applied_to_invoice_id?: string | null
+          balance_remaining?: number | null
           claim_id?: string | null
           created_at?: string
           created_by?: string | null
+          credit_type?: string | null
           id?: string
+          notes?: string | null
           reason?: string | null
+          status?: string | null
           tenant_id?: string
+          voided_at?: string | null
+          voided_by?: string | null
+          voided_reason?: string | null
         }
         Relationships: []
       }
@@ -342,6 +363,60 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      account_service_settings: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          custom_percent_adjust: number | null
+          custom_rate: number | null
+          id: string
+          is_enabled: boolean | null
+          notes: string | null
+          service_code: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          custom_percent_adjust?: number | null
+          custom_rate?: number | null
+          id?: string
+          is_enabled?: boolean | null
+          notes?: string | null
+          service_code: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          custom_percent_adjust?: number | null
+          custom_rate?: number | null
+          id?: string
+          is_enabled?: boolean | null
+          notes?: string | null
+          service_code?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_service_settings_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_service_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -1119,6 +1194,65 @@ export type Database = {
           },
         ]
       }
+      assembly_tiers: {
+        Row: {
+          billing_mode: string
+          created_at: string | null
+          default_minutes: number | null
+          display_name: string
+          id: string
+          is_active: boolean | null
+          notes: string | null
+          rate: number | null
+          requires_manual_quote: boolean | null
+          requires_special_installer: boolean | null
+          sort_order: number | null
+          tenant_id: string
+          tier_number: number
+          updated_at: string | null
+        }
+        Insert: {
+          billing_mode?: string
+          created_at?: string | null
+          default_minutes?: number | null
+          display_name: string
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          rate?: number | null
+          requires_manual_quote?: boolean | null
+          requires_special_installer?: boolean | null
+          sort_order?: number | null
+          tenant_id: string
+          tier_number: number
+          updated_at?: string | null
+        }
+        Update: {
+          billing_mode?: string
+          created_at?: string | null
+          default_minutes?: number | null
+          display_name?: string
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          rate?: number | null
+          requires_manual_quote?: boolean | null
+          requires_special_installer?: boolean | null
+          sort_order?: number | null
+          tenant_id?: string
+          tier_number?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assembly_tiers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -1177,6 +1311,7 @@ export type Database = {
       }
       billable_services: {
         Row: {
+          base_rate: number | null
           category: string
           charge_unit: string
           code: string
@@ -1186,11 +1321,14 @@ export type Database = {
           is_active: boolean | null
           is_taxable: boolean | null
           name: string
+          notes: string | null
+          pricing_mode: string | null
           sort_order: number | null
           tenant_id: string
           updated_at: string | null
         }
         Insert: {
+          base_rate?: number | null
           category?: string
           charge_unit?: string
           code: string
@@ -1200,11 +1338,14 @@ export type Database = {
           is_active?: boolean | null
           is_taxable?: boolean | null
           name: string
+          notes?: string | null
+          pricing_mode?: string | null
           sort_order?: number | null
           tenant_id: string
           updated_at?: string | null
         }
         Update: {
+          base_rate?: number | null
           category?: string
           charge_unit?: string
           code?: string
@@ -1214,6 +1355,8 @@ export type Database = {
           is_active?: boolean | null
           is_taxable?: boolean | null
           name?: string
+          notes?: string | null
+          pricing_mode?: string | null
           sort_order?: number | null
           tenant_id?: string
           updated_at?: string | null
@@ -1285,6 +1428,7 @@ export type Database = {
       billing_events: {
         Row: {
           account_id: string | null
+          calculation_metadata: Json | null
           charge_type: string
           class_id: string | null
           created_at: string
@@ -1312,6 +1456,7 @@ export type Database = {
         }
         Insert: {
           account_id?: string | null
+          calculation_metadata?: Json | null
           charge_type: string
           class_id?: string | null
           created_at?: string
@@ -1339,6 +1484,7 @@ export type Database = {
         }
         Update: {
           account_id?: string | null
+          calculation_metadata?: Json | null
           charge_type?: string
           class_id?: string | null
           created_at?: string
@@ -1402,8 +1548,57 @@ export type Database = {
           },
         ]
       }
+      claim_acceptance_log: {
+        Row: {
+          action: string
+          claim_id: string
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          tenant_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          claim_id: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          tenant_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          claim_id?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          tenant_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_acceptance_log_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_acceptance_log_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "v_claims_with_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claim_attachments: {
         Row: {
+          category: string | null
           claim_id: string
           created_at: string
           file_name: string | null
@@ -1416,6 +1611,7 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          category?: string | null
           claim_id: string
           created_at?: string
           file_name?: string | null
@@ -1428,6 +1624,7 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          category?: string | null
           claim_id?: string
           created_at?: string
           file_name?: string | null
@@ -1445,6 +1642,13 @@ export type Database = {
             columns: ["claim_id"]
             isOneToOne: false
             referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_attachments_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "v_claims_with_items"
             referencedColumns: ["id"]
           },
         ]
@@ -1485,11 +1689,146 @@ export type Database = {
             referencedRelation: "claims"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "claim_audit_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "v_claims_with_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claim_items: {
+        Row: {
+          approved_amount: number | null
+          calculated_amount: number | null
+          claim_id: string
+          coverage_rate: number | null
+          coverage_type: string | null
+          created_at: string | null
+          declared_value: number | null
+          deductible_applied: number | null
+          determination_notes: string | null
+          determined_at: string | null
+          determined_by: string | null
+          id: string
+          item_id: string | null
+          item_notes: string | null
+          non_inventory_ref: string | null
+          payout_method: string | null
+          payout_processed: boolean | null
+          payout_processed_at: string | null
+          repair_cost: number | null
+          repair_quote_id: string | null
+          repairable: boolean | null
+          requested_amount: number | null
+          tenant_id: string
+          updated_at: string | null
+          use_repair_cost: boolean | null
+          weight_lbs: number | null
+        }
+        Insert: {
+          approved_amount?: number | null
+          calculated_amount?: number | null
+          claim_id: string
+          coverage_rate?: number | null
+          coverage_type?: string | null
+          created_at?: string | null
+          declared_value?: number | null
+          deductible_applied?: number | null
+          determination_notes?: string | null
+          determined_at?: string | null
+          determined_by?: string | null
+          id?: string
+          item_id?: string | null
+          item_notes?: string | null
+          non_inventory_ref?: string | null
+          payout_method?: string | null
+          payout_processed?: boolean | null
+          payout_processed_at?: string | null
+          repair_cost?: number | null
+          repair_quote_id?: string | null
+          repairable?: boolean | null
+          requested_amount?: number | null
+          tenant_id: string
+          updated_at?: string | null
+          use_repair_cost?: boolean | null
+          weight_lbs?: number | null
+        }
+        Update: {
+          approved_amount?: number | null
+          calculated_amount?: number | null
+          claim_id?: string
+          coverage_rate?: number | null
+          coverage_type?: string | null
+          created_at?: string | null
+          declared_value?: number | null
+          deductible_applied?: number | null
+          determination_notes?: string | null
+          determined_at?: string | null
+          determined_by?: string | null
+          id?: string
+          item_id?: string | null
+          item_notes?: string | null
+          non_inventory_ref?: string | null
+          payout_method?: string | null
+          payout_processed?: boolean | null
+          payout_processed_at?: string | null
+          repair_cost?: number | null
+          repair_quote_id?: string | null
+          repairable?: boolean | null
+          requested_amount?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+          use_repair_cost?: boolean | null
+          weight_lbs?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_items_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_items_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "v_claims_with_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       claims: {
         Row: {
+          acceptance_token: string | null
+          acceptance_token_expires_at: string | null
           account_id: string
+          admin_approval_notes: string | null
+          admin_approved_at: string | null
+          admin_approved_by: string | null
           approved_amount: number | null
           approved_payout_amount: number | null
           assigned_to: string | null
@@ -1498,9 +1837,13 @@ export type Database = {
           claim_value_calculated: number | null
           claim_value_requested: number | null
           claimed_amount: number | null
+          client_initiated: boolean | null
+          counter_offer_amount: number | null
+          counter_offer_notes: string | null
           coverage_snapshot: Json | null
           coverage_type: string | null
           created_at: string | null
+          decline_reason: string | null
           deductible: number | null
           deductible_applied: number | null
           deleted_at: string | null
@@ -1513,29 +1856,48 @@ export type Database = {
           incident_contact_email: string | null
           incident_contact_name: string | null
           incident_contact_phone: string | null
+          incident_date: string | null
           incident_location: string | null
+          internal_notes: string | null
           item_id: string | null
           non_inventory_ref: string | null
           payout_method: string | null
           payout_reference: string | null
           photos: Json | null
+          public_notes: string | null
+          repair_task_created_id: string | null
+          requires_admin_approval: boolean | null
           requires_manager_approval: boolean
           resolution_notes: string | null
           resolved_at: string | null
           resolved_by: string | null
+          sent_for_acceptance_at: string | null
+          sent_for_acceptance_by: string | null
           settlement_acceptance_required: boolean | null
           settlement_accepted_at: string | null
           settlement_accepted_by: string | null
+          settlement_accepted_ip: string | null
+          settlement_declined_at: string | null
+          settlement_declined_by: string | null
           settlement_terms_text: string | null
           settlement_terms_version: string | null
           shipment_id: string | null
           sidemark_id: string | null
           status: string
+          status_before_acceptance: string | null
           tenant_id: string
+          total_approved_amount: number | null
+          total_deductible: number | null
+          total_requested_amount: number | null
           updated_at: string | null
         }
         Insert: {
+          acceptance_token?: string | null
+          acceptance_token_expires_at?: string | null
           account_id: string
+          admin_approval_notes?: string | null
+          admin_approved_at?: string | null
+          admin_approved_by?: string | null
           approved_amount?: number | null
           approved_payout_amount?: number | null
           assigned_to?: string | null
@@ -1544,9 +1906,13 @@ export type Database = {
           claim_value_calculated?: number | null
           claim_value_requested?: number | null
           claimed_amount?: number | null
+          client_initiated?: boolean | null
+          counter_offer_amount?: number | null
+          counter_offer_notes?: string | null
           coverage_snapshot?: Json | null
           coverage_type?: string | null
           created_at?: string | null
+          decline_reason?: string | null
           deductible?: number | null
           deductible_applied?: number | null
           deleted_at?: string | null
@@ -1559,29 +1925,48 @@ export type Database = {
           incident_contact_email?: string | null
           incident_contact_name?: string | null
           incident_contact_phone?: string | null
+          incident_date?: string | null
           incident_location?: string | null
+          internal_notes?: string | null
           item_id?: string | null
           non_inventory_ref?: string | null
           payout_method?: string | null
           payout_reference?: string | null
           photos?: Json | null
+          public_notes?: string | null
+          repair_task_created_id?: string | null
+          requires_admin_approval?: boolean | null
           requires_manager_approval?: boolean
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          sent_for_acceptance_at?: string | null
+          sent_for_acceptance_by?: string | null
           settlement_acceptance_required?: boolean | null
           settlement_accepted_at?: string | null
           settlement_accepted_by?: string | null
+          settlement_accepted_ip?: string | null
+          settlement_declined_at?: string | null
+          settlement_declined_by?: string | null
           settlement_terms_text?: string | null
           settlement_terms_version?: string | null
           shipment_id?: string | null
           sidemark_id?: string | null
           status?: string
+          status_before_acceptance?: string | null
           tenant_id: string
+          total_approved_amount?: number | null
+          total_deductible?: number | null
+          total_requested_amount?: number | null
           updated_at?: string | null
         }
         Update: {
+          acceptance_token?: string | null
+          acceptance_token_expires_at?: string | null
           account_id?: string
+          admin_approval_notes?: string | null
+          admin_approved_at?: string | null
+          admin_approved_by?: string | null
           approved_amount?: number | null
           approved_payout_amount?: number | null
           assigned_to?: string | null
@@ -1590,9 +1975,13 @@ export type Database = {
           claim_value_calculated?: number | null
           claim_value_requested?: number | null
           claimed_amount?: number | null
+          client_initiated?: boolean | null
+          counter_offer_amount?: number | null
+          counter_offer_notes?: string | null
           coverage_snapshot?: Json | null
           coverage_type?: string | null
           created_at?: string | null
+          decline_reason?: string | null
           deductible?: number | null
           deductible_applied?: number | null
           deleted_at?: string | null
@@ -1605,25 +1994,39 @@ export type Database = {
           incident_contact_email?: string | null
           incident_contact_name?: string | null
           incident_contact_phone?: string | null
+          incident_date?: string | null
           incident_location?: string | null
+          internal_notes?: string | null
           item_id?: string | null
           non_inventory_ref?: string | null
           payout_method?: string | null
           payout_reference?: string | null
           photos?: Json | null
+          public_notes?: string | null
+          repair_task_created_id?: string | null
+          requires_admin_approval?: boolean | null
           requires_manager_approval?: boolean
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          sent_for_acceptance_at?: string | null
+          sent_for_acceptance_by?: string | null
           settlement_acceptance_required?: boolean | null
           settlement_accepted_at?: string | null
           settlement_accepted_by?: string | null
+          settlement_accepted_ip?: string | null
+          settlement_declined_at?: string | null
+          settlement_declined_by?: string | null
           settlement_terms_text?: string | null
           settlement_terms_version?: string | null
           shipment_id?: string | null
           sidemark_id?: string | null
           status?: string
+          status_before_acceptance?: string | null
           tenant_id?: string
+          total_approved_amount?: number | null
+          total_deductible?: number | null
+          total_requested_amount?: number | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1632,6 +2035,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_admin_approved_by_fkey"
+            columns: ["admin_approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -1663,6 +2073,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "claims_sent_for_acceptance_by_fkey"
+            columns: ["sent_for_acceptance_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "claims_shipment_id_fkey"
             columns: ["shipment_id"]
             isOneToOne: false
@@ -1689,36 +2106,48 @@ export type Database = {
         Row: {
           code: string
           created_at: string | null
+          default_inspection_minutes: number | null
           id: string
+          inspection_fee_per_item: number | null
           is_active: boolean | null
           max_cubic_feet: number | null
           min_cubic_feet: number | null
           name: string
+          notes: string | null
           sort_order: number | null
+          storage_rate_per_day: number | null
           tenant_id: string
           updated_at: string | null
         }
         Insert: {
           code: string
           created_at?: string | null
+          default_inspection_minutes?: number | null
           id?: string
+          inspection_fee_per_item?: number | null
           is_active?: boolean | null
           max_cubic_feet?: number | null
           min_cubic_feet?: number | null
           name: string
+          notes?: string | null
           sort_order?: number | null
+          storage_rate_per_day?: number | null
           tenant_id: string
           updated_at?: string | null
         }
         Update: {
           code?: string
           created_at?: string | null
+          default_inspection_minutes?: number | null
           id?: string
+          inspection_fee_per_item?: number | null
           is_active?: boolean | null
           max_cubic_feet?: number | null
           min_cubic_feet?: number | null
           name?: string
+          notes?: string | null
           sort_order?: number | null
+          storage_rate_per_day?: number | null
           tenant_id?: string
           updated_at?: string | null
         }
@@ -2236,6 +2665,47 @@ export type Database = {
           },
         ]
       }
+      credit_applications: {
+        Row: {
+          amount_applied: number
+          applied_at: string
+          applied_by: string | null
+          credit_id: string
+          id: string
+          invoice_id: string
+          notes: string | null
+          tenant_id: string
+        }
+        Insert: {
+          amount_applied: number
+          applied_at?: string
+          applied_by?: string | null
+          credit_id: string
+          id?: string
+          invoice_id: string
+          notes?: string | null
+          tenant_id: string
+        }
+        Update: {
+          amount_applied?: number
+          applied_at?: string
+          applied_by?: string | null
+          credit_id?: string
+          id?: string
+          invoice_id?: string
+          notes?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_applications_credit_id_fkey"
+            columns: ["credit_id"]
+            isOneToOne: false
+            referencedRelation: "account_credits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       csv_import_jobs: {
         Row: {
           completed_at: string | null
@@ -2463,6 +2933,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "custom_fields_definitions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      departments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -2940,6 +3461,151 @@ export type Database = {
           },
         ]
       }
+      flag_service_rules: {
+        Row: {
+          adds_flat_fee: number | null
+          adds_minutes: number | null
+          adds_percent: number | null
+          created_at: string | null
+          flag_id: string
+          id: string
+          is_active: boolean | null
+          multiplier: number | null
+          notes: string | null
+          service_code: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          adds_flat_fee?: number | null
+          adds_minutes?: number | null
+          adds_percent?: number | null
+          created_at?: string | null
+          flag_id: string
+          id?: string
+          is_active?: boolean | null
+          multiplier?: number | null
+          notes?: string | null
+          service_code: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          adds_flat_fee?: number | null
+          adds_minutes?: number | null
+          adds_percent?: number | null
+          created_at?: string | null
+          flag_id?: string
+          id?: string
+          is_active?: boolean | null
+          multiplier?: number | null
+          notes?: string | null
+          service_code?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flag_service_rules_flag_id_fkey"
+            columns: ["flag_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_flags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flag_service_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      in_app_notifications: {
+        Row: {
+          action_url: string | null
+          alert_queue_id: string | null
+          body: string | null
+          category: string
+          created_at: string
+          deleted_at: string | null
+          expires_at: string | null
+          icon: string | null
+          id: string
+          is_read: boolean
+          notification_event_id: string | null
+          priority: string
+          read_at: string | null
+          related_entity_id: string | null
+          related_entity_type: string | null
+          tenant_id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          action_url?: string | null
+          alert_queue_id?: string | null
+          body?: string | null
+          category?: string
+          created_at?: string
+          deleted_at?: string | null
+          expires_at?: string | null
+          icon?: string | null
+          id?: string
+          is_read?: boolean
+          notification_event_id?: string | null
+          priority?: string
+          read_at?: string | null
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          tenant_id: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          action_url?: string | null
+          alert_queue_id?: string | null
+          body?: string | null
+          category?: string
+          created_at?: string
+          deleted_at?: string | null
+          expires_at?: string | null
+          icon?: string | null
+          id?: string
+          is_read?: boolean
+          notification_event_id?: string | null
+          priority?: string
+          read_at?: string | null
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          tenant_id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "in_app_notifications_alert_queue_id_fkey"
+            columns: ["alert_queue_id"]
+            isOneToOne: false
+            referencedRelation: "alert_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "in_app_notifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "in_app_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_column_configs: {
         Row: {
           account_id: string | null
@@ -3221,20 +3887,87 @@ export type Database = {
           },
         ]
       }
+      invoice_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          credit_application_id: string | null
+          id: string
+          invoice_id: string
+          notes: string | null
+          payment_date: string
+          payment_method: string
+          payment_reference: string | null
+          tenant_id: string
+          voided_at: string | null
+          voided_by: string | null
+          voided_reason: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          credit_application_id?: string | null
+          id?: string
+          invoice_id: string
+          notes?: string | null
+          payment_date?: string
+          payment_method: string
+          payment_reference?: string | null
+          tenant_id: string
+          voided_at?: string | null
+          voided_by?: string | null
+          voided_reason?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          credit_application_id?: string | null
+          id?: string
+          invoice_id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+          payment_reference?: string | null
+          tenant_id?: string
+          voided_at?: string | null
+          voided_by?: string | null
+          voided_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_payments_credit_application_id_fkey"
+            columns: ["credit_application_id"]
+            isOneToOne: false
+            referencedRelation: "credit_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           account_id: string
           created_at: string | null
           created_by: string | null
+          credits_applied: number | null
           discount_amount: number | null
           due_date: string | null
           group_by: string | null
           id: string
           invoice_date: string
           invoice_number: string
+          marked_paid_at: string | null
+          marked_paid_by: string | null
           notes: string | null
           paid_amount: number | null
           paid_date: string | null
+          payment_date: string | null
+          payment_method: string | null
+          payment_notes: string | null
+          payment_reference: string | null
+          payment_status: string | null
           period_end: string | null
           period_start: string | null
           qbo_invoice_id: string | null
@@ -3256,15 +3989,23 @@ export type Database = {
           account_id: string
           created_at?: string | null
           created_by?: string | null
+          credits_applied?: number | null
           discount_amount?: number | null
           due_date?: string | null
           group_by?: string | null
           id?: string
           invoice_date?: string
           invoice_number: string
+          marked_paid_at?: string | null
+          marked_paid_by?: string | null
           notes?: string | null
           paid_amount?: number | null
           paid_date?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_notes?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
           period_end?: string | null
           period_start?: string | null
           qbo_invoice_id?: string | null
@@ -3286,15 +4027,23 @@ export type Database = {
           account_id?: string
           created_at?: string | null
           created_by?: string | null
+          credits_applied?: number | null
           discount_amount?: number | null
           due_date?: string | null
           group_by?: string | null
           id?: string
           invoice_date?: string
           invoice_number?: string
+          marked_paid_at?: string | null
+          marked_paid_by?: string | null
           notes?: string | null
           paid_amount?: number | null
           paid_date?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_notes?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
           period_end?: string | null
           period_start?: string | null
           qbo_invoice_id?: string | null
@@ -3593,35 +4342,47 @@ export type Database = {
         Row: {
           applied_at: string
           applied_by: string | null
+          billing_event_id: string | null
           flag_id: string
           id: string
           item_id: string
           notes: string | null
           resolved_at: string | null
           resolved_by: string | null
+          task_id: string | null
           tenant_id: string
+          unset_at: string | null
+          unset_by: string | null
         }
         Insert: {
           applied_at?: string
           applied_by?: string | null
+          billing_event_id?: string | null
           flag_id: string
           id?: string
           item_id: string
           notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          task_id?: string | null
           tenant_id: string
+          unset_at?: string | null
+          unset_by?: string | null
         }
         Update: {
           applied_at?: string
           applied_by?: string | null
+          billing_event_id?: string | null
           flag_id?: string
           id?: string
           item_id?: string
           notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          task_id?: string | null
           tenant_id?: string
+          unset_at?: string | null
+          unset_by?: string | null
         }
         Relationships: [
           {
@@ -3629,6 +4390,13 @@ export type Database = {
             columns: ["applied_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_flags_billing_event_id_fkey"
+            columns: ["billing_event_id"]
+            isOneToOne: false
+            referencedRelation: "billing_events"
             referencedColumns: ["id"]
           },
           {
@@ -3650,6 +4418,13 @@ export type Database = {
             columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_flags_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
           {
@@ -4016,6 +4791,7 @@ export type Database = {
         Row: {
           account_id: string | null
           assembly_status: string | null
+          assembly_tier_id: string | null
           class_id: string | null
           client_account: string | null
           coverage_deductible: number | null
@@ -4073,6 +4849,7 @@ export type Database = {
         Insert: {
           account_id?: string | null
           assembly_status?: string | null
+          assembly_tier_id?: string | null
           class_id?: string | null
           client_account?: string | null
           coverage_deductible?: number | null
@@ -4130,6 +4907,7 @@ export type Database = {
         Update: {
           account_id?: string | null
           assembly_status?: string | null
+          assembly_tier_id?: string | null
           class_id?: string | null
           client_account?: string | null
           coverage_deductible?: number | null
@@ -4190,6 +4968,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_assembly_tier_id_fkey"
+            columns: ["assembly_tier_id"]
+            isOneToOne: false
+            referencedRelation: "assembly_tiers"
             referencedColumns: ["id"]
           },
           {
@@ -4342,6 +5127,123 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_recipients: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          deleted_at: string | null
+          id: string
+          is_archived: boolean
+          is_read: boolean
+          message_id: string
+          read_at: string | null
+          recipient_id: string
+          recipient_type: string
+          user_id: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_archived?: boolean
+          is_read?: boolean
+          message_id: string
+          read_at?: string | null
+          recipient_id: string
+          recipient_type: string
+          user_id?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_archived?: boolean
+          is_read?: boolean
+          message_id?: string
+          read_at?: string | null
+          recipient_id?: string
+          recipient_type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_recipients_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_recipients_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          body: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          message_type: string
+          metadata: Json | null
+          priority: string
+          related_entity_id: string | null
+          related_entity_type: string | null
+          sender_id: string
+          subject: string
+          tenant_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          message_type?: string
+          metadata?: Json | null
+          priority?: string
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          sender_id: string
+          subject: string
+          tenant_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          message_type?: string
+          metadata?: Json | null
+          priority?: string
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          sender_id?: string
+          subject?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -4558,6 +5460,142 @@ export type Database = {
           },
           {
             foreignKeyName: "notification_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_claim_settings: {
+        Row: {
+          acceptance_token_expiry_days: number | null
+          approval_required_above_threshold: boolean | null
+          approval_threshold_amount: number | null
+          auto_create_repair_task: boolean | null
+          created_at: string | null
+          default_payout_method: string | null
+          id: string
+          settlement_terms_template: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          acceptance_token_expiry_days?: number | null
+          approval_required_above_threshold?: boolean | null
+          approval_threshold_amount?: number | null
+          auto_create_repair_task?: boolean | null
+          created_at?: string | null
+          default_payout_method?: string | null
+          id?: string
+          settlement_terms_template?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          acceptance_token_expiry_days?: number | null
+          approval_required_above_threshold?: boolean | null
+          approval_threshold_amount?: number | null
+          auto_create_repair_task?: boolean | null
+          created_at?: string | null
+          default_payout_method?: string | null
+          id?: string
+          settlement_terms_template?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_claim_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_flags: {
+        Row: {
+          adds_minutes: number | null
+          adds_percent: number | null
+          applies_to_services: string | null
+          billing_charge_type: string | null
+          client_can_set: boolean | null
+          color: string | null
+          created_at: string | null
+          creates_billing_event: boolean | null
+          description: string | null
+          display_name: string
+          flag_key: string
+          flag_type: string
+          flat_fee: number | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          is_billable: boolean | null
+          notes: string | null
+          sort_order: number | null
+          tenant_id: string
+          triggers_alert: boolean | null
+          triggers_task_type: string | null
+          updated_at: string | null
+          visible_to_client: boolean | null
+        }
+        Insert: {
+          adds_minutes?: number | null
+          adds_percent?: number | null
+          applies_to_services?: string | null
+          billing_charge_type?: string | null
+          client_can_set?: boolean | null
+          color?: string | null
+          created_at?: string | null
+          creates_billing_event?: boolean | null
+          description?: string | null
+          display_name: string
+          flag_key: string
+          flag_type?: string
+          flat_fee?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_billable?: boolean | null
+          notes?: string | null
+          sort_order?: number | null
+          tenant_id: string
+          triggers_alert?: boolean | null
+          triggers_task_type?: string | null
+          updated_at?: string | null
+          visible_to_client?: boolean | null
+        }
+        Update: {
+          adds_minutes?: number | null
+          adds_percent?: number | null
+          applies_to_services?: string | null
+          billing_charge_type?: string | null
+          client_can_set?: boolean | null
+          color?: string | null
+          created_at?: string | null
+          creates_billing_event?: boolean | null
+          description?: string | null
+          display_name?: string
+          flag_key?: string
+          flag_type?: string
+          flat_fee?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_billable?: boolean | null
+          notes?: string | null
+          sort_order?: number | null
+          tenant_id?: string
+          triggers_alert?: boolean | null
+          triggers_task_type?: string | null
+          updated_at?: string | null
+          visible_to_client?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_flags_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -4966,6 +6004,146 @@ export type Database = {
           },
           {
             foreignKeyName: "repair_client_offers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      repair_quote_items: {
+        Row: {
+          allocated_customer_amount: number | null
+          allocated_tech_amount: number | null
+          created_at: string | null
+          damage_description: string | null
+          damage_photos: Json | null
+          id: string
+          item_code: string | null
+          item_description: string | null
+          item_id: string
+          notes_internal: string | null
+          notes_public: string | null
+          repair_quote_id: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          allocated_customer_amount?: number | null
+          allocated_tech_amount?: number | null
+          created_at?: string | null
+          damage_description?: string | null
+          damage_photos?: Json | null
+          id?: string
+          item_code?: string | null
+          item_description?: string | null
+          item_id: string
+          notes_internal?: string | null
+          notes_public?: string | null
+          repair_quote_id: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          allocated_customer_amount?: number | null
+          allocated_tech_amount?: number | null
+          created_at?: string | null
+          damage_description?: string | null
+          damage_photos?: Json | null
+          id?: string
+          item_code?: string | null
+          item_description?: string | null
+          item_id?: string
+          notes_internal?: string | null
+          notes_public?: string | null
+          repair_quote_id?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_quote_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_quote_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_quote_items_repair_quote_id_fkey"
+            columns: ["repair_quote_id"]
+            isOneToOne: false
+            referencedRelation: "repair_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_quote_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      repair_quote_tokens: {
+        Row: {
+          accessed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          expires_at: string
+          id: string
+          recipient_email: string | null
+          recipient_name: string | null
+          repair_quote_id: string
+          tenant_id: string
+          token: string
+          token_type: string
+          used_at: string | null
+        }
+        Insert: {
+          accessed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          recipient_email?: string | null
+          recipient_name?: string | null
+          repair_quote_id: string
+          tenant_id: string
+          token?: string
+          token_type: string
+          used_at?: string | null
+        }
+        Update: {
+          accessed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          recipient_email?: string | null
+          recipient_name?: string | null
+          repair_quote_id?: string
+          tenant_id?: string
+          token?: string
+          token_type?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_quote_tokens_repair_quote_id_fkey"
+            columns: ["repair_quote_id"]
+            isOneToOne: false
+            referencedRelation: "repair_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_quote_tokens_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -5890,6 +7068,7 @@ export type Database = {
           created_by: string | null
           deleted_at: string | null
           expected_item_count: number | null
+          freeze_moves: boolean | null
           id: string
           location_id: string | null
           notes: string | null
@@ -5911,6 +7090,7 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           expected_item_count?: number | null
+          freeze_moves?: boolean | null
           id?: string
           location_id?: string | null
           notes?: string | null
@@ -5932,6 +7112,7 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           expected_item_count?: number | null
+          freeze_moves?: boolean | null
           id?: string
           location_id?: string | null
           notes?: string | null
@@ -7388,6 +8569,58 @@ export type Database = {
           },
         ]
       }
+      user_departments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          department_id: string
+          id: string
+          is_primary: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          department_id: string
+          id?: string
+          is_primary?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          department_id?: string
+          id?: string
+          is_primary?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_departments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_departments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_departments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_preferences: {
         Row: {
           created_at: string | null
@@ -7819,6 +9052,166 @@ export type Database = {
       }
     }
     Views: {
+      v_account_credit_balance: {
+        Row: {
+          account_id: string | null
+          account_name: string | null
+          active_credits_count: number | null
+          available_credit: number | null
+          tenant_id: string | null
+          total_credits_applied: number | null
+          total_credits_issued: number | null
+        }
+        Relationships: []
+      }
+      v_claims_with_items: {
+        Row: {
+          acceptance_token: string | null
+          acceptance_token_expires_at: string | null
+          account_id: string | null
+          account_name: string | null
+          admin_approval_notes: string | null
+          admin_approved_at: string | null
+          admin_approved_by: string | null
+          approved_amount: number | null
+          approved_payout_amount: number | null
+          assigned_to: string | null
+          claim_number: string | null
+          claim_type: string | null
+          claim_value_calculated: number | null
+          claim_value_requested: number | null
+          claimed_amount: number | null
+          client_initiated: boolean | null
+          counter_offer_amount: number | null
+          counter_offer_notes: string | null
+          coverage_snapshot: Json | null
+          coverage_type: string | null
+          created_at: string | null
+          decline_reason: string | null
+          deductible: number | null
+          deductible_applied: number | null
+          deleted_at: string | null
+          description: string | null
+          determination_sent_at: string | null
+          documents: Json | null
+          filed_at: string | null
+          filed_by: string | null
+          id: string | null
+          incident_contact_email: string | null
+          incident_contact_name: string | null
+          incident_contact_phone: string | null
+          incident_date: string | null
+          incident_location: string | null
+          internal_notes: string | null
+          item_count: number | null
+          item_id: string | null
+          items_total_approved: number | null
+          items_total_requested: number | null
+          non_inventory_ref: string | null
+          payout_method: string | null
+          payout_reference: string | null
+          photos: Json | null
+          public_notes: string | null
+          repair_task_created_id: string | null
+          requires_admin_approval: boolean | null
+          requires_manager_approval: boolean | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          sent_for_acceptance_at: string | null
+          sent_for_acceptance_by: string | null
+          settlement_acceptance_required: boolean | null
+          settlement_accepted_at: string | null
+          settlement_accepted_by: string | null
+          settlement_accepted_ip: string | null
+          settlement_declined_at: string | null
+          settlement_declined_by: string | null
+          settlement_terms_text: string | null
+          settlement_terms_version: string | null
+          shipment_id: string | null
+          sidemark_id: string | null
+          sidemark_name: string | null
+          status: string | null
+          status_before_acceptance: string | null
+          tenant_id: string | null
+          total_approved_amount: number | null
+          total_deductible: number | null
+          total_requested_amount: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claims_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_admin_approved_by_fkey"
+            columns: ["admin_approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_filed_by_fkey"
+            columns: ["filed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_sent_for_acceptance_by_fkey"
+            columns: ["sent_for_acceptance_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_sidemark_id_fkey"
+            columns: ["sidemark_id"]
+            isOneToOne: false
+            referencedRelation: "sidemarks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_items_with_location: {
         Row: {
           account_id: string | null
@@ -7936,6 +9329,20 @@ export type Database = {
       }
     }
     Functions: {
+      accept_claim_settlement: {
+        Args: { p_ip_address?: string; p_token: string; p_user_agent?: string }
+        Returns: Json
+      }
+      apply_credit_to_invoice: {
+        Args: {
+          p_amount: number
+          p_applied_by: string
+          p_credit_id: string
+          p_invoice_id: string
+          p_notes?: string
+        }
+        Returns: string
+      }
       batch_move_items: {
         Args: {
           p_action_type?: string
@@ -7947,6 +9354,48 @@ export type Database = {
           error_message: string
           item_id: string
           success: boolean
+        }[]
+      }
+      calculate_claim_totals: {
+        Args: { p_claim_id: string }
+        Returns: {
+          item_count: number
+          total_approved: number
+          total_deductible: number
+          total_requested: number
+        }[]
+      }
+      calculate_service_price: {
+        Args: {
+          p_account_id: string
+          p_assembly_tier_id?: string
+          p_class_id?: string
+          p_item_id?: string
+          p_service_code: string
+          p_tenant_id: string
+        }
+        Returns: {
+          flags_applied: string[]
+          minutes: number
+          rate: number
+          source: string
+        }[]
+      }
+      calculate_service_price_v2: {
+        Args: {
+          p_account_id: string
+          p_assembly_tier_id?: string
+          p_class_id?: string
+          p_item_id?: string
+          p_service_code: string
+          p_tenant_id: string
+        }
+        Returns: {
+          calculation_breakdown: Json
+          flags_applied: string[]
+          minutes: number
+          rate: number
+          source: string
         }[]
       }
       calculate_storage_charges: {
@@ -7964,6 +9413,17 @@ export type Database = {
       can_access_document: { Args: { doc_id: string }; Returns: boolean }
       check_past_due_tasks: { Args: never; Returns: undefined }
       current_user_id: { Args: never; Returns: string }
+      decline_claim_settlement: {
+        Args: {
+          p_counter_offer_amount?: number
+          p_counter_offer_notes?: string
+          p_ip_address?: string
+          p_reason: string
+          p_token: string
+          p_user_agent?: string
+        }
+        Returns: Json
+      }
       generate_claim_number: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_item_code:
@@ -7976,18 +9436,106 @@ export type Database = {
         Args: { p_date: string }
         Returns: undefined
       }
+      get_available_flags: {
+        Args: { p_is_client?: boolean; p_tenant_id: string }
+        Returns: {
+          adds_minutes: number
+          adds_percent: number
+          applies_to_services: string
+          client_can_set: boolean
+          color: string
+          description: string
+          display_name: string
+          flag_key: string
+          flat_fee: number
+          icon: string
+          id: string
+          is_billable: boolean
+          sort_order: number
+          triggers_task_type: string
+          visible_to_client: boolean
+        }[]
+      }
+      get_claim_by_acceptance_token: {
+        Args: { p_token: string }
+        Returns: {
+          acceptance_token_expires_at: string
+          account_id: string
+          account_name: string
+          claim_number: string
+          claim_type: string
+          description: string
+          id: string
+          item_count: number
+          payout_method: string
+          sent_for_acceptance_at: string
+          settlement_accepted_at: string
+          settlement_declined_at: string
+          settlement_terms_text: string
+          settlement_terms_version: string
+          status: string
+          tenant_id: string
+          total_approved_amount: number
+        }[]
+      }
+      get_claim_items_by_acceptance_token: {
+        Args: { p_token: string }
+        Returns: {
+          approved_amount: number
+          coverage_type: string
+          declared_value: number
+          description: string
+          id: string
+          item_code: string
+          repair_cost: number
+          repairable: boolean
+          use_repair_cost: boolean
+          weight_lbs: number
+        }[]
+      }
       get_client_sidemark_mode: {
         Args: { p_account_id: string }
         Returns: string
       }
       get_current_user_tenant_id: { Args: never; Returns: string }
+      get_item_flags: {
+        Args: { p_item_id: string }
+        Returns: {
+          adds_percent: number
+          billing_event_id: string
+          client_can_set: boolean
+          color: string
+          description: string
+          display_name: string
+          flag_id: string
+          flag_key: string
+          flat_fee: number
+          icon: string
+          is_billable: boolean
+          set_at: string
+          set_by: string
+          task_id: string
+          visible_to_client: boolean
+        }[]
+      }
       get_or_create_receiving_dock: {
         Args: { p_warehouse_id: string }
         Returns: string
       }
+      get_pricing_export_data: { Args: { p_tenant_id: string }; Returns: Json }
       get_sidemark_display: { Args: { p_sidemark_id: string }; Returns: string }
+      get_total_unread_count: { Args: { p_user_id: string }; Returns: number }
+      get_unread_message_count: { Args: { p_user_id: string }; Returns: number }
+      get_unread_notification_count: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
+      import_pricing_data: {
+        Args: { p_data: Json; p_overwrite?: boolean; p_tenant_id: string }
+        Returns: Json
+      }
       is_communication_admin: { Args: never; Returns: boolean }
       is_tenant_admin:
         | { Args: never; Returns: boolean }
@@ -7999,6 +9547,27 @@ export type Database = {
         Args: { tenant_id_param: string; user_id: string }
         Returns: boolean
       }
+      mark_all_notifications_read: { Args: never; Returns: number }
+      mark_invoice_paid: {
+        Args: {
+          p_amount: number
+          p_invoice_id: string
+          p_marked_by?: string
+          p_notes?: string
+          p_payment_date?: string
+          p_payment_method: string
+          p_payment_reference?: string
+        }
+        Returns: string
+      }
+      mark_message_read: {
+        Args: { p_message_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      mark_notification_read: {
+        Args: { p_notification_id: string }
+        Returns: boolean
+      }
       move_item_sidemark_and_unbilled_events: {
         Args: { p_item_id: string; p_new_sidemark_id: string }
         Returns: Json
@@ -8008,7 +9577,34 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: undefined
       }
+      seed_default_pricing: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
+      seed_enhanced_flags: { Args: { p_tenant_id: string }; Returns: undefined }
       seed_standard_roles: { Args: { p_tenant_id: string }; Returns: undefined }
+      send_claim_for_acceptance: {
+        Args: {
+          p_claim_id: string
+          p_payout_method?: string
+          p_sent_by?: string
+          p_settlement_terms: string
+        }
+        Returns: Json
+      }
+      set_item_flag: {
+        Args: {
+          p_flag_key: string
+          p_item_id: string
+          p_notes?: string
+          p_user_id?: string
+        }
+        Returns: Json
+      }
+      unset_item_flag: {
+        Args: { p_flag_key: string; p_item_id: string; p_user_id?: string }
+        Returns: Json
+      }
       user_can_access_sidemark: {
         Args: { p_sidemark_id: string; p_user_id: string }
         Returns: boolean
@@ -8052,6 +9648,7 @@ export type Database = {
         | "release"
         | "stocktake_correction"
         | "reactivation"
+      payout_method_enum: "credit" | "check" | "repair_vendor_pay"
       repair_quote_status:
         | "pending"
         | "submitted"
@@ -8241,6 +9838,7 @@ export const Constants = {
         "stocktake_correction",
         "reactivation",
       ],
+      payout_method_enum: ["credit", "check", "repair_vendor_pay"],
       repair_quote_status: [
         "pending",
         "submitted",
