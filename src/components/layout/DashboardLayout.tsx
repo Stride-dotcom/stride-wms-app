@@ -182,11 +182,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       if (!profile?.id) return;
       try {
         // Try the RPC function first
-        const { data, error } = await supabase.rpc('get_total_unread_count', {
+        const { data, error } = await (supabase as any).rpc('get_total_unread_count', {
           p_user_id: profile.id,
         });
         if (!error && data !== null) {
-          setUnreadCount(data);
+          setUnreadCount(typeof data === 'number' ? data : 0);
         }
       } catch {
         // Silently fail - tables may not exist yet

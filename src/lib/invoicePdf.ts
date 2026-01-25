@@ -415,5 +415,5 @@ export function downloadInvoicePdf(data: InvoicePdfData): void {
 export function printInvoicePdf(data: InvoicePdfData): void {
   const doc = generateInvoicePdf(data);
   const pdfUrl = doc.output('bloburl');
-  window.open(pdfUrl as string, '_blank');
+  window.open(pdfUrl.toString(), '_blank');
 }

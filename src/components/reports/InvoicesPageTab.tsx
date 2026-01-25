@@ -163,7 +163,7 @@ export function InvoicesPageTab() {
     setLinesDialogOpen(false);
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string): React.ReactNode => {
     switch (status) {
       case "draft":
         return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">Draft</Badge>;
@@ -290,7 +290,7 @@ export function InvoicesPageTab() {
                 <TableRow key={inv.id}>
                   <TableCell className="font-mono">{inv.invoice_number || "-"}</TableCell>
                   <TableCell>{inv.account_name || "-"}</TableCell>
-                  <TableCell>{inv.created_at?.slice(0, 10)}</TableCell>
+                  <TableCell>{inv.created_at?.slice(0, 10) || "-"}</TableCell>
                   <TableCell className="text-xs">
                     {inv.period_start?.slice(0, 10)} - {inv.period_end?.slice(0, 10)}
                   </TableCell>
@@ -333,7 +333,7 @@ export function InvoicesPageTab() {
           <DialogHeader>
             <DialogTitle>Invoice {selectedInvoice?.invoice_number}</DialogTitle>
             <DialogDescription>
-              {selectedInvoice?.account_name} • {getStatusBadge(selectedInvoice?.status || "")}
+              {selectedInvoice?.account_name} • {selectedInvoice?.status && getStatusBadge(selectedInvoice.status)}
             </DialogDescription>
           </DialogHeader>
 

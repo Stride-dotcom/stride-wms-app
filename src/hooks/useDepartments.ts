@@ -33,7 +33,7 @@ export function useDepartments() {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('departments')
+        .from('departments' as any)
         .select('*')
         .eq('tenant_id', profile.tenant_id)
         .eq('is_active', true)
@@ -41,7 +41,7 @@ export function useDepartments() {
         .order('name');
 
       if (error) throw error;
-      setDepartments((data || []) as Department[]);
+      setDepartments((data || []) as any as Department[]);
     } catch (error) {
       console.error('Error fetching departments:', error);
       toast({
@@ -59,7 +59,7 @@ export function useDepartments() {
 
     try {
       const { data, error } = await supabase
-        .from('departments')
+        .from('departments' as any)
         .insert({
           tenant_id: profile.tenant_id,
           name,
@@ -71,7 +71,7 @@ export function useDepartments() {
 
       if (error) throw error;
 
-      const dept = data as Department;
+      const dept = data as any as Department;
       setDepartments((prev) => [...prev, dept].sort((a, b) => a.name.localeCompare(b.name)));
       toast({ title: 'Department created', description: `${name} has been created.` });
       return dept;
@@ -89,7 +89,7 @@ export function useDepartments() {
   const updateDepartment = useCallback(async (id: string, updates: { name?: string; description?: string }): Promise<boolean> => {
     try {
       const { error } = await supabase
-        .from('departments')
+        .from('departments' as any)
         .update(updates)
         .eq('id', id);
 
@@ -114,7 +114,7 @@ export function useDepartments() {
   const deleteDepartment = useCallback(async (id: string): Promise<boolean> => {
     try {
       const { error } = await supabase
-        .from('departments')
+        .from('departments' as any)
         .update({ deleted_at: new Date().toISOString(), is_active: false })
         .eq('id', id);
 
@@ -139,7 +139,7 @@ export function useDepartments() {
 
     try {
       const { error } = await supabase
-        .from('user_departments')
+        .from('user_departments' as any)
         .insert({
           user_id: userId,
           department_id: departmentId,
@@ -164,7 +164,7 @@ export function useDepartments() {
   const removeUserFromDepartment = useCallback(async (userId: string, departmentId: string): Promise<boolean> => {
     try {
       const { error } = await supabase
-        .from('user_departments')
+        .from('user_departments' as any)
         .update({ deleted_at: new Date().toISOString() })
         .eq('user_id', userId)
         .eq('department_id', departmentId);

@@ -495,10 +495,10 @@ export default function StocktakeScanView() {
             <h1 className="text-xl font-bold flex items-center gap-2">
               {stocktake.name || stocktake.stocktake_number}
               {stocktake.freeze_moves && (
-                <Lock className="h-4 w-4 text-yellow-500" title="Movements frozen" />
+                <Lock className="h-4 w-4 text-yellow-500" />
               )}
               {stocktake.allow_location_auto_fix && (
-                <Wrench className="h-4 w-4 text-blue-500" title="Auto-fix enabled" />
+                <Wrench className="h-4 w-4 text-blue-500" />
               )}
             </h1>
             <p className="text-sm text-muted-foreground">

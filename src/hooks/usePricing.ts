@@ -937,7 +937,7 @@ export function useExportPricingData() {
       });
 
       if (error) throw error;
-      return data as PricingExportData;
+      return data as any as PricingExportData;
     },
     onError: (error) => {
       console.error('Error exporting pricing data:', error);
@@ -956,7 +956,7 @@ export function useImportPricingData() {
 
       const { data: result, error } = await supabase.rpc('import_pricing_data', {
         p_tenant_id: profile.tenant_id,
-        p_data: data,
+        p_data: data as any,
         p_overwrite: overwrite,
       });
 
@@ -1011,7 +1011,7 @@ export function useCalculateServicePriceV2() {
       });
 
       if (error) throw error;
-      return data?.[0] as {
+      return data?.[0] as any as {
         rate: number;
         minutes: number;
         source: string;
