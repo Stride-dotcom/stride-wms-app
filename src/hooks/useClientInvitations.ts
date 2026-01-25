@@ -103,7 +103,7 @@ export function useCreateInvitation() {
       // Get account details for the email
       const { data: account, error: accountError } = await supabase
         .from('accounts')
-        .select('name')
+        .select('account_name')
         .eq('id', params.accountId)
         .single();
 
@@ -146,7 +146,7 @@ export function useCreateInvitation() {
       // Generate and send email
       const emailContent = generateClientInvitationEmail({
         recipientName: params.firstName || params.email.split('@')[0],
-        accountName: account.name,
+        accountName: account.account_name,
         inviterName: dbUser.first_name
           ? `${dbUser.first_name} ${dbUser.last_name || ''}`.trim()
           : 'The team',
@@ -184,7 +184,21 @@ export function useCreateInvitation() {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['client-invitations', variables.accountId] });
       if (data.emailResult.success) {
-        toast.success('Invitation sent successfully');
+        // Check if in test mode and show the activation link
+        if (data.emailResult.testModeData?.activationLink) {
+          toast.success(
+            <div className="space-y-2">
+              <p className="font-medium">Test Mode: Invitation created</p>
+              <p className="text-xs text-muted-foreground">Email not actually sent. Use this link:</p>
+              <code className="block text-xs bg-muted p-2 rounded break-all">
+                {data.emailResult.testModeData.activationLink}
+              </code>
+            </div>,
+            { duration: 15000 }
+          );
+        } else {
+          toast.success('Invitation sent successfully');
+        }
       } else {
         toast.warning('Invitation created but email failed to send');
       }
@@ -212,7 +226,7 @@ export function useResendInvitation() {
         .from('client_invitations') as any)
         .select(`
           *,
-          accounts:account_id (name)
+          accounts:account_id (account_name)
         `)
         .eq('id', invitationId)
         .single();
@@ -258,7 +272,7 @@ export function useResendInvitation() {
       // Send email
       const emailContent = generateClientInvitationEmail({
         recipientName: invitation.first_name || invitation.email.split('@')[0],
-        accountName: invitation.accounts?.name || 'your account',
+        accountName: invitation.accounts?.account_name || 'your account',
         inviterName: dbUser.first_name
           ? `${dbUser.first_name} ${dbUser.last_name || ''}`.trim()
           : 'The team',
@@ -296,7 +310,21 @@ export function useResendInvitation() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['client-invitations'] });
       if (data.emailResult.success) {
-        toast.success('Invitation resent successfully');
+        // Check if in test mode and show the activation link
+        if (data.emailResult.testModeData?.activationLink) {
+          toast.success(
+            <div className="space-y-2">
+              <p className="font-medium">Test Mode: Invitation resent</p>
+              <p className="text-xs text-muted-foreground">Email not actually sent. Use this link:</p>
+              <code className="block text-xs bg-muted p-2 rounded break-all">
+                {data.emailResult.testModeData.activationLink}
+              </code>
+            </div>,
+            { duration: 15000 }
+          );
+        } else {
+          toast.success('Invitation resent successfully');
+        }
       } else {
         toast.warning('Failed to resend invitation email');
       }
