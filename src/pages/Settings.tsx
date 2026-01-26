@@ -31,12 +31,9 @@ import { WarehouseDialog } from '@/components/warehouses/WarehouseDialog';
 import { UserList } from '@/components/settings/UserList';
 import { UserDialog } from '@/components/settings/UserDialog';
 import { InviteUserDialog } from '@/components/settings/InviteUserDialog';
-import { ItemTypesSettingsTab } from '@/components/settings/ItemTypesSettingsTab';
-// BillingChargeTemplatesTab moved to RateSheetsSettingsTab
+// Removed: ItemTypesSettingsTab, RateSheetsSettingsTab, BillableServicesSettingsTab - using unified service_events pricing
 import { EmployeesSettingsTab } from '@/components/settings/EmployeesSettingsTab';
 import { OrganizationSettingsTab } from '@/components/settings/OrganizationSettingsTab';
-import { RateSheetsSettingsTab } from '@/components/settings/RateSheetsSettingsTab';
-import { BillableServicesSettingsTab } from '@/components/settings/BillableServicesSettingsTab';
 import { SidemarksSettingsTab } from '@/components/settings/SidemarksSettingsTab';
 import { PricingSettingsTab } from '@/components/settings/PricingSettingsTab';
 
@@ -56,11 +53,9 @@ const TAB_OPTIONS = [
   { value: 'employees', label: 'Employees' },
   { value: 'alerts', label: 'Alerts' },
   { value: 'labor', label: 'Labor', adminOnly: true },
-  // { value: 'pricing', label: 'Pricing', adminOnly: true }, // TODO: Enable after migration
+  { value: 'pricing', label: 'Pricing', adminOnly: true },
   { value: 'sidemarks', label: 'Sidemarks' },
-  { value: 'services', label: 'Services' },
-  { value: 'rate-sheets', label: 'Rate Sheets' },
-  { value: 'categories', label: 'Classes' },
+  // Removed: Services, Rate Sheets, Classes tabs - now using unified service_events pricing system
   { value: 'warehouses', label: 'Warehouses' },
   { value: 'locations', label: 'Locations' },
   { value: 'users', label: 'Users' },
@@ -285,9 +280,6 @@ export default function Settings() {
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
             {isAdmin && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
             <TabsTrigger value="sidemarks">Sidemarks</TabsTrigger>
-            <TabsTrigger value="services">Services</TabsTrigger>
-            <TabsTrigger value="rate-sheets">Rate Sheets</TabsTrigger>
-            <TabsTrigger value="categories">Classes</TabsTrigger>
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
@@ -380,17 +372,7 @@ export default function Settings() {
             <SidemarksSettingsTab />
           </TabsContent>
 
-          <TabsContent value="services">
-            <BillableServicesSettingsTab />
-          </TabsContent>
-
-          <TabsContent value="rate-sheets">
-            <RateSheetsSettingsTab />
-          </TabsContent>
-
-          <TabsContent value="categories">
-            <ItemTypesSettingsTab />
-          </TabsContent>
+          {/* Removed: Services, Rate Sheets, Classes tabs - now using unified service_events pricing system */}
 
           <TabsContent value="warehouses">
             <div className="space-y-4">

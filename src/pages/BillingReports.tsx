@@ -49,6 +49,7 @@ import {
   Calculator,
   RefreshCw,
   ExternalLink,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
@@ -73,6 +74,9 @@ interface BillingEvent {
   occurred_at: string;
   created_at: string;
   metadata: Record<string, any>;
+  // Rate error tracking
+  has_rate_error: boolean;
+  rate_error_message: string | null;
   // Joined fields
   account_name?: string;
   sidemark_name?: string;
@@ -305,7 +309,8 @@ export default function BillingReports() {
     const unbilled = filteredEvents.filter((e) => e.status === 'unbilled').reduce((sum, e) => sum + (e.total_amount || 0), 0);
     const invoiced = filteredEvents.filter((e) => e.status === 'invoiced').reduce((sum, e) => sum + (e.total_amount || 0), 0);
     const voided = filteredEvents.filter((e) => e.status === 'void').reduce((sum, e) => sum + (e.total_amount || 0), 0);
-    return { unbilled, invoiced, voided, total: unbilled + invoiced };
+    const rateErrors = filteredEvents.filter((e) => e.has_rate_error).length;
+    return { unbilled, invoiced, voided, total: unbilled + invoiced, rateErrors };
   }, [filteredEvents]);
 
   // Export to Excel
@@ -341,6 +346,8 @@ export default function BillingReports() {
       'Amount': event.total_amount || 0,
       'Status': event.status,
       'Event Type': event.event_type,
+      'Rate Error': event.has_rate_error ? 'Yes' : '',
+      'Error Message': event.rate_error_message || '',
       ...(showTimeColumns ? {
         'Time (min)': event.metadata?.time_minutes || '',
         'Pull/Prep (min)': event.metadata?.pull_prep_minutes || '',
@@ -575,7 +582,7 @@ export default function BillingReports() {
         />
 
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-5">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Unbilled</CardDescription>
@@ -598,6 +605,17 @@ export default function BillingReports() {
             <CardHeader className="pb-2">
               <CardDescription>Total (excl. void)</CardDescription>
               <CardTitle className="text-2xl">{formatCurrency(totals.total)}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card className={totals.rateErrors > 0 ? "border-amber-500/50 bg-amber-500/5" : ""}>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-1">
+                {totals.rateErrors > 0 && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+                Rate Errors
+              </CardDescription>
+              <CardTitle className={cn("text-2xl", totals.rateErrors > 0 ? "text-amber-500" : "text-muted-foreground")}>
+                {totals.rateErrors}
+              </CardTitle>
             </CardHeader>
           </Card>
         </div>
@@ -793,8 +811,26 @@ export default function BillingReports() {
                         <TableCell>{event.service_name}</TableCell>
                         <TableCell className="text-muted-foreground">{event.class_name || '-'}</TableCell>
                         <TableCell className="text-right">{event.quantity || 1}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(event.unit_rate || 0)}</TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(event.total_amount || 0)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {event.has_rate_error && (
+                              <span title={event.rate_error_message || 'Rate error'}>
+                                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                              </span>
+                            )}
+                            {formatCurrency(event.unit_rate || 0)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          <div className="flex items-center justify-end gap-1">
+                            {event.has_rate_error && (
+                              <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30 bg-amber-500/10">
+                                Est.
+                              </Badge>
+                            )}
+                            {formatCurrency(event.total_amount || 0)}
+                          </div>
+                        </TableCell>
                         <TableCell>{getStatusBadge(event.status)}</TableCell>
                         {showTimeColumns && (
                           <>
