@@ -289,7 +289,7 @@ export default function ShipmentCreate() {
         account_id: accountId,
         warehouse_id: warehouseId,
         sidemark_id: sidemarkId || null,
-        shipment_type: "inbound" as const,
+        shipment_type: isReturn ? "return" : "inbound",
         status: "expected" as const,
         carrier: carrier || null,
         tracking_number: trackingNumber || null,

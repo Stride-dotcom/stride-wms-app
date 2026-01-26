@@ -45,6 +45,7 @@ const LEGACY_SERVICE_TO_ITEM_TYPE_FIELD: Record<string, string> = {
   crate_disposal: 'crated_rate',
   minor_touchup: 'minor_touchup_rate',
   received_without_id: 'received_without_id_rate',
+  returns_processing: 'returns_processing_rate',
 };
 
 // Service types that are accessorial (flat fees)
