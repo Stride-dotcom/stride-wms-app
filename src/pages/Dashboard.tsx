@@ -39,59 +39,64 @@ export default function Dashboard() {
     () => [
       {
         key: 'put_away',
-        title: 'Put Away',
+        title: 'PUT AWAY',
         icon: <Package className="h-5 w-5" />,
         count: stats.putAwayCount,
         urgent: stats.putAwayUrgentCount,
         description: 'Items on receiving dock',
         bgColor: 'bg-purple-500/10',
-        iconColor: 'text-purple-500',
+        iconColor: 'text-purple-600',
+        countColor: 'text-purple-600',
         onClick: () => navigate('/inventory?location=receiving'),
       },
       {
         key: 'inspection',
-        title: 'Needs Inspection',
+        title: 'NEEDS INSPECTION',
         icon: <ClipboardCheck className="h-5 w-5" />,
         count: stats.needToInspect,
         urgent: stats.urgentNeedToInspect,
         description: 'Pending inspection tasks',
-        bgColor: 'bg-yellow-500/10',
-        iconColor: 'text-yellow-500',
+        bgColor: 'bg-amber-500/10',
+        iconColor: 'text-amber-600',
+        countColor: 'text-amber-600',
         onClick: () => navigate('/tasks?type=Inspection&status=pending'),
         timeEstimate: stats.inspectionTimeEstimate,
       },
       {
         key: 'assembly',
-        title: 'Needs Assembly',
+        title: 'NEEDS ASSEMBLY',
         icon: <Wrench className="h-5 w-5" />,
         count: stats.needToAssemble,
         urgent: stats.urgentNeedToAssemble,
         description: 'Pending assembly tasks',
-        bgColor: 'bg-amber-500/10',
-        iconColor: 'text-amber-500',
+        bgColor: 'bg-blue-500/10',
+        iconColor: 'text-blue-600',
+        countColor: 'text-blue-600',
         onClick: () => navigate('/tasks?type=Assembly&status=pending'),
         timeEstimate: stats.assemblyTimeEstimate,
       },
       {
         key: 'incoming_shipments',
-        title: 'Incoming Shipments',
+        title: 'INCOMING SHIPMENTS',
         icon: <Truck className="h-5 w-5" />,
         count: stats.incomingShipments,
         urgent: stats.incomingShipmentsUrgentCount,
         description: 'Expected / not received',
-        bgColor: 'bg-green-500/10',
-        iconColor: 'text-green-500',
+        bgColor: 'bg-emerald-500/10',
+        iconColor: 'text-emerald-600',
+        countColor: 'text-emerald-600',
         onClick: () => navigate('/shipments/incoming'),
       },
       {
         key: 'repairs',
-        title: 'Repairs',
+        title: 'REPAIRS',
         icon: <Hammer className="h-5 w-5" />,
         count: stats.repairCount,
         urgent: stats.urgentNeedToRepair,
         description: 'Pending repair tasks',
         bgColor: 'bg-red-500/10',
-        iconColor: 'text-red-500',
+        iconColor: 'text-red-600',
+        countColor: 'text-red-600',
         onClick: () => navigate('/tasks?type=Repair&status=pending'),
         timeEstimate: stats.repairTimeEstimate,
       },
@@ -124,22 +129,22 @@ export default function Dashboard() {
               // Special handling for put_away tile to show expandable items list
               if (t.key === 'put_away') {
                 return (
-                  <Card key={t.key} className="hover:shadow-md transition">
+                  <Card key={t.key} className="hover:shadow-gloss-card-hover transition">
                     <CardHeader
                       className="flex flex-row items-center justify-between space-y-0 pb-2 cursor-pointer"
                       onClick={() => setPutAwayExpanded(!putAwayExpanded)}
                       role="button"
                     >
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-sm font-medium">{t.title}</CardTitle>
+                        <CardTitle className="text-[11px] font-semibold tracking-wide text-muted-foreground">{t.title}</CardTitle>
                         {typeof t.urgent === 'number' && t.urgent > 0 && (
-                          <Badge className="bg-red-600/10 text-red-700 hover:bg-red-600/10">
+                          <Badge variant="destructive">
                             Urgent: {t.urgent}
                           </Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className={`rounded-xl ${t.bgColor} p-2`}>
+                        <div className={`rounded-md ${t.bgColor} p-2`}>
                           <span className={t.iconColor}>{t.icon}</span>
                         </div>
                         {putAwayExpanded ? (
@@ -151,7 +156,7 @@ export default function Dashboard() {
                     </CardHeader>
                     <CardContent>
                       <div
-                        className="text-3xl font-bold cursor-pointer hover:text-primary transition-colors"
+                        className={`text-3xl font-bold cursor-pointer hover:opacity-80 transition-opacity ${t.countColor}`}
                         onClick={t.onClick}
                         role="button"
                       >
@@ -205,26 +210,26 @@ export default function Dashboard() {
               return (
                 <Card
                   key={t.key}
-                  className="cursor-pointer hover:shadow-md transition"
+                  className="cursor-pointer hover:shadow-gloss-card-hover transition"
                   onClick={t.onClick}
                   role="button"
                 >
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <div className="flex items-center gap-2">
-                      <CardTitle className="text-sm font-medium">{t.title}</CardTitle>
+                      <CardTitle className="text-[11px] font-semibold tracking-wide text-muted-foreground">{t.title}</CardTitle>
                       {typeof t.urgent === 'number' && t.urgent > 0 && (
-                        <Badge className="bg-red-600/10 text-red-700 hover:bg-red-600/10">
+                        <Badge variant="destructive">
                           Urgent: {t.urgent}
                         </Badge>
                       )}
                     </div>
-                    <div className={`rounded-xl ${t.bgColor} p-2`}>
+                    <div className={`rounded-md ${t.bgColor} p-2`}>
                       <span className={t.iconColor}>{t.icon}</span>
                     </div>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold">{t.count ?? 0}</span>
+                      <span className={`text-3xl font-bold ${t.countColor}`}>{t.count ?? 0}</span>
                       {timeStr && t.count > 0 && (
                         <span className="text-sm text-muted-foreground flex items-center gap-1">
                           <Clock className="h-3 w-3" />

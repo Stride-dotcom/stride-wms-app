@@ -45,8 +45,8 @@
     --input: 0 0% 92%;
     --ring: 14 100% 57%;
 
-    /* Border Radius */
-    --radius: 2rem;
+    /* Border Radius - Professional subtle rounding */
+    --radius: 0.375rem;
 
     /* Sidebar - DARK (Gradient handled in component) */
     --sidebar-background: 0 0% 8%;
@@ -276,4 +276,80 @@ a:hover svg,
 .no-icon-scale svg,
 .no-icon-scale:hover svg {
   transform: none !important;
+}
+
+/* Premium UI Polish Utilities */
+@layer utilities {
+  /* Uppercase stat labels - enterprise style */
+  .label-caps {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Glossy card effect */
+  .card-glossy {
+    background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.06),
+      0 4px 12px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+  }
+
+  .card-glossy:hover {
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.08),
+      0 8px 24px rgba(0, 0, 0, 0.06),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+  }
+
+  /* Dark mode glossy card */
+  .dark .card-glossy {
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  }
+
+  /* Glossy sidebar effect */
+  .sidebar-glossy {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.02) 50%,
+        rgba(0, 0, 0, 0.1) 100%
+      ),
+      linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+      inset 0 -1px 0 0 rgba(0, 0, 0, 0.2);
+  }
+
+  /* Glossy button effects */
+  .btn-glossy {
+    background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 100%);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+  }
+
+  /* Main content premium background */
+  .bg-premium {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  }
+
+  /* Header premium effect */
+  .header-premium {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Glossy badge base styles */
+  .badge-glossy {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
+  }
 }
