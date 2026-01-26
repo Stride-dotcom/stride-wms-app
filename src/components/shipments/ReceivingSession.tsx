@@ -25,7 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useReceivingSession } from '@/hooks/useReceivingSession';
-import { PhotoCapture } from './PhotoCapture';
+import { MultiPhotoCapture } from '@/components/common/MultiPhotoCapture';
 import { DocumentCapture } from '@/components/scanner/DocumentCapture';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -299,10 +299,10 @@ export function ReceivingSession({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <PhotoCapture
+            <MultiPhotoCapture
               entityType="shipment"
               entityId={shipmentId}
-              onPhotosChange={(urls) => onPhotosChange('photos', urls)}
+              onPhotosSaved={(urls) => onPhotosChange('photos', urls)}
               existingPhotos={existingPhotos}
               label=""
             />
