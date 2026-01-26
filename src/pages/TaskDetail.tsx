@@ -39,8 +39,10 @@ import {
   ArrowLeft, Pencil, Play, Check, XCircle, Loader2,
   ClipboardList, User, Calendar, Building2, AlertTriangle,
   Camera, FileText, MessageSquare, CheckCircle, X, Wrench,
-  DollarSign, Save,
+  DollarSign, Save, ScanLine,
 } from 'lucide-react';
+import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
+import { DocumentList } from '@/components/scanner/DocumentList';
 
 interface TaskDetail {
   id: string;
@@ -649,7 +651,30 @@ export default function TaskDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Unable to Complete Note */}
+            {/* Documents */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ScanLine className="h-4 w-4" />
+                  Documents
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <ScanDocumentButton
+                  context={{ type: 'general', label: `Task: ${task.title}` }}
+                  onSuccess={() => {
+                    // Trigger a refetch or show toast
+                  }}
+                  label="Scan Document"
+                  variant="outline"
+                />
+                <DocumentList
+                  contextType="general"
+                  contextId={task.id}
+                />
+              </CardContent>
+            </Card>
+
             {task.status === 'unable_to_complete' && task.unable_to_complete_note && (
               <Card className="border-red-200">
                 <CardHeader className="pb-2">

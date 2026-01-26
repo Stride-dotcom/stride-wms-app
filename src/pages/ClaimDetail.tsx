@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, FileText, Clock, User, Package, Truck, Building, DollarSign } from 'lucide-react';
+import { ArrowLeft, FileText, Clock, User, Package, Truck, Building, DollarSign, ScanLine } from 'lucide-react';
+import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
+import { DocumentList } from '@/components/scanner/DocumentList';
 import { useClaims, CLAIM_TYPE_LABELS, CLAIM_STATUS_LABELS, type Claim, type ClaimAudit, type ClaimItem } from '@/hooks/useClaims';
 import { ClaimAttachments } from '@/components/claims/ClaimAttachments';
 import { ClaimNotes } from '@/components/claims/ClaimNotes';
@@ -216,7 +218,23 @@ export default function ClaimDetail() {
               </TabsList>
 
               <TabsContent value="attachments" className="mt-4">
-                <ClaimAttachments claimId={claim.id} />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <ScanDocumentButton
+                      context={{ type: 'general', label: `Claim: ${claim.claim_number}` }}
+                      onSuccess={() => {
+                        // Optionally refetch
+                      }}
+                      label="Scan Document"
+                      variant="outline"
+                    />
+                  </div>
+                  <ClaimAttachments claimId={claim.id} />
+                  <DocumentList
+                    contextType="general"
+                    contextId={claim.id}
+                  />
+                </div>
               </TabsContent>
 
               <TabsContent value="notes" className="mt-4">
