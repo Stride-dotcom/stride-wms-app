@@ -57,9 +57,9 @@ export function useTenantSettings() {
           .single();
 
         if (createError) throw createError;
-        setSettings(newSettings);
+        setSettings(newSettings as TenantCompanySettings);
       } else {
-        setSettings(data);
+        setSettings(data as TenantCompanySettings);
       }
     } catch (error) {
       console.error('Error fetching tenant settings:', error);

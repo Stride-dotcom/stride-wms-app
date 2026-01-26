@@ -8482,6 +8482,11 @@ export type Database = {
           id: string
           logo_storage_path: string | null
           logo_url: string | null
+          remit_address_line1: string | null
+          remit_address_line2: string | null
+          remit_city: string | null
+          remit_state: string | null
+          remit_zip: string | null
           tenant_id: string
           updated_at: string
           updated_by: string | null
@@ -8501,6 +8506,11 @@ export type Database = {
           id?: string
           logo_storage_path?: string | null
           logo_url?: string | null
+          remit_address_line1?: string | null
+          remit_address_line2?: string | null
+          remit_city?: string | null
+          remit_state?: string | null
+          remit_zip?: string | null
           tenant_id: string
           updated_at?: string
           updated_by?: string | null
@@ -8520,6 +8530,11 @@ export type Database = {
           id?: string
           logo_storage_path?: string | null
           logo_url?: string | null
+          remit_address_line1?: string | null
+          remit_address_line2?: string | null
+          remit_city?: string | null
+          remit_state?: string | null
+          remit_zip?: string | null
           tenant_id?: string
           updated_at?: string
           updated_by?: string | null

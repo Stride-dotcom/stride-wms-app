@@ -220,9 +220,9 @@ export default function Invoices() {
     return [...lines].sort((a, b) => {
       switch (lineSortOption) {
         case 'service':
-          return (a.service_code || '').localeCompare(b.service_code || '');
+          return (String(a.service_code) || '').localeCompare(String(b.service_code) || '');
         case 'item':
-          return (a.item_id || '').localeCompare(b.item_id || '');
+          return (String(a.item_id) || '').localeCompare(String(b.item_id) || '');
         case 'amount':
           return (Number(b.line_total) || 0) - (Number(a.line_total) || 0);
         case 'date':
@@ -410,7 +410,7 @@ export default function Invoices() {
       billingCountry: account.billing_country || undefined,
 
       lines: invoiceLines.map(line => ({
-        serviceCode: line.service_code || '-',
+        serviceCode: String(line.service_code) || '-',
         description: line.description || undefined,
         quantity: line.quantity,
         unitRate: Number(line.unit_rate) || 0,
@@ -1069,7 +1069,7 @@ export default function Invoices() {
                   <TableBody>
                     {sortedLines.map((line) => (
                       <TableRow key={line.id}>
-                        <TableCell className="font-medium">{line.service_code}</TableCell>
+                        <TableCell className="font-medium">{String(line.service_code)}</TableCell>
                         <TableCell>{line.description || "-"}</TableCell>
                         <TableCell className="text-right">{line.quantity}</TableCell>
                         <TableCell className="text-right">${Number(line.unit_rate || 0).toFixed(2)}</TableCell>
