@@ -11,7 +11,7 @@ import {
   User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -155,6 +155,7 @@ export function ClientPortalLayout({
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
+            <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
             <div className="flex h-full flex-col">
               {/* Logo/Brand */}
               <div className="flex h-14 items-center gap-2 border-b px-4">
