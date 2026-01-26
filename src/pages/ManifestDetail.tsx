@@ -46,6 +46,8 @@ import { useManifests } from '@/hooks/useManifests';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
+import { ItemLabelData } from '@/lib/labelGenerator';
 import {
   ArrowLeft,
   Loader2,
@@ -66,6 +68,7 @@ import {
   MapPin,
   Calendar,
   AlertTriangle,
+  Printer,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -112,6 +115,7 @@ export default function ManifestDetail() {
     type: 'start' | 'complete' | 'cancel' | 'remove';
     itemIds?: string[];
   } | null>(null);
+  const [printLabelsOpen, setPrintLabelsOpen] = useState(false);
 
   const { profile } = useAuth();
   const { manifest, items, stats, loading, refetch } = useManifestScan(id!);
@@ -171,6 +175,20 @@ export default function ManifestDetail() {
            i.account?.account_name?.toLowerCase().includes(query)
     );
   }, [items, searchQuery]);
+
+  // Prepare label data for selected items
+  const selectedItemsLabelData: ItemLabelData[] = useMemo(() => {
+    return items
+      .filter(i => selectedItems.includes(i.item_id))
+      .map(i => ({
+        id: i.item_id,
+        itemCode: i.item_code,
+        description: i.item_description || i.item?.description || '',
+        vendor: i.item?.vendor || '',
+        account: i.account?.account_name || '',
+        locationCode: i.expected_location?.code || i.scanned_location?.code || '',
+      }));
+  }, [items, selectedItems]);
 
   const handleAddItems = async (itemIds: string[]) => {
     await addItemsBulk(itemIds);
@@ -414,9 +432,17 @@ export default function ManifestDetail() {
                       className="pl-10"
                     />
                   </div>
-                  {isDraft && (
+                  {selectedItems.length > 0 && (
                     <>
-                      {selectedItems.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPrintLabelsOpen(true)}
+                      >
+                        <Printer className="h-4 w-4 mr-1" />
+                        Print Labels ({selectedItems.length})
+                      </Button>
+                      {isDraft && (
                         <Button
                           variant="destructive"
                           size="sm"
@@ -426,55 +452,57 @@ export default function ManifestDetail() {
                           Remove ({selectedItems.length})
                         </Button>
                       )}
-                      <Popover open={addItemOpen} onOpenChange={setAddItemOpen}>
-                        <PopoverTrigger asChild>
-                          <Button size="sm">
-                            <Plus className="h-4 w-4 mr-1" />
-                            Add Items
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[400px] p-0" align="end">
-                          <Command>
-                            <CommandInput
-                              placeholder="Search items to add..."
-                              value={itemSearch}
-                              onValueChange={setItemSearch}
-                            />
-                            <CommandList>
-                              {itemSearch.length < 2 ? (
-                                <div className="p-4 text-sm text-muted-foreground text-center">
-                                  Type at least 2 characters to search
-                                </div>
-                              ) : searchLoading ? (
-                                <div className="p-4 flex justify-center">
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                </div>
-                              ) : searchResults.length === 0 ? (
-                                <CommandEmpty>No items found</CommandEmpty>
-                              ) : (
-                                <CommandGroup>
-                                  {searchResults.map((item) => (
-                                    <CommandItem
-                                      key={item.id}
-                                      value={item.id}
-                                      onSelect={() => handleAddItems([item.id])}
-                                    >
-                                      <div className="flex-1">
-                                        <div className="font-medium font-mono">{item.item_code}</div>
-                                        <div className="text-xs text-muted-foreground truncate">
-                                          {item.description}
-                                        </div>
-                                      </div>
-                                      <Plus className="h-4 w-4 text-muted-foreground" />
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              )}
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
                     </>
+                  )}
+                  {isDraft && (
+                    <Popover open={addItemOpen} onOpenChange={setAddItemOpen}>
+                      <PopoverTrigger asChild>
+                        <Button size="sm">
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add Items
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0" align="end">
+                        <Command>
+                          <CommandInput
+                            placeholder="Search items to add..."
+                            value={itemSearch}
+                            onValueChange={setItemSearch}
+                          />
+                          <CommandList>
+                            {itemSearch.length < 2 ? (
+                              <div className="p-4 text-sm text-muted-foreground text-center">
+                                Type at least 2 characters to search
+                              </div>
+                            ) : searchLoading ? (
+                              <div className="p-4 flex justify-center">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </div>
+                            ) : searchResults.length === 0 ? (
+                              <CommandEmpty>No items found</CommandEmpty>
+                            ) : (
+                              <CommandGroup>
+                                {searchResults.map((item) => (
+                                  <CommandItem
+                                    key={item.id}
+                                    value={item.id}
+                                    onSelect={() => handleAddItems([item.id])}
+                                  >
+                                    <div className="flex-1">
+                                      <div className="font-medium font-mono">{item.item_code}</div>
+                                      <div className="text-xs text-muted-foreground truncate">
+                                        {item.description}
+                                      </div>
+                                    </div>
+                                    <Plus className="h-4 w-4 text-muted-foreground" />
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            )}
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   )}
                 </div>
               </div>
@@ -697,6 +725,15 @@ export default function ManifestDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Print Labels Dialog */}
+      <PrintLabelsDialog
+        open={printLabelsOpen}
+        onOpenChange={setPrintLabelsOpen}
+        items={selectedItemsLabelData}
+        title="Print Item Labels"
+        description={`Generate labels for ${selectedItems.length} selected item${selectedItems.length !== 1 ? 's' : ''} from this manifest`}
+      />
     </DashboardLayout>
   );
 }
