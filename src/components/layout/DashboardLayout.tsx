@@ -115,7 +115,7 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
         onClick={onNavigate}
         title={sidebarCollapsed ? item.label : undefined}
         className={cn(
-          'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
+          'relative flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200',
           isActive
             ? 'text-white'
             : 'text-white/80 hover:text-white hover:bg-white/10',
@@ -130,7 +130,7 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
         )}
         {/* Active background */}
         {isActive && (
-          <span className="absolute inset-0 bg-primary/20 rounded-lg" />
+          <span className="absolute inset-0 bg-primary/20 rounded-md" />
         )}
         <item.icon
           className={cn(
@@ -330,10 +330,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         />
       )}
 
-      {/* Sidebar - Gradient Background */}
+      {/* Sidebar - Glossy Dark Surface */}
       <aside
         className={cn(
-          'fixed top-0 left-0 z-50 h-full bg-gradient-to-b from-[#1a1a1a] to-[#0d0d0d] border-r border-border/30 transform transition-all duration-300 ease-bounce lg:translate-x-0',
+          'fixed top-0 left-0 z-50 h-full border-r border-white/5 transform transition-all duration-300 ease-bounce lg:translate-x-0',
+          'bg-gradient-to-b from-slate-800 to-slate-950',
+          'shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),inset_0_-1px_0_0_rgba(0,0,0,0.2)]',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
           sidebarCollapsed ? 'lg:w-16' : 'lg:w-64',
           'w-64' // Mobile always full width
@@ -351,7 +353,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 className="h-8 w-8 object-contain rounded"
               />
             ) : (
-              <div className="p-1.5 bg-primary rounded-lg shadow-[0_0_12px_hsl(14_100%_57%/0.4)]">
+              <div className="p-1.5 bg-primary rounded-md shadow-[0_0_12px_hsl(14_100%_57%/0.4)]">
                 <Package className="h-5 w-5 text-primary-foreground" />
               </div>
             )}
@@ -428,8 +430,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         "flex flex-col flex-1 min-h-0 transition-all duration-300",
         sidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
       )}>
-        {/* Header - Glassmorphism */}
-        <header className="sticky top-0 z-30 shrink-0 glass border-b border-white/10 flex items-center justify-between px-4 lg:px-6 pt-safe h-[calc(4rem+env(safe-area-inset-top,0px))]">
+        {/* Header - Premium Glossy */}
+        <header className="sticky top-0 z-30 shrink-0 bg-gradient-to-b from-white to-slate-50 border-b border-black/5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center justify-between px-4 lg:px-6 pt-safe h-[calc(4rem+env(safe-area-inset-top,0px))]">
           <Button
             variant="ghost"
             size="icon"
@@ -487,8 +489,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </DropdownMenu>
         </header>
 
-        {/* Page content - scrollable with page transition */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-safe animate-fade-in">{children}</main>
+        {/* Page content - scrollable with page transition and premium background */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-safe animate-fade-in bg-gradient-to-b from-white to-slate-50">{children}</main>
       </div>
     </div>
   );
