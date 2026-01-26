@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   usePricingFlags,
@@ -12,6 +13,8 @@ import {
   useUnsetItemFlag,
   PricingFlag,
 } from '@/hooks/usePricing';
+import { useServiceEvents, ServiceEvent } from '@/hooks/useServiceEvents';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   AlertTriangle,
@@ -91,6 +94,9 @@ export function ItemFlagsSection({
 }: ItemFlagsSectionProps) {
   const { profile } = useAuth();
   const [updatingFlag, setUpdatingFlag] = useState<string | null>(null);
+  const [updatingServiceFlag, setUpdatingServiceFlag] = useState<string | null>(null);
+  const [enabledServiceFlags, setEnabledServiceFlags] = useState<Set<string>>(new Set());
+  const [loadingServiceFlags, setLoadingServiceFlags] = useState(true);
 
   // Fetch all available flags for this tenant
   const { data: availableFlags = [], isLoading: flagsLoading } = usePricingFlags();
@@ -98,9 +104,119 @@ export function ItemFlagsSection({
   // Fetch currently set flags for this item
   const { data: itemFlags = [], isLoading: itemFlagsLoading, refetch: refetchItemFlags } = useItemFlags(itemId);
 
+  // Fetch service events with add_flag = true
+  const { flagServiceEvents, getServiceRate, loading: serviceEventsLoading } = useServiceEvents();
+
   // Mutations
   const setItemFlag = useSetItemFlag();
   const unsetItemFlag = useUnsetItemFlag();
+
+  // Fetch which service flags are enabled for this item (via billing_events with status = 'flagged')
+  const fetchEnabledServiceFlags = useCallback(async () => {
+    if (!profile?.tenant_id) return;
+
+    try {
+      const { data, error } = await (supabase
+        .from('billing_events') as any)
+        .select('charge_type')
+        .eq('item_id', itemId)
+        .eq('event_type', 'flag')
+        .eq('status', 'flagged');
+
+      if (error) {
+        console.error('[ItemFlagsSection] Error fetching service flags:', error);
+        return;
+      }
+
+      const enabledCodes = new Set<string>((data || []).map((d: any) => d.charge_type));
+      setEnabledServiceFlags(enabledCodes);
+    } catch (error) {
+      console.error('[ItemFlagsSection] Unexpected error:', error);
+    } finally {
+      setLoadingServiceFlags(false);
+    }
+  }, [profile?.tenant_id, itemId]);
+
+  useEffect(() => {
+    fetchEnabledServiceFlags();
+  }, [fetchEnabledServiceFlags]);
+
+  // Handle service flag toggle
+  const handleServiceFlagToggle = async (service: ServiceEvent, currentlyEnabled: boolean) => {
+    if (isClientUser) {
+      toast.error('Only warehouse staff can modify service flags.');
+      return;
+    }
+
+    setUpdatingServiceFlag(service.service_code);
+
+    try {
+      if (currentlyEnabled) {
+        // Remove the flagged billing event
+        const { error } = await (supabase
+          .from('billing_events') as any)
+          .delete()
+          .eq('item_id', itemId)
+          .eq('charge_type', service.service_code)
+          .eq('event_type', 'flag')
+          .eq('status', 'flagged');
+
+        if (error) throw error;
+
+        toast.success(`${service.service_name} removed`);
+        setEnabledServiceFlags(prev => {
+          const next = new Set(prev);
+          next.delete(service.service_code);
+          return next;
+        });
+      } else {
+        // Get item details for rate calculation
+        const { data: itemData } = await (supabase
+          .from('items') as any)
+          .select('account_id, sidemark_id, class:classes(code)')
+          .eq('id', itemId)
+          .single();
+
+        const classCode = itemData?.class?.code || null;
+        const rateInfo = getServiceRate(service.service_code, classCode);
+
+        // Create a flagged billing event
+        const { error } = await (supabase
+          .from('billing_events') as any)
+          .insert({
+            tenant_id: profile!.tenant_id,
+            account_id: itemData?.account_id || null,
+            item_id: itemId,
+            sidemark_id: itemData?.sidemark_id || null,
+            event_type: 'flag',
+            charge_type: service.service_code,
+            description: `${service.service_name} (Flag)`,
+            quantity: 1,
+            unit_rate: rateInfo.rate,
+            status: 'flagged',
+            created_by: profile!.id,
+            has_rate_error: rateInfo.hasError,
+            rate_error_message: rateInfo.errorMessage,
+          });
+
+        if (error) throw error;
+
+        toast.success(`${service.service_name} enabled (billing event created)`);
+        setEnabledServiceFlags(prev => {
+          const next = new Set(prev);
+          next.add(service.service_code);
+          return next;
+        });
+      }
+
+      onFlagsChange?.();
+    } catch (error: any) {
+      console.error('[ItemFlagsSection] Error toggling service flag:', error);
+      toast.error(error.message || 'Failed to update service flag');
+    } finally {
+      setUpdatingServiceFlag(null);
+    }
+  };
 
   // Filter flags based on client visibility
   const visibleFlags = useMemo(() => {
@@ -291,6 +407,62 @@ export function ItemFlagsSection({
             );
           })}
         </div>
+
+        {/* Service Event Flags Section */}
+        {flagServiceEvents.length > 0 && (
+          <>
+            <Separator className="my-4" />
+            <div className="mb-2">
+              <h4 className="text-sm font-medium flex items-center gap-2">
+                <Zap className="h-4 w-4" />
+                Service Flags
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Select services to bill for this item
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {flagServiceEvents.map((service) => {
+                const isEnabled = enabledServiceFlags.has(service.service_code);
+                const isUpdating = updatingServiceFlag === service.service_code;
+
+                return (
+                  <div
+                    key={service.service_code}
+                    className={`flex items-center gap-3 p-2 rounded-md transition-colors ${
+                      isClientUser ? 'opacity-60' : 'hover:bg-muted/50'
+                    } ${isEnabled ? 'bg-success/10' : ''}`}
+                    title={service.notes || undefined}
+                  >
+                    <Checkbox
+                      id={`service-flag-${service.service_code}`}
+                      checked={isEnabled}
+                      onCheckedChange={() => handleServiceFlagToggle(service, isEnabled)}
+                      disabled={isClientUser || isUpdating}
+                    />
+                    <Label
+                      htmlFor={`service-flag-${service.service_code}`}
+                      className={`flex items-center gap-2 flex-1 ${
+                        isClientUser ? 'cursor-not-allowed' : 'cursor-pointer'
+                      }`}
+                    >
+                      {isUpdating ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <Zap className={`h-4 w-4 ${isEnabled ? 'text-success' : 'text-muted-foreground'}`} />
+                      )}
+                      <span className="text-sm">{service.service_name}</span>
+                      <Badge variant="outline" className="text-xs px-1 ml-auto">
+                        <DollarSign className="h-3 w-3 mr-0.5" />
+                        {service.rate.toFixed(2)}
+                      </Badge>
+                    </Label>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         {/* Legend */}
         <div className="flex items-center gap-4 mt-4 pt-4 border-t text-xs text-muted-foreground">

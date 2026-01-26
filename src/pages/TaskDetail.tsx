@@ -32,11 +32,14 @@ import { UnableToCompleteDialog } from '@/components/tasks/UnableToCompleteDialo
 import { PhotoCapture } from '@/components/shipments/PhotoCapture';
 import { useTechnicians } from '@/hooks/useTechnicians';
 import { useRepairQuoteWorkflow } from '@/hooks/useRepairQuotes';
+import { usePermissions } from '@/hooks/usePermissions';
 import { format } from 'date-fns';
+import { Input } from '@/components/ui/input';
 import {
   ArrowLeft, Pencil, Play, Check, XCircle, Loader2,
   ClipboardList, User, Calendar, Building2, AlertTriangle,
   Camera, FileText, MessageSquare, CheckCircle, X, Wrench,
+  DollarSign, Save,
 } from 'lucide-react';
 
 interface TaskDetail {
@@ -59,9 +62,14 @@ interface TaskDetail {
   photos: string[] | null;
   created_at: string;
   updated_at: string;
+  // Billing rate fields
+  billing_rate: number | null;
+  billing_rate_overridden: boolean | null;
+  billing_rate_override_by: string | null;
   assigned_user?: { id: string; first_name: string | null; last_name: string | null };
   warehouse?: { id: string; name: string };
   account?: { id: string; account_name: string };
+  override_user?: { first_name: string | null; last_name: string | null };
 }
 
 interface TaskItemRow {
@@ -114,6 +122,12 @@ export default function TaskDetailPage() {
 
   const { activeTechnicians } = useTechnicians();
   const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
+  const { hasRole } = usePermissions();
+
+  // Billing rate state
+  const [billingRate, setBillingRate] = useState<string>('');
+  const [savingBillingRate, setSavingBillingRate] = useState(false);
+  const canEditBillingRate = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
 
   const fetchTask = useCallback(async () => {
     if (!id) return;
@@ -125,7 +139,8 @@ export default function TaskDetailPage() {
           *,
           assigned_user:users!tasks_assigned_to_fkey(id, first_name, last_name),
           warehouse:warehouses(id, name),
-          account:accounts(id, account_name)
+          account:accounts(id, account_name),
+          override_user:users!tasks_billing_rate_override_by_fkey(first_name, last_name)
         `)
         .eq('id', id)
         .single();
@@ -134,6 +149,7 @@ export default function TaskDetailPage() {
       setTask(data);
       setTaskNotes(data.task_notes || '');
       setPhotos(data.photos || []);
+      setBillingRate(data.billing_rate !== null ? String(data.billing_rate) : '');
     } catch (error) {
       console.error('Error fetching task:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to load task' });
@@ -308,6 +324,28 @@ export default function TaskDetailPage() {
     setEditDialogOpen(false);
     fetchTask();
     fetchTaskItems();
+  };
+
+  const handleSaveBillingRate = async () => {
+    if (!id || !profile?.id) return;
+    setSavingBillingRate(true);
+    try {
+      const rate = billingRate ? parseFloat(billingRate) : null;
+      const { error } = await (supabase.from('tasks') as any)
+        .update({
+          billing_rate: rate,
+          billing_rate_overridden: rate !== null,
+          billing_rate_override_by: rate !== null ? profile.id : null,
+        })
+        .eq('id', id);
+      if (error) throw error;
+      toast({ title: 'Billing Rate Saved' });
+      fetchTask();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save billing rate' });
+    } finally {
+      setSavingBillingRate(false);
+    }
   };
 
   const handleCreateQuote = async () => {
@@ -674,6 +712,46 @@ export default function TaskDetailPage() {
                     <div>
                       <p className="text-xs text-muted-foreground">Account</p>
                       <p className="text-sm font-medium">{task.account.account_name}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Billing Rate - Manager/Admin Only */}
+                {canEditBillingRate && (
+                  <div className="border-t pt-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Billing Rate</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={billingRate}
+                            onChange={(e) => setBillingRate(e.target.value)}
+                            className="h-8 w-24"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleSaveBillingRate}
+                            disabled={savingBillingRate}
+                          >
+                            {savingBillingRate ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Save className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                        {task.billing_rate_overridden && task.override_user && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Set by {task.override_user.first_name} {task.override_user.last_name}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

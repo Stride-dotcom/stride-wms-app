@@ -2,12 +2,13 @@ import { useState, useRef, useCallback } from 'react';
 import { PageHeader } from '@/components/ui/page-header';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLocations } from '@/hooks/useLocations';
 import { useStocktakeFreezeCheck } from '@/hooks/useStocktakes';
+import { useServiceEvents, ServiceEventForScan } from '@/hooks/useServiceEvents';
 import { QRScanner } from '@/components/scan/QRScanner';
 import { ItemSearchOverlay, LocationSearchOverlay } from '@/components/scan/SearchOverlays';
 import {
@@ -32,9 +33,20 @@ import {
   Plus,
   ArrowLeftRight,
   Check,
+  DollarSign,
+  Zap,
+  AlertTriangle,
+  Save,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface ScannedItem {
   id: string;
@@ -44,6 +56,12 @@ interface ScannedItem {
   warehouse_name: string | null;
 }
 
+interface ServiceScannedItem extends ScannedItem {
+  class_code: string | null;
+  account_id: string | null;
+  sidemark_id: string | null;
+}
+
 interface ScannedLocation {
   id: string;
   code: string;
@@ -51,7 +69,7 @@ interface ScannedLocation {
   type?: string;
 }
 
-type ScanMode = 'move' | 'batch' | 'lookup' | null;
+type ScanMode = 'move' | 'batch' | 'lookup' | 'service' | null;
 type ScanPhase = 'idle' | 'scanning-item' | 'scanning-location' | 'confirm';
 
 export default function ScanHub() {
@@ -59,22 +77,28 @@ export default function ScanHub() {
   const { toast } = useToast();
   const { locations } = useLocations();
   const { checkFreeze } = useStocktakeFreezeCheck();
-  
+  const { scanServiceEvents, getServiceRate, createBillingEvents, loading: serviceEventsLoading } = useServiceEvents();
+
   const [mode, setMode] = useState<ScanMode>(null);
   const [phase, setPhase] = useState<ScanPhase>('idle');
   const [processing, setProcessing] = useState(false);
-  
+
   // Move mode state
   const [scannedItem, setScannedItem] = useState<ScannedItem | null>(null);
   const [targetLocation, setTargetLocation] = useState<ScannedLocation | null>(null);
-  
+
   // Batch move state
   const [batchItems, setBatchItems] = useState<ScannedItem[]>([]);
-  
+
+  // Service event scan state
+  const [serviceItems, setServiceItems] = useState<ServiceScannedItem[]>([]);
+  const [selectedServices, setSelectedServices] = useState<ServiceEventForScan[]>([]);
+  const [serviceToAdd, setServiceToAdd] = useState<string>('');
+
   // Search overlay state
   const [showItemSearch, setShowItemSearch] = useState(false);
   const [showLocationSearch, setShowLocationSearch] = useState(false);
-  
+
   // Swipe confirmation state
   const [swipeProgress, setSwipeProgress] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -110,15 +134,58 @@ export default function ScanHub() {
     }
 
     const { data, error } = await query.maybeSingle();
-    
+
     if (error || !data) return null;
-    
+
     return {
       id: data.id,
       item_code: data.item_code,
       description: data.description,
       current_location_code: data.location_code,
       warehouse_name: data.warehouse_name,
+    };
+  };
+
+  // Extended lookup for service events - includes class, account, sidemark
+  const lookupItemForService = async (input: string): Promise<ServiceScannedItem | null> => {
+    const payload = parseQRPayload(input);
+    if (!payload) return null;
+
+    // Query items table directly to get class (via class_id join), account_id, sidemark_id
+    let query = supabase
+      .from('items')
+      .select(`
+        id,
+        item_code,
+        description,
+        account_id,
+        sidemark_id,
+        class:classes(code),
+        location:locations!current_location_id(code),
+        warehouse:warehouses(name)
+      `);
+
+    if (payload.type === 'item' && payload.id) {
+      query = query.eq('id', payload.id);
+    } else if (payload.code) {
+      query = query.eq('item_code', payload.code);
+    } else {
+      return null;
+    }
+
+    const { data, error } = await query.maybeSingle();
+
+    if (error || !data) return null;
+
+    return {
+      id: data.id,
+      item_code: data.item_code,
+      description: data.description,
+      current_location_code: (data.location as any)?.code || null,
+      warehouse_name: (data.warehouse as any)?.name || null,
+      class_code: (data.class as any)?.code || null,
+      account_id: data.account_id || null,
+      sidemark_id: data.sidemark_id || null,
     };
   };
 
@@ -238,6 +305,35 @@ export default function ScanHub() {
             variant: 'destructive',
             title: 'Not Found',
             description: 'Scan a valid item or location code.',
+          });
+        }
+      }
+
+      // Service Event Scan mode
+      if (mode === 'service') {
+        const item = await lookupItemForService(input);
+        if (item) {
+          if (!serviceItems.find(i => i.id === item.id)) {
+            hapticLight();
+            setServiceItems(prev => [...prev, item]);
+            toast({
+              title: `Added: ${item.item_code}`,
+              description: item.class_code
+                ? `Class: ${item.class_code}`
+                : 'No class assigned - default rate will be used',
+            });
+          } else {
+            toast({
+              title: 'Already added',
+              description: `${item.item_code} is already in the list.`,
+            });
+          }
+        } else {
+          hapticError();
+          toast({
+            variant: 'destructive',
+            title: 'Item Not Found',
+            description: 'Scan a valid item QR code.',
           });
         }
       }
@@ -380,9 +476,98 @@ export default function ScanHub() {
     setScannedItem(null);
     setTargetLocation(null);
     setBatchItems([]);
+    setServiceItems([]);
+    setSelectedServices([]);
+    setServiceToAdd('');
     setSwipeProgress(0);
     setShowItemSearch(false);
     setShowLocationSearch(false);
+  };
+
+  // Service Event Scan functions
+  const addServiceEvent = (serviceCode: string) => {
+    const service = scanServiceEvents.find(s => s.service_code === serviceCode);
+    if (service && !selectedServices.find(s => s.service_code === serviceCode)) {
+      hapticLight();
+      setSelectedServices(prev => [...prev, service]);
+      setServiceToAdd('');
+    }
+  };
+
+  const removeServiceEvent = (serviceCode: string) => {
+    setSelectedServices(prev => prev.filter(s => s.service_code !== serviceCode));
+  };
+
+  const removeServiceItem = (itemId: string) => {
+    setServiceItems(prev => prev.filter(i => i.id !== itemId));
+  };
+
+  const saveServiceEvents = async () => {
+    if (serviceItems.length === 0 || selectedServices.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Cannot Save',
+        description: 'Select at least one item and one service.',
+      });
+      return;
+    }
+
+    setProcessing(true);
+
+    try {
+      const result = await createBillingEvents(
+        serviceItems.map(item => ({
+          id: item.id,
+          item_code: item.item_code,
+          class_code: item.class_code,
+          account_id: item.account_id,
+          sidemark_id: item.sidemark_id,
+        })),
+        selectedServices.map(s => s.service_code)
+      );
+
+      if (result.success) {
+        hapticSuccess();
+        resetState();
+      } else {
+        hapticError();
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      hapticError();
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to create billing events.',
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // Handle item selection from search for service mode
+  const handleServiceItemSelect = async (item: { id: string; item_code: string; description: string | null; location_code: string | null; warehouse_name: string | null }) => {
+    setShowItemSearch(false);
+
+    // Fetch full item data including class_code
+    const fullItem = await lookupItemForService(item.item_code);
+    if (fullItem) {
+      if (!serviceItems.find(i => i.id === fullItem.id)) {
+        hapticLight();
+        setServiceItems(prev => [...prev, fullItem]);
+        toast({
+          title: `Added: ${fullItem.item_code}`,
+          description: fullItem.class_code
+            ? `Class: ${fullItem.class_code}`
+            : 'No class assigned - default rate will be used',
+        });
+      } else {
+        toast({
+          title: 'Already added',
+          description: `${fullItem.item_code} is already in the list.`,
+        });
+      }
+    }
   };
 
   const selectMode = (selectedMode: ScanMode) => {
@@ -527,12 +712,12 @@ export default function ScanHub() {
               <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
                 <Search className="h-40 w-40 text-info" />
               </div>
-              
+
               {/* Large icon container */}
               <div className="w-24 h-28 rounded-3xl bg-info flex items-center justify-center flex-shrink-0">
                 <Search className="h-12 w-12 text-info-foreground group-hover:scale-110 transition-transform duration-200" />
               </div>
-              
+
               {/* Text on right */}
               <div className="flex flex-col items-start flex-1">
                 <span className="text-2xl font-bold text-foreground">Look Up</span>
@@ -542,8 +727,283 @@ export default function ScanHub() {
                 </span>
               </div>
             </button>
+
+            {/* Service Event Scan Card */}
+            <button
+              onClick={() => selectMode('service')}
+              className={cn(
+                "group relative overflow-hidden flex items-center gap-6 p-6",
+                "rounded-3xl bg-card border-2 border-transparent",
+                "transition-all duration-300 text-left",
+                "hover:border-success hover:shadow-xl hover:shadow-success/10"
+              )}
+            >
+              {/* Background watermark icon */}
+              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
+                <DollarSign className="h-40 w-40 text-success" />
+              </div>
+
+              {/* Large icon container */}
+              <div className="w-24 h-28 rounded-3xl bg-success flex items-center justify-center flex-shrink-0">
+                <Zap className="h-12 w-12 text-success-foreground group-hover:scale-110 transition-transform duration-200" />
+              </div>
+
+              {/* Text on right */}
+              <div className="flex flex-col items-start flex-1">
+                <span className="text-2xl font-bold text-foreground">Service Event</span>
+                <span className="text-sm text-muted-foreground mt-1">Scan items, select services, create billing</span>
+                <span className="flex items-center gap-2 text-success text-xs font-semibold uppercase tracking-wide mt-3">
+                  LAUNCH SCANNER <ArrowRight className="h-4 w-4" />
+                </span>
+              </div>
+            </button>
           </div>
         </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Service Event Scan Screen
+  if (mode === 'service') {
+    const totalBillingEvents = serviceItems.length * selectedServices.length;
+
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col min-h-[70vh] px-4 pb-4">
+          <button
+            onClick={resetState}
+            className="flex items-center gap-2 text-muted-foreground mb-4 hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            Back
+          </button>
+
+          <div className="text-center mb-4">
+            <h2 className="text-xl font-bold">Service Event Scan</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Scan items and select services to create billing events
+            </p>
+          </div>
+
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* LEFT: Items List */}
+            <Card className="flex flex-col">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Items ({serviceItems.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col">
+                {/* QR Scanner */}
+                <div className="mb-4">
+                  <QRScanner
+                    onScan={handleScanResult}
+                    onError={(error) => console.error('Scanner error:', error)}
+                    scanning={true}
+                  />
+                </div>
+
+                {/* Manual Search Button */}
+                <button
+                  onClick={() => setShowItemSearch(true)}
+                  className="w-full flex items-center justify-center gap-3 p-3 bg-muted hover:bg-muted/80 rounded-xl transition-colors mb-4"
+                >
+                  <Keyboard className="h-5 w-5" />
+                  <span className="font-medium">Search Item by Code</span>
+                </button>
+
+                {/* Items List */}
+                <div className="flex-1 overflow-auto max-h-64">
+                  {serviceItems.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Package className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                      <p>No items scanned yet</p>
+                      <p className="text-sm">Scan QR codes or search above</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {serviceItems.map((item) => {
+                        const hasNoClass = !item.class_code;
+                        return (
+                          <div
+                            key={item.id}
+                            className={cn(
+                              "flex items-center gap-3 p-3 rounded-lg border",
+                              hasNoClass ? "border-warning/50 bg-warning/5" : "border-border"
+                            )}
+                          >
+                            <Package className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-mono font-medium text-sm truncate">{item.item_code}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {item.class_code ? (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {item.class_code}
+                                  </Badge>
+                                ) : (
+                                  <span className="flex items-center gap-1 text-warning">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    No class
+                                  </span>
+                                )}
+                                {item.current_location_code && (
+                                  <span>{item.current_location_code}</span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => removeServiceItem(item.id)}
+                              className="text-destructive hover:bg-destructive/10 p-1 rounded"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* RIGHT: Services Selection */}
+            <Card className="flex flex-col">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Services ({selectedServices.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col">
+                {/* Service Dropdown */}
+                <div className="flex gap-2 mb-4">
+                  <Select value={serviceToAdd} onValueChange={setServiceToAdd}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select a service..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {scanServiceEvents
+                        .filter(s => !selectedServices.find(sel => sel.service_code === s.service_code))
+                        .map((service) => (
+                          <SelectItem key={service.service_code} value={service.service_code}>
+                            <div className="flex items-center justify-between gap-4">
+                              <span>{service.service_name}</span>
+                              <span className="text-muted-foreground text-xs">
+                                ${service.rate.toFixed(2)}/{service.billing_unit}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={() => addServiceEvent(serviceToAdd)}
+                    disabled={!serviceToAdd}
+                    size="icon"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* Selected Services List */}
+                <div className="flex-1 overflow-auto max-h-64">
+                  {selectedServices.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                      <p>No services selected</p>
+                      <p className="text-sm">Select services from dropdown above</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {selectedServices.map((service) => (
+                        <div
+                          key={service.service_code}
+                          className="flex items-center gap-3 p-3 rounded-lg border border-border"
+                        >
+                          <Zap className="h-5 w-5 text-success flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{service.service_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {service.uses_class_pricing ? (
+                                <span className="text-info">Class-based pricing</span>
+                              ) : (
+                                <span>${service.rate.toFixed(2)} / {service.billing_unit}</span>
+                              )}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => removeServiceEvent(service.service_code)}
+                            className="text-destructive hover:bg-destructive/10 p-1 rounded"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Rate Preview for items without class */}
+                {serviceItems.some(i => !i.class_code) && selectedServices.some(s => s.uses_class_pricing) && (
+                  <div className="mt-4 p-3 bg-warning/10 border border-warning/30 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
+                      <div className="text-sm">
+                        <p className="font-medium text-warning">Rate Warning</p>
+                        <p className="text-muted-foreground">
+                          Some items have no class assigned. Default rates will be used and flagged in billing.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Summary & Save */}
+          <div className="mt-4 pt-4 border-t">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Billing events to create:</p>
+                <p className="text-2xl font-bold">
+                  {totalBillingEvents}
+                  <span className="text-sm font-normal text-muted-foreground ml-2">
+                    ({serviceItems.length} items × {selectedServices.length} services)
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <Button
+              onClick={saveServiceEvents}
+              disabled={serviceItems.length === 0 || selectedServices.length === 0 || processing}
+              className="w-full h-14 text-lg"
+              size="lg"
+            >
+              {processing ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Creating Billing Events...
+                </>
+              ) : (
+                <>
+                  <Save className="h-5 w-5 mr-2" />
+                  Save Billing Events
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Item Search Overlay */}
+        <ItemSearchOverlay
+          open={showItemSearch}
+          onClose={() => setShowItemSearch(false)}
+          onSelect={handleServiceItemSelect}
+          excludeIds={serviceItems.map(i => i.id)}
+        />
       </DashboardLayout>
     );
   }
