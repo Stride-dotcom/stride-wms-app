@@ -34,6 +34,9 @@ import CoverageQuickEntry from "./pages/CoverageQuickEntry";
 import Stocktakes from "./pages/Stocktakes";
 import StocktakeScanView from "./components/stocktakes/StocktakeScanView";
 import StocktakeReport from "./components/stocktakes/StocktakeReport";
+import Manifests from "./pages/Manifests";
+import ManifestDetail from "./pages/ManifestDetail";
+import ManifestScan from "./pages/ManifestScan";
 import RepairTechAccess from "./pages/RepairTechAccess";
 import TechQuoteSubmit from "./pages/TechQuoteSubmit";
 import Technicians from "./pages/Technicians";
@@ -95,6 +98,10 @@ const App = () => (
             <Route path="/stocktakes" element={<ProtectedRoute><Stocktakes /></ProtectedRoute>} />
             <Route path="/stocktakes/:id/scan" element={<ProtectedRoute><StocktakeScanView /></ProtectedRoute>} />
             <Route path="/stocktakes/:id/report" element={<ProtectedRoute><StocktakeReport /></ProtectedRoute>} />
+            <Route path="/manifests" element={<ProtectedRoute><Manifests /></ProtectedRoute>} />
+            <Route path="/manifests/:id" element={<ProtectedRoute><ManifestDetail /></ProtectedRoute>} />
+            <Route path="/manifests/:id/scan" element={<ProtectedRoute><ManifestScan /></ProtectedRoute>} />
+            <Route path="/manifests/:id/history" element={<ProtectedRoute><ManifestDetail /></ProtectedRoute>} />
             
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/accounts" element={<ProtectedRoute><RequireRole role="tenant_admin"><Accounts /></RequireRole></ProtectedRoute>} />

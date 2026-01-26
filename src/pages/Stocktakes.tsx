@@ -169,10 +169,16 @@ export default function Stocktakes() {
           </h1>
           <p className="text-muted-foreground">Schedule and manage inventory cycle counts</p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Stocktake
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate('/manifests')}>
+            <ClipboardCheck className="h-4 w-4 mr-2" />
+            Manifests
+          </Button>
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Stocktake
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
