@@ -84,7 +84,7 @@ export interface ManifestItem {
   };
   account?: {
     id: string;
-    name: string;
+    account_name: string;
   };
 }
 
@@ -458,10 +458,10 @@ export function useManifestScan(manifestId: string) {
         .from('stocktake_manifest_items')
         .select(`
           *,
-          item:items!stocktake_manifest_items_item_id_fkey(id, item_code, description, status, vendor),
+          item:items(id, item_code, description, status, vendor),
           expected_location:locations!stocktake_manifest_items_expected_location_id_fkey(id, code, name),
           scanned_location:locations!stocktake_manifest_items_scanned_location_id_fkey(id, code, name),
-          account:accounts!stocktake_manifest_items_account_id_fkey(id, name)
+          account:accounts(id, account_name)
         `)
         .eq('manifest_id', manifestId)
         .order('item_code');

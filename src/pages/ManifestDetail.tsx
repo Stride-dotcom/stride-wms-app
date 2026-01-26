@@ -168,7 +168,7 @@ export default function ManifestDetail() {
     return items.filter(
       i => i.item_code.toLowerCase().includes(query) ||
            i.item_description?.toLowerCase().includes(query) ||
-           i.account?.name?.toLowerCase().includes(query)
+           i.account?.account_name?.toLowerCase().includes(query)
     );
   }, [items, searchQuery]);
 
@@ -525,7 +525,7 @@ export default function ManifestDetail() {
                         <TableCell className="max-w-[200px] truncate">
                           {item.item_description || '-'}
                         </TableCell>
-                        <TableCell>{item.account?.name || '-'}</TableCell>
+                        <TableCell>{item.account?.account_name || '-'}</TableCell>
                         <TableCell>
                           {item.expected_location?.code || '-'}
                         </TableCell>

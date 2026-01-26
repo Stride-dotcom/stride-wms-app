@@ -421,6 +421,56 @@ export type Database = {
           },
         ]
       }
+      account_service_settings_audit: {
+        Row: {
+          account_id: string
+          account_service_setting_id: string | null
+          action: string
+          changed_at: string | null
+          changed_by: string | null
+          changed_fields: string[] | null
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          service_code: string
+          tenant_id: string
+        }
+        Insert: {
+          account_id: string
+          account_service_setting_id?: string | null
+          action: string
+          changed_at?: string | null
+          changed_by?: string | null
+          changed_fields?: string[] | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          service_code: string
+          tenant_id: string
+        }
+        Update: {
+          account_id?: string
+          account_service_setting_id?: string | null
+          action?: string
+          changed_at?: string | null
+          changed_by?: string | null
+          changed_fields?: string[] | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          service_code?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_service_settings_audit_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_sidemarks: {
         Row: {
           account_id: string
@@ -3994,7 +4044,6 @@ export type Database = {
           qbo_invoice_id: string | null
           qbo_sync_status: string | null
           qbo_synced_at: string | null
-          sent_at: string | null
           sidemark_id: string | null
           sort_by: string | null
           status: string | null
@@ -4033,7 +4082,6 @@ export type Database = {
           qbo_invoice_id?: string | null
           qbo_sync_status?: string | null
           qbo_synced_at?: string | null
-          sent_at?: string | null
           sidemark_id?: string | null
           sort_by?: string | null
           status?: string | null
@@ -4072,7 +4120,6 @@ export type Database = {
           qbo_invoice_id?: string | null
           qbo_sync_status?: string | null
           qbo_synced_at?: string | null
-          sent_at?: string | null
           sidemark_id?: string | null
           sort_by?: string | null
           status?: string | null
@@ -4446,13 +4493,6 @@ export type Database = {
           {
             foreignKeyName: "item_flags_resolved_by_fkey"
             columns: ["resolved_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "item_flags_set_by_fkey"
-            columns: ["set_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -6619,6 +6659,56 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_events_audit: {
+        Row: {
+          action: string
+          changed_at: string | null
+          changed_by: string | null
+          changed_fields: string[] | null
+          class_code: string | null
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          service_code: string
+          service_event_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string | null
+          changed_by?: string | null
+          changed_fields?: string[] | null
+          class_code?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          service_code: string
+          service_event_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string | null
+          changed_by?: string | null
+          changed_fields?: string[] | null
+          class_code?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          service_code?: string
+          service_event_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_events_audit_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
