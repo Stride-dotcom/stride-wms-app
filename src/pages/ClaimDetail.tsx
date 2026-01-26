@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, FileText, Clock, User, Package, Truck, Building, DollarSign, ScanLine, Camera } from 'lucide-react';
-import { MultiPhotoCapture } from '@/components/common/MultiPhotoCapture';
+import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
+import { PhotoGrid } from '@/components/common/PhotoGrid';
 import { useAuth } from '@/contexts/AuthContext';
 import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
 import { DocumentList } from '@/components/scanner/DocumentList';
@@ -224,22 +225,34 @@ export default function ClaimDetail() {
 
               <TabsContent value="photos" className="mt-4">
                 <Card>
-                  <CardHeader className="pb-3">
+                  <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Camera className="h-4 w-4" />
-                      Photos
+                      Photos ({claimPhotos.length})
                     </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <MultiPhotoCapture
+                    <PhotoScannerButton
                       entityType="claim"
                       entityId={claim.id}
                       tenantId={profile?.tenant_id}
-                      onPhotosSaved={(urls) => setClaimPhotos(urls)}
                       existingPhotos={claimPhotos}
                       maxPhotos={20}
-                      label=""
+                      onPhotosSaved={(urls) => setClaimPhotos(urls)}
+                      size="sm"
+                      label="Take Photos"
+                      showCount={false}
                     />
+                  </CardHeader>
+                  <CardContent>
+                    {claimPhotos.length > 0 ? (
+                      <PhotoGrid
+                        photos={claimPhotos}
+                        onPhotosChange={(urls) => setClaimPhotos(urls)}
+                      />
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-6">
+                        No photos yet. Tap "Take Photos" to capture.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

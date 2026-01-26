@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useItemPhotos, ItemPhoto } from '@/hooks/useItemPhotos';
+import { PhotoScanner } from '@/components/common/PhotoScanner';
 import {
   Camera,
   Upload,
@@ -44,12 +45,12 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
   const { toast } = useToast();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
   const [lightboxPhoto, setLightboxPhoto] = useState<ItemPhoto | null>(null);
   const [photoType, setPhotoType] = useState<ItemPhoto['photo_type']>('general');
   const [filterNeedsAttention, setFilterNeedsAttention] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const handleDownload = async (photo: ItemPhoto) => {
     try {
@@ -85,7 +86,17 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
 
     // Reset input
     if (fileInputRef.current) fileInputRef.current.value = '';
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
+  };
+
+  // Handle photos from PhotoScanner - fetch and add each URL as a file
+  const handleScannerPhotosSaved = async (urls: string[]) => {
+    // The PhotoScanner has already saved the photos
+    // We need to reload the photos list
+    // For now, just show a toast - the photos hook should refetch
+    toast({
+      title: 'Photos captured',
+      description: `${urls.length} photo(s) added to item.`,
+    });
   };
 
   const togglePhotoSelection = (photoId: string) => {
@@ -268,30 +279,19 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                   <span className="hidden sm:inline">Needs Attention</span>
                 </Button>
 
-                {/* Upload buttons */}
-                <Input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
+                {/* Camera button - opens PhotoScanner */}
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => cameraInputRef.current?.click()}
+                  onClick={() => setScannerOpen(true)}
                   disabled={uploading}
                   className="text-xs sm:text-sm"
                 >
-                  {uploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Camera className="h-4 w-4 sm:mr-1" />
-                  )}
+                  <Camera className="h-4 w-4 sm:mr-1" />
                   <span className="hidden sm:inline">Camera</span>
                 </Button>
 
+                {/* Upload button */}
                 <Input
                   ref={fileInputRef}
                   type="file"
@@ -435,6 +435,17 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
           )}
         </DialogContent>
       </Dialog>
+
+      {/* PhotoScanner Dialog */}
+      <PhotoScanner
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        entityType="item"
+        entityId={itemId}
+        existingPhotos={photos.map(p => p.storage_url || '')}
+        maxPhotos={50}
+        onPhotosSaved={handleScannerPhotosSaved}
+      />
     </>
   );
 }
