@@ -79,7 +79,8 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER trg_generate_manifest_number
+DROP TRIGGER IF EXISTS trg_generate_manifest_number ON public.stocktake_manifests;
+CREATE OR REPLACE TRIGGER trg_generate_manifest_number
 BEFORE INSERT ON public.stocktake_manifests
 FOR EACH ROW
 WHEN (NEW.manifest_number IS NULL OR NEW.manifest_number = '')
@@ -94,6 +95,7 @@ CREATE INDEX IF NOT EXISTS idx_manifests_created_at ON public.stocktake_manifest
 -- Enable RLS
 ALTER TABLE public.stocktake_manifests ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tenant isolation for manifests" ON public.stocktake_manifests;
 CREATE POLICY "Tenant isolation for manifests"
 ON public.stocktake_manifests FOR ALL
 USING (tenant_id IN (SELECT tenant_id FROM public.users WHERE id = auth.uid()));
@@ -140,6 +142,7 @@ CREATE INDEX IF NOT EXISTS idx_manifest_items_scanned ON public.stocktake_manife
 -- Enable RLS
 ALTER TABLE public.stocktake_manifest_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tenant isolation via manifest for items" ON public.stocktake_manifest_items;
 CREATE POLICY "Tenant isolation via manifest for items"
 ON public.stocktake_manifest_items FOR ALL
 USING (EXISTS (
@@ -196,6 +199,7 @@ CREATE INDEX IF NOT EXISTS idx_manifest_history_changed_by ON public.stocktake_m
 -- Enable RLS
 ALTER TABLE public.stocktake_manifest_history ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tenant isolation via manifest for history" ON public.stocktake_manifest_history;
 CREATE POLICY "Tenant isolation via manifest for history"
 ON public.stocktake_manifest_history FOR ALL
 USING (EXISTS (
@@ -250,6 +254,7 @@ CREATE INDEX IF NOT EXISTS idx_manifest_scans_scanned_at ON public.stocktake_man
 -- Enable RLS
 ALTER TABLE public.stocktake_manifest_scans ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Tenant isolation via manifest for scans" ON public.stocktake_manifest_scans;
 CREATE POLICY "Tenant isolation via manifest for scans"
 ON public.stocktake_manifest_scans FOR ALL
 USING (EXISTS (
@@ -291,7 +296,8 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER trg_record_manifest_creation
+DROP TRIGGER IF EXISTS trg_record_manifest_creation ON public.stocktake_manifests;
+CREATE OR REPLACE TRIGGER trg_record_manifest_creation
 AFTER INSERT ON public.stocktake_manifests
 FOR EACH ROW
 EXECUTE FUNCTION public.record_manifest_creation();
@@ -383,7 +389,8 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER trg_record_manifest_update
+DROP TRIGGER IF EXISTS trg_record_manifest_update ON public.stocktake_manifests;
+CREATE OR REPLACE TRIGGER trg_record_manifest_update
 AFTER UPDATE ON public.stocktake_manifests
 FOR EACH ROW
 EXECUTE FUNCTION public.record_manifest_update();
@@ -423,7 +430,8 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER trg_record_manifest_item_added
+DROP TRIGGER IF EXISTS trg_record_manifest_item_added ON public.stocktake_manifest_items;
+CREATE OR REPLACE TRIGGER trg_record_manifest_item_added
 AFTER INSERT ON public.stocktake_manifest_items
 FOR EACH ROW
 EXECUTE FUNCTION public.record_manifest_item_added();
@@ -458,7 +466,8 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER trg_record_manifest_item_removed
+DROP TRIGGER IF EXISTS trg_record_manifest_item_removed ON public.stocktake_manifest_items;
+CREATE OR REPLACE TRIGGER trg_record_manifest_item_removed
 AFTER DELETE ON public.stocktake_manifest_items
 FOR EACH ROW
 EXECUTE FUNCTION public.record_manifest_item_removed();
