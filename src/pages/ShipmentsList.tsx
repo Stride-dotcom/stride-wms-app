@@ -244,6 +244,12 @@ export default function ShipmentsList() {
               New Shipment
             </Button>
           )}
+          {activeTab === 'outbound' && (
+            <Button onClick={() => navigate('/tasks?type=Will%20Call')}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Will Call
+            </Button>
+          )}
         </div>
       );
     }
@@ -335,6 +341,23 @@ export default function ShipmentsList() {
   // ------------------------------------------
   // Render
   // ------------------------------------------
+  const getCreateButton = () => {
+    if (activeTab === 'outbound') {
+      return (
+        <Button onClick={() => navigate('/tasks?type=Will%20Call')}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Will Call
+        </Button>
+      );
+    }
+    return (
+      <Button onClick={() => navigate('/shipments/create')}>
+        <Plus className="h-4 w-4 mr-2" />
+        New Shipment
+      </Button>
+    );
+  };
+
   return (
     <DashboardLayout>
       <div className="flex justify-between items-center mb-6">
@@ -348,10 +371,7 @@ export default function ShipmentsList() {
             description="Manage inbound and outbound shipments"
           />
         </div>
-        <Button onClick={() => navigate('/shipments/create')}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Shipment
-        </Button>
+        {getCreateButton()}
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">

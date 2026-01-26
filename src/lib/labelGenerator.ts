@@ -16,6 +16,7 @@ export interface ItemLabelData {
   vendor: string;
   account: string;
   sidemark?: string;
+  room?: string;
   warehouseName?: string;
   locationCode?: string;
 }
@@ -235,7 +236,17 @@ export async function generateItemLabelsPDF(items: ItemLabelData[]): Promise<Blo
       yPos += 28;
     }
 
-    // Horizontal line after account/sidemark
+    // 2b. Room (if present)
+    if (item.room) {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(60, 60, 60);
+      const roomText = truncateText(doc, `Room: ${item.room}`, maxTextWidth);
+      doc.text(roomText, LABEL_WIDTH / 2, yPos, { align: 'center' });
+      yPos += 22;
+    }
+
+    // Horizontal line after account/sidemark/room
     doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(1);
     doc.line(MARGIN + 20, yPos, LABEL_WIDTH - MARGIN - 20, yPos);

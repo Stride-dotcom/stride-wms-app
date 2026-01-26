@@ -11,7 +11,11 @@ export interface TenantCompanySettings {
   company_phone: string | null;
   company_website: string | null;
   company_address: string | null;
-  remit_to_address: string | null;
+  remit_address_line1: string | null;
+  remit_address_line2: string | null;
+  remit_city: string | null;
+  remit_state: string | null;
+  remit_zip: string | null;
   logo_url: string | null;
   logo_storage_path: string | null;
   app_base_url: string | null;

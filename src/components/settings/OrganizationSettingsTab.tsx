@@ -42,7 +42,12 @@ const organizationSchema = z.object({
   company_phone: z.string().optional(),
   company_website: z.string().optional(),
   company_address: z.string().optional(),
-  remit_to_address: z.string().optional(),
+  // Remit to Address (separate fields)
+  remit_address_line1: z.string().optional(),
+  remit_address_line2: z.string().optional(),
+  remit_city: z.string().optional(),
+  remit_state: z.string().optional(),
+  remit_zip: z.string().optional(),
   // App Settings
   app_base_url: z.string().optional(),
   app_subdomain: z.string().optional(),
@@ -95,7 +100,11 @@ export function OrganizationSettingsTab() {
       company_phone: '',
       company_website: '',
       company_address: '',
-      remit_to_address: '',
+      remit_address_line1: '',
+      remit_address_line2: '',
+      remit_city: '',
+      remit_state: '',
+      remit_zip: '',
       app_base_url: '',
       app_subdomain: '',
       email_signature_enabled: true,
@@ -117,7 +126,11 @@ export function OrganizationSettingsTab() {
         company_phone: tenantSettings.company_phone || '',
         company_website: tenantSettings.company_website || '',
         company_address: tenantSettings.company_address || '',
-        remit_to_address: tenantSettings.remit_to_address || '',
+        remit_address_line1: tenantSettings.remit_address_line1 || '',
+        remit_address_line2: tenantSettings.remit_address_line2 || '',
+        remit_city: tenantSettings.remit_city || '',
+        remit_state: tenantSettings.remit_state || '',
+        remit_zip: tenantSettings.remit_zip || '',
         app_base_url: tenantSettings.app_base_url || '',
         app_subdomain: tenantSettings.app_subdomain || '',
         email_signature_enabled: tenantSettings.email_signature_enabled ?? true,
@@ -153,7 +166,11 @@ export function OrganizationSettingsTab() {
         company_phone: data.company_phone || null,
         company_website: data.company_website || null,
         company_address: data.company_address || null,
-        remit_to_address: data.remit_to_address || null,
+        remit_address_line1: data.remit_address_line1 || null,
+        remit_address_line2: data.remit_address_line2 || null,
+        remit_city: data.remit_city || null,
+        remit_state: data.remit_state || null,
+        remit_zip: data.remit_zip || null,
         app_base_url: data.app_base_url || null,
         app_subdomain: data.app_subdomain || null,
         email_signature_enabled: data.email_signature_enabled ?? true,
@@ -405,26 +422,86 @@ export function OrganizationSettingsTab() {
 
                   <Separator />
 
-                  <FormField
-                    control={form.control}
-                    name="remit_to_address"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Remit to Address</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="P.O. Box 12345&#10;City, State 12345&#10;or&#10;123 Payment Processing St&#10;Suite 200&#10;City, State 12345"
-                            rows={4}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Address where payments should be sent. This will appear on invoices for payment remittance.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-medium mb-3">Remit to Address</h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Address where payments should be sent. This will appear on invoices for payment remittance.
+                      </p>
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="remit_address_line1"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Address Line 1</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Street address or P.O. Box" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="remit_address_line2"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Address Line 2</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Suite, unit, building, floor, etc. (optional)" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <FormField
+                        control={form.control}
+                        name="remit_city"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>City</FormLabel>
+                            <FormControl>
+                              <Input placeholder="City" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="remit_state"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>State</FormLabel>
+                            <FormControl>
+                              <Input placeholder="State" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="remit_zip"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>ZIP Code</FormLabel>
+                            <FormControl>
+                              <Input placeholder="ZIP" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
 
                   <div className="flex justify-end">
                     <Button type="submit" disabled={saving}>
