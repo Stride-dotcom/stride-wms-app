@@ -23,7 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, Copy, TrendingUp, Eye } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ServiceEvent,
   CreateServiceEventInput,
@@ -168,6 +170,57 @@ export function AddServiceDialog({
         cr.class_code === classCode ? { ...cr, [field]: value } : cr
       )
     );
+  };
+
+  // Copy first rate to all class rates
+  const copyFirstRateToAll = () => {
+    if (classRates.length === 0) return;
+    const firstRate = classRates[0].rate;
+    const firstTime = classRates[0].service_time_minutes;
+    setClassRates((prev) =>
+      prev.map((cr) => ({
+        ...cr,
+        rate: firstRate,
+        service_time_minutes: firstTime,
+      }))
+    );
+  };
+
+  // Scale rates by size (XS=base, each size increases by 50%)
+  const scaleRatesBySize = () => {
+    if (classRates.length === 0) return;
+    const baseRate = classRates[0].rate;
+    const baseTime = classRates[0].service_time_minutes || 0;
+    const multipliers: Record<string, number> = {
+      XS: 1.0,
+      S: 1.25,
+      M: 1.5,
+      L: 2.0,
+      XL: 2.5,
+      XXL: 3.0,
+    };
+    setClassRates((prev) =>
+      prev.map((cr) => ({
+        ...cr,
+        rate: Math.round(baseRate * (multipliers[cr.class_code] || 1) * 100) / 100,
+        service_time_minutes: baseTime ? Math.round(baseTime * (multipliers[cr.class_code] || 1)) : undefined,
+      }))
+    );
+  };
+
+  // Get billing trigger description
+  const getBillingTriggerDescription = (trigger: string): string => {
+    const descriptions: Record<string, string> = {
+      'SCAN EVENT': 'Charge created when item is scanned for this service',
+      'AUTOCALCULATE': 'System automatically calculates (e.g., daily storage)',
+      'Per Item Auto Calculated': 'Rate × quantity, automatically generated',
+      'Flag': 'Creates a flag for manual review before billing',
+      'Task - Assign Rate': 'Rate is locked in when task is assigned',
+      'Through Task': 'Billed when associated task is completed',
+      'Shipment': 'Billed per shipment, not per item',
+      'Stocktake': 'Billed during stocktake/inventory count',
+    };
+    return descriptions[trigger] || '';
   };
 
   // Handle save
@@ -453,8 +506,37 @@ export function AddServiceDialog({
           {/* Class-based Rates */}
           {formData.uses_class_pricing && (
             <div className="space-y-3 p-4 border rounded-lg">
-              <Label>Rates by Class</Label>
+              <div className="flex items-center justify-between">
+                <Label>Rates by Class</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={copyFirstRateToAll}
+                    disabled={classRates.length === 0}
+                  >
+                    <Copy className="h-3 w-3 mr-1" />
+                    Copy XS to All
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={scaleRatesBySize}
+                    disabled={classRates.length === 0}
+                  >
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    Scale by Size
+                  </Button>
+                </div>
+              </div>
               <div className="grid gap-3">
+                <div className="grid grid-cols-3 gap-3 text-xs text-muted-foreground font-medium">
+                  <div>Class</div>
+                  <div>Rate ($)</div>
+                  <div>Time (min)</div>
+                </div>
                 {classRates.map((cr) => (
                   <div key={cr.class_code} className="grid grid-cols-3 gap-3 items-center">
                     <div className="font-medium text-sm">
@@ -491,6 +573,9 @@ export function AddServiceDialog({
                   </div>
                 ))}
               </div>
+              <p className="text-xs text-muted-foreground">
+                "Scale by Size" applies multipliers: XS=1×, S=1.25×, M=1.5×, L=2×, XL=2.5×, XXL=3×
+              </p>
             </div>
           )}
 
@@ -563,6 +648,71 @@ export function AddServiceDialog({
               rows={2}
             />
           </div>
+
+          {/* Preview Section */}
+          {formData.service_code && formData.service_name && (
+            <div className="border rounded-lg p-4 bg-muted/30">
+              <div className="flex items-center gap-2 mb-3">
+                <Eye className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-sm font-medium">Preview</Label>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Service:</span>
+                  <Badge variant="outline" className="font-mono">
+                    {formData.service_code.toUpperCase().replace(/\s+/g, '_')}
+                  </Badge>
+                  <span>-</span>
+                  <span>{formData.service_name}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Billing: </span>
+                  {formData.uses_class_pricing ? (
+                    <span>
+                      Per {formData.billing_unit} (varies by size)
+                      <div className="mt-1 grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        {classRates.map((cr) => (
+                          <span key={cr.class_code}>
+                            {cr.class_code}: ${cr.rate.toFixed(2)}
+                            {cr.service_time_minutes ? ` (${cr.service_time_minutes}m)` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    </span>
+                  ) : (
+                    <span>
+                      ${formData.rate.toFixed(2)} per {formData.billing_unit}
+                      {formData.service_time_minutes ? ` (${formData.service_time_minutes} min)` : ''}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <span className="font-medium">Billed: </span>
+                  <span>{getBillingTriggerDescription(formData.billing_trigger) || formData.billing_trigger}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span>
+                    <span className="font-medium">Taxable: </span>
+                    {formData.taxable ? 'Yes' : 'No'}
+                  </span>
+                  <span>
+                    <span className="font-medium">Status: </span>
+                    {formData.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                {(formData.add_flag || formData.add_to_service_event_scan) && (
+                  <div className="flex gap-2">
+                    {formData.add_flag && (
+                      <Badge variant="secondary" className="text-xs">Item Flags</Badge>
+                    )}
+                    {formData.add_to_service_event_scan && (
+                      <Badge variant="secondary" className="text-xs">Scan Events</Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>

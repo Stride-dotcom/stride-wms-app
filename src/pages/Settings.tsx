@@ -35,7 +35,7 @@ import { InviteUserDialog } from '@/components/settings/InviteUserDialog';
 import { EmployeesSettingsTab } from '@/components/settings/EmployeesSettingsTab';
 import { OrganizationSettingsTab } from '@/components/settings/OrganizationSettingsTab';
 import { SidemarksSettingsTab } from '@/components/settings/SidemarksSettingsTab';
-import { PricingSettingsTab } from '@/components/settings/PricingSettingsTab';
+import { ServiceEventsPricingTab } from '@/components/settings/ServiceEventsPricingTab';
 
 import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
 import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
@@ -364,7 +364,7 @@ export default function Settings() {
 
           {isAdmin && (
             <TabsContent value="pricing">
-              <PricingSettingsTab />
+              <ServiceEventsPricingTab />
             </TabsContent>
           )}
 

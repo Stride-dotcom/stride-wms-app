@@ -21,6 +21,9 @@ import {
   X,
   Check,
   History,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -755,8 +758,11 @@ function GroupedServiceTable({
 }
 
 // ============================================================================
-// Flat Service Table
+// Flat Service Table with Sorting
 // ============================================================================
+
+type SortField = 'service_code' | 'service_name' | 'class_code' | 'billing_unit' | 'rate' | 'service_time_minutes' | 'billing_trigger';
+type SortDirection = 'asc' | 'desc';
 
 interface FlatServiceTableProps {
   serviceEvents: ServiceEvent[];
@@ -777,24 +783,92 @@ function FlatServiceTable({
   onViewAudit,
   saving,
 }: FlatServiceTableProps) {
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  // Handle sort click
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction or reset
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        setSortField(null);
+        setSortDirection('asc');
+      }
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sort events
+  const sortedEvents = useMemo(() => {
+    if (!sortField) return serviceEvents;
+
+    return [...serviceEvents].sort((a, b) => {
+      let aVal: any = a[sortField];
+      let bVal: any = b[sortField];
+
+      // Handle null values
+      if (aVal === null || aVal === undefined) aVal = '';
+      if (bVal === null || bVal === undefined) bVal = '';
+
+      // Numeric comparison for rate and time
+      if (sortField === 'rate' || sortField === 'service_time_minutes') {
+        aVal = Number(aVal) || 0;
+        bVal = Number(bVal) || 0;
+      } else {
+        // String comparison
+        aVal = String(aVal).toLowerCase();
+        bVal = String(bVal).toLowerCase();
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [serviceEvents, sortField, sortDirection]);
+
+  // Sortable header component
+  const SortableHeader = ({ field, children, className }: { field: SortField; children: React.ReactNode; className?: string }) => (
+    <TableHead
+      className={cn('cursor-pointer select-none hover:bg-muted/50', className)}
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortField === field ? (
+          sortDirection === 'asc' ? (
+            <ArrowUp className="h-3 w-3" />
+          ) : (
+            <ArrowDown className="h-3 w-3" />
+          )
+        ) : (
+          <ArrowUpDown className="h-3 w-3 opacity-30" />
+        )}
+      </div>
+    </TableHead>
+  );
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Service Code</TableHead>
-          <TableHead>Service Name</TableHead>
-          <TableHead>Class</TableHead>
-          <TableHead>Billing Unit</TableHead>
-          <TableHead className="text-right">Rate</TableHead>
-          <TableHead className="text-right">Time (min)</TableHead>
+          <SortableHeader field="service_code">Service Code</SortableHeader>
+          <SortableHeader field="service_name">Service Name</SortableHeader>
+          <SortableHeader field="class_code">Class</SortableHeader>
+          <SortableHeader field="billing_unit">Billing Unit</SortableHeader>
+          <SortableHeader field="rate" className="text-right">Rate</SortableHeader>
+          <SortableHeader field="service_time_minutes" className="text-right">Time (min)</SortableHeader>
           <TableHead className="text-center">Taxable</TableHead>
           <TableHead className="text-center">Active</TableHead>
-          <TableHead>Billing Trigger</TableHead>
+          <SortableHeader field="billing_trigger">Billing Trigger</SortableHeader>
           <TableHead className="w-32">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {serviceEvents.map((event) => (
+        {sortedEvents.map((event) => (
           <TableRow key={event.id} className={cn(!event.is_active && "opacity-50")}>
             <TableCell>
               <Badge variant="outline" className="font-mono">{event.service_code}</Badge>

@@ -5,9 +5,22 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, Package, ClipboardCheck, Wrench, Truck, Hammer, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { Loader2, RefreshCw, Package, ClipboardCheck, Wrench, Truck, Hammer, ChevronDown, ChevronUp, ExternalLink, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardStats, PutAwayItem } from '@/hooks/useDashboardStats';
+
+/**
+ * Format minutes to a readable time string
+ * e.g., 135 -> "2h 15m", 45 -> "45 min"
+ */
+function formatTimeEstimate(minutes: number): string {
+  if (minutes <= 0) return '';
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (mins === 0) return `${hours}h`;
+  return `${hours}h ${mins}m`;
+}
 
 /**
  * Phase 2 Dashboard (Command Center)
@@ -45,6 +58,7 @@ export default function Dashboard() {
         bgColor: 'bg-yellow-500/10',
         iconColor: 'text-yellow-500',
         onClick: () => navigate('/tasks?type=Inspection&status=pending'),
+        timeEstimate: stats.inspectionTimeEstimate,
       },
       {
         key: 'assembly',
@@ -56,6 +70,7 @@ export default function Dashboard() {
         bgColor: 'bg-amber-500/10',
         iconColor: 'text-amber-500',
         onClick: () => navigate('/tasks?type=Assembly&status=pending'),
+        timeEstimate: stats.assemblyTimeEstimate,
       },
       {
         key: 'incoming_shipments',
@@ -78,6 +93,7 @@ export default function Dashboard() {
         bgColor: 'bg-red-500/10',
         iconColor: 'text-red-500',
         onClick: () => navigate('/tasks?type=Repair&status=pending'),
+        timeEstimate: stats.repairTimeEstimate,
       },
     ],
     [navigate, stats]
@@ -185,6 +201,7 @@ export default function Dashboard() {
               }
 
               // Standard tile rendering for other tiles
+              const timeStr = t.timeEstimate ? formatTimeEstimate(t.timeEstimate) : '';
               return (
                 <Card
                   key={t.key}
@@ -206,7 +223,15 @@ export default function Dashboard() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold">{t.count ?? 0}</div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold">{t.count ?? 0}</span>
+                      {timeStr && t.count > 0 && (
+                        <span className="text-sm text-muted-foreground flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          ~{timeStr}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground mt-1">{t.description}</p>
                   </CardContent>
                 </Card>

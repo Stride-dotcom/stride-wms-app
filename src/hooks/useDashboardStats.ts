@@ -16,6 +16,10 @@ export interface DashboardStats {
   urgentNeedToRepair: number;
   putAwayUrgentCount: number;
   incomingShipmentsUrgentCount: number;
+  // Time estimates (in minutes)
+  inspectionTimeEstimate: number;
+  assemblyTimeEstimate: number;
+  repairTimeEstimate: number;
 }
 
 export interface TaskItem {
@@ -68,6 +72,9 @@ export function useDashboardStats() {
     urgentNeedToRepair: 0,
     putAwayUrgentCount: 0,
     incomingShipmentsUrgentCount: 0,
+    inspectionTimeEstimate: 0,
+    assemblyTimeEstimate: 0,
+    repairTimeEstimate: 0,
   });
   const [inspectionTasks, setInspectionTasks] = useState<TaskItem[]>([]);
   const [assemblyTasks, setAssemblyTasks] = useState<TaskItem[]>([]);
@@ -238,6 +245,50 @@ export function useDashboardStats() {
         return eta <= today;
       }).length;
 
+      // Fetch service time estimates from service_events
+      const { data: serviceTimeData } = await (supabase
+        .from('service_events') as any)
+        .select('service_code, class_code, service_time_minutes')
+        .eq('tenant_id', profile.tenant_id)
+        .eq('is_active', true)
+        .in('service_code', ['INSP', 'Assembly', '5MA', '15MA', '30MA', '45MA', '60MA', '90MA', '120MA', 'Repair']);
+
+      // Create lookup for service times (use average if multiple class variants)
+      const serviceTimeLookup: Record<string, number> = {};
+      if (serviceTimeData) {
+        const serviceGroups: Record<string, number[]> = {};
+        for (const row of serviceTimeData) {
+          const code = row.service_code;
+          if (row.service_time_minutes) {
+            if (!serviceGroups[code]) serviceGroups[code] = [];
+            serviceGroups[code].push(row.service_time_minutes);
+          }
+        }
+        // Calculate average time per service
+        for (const [code, times] of Object.entries(serviceGroups)) {
+          serviceTimeLookup[code] = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+        }
+      }
+
+      // Calculate time estimates
+      // For inspection: count * average INSP time
+      const inspAvgTime = serviceTimeLookup['INSP'] || 15; // default 15 min
+      const inspectionTimeEstimate = (inspectCount || 0) * inspAvgTime;
+
+      // For assembly: need to consider different assembly tiers
+      // Use average of assembly service times or default
+      const assemblyTimes = ['5MA', '15MA', '30MA', '45MA', '60MA', '90MA', '120MA', 'Assembly']
+        .map(code => serviceTimeLookup[code])
+        .filter(t => t !== undefined);
+      const assemblyAvgTime = assemblyTimes.length > 0
+        ? Math.round(assemblyTimes.reduce((a, b) => a + b, 0) / assemblyTimes.length)
+        : 30; // default 30 min
+      const assemblyTimeEstimate = (assemblyCount || 0) * assemblyAvgTime;
+
+      // For repair
+      const repairAvgTime = serviceTimeLookup['Repair'] || 45; // default 45 min
+      const repairTimeEstimate = (repairCount || 0) * repairAvgTime;
+
       setStats({
         needToInspect: inspectCount || 0,
         needToAssemble: assemblyCount || 0,
@@ -251,6 +302,9 @@ export function useDashboardStats() {
         urgentNeedToRepair: urgentRepairs,
         putAwayUrgentCount: urgentPutAway,
         incomingShipmentsUrgentCount: urgentShipments,
+        inspectionTimeEstimate,
+        assemblyTimeEstimate,
+        repairTimeEstimate,
       });
 
       setInspectionTasks(inspections || []);
