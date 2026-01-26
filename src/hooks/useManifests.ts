@@ -70,7 +70,7 @@ export interface ManifestItem {
     item_code: string;
     description: string | null;
     status: string;
-    vendor_name?: string | null;
+    vendor?: string | null;
   };
   expected_location?: {
     id: string;
@@ -458,7 +458,7 @@ export function useManifestScan(manifestId: string) {
         .from('stocktake_manifest_items')
         .select(`
           *,
-          item:items!stocktake_manifest_items_item_id_fkey(id, item_code, description, status, vendor_name),
+          item:items!stocktake_manifest_items_item_id_fkey(id, item_code, description, status, vendor),
           expected_location:locations!stocktake_manifest_items_expected_location_id_fkey(id, code, name),
           scanned_location:locations!stocktake_manifest_items_scanned_location_id_fkey(id, code, name),
           account:accounts!stocktake_manifest_items_account_id_fkey(id, name)
@@ -687,7 +687,7 @@ export function useManifestItems(manifestId: string) {
         .from('stocktake_manifest_items')
         .select(`
           *,
-          item:items!stocktake_manifest_items_item_id_fkey(id, item_code, description, status, vendor_name),
+          item:items!stocktake_manifest_items_item_id_fkey(id, item_code, description, status, vendor),
           expected_location:locations!stocktake_manifest_items_expected_location_id_fkey(id, code, name),
           account:accounts!stocktake_manifest_items_account_id_fkey(id, name)
         `)
