@@ -11,6 +11,7 @@ export interface TenantCompanySettings {
   company_phone: string | null;
   company_website: string | null;
   company_address: string | null;
+  remit_to_address: string | null;
   logo_url: string | null;
   logo_storage_path: string | null;
   app_base_url: string | null;

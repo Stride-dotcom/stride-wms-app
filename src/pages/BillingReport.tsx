@@ -44,7 +44,7 @@ function formatDateMMDDYY(dateStr: string | null): string {
 
 function toCSV(rows: BillingEventRow[]) {
   if (!rows.length) return "";
-  const headers = ["occurred_at", "account_name", "item_code", "event_type", "charge_type", "description", "quantity", "unit_rate", "total_amount", "status", "invoice_id"];
+  const headers = ["occurred_at", "account_name", "item_code", "charge_type", "description", "quantity", "unit_rate", "total_amount", "status", "invoice_id"];
   const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const lines = [headers.map(escape).join(",")];
   for (const r of rows) {
@@ -326,7 +326,6 @@ export default function BillingReport() {
                     <th className="text-left p-3 border-b font-medium">Date</th>
                     <th className="text-left p-3 border-b font-medium">Account</th>
                     <th className="text-left p-3 border-b font-medium">Item</th>
-                    <th className="text-left p-3 border-b font-medium">Type</th>
                     <th className="text-left p-3 border-b font-medium">Charge</th>
                     <th className="text-left p-3 border-b font-medium">Description</th>
                     <th className="text-right p-3 border-b font-medium">Qty</th>
@@ -341,7 +340,6 @@ export default function BillingReport() {
                       <td className="p-3">{r.occurred_at?.slice(0, 10)}</td>
                       <td className="p-3">{r.account_name}</td>
                       <td className="p-3 font-mono text-xs">{r.item_code}</td>
-                      <td className="p-3">{r.event_type}</td>
                       <td className="p-3">{r.charge_type}</td>
                       <td className="p-3 max-w-[200px] truncate">{r.description || "-"}</td>
                       <td className="p-3 text-right">{r.quantity}</td>
@@ -352,7 +350,7 @@ export default function BillingReport() {
                   ))}
                   {!rows.length && (
                     <tr>
-                      <td className="p-8 text-center text-muted-foreground" colSpan={10}>
+                      <td className="p-8 text-center text-muted-foreground" colSpan={9}>
                         No billing events found for the selected filters
                       </td>
                     </tr>

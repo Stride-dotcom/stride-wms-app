@@ -42,6 +42,7 @@ const organizationSchema = z.object({
   company_phone: z.string().optional(),
   company_website: z.string().optional(),
   company_address: z.string().optional(),
+  remit_to_address: z.string().optional(),
   // App Settings
   app_base_url: z.string().optional(),
   app_subdomain: z.string().optional(),
@@ -94,6 +95,7 @@ export function OrganizationSettingsTab() {
       company_phone: '',
       company_website: '',
       company_address: '',
+      remit_to_address: '',
       app_base_url: '',
       app_subdomain: '',
       email_signature_enabled: true,
@@ -115,6 +117,7 @@ export function OrganizationSettingsTab() {
         company_phone: tenantSettings.company_phone || '',
         company_website: tenantSettings.company_website || '',
         company_address: tenantSettings.company_address || '',
+        remit_to_address: tenantSettings.remit_to_address || '',
         app_base_url: tenantSettings.app_base_url || '',
         app_subdomain: tenantSettings.app_subdomain || '',
         email_signature_enabled: tenantSettings.email_signature_enabled ?? true,
@@ -150,6 +153,7 @@ export function OrganizationSettingsTab() {
         company_phone: data.company_phone || null,
         company_website: data.company_website || null,
         company_address: data.company_address || null,
+        remit_to_address: data.remit_to_address || null,
         app_base_url: data.app_base_url || null,
         app_subdomain: data.app_subdomain || null,
         email_signature_enabled: data.email_signature_enabled ?? true,
@@ -383,7 +387,7 @@ export function OrganizationSettingsTab() {
                     name="company_address"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Full Address</FormLabel>
+                        <FormLabel>Business Address</FormLabel>
                         <FormControl>
                           <Textarea
                             placeholder="123 Main Street&#10;Suite 100&#10;City, State 12345"
@@ -392,7 +396,30 @@ export function OrganizationSettingsTab() {
                           />
                         </FormControl>
                         <FormDescription>
-                          This address will appear on invoices and official documents
+                          Your primary business address for correspondence
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Separator />
+
+                  <FormField
+                    control={form.control}
+                    name="remit_to_address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Remit to Address</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="P.O. Box 12345&#10;City, State 12345&#10;or&#10;123 Payment Processing St&#10;Suite 200&#10;City, State 12345"
+                            rows={4}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Address where payments should be sent. This will appear on invoices for payment remittance.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
