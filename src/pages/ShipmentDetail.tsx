@@ -21,7 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { DocumentCapture } from '@/components/scanner';
-import { MultiPhotoCapture } from '@/components/common/MultiPhotoCapture';
+import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
+import { PhotoGrid } from '@/components/common/PhotoGrid';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 
@@ -700,27 +701,44 @@ export default function ShipmentDetail() {
 
       {/* Photos Section */}
       <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Photos</CardTitle>
-          <CardDescription>Take multiple photos before saving</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <MultiPhotoCapture
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <div>
+            <CardTitle>Photos</CardTitle>
+            <CardDescription>Capture multiple photos with interactive camera</CardDescription>
+          </div>
+          <PhotoScannerButton
             entityType="shipment"
             entityId={shipment.id}
             tenantId={profile?.tenant_id}
             existingPhotos={receivingPhotos}
             maxPhotos={20}
-            label=""
             onPhotosSaved={async (urls) => {
               setReceivingPhotos(urls);
-              // Save to shipment
               await supabase
                 .from('shipments')
                 .update({ receiving_photos: urls })
                 .eq('id', shipment.id);
             }}
+            label="Take Photos"
           />
+        </CardHeader>
+        <CardContent>
+          {receivingPhotos.length > 0 ? (
+            <PhotoGrid
+              photos={receivingPhotos}
+              onPhotosChange={async (urls) => {
+                setReceivingPhotos(urls);
+                await supabase
+                  .from('shipments')
+                  .update({ receiving_photos: urls })
+                  .eq('id', shipment.id);
+              }}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              No photos yet. Tap "Take Photos" to capture.
+            </p>
+          )}
         </CardContent>
       </Card>
 

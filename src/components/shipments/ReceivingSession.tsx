@@ -25,7 +25,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useReceivingSession } from '@/hooks/useReceivingSession';
-import { MultiPhotoCapture } from '@/components/common/MultiPhotoCapture';
+import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
+import { PhotoGrid } from '@/components/common/PhotoGrid';
 import { DocumentCapture } from '@/components/scanner/DocumentCapture';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -292,20 +293,33 @@ export function ReceivingSession({
       {/* Photos & Documents */}
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <Camera className="h-4 w-4" />
-              Receiving Photos
+              Receiving Photos ({existingPhotos.length})
             </CardTitle>
+            <PhotoScannerButton
+              entityType="receiving"
+              entityId={shipmentId}
+              existingPhotos={existingPhotos}
+              maxPhotos={20}
+              onPhotosSaved={(urls) => onPhotosChange('photos', urls)}
+              size="sm"
+              label="Take Photos"
+              showCount={false}
+            />
           </CardHeader>
           <CardContent>
-            <MultiPhotoCapture
-              entityType="shipment"
-              entityId={shipmentId}
-              onPhotosSaved={(urls) => onPhotosChange('photos', urls)}
-              existingPhotos={existingPhotos}
-              label=""
-            />
+            {existingPhotos.length > 0 ? (
+              <PhotoGrid
+                photos={existingPhotos}
+                onPhotosChange={(urls) => onPhotosChange('photos', urls)}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No photos yet. Tap "Take Photos" to capture.
+              </p>
+            )}
           </CardContent>
         </Card>
 
