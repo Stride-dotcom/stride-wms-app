@@ -39,6 +39,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ClientPortalSection } from './ClientPortalSection';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
+import { AccountPricingTab } from './AccountPricingTab';
 
 const accountSchema = z.object({
   // Basic
@@ -1113,232 +1114,22 @@ export function AccountDialog({
                     </div>
                   </TabsContent>
 
-                  {/* Pricing Tab */}
+                  {/* Pricing Tab - Account-specific price adjustments */}
                   <TabsContent value="pricing" className="space-y-4 mt-0">
-                    <FormField
-                      control={form.control}
-                      name="pricing_level"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Pricing Setup Method</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select pricing method" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {PRICING_LEVELS.map((level) => (
-                                <SelectItem key={level.value} value={level.value}>
-                                  {level.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>
-                            Priority: Fixed rate overrides &gt; % adjustments &gt; Base price list
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-
-                    {form.watch('pricing_level') === 'rate_card' && (
-                      <FormField
-                        control={form.control}
-                        name="rate_card_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Rate Card</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select rate card" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="default">Default Rate Card</SelectItem>
-                                {rateCards.map((card) => (
-                                  <SelectItem key={card.id} value={card.id}>
-                                    {card.rate_card_name} ({card.rate_card_code})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormDescription>
-                              Rate cards can be managed in Settings &gt; Rate Cards
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                    {accountId ? (
+                      <AccountPricingTab
+                        accountId={accountId}
+                        accountName={form.watch('account_name') || 'this account'}
                       />
-                    )}
-
-                    {form.watch('pricing_level') === 'percentage' && (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="pricing_percentage"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Percentage Adjustment (%)</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    placeholder="e.g., 10 for markup, -10 for discount"
-                                    {...field}
-                                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                                  />
-                                </FormControl>
-                                <FormDescription>
-                                  Positive = markup, Negative = discount
-                                </FormDescription>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="pricing_apply_to"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Apply To</FormLabel>
-                                <Select 
-                                  onValueChange={(value) => {
-                                    field.onChange(value);
-                                    if (value === 'selected') {
-                                      setServiceSelectionOpen(true);
-                                    }
-                                  }} 
-                                  value={field.value}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Select scope" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    {PRICING_APPLY_TO.map((option) => (
-                                      <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-
-                        {/* Show selected services when "Select Services" is chosen */}
-                        {form.watch('pricing_apply_to') === 'selected' && (
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <FormLabel>Selected Services</FormLabel>
-                              <Button 
-                                type="button" 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => setServiceSelectionOpen(true)}
-                              >
-                                Edit Selection
-                              </Button>
-                            </div>
-                            <div className="rounded-md border p-3">
-                              {(form.watch('pricing_selected_services') || []).length === 0 ? (
-                                <p className="text-sm text-muted-foreground">No services selected. Click "Edit Selection" to choose services.</p>
-                              ) : (
-                                <div className="flex flex-wrap gap-2">
-                                  {(form.watch('pricing_selected_services') || []).map((serviceKey) => {
-                                    const service = AVAILABLE_SERVICES.find(s => s.key === serviceKey);
-                                    return service ? (
-                                      <span 
-                                        key={serviceKey}
-                                        className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
-                                      >
-                                        {service.label}
-                                      </span>
-                                    ) : null;
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Service Selection Dialog */}
-                        <Dialog open={serviceSelectionOpen} onOpenChange={setServiceSelectionOpen}>
-                          <DialogContent className="sm:max-w-[500px]">
-                            <DialogHeader>
-                              <DialogTitle>Select Services</DialogTitle>
-                              <DialogDescription>
-                                Choose which services the {form.watch('pricing_percentage') || 0}% adjustment will apply to.
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-2 max-h-[400px] overflow-y-auto py-4">
-                              {AVAILABLE_SERVICES.map((service) => {
-                                const currentSelected = form.watch('pricing_selected_services') || [];
-                                const isSelected = currentSelected.includes(service.key);
-                                return (
-                                  <div 
-                                    key={service.key}
-                                    className={`flex items-start space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                                      isSelected ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
-                                    }`}
-                                    onClick={() => {
-                                      const current = form.getValues('pricing_selected_services') || [];
-                                      if (current.includes(service.key)) {
-                                        form.setValue('pricing_selected_services', current.filter(s => s !== service.key));
-                                      } else {
-                                        form.setValue('pricing_selected_services', [...current, service.key]);
-                                      }
-                                    }}
-                                  >
-                                    <Checkbox checked={isSelected} />
-                                    <div className="flex-1">
-                                      <p className="text-sm font-medium">{service.label}</p>
-                                      <p className="text-xs text-muted-foreground">{service.description}</p>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            <DialogFooter>
-                              <Button 
-                                type="button" 
-                                variant="outline" 
-                                onClick={() => form.setValue('pricing_selected_services', [])}
-                              >
-                                Clear All
-                              </Button>
-                              <Button 
-                                type="button" 
-                                variant="outline"
-                                onClick={() => form.setValue('pricing_selected_services', AVAILABLE_SERVICES.map(s => s.key))}
-                              >
-                                Select All
-                              </Button>
-                              <Button type="button" onClick={() => setServiceSelectionOpen(false)}>
-                                Done
-                              </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
+                    ) : (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p className="font-medium">Pricing Adjustments</p>
+                        <p className="text-sm mt-2">
+                          Save the account first to configure custom pricing adjustments.
+                        </p>
                       </div>
                     )}
-
-                    <div className="rounded-md bg-muted/50 p-4 text-sm text-muted-foreground">
-                      <p className="font-medium mb-1">Pricing Priority</p>
-                      <p>When calculating charges, the system applies pricing in this order:</p>
-                      <ol className="list-decimal list-inside mt-2 space-y-1">
-                        <li>Fixed price overrides (item or service level)</li>
-                        <li>Percentage adjustments from this account</li>
-                        <li>Base price from assigned rate card or default list</li>
-                      </ol>
-                    </div>
                   </TabsContent>
 
                   {/* Billing Tab */}
