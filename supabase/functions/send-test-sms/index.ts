@@ -131,7 +131,7 @@ const handler = async (req: Request): Promise<Response> => {
           entityData = {
             item_id: item.item_code || '',
             item_description: item.description || '',
-            item_vendor: item.vendor_name || '',
+            item_vendor: item.vendor || '',
             item_location: item.location_code || '',
             account_name: item.account?.account_name || '',
           };

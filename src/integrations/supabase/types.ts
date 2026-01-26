@@ -3994,6 +3994,7 @@ export type Database = {
           qbo_invoice_id: string | null
           qbo_sync_status: string | null
           qbo_synced_at: string | null
+          sent_at: string | null
           sidemark_id: string | null
           sort_by: string | null
           status: string | null
@@ -4032,6 +4033,7 @@ export type Database = {
           qbo_invoice_id?: string | null
           qbo_sync_status?: string | null
           qbo_synced_at?: string | null
+          sent_at?: string | null
           sidemark_id?: string | null
           sort_by?: string | null
           status?: string | null
@@ -4070,6 +4072,7 @@ export type Database = {
           qbo_invoice_id?: string | null
           qbo_sync_status?: string | null
           qbo_synced_at?: string | null
+          sent_at?: string | null
           sidemark_id?: string | null
           sort_by?: string | null
           status?: string | null
@@ -4370,6 +4373,8 @@ export type Database = {
           notes: string | null
           resolved_at: string | null
           resolved_by: string | null
+          set_at: string | null
+          set_by: string | null
           task_id: string | null
           tenant_id: string
           unset_at: string | null
@@ -4385,6 +4390,8 @@ export type Database = {
           notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          set_at?: string | null
+          set_by?: string | null
           task_id?: string | null
           tenant_id: string
           unset_at?: string | null
@@ -4400,6 +4407,8 @@ export type Database = {
           notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          set_at?: string | null
+          set_by?: string | null
           task_id?: string | null
           tenant_id?: string
           unset_at?: string | null
@@ -4437,6 +4446,13 @@ export type Database = {
           {
             foreignKeyName: "item_flags_resolved_by_fkey"
             columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_flags_set_by_fkey"
+            columns: ["set_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
