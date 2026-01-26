@@ -30,7 +30,7 @@ export interface InventoryFilters {
   sidemark: string;
   locationId: string;
   warehouseId: string;
-  coverageType: string;
+  coverageType?: string;
 }
 
 interface InventoryFiltersSheetProps {

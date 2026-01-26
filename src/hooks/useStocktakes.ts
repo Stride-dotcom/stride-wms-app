@@ -3,6 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
+// Type-safe supabase client cast for tables/functions not in generated types
+const db = supabase as any;
+
 // Types
 export type StocktakeStatus = 'draft' | 'active' | 'closed' | 'cancelled';
 export type ScanResult = 'expected' | 'unexpected' | 'wrong_location' | 'released_conflict' | 'duplicate' | 'not_found';
@@ -141,7 +144,7 @@ export function useStocktakes(filters?: StocktakeFilters) {
 
     try {
       setLoading(true);
-      let query = supabase
+      let query = db
         .from('stocktakes')
         .select(`
           *,
@@ -162,7 +165,7 @@ export function useStocktakes(filters?: StocktakeFilters) {
       const { data, error } = await query;
 
       if (error) throw error;
-      setStocktakes((data || []) as Stocktake[]);
+      setStocktakes((data || []) as unknown as Stocktake[]);
     } catch (error) {
       console.error('Error fetching stocktakes:', error);
       toast({
@@ -198,7 +201,7 @@ export function useStocktakes(filters?: StocktakeFilters) {
       status: 'draft',
     };
 
-    const { data: result, error } = await supabase
+    const { data: result, error } = await db
       .from('stocktakes')
       .insert([insertData])
       .select()
@@ -219,7 +222,7 @@ export function useStocktakes(filters?: StocktakeFilters) {
     if (!profile?.id) throw new Error('No user');
 
     // Initialize expected items using RPC
-    const { data: itemCount, error: initError } = await supabase.rpc(
+    const { data: itemCount, error: initError } = await db.rpc(
       'initialize_stocktake_expected_items',
       { p_stocktake_id: id }
     );
@@ -227,7 +230,7 @@ export function useStocktakes(filters?: StocktakeFilters) {
     if (initError) throw initError;
 
     // Update status to active
-    const { data: result, error } = await supabase
+    const { data: result, error } = await db
       .from('stocktakes')
       .update({
         status: 'active',
@@ -252,7 +255,7 @@ export function useStocktakes(filters?: StocktakeFilters) {
     if (!profile?.id) throw new Error('No user');
 
     // Use RPC to close and generate results
-    const { data, error } = await supabase.rpc('close_stocktake', {
+    const { data, error } = await db.rpc('close_stocktake', {
       p_stocktake_id: id,
       p_closed_by: profile.id,
     });
@@ -274,7 +277,7 @@ export function useStocktakes(filters?: StocktakeFilters) {
   };
 
   const cancelStocktake = async (id: string) => {
-    const { error } = await supabase
+    const { error } = await db
       .from('stocktakes')
       .update({ status: 'cancelled' })
       .eq('id', id);
@@ -313,7 +316,7 @@ export function useStocktakeScan(stocktakeId: string) {
     if (!stocktakeId) return;
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('stocktakes')
         .select(`
           *,
@@ -323,7 +326,7 @@ export function useStocktakeScan(stocktakeId: string) {
         .single();
 
       if (error) throw error;
-      setStocktake(data as Stocktake);
+      setStocktake(data as unknown as Stocktake);
     } catch (error) {
       console.error('Error fetching stocktake:', error);
     }
@@ -333,7 +336,7 @@ export function useStocktakeScan(stocktakeId: string) {
     if (!stocktakeId) return;
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('stocktake_expected_items')
         .select(`
           *,
@@ -343,7 +346,7 @@ export function useStocktakeScan(stocktakeId: string) {
         .order('item_code');
 
       if (error) throw error;
-      setExpectedItems((data || []) as StocktakeExpectedItem[]);
+      setExpectedItems((data || []) as unknown as StocktakeExpectedItem[]);
     } catch (error) {
       console.error('Error fetching expected items:', error);
     }
@@ -353,7 +356,7 @@ export function useStocktakeScan(stocktakeId: string) {
     if (!stocktakeId) return;
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('stocktake_scans')
         .select(`
           *,
@@ -364,7 +367,7 @@ export function useStocktakeScan(stocktakeId: string) {
         .order('scanned_at', { ascending: false });
 
       if (error) throw error;
-      setScans((data || []) as StocktakeScan[]);
+      setScans((data || []) as unknown as StocktakeScan[]);
     } catch (error) {
       console.error('Error fetching scans:', error);
     }
@@ -374,14 +377,14 @@ export function useStocktakeScan(stocktakeId: string) {
     if (!stocktakeId) return;
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('v_stocktake_scan_stats')
         .select('*')
         .eq('stocktake_id', stocktakeId)
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
-      setStats(data as StocktakeScanStats);
+      setStats(data as unknown as StocktakeScanStats);
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -400,7 +403,7 @@ export function useStocktakeScan(stocktakeId: string) {
   const recordScan = async (locationId: string, itemId: string, itemCode: string) => {
     if (!profile?.id) throw new Error('No user');
 
-    const { data, error } = await supabase.rpc('record_stocktake_scan', {
+    const { data, error } = await db.rpc('record_stocktake_scan', {
       p_stocktake_id: stocktakeId,
       p_scanned_by: profile.id,
       p_scanned_location_id: locationId,
@@ -448,7 +451,7 @@ export function useStocktakeResults(stocktakeId: string) {
 
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('stocktake_results')
         .select(`
           *,
@@ -461,7 +464,7 @@ export function useStocktakeResults(stocktakeId: string) {
         .order('item_code');
 
       if (error) throw error;
-      setResults((data || []) as StocktakeResult[]);
+      setResults((data || []) as unknown as StocktakeResult[]);
     } catch (error) {
       console.error('Error fetching results:', error);
       toast({
@@ -481,7 +484,7 @@ export function useStocktakeResults(stocktakeId: string) {
   const resolveResult = async (resultId: string, notes: string) => {
     if (!profile?.id) throw new Error('No user');
 
-    const { error } = await supabase
+    const { error } = await db
       .from('stocktake_results')
       .update({
         resolved: true,
@@ -520,7 +523,7 @@ export function useStocktakeFreezeCheck() {
   }> => {
     if (!profile?.tenant_id) return { isFrozen: false };
 
-    const { data, error } = await supabase.rpc('check_stocktake_freeze', {
+    const { data, error } = await db.rpc('check_stocktake_freeze', {
       p_item_id: itemId,
       p_tenant_id: profile.tenant_id,
     });

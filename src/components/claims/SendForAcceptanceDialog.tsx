@@ -88,22 +88,23 @@ export function SendForAcceptanceDialog({
 
     try {
       const { data } = await supabase
-        .from('organization_claim_settings')
+        .from('organization_claim_settings' as any)
         .select('*')
         .eq('tenant_id', profile.tenant_id)
         .single();
 
       if (data) {
-        if (data.settlement_terms_template) {
-          setSettlementTerms(data.settlement_terms_template);
+        const settings = data as any;
+        if (settings.settlement_terms_template) {
+          setSettlementTerms(settings.settlement_terms_template);
         }
-        if (data.default_payout_method) {
-          setPayoutMethod(data.default_payout_method as 'credit' | 'check' | 'ach');
+        if (settings.default_payout_method) {
+          setPayoutMethod(settings.default_payout_method as 'credit' | 'check' | 'ach');
         }
-        if (data.approval_threshold_amount) {
-          setApprovalThreshold(data.approval_threshold_amount);
+        if (settings.approval_threshold_amount) {
+          setApprovalThreshold(settings.approval_threshold_amount);
           setApprovalRequired(
-            data.approval_required_above_threshold && netPayout > data.approval_threshold_amount
+            settings.approval_required_above_threshold && netPayout > settings.approval_threshold_amount
           );
         }
       }
@@ -119,7 +120,7 @@ export function SendForAcceptanceDialog({
       setIsSending(true);
 
       // Call the send_claim_for_acceptance function
-      const { data, error } = await supabase.rpc('send_claim_for_acceptance', {
+      const { data, error } = await (supabase as any).rpc('send_claim_for_acceptance', {
         p_claim_id: claim.id,
         p_settlement_terms: settlementTerms,
         p_payout_method: payoutMethod,
@@ -141,19 +142,19 @@ export function SendForAcceptanceDialog({
 
       // Update the claim's total_approved_amount
       await supabase
-        .from('claims')
-        .update({ total_approved_amount: netPayout })
+        .from('claims' as any)
+        .update({ approved_amount: netPayout })
         .eq('id', claim.id);
 
       // Get account contact email for the alert
       let recipientEmail: string | undefined;
       if (claim.account_id) {
         const { data: account } = await supabase
-          .from('accounts')
-          .select('contact_email')
+          .from('accounts' as any)
+          .select('primary_contact_email')
           .eq('id', claim.account_id)
           .single();
-        recipientEmail = account?.contact_email || undefined;
+        recipientEmail = (account as any)?.primary_contact_email || undefined;
       }
 
       // Queue the alert email

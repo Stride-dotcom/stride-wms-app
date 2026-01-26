@@ -295,13 +295,13 @@ export default function Stocktakes() {
                     <MobileDataCardTitle className="flex items-center gap-2">
                       {st.name || st.stocktake_number}
                       {st.freeze_moves && (
-                        <Lock className="h-4 w-4 text-yellow-500" title="Movements frozen" />
+                        <Lock className="h-4 w-4 text-yellow-500" />
                       )}
                       {st.allow_location_auto_fix && (
-                        <Wrench className="h-4 w-4 text-blue-500" title="Auto-fix enabled" />
+                        <Wrench className="h-4 w-4 text-blue-500" />
                       )}
                       {st.billable && (
-                        <DollarSign className="h-4 w-4 text-green-500" title="Billable" />
+                        <DollarSign className="h-4 w-4 text-green-500" />
                       )}
                     </MobileDataCardTitle>
                     {getStatusBadge(st.status)}
@@ -432,13 +432,13 @@ export default function Stocktakes() {
                     <TableCell>
                       <div className="flex gap-1">
                         {st.freeze_moves && (
-                          <Lock className="h-4 w-4 text-yellow-500" title="Movements frozen" />
+                          <Lock className="h-4 w-4 text-yellow-500" />
                         )}
                         {st.allow_location_auto_fix && (
-                          <Wrench className="h-4 w-4 text-blue-500" title="Auto-fix enabled" />
+                          <Wrench className="h-4 w-4 text-blue-500" />
                         )}
                         {st.billable && (
-                          <DollarSign className="h-4 w-4 text-green-500" title="Billable" />
+                          <DollarSign className="h-4 w-4 text-green-500" />
                         )}
                       </div>
                     </TableCell>

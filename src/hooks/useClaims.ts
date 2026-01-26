@@ -58,7 +58,8 @@ export interface ClaimItemInput {
   item_notes?: string;
 }
 
-export interface Claim extends ClaimRow {
+export interface Claim {
+  [key: string]: any;
   account?: { id: string; account_name: string; contact_email?: string } | null;
   sidemark?: { id: string; sidemark_name: string } | null;
   item?: { id: string; item_code: string; description: string | null } | null;
@@ -68,17 +69,6 @@ export interface Claim extends ClaimRow {
   // Multi-item aggregates
   item_count?: number;
   claim_items?: ClaimItem[];
-  // Acceptance workflow fields (from extended claims table)
-  acceptance_token?: string;
-  acceptance_token_expires_at?: string | null;
-  sent_for_acceptance_at?: string | null;
-  sent_for_acceptance_by?: string | null;
-  payout_method?: 'credit' | 'check' | 'ach' | null;
-  settlement_accepted_at?: string | null;
-  settlement_declined_at?: string | null;
-  decline_reason?: string | null;
-  counter_offer_amount?: number | null;
-  counter_offer_notes?: string | null;
 }
 
 export interface ClaimAttachment {
