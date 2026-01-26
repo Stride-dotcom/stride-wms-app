@@ -297,6 +297,17 @@ const getDefaultValues = (): AccountFormData => ({
   read_only_access: false,
 });
 
+// Generate account code from name (first 4 chars uppercase + random 3 digits)
+const generateAccountCode = (name: string): string => {
+  const prefix = name
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .substring(0, 4)
+    .toUpperCase()
+    .padEnd(4, 'X');
+  const suffix = Math.floor(100 + Math.random() * 900).toString();
+  return `${prefix}-${suffix}`;
+};
+
 export function AccountDialog({
   open,
   onOpenChange,
@@ -308,6 +319,7 @@ export function AccountDialog({
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [rateCards, setRateCards] = useState<RateCard[]>([]);
   const [serviceSelectionOpen, setServiceSelectionOpen] = useState(false);
+  const [accountCodeManuallyEdited, setAccountCodeManuallyEdited] = useState(false);
   const { toast } = useToast();
   const { profile } = useAuth();
 
@@ -322,11 +334,22 @@ export function AccountDialog({
       fetchRateCards();
       if (accountId) {
         fetchAccount(accountId);
+        setAccountCodeManuallyEdited(true); // Existing accounts have their own code
       } else {
         form.reset(getDefaultValues());
+        setAccountCodeManuallyEdited(false); // New accounts can auto-generate
       }
     }
   }, [open, accountId]);
+
+  // Watch account name and auto-generate code for new accounts
+  const accountName = form.watch('account_name');
+  useEffect(() => {
+    if (!accountId && !accountCodeManuallyEdited && accountName && accountName.length >= 2) {
+      const generatedCode = generateAccountCode(accountName);
+      form.setValue('account_code', generatedCode);
+    }
+  }, [accountName, accountId, accountCodeManuallyEdited, form]);
 
   const fetchAccounts = async () => {
     try {
@@ -634,9 +657,15 @@ export function AccountDialog({
                               <Input
                                 placeholder="ACME-001"
                                 {...field}
-                                onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                onChange={(e) => {
+                                  setAccountCodeManuallyEdited(true);
+                                  field.onChange(e.target.value.toUpperCase());
+                                }}
                               />
                             </FormControl>
+                            <FormDescription>
+                              Auto-generated from account name. Edit to customize.
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
