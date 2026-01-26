@@ -32,12 +32,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Users } from 'lucide-react';
+import { Loader2, Users, DollarSign } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ClientPortalSection } from './ClientPortalSection';
+import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
 
 const accountSchema = z.object({
   // Basic
@@ -320,6 +321,7 @@ export function AccountDialog({
   const [rateCards, setRateCards] = useState<RateCard[]>([]);
   const [serviceSelectionOpen, setServiceSelectionOpen] = useState(false);
   const [accountCodeManuallyEdited, setAccountCodeManuallyEdited] = useState(false);
+  const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
   const { toast } = useToast();
   const { profile } = useAuth();
 
@@ -1659,6 +1661,10 @@ export function AccountDialog({
 
                   {/* Permissions Tab */}
                   <TabsContent value="permissions" className="space-y-4 mt-0">
+                    <p className="text-sm text-muted-foreground">
+                      Configure access level settings for this account.
+                    </p>
+
                     <FormField
                       control={form.control}
                       name="access_level"
@@ -1679,46 +1685,10 @@ export function AccountDialog({
                               ))}
                             </SelectContent>
                           </Select>
+                          <FormDescription>
+                            Controls the default access level for users associated with this account
+                          </FormDescription>
                           <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="can_modify_pricing"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <FormLabel className="font-normal">Can Modify Pricing</FormLabel>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="can_delete_accounts"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <FormLabel className="font-normal">Can Delete Accounts</FormLabel>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="read_only_access"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <FormLabel className="font-normal">Read-Only Access</FormLabel>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
                         </FormItem>
                       )}
                     />
@@ -1737,6 +1707,17 @@ export function AccountDialog({
               </Tabs>
 
               <DialogFooter className="pt-4 border-t mt-4">
+                {isEditing && accountId && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setAddAddonDialogOpen(true)}
+                    className="mr-auto"
+                  >
+                    <DollarSign className="mr-2 h-4 w-4" />
+                    Add Add-on
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -1752,6 +1733,17 @@ export function AccountDialog({
               </DialogFooter>
             </form>
           </Form>
+        )}
+
+        {/* Add Add-on Dialog */}
+        {isEditing && accountId && (
+          <AddAddonDialog
+            open={addAddonDialogOpen}
+            onOpenChange={setAddAddonDialogOpen}
+            accountId={accountId}
+            accountName={form.watch('account_name') || undefined}
+            onSuccess={onSuccess}
+          />
         )}
       </DialogContent>
     </Dialog>

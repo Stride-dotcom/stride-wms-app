@@ -146,13 +146,14 @@ export const SERVICE_CODES = {
   REPAIR: 'repair',
   WILL_CALL: 'will_call',
   DISPOSAL: 'disposal',
-  
+  RETURNS_PROCESSING: 'returns_processing',
+
   // Handling services
   PICKING: 'picking',
   PACKING: 'packing',
   PULL_FOR_DELIVERY: 'pull_for_delivery',
   CUSTOM_PACKAGING: 'custom_packaging',
-  
+
   // Accessorial services (flag-based)
   OVERSIZE: 'oversize',
   OVERWEIGHT: 'overweight',
@@ -192,6 +193,7 @@ export const SERVICES: ServiceDefinition[] = [
   { code: SERVICE_CODES.REPAIR, name: 'Repair', category: 'item_service', description: 'Repair services', chargeUnit: 'per_hour' },
   { code: SERVICE_CODES.WILL_CALL, name: 'Will Call', category: 'item_service', description: 'Will call pickup', chargeUnit: 'per_item' },
   { code: SERVICE_CODES.DISPOSAL, name: 'Disposal', category: 'item_service', description: 'Item disposal', chargeUnit: 'per_item' },
+  { code: SERVICE_CODES.RETURNS_PROCESSING, name: 'Returns Processing', category: 'item_service', description: 'Return shipment processing', chargeUnit: 'per_item' },
   { code: SERVICE_CODES.PICKING, name: 'Picking', category: 'item_service', description: 'Order picking', chargeUnit: 'per_item' },
   { code: SERVICE_CODES.PACKING, name: 'Packing', category: 'item_service', description: 'Item packing', chargeUnit: 'per_item' },
   { code: SERVICE_CODES.PULL_FOR_DELIVERY, name: 'Pull for Delivery', category: 'item_service', description: 'Pull item for delivery', chargeUnit: 'per_item' },

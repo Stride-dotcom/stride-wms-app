@@ -31,11 +31,10 @@ export interface InvoiceLine {
   invoice_id: string;
   billing_event_id?: string | null;
   item_id?: string | null;
-  service_code?: string;
   description?: string | null;
   quantity: number;
   unit_rate: number;
-  line_total?: number;
+  total_amount?: number;
   [key: string]: unknown;
 }
 
@@ -123,11 +122,10 @@ export function useInvoices() {
         invoice_id: invoice.id,
         billing_event_id: e.id,
         item_id: e.item_id || null,
-        service_code: e.charge_type || e.event_type,
         description: e.description || e.charge_type || e.event_type,
         quantity: e.quantity ?? 1,
         unit_rate: e.unit_rate ?? e.total_amount ?? 0,
-        line_total: e.total_amount ?? 0,
+        total_amount: e.total_amount ?? 0,
       }));
 
       const { error: linesErr } = await supabase.from("invoice_lines").insert(lines);

@@ -14,7 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle, Printer, Pencil, Plus, ClipboardList } from 'lucide-react';
+import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle, Printer, Pencil, Plus, ClipboardList, DollarSign } from 'lucide-react';
+import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -118,6 +119,7 @@ export default function ShipmentDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [editNotes, setEditNotes] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
   const [selectedTaskType, setSelectedTaskType] = useState<string>('');
@@ -289,9 +291,9 @@ export default function ShipmentDetail() {
       if (result.createdItemIds.length > 0) {
         const { data: createdItems } = await supabase
           .from('items')
-          .select('id, item_code, description, vendor, sidemark_id')
+          .select('id, item_code, description, vendor, sidemark_id, room')
           .in('id', result.createdItemIds);
-        
+
         if (createdItems) {
           const labelData: ItemLabelData[] = createdItems.map(item => ({
             id: item.id,
@@ -300,6 +302,7 @@ export default function ShipmentDetail() {
             vendor: item.vendor || '',
             account: shipment?.accounts?.name || '',
             sidemark: '', // Would need to join sidemark table
+            room: (item as any).room || '',
             warehouseName: shipment?.warehouses?.name || '',
             locationCode: 'RECV-DOCK',
           }));
@@ -433,6 +436,12 @@ export default function ShipmentDetail() {
             <Button onClick={startSession} disabled={sessionLoading}>
               <Play className="h-4 w-4 mr-2" />
               Start Receiving
+            </Button>
+          )}
+          {shipment.account_id && (
+            <Button variant="secondary" onClick={() => setAddAddonDialogOpen(true)}>
+              <DollarSign className="h-4 w-4 mr-2" />
+              Add Add-on
             </Button>
           )}
         </div>
@@ -818,6 +827,18 @@ export default function ShipmentDetail() {
         title="Print Item Labels"
         description={`${createdItemsForLabels.length} items were created from receiving. Print labels now?`}
       />
+
+      {/* Add Add-on Dialog */}
+      {shipment.account_id && (
+        <AddAddonDialog
+          open={addAddonDialogOpen}
+          onOpenChange={setAddAddonDialogOpen}
+          accountId={shipment.account_id}
+          accountName={shipment.accounts?.name}
+          shipmentId={shipment.id}
+          onSuccess={fetchShipment}
+        />
+      )}
     </DashboardLayout>
   );
 }

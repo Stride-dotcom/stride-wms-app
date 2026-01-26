@@ -383,6 +383,25 @@ export function useManifests(filters?: ManifestFilters) {
     await fetchManifests();
   };
 
+  const addItemsToManifest = async (manifestId: string, itemIds: string[]) => {
+    if (!profile?.id) throw new Error('No user');
+
+    const { data, error } = await db.rpc('add_manifest_items_bulk', {
+      p_manifest_id: manifestId,
+      p_item_ids: itemIds,
+      p_added_by: profile.id,
+    });
+
+    if (error) throw error;
+
+    const result = data?.[0];
+    if (!result?.success) {
+      throw new Error(result?.message || 'Failed to add items to manifest');
+    }
+
+    return result;
+  };
+
   return {
     manifests,
     loading,
@@ -393,6 +412,7 @@ export function useManifests(filters?: ManifestFilters) {
     startManifest,
     completeManifest,
     cancelManifest,
+    addItemsToManifest,
   };
 }
 

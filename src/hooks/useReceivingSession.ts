@@ -173,10 +173,10 @@ export function useReceivingSession(shipmentId: string | undefined) {
 
       // Create inventory items if requested
       if (createItems && verificationData.received_items.length > 0) {
-        // Get shipment details for account info - include sidemark_id
+        // Get shipment details for account info - include sidemark_id and shipment_type
         const { data: shipment } = await supabase
           .from('shipments')
-          .select('account_id, warehouse_id, sidemark_id')
+          .select('account_id, warehouse_id, sidemark_id, shipment_type')
           .eq('id', session.shipment_id)
           .single();
 
@@ -319,32 +319,37 @@ export function useReceivingSession(shipmentId: string | undefined) {
               }
             }
 
-            // Get receiving rate using unified rate lookup
-            const receivingRateResult = await getServiceRate({
+            // Determine service type based on shipment type (return shipments use Returns Processing)
+            const isReturnShipment = (shipment as any).shipment_type === 'return';
+            const serviceType = isReturnShipment ? 'returns_processing' : 'receiving';
+            const chargeDescription = isReturnShipment ? 'Returns Processing' : 'Receiving';
+
+            // Get rate using unified rate lookup
+            const rateResult = await getServiceRate({
               accountId: shipment.account_id,
               itemTypeId: newItem?.item_type_id || null,
-              serviceType: 'receiving',
+              serviceType: serviceType,
             });
 
-            const totalAmount = receivingRateResult.rate * item.quantity;
+            const totalAmount = rateResult.rate * item.quantity;
 
-            // Create billing event for receiving with actual rates
+            // Create billing event for receiving/returns processing with actual rates
             await (supabase
               .from('billing_events') as any)
               .insert({
                 tenant_id: profile.tenant_id,
                 account_id: shipment.account_id,
                 item_id: newItem?.id,
-                event_type: 'receiving',
-                charge_type: 'receiving',
-                description: `Receiving: ${item.description}`,
+                event_type: isReturnShipment ? 'returns_processing' : 'receiving',
+                charge_type: serviceType,
+                description: `${chargeDescription}: ${item.description}`,
                 quantity: item.quantity,
-                unit_rate: receivingRateResult.rate,
+                unit_rate: rateResult.rate,
                 total_amount: totalAmount,
                 created_by: profile.id,
-                rate_source: receivingRateResult.source,
-                service_category: receivingRateResult.category,
-                needs_review: receivingRateResult.source === 'default',
+                rate_source: rateResult.source,
+                service_category: rateResult.category,
+                needs_review: rateResult.source === 'default',
               });
 
             // Create billing event for "Received Without ID" if flag is set

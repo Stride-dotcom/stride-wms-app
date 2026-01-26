@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -23,6 +23,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -38,9 +51,10 @@ import {
   Lock,
   Wrench,
   DollarSign,
-  Building2,
   X,
   CheckCircle,
+  ChevronsUpDown,
+  Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -56,6 +70,8 @@ export function CreateStocktakeDialog({
   onSubmit,
 }: CreateStocktakeDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [accountSearchOpen, setAccountSearchOpen] = useState(false);
+  const [accountSearch, setAccountSearch] = useState('');
   const [formData, setFormData] = useState<CreateStocktakeData>({
     name: '',
     warehouse_id: '',
@@ -86,8 +102,19 @@ export function CreateStocktakeDialog({
         scheduled_date: '',
         notes: '',
       });
+      setAccountSearch('');
     }
   }, [open]);
+
+  // Filtered accounts based on search
+  const filteredAccounts = useMemo(() => {
+    if (!accountSearch) return accounts;
+    const search = accountSearch.toLowerCase();
+    return accounts.filter(
+      a => a.name.toLowerCase().includes(search) ||
+           a.account_number?.toLowerCase().includes(search)
+    );
+  }, [accounts, accountSearch]);
 
   // Reset locations when warehouse changes
   useEffect(() => {
@@ -129,6 +156,15 @@ export function CreateStocktakeDialog({
         : [...(prev.include_accounts || []), accountId],
     }));
   };
+
+  const removeAccount = (accountId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      include_accounts: prev.include_accounts?.filter(id => id !== accountId) || [],
+    }));
+  };
+
+  const selectedAccounts = accounts.filter(a => formData.include_accounts?.includes(a.id));
 
   const selectAllLocations = () => {
     setFormData(prev => ({
@@ -331,47 +367,90 @@ export function CreateStocktakeDialog({
                       />
                     </div>
 
-                    {/* Account Selection (for billing) */}
+                    {/* Account Selection (for billing) - Searchable Multi-Select */}
                     {formData.billable && (
-                      <div className="space-y-2 pl-8">
-                        <Label className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4" />
-                          Bill Specific Accounts
-                          {formData.include_accounts && formData.include_accounts.length > 0 && (
-                            <Badge variant="secondary">
-                              {formData.include_accounts.length} selected
-                            </Badge>
-                          )}
-                        </Label>
+                      <div className="space-y-3 pl-8">
+                        <Label>Bill Specific Accounts (Searchable Multi-Select)</Label>
                         <p className="text-sm text-muted-foreground">
                           Leave empty to bill all accounts with items in selected locations
                         </p>
-                        <div className="border rounded-lg p-3 max-h-32 overflow-y-auto">
-                          <div className="space-y-1">
-                            {accounts.slice(0, 20).map((account) => {
-                              const isSelected = formData.include_accounts?.includes(account.id);
-                              return (
-                                <button
-                                  key={account.id}
-                                  type="button"
-                                  onClick={() => toggleAccount(account.id)}
-                                  className={cn(
-                                    'flex items-center gap-2 w-full p-2 rounded-md text-left text-sm transition-colors',
-                                    isSelected
-                                      ? 'bg-primary/20'
-                                      : 'hover:bg-muted'
-                                  )}
-                                >
-                                  <Checkbox checked={isSelected} className="pointer-events-none" />
-                                  <span className="truncate">{account.account_name}</span>
-                                  <span className="text-muted-foreground text-xs">
-                                    ({account.account_code})
-                                  </span>
-                                </button>
-                              );
-                            })}
+
+                        {/* Selected accounts display */}
+                        {selectedAccounts.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {selectedAccounts.map((account) => (
+                              <Badge
+                                key={account.id}
+                                variant="secondary"
+                                className="flex items-center gap-1"
+                              >
+                                {account.name}
+                                <X
+                                  className="h-3 w-3 cursor-pointer hover:text-destructive"
+                                  onClick={() => removeAccount(account.id)}
+                                />
+                              </Badge>
+                            ))}
                           </div>
-                        </div>
+                        )}
+
+                        {/* Searchable account selector */}
+                        <Popover open={accountSearchOpen} onOpenChange={setAccountSearchOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={accountSearchOpen}
+                              className="w-full justify-between"
+                            >
+                              <span className="flex items-center gap-2">
+                                <Search className="h-4 w-4" />
+                                Search and select accounts...
+                              </span>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[400px] p-0" align="start">
+                            <Command>
+                              <CommandInput
+                                placeholder="Search accounts..."
+                                value={accountSearch}
+                                onValueChange={setAccountSearch}
+                              />
+                              <CommandList>
+                                <CommandEmpty>No accounts found.</CommandEmpty>
+                                <CommandGroup>
+                                  {filteredAccounts.map((account) => (
+                                    <CommandItem
+                                      key={account.id}
+                                      value={account.id}
+                                      onSelect={() => {
+                                        toggleAccount(account.id);
+                                      }}
+                                    >
+                                      <div className="flex items-center gap-2 flex-1">
+                                        <Checkbox
+                                          checked={formData.include_accounts?.includes(account.id) || false}
+                                        />
+                                        <div>
+                                          <div className="font-medium">{account.name}</div>
+                                          {account.account_number && (
+                                            <div className="text-xs text-muted-foreground">
+                                              {account.account_number}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {formData.include_accounts?.includes(account.id) && (
+                                        <CheckCircle className="h-4 w-4 text-primary" />
+                                      )}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     )}
 

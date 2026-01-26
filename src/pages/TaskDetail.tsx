@@ -30,6 +30,7 @@ import { useToast } from '@/hooks/use-toast';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { UnableToCompleteDialog } from '@/components/tasks/UnableToCompleteDialog';
 import { MultiPhotoCapture } from '@/components/common/MultiPhotoCapture';
+import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
 import { useTechnicians } from '@/hooks/useTechnicians';
 import { useRepairQuoteWorkflow } from '@/hooks/useRepairQuotes';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -114,6 +115,7 @@ export default function TaskDetailPage() {
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [unableDialogOpen, setUnableDialogOpen] = useState(false);
+  const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
   const [taskNotes, setTaskNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
   const [photos, setPhotos] = useState<string[]>([]);
@@ -528,6 +530,16 @@ export default function TaskDetailPage() {
               Request Repair Quote
             </Button>
           )}
+          {/* Add Add-on Button */}
+          {task.account_id && (
+            <Button
+              variant="secondary"
+              onClick={() => setAddAddonDialogOpen(true)}
+            >
+              <DollarSign className="mr-2 h-4 w-4" />
+              Add Add-on
+            </Button>
+          )}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
@@ -879,6 +891,18 @@ export default function TaskDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Add-on Dialog */}
+      {task.account_id && (
+        <AddAddonDialog
+          open={addAddonDialogOpen}
+          onOpenChange={setAddAddonDialogOpen}
+          accountId={task.account_id}
+          accountName={task.account?.account_name}
+          taskId={task.id}
+          onSuccess={fetchTask}
+        />
+      )}
     </DashboardLayout>
   );
 }

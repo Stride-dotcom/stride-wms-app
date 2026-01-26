@@ -916,6 +916,7 @@ export default function ItemDetail() {
           vendor: item.vendor || '',
           account: item.account?.account_name || '',
           sidemark: item.sidemark || '',
+          room: item.room || '',
           warehouseName: item.warehouse?.name || '',
           locationCode: item.location?.code || '',
         }] : []}

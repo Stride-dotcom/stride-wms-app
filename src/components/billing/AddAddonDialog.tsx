@@ -1,0 +1,275 @@
+import { useState, useEffect } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { Loader2 } from 'lucide-react';
+
+interface ChargeTemplate {
+  id: string;
+  name: string;
+  amount: number;
+  description?: string;
+}
+
+interface AddAddonDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  // Can work with accounts, items, tasks, or shipments
+  accountId: string;
+  accountName?: string;
+  itemId?: string | null;
+  itemCode?: string | null;
+  taskId?: string | null;
+  shipmentId?: string | null;
+  sidemarkId?: string | null;
+  classId?: string | null;
+  onSuccess?: () => void;
+}
+
+export function AddAddonDialog({
+  open,
+  onOpenChange,
+  accountId,
+  accountName,
+  itemId,
+  itemCode,
+  taskId,
+  shipmentId,
+  sidemarkId,
+  classId,
+  onSuccess,
+}: AddAddonDialogProps) {
+  const { toast } = useToast();
+  const { profile } = useAuth();
+
+  const [loading, setLoading] = useState(false);
+  const [templates, setTemplates] = useState<ChargeTemplate[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('custom');
+
+  const [formData, setFormData] = useState({
+    charge_name: '',
+    amount: '',
+    description: '',
+  });
+
+  useEffect(() => {
+    if (open) {
+      fetchChargeTemplates();
+      setSelectedTemplate('custom');
+      setFormData({ charge_name: '', amount: '', description: '' });
+    }
+  }, [open]);
+
+  const fetchChargeTemplates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('billing_charge_templates' as any)
+        .select('id, name, amount, description')
+        .order('name');
+
+      if (error) return;
+      setTemplates((data || []) as any);
+    } catch {
+      setTemplates([]);
+    }
+  };
+
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplate(templateId);
+
+    if (templateId === 'custom') {
+      setFormData({ charge_name: '', amount: '', description: '' });
+      return;
+    }
+
+    const template = templates.find(t => t.id === templateId);
+    if (template) {
+      setFormData({
+        charge_name: template.name,
+        amount: template.amount.toString(),
+        description: template.description || '',
+      });
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!profile?.tenant_id) return;
+
+    if (!accountId) {
+      toast({
+        title: 'Account missing',
+        description: 'An account is required to add billing charges.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!formData.charge_name.trim()) {
+      toast({
+        title: 'Charge name required',
+        description: 'Please enter a charge name.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const amount = parseFloat(formData.amount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({
+        title: 'Valid amount required',
+        description: 'Please enter a valid positive amount.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Build metadata to track the source
+      const metadata: Record<string, any> = {
+        source: 'manual_addon',
+        template_id: selectedTemplate !== 'custom' ? selectedTemplate : null,
+      };
+
+      if (taskId) metadata.task_id = taskId;
+      if (shipmentId) metadata.shipment_id = shipmentId;
+
+      const payload: any = {
+        tenant_id: profile.tenant_id,
+        account_id: accountId,
+        item_id: itemId || null,
+        sidemark_id: sidemarkId || null,
+        class_id: classId || null,
+
+        // Ledger fields
+        event_type: 'addon',
+        charge_type: formData.charge_name.trim(),
+        description: formData.description.trim() || null,
+        quantity: 1,
+        unit_rate: amount,
+        total_amount: amount,
+        status: 'unbilled',
+        occurred_at: new Date().toISOString(),
+        metadata,
+        created_by: profile.id,
+      };
+
+      const { error } = await supabase.from('billing_events' as any).insert(payload);
+      if (error) throw error;
+
+      toast({
+        title: 'Add-on added',
+        description: `$${amount.toFixed(2)} add-on charge created${accountName ? ` for ${accountName}` : ''}.`,
+      });
+
+      onSuccess?.();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error('Error adding billing event:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to add add-on.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[525px]">
+        <DialogHeader>
+          <DialogTitle>Add Add-on</DialogTitle>
+          {accountName && (
+            <DialogDescription>
+              Adding charge to account: {accountName}
+              {itemCode && ` (Item: ${itemCode})`}
+            </DialogDescription>
+          )}
+        </DialogHeader>
+
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label>Template</Label>
+            <Select value={selectedTemplate} onValueChange={handleTemplateSelect}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a template..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="custom">Custom</SelectItem>
+                {templates.map(template => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.name} (${template.amount})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="addon_charge_name">Add-on name *</Label>
+            <Input
+              id="addon_charge_name"
+              value={formData.charge_name}
+              onChange={e => setFormData(prev => ({ ...prev, charge_name: e.target.value }))}
+              placeholder="e.g., Crate disposal"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="addon_amount">Amount *</Label>
+            <Input
+              id="addon_amount"
+              type="number"
+              step="0.01"
+              value={formData.amount}
+              onChange={e => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+              placeholder="0.00"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="addon_description">Notes (optional)</Label>
+            <Textarea
+              id="addon_description"
+              value={formData.description}
+              onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              placeholder="Extra details for billing/reporting..."
+              rows={3}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Add Add-on
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
