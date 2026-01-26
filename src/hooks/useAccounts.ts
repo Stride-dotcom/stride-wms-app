@@ -42,7 +42,8 @@ export function useAccounts() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
+      const db = supabase as any;
+      const { data, error } = await db
         .from('accounts')
         .select(`
           id,

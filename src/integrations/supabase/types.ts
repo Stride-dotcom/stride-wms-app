@@ -504,6 +504,7 @@ export type Database = {
           account_type: string | null
           alerts_contact_email: string | null
           alerts_contact_name: string | null
+          allow_item_reassignment: boolean | null
           auto_assembly_on_receiving: boolean | null
           auto_inspection_on_receiving: boolean | null
           auto_quarantine_damaged_items: boolean | null
@@ -523,6 +524,7 @@ export type Database = {
           billing_type: string | null
           can_delete_accounts: boolean | null
           can_modify_pricing: boolean | null
+          can_view_parent_data: boolean | null
           client_sidemark_mode: string | null
           communication_settings: Json | null
           copy_from_account_id: string | null
@@ -563,6 +565,7 @@ export type Database = {
           require_inspection_photos: boolean | null
           require_sidemark: boolean | null
           restrict_visible_columns: Json | null
+          sidemark_label: string | null
           status: string
           storage_billing_day: number
           tenant_id: string
@@ -578,6 +581,7 @@ export type Database = {
           account_type?: string | null
           alerts_contact_email?: string | null
           alerts_contact_name?: string | null
+          allow_item_reassignment?: boolean | null
           auto_assembly_on_receiving?: boolean | null
           auto_inspection_on_receiving?: boolean | null
           auto_quarantine_damaged_items?: boolean | null
@@ -597,6 +601,7 @@ export type Database = {
           billing_type?: string | null
           can_delete_accounts?: boolean | null
           can_modify_pricing?: boolean | null
+          can_view_parent_data?: boolean | null
           client_sidemark_mode?: string | null
           communication_settings?: Json | null
           copy_from_account_id?: string | null
@@ -637,6 +642,7 @@ export type Database = {
           require_inspection_photos?: boolean | null
           require_sidemark?: boolean | null
           restrict_visible_columns?: Json | null
+          sidemark_label?: string | null
           status?: string
           storage_billing_day?: number
           tenant_id: string
@@ -652,6 +658,7 @@ export type Database = {
           account_type?: string | null
           alerts_contact_email?: string | null
           alerts_contact_name?: string | null
+          allow_item_reassignment?: boolean | null
           auto_assembly_on_receiving?: boolean | null
           auto_inspection_on_receiving?: boolean | null
           auto_quarantine_damaged_items?: boolean | null
@@ -671,6 +678,7 @@ export type Database = {
           billing_type?: string | null
           can_delete_accounts?: boolean | null
           can_modify_pricing?: boolean | null
+          can_view_parent_data?: boolean | null
           client_sidemark_mode?: string | null
           communication_settings?: Json | null
           copy_from_account_id?: string | null
@@ -711,6 +719,7 @@ export type Database = {
           require_inspection_photos?: boolean | null
           require_sidemark?: boolean | null
           restrict_visible_columns?: Json | null
+          sidemark_label?: string | null
           status?: string
           storage_billing_day?: number
           tenant_id?: string
@@ -1435,6 +1444,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           event_type: string
+          has_rate_error: boolean | null
           id: string
           invoice_id: string | null
           invoiced_at: string | null
@@ -1443,6 +1453,7 @@ export type Database = {
           needs_review: boolean | null
           occurred_at: string
           quantity: number | null
+          rate_error_message: string | null
           rate_source: string | null
           service_category: string | null
           service_id: string | null
@@ -1463,6 +1474,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           event_type: string
+          has_rate_error?: boolean | null
           id?: string
           invoice_id?: string | null
           invoiced_at?: string | null
@@ -1471,6 +1483,7 @@ export type Database = {
           needs_review?: boolean | null
           occurred_at?: string
           quantity?: number | null
+          rate_error_message?: string | null
           rate_source?: string | null
           service_category?: string | null
           service_id?: string | null
@@ -1491,6 +1504,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           event_type?: string
+          has_rate_error?: boolean | null
           id?: string
           invoice_id?: string | null
           invoiced_at?: string | null
@@ -1499,6 +1513,7 @@ export type Database = {
           needs_review?: boolean | null
           occurred_at?: string
           quantity?: number | null
+          rate_error_message?: string | null
           rate_source?: string | null
           service_category?: string | null
           service_id?: string | null
@@ -2104,6 +2119,8 @@ export type Database = {
       }
       classes: {
         Row: {
+          class_code: string | null
+          class_name: string | null
           code: string
           created_at: string | null
           default_inspection_minutes: number | null
@@ -2120,6 +2137,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          class_code?: string | null
+          class_name?: string | null
           code: string
           created_at?: string | null
           default_inspection_minutes?: number | null
@@ -2136,6 +2155,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          class_code?: string | null
+          class_name?: string | null
           code?: string
           created_at?: string | null
           default_inspection_minutes?: number | null
@@ -6515,6 +6536,77 @@ export type Database = {
           },
         ]
       }
+      service_events: {
+        Row: {
+          add_flag: boolean
+          add_to_service_event_scan: boolean
+          alert_rule: string | null
+          billing_trigger: string
+          billing_unit: string
+          class_code: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          rate: number
+          service_code: string
+          service_name: string
+          service_time_minutes: number | null
+          taxable: boolean
+          tenant_id: string
+          updated_at: string | null
+          uses_class_pricing: boolean
+        }
+        Insert: {
+          add_flag?: boolean
+          add_to_service_event_scan?: boolean
+          alert_rule?: string | null
+          billing_trigger?: string
+          billing_unit?: string
+          class_code?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          rate?: number
+          service_code: string
+          service_name: string
+          service_time_minutes?: number | null
+          taxable?: boolean
+          tenant_id: string
+          updated_at?: string | null
+          uses_class_pricing?: boolean
+        }
+        Update: {
+          add_flag?: boolean
+          add_to_service_event_scan?: boolean
+          alert_rule?: string | null
+          billing_trigger?: string
+          billing_unit?: string
+          class_code?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          rate?: number
+          service_code?: string
+          service_name?: string
+          service_time_minutes?: number | null
+          taxable?: boolean
+          tenant_id?: string
+          updated_at?: string | null
+          uses_class_pricing?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_rates: {
         Row: {
           class_id: string | null
@@ -7639,6 +7731,10 @@ export type Database = {
           bill_to_customer_name: string | null
           billing_charge_date: string | null
           billing_date: string | null
+          billing_rate: number | null
+          billing_rate_locked: boolean | null
+          billing_rate_set_at: string | null
+          billing_rate_set_by: string | null
           billing_status: string | null
           completed_at: string | null
           completed_by: string | null
@@ -7685,6 +7781,10 @@ export type Database = {
           bill_to_customer_name?: string | null
           billing_charge_date?: string | null
           billing_date?: string | null
+          billing_rate?: number | null
+          billing_rate_locked?: boolean | null
+          billing_rate_set_at?: string | null
+          billing_rate_set_by?: string | null
           billing_status?: string | null
           completed_at?: string | null
           completed_by?: string | null
@@ -7731,6 +7831,10 @@ export type Database = {
           bill_to_customer_name?: string | null
           billing_charge_date?: string | null
           billing_date?: string | null
+          billing_rate?: number | null
+          billing_rate_locked?: boolean | null
+          billing_rate_set_at?: string | null
+          billing_rate_set_by?: string | null
           billing_status?: string | null
           completed_at?: string | null
           completed_by?: string | null
@@ -7786,6 +7890,13 @@ export type Database = {
           {
             foreignKeyName: "tasks_assigned_to_fkey"
             columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_billing_rate_set_by_fkey"
+            columns: ["billing_rate_set_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -8291,6 +8402,7 @@ export type Database = {
           sales_tax_rate: number | null
           shipment_minimum: number | null
           should_create_inspections: boolean
+          show_warehouse_in_location: boolean | null
           tenant_id: string
           terms_of_service_url: string | null
           updated_at: string
@@ -8340,6 +8452,7 @@ export type Database = {
           sales_tax_rate?: number | null
           shipment_minimum?: number | null
           should_create_inspections?: boolean
+          show_warehouse_in_location?: boolean | null
           tenant_id: string
           terms_of_service_url?: string | null
           updated_at?: string
@@ -8389,6 +8502,7 @@ export type Database = {
           sales_tax_rate?: number | null
           shipment_minimum?: number | null
           should_create_inspections?: boolean
+          show_warehouse_in_location?: boolean | null
           tenant_id?: string
           terms_of_service_url?: string | null
           updated_at?: string
@@ -9412,6 +9526,15 @@ export type Database = {
       }
       can_access_document: { Args: { doc_id: string }; Returns: boolean }
       check_past_due_tasks: { Args: never; Returns: undefined }
+      create_service_billing_event: {
+        Args: {
+          p_created_by: string
+          p_item_id: string
+          p_service_code: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       current_user_id: { Args: never; Returns: string }
       decline_claim_settlement: {
         Args: {
@@ -9435,6 +9558,12 @@ export type Database = {
       generate_storage_for_date: {
         Args: { p_date: string }
         Returns: undefined
+      }
+      get_account_hierarchy: {
+        Args: { account_id: string }
+        Returns: {
+          hierarchy_account_id: string
+        }[]
       }
       get_available_flags: {
         Args: { p_is_client?: boolean; p_tenant_id: string }
@@ -9523,6 +9652,22 @@ export type Database = {
         Returns: string
       }
       get_pricing_export_data: { Args: { p_tenant_id: string }; Returns: Json }
+      get_service_rate: {
+        Args: {
+          p_class_code?: string
+          p_service_code: string
+          p_tenant_id: string
+        }
+        Returns: {
+          billing_unit: string
+          error_message: string
+          has_error: boolean
+          rate: number
+          service_name: string
+          service_time_minutes: number
+          taxable: boolean
+        }[]
+      }
       get_sidemark_display: { Args: { p_sidemark_id: string }; Returns: string }
       get_total_unread_count: { Args: { p_user_id: string }; Returns: number }
       get_unread_message_count: { Args: { p_user_id: string }; Returns: number }
@@ -9537,6 +9682,11 @@ export type Database = {
         Returns: Json
       }
       is_communication_admin: { Args: never; Returns: boolean }
+      is_credit_hold_active: { Args: { account_id: string }; Returns: boolean }
+      is_item_reassignment_allowed: {
+        Args: { account_id: string }
+        Returns: boolean
+      }
       is_tenant_admin:
         | { Args: never; Returns: boolean }
         | {
@@ -9577,11 +9727,16 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: undefined
       }
+      seed_default_classes: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
       seed_default_pricing: {
         Args: { p_tenant_id: string }
         Returns: undefined
       }
       seed_enhanced_flags: { Args: { p_tenant_id: string }; Returns: undefined }
+      seed_service_events: { Args: { p_tenant_id: string }; Returns: undefined }
       seed_standard_roles: { Args: { p_tenant_id: string }; Returns: undefined }
       send_claim_for_acceptance: {
         Args: {
