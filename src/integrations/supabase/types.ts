@@ -504,6 +504,7 @@ export type Database = {
           account_type: string | null
           alerts_contact_email: string | null
           alerts_contact_name: string | null
+          allow_item_reassignment: boolean | null
           auto_assembly_on_receiving: boolean | null
           auto_inspection_on_receiving: boolean | null
           auto_quarantine_damaged_items: boolean | null
@@ -523,6 +524,7 @@ export type Database = {
           billing_type: string | null
           can_delete_accounts: boolean | null
           can_modify_pricing: boolean | null
+          can_view_parent_data: boolean | null
           client_sidemark_mode: string | null
           communication_settings: Json | null
           copy_from_account_id: string | null
@@ -563,6 +565,7 @@ export type Database = {
           require_inspection_photos: boolean | null
           require_sidemark: boolean | null
           restrict_visible_columns: Json | null
+          sidemark_label: string | null
           status: string
           storage_billing_day: number
           tenant_id: string
@@ -578,6 +581,7 @@ export type Database = {
           account_type?: string | null
           alerts_contact_email?: string | null
           alerts_contact_name?: string | null
+          allow_item_reassignment?: boolean | null
           auto_assembly_on_receiving?: boolean | null
           auto_inspection_on_receiving?: boolean | null
           auto_quarantine_damaged_items?: boolean | null
@@ -597,6 +601,7 @@ export type Database = {
           billing_type?: string | null
           can_delete_accounts?: boolean | null
           can_modify_pricing?: boolean | null
+          can_view_parent_data?: boolean | null
           client_sidemark_mode?: string | null
           communication_settings?: Json | null
           copy_from_account_id?: string | null
@@ -637,6 +642,7 @@ export type Database = {
           require_inspection_photos?: boolean | null
           require_sidemark?: boolean | null
           restrict_visible_columns?: Json | null
+          sidemark_label?: string | null
           status?: string
           storage_billing_day?: number
           tenant_id: string
@@ -652,6 +658,7 @@ export type Database = {
           account_type?: string | null
           alerts_contact_email?: string | null
           alerts_contact_name?: string | null
+          allow_item_reassignment?: boolean | null
           auto_assembly_on_receiving?: boolean | null
           auto_inspection_on_receiving?: boolean | null
           auto_quarantine_damaged_items?: boolean | null
@@ -671,6 +678,7 @@ export type Database = {
           billing_type?: string | null
           can_delete_accounts?: boolean | null
           can_modify_pricing?: boolean | null
+          can_view_parent_data?: boolean | null
           client_sidemark_mode?: string | null
           communication_settings?: Json | null
           copy_from_account_id?: string | null
@@ -711,6 +719,7 @@ export type Database = {
           require_inspection_photos?: boolean | null
           require_sidemark?: boolean | null
           restrict_visible_columns?: Json | null
+          sidemark_label?: string | null
           status?: string
           storage_billing_day?: number
           tenant_id?: string
@@ -1435,6 +1444,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           event_type: string
+          has_rate_error: boolean | null
           id: string
           invoice_id: string | null
           invoiced_at: string | null
@@ -1443,6 +1453,7 @@ export type Database = {
           needs_review: boolean | null
           occurred_at: string
           quantity: number | null
+          rate_error_message: string | null
           rate_source: string | null
           service_category: string | null
           service_id: string | null
@@ -1463,6 +1474,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           event_type: string
+          has_rate_error?: boolean | null
           id?: string
           invoice_id?: string | null
           invoiced_at?: string | null
@@ -1471,6 +1483,7 @@ export type Database = {
           needs_review?: boolean | null
           occurred_at?: string
           quantity?: number | null
+          rate_error_message?: string | null
           rate_source?: string | null
           service_category?: string | null
           service_id?: string | null
@@ -1491,6 +1504,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           event_type?: string
+          has_rate_error?: boolean | null
           id?: string
           invoice_id?: string | null
           invoiced_at?: string | null
@@ -1499,6 +1513,7 @@ export type Database = {
           needs_review?: boolean | null
           occurred_at?: string
           quantity?: number | null
+          rate_error_message?: string | null
           rate_source?: string | null
           service_category?: string | null
           service_id?: string | null
@@ -2104,6 +2119,8 @@ export type Database = {
       }
       classes: {
         Row: {
+          class_code: string | null
+          class_name: string | null
           code: string
           created_at: string | null
           default_inspection_minutes: number | null
@@ -2120,6 +2137,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          class_code?: string | null
+          class_name?: string | null
           code: string
           created_at?: string | null
           default_inspection_minutes?: number | null
@@ -2136,6 +2155,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          class_code?: string | null
+          class_name?: string | null
           code?: string
           created_at?: string | null
           default_inspection_minutes?: number | null
@@ -6515,6 +6536,77 @@ export type Database = {
           },
         ]
       }
+      service_events: {
+        Row: {
+          add_flag: boolean
+          add_to_service_event_scan: boolean
+          alert_rule: string | null
+          billing_trigger: string
+          billing_unit: string
+          class_code: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          rate: number
+          service_code: string
+          service_name: string
+          service_time_minutes: number | null
+          taxable: boolean
+          tenant_id: string
+          updated_at: string | null
+          uses_class_pricing: boolean
+        }
+        Insert: {
+          add_flag?: boolean
+          add_to_service_event_scan?: boolean
+          alert_rule?: string | null
+          billing_trigger?: string
+          billing_unit?: string
+          class_code?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          rate?: number
+          service_code: string
+          service_name: string
+          service_time_minutes?: number | null
+          taxable?: boolean
+          tenant_id: string
+          updated_at?: string | null
+          uses_class_pricing?: boolean
+        }
+        Update: {
+          add_flag?: boolean
+          add_to_service_event_scan?: boolean
+          alert_rule?: string | null
+          billing_trigger?: string
+          billing_unit?: string
+          class_code?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          rate?: number
+          service_code?: string
+          service_name?: string
+          service_time_minutes?: number | null
+          taxable?: boolean
+          tenant_id?: string
+          updated_at?: string | null
+          uses_class_pricing?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_rates: {
         Row: {
           class_id: string | null
@@ -7054,6 +7146,389 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stocktake_manifest_history: {
+        Row: {
+          action: string
+          affected_item_ids: Json | null
+          changed_at: string
+          changed_by: string
+          description: string | null
+          id: string
+          manifest_id: string
+          new_values: Json | null
+          old_values: Json | null
+        }
+        Insert: {
+          action: string
+          affected_item_ids?: Json | null
+          changed_at?: string
+          changed_by: string
+          description?: string | null
+          id?: string
+          manifest_id: string
+          new_values?: Json | null
+          old_values?: Json | null
+        }
+        Update: {
+          action?: string
+          affected_item_ids?: Json | null
+          changed_at?: string
+          changed_by?: string
+          description?: string | null
+          id?: string
+          manifest_id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stocktake_manifest_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_history_manifest_id_fkey"
+            columns: ["manifest_id"]
+            isOneToOne: false
+            referencedRelation: "stocktake_manifests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_history_manifest_id_fkey"
+            columns: ["manifest_id"]
+            isOneToOne: false
+            referencedRelation: "v_manifest_stats"
+            referencedColumns: ["manifest_id"]
+          },
+        ]
+      }
+      stocktake_manifest_items: {
+        Row: {
+          account_id: string | null
+          added_at: string | null
+          added_by: string | null
+          created_at: string | null
+          expected_location_id: string | null
+          id: string
+          item_code: string
+          item_description: string | null
+          item_id: string
+          manifest_id: string
+          scanned: boolean | null
+          scanned_at: string | null
+          scanned_by: string | null
+          scanned_location_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          added_at?: string | null
+          added_by?: string | null
+          created_at?: string | null
+          expected_location_id?: string | null
+          id?: string
+          item_code: string
+          item_description?: string | null
+          item_id: string
+          manifest_id: string
+          scanned?: boolean | null
+          scanned_at?: string | null
+          scanned_by?: string | null
+          scanned_location_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          added_at?: string | null
+          added_by?: string | null
+          created_at?: string | null
+          expected_location_id?: string | null
+          id?: string
+          item_code?: string
+          item_description?: string | null
+          item_id?: string
+          manifest_id?: string
+          scanned?: boolean | null
+          scanned_at?: string | null
+          scanned_by?: string | null
+          scanned_location_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stocktake_manifest_items_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_expected_location_id_fkey"
+            columns: ["expected_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_manifest_id_fkey"
+            columns: ["manifest_id"]
+            isOneToOne: false
+            referencedRelation: "stocktake_manifests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_manifest_id_fkey"
+            columns: ["manifest_id"]
+            isOneToOne: false
+            referencedRelation: "v_manifest_stats"
+            referencedColumns: ["manifest_id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_scanned_by_fkey"
+            columns: ["scanned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_scanned_location_id_fkey"
+            columns: ["scanned_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stocktake_manifest_scans: {
+        Row: {
+          id: string
+          item_code: string
+          item_id: string | null
+          manifest_id: string
+          message: string | null
+          metadata: Json | null
+          scan_result: string
+          scanned_at: string
+          scanned_by: string
+          scanned_location_id: string
+        }
+        Insert: {
+          id?: string
+          item_code: string
+          item_id?: string | null
+          manifest_id: string
+          message?: string | null
+          metadata?: Json | null
+          scan_result: string
+          scanned_at?: string
+          scanned_by: string
+          scanned_location_id: string
+        }
+        Update: {
+          id?: string
+          item_code?: string
+          item_id?: string | null
+          manifest_id?: string
+          message?: string | null
+          metadata?: Json | null
+          scan_result?: string
+          scanned_at?: string
+          scanned_by?: string
+          scanned_location_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stocktake_manifest_scans_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_scans_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_scans_manifest_id_fkey"
+            columns: ["manifest_id"]
+            isOneToOne: false
+            referencedRelation: "stocktake_manifests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_scans_manifest_id_fkey"
+            columns: ["manifest_id"]
+            isOneToOne: false
+            referencedRelation: "v_manifest_stats"
+            referencedColumns: ["manifest_id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_scans_scanned_by_fkey"
+            columns: ["scanned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_scans_scanned_location_id_fkey"
+            columns: ["scanned_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stocktake_manifests: {
+        Row: {
+          assigned_to: string | null
+          billable: boolean | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          expected_item_count: number | null
+          id: string
+          include_accounts: Json | null
+          location_ids: Json | null
+          manifest_number: string
+          name: string
+          notes: string | null
+          scanned_item_count: number | null
+          scheduled_date: string | null
+          started_at: string | null
+          started_by: string | null
+          status: string
+          tenant_id: string
+          updated_at: string | null
+          updated_by: string | null
+          warehouse_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          billable?: boolean | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          expected_item_count?: number | null
+          id?: string
+          include_accounts?: Json | null
+          location_ids?: Json | null
+          manifest_number: string
+          name: string
+          notes?: string | null
+          scanned_item_count?: number | null
+          scheduled_date?: string | null
+          started_at?: string | null
+          started_by?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+          warehouse_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          billable?: boolean | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          expected_item_count?: number | null
+          id?: string
+          include_accounts?: Json | null
+          location_ids?: Json | null
+          manifest_number?: string
+          name?: string
+          notes?: string | null
+          scanned_item_count?: number | null
+          scheduled_date?: string | null
+          started_at?: string | null
+          started_by?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stocktake_manifests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_started_by_fkey"
+            columns: ["started_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
         ]
@@ -7639,6 +8114,10 @@ export type Database = {
           bill_to_customer_name: string | null
           billing_charge_date: string | null
           billing_date: string | null
+          billing_rate: number | null
+          billing_rate_locked: boolean | null
+          billing_rate_set_at: string | null
+          billing_rate_set_by: string | null
           billing_status: string | null
           completed_at: string | null
           completed_by: string | null
@@ -7685,6 +8164,10 @@ export type Database = {
           bill_to_customer_name?: string | null
           billing_charge_date?: string | null
           billing_date?: string | null
+          billing_rate?: number | null
+          billing_rate_locked?: boolean | null
+          billing_rate_set_at?: string | null
+          billing_rate_set_by?: string | null
           billing_status?: string | null
           completed_at?: string | null
           completed_by?: string | null
@@ -7731,6 +8214,10 @@ export type Database = {
           bill_to_customer_name?: string | null
           billing_charge_date?: string | null
           billing_date?: string | null
+          billing_rate?: number | null
+          billing_rate_locked?: boolean | null
+          billing_rate_set_at?: string | null
+          billing_rate_set_by?: string | null
           billing_status?: string | null
           completed_at?: string | null
           completed_by?: string | null
@@ -7786,6 +8273,13 @@ export type Database = {
           {
             foreignKeyName: "tasks_assigned_to_fkey"
             columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_billing_rate_set_by_fkey"
+            columns: ["billing_rate_set_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -8291,6 +8785,7 @@ export type Database = {
           sales_tax_rate: number | null
           shipment_minimum: number | null
           should_create_inspections: boolean
+          show_warehouse_in_location: boolean | null
           tenant_id: string
           terms_of_service_url: string | null
           updated_at: string
@@ -8340,6 +8835,7 @@ export type Database = {
           sales_tax_rate?: number | null
           shipment_minimum?: number | null
           should_create_inspections?: boolean
+          show_warehouse_in_location?: boolean | null
           tenant_id: string
           terms_of_service_url?: string | null
           updated_at?: string
@@ -8389,6 +8885,7 @@ export type Database = {
           sales_tax_rate?: number | null
           shipment_minimum?: number | null
           should_create_inspections?: boolean
+          show_warehouse_in_location?: boolean | null
           tenant_id?: string
           terms_of_service_url?: string | null
           updated_at?: string
@@ -9245,14 +9742,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "items_current_location_id_fkey"
-            columns: ["current_location_id"]
+            columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "items_current_location_id_fkey"
-            columns: ["location_id"]
+            columns: ["current_location_id"]
             isOneToOne: false
             referencedRelation: "locations"
             referencedColumns: ["id"]
@@ -9269,6 +9766,50 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_manifest_stats: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string | null
+          created_by: string | null
+          duplicate_scans: number | null
+          expected_item_count: number | null
+          manifest_id: string | null
+          manifest_number: string | null
+          name: string | null
+          progress_percent: number | null
+          rejected_scans: number | null
+          remaining_items: number | null
+          scanned_item_count: number | null
+          started_at: string | null
+          started_by: string | null
+          status: string | null
+          valid_scans: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stocktake_manifests_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_started_by_fkey"
+            columns: ["started_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -9332,6 +9873,18 @@ export type Database = {
       accept_claim_settlement: {
         Args: { p_ip_address?: string; p_token: string; p_user_agent?: string }
         Returns: Json
+      }
+      add_manifest_items_bulk: {
+        Args: {
+          p_added_by: string
+          p_item_ids: string[]
+          p_manifest_id: string
+        }
+        Returns: {
+          items_added: number
+          message: string
+          success: boolean
+        }[]
       }
       apply_credit_to_invoice: {
         Args: {
@@ -9411,7 +9964,34 @@ export type Database = {
         }[]
       }
       can_access_document: { Args: { doc_id: string }; Returns: boolean }
+      cancel_manifest: {
+        Args: { p_manifest_id: string; p_reason?: string; p_user_id: string }
+        Returns: {
+          message: string
+          success: boolean
+        }[]
+      }
       check_past_due_tasks: { Args: never; Returns: undefined }
+      complete_manifest: {
+        Args: { p_manifest_id: string; p_user_id: string }
+        Returns: {
+          billing_events_created: number
+          message: string
+          scanned_items: number
+          success: boolean
+          total_items: number
+          unscanned_items: number
+        }[]
+      }
+      create_service_billing_event: {
+        Args: {
+          p_created_by: string
+          p_item_id: string
+          p_service_code: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       current_user_id: { Args: never; Returns: string }
       decline_claim_settlement: {
         Args: {
@@ -9435,6 +10015,12 @@ export type Database = {
       generate_storage_for_date: {
         Args: { p_date: string }
         Returns: undefined
+      }
+      get_account_hierarchy: {
+        Args: { account_id: string }
+        Returns: {
+          hierarchy_account_id: string
+        }[]
       }
       get_available_flags: {
         Args: { p_is_client?: boolean; p_tenant_id: string }
@@ -9523,6 +10109,22 @@ export type Database = {
         Returns: string
       }
       get_pricing_export_data: { Args: { p_tenant_id: string }; Returns: Json }
+      get_service_rate: {
+        Args: {
+          p_class_code?: string
+          p_service_code: string
+          p_tenant_id: string
+        }
+        Returns: {
+          billing_unit: string
+          error_message: string
+          has_error: boolean
+          rate: number
+          service_name: string
+          service_time_minutes: number
+          taxable: boolean
+        }[]
+      }
       get_sidemark_display: { Args: { p_sidemark_id: string }; Returns: string }
       get_total_unread_count: { Args: { p_user_id: string }; Returns: number }
       get_unread_message_count: { Args: { p_user_id: string }; Returns: number }
@@ -9537,6 +10139,11 @@ export type Database = {
         Returns: Json
       }
       is_communication_admin: { Args: never; Returns: boolean }
+      is_credit_hold_active: { Args: { account_id: string }; Returns: boolean }
+      is_item_reassignment_allowed: {
+        Args: { account_id: string }
+        Returns: boolean
+      }
       is_tenant_admin:
         | { Args: never; Returns: boolean }
         | {
@@ -9573,7 +10180,39 @@ export type Database = {
         Returns: Json
       }
       next_invoice_number: { Args: never; Returns: string }
+      record_manifest_scan: {
+        Args: {
+          p_item_code: string
+          p_item_id: string
+          p_manifest_id: string
+          p_scanned_by: string
+          p_scanned_location_id: string
+        }
+        Returns: {
+          is_valid: boolean
+          message: string
+          result: string
+          scan_id: string
+          trigger_error_feedback: boolean
+        }[]
+      }
+      remove_manifest_items_bulk: {
+        Args: {
+          p_item_ids: string[]
+          p_manifest_id: string
+          p_removed_by: string
+        }
+        Returns: {
+          items_removed: number
+          message: string
+          success: boolean
+        }[]
+      }
       seed_default_billable_services: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
+      seed_default_classes: {
         Args: { p_tenant_id: string }
         Returns: undefined
       }
@@ -9582,6 +10221,7 @@ export type Database = {
         Returns: undefined
       }
       seed_enhanced_flags: { Args: { p_tenant_id: string }; Returns: undefined }
+      seed_service_events: { Args: { p_tenant_id: string }; Returns: undefined }
       seed_standard_roles: { Args: { p_tenant_id: string }; Returns: undefined }
       send_claim_for_acceptance: {
         Args: {
@@ -9600,6 +10240,14 @@ export type Database = {
           p_user_id?: string
         }
         Returns: Json
+      }
+      start_manifest: {
+        Args: { p_manifest_id: string; p_user_id: string }
+        Returns: {
+          item_count: number
+          message: string
+          success: boolean
+        }[]
       }
       unset_item_flag: {
         Args: { p_flag_key: string; p_item_id: string; p_user_id?: string }

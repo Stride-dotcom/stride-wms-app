@@ -94,22 +94,22 @@ export function useInvoices() {
 
       const subtotal = events.reduce((sum, e) => sum + Number(e.total_amount || 0), 0);
 
-      // 3) create invoice draft
-      const { data: invoice, error: invErr } = await supabase
-        .from("invoices")
+      // 3) create invoice draft (note: invoice_type not in schema, use notes for metadata)
+      const { data: invoice, error: invErr } = await (supabase
+        .from("invoices") as any)
         .insert({
           tenant_id: profile.tenant_id,
           account_id: args.accountId,
-          sidemark: args.sidemark || null,
+          sidemark_id: args.sidemark || null,
           invoice_number,
-          invoice_type: args.invoiceType,
           period_start: args.periodStart,
           period_end: args.periodEnd,
           status: "draft",
           subtotal,
-          tax_total: 0,
-          total: subtotal,
+          tax_amount: 0,
+          total_amount: subtotal,
           created_by: profile.id,
+          notes: `Type: ${args.invoiceType}`,
         })
         .select("*")
         .single();

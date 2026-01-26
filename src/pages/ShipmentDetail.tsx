@@ -724,23 +724,21 @@ export default function ShipmentDetail() {
         </CardContent>
       </Card>
 
-      {/* Receiving Documents Section (shown during receiving) */}
-      {isReceiving && (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Receiving Documents</CardTitle>
-            <CardDescription>Scan or upload receiving paperwork, BOLs, and delivery receipts</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DocumentCapture
-              context={{ type: 'shipment', shipmentId: shipment.id }}
-              maxDocuments={10}
-              ocrEnabled={true}
-              onDocumentAdded={(docId) => console.log('Document added:', docId)}
-            />
-          </CardContent>
-        </Card>
-      )}
+      {/* Documents Section */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Documents</CardTitle>
+          <CardDescription>Scan or upload receiving paperwork, BOLs, and delivery receipts</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DocumentCapture
+            context={{ type: 'shipment', shipmentId: shipment.id }}
+            maxDocuments={10}
+            ocrEnabled={true}
+            onDocumentAdded={(docId) => console.log('Document added:', docId)}
+          />
+        </CardContent>
+      </Card>
 
       {/* Receiving Notes (shown when received) */}
       {isReceived && shipment.receiving_notes && (

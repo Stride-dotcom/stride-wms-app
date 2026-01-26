@@ -477,10 +477,17 @@ export default function ManifestScan() {
             <CardContent className="p-4">
               {!showManualEntry ? (
                 <div className="space-y-4">
-                  <QRScanner
-                    onScan={handleScan}
-                    disabled={!activeLocationId || processing || !isActive}
-                  />
+                  {activeLocationId && isActive && !processing && (
+                    <QRScanner onScan={handleScan} />
+                  )}
+                  {(!activeLocationId || !isActive || processing) && (
+                    <div className="flex items-center justify-center h-64 bg-muted rounded-lg">
+                      <p className="text-muted-foreground">
+                        {!activeLocationId ? 'Select a location to start scanning' :
+                         !isActive ? 'Manifest is not active' : 'Processing...'}
+                      </p>
+                    </div>
+                  )}
                   <div className="flex justify-center">
                     <Button
                       variant="outline"

@@ -6,7 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, FileText, Clock, User, Package, Truck, Building, DollarSign } from 'lucide-react';
+import { ArrowLeft, FileText, Clock, User, Package, Truck, Building, DollarSign, ScanLine, Camera } from 'lucide-react';
+import { MultiPhotoCapture } from '@/components/common/MultiPhotoCapture';
+import { useAuth } from '@/contexts/AuthContext';
+import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
+import { DocumentList } from '@/components/scanner/DocumentList';
 import { useClaims, CLAIM_TYPE_LABELS, CLAIM_STATUS_LABELS, type Claim, type ClaimAudit, type ClaimItem } from '@/hooks/useClaims';
 import { ClaimAttachments } from '@/components/claims/ClaimAttachments';
 import { ClaimNotes } from '@/components/claims/ClaimNotes';
@@ -32,11 +36,13 @@ const statusColors: Record<string, string> = {
 export default function ClaimDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const { claims, loading, fetchAuditLog, fetchClaimItems, refetch } = useClaims();
   const [claim, setClaim] = useState<Claim | null>(null);
   const [claimItems, setClaimItems] = useState<ClaimItem[]>([]);
   const [auditLog, setAuditLog] = useState<ClaimAudit[]>([]);
   const [loadingAudit, setLoadingAudit] = useState(false);
+  const [claimPhotos, setClaimPhotos] = useState<string[]>([]);
 
   useEffect(() => {
     if (claims.length > 0 && id) {
@@ -208,15 +214,54 @@ export default function ClaimDetail() {
             )}
 
             {/* Tabs */}
-            <Tabs defaultValue="attachments">
+            <Tabs defaultValue="photos">
               <TabsList>
+                <TabsTrigger value="photos">Photos</TabsTrigger>
                 <TabsTrigger value="attachments">Attachments</TabsTrigger>
                 <TabsTrigger value="notes">Notes</TabsTrigger>
                 <TabsTrigger value="audit">Audit Log</TabsTrigger>
               </TabsList>
 
+              <TabsContent value="photos" className="mt-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Camera className="h-4 w-4" />
+                      Photos
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <MultiPhotoCapture
+                      entityType="claim"
+                      entityId={claim.id}
+                      tenantId={profile?.tenant_id}
+                      onPhotosSaved={(urls) => setClaimPhotos(urls)}
+                      existingPhotos={claimPhotos}
+                      maxPhotos={20}
+                      label=""
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
               <TabsContent value="attachments" className="mt-4">
-                <ClaimAttachments claimId={claim.id} />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <ScanDocumentButton
+                      context={{ type: 'general', label: `Claim: ${claim.claim_number}` }}
+                      onSuccess={() => {
+                        // Optionally refetch
+                      }}
+                      label="Scan Document"
+                      variant="outline"
+                    />
+                  </div>
+                  <ClaimAttachments claimId={claim.id} />
+                  <DocumentList
+                    contextType="general"
+                    contextId={claim.id}
+                  />
+                </div>
               </TabsContent>
 
               <TabsContent value="notes" className="mt-4">
