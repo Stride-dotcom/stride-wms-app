@@ -97,10 +97,19 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
     }
     detectInFlightRef.current = false;
 
-    // Stop html5-qrcode fallback
+    // Stop html5-qrcode fallback - only if it's running
     if (html5QrRef.current) {
-      html5QrRef.current.stop().catch(() => {});
+      const scanner = html5QrRef.current;
       html5QrRef.current = null;
+      try {
+        const state = scanner.getState();
+        // Only stop if scanner is actually running (state 2) or paused (state 3)
+        if (state === 2 || state === 3) {
+          scanner.stop().catch(() => {});
+        }
+      } catch {
+        // getState may throw if scanner never started - ignore
+      }
     }
 
     // Stop camera stream
