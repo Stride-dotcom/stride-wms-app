@@ -49,6 +49,7 @@ import { ItemPreviewCard } from '@/components/items/ItemPreviewCard';
 import { InlineEditableCell } from '@/components/inventory/InlineEditableCell';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenantPreferences } from '@/hooks/useTenantPreferences';
 import {
   MobileDataCard,
   MobileDataCardHeader,
@@ -112,6 +113,8 @@ export default function Inventory() {
   const { locations } = useLocations();
   const { toast } = useToast();
   const { profile } = useAuth();
+  const { preferences } = useTenantPreferences();
+  const showWarehouseInLocation = preferences?.show_warehouse_in_location ?? true;
 
   // Compute unique suggestions for inline editing
   const sidemarkSuggestions = useMemo(() => {
@@ -307,6 +310,7 @@ export default function Inventory() {
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('vendor')}><div className="flex items-center gap-1">Vendor<SortIcon field="vendor" /></div></TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('description')}><div className="flex items-center gap-1">Description<SortIcon field="description" /></div></TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('location_code')}><div className="flex items-center gap-1">Location<SortIcon field="location_code" /></div></TableHead>
+                    <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('client_account')}><div className="flex items-center gap-1">Account<SortIcon field="client_account" /></div></TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('sidemark')}><div className="flex items-center gap-1">Sidemark<SortIcon field="sidemark" /></div></TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('room')}><div className="flex items-center gap-1">Room<SortIcon field="room" /></div></TableHead>
                   </TableRow></TableHeader>
@@ -326,7 +330,8 @@ export default function Inventory() {
                       <TableCell className="text-right">{item.quantity}</TableCell>
                       <TableCell>{item.vendor || '-'}</TableCell>
                       <TableCell className="line-clamp-1">{item.description || '-'}</TableCell>
-                      <TableCell>{item.location_code ? <span className="text-sm">{item.location_code}{item.warehouse_name && <span className="text-muted-foreground ml-1">({item.warehouse_name})</span>}</span> : '-'}</TableCell>
+                      <TableCell>{item.location_code ? <span className="text-sm">{item.location_code}{showWarehouseInLocation && item.warehouse_name && <span className="text-muted-foreground ml-1">({item.warehouse_name})</span>}</span> : '-'}</TableCell>
+                      <TableCell>{item.client_account || '-'}</TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <InlineEditableCell
                           value={item.sidemark}

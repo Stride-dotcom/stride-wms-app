@@ -32,7 +32,6 @@ import {
   PanelLeftOpen,
   GripVertical,
   Bell,
-  MessageSquare,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -69,7 +68,6 @@ const navItems: NavItem[] = [
   { label: 'Tasks', href: '/tasks', icon: ClipboardList },
   { label: 'Cycle Counts', href: '/stocktakes', icon: ClipboardCheck },
   { label: 'Scan', href: '/scan', icon: ScanLine },
-  { label: 'Messages', href: '/messages', icon: MessageSquare },
 
   { label: 'Analytics', href: '/reports', icon: BarChart3, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Claims', href: '/claims', icon: FileText, requiredRole: ['admin', 'tenant_admin'] },

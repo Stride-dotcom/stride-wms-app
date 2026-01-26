@@ -45,6 +45,7 @@ interface ShipmentItem {
     sidemark: string | null;
     room: string | null;
     current_location?: { code: string } | null;
+    account?: { account_name: string } | null;
   } | null;
 }
 
@@ -176,7 +177,8 @@ export default function ShipmentDetail() {
             vendor,
             sidemark,
             room,
-            current_location:locations!items_current_location_id_fkey(code)
+            current_location:locations!items_current_location_id_fkey(code),
+            account:accounts!items_account_id_fkey(account_name)
           )
         `)
         .eq('shipment_id', id)
@@ -636,6 +638,8 @@ export default function ShipmentDetail() {
                 <TableHead className="text-center">Qty</TableHead>
                 <TableHead>Vendor</TableHead>
                 <TableHead>Description</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Account</TableHead>
                 <TableHead>Sidemark</TableHead>
                 <TableHead>Room</TableHead>
               </TableRow>
@@ -643,7 +647,7 @@ export default function ShipmentDetail() {
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     No items in this shipment
                   </TableCell>
                 </TableRow>
@@ -673,6 +677,8 @@ export default function ShipmentDetail() {
                     <TableCell className="max-w-[200px] truncate">
                       {item.item?.description || item.expected_description || '-'}
                     </TableCell>
+                    <TableCell>{item.item?.current_location?.code || '-'}</TableCell>
+                    <TableCell>{item.item?.account?.account_name || '-'}</TableCell>
                     <TableCell>{item.item?.sidemark || item.expected_sidemark || '-'}</TableCell>
                     <TableCell>{item.item?.room || '-'}</TableCell>
                   </TableRow>

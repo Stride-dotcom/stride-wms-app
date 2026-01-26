@@ -60,6 +60,8 @@ export interface TenantPreferences {
   // Legal Links (ACTIVE)
   terms_of_service_url: string | null;
   privacy_policy_url: string | null;
+  // Display Settings
+  show_warehouse_in_location: boolean;
   // Timestamps
   created_at: string;
   updated_at: string;

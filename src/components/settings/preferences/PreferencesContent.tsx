@@ -11,6 +11,7 @@ import { DefaultNotesSection } from './DefaultNotesSection';
 import { ComingSoonSection } from './ComingSoonSection';
 import { EmailDomainSection } from './EmailDomainSection';
 import { ClaimSettingsSection } from './ClaimSettingsSection';
+import { DisplaySettingsSection } from './DisplaySettingsSection';
 import { SortableCard } from './SortableCard';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,7 @@ import {
 // Define the card IDs and their default order
 const DEFAULT_CARD_ORDER = [
   'storage-inspection',
+  'display-settings',
   'billing-rates',
   'claim-settings',
   'custom-field-labels',
@@ -74,6 +76,7 @@ export function PreferencesContent() {
     default_shipment_notes: '',
     terms_of_service_url: '',
     privacy_policy_url: '',
+    show_warehouse_in_location: true,
   });
 
   // Sync from preferences when loaded
@@ -91,6 +94,7 @@ export function PreferencesContent() {
         default_shipment_notes: preferences.default_shipment_notes || '',
         terms_of_service_url: preferences.terms_of_service_url || '',
         privacy_policy_url: preferences.privacy_policy_url || '',
+        show_warehouse_in_location: preferences.show_warehouse_in_location ?? true,
       });
     }
   }, [preferences]);
@@ -130,6 +134,7 @@ export function PreferencesContent() {
       default_shipment_notes: formData.default_shipment_notes || null,
       terms_of_service_url: formData.terms_of_service_url || null,
       privacy_policy_url: formData.privacy_policy_url || null,
+      show_warehouse_in_location: formData.show_warehouse_in_location,
     };
     await updatePreferences(updates);
   };
@@ -157,6 +162,14 @@ export function PreferencesContent() {
           onShouldCreateInspectionsChange={(value) => setFormData(prev => ({ ...prev, should_create_inspections: value }))}
           onShouldAutoAssemblyChange={(value) => setFormData(prev => ({ ...prev, auto_assembly_on_receiving: value }))}
           onShouldAutoRepairChange={(value) => setFormData(prev => ({ ...prev, auto_repair_on_damage: value }))}
+        />
+      </SortableCard>
+    ),
+    'display-settings': (
+      <SortableCard id="display-settings" key="display-settings">
+        <DisplaySettingsSection
+          showWarehouseInLocation={formData.show_warehouse_in_location}
+          onShowWarehouseInLocationChange={(value) => setFormData(prev => ({ ...prev, show_warehouse_in_location: value }))}
         />
       </SortableCard>
     ),
