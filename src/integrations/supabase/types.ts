@@ -7150,6 +7150,389 @@ export type Database = {
           },
         ]
       }
+      stocktake_manifest_history: {
+        Row: {
+          action: string
+          affected_item_ids: Json | null
+          changed_at: string
+          changed_by: string
+          description: string | null
+          id: string
+          manifest_id: string
+          new_values: Json | null
+          old_values: Json | null
+        }
+        Insert: {
+          action: string
+          affected_item_ids?: Json | null
+          changed_at?: string
+          changed_by: string
+          description?: string | null
+          id?: string
+          manifest_id: string
+          new_values?: Json | null
+          old_values?: Json | null
+        }
+        Update: {
+          action?: string
+          affected_item_ids?: Json | null
+          changed_at?: string
+          changed_by?: string
+          description?: string | null
+          id?: string
+          manifest_id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stocktake_manifest_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_history_manifest_id_fkey"
+            columns: ["manifest_id"]
+            isOneToOne: false
+            referencedRelation: "stocktake_manifests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_history_manifest_id_fkey"
+            columns: ["manifest_id"]
+            isOneToOne: false
+            referencedRelation: "v_manifest_stats"
+            referencedColumns: ["manifest_id"]
+          },
+        ]
+      }
+      stocktake_manifest_items: {
+        Row: {
+          account_id: string | null
+          added_at: string | null
+          added_by: string | null
+          created_at: string | null
+          expected_location_id: string | null
+          id: string
+          item_code: string
+          item_description: string | null
+          item_id: string
+          manifest_id: string
+          scanned: boolean | null
+          scanned_at: string | null
+          scanned_by: string | null
+          scanned_location_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          added_at?: string | null
+          added_by?: string | null
+          created_at?: string | null
+          expected_location_id?: string | null
+          id?: string
+          item_code: string
+          item_description?: string | null
+          item_id: string
+          manifest_id: string
+          scanned?: boolean | null
+          scanned_at?: string | null
+          scanned_by?: string | null
+          scanned_location_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          added_at?: string | null
+          added_by?: string | null
+          created_at?: string | null
+          expected_location_id?: string | null
+          id?: string
+          item_code?: string
+          item_description?: string | null
+          item_id?: string
+          manifest_id?: string
+          scanned?: boolean | null
+          scanned_at?: string | null
+          scanned_by?: string | null
+          scanned_location_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stocktake_manifest_items_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_expected_location_id_fkey"
+            columns: ["expected_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_manifest_id_fkey"
+            columns: ["manifest_id"]
+            isOneToOne: false
+            referencedRelation: "stocktake_manifests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_manifest_id_fkey"
+            columns: ["manifest_id"]
+            isOneToOne: false
+            referencedRelation: "v_manifest_stats"
+            referencedColumns: ["manifest_id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_scanned_by_fkey"
+            columns: ["scanned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_items_scanned_location_id_fkey"
+            columns: ["scanned_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stocktake_manifest_scans: {
+        Row: {
+          id: string
+          item_code: string
+          item_id: string | null
+          manifest_id: string
+          message: string | null
+          metadata: Json | null
+          scan_result: string
+          scanned_at: string
+          scanned_by: string
+          scanned_location_id: string
+        }
+        Insert: {
+          id?: string
+          item_code: string
+          item_id?: string | null
+          manifest_id: string
+          message?: string | null
+          metadata?: Json | null
+          scan_result: string
+          scanned_at?: string
+          scanned_by: string
+          scanned_location_id: string
+        }
+        Update: {
+          id?: string
+          item_code?: string
+          item_id?: string | null
+          manifest_id?: string
+          message?: string | null
+          metadata?: Json | null
+          scan_result?: string
+          scanned_at?: string
+          scanned_by?: string
+          scanned_location_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stocktake_manifest_scans_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_scans_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_scans_manifest_id_fkey"
+            columns: ["manifest_id"]
+            isOneToOne: false
+            referencedRelation: "stocktake_manifests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_scans_manifest_id_fkey"
+            columns: ["manifest_id"]
+            isOneToOne: false
+            referencedRelation: "v_manifest_stats"
+            referencedColumns: ["manifest_id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_scans_scanned_by_fkey"
+            columns: ["scanned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifest_scans_scanned_location_id_fkey"
+            columns: ["scanned_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stocktake_manifests: {
+        Row: {
+          assigned_to: string | null
+          billable: boolean | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          expected_item_count: number | null
+          id: string
+          include_accounts: Json | null
+          location_ids: Json | null
+          manifest_number: string
+          name: string
+          notes: string | null
+          scanned_item_count: number | null
+          scheduled_date: string | null
+          started_at: string | null
+          started_by: string | null
+          status: string
+          tenant_id: string
+          updated_at: string | null
+          updated_by: string | null
+          warehouse_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          billable?: boolean | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          expected_item_count?: number | null
+          id?: string
+          include_accounts?: Json | null
+          location_ids?: Json | null
+          manifest_number: string
+          name: string
+          notes?: string | null
+          scanned_item_count?: number | null
+          scheduled_date?: string | null
+          started_at?: string | null
+          started_by?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+          warehouse_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          billable?: boolean | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          expected_item_count?: number | null
+          id?: string
+          include_accounts?: Json | null
+          location_ids?: Json | null
+          manifest_number?: string
+          name?: string
+          notes?: string | null
+          scanned_item_count?: number | null
+          scheduled_date?: string | null
+          started_at?: string | null
+          started_by?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stocktake_manifests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_started_by_fkey"
+            columns: ["started_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stocktakes: {
         Row: {
           account_id: string | null
@@ -9359,14 +9742,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "items_current_location_id_fkey"
-            columns: ["current_location_id"]
+            columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "items_current_location_id_fkey"
-            columns: ["location_id"]
+            columns: ["current_location_id"]
             isOneToOne: false
             referencedRelation: "locations"
             referencedColumns: ["id"]
@@ -9383,6 +9766,50 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_manifest_stats: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string | null
+          created_by: string | null
+          duplicate_scans: number | null
+          expected_item_count: number | null
+          manifest_id: string | null
+          manifest_number: string | null
+          name: string | null
+          progress_percent: number | null
+          rejected_scans: number | null
+          remaining_items: number | null
+          scanned_item_count: number | null
+          started_at: string | null
+          started_by: string | null
+          status: string | null
+          valid_scans: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stocktake_manifests_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocktake_manifests_started_by_fkey"
+            columns: ["started_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -9446,6 +9873,18 @@ export type Database = {
       accept_claim_settlement: {
         Args: { p_ip_address?: string; p_token: string; p_user_agent?: string }
         Returns: Json
+      }
+      add_manifest_items_bulk: {
+        Args: {
+          p_added_by: string
+          p_item_ids: string[]
+          p_manifest_id: string
+        }
+        Returns: {
+          items_added: number
+          message: string
+          success: boolean
+        }[]
       }
       apply_credit_to_invoice: {
         Args: {
@@ -9525,7 +9964,25 @@ export type Database = {
         }[]
       }
       can_access_document: { Args: { doc_id: string }; Returns: boolean }
+      cancel_manifest: {
+        Args: { p_manifest_id: string; p_reason?: string; p_user_id: string }
+        Returns: {
+          message: string
+          success: boolean
+        }[]
+      }
       check_past_due_tasks: { Args: never; Returns: undefined }
+      complete_manifest: {
+        Args: { p_manifest_id: string; p_user_id: string }
+        Returns: {
+          billing_events_created: number
+          message: string
+          scanned_items: number
+          success: boolean
+          total_items: number
+          unscanned_items: number
+        }[]
+      }
       create_service_billing_event: {
         Args: {
           p_created_by: string
@@ -9723,6 +10180,34 @@ export type Database = {
         Returns: Json
       }
       next_invoice_number: { Args: never; Returns: string }
+      record_manifest_scan: {
+        Args: {
+          p_item_code: string
+          p_item_id: string
+          p_manifest_id: string
+          p_scanned_by: string
+          p_scanned_location_id: string
+        }
+        Returns: {
+          is_valid: boolean
+          message: string
+          result: string
+          scan_id: string
+          trigger_error_feedback: boolean
+        }[]
+      }
+      remove_manifest_items_bulk: {
+        Args: {
+          p_item_ids: string[]
+          p_manifest_id: string
+          p_removed_by: string
+        }
+        Returns: {
+          items_removed: number
+          message: string
+          success: boolean
+        }[]
+      }
       seed_default_billable_services: {
         Args: { p_tenant_id: string }
         Returns: undefined
@@ -9755,6 +10240,14 @@ export type Database = {
           p_user_id?: string
         }
         Returns: Json
+      }
+      start_manifest: {
+        Args: { p_manifest_id: string; p_user_id: string }
+        Returns: {
+          item_count: number
+          message: string
+          success: boolean
+        }[]
       }
       unset_item_flag: {
         Args: { p_flag_key: string; p_item_id: string; p_user_id?: string }
