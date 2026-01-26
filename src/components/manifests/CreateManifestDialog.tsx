@@ -112,8 +112,8 @@ export function CreateManifestDialog({
     if (!accountSearch) return accounts;
     const search = accountSearch.toLowerCase();
     return accounts.filter(
-      a => a.name.toLowerCase().includes(search) ||
-           a.account_number?.toLowerCase().includes(search)
+      a => a.account_name.toLowerCase().includes(search) ||
+           a.account_code?.toLowerCase().includes(search)
     );
   }, [accounts, accountSearch]);
 
@@ -350,7 +350,7 @@ export function CreateManifestDialog({
                                 variant="secondary"
                                 className="flex items-center gap-1"
                               >
-                                {account.name}
+                                {account.account_name}
                                 <X
                                   className="h-3 w-3 cursor-pointer hover:text-destructive"
                                   onClick={() => removeAccount(account.id)}
@@ -399,10 +399,10 @@ export function CreateManifestDialog({
                                           checked={formData.include_accounts?.includes(account.id) || false}
                                         />
                                         <div>
-                                          <div className="font-medium">{account.name}</div>
-                                          {account.account_number && (
+                                          <div className="font-medium">{account.account_name}</div>
+                                          {account.account_code && (
                                             <div className="text-xs text-muted-foreground">
-                                              {account.account_number}
+                                              {account.account_code}
                                             </div>
                                           )}
                                         </div>
