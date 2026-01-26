@@ -47,6 +47,9 @@ const accountSchema = z.object({
   status: z.enum(['active', 'on_hold', 'archived', 'credit_hold']),
   is_master_account: z.boolean().optional(),
   parent_account_id: z.string().optional(),
+  can_view_parent_data: z.boolean().optional(),
+  allow_item_reassignment: z.boolean().optional(),
+  sidemark_label: z.string().optional(),
   notes: z.string().optional(),
   // Contacts - Primary
   primary_contact_name: z.string().optional(),
@@ -237,6 +240,9 @@ const getDefaultValues = (): AccountFormData => ({
   status: 'active',
   is_master_account: false,
   parent_account_id: 'none',
+  can_view_parent_data: false,
+  allow_item_reassignment: false,
+  sidemark_label: 'sidemark',
   notes: '',
   primary_contact_name: '',
   primary_contact_email: '',
@@ -374,6 +380,9 @@ export function AccountDialog({
         status: mapStatus(data.status),
         is_master_account: data.is_master_account || false,
         parent_account_id: data.parent_account_id || 'none',
+        can_view_parent_data: data.can_view_parent_data || false,
+        allow_item_reassignment: data.allow_item_reassignment || false,
+        sidemark_label: data.sidemark_label || 'sidemark',
         notes: data.notes || '',
         primary_contact_name: data.primary_contact_name || '',
         primary_contact_email: data.primary_contact_email || '',
@@ -460,6 +469,9 @@ export function AccountDialog({
         status: data.status,
         is_master_account: data.is_master_account || false,
         parent_account_id: data.parent_account_id === 'none' ? null : data.parent_account_id || null,
+        can_view_parent_data: data.can_view_parent_data || false,
+        allow_item_reassignment: data.allow_item_reassignment || false,
+        sidemark_label: data.sidemark_label || 'sidemark',
         notes: data.notes || null,
         primary_contact_name: data.primary_contact_name || null,
         primary_contact_email: data.primary_contact_email || null,
@@ -713,33 +725,105 @@ export function AccountDialog({
                       />
 
                       {form.watch('is_master_account') && (
+                        <>
+                          <FormField
+                            control={form.control}
+                            name="parent_account_id"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Primary Account</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Search and select primary account..." />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="none">Select a primary account</SelectItem>
+                                    {accounts
+                                      .filter((a) => a.id !== accountId)
+                                      .map((a) => (
+                                        <SelectItem key={a.id} value={a.id}>
+                                          {a.account_name}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormDescription>
+                                  Primary account users automatically have access to this sub-account.
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="can_view_parent_data"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                <div className="space-y-0.5">
+                                  <FormLabel className="text-base">View Parent Data</FormLabel>
+                                  <FormDescription>
+                                    Allow users of this sub-account to view parent account items and data
+                                  </FormDescription>
+                                </div>
+                                <FormControl>
+                                  <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="sidemark_label"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Sidemark Display Label</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="sidemark">Sidemark</SelectItem>
+                                    <SelectItem value="reference">Reference</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormDescription>
+                                  How sidemark fields appear in the UI for this account
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </>
+                      )}
+
+                      {/* Parent account permissions - only show for non-sub-accounts */}
+                      {!form.watch('is_master_account') && (
                         <FormField
                           control={form.control}
-                          name="parent_account_id"
+                          name="allow_item_reassignment"
                           render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Primary Account</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Search and select primary account..." />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="none">Select a primary account</SelectItem>
-                                  {accounts
-                                    .filter((a) => a.id !== accountId)
-                                    .map((a) => (
-                                      <SelectItem key={a.id} value={a.id}>
-                                        {a.account_name}
-                                      </SelectItem>
-                                    ))}
-                                </SelectContent>
-                              </Select>
-                              <FormDescription>
-                                Primary account users automatically have access to this sub-account.
-                              </FormDescription>
-                              <FormMessage />
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                              <div className="space-y-0.5">
+                                <FormLabel className="text-base">Allow Item Reassignment</FormLabel>
+                                <FormDescription>
+                                  Enable all users in this account hierarchy to reassign items between accounts
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
                             </FormItem>
                           )}
                         />

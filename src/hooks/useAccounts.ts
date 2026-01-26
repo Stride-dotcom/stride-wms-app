@@ -1,8 +1,8 @@
 /**
- * useAccounts - Hook for account management
+ * useAccounts - Hook for account management with sub-account hierarchy support
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +21,9 @@ export interface Account {
   credit_hold: boolean | null;
   parent_account_id: string | null;
   is_master_account: boolean | null;
+  can_view_parent_data: boolean | null;
+  allow_item_reassignment: boolean | null;
+  sidemark_label: string | null;
 }
 
 export function useAccounts() {
@@ -54,7 +57,10 @@ export function useAccounts() {
           billing_state,
           credit_hold,
           parent_account_id,
-          is_master_account
+          is_master_account,
+          can_view_parent_data,
+          allow_item_reassignment,
+          sidemark_label
         `)
         .eq('tenant_id', profile.tenant_id)
         .is('deleted_at', null)
@@ -95,11 +101,98 @@ export function useAccounts() {
     return accounts.filter(a => a.status === 'active');
   }, [accounts]);
 
+  // Get all sub-accounts for a given parent account
+  const getSubAccounts = useCallback((parentAccountId: string): Account[] => {
+    return accounts.filter(a => a.parent_account_id === parentAccountId);
+  }, [accounts]);
+
+  // Get the parent account for a given sub-account
+  const getParentAccount = useCallback((accountId: string): Account | undefined => {
+    const account = accounts.find(a => a.id === accountId);
+    if (!account?.parent_account_id) return undefined;
+    return accounts.find(a => a.id === account.parent_account_id);
+  }, [accounts]);
+
+  // Get all accounts in the same hierarchy (parent + all siblings + children)
+  const getAccountHierarchy = useCallback((accountId: string): Account[] => {
+    const account = accounts.find(a => a.id === accountId);
+    if (!account) return [];
+
+    // Find the root (parent or self if no parent)
+    const rootId = account.parent_account_id || account.id;
+
+    // Return root + all its children
+    return accounts.filter(a =>
+      a.id === rootId || a.parent_account_id === rootId
+    );
+  }, [accounts]);
+
+  // Check if credit hold is active (including parent cascade)
+  const isCreditHoldActive = useCallback((accountId: string): boolean => {
+    const account = accounts.find(a => a.id === accountId);
+    if (!account) return false;
+
+    // Check account's own credit hold
+    if (account.credit_hold === true) return true;
+
+    // Check parent's credit hold
+    if (account.parent_account_id) {
+      const parent = accounts.find(a => a.id === account.parent_account_id);
+      if (parent?.credit_hold === true) return true;
+    }
+
+    return false;
+  }, [accounts]);
+
+  // Check if item reassignment is allowed for an account
+  const isItemReassignmentAllowed = useCallback((accountId: string): boolean => {
+    const account = accounts.find(a => a.id === accountId);
+    if (!account) return false;
+
+    // If has parent, check parent's setting
+    if (account.parent_account_id) {
+      const parent = accounts.find(a => a.id === account.parent_account_id);
+      return parent?.allow_item_reassignment === true;
+    }
+
+    // Otherwise check self
+    return account.allow_item_reassignment === true;
+  }, [accounts]);
+
+  // Get the sidemark label for an account (defaults to 'sidemark')
+  const getSidemarkLabel = useCallback((accountId: string): string => {
+    const account = accounts.find(a => a.id === accountId);
+    return account?.sidemark_label || 'sidemark';
+  }, [accounts]);
+
+  // Get accounts that can receive reassigned items (within hierarchy)
+  const getReassignmentTargets = useCallback((accountId: string): Account[] => {
+    if (!isItemReassignmentAllowed(accountId)) return [];
+    return getAccountHierarchy(accountId).filter(a => a.status === 'active');
+  }, [isItemReassignmentAllowed, getAccountHierarchy]);
+
+  // Build a hierarchical tree of accounts for display
+  const accountTree = useMemo(() => {
+    const parentAccounts = accounts.filter(a => !a.parent_account_id);
+    return parentAccounts.map(parent => ({
+      ...parent,
+      children: accounts.filter(a => a.parent_account_id === parent.id),
+    }));
+  }, [accounts]);
+
   return {
     accounts,
     loading,
     refetch: fetchAccounts,
     getAccountById,
     getActiveAccounts,
+    getSubAccounts,
+    getParentAccount,
+    getAccountHierarchy,
+    isCreditHoldActive,
+    isItemReassignmentAllowed,
+    getSidemarkLabel,
+    getReassignmentTargets,
+    accountTree,
   };
 }
