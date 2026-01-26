@@ -29,7 +29,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { UnableToCompleteDialog } from '@/components/tasks/UnableToCompleteDialog';
-import { PhotoCapture } from '@/components/shipments/PhotoCapture';
+import { MultiPhotoCapture } from '@/components/common/MultiPhotoCapture';
 import { useTechnicians } from '@/hooks/useTechnicians';
 import { useRepairQuoteWorkflow } from '@/hooks/useRepairQuotes';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -640,13 +640,14 @@ export default function TaskDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <PhotoCapture
-                  entityType="inspection"
+                <MultiPhotoCapture
+                  entityType="task"
                   entityId={task.id}
-                  onPhotosChange={handlePhotosChange}
+                  tenantId={task.tenant_id}
+                  onPhotosSaved={handlePhotosChange}
                   existingPhotos={photos}
                   maxPhotos={20}
-                  label="Task Photos"
+                  label=""
                 />
               </CardContent>
             </Card>
