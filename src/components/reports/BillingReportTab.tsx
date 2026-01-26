@@ -191,13 +191,11 @@ export function BillingReportTab() {
     setLoading(true);
     setSelectedRows(new Set());
     try {
-      let query = supabase
-        .from("billing_events")
+      let query = (supabase
+        .from("billing_events") as any)
         .select(`
           id, occurred_at, account_id, item_id, sidemark_id, event_type, charge_type,
-          description, quantity, unit_rate, total_amount, status, invoice_id,
-          accounts!billing_events_account_id_fkey(account_name),
-          sidemarks(sidemark_name)
+          description, quantity, unit_rate, total_amount, status, invoice_id
         `)
         .eq("tenant_id", profile.tenant_id)
         .gte("occurred_at", `${start}T00:00:00.000Z`)
@@ -221,8 +219,35 @@ export function BillingReportTab() {
       const { data, error } = await query;
       if (error) throw error;
 
-      const itemIds = [...new Set((data || []).map((r: any) => r.item_id).filter(Boolean))];
+      // Fetch account names and sidemark names separately
+      const accountIds = [...new Set((data || []).map((r: any) => r.account_id).filter(Boolean))] as string[];
+      const sidemarkIds = [...new Set((data || []).map((r: any) => r.sidemark_id).filter(Boolean))] as string[];
+      const itemIds = [...new Set((data || []).map((r: any) => r.item_id).filter(Boolean))] as string[];
+      
+      let accountMap: Record<string, string> = {};
+      let sidemarkMap: Record<string, string> = {};
       let itemMap: Record<string, string> = {};
+      
+      if (accountIds.length > 0) {
+        const { data: accts } = await supabase
+          .from("accounts")
+          .select("id, account_name")
+          .in("id", accountIds);
+        if (accts) {
+          accountMap = Object.fromEntries(accts.map((a: any) => [a.id, a.account_name]));
+        }
+      }
+      
+      if (sidemarkIds.length > 0) {
+        const { data: sms } = await supabase
+          .from("sidemarks")
+          .select("id, sidemark_name")
+          .in("id", sidemarkIds);
+        if (sms) {
+          sidemarkMap = Object.fromEntries(sms.map((s: any) => [s.id, s.sidemark_name]));
+        }
+      }
+      
       if (itemIds.length > 0) {
         const { data: items } = await supabase
           .from("items")
@@ -235,9 +260,9 @@ export function BillingReportTab() {
 
       const transformed = (data || []).map((row: any) => ({
         ...row,
-        account_name: row.accounts?.account_name || "-",
+        account_name: row.account_id ? (accountMap[row.account_id] || "-") : "-",
         item_code: row.item_id ? (itemMap[row.item_id] || "-") : "-",
-        sidemark_name: row.sidemarks?.sidemark_name || "-",
+        sidemark_name: row.sidemark_id ? (sidemarkMap[row.sidemark_id] || "-") : "-",
       }));
 
       setRows(transformed);

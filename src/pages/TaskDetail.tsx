@@ -139,8 +139,7 @@ export default function TaskDetailPage() {
           *,
           assigned_user:users!tasks_assigned_to_fkey(id, first_name, last_name),
           warehouse:warehouses(id, name),
-          account:accounts(id, account_name),
-          override_user:users!tasks_billing_rate_override_by_fkey(first_name, last_name)
+          account:accounts(id, account_name)
         `)
         .eq('id', id)
         .single();

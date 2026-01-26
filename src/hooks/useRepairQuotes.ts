@@ -119,9 +119,7 @@ export function useRepairQuotes(itemId: string | undefined) {
       const { data, error } = await (supabase
         .from('repair_quotes') as any)
         .select(`
-          *,
-          technician:technician_user_id(id, first_name, last_name),
-          approver:approved_by(id, first_name, last_name)
+          *
         `)
         .eq('item_id', itemId)
         .order('created_at', { ascending: false });
