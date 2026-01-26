@@ -80,7 +80,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_generate_manifest_number ON public.stocktake_manifests;
-CREATE TRIGGER trg_generate_manifest_number
+CREATE OR REPLACE TRIGGER trg_generate_manifest_number
 BEFORE INSERT ON public.stocktake_manifests
 FOR EACH ROW
 WHEN (NEW.manifest_number IS NULL OR NEW.manifest_number = '')
@@ -297,7 +297,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_record_manifest_creation ON public.stocktake_manifests;
-CREATE TRIGGER trg_record_manifest_creation
+CREATE OR REPLACE TRIGGER trg_record_manifest_creation
 AFTER INSERT ON public.stocktake_manifests
 FOR EACH ROW
 EXECUTE FUNCTION public.record_manifest_creation();
@@ -390,7 +390,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_record_manifest_update ON public.stocktake_manifests;
-CREATE TRIGGER trg_record_manifest_update
+CREATE OR REPLACE TRIGGER trg_record_manifest_update
 AFTER UPDATE ON public.stocktake_manifests
 FOR EACH ROW
 EXECUTE FUNCTION public.record_manifest_update();
@@ -431,7 +431,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_record_manifest_item_added ON public.stocktake_manifest_items;
-CREATE TRIGGER trg_record_manifest_item_added
+CREATE OR REPLACE TRIGGER trg_record_manifest_item_added
 AFTER INSERT ON public.stocktake_manifest_items
 FOR EACH ROW
 EXECUTE FUNCTION public.record_manifest_item_added();
@@ -467,7 +467,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_record_manifest_item_removed ON public.stocktake_manifest_items;
-CREATE TRIGGER trg_record_manifest_item_removed
+CREATE OR REPLACE TRIGGER trg_record_manifest_item_removed
 AFTER DELETE ON public.stocktake_manifest_items
 FOR EACH ROW
 EXECUTE FUNCTION public.record_manifest_item_removed();
