@@ -68,15 +68,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('users')
         .select('id, email, first_name, last_name, tenant_id, status')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching profile:', error);
         return;
       }
 
+      // User profile may not exist yet for new users
+      if (!data) {
+        setProfile(null);
+        return;
+      }
+
       setProfile(data);
-      
+
       // Cache profile for error tracking (includes tenant_id)
       try {
         localStorage.setItem('user_profile_cache', JSON.stringify({
