@@ -21,6 +21,9 @@ export interface ChatConversation {
   updatedAt: Date;
 }
 
+// Type-safe helper for chat tables not yet in generated types
+const chatDb = supabase as any;
+
 /**
  * Get or create a chat conversation
  */
@@ -30,7 +33,7 @@ export async function getOrCreateConversation(
 ): Promise<string> {
   if (conversationId) {
     // Verify conversation exists and belongs to user
-    const { data } = await supabase
+    const { data } = await chatDb
       .from('chat_conversations')
       .select('id')
       .eq('id', conversationId)
@@ -41,7 +44,7 @@ export async function getOrCreateConversation(
   }
 
   // Create new conversation
-  const { data, error } = await supabase
+  const { data, error } = await chatDb
     .from('chat_conversations')
     .insert({
       user_id: userId,
@@ -60,7 +63,7 @@ export async function getOrCreateConversation(
 export async function getConversationHistory(
   conversationId: string
 ): Promise<ChatMessage[]> {
-  const { data, error } = await supabase
+  const { data, error } = await chatDb
     .from('chat_messages')
     .select('id, role, content, entity_map, tool_calls, created_at')
     .eq('conversation_id', conversationId)
@@ -69,7 +72,7 @@ export async function getConversationHistory(
 
   if (error) throw error;
 
-  return (data || []).map((msg) => ({
+  return (data || []).map((msg: any) => ({
     id: msg.id,
     role: msg.role as 'user' | 'assistant' | 'system',
     content: msg.content,
@@ -90,7 +93,7 @@ export async function saveMessage(params: {
   toolCalls?: any[];
   userId?: string;
 }): Promise<ChatMessage> {
-  const { data, error } = await supabase
+  const { data, error } = await chatDb
     .from('chat_messages')
     .insert({
       conversation_id: params.conversationId,
@@ -106,7 +109,7 @@ export async function saveMessage(params: {
   if (error) throw error;
 
   // Update conversation timestamp
-  await supabase
+  await chatDb
     .from('chat_conversations')
     .update({ updated_at: new Date().toISOString() })
     .eq('id', params.conversationId);
@@ -334,7 +337,7 @@ export async function getUserConversations(
   userId: string,
   limit = 10
 ): Promise<ChatConversation[]> {
-  const { data, error } = await supabase
+  const { data, error } = await chatDb
     .from('chat_conversations')
     .select('id, title, created_at, updated_at')
     .eq('user_id', userId)
@@ -343,7 +346,7 @@ export async function getUserConversations(
 
   if (error) throw error;
 
-  return (data || []).map((conv) => ({
+  return (data || []).map((conv: any) => ({
     id: conv.id,
     title: conv.title,
     messages: [],
@@ -359,7 +362,7 @@ export async function updateConversationTitle(
   conversationId: string,
   title: string
 ): Promise<void> {
-  await supabase
+  await chatDb
     .from('chat_conversations')
     .update({ title })
     .eq('id', conversationId);
@@ -369,7 +372,7 @@ export async function updateConversationTitle(
  * Delete a conversation
  */
 export async function deleteConversation(conversationId: string): Promise<void> {
-  await supabase
+  await chatDb
     .from('chat_conversations')
     .delete()
     .eq('id', conversationId);

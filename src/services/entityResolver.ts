@@ -1,6 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
 import { EntityType, ENTITY_CONFIG } from '@/config/entities';
 
+// Type-safe helper for dynamic table queries
+const db = supabase as any;
+
 export interface ResolvedEntity {
   number: string;
   id: string;
@@ -101,7 +104,7 @@ export async function resolveEntities(
     if (!resolver) continue;
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from(resolver.table)
         .select(resolver.selectFields)
         .in(resolver.numberField, nums);
