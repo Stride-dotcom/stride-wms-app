@@ -5727,6 +5727,56 @@ export type Database = {
           },
         ]
       }
+      outbound_types: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          is_system: boolean
+          name: string
+          sort_order: number | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name: string
+          sort_order?: number | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name?: string
+          sort_order?: number | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbound_types_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pricing_flags: {
         Row: {
           adds_minutes: number | null
@@ -7145,10 +7195,13 @@ export type Database = {
           created_at: string
           created_by: string | null
           deleted_at: string | null
+          driver_name: string | null
           expected_arrival_date: string | null
           id: string
+          liability_accepted: boolean | null
           metadata: Json | null
           notes: string | null
+          outbound_type_id: string | null
           payment_amount: number | null
           payment_method: string | null
           payment_reference: string | null
@@ -7165,6 +7218,7 @@ export type Database = {
           return_type: string | null
           shipment_number: string
           shipment_type: string
+          shipped_at: string | null
           sidemark: string | null
           sidemark_id: string | null
           signature_data: string | null
@@ -7185,10 +7239,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
+          driver_name?: string | null
           expected_arrival_date?: string | null
           id?: string
+          liability_accepted?: boolean | null
           metadata?: Json | null
           notes?: string | null
+          outbound_type_id?: string | null
           payment_amount?: number | null
           payment_method?: string | null
           payment_reference?: string | null
@@ -7205,6 +7262,7 @@ export type Database = {
           return_type?: string | null
           shipment_number: string
           shipment_type?: string
+          shipped_at?: string | null
           sidemark?: string | null
           sidemark_id?: string | null
           signature_data?: string | null
@@ -7225,10 +7283,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
+          driver_name?: string | null
           expected_arrival_date?: string | null
           id?: string
+          liability_accepted?: boolean | null
           metadata?: Json | null
           notes?: string | null
+          outbound_type_id?: string | null
           payment_amount?: number | null
           payment_method?: string | null
           payment_reference?: string | null
@@ -7245,6 +7306,7 @@ export type Database = {
           return_type?: string | null
           shipment_number?: string
           shipment_type?: string
+          shipped_at?: string | null
           sidemark?: string | null
           sidemark_id?: string | null
           signature_data?: string | null
@@ -7276,6 +7338,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_outbound_type_id_fkey"
+            columns: ["outbound_type_id"]
+            isOneToOne: false
+            referencedRelation: "outbound_types"
             referencedColumns: ["id"]
           },
           {
@@ -10531,6 +10600,10 @@ export type Database = {
         Returns: undefined
       }
       seed_default_classes: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
+      seed_default_outbound_types: {
         Args: { p_tenant_id: string }
         Returns: undefined
       }
