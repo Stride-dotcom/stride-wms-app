@@ -547,7 +547,7 @@ export function transformQuoteToPdfData(
     quoteNumber: quote.quote_number,
     quoteDate: quote.created_at,
     expirationDate: quote.expiration_date || undefined,
-    estimatedStorageDays: quote.estimated_storage_days || 0,
+    estimatedStorageDays: quote.storage_days || 0,
     status: quote.status,
 
     companyName: quote.tenant?.name || 'Warehouse Services',
@@ -564,7 +564,7 @@ export function transformQuoteToPdfData(
     classLines: (quote.quote_class_lines || []).map((line) => ({
       className: line.quote_class?.name || 'Unknown',
       description: line.quote_class?.description,
-      quantity: line.quantity,
+      quantity: line.qty,
     })),
 
     serviceLines: (quote.quote_selected_services || []).map((service) => ({
@@ -572,17 +572,17 @@ export function transformQuoteToPdfData(
       category: service.quote_service?.category || '',
       className: service.quote_class?.name,
       billingUnit: service.quote_service?.billing_unit || 'flat',
-      rate: service.rate_amount,
-      quantity: service.quantity || 1,
+      rate: service.applied_rate_amount || 0,
+      quantity: service.computed_billable_qty || 1,
       lineTotal: service.line_total,
-      isTaxable: service.is_taxable,
+      isTaxable: true,
     })),
 
-    subtotal: quote.subtotal || 0,
-    discountType: quote.discount_type || undefined,
-    discountValue: quote.discount_value || undefined,
-    discountAmount: quote.discount_amount || undefined,
-    taxRate: quote.tax_rate || undefined,
+    subtotal: quote.subtotal_before_discounts || 0,
+    discountType: quote.quote_discount_type || undefined,
+    discountValue: quote.quote_discount_value || undefined,
+    discountAmount: (quote.subtotal_before_discounts || 0) - (quote.subtotal_after_discounts || 0),
+    taxRate: quote.tax_rate_percent || undefined,
     taxAmount: quote.tax_amount || undefined,
     grandTotal: quote.grand_total || 0,
     currency: quote.currency || 'USD',

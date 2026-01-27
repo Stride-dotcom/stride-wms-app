@@ -68,8 +68,8 @@ export default function QuoteAcceptance() {
 
   const fetchQuote = async () => {
     try {
-      // Verify token and get quote
-      const { data: quoteData, error: quoteError } = await supabase
+      // Verify token and get quote - use any cast for quote tables not in types yet
+      const { data: quoteData, error: quoteError } = await (supabase as any)
         .from('quotes')
         .select(`
           *,
@@ -122,7 +122,7 @@ export default function QuoteAcceptance() {
 
     setProcessing(true);
     try {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await (supabase as any)
         .from('quotes')
         .update({
           status: 'accepted',
@@ -133,11 +133,11 @@ export default function QuoteAcceptance() {
       if (updateError) throw updateError;
 
       // Log the event
-      await supabase.from('quote_events').insert({
+      await (supabase as any).from('quote_events').insert({
+        tenant_id: quote.tenant_id,
         quote_id: quote.id,
-        event_type: 'status_changed',
-        event_data: { from: quote.status, to: 'accepted' },
-        description: 'Quote accepted by customer via magic link',
+        event_type: 'accepted',
+        payload_json: {},
       });
 
       setSuccessMessage('Thank you! Your quote has been accepted. We will be in touch shortly.');
@@ -155,24 +155,23 @@ export default function QuoteAcceptance() {
 
     setProcessing(true);
     try {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await (supabase as any)
         .from('quotes')
         .update({
           status: 'declined',
-          notes: quote.notes
-            ? `${quote.notes}\n\n--- Decline Reason ---\n${declineReason}`
-            : `--- Decline Reason ---\n${declineReason}`,
+          decline_reason: declineReason,
+          declined_at: new Date().toISOString(),
         })
         .eq('id', quote.id);
 
       if (updateError) throw updateError;
 
       // Log the event
-      await supabase.from('quote_events').insert({
+      await (supabase as any).from('quote_events').insert({
+        tenant_id: quote.tenant_id,
         quote_id: quote.id,
-        event_type: 'status_changed',
-        event_data: { from: quote.status, to: 'declined', reason: declineReason },
-        description: `Quote declined by customer: ${declineReason}`,
+        event_type: 'declined',
+        payload_json: { reason: declineReason },
       });
 
       setDeclineDialogOpen(false);
@@ -236,6 +235,9 @@ export default function QuoteAcceptance() {
 
   const isActionable = quote.status === 'sent';
   const showSuccessState = quote.status === 'accepted' || quote.status === 'declined';
+
+  // Calculate discount amount
+  const discountAmount = (quote.subtotal_before_discounts || 0) - (quote.subtotal_after_discounts || 0);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -322,7 +324,7 @@ export default function QuoteAcceptance() {
                 <Clock className="h-5 w-5 text-muted-foreground" />
                 <div>
                   <p className="text-sm text-muted-foreground">Storage Duration</p>
-                  <p className="font-medium">{quote.estimated_storage_days || 0} days</p>
+                  <p className="font-medium">{quote.storage_days || 0} days</p>
                 </div>
               </div>
             </div>
@@ -355,7 +357,7 @@ export default function QuoteAcceptance() {
                               </p>
                             </div>
                           </td>
-                          <td className="p-3 text-right">{line.quantity}</td>
+                          <td className="p-3 text-right">{line.qty}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -396,12 +398,12 @@ export default function QuoteAcceptance() {
                             {service.quote_class?.name && (
                               <span className="text-xs">Class: {service.quote_class.name}</span>
                             )}
-                            {service.quantity && service.quantity > 1 && (
-                              <span className="text-xs ml-2">× {service.quantity}</span>
+                            {service.computed_billable_qty && service.computed_billable_qty > 1 && (
+                              <span className="text-xs ml-2">× {service.computed_billable_qty}</span>
                             )}
                           </td>
                           <td className="p-3 text-right text-muted-foreground">
-                            {formatCurrency(service.rate_amount)}{' '}
+                            {formatCurrency(service.applied_rate_amount)}{' '}
                             <span className="text-xs">
                               {getBillingUnitLabel(service.quote_service?.billing_unit || '')}
                             </span>
@@ -423,18 +425,18 @@ export default function QuoteAcceptance() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
-                <span>{formatCurrency(quote.subtotal || 0, quote.currency)}</span>
+                <span>{formatCurrency(quote.subtotal_before_discounts || 0, quote.currency)}</span>
               </div>
-              {(quote.discount_amount || 0) > 0 && (
+              {discountAmount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Discount</span>
-                  <span>-{formatCurrency(quote.discount_amount || 0, quote.currency)}</span>
+                  <span>-{formatCurrency(discountAmount, quote.currency)}</span>
                 </div>
               )}
               {(quote.tax_amount || 0) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Tax ({((quote.tax_rate || 0) * 100).toFixed(1)}%)
+                    Tax ({((quote.tax_rate_percent || 0)).toFixed(1)}%)
                   </span>
                   <span>{formatCurrency(quote.tax_amount || 0, quote.currency)}</span>
                 </div>
@@ -478,69 +480,60 @@ export default function QuoteAcceptance() {
                 Accept Quote
               </Button>
               <Button
-                variant="outline"
                 onClick={() => setDeclineDialogOpen(true)}
                 disabled={processing}
+                variant="outline"
                 className="flex-1"
                 size="lg"
               >
                 <XCircle className="h-4 w-4 mr-2" />
-                Decline
+                Decline Quote
               </Button>
             </CardFooter>
           )}
         </Card>
 
-        {/* Footer */}
-        <p className="text-center text-sm text-muted-foreground">
-          Questions about this quote? Contact us at{' '}
-          <a href="mailto:support@example.com" className="text-primary hover:underline">
-            support@example.com
-          </a>
-        </p>
-      </div>
-
-      {/* Decline Dialog */}
-      <Dialog open={declineDialogOpen} onOpenChange={setDeclineDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Decline Quote</DialogTitle>
-            <DialogDescription>
-              Please let us know why you're declining this quote. This feedback helps us improve our
-              services.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="decline-reason">Reason for declining</Label>
-              <Textarea
-                id="decline-reason"
-                value={declineReason}
-                onChange={(e) => setDeclineReason(e.target.value)}
-                placeholder="e.g., Price too high, found another provider, project cancelled..."
-                rows={4}
-              />
+        {/* Decline Dialog */}
+        <Dialog open={declineDialogOpen} onOpenChange={setDeclineDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Decline Quote</DialogTitle>
+              <DialogDescription>
+                Please let us know why you're declining this quote. This helps us improve our services.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="decline-reason">Reason for declining</Label>
+                <Textarea
+                  id="decline-reason"
+                  placeholder="Please provide a reason..."
+                  value={declineReason}
+                  onChange={(e) => setDeclineReason(e.target.value)}
+                  rows={4}
+                />
+              </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeclineDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDecline}
-              disabled={!declineReason.trim() || processing}
-            >
-              {processing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <XCircle className="h-4 w-4 mr-2" />
-              )}
-              Decline Quote
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeclineDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDecline}
+                disabled={!declineReason.trim() || processing}
+                variant="destructive"
+              >
+                {processing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <XCircle className="h-4 w-4 mr-2" />
+                )}
+                Decline Quote
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }

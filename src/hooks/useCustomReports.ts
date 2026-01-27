@@ -343,16 +343,16 @@ async function enrichWithJoinedData(
         }
       });
 
-      const { data: joinedData } = await supabase
+      const { data: joinedData } = await (supabase as any)
         .from(colDef.joinTable)
         .select(Array.from(neededColumns).join(', '))
         .in('id', ids);
 
-      if (joinedData) {
+      if (joinedData && Array.isArray(joinedData)) {
         if (!lookupMaps[colDef.joinTable]) {
           lookupMaps[colDef.joinTable] = {};
         }
-        joinedData.forEach((row: Record<string, unknown>) => {
+        (joinedData as Record<string, unknown>[]).forEach((row) => {
           lookupMaps[colDef.joinTable!][row.id as string] = row;
         });
       }
