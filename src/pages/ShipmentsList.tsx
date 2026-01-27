@@ -245,9 +245,10 @@ export default function ShipmentsList() {
             </Button>
           )}
           {activeTab === 'outbound' && (
-            <Button onClick={() => navigate('/tasks?type=Will%20Call')}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Will Call
+            <Button onClick={() => navigate('/tasks?type=Will%20Call&new=true')}>
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">New Will Call</span>
+              <span className="sm:hidden">Will Call</span>
             </Button>
           )}
         </div>
@@ -344,16 +345,18 @@ export default function ShipmentsList() {
   const getCreateButton = () => {
     if (activeTab === 'outbound') {
       return (
-        <Button onClick={() => navigate('/tasks?type=Will%20Call')}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Will Call
+        <Button onClick={() => navigate('/tasks?type=Will%20Call&new=true')}>
+          <Plus className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">New Will Call</span>
+          <span className="sm:hidden">Will Call</span>
         </Button>
       );
     }
     return (
       <Button onClick={() => navigate('/shipments/create')}>
-        <Plus className="h-4 w-4 mr-2" />
-        New Shipment
+        <Plus className="h-4 w-4 sm:mr-2" />
+        <span className="hidden sm:inline">New Shipment</span>
+        <span className="sm:hidden">Shipment</span>
       </Button>
     );
   };

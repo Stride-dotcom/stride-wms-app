@@ -57,7 +57,7 @@ import {
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
-  in_progress: 'bg-amber-100 text-amber-800',
+  in_progress: 'bg-blue-100 text-blue-800',
   completed: 'bg-green-100 text-green-800',
   unable_to_complete: 'bg-red-100 text-red-800',
   cancelled: 'bg-gray-100 text-gray-800',
@@ -90,15 +90,29 @@ export default function Tasks() {
   }));
 
   // Sync filters from URL params when they change (e.g. Dashboard tile click)
+  // Also auto-open dialog when new=true param is present
   useEffect(() => {
     const urlStatus = searchParams.get('status');
     const urlType = searchParams.get('type');
+    const isNew = searchParams.get('new') === 'true';
+
     if (urlStatus || urlType) {
       setFilters(f => ({
         ...f,
         status: urlStatus || f.status,
         taskType: urlType || f.taskType,
       }));
+    }
+
+    // Auto-open task creation dialog when new=true
+    if (isNew && urlType) {
+      setEditingTask(null);
+      setPreSelectedTaskType(urlType);
+      setDialogOpen(true);
+      // Clear the 'new' param from URL to prevent re-opening on refresh
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('new');
+      setSearchParams(newParams, { replace: true });
     }
   }, [searchParams]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -330,8 +344,8 @@ export default function Tasks() {
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilters(f => ({ ...f, status: 'in_progress' }))}>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-amber-100 rounded-lg">
-                  <ClipboardList className="h-6 w-6 text-amber-600" />
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <ClipboardList className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.inProgress}</p>
