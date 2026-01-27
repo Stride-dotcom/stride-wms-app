@@ -3011,6 +3011,66 @@ export type Database = {
           },
         ]
       }
+      custom_reports: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string | null
+          data_source: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          is_shared: boolean
+          is_template: boolean
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          data_source: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          is_shared?: boolean
+          is_template?: boolean
+          name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          data_source?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          is_shared?: boolean
+          is_template?: boolean
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_reports_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_reports_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           created_at: string
@@ -6512,6 +6572,67 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_executions: {
+        Row: {
+          data_source: string
+          executed_at: string
+          executed_by: string | null
+          execution_time_ms: number | null
+          filters_applied: Json | null
+          id: string
+          report_id: string | null
+          report_name: string
+          row_count: number | null
+          tenant_id: string
+        }
+        Insert: {
+          data_source: string
+          executed_at?: string
+          executed_by?: string | null
+          execution_time_ms?: number | null
+          filters_applied?: Json | null
+          id?: string
+          report_id?: string | null
+          report_name: string
+          row_count?: number | null
+          tenant_id: string
+        }
+        Update: {
+          data_source?: string
+          executed_at?: string
+          executed_by?: string | null
+          execution_time_ms?: number | null
+          filters_applied?: Json | null
+          id?: string
+          report_id?: string | null
+          report_name?: string
+          row_count?: number | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_executions_executed_by_fkey"
+            columns: ["executed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_executions_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "custom_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_executions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
