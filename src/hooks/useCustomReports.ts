@@ -174,7 +174,7 @@ export function useCustomReports() {
         const source = DATA_SOURCES[dataSource];
         if (!source) throw new Error(`Unknown data source: ${dataSource}`);
 
-        // Build select statement
+        // Build select statement (only direct columns, no joins)
         const visibleColumns = config.columns.filter((c) => c.visible);
         const selectFields = buildSelectFields(dataSource, visibleColumns);
 
@@ -192,7 +192,8 @@ export function useCustomReports() {
         if (config.orderBy.length > 0) {
           config.orderBy.forEach((sort) => {
             const col = source.columns.find((c) => c.id === sort.column);
-            if (col) {
+            if (col && !col.joinTable) {
+              // Only sort by direct columns, not joined ones
               query = query.order(col.dbColumn, { ascending: sort.direction === 'asc' });
             }
           });
@@ -210,10 +211,13 @@ export function useCustomReports() {
 
         if (error) throw error;
 
+        // Fetch related data for joined columns
+        const enrichedData = await enrichWithJoinedData(data || [], dataSource, visibleColumns);
+
         const executionTime = Math.round(performance.now() - startTime);
 
         // Transform data for display
-        const rows = transformRows(data || [], dataSource, visibleColumns);
+        const rows = transformRows(enrichedData, dataSource, visibleColumns);
 
         // Calculate summaries
         const summaries = calculateSummaries(rows, config.summaries);
@@ -260,7 +264,7 @@ export function useCustomReports() {
   };
 }
 
-// Helper: Build select fields string
+// Helper: Build select fields string (only direct columns, no joins)
 function buildSelectFields(dataSourceId: string, columns: ColumnSelection[]): string {
   const source = DATA_SOURCES[dataSourceId];
   if (!source) return '*';
@@ -270,19 +274,109 @@ function buildSelectFields(dataSourceId: string, columns: ColumnSelection[]): st
   columns.forEach((col) => {
     const colDef = source.columns.find((c) => c.id === col.id);
     if (colDef) {
-      if (colDef.joinTable && colDef.joinColumn) {
-        // Join related table
-        fields.push(`${colDef.joinTable}:${colDef.dbColumn}(${colDef.joinColumn})`);
-      } else {
+      // For joined columns, we need to include the FK column (dbColumn)
+      // For direct columns, just include them
+      if (!fields.includes(colDef.dbColumn)) {
         fields.push(colDef.dbColumn);
       }
     }
   });
 
-  // Always include tenant_id and deleted_at for filtering
+  // Always include tenant_id for filtering
   if (!fields.includes('tenant_id')) fields.push('tenant_id');
 
   return fields.join(', ');
+}
+
+// Helper: Fetch related data for joined columns
+async function enrichWithJoinedData(
+  data: Record<string, unknown>[],
+  dataSourceId: string,
+  columns: ColumnSelection[]
+): Promise<Record<string, unknown>[]> {
+  const source = DATA_SOURCES[dataSourceId];
+  if (!source || data.length === 0) return data;
+
+  // Find all columns that need joins
+  const joinConfigs: { colDef: typeof source.columns[0]; fkIds: Set<string> }[] = [];
+
+  columns.forEach((col) => {
+    const colDef = source.columns.find((c) => c.id === col.id);
+    if (colDef?.joinTable && colDef?.joinColumn) {
+      // Collect unique FK IDs for this join
+      const fkIds = new Set<string>();
+      data.forEach((row) => {
+        const fkValue = row[colDef.dbColumn];
+        if (fkValue && typeof fkValue === 'string') {
+          fkIds.add(fkValue);
+        }
+      });
+
+      if (fkIds.size > 0) {
+        // Check if we already have this join table
+        const existing = joinConfigs.find((j) => j.colDef.joinTable === colDef.joinTable);
+        if (existing) {
+          fkIds.forEach((id) => existing.fkIds.add(id));
+        } else {
+          joinConfigs.push({ colDef, fkIds });
+        }
+      }
+    }
+  });
+
+  // Fetch data for each join table
+  const lookupMaps: Record<string, Record<string, Record<string, unknown>>> = {};
+
+  await Promise.all(
+    joinConfigs.map(async ({ colDef, fkIds }) => {
+      if (!colDef.joinTable || !colDef.joinColumn) return;
+
+      const ids = Array.from(fkIds);
+      if (ids.length === 0) return;
+
+      // Determine which columns we need from the joined table
+      const neededColumns = new Set<string>(['id']);
+      columns.forEach((col) => {
+        const cd = source.columns.find((c) => c.id === col.id);
+        if (cd?.joinTable === colDef.joinTable && cd?.joinColumn) {
+          neededColumns.add(cd.joinColumn);
+        }
+      });
+
+      const { data: joinedData } = await supabase
+        .from(colDef.joinTable)
+        .select(Array.from(neededColumns).join(', '))
+        .in('id', ids);
+
+      if (joinedData) {
+        if (!lookupMaps[colDef.joinTable]) {
+          lookupMaps[colDef.joinTable] = {};
+        }
+        joinedData.forEach((row: Record<string, unknown>) => {
+          lookupMaps[colDef.joinTable!][row.id as string] = row;
+        });
+      }
+    })
+  );
+
+  // Enrich data with joined values
+  return data.map((row) => {
+    const enriched = { ...row };
+
+    columns.forEach((col) => {
+      const colDef = source.columns.find((c) => c.id === col.id);
+      if (colDef?.joinTable && colDef?.joinColumn) {
+        const fkValue = row[colDef.dbColumn] as string;
+        const lookup = lookupMaps[colDef.joinTable];
+        if (fkValue && lookup && lookup[fkValue]) {
+          // Store the joined value with a special key
+          enriched[`__joined_${col.id}`] = lookup[fkValue][colDef.joinColumn];
+        }
+      }
+    });
+
+    return enriched;
+  });
 }
 
 // Helper: Apply filters to query
@@ -358,9 +452,8 @@ function transformRows(
       if (!colDef) return;
 
       if (colDef.joinTable && colDef.joinColumn) {
-        // Extract value from joined table
-        const joinedData = row[colDef.joinTable] as Record<string, unknown> | null;
-        transformed[col.id] = joinedData ? joinedData[colDef.joinColumn] : null;
+        // Get the enriched value from the joined lookup
+        transformed[col.id] = row[`__joined_${col.id}`] ?? null;
       } else {
         transformed[col.id] = row[colDef.dbColumn];
       }
