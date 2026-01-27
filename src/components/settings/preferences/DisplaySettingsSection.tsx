@@ -14,25 +14,25 @@ export function DisplaySettingsSection({
 }: DisplaySettingsSectionProps) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Monitor className="h-5 w-5" />
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Monitor className="h-4 w-4" />
           Display Settings
         </CardTitle>
-        <CardDescription>
-          Configure how information is displayed throughout the application
+        <CardDescription className="text-xs">
+          Configure how information is displayed
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-base">Show Warehouse Name in Location</Label>
+      <CardContent>
+        <div className="flex items-center justify-between gap-3 py-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <div className="min-w-0">
+              <Label className="text-sm">Show Warehouse in Location</Label>
+              <p className="text-xs text-muted-foreground truncate">
+                Display "Code (Warehouse)" format
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Display location as "Code (Warehouse Name)" instead of just "Code"
-            </p>
           </div>
           <Switch
             checked={showWarehouseInLocation}

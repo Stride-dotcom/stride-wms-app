@@ -1,8 +1,18 @@
--- Seed Service Events Price List
--- This populates the service_events table with the standard price list
+-- Update Service Event Rates
+-- This migration updates rates to match the standard price list
 -- ============================================================================
 
--- Function to seed service events for a tenant
+-- Update 2HRO rate from 310 to 110
+UPDATE public.service_events
+SET rate = 110, updated_at = now()
+WHERE service_code = '2HRO' AND rate = 310;
+
+-- Update 30MA rate from 70 to 75
+UPDATE public.service_events
+SET rate = 75, updated_at = now()
+WHERE service_code = '30MA' AND rate = 70;
+
+-- Also update the seed function for new tenants
 CREATE OR REPLACE FUNCTION public.seed_service_events(p_tenant_id UUID)
 RETURNS void
 LANGUAGE plpgsql
@@ -151,31 +161,20 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.seed_service_events IS 'Populate standard price list for a tenant';
-
--- Grant execute
-GRANT EXECUTE ON FUNCTION public.seed_service_events(UUID) TO authenticated;
-
--- 2. Seed default classes (size categories)
-CREATE OR REPLACE FUNCTION public.seed_default_classes(p_tenant_id UUID)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
+-- Seed service events for all existing tenants that don't have any
+DO $$
+DECLARE
+  tenant_record RECORD;
 BEGIN
-  -- Insert default classes if not exist
-  INSERT INTO public.classes (tenant_id, code, name, sort_order)
-  VALUES
-    (p_tenant_id, 'XS', 'Extra Small', 1),
-    (p_tenant_id, 'S', 'Small', 2),
-    (p_tenant_id, 'M', 'Medium', 3),
-    (p_tenant_id, 'L', 'Large', 4),
-    (p_tenant_id, 'XL', 'Extra Large', 5),
-    (p_tenant_id, 'XXL', 'XX Large', 6)
-  ON CONFLICT (tenant_id, code) DO UPDATE SET
-    name = EXCLUDED.name,
-    sort_order = EXCLUDED.sort_order;
+  FOR tenant_record IN
+    SELECT DISTINCT t.id as tenant_id
+    FROM public.tenants t
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.service_events se WHERE se.tenant_id = t.id
+    )
+  LOOP
+    PERFORM public.seed_service_events(tenant_record.tenant_id);
+    RAISE NOTICE 'Seeded service events for tenant %', tenant_record.tenant_id;
+  END LOOP;
 END;
 $$;
-
-GRANT EXECUTE ON FUNCTION public.seed_default_classes(UUID) TO authenticated;
