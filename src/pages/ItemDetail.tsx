@@ -488,13 +488,9 @@ export default function ItemDetail() {
                     </Badge>
                   )}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openTaskMenu('Will Call')}>
-                  Will Call
-                  {tasks.filter(t => t.task_type === 'Will Call' && t.status !== 'completed').length > 0 && (
-                    <Badge variant="secondary" className="ml-2">
-                      {tasks.filter(t => t.task_type === 'Will Call' && t.status !== 'completed').length}
-                    </Badge>
-                  )}
+                <DropdownMenuItem onClick={() => navigate('/shipments/outbound/new', { state: { itemIds: [item.id], accountId: item.account_id } })}>
+                  <Truck className="mr-2 h-4 w-4" />
+                  Create Outbound
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => openTaskMenu('Disposal')}>
                   Disposal
