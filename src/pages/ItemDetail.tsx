@@ -43,25 +43,10 @@ import { ClaimCreateDialog } from '@/components/claims/ClaimCreateDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 import { ScanDocumentButton, DocumentList } from '@/components/scanner';
 import { format } from 'date-fns';
-import { 
-  ArrowLeft, 
-  Loader2, 
-  Package, 
-  MapPin, 
-  ClipboardList,
-  History,
-  Edit,
-  MoreHorizontal,
-  Printer,
-  DollarSign,
-  Link as LinkIcon,
+import {
+  ArrowLeft,
+  Loader2,
   ExternalLink,
-  PackageX,
-  Settings,
-  FileText,
-  Truck,
-  Shield,
-  AlertTriangle,
 } from 'lucide-react';
 import { QuickReleaseDialog } from '@/components/inventory/QuickReleaseDialog';
 
@@ -424,7 +409,7 @@ export default function ItemDetail() {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
-          <Package className="mx-auto h-12 w-12 text-muted-foreground" />
+          <div className="text-5xl mb-4 opacity-50">📦</div>
           <h3 className="mt-4 text-lg font-semibold">Item not found</h3>
           <Button variant="link" onClick={() => navigate('/inventory')}>
             Back to Inventory
@@ -459,13 +444,13 @@ export default function ItemDetail() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
-                  <ClipboardList className="mr-2 h-4 w-4" />
+                  <span className="mr-2">📝</span>
                   Tasks
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => openTaskMenu('Inspection')}>
-                  Inspection
+                  🔍 Inspection
                   {tasks.filter(t => t.task_type === 'Inspection' && t.status !== 'completed').length > 0 && (
                     <Badge variant="secondary" className="ml-2">
                       {tasks.filter(t => t.task_type === 'Inspection' && t.status !== 'completed').length}
@@ -473,7 +458,7 @@ export default function ItemDetail() {
                   )}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => openTaskMenu('Assembly')}>
-                  Assembly
+                  🔧 Assembly
                   {tasks.filter(t => t.task_type === 'Assembly' && t.status !== 'completed').length > 0 && (
                     <Badge variant="secondary" className="ml-2">
                       {tasks.filter(t => t.task_type === 'Assembly' && t.status !== 'completed').length}
@@ -481,7 +466,7 @@ export default function ItemDetail() {
                   )}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => openTaskMenu('Repair')}>
-                  Repair
+                  🔨 Repair
                   {tasks.filter(t => t.task_type === 'Repair' && t.status !== 'completed').length > 0 && (
                     <Badge variant="secondary" className="ml-2">
                       {tasks.filter(t => t.task_type === 'Repair' && t.status !== 'completed').length}
@@ -489,11 +474,10 @@ export default function ItemDetail() {
                   )}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/shipments/outbound/new', { state: { itemIds: [item.id], accountId: item.account_id } })}>
-                  <Truck className="mr-2 h-4 w-4" />
-                  Create Outbound
+                  🚚 Create Outbound
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => openTaskMenu('Disposal')}>
-                  Disposal
+                  🗑️ Disposal
                   {tasks.filter(t => t.task_type === 'Disposal' && t.status !== 'completed').length > 0 && (
                     <Badge variant="secondary" className="ml-2">
                       {tasks.filter(t => t.task_type === 'Disposal' && t.status !== 'completed').length}
@@ -505,7 +489,7 @@ export default function ItemDetail() {
                   setSelectedTaskType('');
                   setTaskDialogOpen(true);
                 }}>
-                  Other Task Type
+                  ➕ Other Task Type
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -513,7 +497,7 @@ export default function ItemDetail() {
             {/* Release Button - Only show for active items */}
             {!isClientUser && item.status === 'active' && (
               <Button variant="default" onClick={() => setReleaseDialogOpen(true)}>
-                <PackageX className="mr-2 h-4 w-4" />
+                <span className="mr-2">📤</span>
                 Release
               </Button>
             )}
@@ -523,27 +507,23 @@ export default function ItemDetail() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="icon">
-                    <MoreHorizontal className="h-4 w-4" />
+                    ⋯
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => setPrintDialogOpen(true)}>
-                    <Printer className="mr-2 h-4 w-4" />
-                    Print 4x6 Label
+                    🖨️ Print 4x6 Label
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setBillingChargeDialogOpen(true)}>
-                    <DollarSign className="mr-2 h-4 w-4" />
-                    Add Billing Charge
+                    💰 Add Billing Charge
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setClaimDialogOpen(true)}>
-                    <AlertTriangle className="mr-2 h-4 w-4" />
-                    File Claim
+                    ⚠️ File Claim
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setEditDialogOpen(true)}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit Item
+                    ✏️ Edit Item
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -562,27 +542,18 @@ export default function ItemDetail() {
 
         <Tabs defaultValue="details" className="w-full">
           <TabsList>
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="photos">Photos</TabsTrigger>
-            <TabsTrigger value="documents">
-              <FileText className="mr-1 h-3 w-3" />
-              Docs
-            </TabsTrigger>
-            <TabsTrigger value="notes">Notes</TabsTrigger>
+            <TabsTrigger value="details">📋 Details</TabsTrigger>
+            <TabsTrigger value="photos">📷 Photos</TabsTrigger>
+            <TabsTrigger value="documents">📄 Docs</TabsTrigger>
+            <TabsTrigger value="notes">💬 Notes</TabsTrigger>
             {!isClientUser && (
-              <TabsTrigger value="coverage">
-                <Shield className="mr-1 h-3 w-3" />
-                Coverage
-              </TabsTrigger>
+              <TabsTrigger value="coverage">🛡️ Coverage</TabsTrigger>
             )}
-            {!isClientUser && <TabsTrigger value="history">History</TabsTrigger>}
+            {!isClientUser && <TabsTrigger value="history">📜 History</TabsTrigger>}
             {!isClientUser && (
-              <TabsTrigger value="advanced">
-                <Settings className="mr-1 h-3 w-3" />
-                Advanced
-              </TabsTrigger>
+              <TabsTrigger value="advanced">⚙️ Advanced</TabsTrigger>
             )}
-            {item.needs_repair && <TabsTrigger value="repair">Repair</TabsTrigger>}
+            {item.needs_repair && <TabsTrigger value="repair">🔧 Repair</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="details" className="space-y-6 mt-6">
@@ -591,7 +562,7 @@ export default function ItemDetail() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Package className="h-5 w-5" />
+                    <div className="emoji-tile emoji-tile-md bg-muted dark:bg-slate-700 rounded-lg">📦</div>
                     Item Details
                   </CardTitle>
                 </CardHeader>
@@ -676,8 +647,7 @@ export default function ItemDetail() {
                     <div>
                       <span className="text-muted-foreground">Location</span>
                       <p className="font-medium flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {item.location?.code || item.location?.name || '-'}
+                        📍 {item.location?.code || item.location?.name || '-'}
                       </p>
                     </div>
                     <div>
@@ -712,7 +682,7 @@ export default function ItemDetail() {
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <Truck className="h-5 w-5" />
+                    <span>🚚</span>
                     Receiving Shipment
                   </CardTitle>
                   <CardDescription>
@@ -750,7 +720,7 @@ export default function ItemDetail() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5" />
+                  <span>📝</span>
                   Tasks ({tasks.length})
                 </CardTitle>
                 <CardDescription>Tasks associated with this item</CardDescription>
@@ -818,7 +788,7 @@ export default function ItemDetail() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2">
-                      <FileText className="h-5 w-5" />
+                      <span>📄</span>
                       Documents
                     </CardTitle>
                     <CardDescription>

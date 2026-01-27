@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, Package, ClipboardCheck, Wrench, Truck, Hammer, ChevronDown, ChevronUp, ExternalLink, Clock } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardStats, PutAwayItem } from '@/hooks/useDashboardStats';
 
@@ -40,63 +40,58 @@ export default function Dashboard() {
       {
         key: 'put_away',
         title: 'PUT AWAY',
-        icon: <Package className="h-5 w-5" />,
+        emoji: '📦',
         count: stats.putAwayCount,
         urgent: stats.putAwayUrgentCount,
         description: 'Items on receiving dock',
-        bgColor: 'bg-purple-500/10',
-        iconColor: 'text-purple-600',
-        countColor: 'text-purple-600',
+        bgColor: 'bg-purple-500/10 dark:bg-purple-500/20',
+        countColor: 'text-purple-600 dark:text-purple-400',
         onClick: () => navigate('/inventory?location=receiving'),
       },
       {
         key: 'inspection',
         title: 'NEEDS INSPECTION',
-        icon: <ClipboardCheck className="h-5 w-5" />,
+        emoji: '🔍',
         count: stats.needToInspect,
         urgent: stats.urgentNeedToInspect,
         description: 'Pending inspection tasks',
-        bgColor: 'bg-amber-500/10',
-        iconColor: 'text-amber-600',
-        countColor: 'text-amber-600',
+        bgColor: 'bg-amber-500/10 dark:bg-amber-500/20',
+        countColor: 'text-amber-600 dark:text-amber-400',
         onClick: () => navigate('/tasks?type=Inspection&status=pending'),
         timeEstimate: stats.inspectionTimeEstimate,
       },
       {
         key: 'assembly',
         title: 'NEEDS ASSEMBLY',
-        icon: <Wrench className="h-5 w-5" />,
+        emoji: '🔧',
         count: stats.needToAssemble,
         urgent: stats.urgentNeedToAssemble,
         description: 'Pending assembly tasks',
-        bgColor: 'bg-blue-500/10',
-        iconColor: 'text-blue-600',
-        countColor: 'text-blue-600',
+        bgColor: 'bg-blue-500/10 dark:bg-blue-500/20',
+        countColor: 'text-blue-600 dark:text-blue-400',
         onClick: () => navigate('/tasks?type=Assembly&status=pending'),
         timeEstimate: stats.assemblyTimeEstimate,
       },
       {
         key: 'incoming_shipments',
         title: 'INCOMING SHIPMENTS',
-        icon: <Truck className="h-5 w-5" />,
+        emoji: '🚚',
         count: stats.incomingShipments,
         urgent: stats.incomingShipmentsUrgentCount,
         description: 'Expected / not received',
-        bgColor: 'bg-emerald-500/10',
-        iconColor: 'text-emerald-600',
-        countColor: 'text-emerald-600',
+        bgColor: 'bg-emerald-500/10 dark:bg-emerald-500/20',
+        countColor: 'text-emerald-600 dark:text-emerald-400',
         onClick: () => navigate('/shipments/incoming'),
       },
       {
         key: 'repairs',
         title: 'REPAIRS',
-        icon: <Hammer className="h-5 w-5" />,
+        emoji: '🔨',
         count: stats.repairCount,
         urgent: stats.urgentNeedToRepair,
         description: 'Pending repair tasks',
-        bgColor: 'bg-red-500/10',
-        iconColor: 'text-red-600',
-        countColor: 'text-red-600',
+        bgColor: 'bg-red-500/10 dark:bg-red-500/20',
+        countColor: 'text-red-600 dark:text-red-400',
         onClick: () => navigate('/tasks?type=Repair&status=pending'),
         timeEstimate: stats.repairTimeEstimate,
       },
@@ -114,7 +109,7 @@ export default function Dashboard() {
             description={`Welcome back${profile?.first_name ? `, ${profile.first_name}` : ''}.`}
           />
           <Button variant="outline" size="sm" onClick={refetch} disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <span className="mr-2">🔄</span>}
             Refresh
           </Button>
         </div>
@@ -129,7 +124,7 @@ export default function Dashboard() {
               // Special handling for put_away tile to show expandable items list
               if (t.key === 'put_away') {
                 return (
-                  <Card key={t.key} className="hover:shadow-gloss-card-hover transition">
+                  <Card key={t.key} className="hover:shadow-lg transition-shadow">
                     <CardHeader
                       className="flex flex-row items-center justify-between space-y-0 pb-2 cursor-pointer"
                       onClick={() => setPutAwayExpanded(!putAwayExpanded)}
@@ -138,14 +133,14 @@ export default function Dashboard() {
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-[11px] font-semibold tracking-wide text-muted-foreground">{t.title}</CardTitle>
                         {typeof t.urgent === 'number' && t.urgent > 0 && (
-                          <Badge variant="destructive">
-                            Urgent: {t.urgent}
+                          <Badge className="bg-red-500 text-white">
+                            ⚠️ {t.urgent}
                           </Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className={`rounded-md ${t.bgColor} p-2`}>
-                          <span className={t.iconColor}>{t.icon}</span>
+                        <div className={`emoji-tile emoji-tile-lg rounded-lg ${t.bgColor}`}>
+                          {t.emoji}
                         </div>
                         {putAwayExpanded ? (
                           <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -210,7 +205,7 @@ export default function Dashboard() {
               return (
                 <Card
                   key={t.key}
-                  className="cursor-pointer hover:shadow-gloss-card-hover transition"
+                  className="cursor-pointer hover:shadow-lg transition-shadow"
                   onClick={t.onClick}
                   role="button"
                 >
@@ -218,22 +213,21 @@ export default function Dashboard() {
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-[11px] font-semibold tracking-wide text-muted-foreground">{t.title}</CardTitle>
                       {typeof t.urgent === 'number' && t.urgent > 0 && (
-                        <Badge variant="destructive">
-                          Urgent: {t.urgent}
+                        <Badge className="bg-red-500 text-white">
+                          ⚠️ {t.urgent}
                         </Badge>
                       )}
                     </div>
-                    <div className={`rounded-md ${t.bgColor} p-2`}>
-                      <span className={t.iconColor}>{t.icon}</span>
+                    <div className={`emoji-tile emoji-tile-lg rounded-lg ${t.bgColor}`}>
+                      {t.emoji}
                     </div>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-baseline gap-2">
                       <span className={`text-3xl font-bold ${t.countColor}`}>{t.count ?? 0}</span>
                       {timeStr && t.count > 0 && (
-                        <span className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          ~{timeStr}
+                        <span className="text-sm text-muted-foreground">
+                          ⏱️ ~{timeStr}
                         </span>
                       )}
                     </div>
