@@ -41,6 +41,9 @@ import RepairTechAccess from "./pages/RepairTechAccess";
 import TechQuoteSubmit from "./pages/TechQuoteSubmit";
 import Technicians from "./pages/Technicians";
 import RepairQuotes from "./pages/RepairQuotes";
+import Quotes from "./pages/Quotes";
+import QuoteBuilder from "./pages/QuoteBuilder";
+import QuoteAcceptance from "./pages/QuoteAcceptance";
 import ClientQuoteReview from "./pages/ClientQuoteReview";
 import ClientActivate from "./pages/ClientActivate";
 import ClaimAcceptance from "./pages/ClaimAcceptance";
@@ -108,6 +111,9 @@ const App = () => (
             <Route path="/employees" element={<ProtectedRoute><RequireRole role="tenant_admin"><Employees /></RequireRole></ProtectedRoute>} />
             <Route path="/technicians" element={<ProtectedRoute><RequireRole role="tenant_admin"><Technicians /></RequireRole></ProtectedRoute>} />
             <Route path="/repair-quotes" element={<ProtectedRoute><RequireRole role="tenant_admin"><RepairQuotes /></RequireRole></ProtectedRoute>} />
+            <Route path="/quotes" element={<ProtectedRoute><RequireRole role="tenant_admin"><Quotes /></RequireRole></ProtectedRoute>} />
+            <Route path="/quotes/new" element={<ProtectedRoute><RequireRole role="tenant_admin"><QuoteBuilder /></RequireRole></ProtectedRoute>} />
+            <Route path="/quotes/:id" element={<ProtectedRoute><RequireRole role="tenant_admin"><QuoteBuilder /></RequireRole></ProtectedRoute>} />
             <Route path="/rate-cards" element={<ProtectedRoute><RequireRole role="tenant_admin"><RateCards /></RequireRole></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><RequireRole role="tenant_admin"><Settings /></RequireRole></ProtectedRoute>} />
             <Route path="/diagnostics" element={<ProtectedRoute><RequireRole role="tenant_admin"><Diagnostics /></RequireRole></ProtectedRoute>} />
@@ -115,6 +121,7 @@ const App = () => (
             <Route path="/quote/tech" element={<TechQuoteSubmit />} />
             <Route path="/quote/review" element={<ClientQuoteReview />} />
             <Route path="/claim/accept/:token" element={<ClaimAcceptance />} />
+            <Route path="/quote/accept" element={<QuoteAcceptance />} />
             <Route path="/activate" element={<ClientActivate />} />
             <Route path="/client/login" element={<ClientLogin />} />
             <Route path="/client" element={<ProtectedRoute><ClientDashboard /></ProtectedRoute>} />
