@@ -37,30 +37,24 @@ import { WillCallCompletionDialog } from '@/components/tasks/WillCallCompletionD
 import { format } from 'date-fns';
 import {
   Loader2,
-  Plus,
   Search,
-  MoreHorizontal,
   Check,
-  User,
-  Trash2,
-  Pencil,
-  RefreshCw,
-  ClipboardList,
-  AlertCircle,
-  Clock,
-  CheckCircle2,
-  Play,
-  XCircle,
-  ListTodo,
-  AlertTriangle,
 } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  in_progress: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800',
-  unable_to_complete: 'bg-red-100 text-red-800',
-  cancelled: 'bg-gray-100 text-gray-800',
+  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  unable_to_complete: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  cancelled: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
+};
+
+const statusEmojis: Record<string, string> = {
+  pending: '🕒',
+  in_progress: '🔄',
+  completed: '✅',
+  unable_to_complete: '❌',
+  cancelled: '🚫',
 };
 
 const statusLabels: Record<string, string> = {
@@ -72,8 +66,8 @@ const statusLabels: Record<string, string> = {
 };
 
 const priorityColors: Record<string, string> = {
-  normal: 'bg-slate-100 text-slate-800',
-  urgent: 'bg-red-100 text-red-800',
+  normal: 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400',
+  urgent: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
 };
 
 export default function Tasks() {
@@ -274,7 +268,7 @@ export default function Tasks() {
           onClick={() => startTask(task.id)}
           className="h-7 px-2 text-xs"
         >
-          <Play className="h-3 w-3 mr-1" />
+          <span className="mr-1">▶️</span>
           Start
         </Button>
       );
@@ -289,7 +283,7 @@ export default function Tasks() {
           onClick={() => handleCompleteClick(task)}
           className="h-7 px-2 text-xs"
         >
-          <Check className="h-3 w-3 mr-1" />
+          <span className="mr-1">✅</span>
           Complete
         </Button>,
         <Button
@@ -299,7 +293,7 @@ export default function Tasks() {
           onClick={() => setUnableToCompleteTask(task)}
           className="h-7 px-2 text-xs"
         >
-          <XCircle className="h-3 w-3 mr-1" />
+          <span className="mr-1">❌</span>
           Unable
         </Button>
       );
@@ -320,7 +314,7 @@ export default function Tasks() {
             description="Manage inspections, assemblies, repairs, and other tasks"
           />
           <Button onClick={() => handleCreate()} className="w-full sm:w-auto">
-            <Plus className="mr-2 h-4 w-4" />
+            <span className="mr-2">➕</span>
             Create Task
           </Button>
         </div>
@@ -330,8 +324,8 @@ export default function Tasks() {
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilters(f => ({ ...f, status: 'pending' }))}>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-yellow-100 rounded-lg">
-                  <ListTodo className="h-6 w-6 text-yellow-600" />
+                <div className="emoji-tile emoji-tile-lg bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                  🕒
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.inQueue}</p>
@@ -344,8 +338,8 @@ export default function Tasks() {
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilters(f => ({ ...f, status: 'in_progress' }))}>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <ClipboardList className="h-6 w-6 text-blue-600" />
+                <div className="emoji-tile emoji-tile-lg bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  🔄
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.inProgress}</p>
@@ -358,8 +352,8 @@ export default function Tasks() {
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilters(f => ({ ...f, status: 'completed' }))}>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-green-100 rounded-lg">
-                  <CheckCircle2 className="h-6 w-6 text-green-600" />
+                <div className="emoji-tile emoji-tile-lg bg-green-100 dark:bg-green-900/30 rounded-lg">
+                  ✅
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.completed}</p>
@@ -372,8 +366,8 @@ export default function Tasks() {
           <Card className="cursor-pointer hover:shadow-md transition-shadow">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-red-100 rounded-lg">
-                  <AlertCircle className="h-6 w-6 text-red-600" />
+                <div className="emoji-tile emoji-tile-lg bg-red-100 dark:bg-red-900/30 rounded-lg">
+                  🚨
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.overdue}</p>
@@ -434,7 +428,7 @@ export default function Tasks() {
           </Select>
 
           <Button variant="ghost" size="icon" onClick={refetch} disabled={isRefetching}>
-            <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
+            <span className={isRefetching ? 'animate-spin inline-block' : ''}>🔄</span>
           </Button>
         </div>
 
@@ -481,7 +475,7 @@ export default function Tasks() {
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-12">
                       <div className="flex flex-col items-center gap-2">
-                        <ClipboardList className="h-10 w-10 text-muted-foreground" />
+                        <div className="text-5xl opacity-30">📝</div>
                         <p className="text-muted-foreground font-medium">
                           {searchQuery || filters.status !== 'all' || filters.taskType !== 'all' || filters.warehouseId !== 'all'
                             ? 'No tasks match your filters'
@@ -520,12 +514,11 @@ export default function Tasks() {
                       </TableCell>
                       <TableCell>
                         {task.priority === 'urgent' ? (
-                          <Badge className="bg-red-100 text-red-800 gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            Urgent
+                          <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 gap-1">
+                            ⚠️ Urgent
                           </Badge>
                         ) : (
-                          <Badge className="bg-slate-100 text-slate-800">
+                          <Badge className="bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
                             Normal
                           </Badge>
                         )}

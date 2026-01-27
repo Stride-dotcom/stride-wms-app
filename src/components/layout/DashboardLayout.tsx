@@ -13,26 +13,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Package,
-  LayoutDashboard,
-  Boxes,
-  ClipboardList,
-  ClipboardCheck,
-  Truck,
-  BarChart3,
-  Settings,
-  LogOut,
   Menu,
   X,
-  Users,
-  FileText,
-  ScanLine,
-  Bug,
-  PanelLeftClose,
-  PanelLeftOpen,
   GripVertical,
-  Bell,
-  Calculator,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -58,24 +41,24 @@ import { CSS } from '@dnd-kit/utilities';
 interface NavItem {
   label: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  emoji: string;
   requiredRole?: string[];
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { label: 'Shipments', href: '/shipments', icon: Truck },
-  { label: 'Inventory', href: '/inventory', icon: Boxes },
-  { label: 'Tasks', href: '/tasks', icon: ClipboardList },
-  { label: 'Cycle Counts', href: '/stocktakes', icon: ClipboardCheck },
-  { label: 'Scan', href: '/scan', icon: ScanLine },
+  { label: 'Dashboard', href: '/', emoji: '⚡' },
+  { label: 'Shipments', href: '/shipments', emoji: '🚚' },
+  { label: 'Inventory', href: '/inventory', emoji: '📦' },
+  { label: 'Tasks', href: '/tasks', emoji: '📝' },
+  { label: 'Cycle Counts', href: '/stocktakes', emoji: '📋' },
+  { label: 'Scan', href: '/scan', emoji: '📱' },
 
-  { label: 'Analytics', href: '/reports', icon: BarChart3, requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Quotes', href: '/quotes', icon: Calculator, requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Claims', href: '/claims', icon: FileText, requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Accounts', href: '/accounts', icon: Users, requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Settings', href: '/settings', icon: Settings, requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Diagnostics', href: '/diagnostics', icon: Bug, requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Analytics', href: '/reports', emoji: '📊', requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Quotes', href: '/quotes', emoji: '💰', requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Claims', href: '/claims', emoji: '📄', requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Accounts', href: '/accounts', emoji: '👥', requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Settings', href: '/settings', emoji: '⚙️', requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Diagnostics', href: '/diagnostics', emoji: '🐛', requiredRole: ['admin', 'tenant_admin'] },
 ];
 
 interface DashboardLayoutProps {
@@ -117,29 +100,19 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
         onClick={onNavigate}
         title={sidebarCollapsed ? item.label : undefined}
         className={cn(
-          'relative flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200',
+          'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
           isActive
-            ? 'text-white'
-            : 'text-white/80 hover:text-white hover:bg-white/10',
+            ? 'bg-primary text-white'
+            : 'text-white/70 hover:text-white hover:bg-white/10',
           sidebarCollapsed && 'lg:justify-center lg:px-2'
         )}
       >
-        {/* Animated Indicator Pill */}
-        {isActive && (
-          <span
-            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_12px_hsl(14_100%_57%/0.6)] animate-indicator-bounce"
-          />
-        )}
-        {/* Active background */}
-        {isActive && (
-          <span className="absolute inset-0 bg-primary/20 rounded-md" />
-        )}
-        <item.icon
-          className={cn(
-            'h-5 w-5 relative z-10 transition-all duration-200 flex-shrink-0',
-            isActive && 'text-primary drop-shadow-[0_0_8px_hsl(14_100%_57%/0.6)]'
-          )}
-        />
+        <div className={cn(
+          "nav-emoji-tile",
+          isActive && "bg-white/20"
+        )}>
+          {item.emoji}
+        </div>
         <span className={cn(
           "relative z-10 transition-opacity duration-200 flex-1",
           sidebarCollapsed ? "lg:hidden" : ""
@@ -167,6 +140,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     const saved = localStorage.getItem('sidebar-collapsed');
     return saved === 'true';
   });
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('stride-theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
   const [navOrder, setNavOrder] = useState<string[]>([]);
   const [tenantLogo, setTenantLogo] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string>('Stride WMS');
@@ -175,6 +156,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { hasRole, isAdmin } = usePermissions();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Apply theme
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('stride-theme', isDark ? 'dark' : 'light');
+  }, [isDark]);
 
   // Fetch unread notification/message count
   useEffect(() => {
@@ -344,10 +335,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         )}
       >
         <div className={cn(
-          "flex h-16 items-center border-b border-border/30",
+          "flex h-16 items-center border-b border-white/10",
           sidebarCollapsed ? "lg:justify-center lg:px-2 px-4" : "justify-between px-4"
         )}>
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-3">
             {tenantLogo ? (
               <img
                 src={tenantLogo}
@@ -355,19 +346,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 className="h-8 w-8 object-contain rounded"
               />
             ) : (
-              <div className="p-1.5 bg-primary rounded-md shadow-[0_0_12px_hsl(14_100%_57%/0.4)]">
-                <Package className="h-5 w-5 text-primary-foreground" />
+              <div className="nav-emoji-tile bg-white/10">
+                📦
               </div>
             )}
             <span className={cn(
-              "font-bold text-lg text-foreground transition-opacity duration-200",
+              "font-bold text-white transition-opacity duration-200",
               sidebarCollapsed ? "lg:hidden" : ""
             )}>{tenantName}</span>
           </Link>
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden text-foreground"
+            className="lg:hidden text-white"
             onClick={() => setSidebarOpen(false)}
           >
             <X className="h-5 w-5" />
@@ -405,25 +396,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           "absolute bottom-4 hidden lg:flex",
           sidebarCollapsed ? "left-0 right-0 justify-center" : "left-4 right-4"
         )}>
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={toggleSidebarCollapsed}
             className={cn(
-              "text-white/60 hover:text-white hover:bg-white/10",
-              sidebarCollapsed ? "w-10 h-10 p-0" : "w-full justify-start gap-2"
+              "flex items-center gap-2 rounded-xl px-3 py-2 text-white/60 hover:bg-white/10 hover:text-white transition-colors",
+              sidebarCollapsed ? "justify-center" : ""
             )}
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {sidebarCollapsed ? (
-              <PanelLeftOpen className="h-5 w-5" />
-            ) : (
-              <>
-                <PanelLeftClose className="h-5 w-5" />
-                <span>Collapse</span>
-              </>
-            )}
-          </Button>
+            <span>{sidebarCollapsed ? '▶️' : '◀️'}</span>
+            {!sidebarCollapsed && <span className="text-sm">Collapse</span>}
+          </button>
         </div>
       </aside>
 
@@ -432,8 +415,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         "flex flex-col flex-1 min-h-0 transition-all duration-300",
         sidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
       )}>
-        {/* Header - Premium Glossy */}
-        <header className="sticky top-0 z-30 shrink-0 bg-gradient-to-b from-white to-slate-50 border-b border-black/5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center justify-between px-4 lg:px-6 pt-safe h-[calc(4rem+env(safe-area-inset-top,0px))]">
+        {/* Header */}
+        <header className="sticky top-0 z-30 shrink-0 bg-card border-b flex items-center justify-between px-4 lg:px-6 pt-safe h-[calc(4rem+env(safe-area-inset-top,0px))]">
           <Button
             variant="ghost"
             size="icon"
@@ -445,21 +428,28 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           <div className="flex-1" />
 
+          {/* Theme Toggle */}
+          <button
+            onClick={() => setIsDark(!isDark)}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-muted hover:bg-muted/80 transition-colors mr-2"
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {isDark ? '☀️' : '🌙'}
+          </button>
+
           {/* Notification Bell */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative mr-2"
+          <button
             onClick={() => navigate('/messages')}
+            className="relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted transition-colors mr-2"
             title="Messages & Notifications"
           >
-            <Bell className="h-5 w-5" />
+            🔔
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
-          </Button>
+          </button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -484,15 +474,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
-                <LogOut className="mr-2 h-4 w-4" />
+                <span className="mr-2">🚪</span>
                 <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
 
-        {/* Page content - scrollable with page transition and premium background */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-safe animate-fade-in bg-gradient-to-b from-white to-slate-50">{children}</main>
+        {/* Page content - scrollable */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-safe animate-fade-in">{children}</main>
       </div>
     </div>
   );

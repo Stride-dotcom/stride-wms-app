@@ -18,25 +18,12 @@ import {
   hapticError,
 } from '@/lib/haptics';
 import {
-  Move,
-  Layers,
-  Search,
-  ArrowRight,
-  CheckCircle,
-  Package,
-  MapPin,
   Loader2,
   X,
   ArrowLeft,
-  ChevronRight,
-  Keyboard,
   Plus,
   ArrowLeftRight,
   Check,
-  DollarSign,
-  Zap,
-  AlertTriangle,
-  Save,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -592,11 +579,13 @@ export default function ScanHub() {
   }, [isSwiping]);
 
   const handleSwipeEnd = useCallback(() => {
-    if (swipeProgress > 0.85) {
-      executeMove();
+    if (swipeProgress > 0.70) {
+      setSwipeProgress(1);
+      setTimeout(() => executeMove(), 100);
+    } else {
+      setSwipeProgress(0); // Spring back
     }
     setIsSwiping(false);
-    setSwipeProgress(0);
   }, [swipeProgress]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -648,22 +637,22 @@ export default function ScanHub() {
                 "hover:border-primary hover:shadow-xl hover:shadow-primary/10"
               )}
             >
-              {/* Background watermark icon */}
-              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
-                <Move className="h-40 w-40 text-primary" />
+              {/* Background watermark emoji */}
+              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300 text-[10rem]">
+                ↔️
               </div>
-              
-              {/* Large icon container */}
-              <div className="w-24 h-28 rounded-3xl bg-primary flex items-center justify-center flex-shrink-0">
-                <Move className="h-12 w-12 text-primary-foreground group-hover:scale-110 transition-transform duration-200" />
+
+              {/* Large emoji container */}
+              <div className="w-24 h-28 rounded-3xl bg-primary flex items-center justify-center flex-shrink-0 text-5xl group-hover:scale-110 transition-transform duration-200">
+                ↔️
               </div>
-              
+
               {/* Text on right */}
               <div className="flex flex-col items-start flex-1">
                 <span className="text-2xl font-bold text-foreground">Move</span>
                 <span className="text-sm text-muted-foreground mt-1">Scan item, then scan destination</span>
                 <span className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wide mt-3">
-                  LAUNCH SCANNER <ArrowRight className="h-4 w-4" />
+                  LAUNCH SCANNER ➡️
                 </span>
               </div>
             </button>
@@ -678,22 +667,22 @@ export default function ScanHub() {
                 "hover:border-muted-foreground/50 hover:shadow-xl hover:shadow-muted/20"
               )}
             >
-              {/* Background watermark icon */}
-              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
-                <Layers className="h-40 w-40 text-muted-foreground" />
+              {/* Background watermark emoji */}
+              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300 text-[10rem]">
+                📚
               </div>
-              
-              {/* Large icon container */}
-              <div className="w-24 h-28 rounded-3xl bg-secondary flex items-center justify-center flex-shrink-0">
-                <Layers className="h-12 w-12 text-foreground group-hover:scale-110 transition-transform duration-200" />
+
+              {/* Large emoji container */}
+              <div className="w-24 h-28 rounded-3xl bg-secondary flex items-center justify-center flex-shrink-0 text-5xl group-hover:scale-110 transition-transform duration-200">
+                📚
               </div>
-              
+
               {/* Text on right */}
               <div className="flex flex-col items-start flex-1">
                 <span className="text-2xl font-bold text-foreground">Batch Move</span>
                 <span className="text-sm text-muted-foreground mt-1">Scan multiple items, then scan destination</span>
                 <span className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wide mt-3">
-                  LAUNCH SCANNER <ArrowRight className="h-4 w-4" />
+                  LAUNCH SCANNER ➡️
                 </span>
               </div>
             </button>
@@ -708,14 +697,14 @@ export default function ScanHub() {
                 "hover:border-info hover:shadow-xl hover:shadow-info/10"
               )}
             >
-              {/* Background watermark icon */}
-              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
-                <Search className="h-40 w-40 text-info" />
+              {/* Background watermark emoji */}
+              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300 text-[10rem]">
+                🔍
               </div>
 
-              {/* Large icon container */}
-              <div className="w-24 h-28 rounded-3xl bg-info flex items-center justify-center flex-shrink-0">
-                <Search className="h-12 w-12 text-info-foreground group-hover:scale-110 transition-transform duration-200" />
+              {/* Large emoji container */}
+              <div className="w-24 h-28 rounded-3xl bg-info flex items-center justify-center flex-shrink-0 text-5xl group-hover:scale-110 transition-transform duration-200">
+                🔍
               </div>
 
               {/* Text on right */}
@@ -723,7 +712,7 @@ export default function ScanHub() {
                 <span className="text-2xl font-bold text-foreground">Look Up</span>
                 <span className="text-sm text-muted-foreground mt-1">Scan to view item details</span>
                 <span className="flex items-center gap-2 text-info text-xs font-semibold uppercase tracking-wide mt-3">
-                  LAUNCH SCANNER <ArrowRight className="h-4 w-4" />
+                  LAUNCH SCANNER ➡️
                 </span>
               </div>
             </button>
@@ -738,14 +727,14 @@ export default function ScanHub() {
                 "hover:border-success hover:shadow-xl hover:shadow-success/10"
               )}
             >
-              {/* Background watermark icon */}
-              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
-                <DollarSign className="h-40 w-40 text-success" />
+              {/* Background watermark emoji */}
+              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300 text-[10rem]">
+                ⚡
               </div>
 
-              {/* Large icon container */}
-              <div className="w-24 h-28 rounded-3xl bg-success flex items-center justify-center flex-shrink-0">
-                <Zap className="h-12 w-12 text-success-foreground group-hover:scale-110 transition-transform duration-200" />
+              {/* Large emoji container */}
+              <div className="w-24 h-28 rounded-3xl bg-success flex items-center justify-center flex-shrink-0 text-5xl group-hover:scale-110 transition-transform duration-200">
+                ⚡
               </div>
 
               {/* Text on right */}
@@ -753,7 +742,7 @@ export default function ScanHub() {
                 <span className="text-2xl font-bold text-foreground">Service Event</span>
                 <span className="text-sm text-muted-foreground mt-1">Scan items, select services, create billing</span>
                 <span className="flex items-center gap-2 text-success text-xs font-semibold uppercase tracking-wide mt-3">
-                  LAUNCH SCANNER <ArrowRight className="h-4 w-4" />
+                  LAUNCH SCANNER ➡️
                 </span>
               </div>
             </button>
@@ -790,7 +779,7 @@ export default function ScanHub() {
             <Card className="flex flex-col">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Package className="h-5 w-5" />
+                  <span>📦</span>
                   Items ({serviceItems.length})
                 </CardTitle>
               </CardHeader>
@@ -809,7 +798,7 @@ export default function ScanHub() {
                   onClick={() => setShowItemSearch(true)}
                   className="w-full flex items-center justify-center gap-3 p-3 bg-muted hover:bg-muted/80 rounded-xl transition-colors mb-4"
                 >
-                  <Keyboard className="h-5 w-5" />
+                  <span>⌨️</span>
                   <span className="font-medium">Search Item by Code</span>
                 </button>
 
@@ -817,7 +806,7 @@ export default function ScanHub() {
                 <div className="flex-1 overflow-auto max-h-64">
                   {serviceItems.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      <Package className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                      <div className="text-5xl mb-2 opacity-30">📦</div>
                       <p>No items scanned yet</p>
                       <p className="text-sm">Scan QR codes or search above</p>
                     </div>
@@ -833,7 +822,7 @@ export default function ScanHub() {
                               hasNoClass ? "border-warning/50 bg-warning/5" : "border-border"
                             )}
                           >
-                            <Package className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                            <span className="text-xl flex-shrink-0">📦</span>
                             <div className="flex-1 min-w-0">
                               <p className="font-mono font-medium text-sm truncate">{item.item_code}</p>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -843,8 +832,7 @@ export default function ScanHub() {
                                   </Badge>
                                 ) : (
                                   <span className="flex items-center gap-1 text-warning">
-                                    <AlertTriangle className="h-3 w-3" />
-                                    No class
+                                    ⚠️ No class
                                   </span>
                                 )}
                                 {item.current_location_code && (
@@ -871,7 +859,7 @@ export default function ScanHub() {
             <Card className="flex flex-col">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
+                  <span>💰</span>
                   Services ({selectedServices.length})
                 </CardTitle>
               </CardHeader>
@@ -910,7 +898,7 @@ export default function ScanHub() {
                 <div className="flex-1 overflow-auto max-h-64">
                   {selectedServices.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                      <div className="text-5xl mb-2 opacity-30">💰</div>
                       <p>No services selected</p>
                       <p className="text-sm">Select services from dropdown above</p>
                     </div>
@@ -921,7 +909,7 @@ export default function ScanHub() {
                           key={service.service_code}
                           className="flex items-center gap-3 p-3 rounded-lg border border-border"
                         >
-                          <Zap className="h-5 w-5 text-success flex-shrink-0" />
+                          <span className="text-xl text-success flex-shrink-0">⚡</span>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm truncate">{service.service_name}</p>
                             <p className="text-xs text-muted-foreground">
@@ -948,7 +936,7 @@ export default function ScanHub() {
                 {serviceItems.some(i => !i.class_code) && selectedServices.some(s => s.uses_class_pricing) && (
                   <div className="mt-4 p-3 bg-warning/10 border border-warning/30 rounded-lg">
                     <div className="flex items-start gap-2">
-                      <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
+                      <span className="text-xl text-warning flex-shrink-0">⚠️</span>
                       <div className="text-sm">
                         <p className="font-medium text-warning">Rate Warning</p>
                         <p className="text-muted-foreground">
@@ -989,7 +977,7 @@ export default function ScanHub() {
                 </>
               ) : (
                 <>
-                  <Save className="h-5 w-5 mr-2" />
+                  <span className="mr-2">💾</span>
                   Save Billing Events
                 </>
               )}
@@ -1025,7 +1013,7 @@ export default function ScanHub() {
 
           <div className="flex-1 flex flex-col items-center justify-center">
             <div className="text-center mb-8">
-              <CheckCircle className="h-16 w-16 text-primary mx-auto mb-4" />
+              <div className="text-6xl mb-4">✅</div>
               <h2 className="text-2xl font-bold">Confirm Move</h2>
             </div>
 
@@ -1034,7 +1022,7 @@ export default function ScanHub() {
                 <div className="space-y-3">
                   {items.slice(0, 3).map((item) => (
                     <div key={item.id} className="flex items-center gap-3">
-                      <Package className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-xl">📦</span>
                       <div>
                         <p className="font-medium">{item.item_code}</p>
                         <p className="text-xs text-muted-foreground">
@@ -1054,7 +1042,7 @@ export default function ScanHub() {
                   <div className="text-center">
                     <p className="text-xs text-muted-foreground">Moving to</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <MapPin className="h-5 w-5 text-primary" />
+                      <span className="text-xl text-primary">📍</span>
                       <span className="text-xl font-bold">{targetLocation?.code}</span>
                     </div>
                     {targetLocation?.name && (
@@ -1077,29 +1065,29 @@ export default function ScanHub() {
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
             >
+              {/* Progress fill */}
               <div
-                className="absolute inset-y-0 left-0 bg-primary/20 transition-all"
+                className={cn("absolute inset-y-0 left-0 bg-primary/20", !isSwiping && "transition-all duration-300")}
                 style={{ width: `${swipeProgress * 100}%` }}
               />
+              {/* Thumb */}
               <div
                 className={cn(
-                  "absolute inset-y-1 left-1 w-14 h-14 rounded-full bg-primary flex items-center justify-center transition-all shadow-lg",
+                  "absolute inset-y-1 left-1 w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg",
+                  !isSwiping && "transition-transform duration-300",
                   processing && "animate-pulse"
                 )}
                 style={{ transform: `translateX(${swipeProgress * (swipeContainerRef.current?.offsetWidth || 300 - 72)}px)` }}
               >
-                {processing ? (
-                  <Loader2 className="h-6 w-6 text-primary-foreground animate-spin" />
-                ) : (
-                  <ChevronRight className="h-6 w-6 text-primary-foreground" />
-                )}
+                {processing ? '⏳' : swipeProgress >= 1 ? '✅' : '➡️'}
               </div>
+              {/* Label */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <span className={cn(
                   "text-muted-foreground font-medium transition-opacity",
-                  swipeProgress > 0.3 && "opacity-0"
+                  swipeProgress > 0.2 && "opacity-0"
                 )}>
-                  Swipe to confirm →
+                  Swipe to confirm ➡️
                 </span>
               </div>
             </div>
@@ -1163,10 +1151,7 @@ export default function ScanHub() {
                         : "border-dashed border-muted-foreground/30 hover:border-muted-foreground/50"
                     )}
                   >
-                    <Package className={cn(
-                      "h-5 w-5 flex-shrink-0",
-                      scannedItem || (mode === 'batch' && batchItems.length > 0) ? "text-primary" : "text-muted-foreground"
-                    )} />
+                    <span className="text-xl flex-shrink-0">📦</span>
                     <div className="flex-1 text-left min-w-0">
                       {mode === 'move' && scannedItem ? (
                         <>
@@ -1231,10 +1216,7 @@ export default function ScanHub() {
                           : "border-dashed border-muted-foreground/30 opacity-50"
                     )}
                   >
-                    <MapPin className={cn(
-                      "h-5 w-5 flex-shrink-0",
-                      targetLocation ? "text-primary" : "text-muted-foreground"
-                    )} />
+                    <span className="text-xl flex-shrink-0">📍</span>
                     <div className="flex-1 text-left min-w-0">
                       {targetLocation ? (
                         <>
@@ -1286,7 +1268,7 @@ export default function ScanHub() {
                 onClick={() => setShowItemSearch(true)}
                 className="w-full flex items-center justify-center gap-3 p-4 bg-muted hover:bg-muted/80 rounded-xl transition-colors"
               >
-                <Keyboard className="h-5 w-5" />
+                <span>⌨️</span>
                 <span className="font-medium">
                   {mode === 'batch' ? 'Search & Add Item' : 'Search Item by Code'}
                 </span>
@@ -1299,7 +1281,7 @@ export default function ScanHub() {
                 onClick={() => setShowLocationSearch(true)}
                 className="w-full flex items-center justify-center gap-3 p-4 bg-muted hover:bg-muted/80 rounded-xl transition-colors"
               >
-                <MapPin className="h-5 w-5" />
+                <span>📍</span>
                 <span className="font-medium">Search Bay/Location</span>
               </button>
             )}
@@ -1310,7 +1292,7 @@ export default function ScanHub() {
                 onClick={() => setShowLocationSearch(true)}
                 className="w-full flex items-center justify-center gap-3 p-4 bg-primary text-primary-foreground rounded-xl transition-colors"
               >
-                <MapPin className="h-5 w-5" />
+                <span>📍</span>
                 <span className="font-medium">Select Destination Bay</span>
               </button>
             )}
@@ -1321,13 +1303,13 @@ export default function ScanHub() {
             <Card className="w-full max-w-md mt-4">
               <CardContent className="py-4">
                 <div className="flex items-center gap-3">
-                  <Package className="h-6 w-6 text-primary" />
+                  <span className="text-2xl">📦</span>
                   <div className="flex-1">
                     <p className="font-bold">{scannedItem.item_code}</p>
                     <p className="text-sm text-muted-foreground">{scannedItem.description || 'No description'}</p>
                   </div>
-                  <ArrowRight className="h-5 w-5 text-muted-foreground" />
-                  <MapPin className="h-6 w-6 text-muted-foreground" />
+                  <span className="text-xl text-muted-foreground">➡️</span>
+                  <span className="text-2xl text-muted-foreground">📍</span>
                 </div>
               </CardContent>
             </Card>

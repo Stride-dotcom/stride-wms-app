@@ -15,14 +15,8 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Package, 
-  Truck, 
-  Clock, 
-  CheckCircle, 
-  Plus, 
-  ArrowRight,
-  Loader2 
+import {
+  Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -162,8 +156,7 @@ export default function Shipments() {
       title: 'Incoming Shipments',
       description: 'Expected & receiving inbound shipments',
       count: counts.incoming,
-      icon: Package,
-      color: 'text-amber-600',
+      emoji: '📦',
       bgColor: 'bg-amber-100 dark:bg-amber-900/30',
       href: '/shipments/incoming',
     },
@@ -171,8 +164,7 @@ export default function Shipments() {
       title: 'Outbound Shipments',
       description: 'Will Call & Disposal releases in progress',
       count: counts.outbound,
-      icon: Truck,
-      color: 'text-orange-600',
+      emoji: '🚚',
       bgColor: 'bg-orange-100 dark:bg-orange-900/30',
       href: '/shipments/outbound',
     },
@@ -180,8 +172,7 @@ export default function Shipments() {
       title: 'Recent Received',
       description: 'Last 5 shipments fully received',
       count: counts.recentReceived,
-      icon: CheckCircle,
-      color: 'text-green-600',
+      emoji: '✅',
       bgColor: 'bg-green-100 dark:bg-green-900/30',
       href: '/shipments/received',
       recentItems: recentReceived,
@@ -190,8 +181,7 @@ export default function Shipments() {
       title: 'Recent Released',
       description: 'Last 5 completed releases',
       count: counts.recentReleased,
-      icon: Clock,
-      color: 'text-purple-600',
+      emoji: '🕒',
       bgColor: 'bg-purple-100 dark:bg-purple-900/30',
       href: '/shipments/released',
       recentItems: recentReleased,
@@ -219,11 +209,11 @@ export default function Shipments() {
           />
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => navigate('/shipments/return/new')}>
-              <Plus className="mr-2 h-4 w-4" />
+              <span className="mr-2">➕</span>
               Create Return
             </Button>
             <Button onClick={() => navigate('/shipments/new')}>
-              <Plus className="mr-2 h-4 w-4" />
+              <span className="mr-2">➕</span>
               Create Shipment
             </Button>
           </div>
@@ -231,15 +221,15 @@ export default function Shipments() {
 
         <div className="grid gap-6 md:grid-cols-2">
           {hubCards.map((card) => (
-            <Card 
+            <Card
               key={card.title}
               className="cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => navigate(card.href)}
             >
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2.5 rounded-lg ${card.bgColor}`}>
-                    <card.icon className={`h-5 w-5 ${card.color}`} />
+                  <div className={`emoji-tile emoji-tile-lg rounded-lg ${card.bgColor}`}>
+                    {card.emoji}
                   </div>
                   <div>
                     <CardTitle className="text-lg">{card.title}</CardTitle>
@@ -254,8 +244,8 @@ export default function Shipments() {
                 {card.recentItems && card.recentItems.length > 0 ? (
                   <div className="space-y-2">
                     {card.recentItems.slice(0, 3).map((item) => (
-                      <div 
-                        key={item.id} 
+                      <div
+                        key={item.id}
                         className="flex items-center justify-between text-sm py-1 border-b last:border-0"
                       >
                         <div className="flex items-center gap-2">
@@ -278,7 +268,7 @@ export default function Shipments() {
                 ) : (
                   <div className="flex items-center justify-between text-sm text-muted-foreground py-2">
                     <span>View all {card.title.toLowerCase()}</span>
-                    <ArrowRight className="h-4 w-4" />
+                    <span>➡️</span>
                   </div>
                 )}
               </CardContent>
