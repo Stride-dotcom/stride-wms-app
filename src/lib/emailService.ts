@@ -9,7 +9,8 @@ export type EmailType =
   | 'quote_declined'
   | 'tech_submitted'
   | 'shipment_notification'
-  | 'password_reset';
+  | 'password_reset'
+  | 'service_quote_sent';
 
 export interface SendEmailParams {
   to: string;
@@ -364,6 +365,97 @@ Review and respond here:
 ${params.quoteLink}
 
 This quote expires in ${params.expiresIn}.
+  `.trim();
+
+  return { subject, html, text };
+}
+
+export function generateServiceQuoteEmail(params: {
+  recipientName: string;
+  accountName: string;
+  warehouseName: string;
+  quoteNumber: string;
+  totalAmount: string;
+  itemCount: number;
+  storageDays: number;
+  quoteLink: string;
+  expiresAt?: string;
+}): { subject: string; html: string; text: string } {
+  const subject = `Service Quote ${params.quoteNumber} - ${params.totalAmount}`;
+
+  const expirationText = params.expiresAt
+    ? `This quote is valid until ${params.expiresAt}.`
+    : 'Please review and respond at your earliest convenience.';
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+    <h1 style="color: white; margin: 0; font-size: 24px;">Service Quote</h1>
+    <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">${params.quoteNumber}</p>
+  </div>
+
+  <div style="background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-top: none;">
+    <p style="font-size: 16px;">Hi ${params.recipientName || 'there'},</p>
+
+    <p>${params.warehouseName} has prepared a service quote for <strong>${params.accountName}</strong>.</p>
+
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;">Items:</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: 600;">${params.itemCount}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;">Storage Duration:</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: 600;">${params.storageDays} days</td>
+        </tr>
+        <tr style="border-top: 2px solid #e5e7eb;">
+          <td style="padding: 12px 0; color: #6b7280; font-size: 18px;">Total:</td>
+          <td style="padding: 12px 0; text-align: right; font-weight: bold; font-size: 24px; color: #3b82f6;">${params.totalAmount}</td>
+        </tr>
+      </table>
+    </div>
+
+    <p>Click the button below to view the full quote details and accept or decline.</p>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${params.quoteLink}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+        View Quote
+      </a>
+    </div>
+
+    <p style="color: #6b7280; font-size: 14px;">
+      ${expirationText}
+    </p>
+  </div>
+
+  <div style="text-align: center; padding: 20px; color: #9ca3af; font-size: 12px;">
+    <p>&copy; ${new Date().getFullYear()} ${params.warehouseName}. All rights reserved.</p>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  const text = `
+Hi ${params.recipientName || 'there'},
+
+${params.warehouseName} has prepared a service quote for ${params.accountName}.
+
+Quote: ${params.quoteNumber}
+Items: ${params.itemCount}
+Storage Duration: ${params.storageDays} days
+Total: ${params.totalAmount}
+
+View and respond to the quote here:
+${params.quoteLink}
+
+${expirationText}
   `.trim();
 
   return { subject, html, text };

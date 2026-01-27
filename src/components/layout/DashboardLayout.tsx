@@ -32,6 +32,7 @@ import {
   PanelLeftOpen,
   GripVertical,
   Bell,
+  Calculator,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -70,6 +71,7 @@ const navItems: NavItem[] = [
   { label: 'Scan', href: '/scan', icon: ScanLine },
 
   { label: 'Analytics', href: '/reports', icon: BarChart3, requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Quotes', href: '/quotes', icon: Calculator, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Claims', href: '/claims', icon: FileText, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Accounts', href: '/accounts', icon: Users, requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Settings', href: '/settings', icon: Settings, requiredRole: ['admin', 'tenant_admin'] },
