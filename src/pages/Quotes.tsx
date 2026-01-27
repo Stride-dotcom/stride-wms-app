@@ -154,37 +154,37 @@ export default function Quotes() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
+          <Card className="bg-card border border-border shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Draft Quotes</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xl opacity-50">📝</span>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.draft}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-card border border-border shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Sent Quotes</CardTitle>
-              <Send className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xl opacity-50">➡️</span>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.sent}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-card border border-border shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Accepted</CardTitle>
-              <Calculator className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xl opacity-50">✅</span>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.accepted}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-card border border-border shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Accepted Value</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xl opacity-50">💲</span>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(stats.totalValue)}</div>

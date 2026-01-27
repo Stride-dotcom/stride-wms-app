@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/page-header';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -65,6 +66,7 @@ export default function ScanHub() {
   const { locations } = useLocations();
   const { checkFreeze } = useStocktakeFreezeCheck();
   const { scanServiceEvents, getServiceRate, createBillingEvents, loading: serviceEventsLoading } = useServiceEvents();
+  const { collapseSidebar } = useSidebar();
 
   const [mode, setMode] = useState<ScanMode>(null);
   const [phase, setPhase] = useState<ScanPhase>('idle');
@@ -561,6 +563,8 @@ export default function ScanHub() {
     hapticLight(); // Mode selection feedback
     setMode(selectedMode);
     setPhase('scanning-item');
+    // Auto-collapse sidebar when entering scan mode
+    collapseSidebar();
   };
 
   // Swipe handlers
@@ -793,14 +797,6 @@ export default function ScanHub() {
                   />
                 </div>
 
-                {/* Manual Search Button */}
-                <button
-                  onClick={() => setShowItemSearch(true)}
-                  className="w-full flex items-center justify-center gap-3 p-3 bg-muted hover:bg-muted/80 rounded-xl transition-colors mb-4"
-                >
-                  <span>⌨️</span>
-                  <span className="font-medium">Search Item by Code</span>
-                </button>
 
                 {/* Items List */}
                 <div className="flex-1 overflow-auto max-h-64">
@@ -1260,34 +1256,9 @@ export default function ScanHub() {
             </div>
           )}
 
-          {/* Manual Entry Button - Always visible */}
-          <div className="w-full max-w-md space-y-3">
-            {/* Item search button - show when scanning items */}
-            {(phase === 'scanning-item' || mode === 'batch') && (
-              <button
-                onClick={() => setShowItemSearch(true)}
-                className="w-full flex items-center justify-center gap-3 p-4 bg-muted hover:bg-muted/80 rounded-xl transition-colors"
-              >
-                <span>⌨️</span>
-                <span className="font-medium">
-                  {mode === 'batch' ? 'Search & Add Item' : 'Search Item by Code'}
-                </span>
-              </button>
-            )}
-
-            {/* Location search button - show when scanning location */}
-            {phase === 'scanning-location' && (
-              <button
-                onClick={() => setShowLocationSearch(true)}
-                className="w-full flex items-center justify-center gap-3 p-4 bg-muted hover:bg-muted/80 rounded-xl transition-colors"
-              >
-                <span>📍</span>
-                <span className="font-medium">Search Bay/Location</span>
-              </button>
-            )}
-
-            {/* Batch: location search button when items added */}
-            {mode === 'batch' && batchItems.length > 0 && (
+          {/* Batch: location search button when items added */}
+          {mode === 'batch' && batchItems.length > 0 && (
+            <div className="w-full max-w-md">
               <button
                 onClick={() => setShowLocationSearch(true)}
                 className="w-full flex items-center justify-center gap-3 p-4 bg-primary text-primary-foreground rounded-xl transition-colors"
@@ -1295,8 +1266,8 @@ export default function ScanHub() {
                 <span>📍</span>
                 <span className="font-medium">Select Destination Bay</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Scanned item indicator for move mode */}
           {mode === 'move' && scannedItem && phase === 'scanning-location' && (

@@ -515,7 +515,7 @@ export default function ItemDetail() {
                     🖨️ Print 4x6 Label
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setBillingChargeDialogOpen(true)}>
-                    💰 Add Billing Charge
+                    💰 Add Charge
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setClaimDialogOpen(true)}>
@@ -531,14 +531,7 @@ export default function ItemDetail() {
           </div>
         </div>
 
-        {/* Status Badges Row */}
-        {(item.assembly_status || item.inspection_status || item.repair_status) && (
-          <div className="flex gap-2 flex-wrap">
-            {getSubStatusBadge(item.assembly_status, 'Assembly')}
-            {getSubStatusBadge(item.inspection_status, 'Inspection')}
-            {getSubStatusBadge(item.repair_status, 'Repair')}
-          </div>
-        )}
+        {/* Status Badges Row - Removed per UI update */}
 
         <Tabs defaultValue="details" className="w-full">
           <TabsList>
@@ -744,7 +737,7 @@ export default function ItemDetail() {
                         <TableRow
                           key={task.id}
                           className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => navigate(`/tasks?id=${task.id}`)}
+                          onClick={() => navigate(`/tasks/${task.id}`)}
                         >
                           <TableCell className="font-medium">{task.title}</TableCell>
                           <TableCell>{task.task_type}</TableCell>

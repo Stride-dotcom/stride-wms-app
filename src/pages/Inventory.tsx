@@ -322,7 +322,7 @@ export default function Inventory() {
                       <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={() => toggleItemSelection(item.id)} className="h-3.5 w-3.5" /></TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <ItemPreviewCard itemId={item.id}>
-                          {item.primary_photo_url ? <img src={item.primary_photo_url} alt={item.item_code} className="h-8 w-8 rounded object-cover cursor-pointer" /> : <div className="h-8 w-8 rounded bg-muted flex items-center justify-center"><Package className="h-4 w-4 text-muted-foreground" /></div>}
+                          {item.primary_photo_url ? <img src={item.primary_photo_url} alt={item.item_code} className="h-8 w-8 rounded object-cover cursor-pointer" /> : <div className="h-8 w-8 rounded bg-muted flex items-center justify-center text-sm">📦</div>}
                         </ItemPreviewCard>
                       </TableCell>
                       <TableCell className="font-medium" onClick={(e) => e.stopPropagation()}>

@@ -116,47 +116,47 @@ export default function Claims() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card className="bg-blue-500/10 border-blue-500/30">
+        <Card className="bg-card border border-border shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Initiated</p>
-                <p className="text-2xl font-bold text-blue-400">{stats.initiated}</p>
+                <p className="text-2xl font-bold text-blue-500 dark:text-blue-400">{stats.initiated}</p>
               </div>
-              <AlertTriangle className="h-8 w-8 text-blue-400/50" />
+              <span className="text-3xl opacity-50">🔓</span>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-yellow-500/10 border-yellow-500/30">
+        <Card className="bg-card border border-border shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Under Review</p>
-                <p className="text-2xl font-bold text-yellow-400">{stats.underReview}</p>
+                <p className="text-2xl font-bold text-yellow-500 dark:text-yellow-400">{stats.underReview}</p>
               </div>
-              <Search className="h-8 w-8 text-yellow-400/50" />
+              <span className="text-3xl opacity-50">🕒</span>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-green-500/10 border-green-500/30">
+        <Card className="bg-card border border-border shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Approved</p>
-                <p className="text-2xl font-bold text-green-400">{stats.approved}</p>
+                <p className="text-2xl font-bold text-green-500 dark:text-green-400">{stats.approved}</p>
               </div>
-              <CheckCircle className="h-8 w-8 text-green-400/50" />
+              <span className="text-3xl opacity-50">✅</span>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-primary/10 border-primary/30">
+        <Card className="bg-card border border-border shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Claims</p>
                 <p className="text-2xl font-bold text-primary">{stats.total}</p>
               </div>
-              <FileText className="h-8 w-8 text-primary/50" />
+              <span className="text-3xl opacity-50">📄</span>
             </div>
           </CardContent>
         </Card>
