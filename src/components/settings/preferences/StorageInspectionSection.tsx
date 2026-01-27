@@ -27,43 +27,46 @@ export function StorageInspectionSection({
 }: StorageInspectionSectionProps) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Package className="h-5 w-5" />
-          Storage & Automation Settings
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Package className="h-4 w-4" />
+          Storage & Automation
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-xs">
           Configure storage billing and automatic task creation
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="free_storage_days">Free Storage Days</Label>
-            <Input
-              id="free_storage_days"
-              type="number"
-              min="0"
-              max="365"
-              value={freeStorageDays}
-              onChange={(e) => onFreeStorageDaysChange(parseInt(e.target.value) || 0)}
-            />
+      <CardContent className="space-y-4">
+        {/* Free Storage Days - Compact */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-0.5 min-w-0">
+            <Label htmlFor="free_storage_days" className="text-sm">Free Storage Days</Label>
             <p className="text-xs text-muted-foreground">
-              Number of days items can be stored before billing begins
+              Days before billing begins
             </p>
           </div>
+          <Input
+            id="free_storage_days"
+            type="number"
+            min="0"
+            max="365"
+            value={freeStorageDays}
+            onChange={(e) => onFreeStorageDaysChange(parseInt(e.target.value) || 0)}
+            className="w-20 text-right"
+          />
         </div>
 
-        <div className="space-y-4">
-          <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
-                <Label className="text-base">Auto-Create Inspections</Label>
+        {/* Automation Toggles - Compact Grid */}
+        <div className="space-y-3 pt-2 border-t">
+          <div className="flex items-center justify-between gap-3 py-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <ClipboardCheck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <div className="min-w-0">
+                <Label className="text-sm">Auto-Create Inspections</Label>
+                <p className="text-xs text-muted-foreground truncate">
+                  Create inspection tasks on receiving
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Automatically create inspection tasks when items are received
-              </p>
             </div>
             <Switch
               checked={shouldCreateInspections}
@@ -71,15 +74,15 @@ export function StorageInspectionSection({
             />
           </div>
 
-          <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Hammer className="h-4 w-4 text-muted-foreground" />
-                <Label className="text-base">Auto-Create Assembly Tasks</Label>
+          <div className="flex items-center justify-between gap-3 py-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <Hammer className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <div className="min-w-0">
+                <Label className="text-sm">Auto-Create Assembly Tasks</Label>
+                <p className="text-xs text-muted-foreground truncate">
+                  Create assembly tasks on receiving
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Automatically create assembly tasks when items are received
-              </p>
             </div>
             <Switch
               checked={shouldAutoAssembly}
@@ -87,15 +90,15 @@ export function StorageInspectionSection({
             />
           </div>
 
-          <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Wrench className="h-4 w-4 text-muted-foreground" />
-                <Label className="text-base">Auto-Create Repair Tasks</Label>
+          <div className="flex items-center justify-between gap-3 py-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <Wrench className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <div className="min-w-0">
+                <Label className="text-sm">Auto-Create Repair Tasks</Label>
+                <p className="text-xs text-muted-foreground truncate">
+                  Create repair tasks when damaged
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Automatically create repair tasks when items are marked as damaged or needing repair
-              </p>
             </div>
             <Switch
               checked={shouldAutoRepair}

@@ -5,6 +5,7 @@ import { Loader2, Save, Tag, XCircle, Settings, Calendar, Coffee } from 'lucide-
 import { useTenantPreferences, TenantPreferencesUpdate } from '@/hooks/useTenantPreferences';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { StorageInspectionSection } from './StorageInspectionSection';
+import { FlagSettingsSection } from './FlagSettingsSection';
 import { BillingRatesSection } from './BillingRatesSection';
 import { LegalLinksSection } from './LegalLinksSection';
 import { DefaultNotesSection } from './DefaultNotesSection';
@@ -35,6 +36,7 @@ import {
 // Define the card IDs and their default order
 const DEFAULT_CARD_ORDER = [
   'storage-inspection',
+  'flag-settings',
   'display-settings',
   'billing-rates',
   'claim-settings',
@@ -103,8 +105,16 @@ export function PreferencesContent() {
   useEffect(() => {
     if (!prefsLoading) {
       const savedOrder = getCardOrder('preferences');
-      if (savedOrder && savedOrder.length === DEFAULT_CARD_ORDER.length) {
-        setCardOrderState(savedOrder);
+      if (savedOrder) {
+        // Add any new cards that aren't in the saved order
+        const newCards = DEFAULT_CARD_ORDER.filter(id => !savedOrder.includes(id));
+        // Remove any cards that no longer exist
+        const validSavedOrder = savedOrder.filter(id => DEFAULT_CARD_ORDER.includes(id));
+        // Combine: valid saved order + new cards at the end
+        const mergedOrder = [...validSavedOrder, ...newCards];
+        if (mergedOrder.length === DEFAULT_CARD_ORDER.length) {
+          setCardOrderState(mergedOrder);
+        }
       }
     }
   }, [prefsLoading, getCardOrder]);
@@ -163,6 +173,11 @@ export function PreferencesContent() {
           onShouldAutoAssemblyChange={(value) => setFormData(prev => ({ ...prev, auto_assembly_on_receiving: value }))}
           onShouldAutoRepairChange={(value) => setFormData(prev => ({ ...prev, auto_repair_on_damage: value }))}
         />
+      </SortableCard>
+    ),
+    'flag-settings': (
+      <SortableCard id="flag-settings" key="flag-settings">
+        <FlagSettingsSection />
       </SortableCard>
     ),
     'display-settings': (
