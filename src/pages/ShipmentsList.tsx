@@ -29,7 +29,9 @@ interface Shipment {
   tracking_number: string | null;
   expected_arrival_date: string | null;
   received_at: string | null;
+  shipped_at: string | null;
   release_type: string | null;
+  outbound_type_name: string | null;
   created_at: string;
   account_name: string | null;
   warehouse_name: string | null;
@@ -96,10 +98,12 @@ export default function ShipmentsList() {
             tracking_number,
             expected_arrival_date,
             received_at,
+            shipped_at,
             release_type,
             created_at,
             accounts:account_id(account_name, account_code),
-            warehouses:warehouse_id(name)
+            warehouses:warehouse_id(name),
+            outbound_type:outbound_types(name)
           `)
           .eq('tenant_id', profile.tenant_id)
           .is('deleted_at', null);
@@ -114,7 +118,7 @@ export default function ShipmentsList() {
           case 'outbound':
             query = query
               .eq('shipment_type', 'outbound')
-              .in('status', ['expected', 'in_progress']);
+              .in('status', ['pending', 'expected', 'in_progress']);
             break;
           case 'received':
             query = query
@@ -122,7 +126,7 @@ export default function ShipmentsList() {
             break;
           case 'released':
             query = query
-              .in('status', ['released', 'completed']);
+              .in('status', ['released', 'shipped', 'completed']);
             break;
         }
 
@@ -145,7 +149,9 @@ export default function ShipmentsList() {
           tracking_number: s.tracking_number,
           expected_arrival_date: s.expected_arrival_date,
           received_at: s.received_at,
+          shipped_at: s.shipped_at,
           release_type: s.release_type,
+          outbound_type_name: s.outbound_type?.name || null,
           created_at: s.created_at,
           account_name: s.accounts?.account_name || null,
           warehouse_name: s.warehouses?.name || null,
@@ -207,13 +213,25 @@ export default function ShipmentsList() {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       expected: 'secondary',
+      pending: 'secondary',
       in_progress: 'default',
       received: 'default',
       released: 'default',
+      shipped: 'default',
       completed: 'default',
       cancelled: 'outline',
     };
-    return <Badge variant={variants[status] || 'secondary'}>{status}</Badge>;
+    const labels: Record<string, string> = {
+      pending: 'Pending',
+      shipped: 'Shipped',
+      expected: 'Expected',
+      in_progress: 'In Progress',
+      received: 'Received',
+      released: 'Released',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+    };
+    return <Badge variant={variants[status] || 'secondary'}>{labels[status] || status}</Badge>;
   };
 
   // ------------------------------------------
@@ -245,10 +263,10 @@ export default function ShipmentsList() {
             </Button>
           )}
           {activeTab === 'outbound' && (
-            <Button onClick={() => navigate('/tasks?type=Will%20Call&new=true')}>
+            <Button onClick={() => navigate('/shipments/outbound/new')}>
               <Plus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">New Will Call</span>
-              <span className="sm:hidden">Will Call</span>
+              <span className="hidden sm:inline">Create Outbound</span>
+              <span className="sm:hidden">Outbound</span>
             </Button>
           )}
         </div>
@@ -270,8 +288,8 @@ export default function ShipmentsList() {
                 </div>
                 <div className="flex gap-1">
                   {getStatusBadge(shipment.status)}
-                  {shipment.release_type && (
-                    <Badge variant="outline">{shipment.release_type}</Badge>
+                  {shipment.outbound_type_name && (
+                    <Badge variant="outline">{shipment.outbound_type_name}</Badge>
                   )}
                 </div>
               </div>
@@ -307,9 +325,13 @@ export default function ShipmentsList() {
           <TableRow>
             <TableHead>Shipment #</TableHead>
             <TableHead>Account</TableHead>
-            <TableHead>Carrier</TableHead>
-            <TableHead>Tracking</TableHead>
-            <TableHead>{activeTab === 'received' ? 'Received' : 'Expected'}</TableHead>
+            {activeTab === 'outbound' && <TableHead>Type</TableHead>}
+            {activeTab !== 'outbound' && <TableHead>Carrier</TableHead>}
+            {activeTab !== 'outbound' && <TableHead>Tracking</TableHead>}
+            <TableHead>
+              {activeTab === 'received' ? 'Received' :
+               activeTab === 'released' ? 'Shipped' : 'Expected'}
+            </TableHead>
             <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
@@ -322,14 +344,23 @@ export default function ShipmentsList() {
             >
               <TableCell className="font-medium">{shipment.shipment_number}</TableCell>
               <TableCell>{shipment.account_name || '-'}</TableCell>
-              <TableCell>{shipment.carrier || '-'}</TableCell>
-              <TableCell>{shipment.tracking_number || '-'}</TableCell>
+              {activeTab === 'outbound' && (
+                <TableCell>
+                  {shipment.outbound_type_name ? (
+                    <Badge variant="outline">{shipment.outbound_type_name}</Badge>
+                  ) : '-'}
+                </TableCell>
+              )}
+              {activeTab !== 'outbound' && <TableCell>{shipment.carrier || '-'}</TableCell>}
+              {activeTab !== 'outbound' && <TableCell>{shipment.tracking_number || '-'}</TableCell>}
               <TableCell>
                 {activeTab === 'received' && shipment.received_at
                   ? format(new Date(shipment.received_at), 'MMM d, yyyy')
-                  : shipment.expected_arrival_date
-                    ? format(new Date(shipment.expected_arrival_date), 'MMM d, yyyy')
-                    : '-'}
+                  : activeTab === 'released' && shipment.shipped_at
+                    ? format(new Date(shipment.shipped_at), 'MMM d, yyyy')
+                    : shipment.expected_arrival_date
+                      ? format(new Date(shipment.expected_arrival_date), 'MMM d, yyyy')
+                      : '-'}
               </TableCell>
               <TableCell>{getStatusBadge(shipment.status)}</TableCell>
             </TableRow>
@@ -345,10 +376,10 @@ export default function ShipmentsList() {
   const getCreateButton = () => {
     if (activeTab === 'outbound') {
       return (
-        <Button onClick={() => navigate('/tasks?type=Will%20Call&new=true')}>
+        <Button onClick={() => navigate('/shipments/outbound/new')}>
           <Plus className="h-4 w-4 sm:mr-2" />
-          <span className="hidden sm:inline">New Will Call</span>
-          <span className="sm:hidden">Will Call</span>
+          <span className="hidden sm:inline">Create Outbound</span>
+          <span className="sm:hidden">Outbound</span>
         </Button>
       );
     }

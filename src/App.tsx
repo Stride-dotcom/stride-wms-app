@@ -21,6 +21,7 @@ import Shipments from "./pages/Shipments";
 import ShipmentsList from "./pages/ShipmentsList";
 import ShipmentDetail from "./pages/ShipmentDetail";
 import ShipmentCreate from "./pages/ShipmentCreate";
+import OutboundCreate from "./pages/OutboundCreate";
 import Tasks from "./pages/Tasks";
 import TaskDetail from "./pages/TaskDetail";
 import Billing from "./pages/Billing";
@@ -85,6 +86,7 @@ const App = () => (
             <Route path="/shipments/new" element={<ProtectedRoute><ShipmentCreate /></ProtectedRoute>} />
             <Route path="/shipments/create" element={<ProtectedRoute><ShipmentCreate /></ProtectedRoute>} />
             <Route path="/shipments/return/new" element={<ProtectedRoute><ShipmentCreate /></ProtectedRoute>} />
+            <Route path="/shipments/outbound/new" element={<ProtectedRoute><OutboundCreate /></ProtectedRoute>} />
             <Route path="/shipments/:id" element={<ProtectedRoute><ShipmentDetail /></ProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
             <Route path="/tasks/:id" element={<ProtectedRoute><TaskDetail /></ProtectedRoute>} />
