@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { usePermissions } from '@/hooks/usePermissions';
-import { Loader2, Package, ClipboardList, Truck, TrendingUp, FileText, DollarSign, Receipt } from 'lucide-react';
+import { Loader2, Package, ClipboardList, Truck, TrendingUp, FileText, DollarSign, Receipt, LayoutDashboard } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -22,6 +22,7 @@ import {
 import { LaborCostsTab } from '@/components/reports/LaborCostsTab';
 import { BillingReportTab } from '@/components/reports/BillingReportTab';
 import { InvoicesPageTab } from '@/components/reports/InvoicesPageTab';
+import { ReportBuilderTab } from '@/components/reports/ReportBuilderTab';
 
 interface ReportStats {
   totalItems: number;
@@ -158,6 +159,12 @@ export default function Reports() {
               <TabsTrigger value="invoices" className="gap-2">
                 <Receipt className="h-4 w-4" />
                 Invoices
+              </TabsTrigger>
+            )}
+            {isAdmin && (
+              <TabsTrigger value="report-builder" className="gap-2">
+                <LayoutDashboard className="h-4 w-4" />
+                Report Builder
               </TabsTrigger>
             )}
           </TabsList>
@@ -312,6 +319,12 @@ export default function Reports() {
           {isAdmin && (
             <TabsContent value="invoices" className="mt-6">
               <InvoicesPageTab />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="report-builder" className="mt-6">
+              <ReportBuilderTab />
             </TabsContent>
           )}
         </Tabs>
