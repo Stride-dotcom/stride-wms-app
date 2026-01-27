@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,10 +6,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { MessageCircle, X, Send, Loader2, Bot, User, Minimize2 } from 'lucide-react';
+import { parseMessageWithLinks, extractEntityNumbers, EntityMap } from '@/utils/parseEntityLinks';
+import { resolveEntities, buildEntityMap } from '@/services/entityResolver';
+import { EntityType } from '@/config/entities';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  entityMap?: EntityMap;
 }
 
 export function AIClientBot() {
@@ -30,10 +34,33 @@ export function AIClientBot() {
     }
   }, [messages]);
 
+  // Resolve entities in a message
+  const resolveMessageEntities = useCallback(async (content: string): Promise<EntityMap> => {
+    const entityNumbers = extractEntityNumbers(content);
+    if (entityNumbers.length === 0) return {};
+
+    try {
+      const resolved = await resolveEntities(entityNumbers);
+      return buildEntityMap(resolved);
+    } catch (error) {
+      console.error('Error resolving entities:', error);
+      return {};
+    }
+  }, []);
+
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
-    const userMessage: Message = { role: 'user', content: input.trim() };
+    const userContent = input.trim();
+
+    // Resolve entities in user message
+    const userEntityMap = await resolveMessageEntities(userContent);
+
+    const userMessage: Message = {
+      role: 'user',
+      content: userContent,
+      entityMap: userEntityMap,
+    };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
@@ -50,6 +77,11 @@ export function AIClientBot() {
         body: JSON.stringify({
           message: userMessage.content,
           tenantId: profile?.tenant_id,
+          // Include resolved entities for context
+          entityContext: Object.entries(userEntityMap)
+            .filter(([_, info]) => info.exists)
+            .map(([num, info]) => `${num}: ${info.summary}`)
+            .join('\n'),
         }),
       });
 
@@ -82,7 +114,7 @@ export function AIClientBot() {
       let textBuffer = '';
 
       // Add initial assistant message
-      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: '', entityMap: {} }]);
 
       while (true) {
         const { done, value } = await reader.read();
@@ -122,6 +154,26 @@ export function AIClientBot() {
           }
         }
       }
+
+      // After streaming complete, resolve entities in assistant response
+      if (assistantContent) {
+        const assistantEntityMap = await resolveMessageEntities(assistantContent);
+        // Merge with any entities from user message
+        const combinedEntityMap: EntityMap = { ...userEntityMap, ...assistantEntityMap };
+
+        setMessages(prev => {
+          const newMessages = [...prev];
+          const lastIdx = newMessages.length - 1;
+          if (newMessages[lastIdx]?.role === 'assistant') {
+            newMessages[lastIdx] = {
+              ...newMessages[lastIdx],
+              content: assistantContent,
+              entityMap: combinedEntityMap,
+            };
+          }
+          return newMessages;
+        });
+      }
     } catch (error) {
       console.error('Chat error:', error);
       toast({
@@ -141,6 +193,24 @@ export function AIClientBot() {
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  // Render message content with entity links
+  const renderMessageContent = (message: Message) => {
+    if (!message.content) {
+      return isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null;
+    }
+
+    // Parse message and convert entity references to clickable links
+    const parsed = parseMessageWithLinks(message.content, message.entityMap);
+
+    return (
+      <span className="whitespace-pre-wrap">
+        {parsed.map((node, idx) => (
+          <span key={idx}>{node}</span>
+        ))}
+      </span>
+    );
   };
 
   if (!isOpen) {
@@ -199,10 +269,11 @@ export function AIClientBot() {
             <Bot className="h-12 w-12 mx-auto mb-3 opacity-50" />
             <p className="text-sm">Hi! I can help you find information about:</p>
             <ul className="text-xs mt-2 space-y-1">
-              <li>• Your inventory items and locations</li>
-              <li>• Shipment status and tracking</li>
-              <li>• Will call orders and pickups</li>
-              <li>• Task progress and status</li>
+              <li>• Tasks (e.g., "What's the status of TSK-00142?")</li>
+              <li>• Shipments (e.g., "Show me SHP-00891")</li>
+              <li>• Items (e.g., "Where is ITM-12345?")</li>
+              <li>• Quotes (e.g., "Find quote EST-00001")</li>
+              <li>• And more - just ask!</li>
             </ul>
           </div>
         ) : (
@@ -224,15 +295,13 @@ export function AIClientBot() {
                   )}
                 </div>
                 <div
-                  className={`rounded-lg p-3 max-w-[80%] text-sm whitespace-pre-wrap ${
+                  className={`rounded-lg p-3 max-w-[80%] text-sm ${
                     msg.role === 'user'
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted'
                   }`}
                 >
-                  {msg.content || (isLoading && idx === messages.length - 1 ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : null)}
+                  {renderMessageContent(msg)}
                 </div>
               </div>
             ))}
@@ -246,7 +315,7 @@ export function AIClientBot() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask about your inventory..."
+            placeholder="Ask about tasks, shipments, items..."
             disabled={isLoading}
             className="flex-1"
           />
