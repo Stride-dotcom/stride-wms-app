@@ -18,6 +18,7 @@ import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle,
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
+import { BillingChargesSection } from '@/components/billing/BillingChargesSection';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -673,6 +674,16 @@ export default function ShipmentDetail() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Billing Charges - Manager/Admin Only */}
+        {canSeeBilling && shipment.account_id && (
+          <BillingChargesSection
+            shipmentId={shipment.id}
+            accountId={shipment.account_id}
+            taskType={shipment.shipment_type === 'inbound' ? 'Receiving' : 'Shipping'}
+            itemCount={items.length}
+          />
+        )}
       </div>
 
       {/* Shipment Items */}
