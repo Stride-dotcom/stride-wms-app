@@ -600,6 +600,56 @@ export function useServiceEventsAdmin() {
     return csvContent;
   }, []);
 
+  // Bulk update multiple service events at once
+  const bulkUpdateServiceEvents = useCallback(async (updates: UpdateServiceEventInput[]): Promise<boolean> => {
+    if (!profile?.tenant_id || updates.length === 0) return false;
+
+    setSaving(true);
+    try {
+      // Update each service event
+      for (const update of updates) {
+        const { id, ...updateData } = update;
+
+        const { error } = await (supabase
+          .from('service_events') as any)
+          .update({
+            ...updateData,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id)
+          .eq('tenant_id', profile.tenant_id);
+
+        if (error) {
+          console.error('[useServiceEventsAdmin] Bulk update failed:', error);
+          toast({
+            variant: 'destructive',
+            title: 'Update Failed',
+            description: error.message,
+          });
+          return false;
+        }
+      }
+
+      toast({
+        title: 'Changes Saved',
+        description: `Updated ${updates.length} service${updates.length > 1 ? 's' : ''} successfully.`,
+      });
+
+      await fetchServiceEvents();
+      return true;
+    } catch (error: any) {
+      console.error('[useServiceEventsAdmin] Bulk update error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save changes',
+      });
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [profile?.tenant_id, toast, fetchServiceEvents]);
+
   // Fetch audit history for a service
   const fetchAuditHistory = useCallback(async (serviceCode?: string): Promise<ServiceEventAudit[]> => {
     if (!profile?.tenant_id) return [];
@@ -650,6 +700,7 @@ export function useServiceEventsAdmin() {
     setFilters,
     refetch: fetchServiceEvents,
     updateServiceEvent,
+    bulkUpdateServiceEvents,
     createServiceEvent,
     deleteServiceEvent,
     toggleActive,
