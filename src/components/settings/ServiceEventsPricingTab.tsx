@@ -85,6 +85,7 @@ import {
   CLASS_LABELS,
   BILLING_UNITS,
 } from '@/hooks/useServiceEventsAdmin';
+import { useServiceEvents } from '@/hooks/useServiceEvents';
 import { AddServiceDialog } from './AddServiceDialog';
 import { CSVImportServiceDialog } from './CSVImportServiceDialog';
 import { ServiceAuditDialog } from './ServiceAuditDialog';
@@ -204,6 +205,9 @@ export function ServiceEventsPricingTab() {
     generateTemplate,
   } = useServiceEventsAdmin();
 
+  // Get seed function from useServiceEvents
+  const { seedServiceEvents } = useServiceEvents();
+
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [auditDialogOpen, setAuditDialogOpen] = useState(false);
@@ -212,6 +216,15 @@ export function ServiceEventsPricingTab() {
   const [groupByService, setGroupByService] = useState(true);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [duplicateService, setDuplicateService] = useState<ServiceEvent | null>(null);
+  const [seeding, setSeeding] = useState(false);
+
+  // Handle seed default pricing
+  const handleSeedPricing = async () => {
+    setSeeding(true);
+    await seedServiceEvents();
+    await refetch();
+    setSeeding(false);
+  };
 
   // Handle export
   const handleExport = () => {
@@ -298,6 +311,29 @@ export function ServiceEventsPricingTab() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {filteredServiceEvents.length === 0 && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={handleSeedPricing}
+                    disabled={seeding}
+                  >
+                    {seeding ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    Load Default Pricing
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Load standard price list with all default services and rates</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <Button onClick={() => { setDuplicateService(null); setAddDialogOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" />
             Add New Service
@@ -480,12 +516,24 @@ export function ServiceEventsPricingTab() {
               <p className="text-muted-foreground mb-4">
                 {filters.search || filters.service_code || filters.billing_trigger || filters.class_code || filters.is_active !== undefined
                   ? 'Try adjusting your filters'
-                  : 'Add your first service to get started'}
+                  : 'Load the standard price list or add services manually'}
               </p>
-              <Button onClick={() => setAddDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add New Service
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                {!(filters.search || filters.service_code || filters.billing_trigger || filters.class_code || filters.is_active !== undefined) && (
+                  <Button onClick={handleSeedPricing} disabled={seeding}>
+                    {seeding ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    Load Default Pricing
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => setAddDialogOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add New Service
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
