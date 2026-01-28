@@ -47,7 +47,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/', emoji: '⚡' },
+  { label: 'Dashboard', href: '/', emoji: '🎛️' },
   { label: 'Shipments', href: '/shipments', emoji: '🚚' },
   { label: 'Inventory', href: '/inventory', emoji: '📦' },
   { label: 'Tasks', href: '/tasks', emoji: '📝' },
