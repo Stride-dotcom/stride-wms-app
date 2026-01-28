@@ -1,8 +1,14 @@
 /**
  * ServiceEventsPricingTab - Complete pricing management using service_events table
+ * Features:
+ * - Sortable column headers
+ * - Expandable rows to view all fields
+ * - Column visibility controls
+ * - Inline editing with save button
+ * - Mobile responsive design
  */
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import {
   Loader2,
   DollarSign,
@@ -17,15 +23,19 @@ import {
   ChevronRight,
   Clock,
   Info,
-  AlertCircle,
   X,
   Check,
   History,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Save,
+  Settings2,
+  Eye,
+  EyeOff,
+  RotateCcw,
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -71,19 +81,19 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   useServiceEventsAdmin,
   ServiceEvent,
   BILLING_TRIGGERS,
   CLASS_CODES,
-  CLASS_LABELS,
   BILLING_UNITS,
+  ALERT_RULES,
+  UpdateServiceEventInput,
 } from '@/hooks/useServiceEventsAdmin';
 import { useServiceEvents } from '@/hooks/useServiceEvents';
 import { AddServiceDialog } from './AddServiceDialog';
@@ -92,96 +102,42 @@ import { ServiceAuditDialog } from './ServiceAuditDialog';
 import { cn } from '@/lib/utils';
 
 // ============================================================================
-// Inline Rate Editor
+// Types
 // ============================================================================
 
-interface InlineRateEditorProps {
-  value: number;
-  onSave: (newValue: number) => Promise<void>;
-  disabled?: boolean;
+type SortField = 'service_code' | 'service_name' | 'class_code' | 'billing_unit' | 'rate' | 'service_time_minutes' | 'billing_trigger' | 'is_active';
+type SortDirection = 'asc' | 'desc';
+
+interface ColumnConfig {
+  key: string;
+  label: string;
+  defaultVisible: boolean;
+  sortable?: boolean;
+  sortKey?: SortField;
 }
 
-function InlineRateEditor({ value, onSave, disabled }: InlineRateEditorProps) {
-  const [editing, setEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value.toString());
-  const [saving, setSaving] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+const ALL_COLUMNS: ColumnConfig[] = [
+  { key: 'service_code', label: 'Service Code', defaultVisible: true, sortable: true, sortKey: 'service_code' },
+  { key: 'service_name', label: 'Service Name', defaultVisible: true, sortable: true, sortKey: 'service_name' },
+  { key: 'class_code', label: 'Class', defaultVisible: true, sortable: true, sortKey: 'class_code' },
+  { key: 'billing_unit', label: 'Billing Unit', defaultVisible: true, sortable: true, sortKey: 'billing_unit' },
+  { key: 'rate', label: 'Rate', defaultVisible: true, sortable: true, sortKey: 'rate' },
+  { key: 'service_time_minutes', label: 'Time (min)', defaultVisible: false, sortable: true, sortKey: 'service_time_minutes' },
+  { key: 'taxable', label: 'Taxable', defaultVisible: false },
+  { key: 'uses_class_pricing', label: 'Class Pricing', defaultVisible: false },
+  { key: 'is_active', label: 'Active', defaultVisible: true, sortable: true, sortKey: 'is_active' },
+  { key: 'notes', label: 'Notes', defaultVisible: false },
+  { key: 'add_flag', label: 'Show Flag', defaultVisible: false },
+  { key: 'add_to_service_event_scan', label: 'Scan Event', defaultVisible: false },
+  { key: 'alert_rule', label: 'Alert Rule', defaultVisible: false },
+  { key: 'billing_trigger', label: 'Billing Trigger', defaultVisible: true, sortable: true, sortKey: 'billing_trigger' },
+];
 
-  const handleStartEdit = () => {
-    if (disabled) return;
-    setEditValue(value.toFixed(2));
-    setEditing(true);
-    setTimeout(() => inputRef.current?.select(), 50);
-  };
+// ============================================================================
+// Pending Changes Tracking
+// ============================================================================
 
-  const handleSave = async () => {
-    const numValue = parseFloat(editValue);
-    if (isNaN(numValue) || numValue < 0) {
-      setEditValue(value.toFixed(2));
-      setEditing(false);
-      return;
-    }
-
-    if (numValue === value) {
-      setEditing(false);
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await onSave(numValue);
-      setEditing(false);
-    } catch (e) {
-      setEditValue(value.toFixed(2));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSave();
-    } else if (e.key === 'Escape') {
-      setEditValue(value.toFixed(2));
-      setEditing(false);
-    }
-  };
-
-  if (editing) {
-    return (
-      <div className="flex items-center gap-1">
-        <span className="text-muted-foreground">$</span>
-        <Input
-          ref={inputRef}
-          type="number"
-          step="0.01"
-          min="0"
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={handleSave}
-          className="w-20 h-7 text-right text-sm"
-          disabled={saving}
-        />
-        {saving && <Loader2 className="h-3 w-3 animate-spin" />}
-      </div>
-    );
-  }
-
-  return (
-    <button
-      onClick={handleStartEdit}
-      disabled={disabled}
-      className={cn(
-        "text-right font-mono cursor-pointer hover:bg-muted/80 px-2 py-1 rounded transition-colors",
-        disabled && "cursor-not-allowed opacity-50"
-      )}
-    >
-      ${value.toFixed(2)}
-    </button>
-  );
-}
+type PendingChange = Partial<Omit<ServiceEvent, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>;
 
 // ============================================================================
 // Main Component
@@ -190,7 +146,6 @@ function InlineRateEditor({ value, onSave, disabled }: InlineRateEditorProps) {
 export function ServiceEventsPricingTab() {
   const {
     filteredServiceEvents,
-    groupedServiceEvents,
     uniqueServiceCodes,
     uniqueBillingTriggers,
     loading,
@@ -199,6 +154,7 @@ export function ServiceEventsPricingTab() {
     setFilters,
     refetch,
     updateServiceEvent,
+    bulkUpdateServiceEvents,
     deleteServiceEvent,
     toggleActive,
     exportToCSV,
@@ -208,15 +164,42 @@ export function ServiceEventsPricingTab() {
   // Get seed function from useServiceEvents
   const { seedServiceEvents } = useServiceEvents();
 
+  // UI State
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [auditDialogOpen, setAuditDialogOpen] = useState(false);
   const [selectedServiceCode, setSelectedServiceCode] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string; deleteAll: boolean } | null>(null);
-  const [groupByService, setGroupByService] = useState(true);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [duplicateService, setDuplicateService] = useState<ServiceEvent | null>(null);
   const [seeding, setSeeding] = useState(false);
+
+  // Sorting
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  // Expanded rows
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  // Column visibility
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('priceListVisibleColumns');
+    if (saved) {
+      try {
+        return new Set(JSON.parse(saved));
+      } catch {
+        // Fall through to default
+      }
+    }
+    return new Set(ALL_COLUMNS.filter(c => c.defaultVisible).map(c => c.key));
+  });
+
+  // Pending changes for inline editing
+  const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map());
+
+  // Save column visibility to localStorage
+  useEffect(() => {
+    localStorage.setItem('priceListVisibleColumns', JSON.stringify(Array.from(visibleColumns)));
+  }, [visibleColumns]);
 
   // Handle seed default pricing
   const handleSeedPricing = async () => {
@@ -254,20 +237,141 @@ export function ServiceEventsPricingTab() {
     URL.revokeObjectURL(url);
   };
 
-  // Toggle group expansion
-  const toggleGroup = (serviceCode: string) => {
-    const newExpanded = new Set(expandedGroups);
-    if (newExpanded.has(serviceCode)) {
-      newExpanded.delete(serviceCode);
+  // Handle sort click
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        setSortField(null);
+        setSortDirection('asc');
+      }
     } else {
-      newExpanded.add(serviceCode);
+      setSortField(field);
+      setSortDirection('asc');
     }
-    setExpandedGroups(newExpanded);
   };
 
-  // Handle rate update
-  const handleRateUpdate = async (id: string, newRate: number) => {
-    await updateServiceEvent({ id, rate: newRate });
+  // Sort events
+  const sortedEvents = useMemo(() => {
+    if (!sortField) return filteredServiceEvents;
+
+    return [...filteredServiceEvents].sort((a, b) => {
+      let aVal: any = a[sortField];
+      let bVal: any = b[sortField];
+
+      // Handle null values
+      if (aVal === null || aVal === undefined) aVal = '';
+      if (bVal === null || bVal === undefined) bVal = '';
+
+      // Numeric comparison for rate and time
+      if (sortField === 'rate' || sortField === 'service_time_minutes') {
+        aVal = Number(aVal) || 0;
+        bVal = Number(bVal) || 0;
+      } else if (sortField === 'is_active') {
+        aVal = aVal ? 1 : 0;
+        bVal = bVal ? 1 : 0;
+      } else {
+        // String comparison
+        aVal = String(aVal).toLowerCase();
+        bVal = String(bVal).toLowerCase();
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredServiceEvents, sortField, sortDirection]);
+
+  // Toggle row expansion
+  const toggleRowExpansion = (id: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Toggle column visibility
+  const toggleColumn = (key: string) => {
+    setVisibleColumns(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  // Update pending change for a field
+  const updatePendingChange = useCallback((id: string, field: string, value: any) => {
+    setPendingChanges(prev => {
+      const next = new Map(prev);
+      const existing = next.get(id) || {};
+      next.set(id, { ...existing, [field]: value });
+      return next;
+    });
+  }, []);
+
+  // Get current value (pending or original)
+  const getCurrentValue = useCallback((event: ServiceEvent, field: keyof ServiceEvent) => {
+    const pending = pendingChanges.get(event.id);
+    if (pending && field in pending) {
+      return pending[field as keyof PendingChange];
+    }
+    return event[field];
+  }, [pendingChanges]);
+
+  // Check if a field has been changed
+  const hasFieldChanged = useCallback((event: ServiceEvent, field: keyof ServiceEvent) => {
+    const pending = pendingChanges.get(event.id);
+    if (!pending || !(field in pending)) return false;
+    return pending[field as keyof PendingChange] !== event[field];
+  }, [pendingChanges]);
+
+  // Save all pending changes
+  const handleSaveChanges = async () => {
+    if (pendingChanges.size === 0) return;
+
+    const updates: UpdateServiceEventInput[] = [];
+
+    pendingChanges.forEach((changes, id) => {
+      // Only include actual changes
+      const event = filteredServiceEvents.find(e => e.id === id);
+      if (!event) return;
+
+      const actualChanges: Partial<UpdateServiceEventInput> = { id };
+      let hasChanges = false;
+
+      Object.entries(changes).forEach(([key, value]) => {
+        if (value !== event[key as keyof ServiceEvent]) {
+          (actualChanges as any)[key] = value;
+          hasChanges = true;
+        }
+      });
+
+      if (hasChanges) {
+        updates.push(actualChanges as UpdateServiceEventInput);
+      }
+    });
+
+    if (updates.length > 0) {
+      const success = await bulkUpdateServiceEvents(updates);
+      if (success) {
+        setPendingChanges(new Map());
+      }
+    }
+  };
+
+  // Discard pending changes
+  const handleDiscardChanges = () => {
+    setPendingChanges(new Map());
   };
 
   // Handle delete confirmation
@@ -289,6 +393,12 @@ export function ServiceEventsPricingTab() {
     setAddDialogOpen(true);
   };
 
+  // Visible columns list
+  const visibleColumnsList = ALL_COLUMNS.filter(c => visibleColumns.has(c.key));
+
+  // Has pending changes
+  const hasPendingChanges = pendingChanges.size > 0;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -299,6 +409,41 @@ export function ServiceEventsPricingTab() {
 
   return (
     <div className="space-y-6">
+      {/* Save Bar - Sticky at top when there are pending changes */}
+      {hasPendingChanges && (
+        <div className="sticky top-0 z-50 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+            <Info className="h-4 w-4" />
+            <span className="text-sm font-medium">
+              You have unsaved changes ({pendingChanges.size} item{pendingChanges.size !== 1 ? 's' : ''})
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDiscardChanges}
+              disabled={saving}
+            >
+              <RotateCcw className="h-4 w-4 mr-1" />
+              Discard
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveChanges}
+              disabled={saving}
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-1" />
+              )}
+              Save Changes
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -354,6 +499,44 @@ export function ServiceEventsPricingTab() {
               Filters
             </CardTitle>
             <div className="flex gap-2">
+              {/* Column Visibility Toggle */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Settings2 className="h-4 w-4 mr-1" />
+                    Columns
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56" align="end">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Visible Columns</p>
+                    <div className="space-y-1 max-h-64 overflow-y-auto">
+                      {ALL_COLUMNS.map(col => (
+                        <div key={col.key} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`col-${col.key}`}
+                            checked={visibleColumns.has(col.key)}
+                            onCheckedChange={() => toggleColumn(col.key)}
+                          />
+                          <Label htmlFor={`col-${col.key}`} className="text-sm cursor-pointer">
+                            {col.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pt-2 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => setVisibleColumns(new Set(ALL_COLUMNS.filter(c => c.defaultVisible).map(c => c.key)))}
+                      >
+                        Reset to Default
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -465,18 +648,13 @@ export function ServiceEventsPricingTab() {
             )}
           </div>
 
-          {/* View Toggle */}
           <div className="flex items-center gap-2 mt-4 pt-4 border-t">
-            <Checkbox
-              id="groupByService"
-              checked={groupByService}
-              onCheckedChange={(checked) => setGroupByService(!!checked)}
-            />
-            <Label htmlFor="groupByService" className="text-sm cursor-pointer">
-              Group by service code
-            </Label>
-            <span className="text-sm text-muted-foreground ml-4">
-              {filteredServiceEvents.length} service{filteredServiceEvents.length !== 1 ? 's' : ''} found
+            <span className="text-sm text-muted-foreground">
+              {sortedEvents.length} service{sortedEvents.length !== 1 ? 's' : ''} found
+            </span>
+            <span className="text-sm text-muted-foreground">•</span>
+            <span className="text-sm text-muted-foreground">
+              Click row to expand details • Edit fields inline
             </span>
           </div>
         </CardContent>
@@ -485,31 +663,65 @@ export function ServiceEventsPricingTab() {
       {/* Service Events Table */}
       <Card>
         <CardContent className="p-0">
-          {groupByService ? (
-            <GroupedServiceTable
-              groupedServiceEvents={groupedServiceEvents}
-              expandedGroups={expandedGroups}
-              toggleGroup={toggleGroup}
-              onRateUpdate={handleRateUpdate}
-              onToggleActive={toggleActive}
-              onDelete={(id, name, deleteAll) => setDeleteConfirm({ id, name, deleteAll })}
-              onDuplicate={handleDuplicate}
-              onViewAudit={openAuditDialog}
-              saving={saving}
-            />
-          ) : (
-            <FlatServiceTable
-              serviceEvents={filteredServiceEvents}
-              onRateUpdate={handleRateUpdate}
-              onToggleActive={toggleActive}
-              onDelete={(id, name) => setDeleteConfirm({ id, name, deleteAll: false })}
-              onDuplicate={handleDuplicate}
-              onViewAudit={openAuditDialog}
-              saving={saving}
-            />
-          )}
+          {/* Mobile: Card-based layout */}
+          <div className="sm:hidden divide-y">
+            {sortedEvents.map((event) => (
+              <MobileServiceCard
+                key={event.id}
+                event={event}
+                isExpanded={expandedRows.has(event.id)}
+                onToggleExpand={() => toggleRowExpansion(event.id)}
+                getCurrentValue={getCurrentValue}
+                hasFieldChanged={hasFieldChanged}
+                updatePendingChange={updatePendingChange}
+                onViewAudit={() => openAuditDialog(event.service_code)}
+                onDuplicate={() => handleDuplicate(event)}
+                onDelete={() => setDeleteConfirm({ id: event.id, name: event.service_name, deleteAll: false })}
+                saving={saving}
+              />
+            ))}
+          </div>
 
-          {filteredServiceEvents.length === 0 && (
+          {/* Desktop: Table layout */}
+          <div className="hidden sm:block overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10"></TableHead>
+                  {visibleColumnsList.map(col => (
+                    <SortableTableHead
+                      key={col.key}
+                      column={col}
+                      sortField={sortField}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                    />
+                  ))}
+                  <TableHead className="w-32">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedEvents.map((event) => (
+                  <ServiceEventRow
+                    key={event.id}
+                    event={event}
+                    visibleColumns={visibleColumnsList}
+                    isExpanded={expandedRows.has(event.id)}
+                    onToggleExpand={() => toggleRowExpansion(event.id)}
+                    getCurrentValue={getCurrentValue}
+                    hasFieldChanged={hasFieldChanged}
+                    updatePendingChange={updatePendingChange}
+                    onViewAudit={() => openAuditDialog(event.service_code)}
+                    onDuplicate={() => handleDuplicate(event)}
+                    onDelete={() => setDeleteConfirm({ id: event.id, name: event.service_name, deleteAll: false })}
+                    saving={saving}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {sortedEvents.length === 0 && (
             <div className="py-12 text-center">
               <Info className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No services found</h3>
@@ -603,371 +815,42 @@ export function ServiceEventsPricingTab() {
 }
 
 // ============================================================================
-// Grouped Service Table
+// Sortable Table Head
 // ============================================================================
 
-interface GroupedServiceTableProps {
-  groupedServiceEvents: Map<string, ServiceEvent[]>;
-  expandedGroups: Set<string>;
-  toggleGroup: (serviceCode: string) => void;
-  onRateUpdate: (id: string, rate: number) => Promise<void>;
-  onToggleActive: (id: string) => Promise<boolean>;
-  onDelete: (id: string, name: string, deleteAll: boolean) => void;
-  onDuplicate: (service: ServiceEvent) => void;
-  onViewAudit: (serviceCode: string) => void;
-  saving: boolean;
+interface SortableTableHeadProps {
+  column: ColumnConfig;
+  sortField: SortField | null;
+  sortDirection: SortDirection;
+  onSort: (field: SortField) => void;
 }
 
-function GroupedServiceTable({
-  groupedServiceEvents,
-  expandedGroups,
-  toggleGroup,
-  onRateUpdate,
-  onToggleActive,
-  onDelete,
-  onDuplicate,
-  onViewAudit,
-  saving,
-}: GroupedServiceTableProps) {
+function SortableTableHead({ column, sortField, sortDirection, onSort }: SortableTableHeadProps) {
+  if (!column.sortable || !column.sortKey) {
+    return (
+      <TableHead className={cn(
+        column.key === 'rate' && 'text-right',
+        column.key === 'service_time_minutes' && 'text-right'
+      )}>
+        {column.label}
+      </TableHead>
+    );
+  }
+
+  const isActive = sortField === column.sortKey;
+
   return (
-    <div className="divide-y">
-      {Array.from(groupedServiceEvents.entries()).map(([serviceCode, events]) => {
-        const isExpanded = expandedGroups.has(serviceCode);
-        const firstEvent = events[0];
-        const hasMultipleVariants = events.length > 1;
-        const allActive = events.every(e => e.is_active);
-        const someActive = events.some(e => e.is_active);
-
-        return (
-          <Collapsible
-            key={serviceCode}
-            open={isExpanded}
-            onOpenChange={() => toggleGroup(serviceCode)}
-          >
-            <CollapsibleTrigger asChild>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 py-3 hover:bg-muted/50 cursor-pointer">
-                {/* Mobile: Top row with code, name, and rate */}
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  {hasMultipleVariants ? (
-                    isExpanded ? (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    )
-                  ) : (
-                    <div className="w-4 flex-shrink-0" />
-                  )}
-                  <Badge variant="outline" className="font-mono flex-shrink-0 text-xs">{serviceCode}</Badge>
-                  <span className="font-medium truncate">{firstEvent.service_name}</span>
-                  {hasMultipleVariants && (
-                    <Badge variant="secondary" className="text-xs flex-shrink-0 hidden sm:inline-flex">
-                      {events.length} classes
-                    </Badge>
-                  )}
-                </div>
-
-                {/* Mobile: Bottom row with metadata */}
-                <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 text-sm pl-6 sm:pl-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="outline" className="text-xs">{firstEvent.billing_trigger}</Badge>
-                    {hasMultipleVariants && (
-                      <Badge variant="secondary" className="text-xs sm:hidden">
-                        {events.length} classes
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 sm:gap-4">
-                    {!hasMultipleVariants ? (
-                      <span className="font-mono text-right font-semibold">${firstEvent.rate.toFixed(2)}</span>
-                    ) : (
-                      <span className="text-muted-foreground text-right text-xs sm:text-sm">varies</span>
-                    )}
-                    <div className={cn(
-                      "text-xs sm:text-sm font-medium",
-                      allActive ? "text-green-600" : someActive ? "text-amber-600" : "text-muted-foreground"
-                    )}>
-                      {allActive ? "Active" : someActive ? "Mixed" : "Inactive"}
-                    </div>
-                  </div>
-                  {/* Action buttons - hidden on mobile in collapsed view */}
-                  <div className="hidden sm:flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => onViewAudit(serviceCode)}
-                          >
-                            <History className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>View history</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => onDuplicate(firstEvent)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Duplicate service</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => onDelete(firstEvent.id, firstEvent.service_name, hasMultipleVariants)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Delete {hasMultipleVariants ? 'all variants' : 'service'}</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </div>
-              </div>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="bg-muted/30 border-t">
-                {/* Mobile: Card-based layout */}
-                <div className="sm:hidden divide-y">
-                  {/* Mobile action buttons for the service group */}
-                  <div className="flex items-center justify-end gap-2 px-4 py-2 bg-muted/50">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => { e.stopPropagation(); onViewAudit(serviceCode); }}
-                    >
-                      <History className="h-4 w-4 mr-1" />
-                      History
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => { e.stopPropagation(); onDuplicate(firstEvent); }}
-                    >
-                      <Copy className="h-4 w-4 mr-1" />
-                      Duplicate
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive"
-                      onClick={(e) => { e.stopPropagation(); onDelete(firstEvent.id, firstEvent.service_name, hasMultipleVariants); }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {events.map((event) => (
-                    <div key={event.id} className={cn("px-4 py-3 space-y-2", !event.is_active && "opacity-50")}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {event.class_code ? (
-                            <Badge variant="outline">{event.class_code}</Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">No class</span>
-                          )}
-                        </div>
-                        <span className="font-mono font-semibold">${event.rate.toFixed(2)}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-3 text-muted-foreground">
-                          {event.service_time_minutes && (
-                            <span><Clock className="h-3 w-3 inline mr-1" />{event.service_time_minutes}min</span>
-                          )}
-                          {event.taxable && <span className="text-green-600">Taxable</span>}
-                          {event.add_flag && <span className="text-blue-600">Flag</span>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={event.is_active}
-                            onCheckedChange={() => onToggleActive(event.id)}
-                            disabled={saving}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive"
-                            onClick={() => onDelete(event.id, event.service_name, false)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Desktop: Table layout */}
-                <div className="hidden sm:block">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-20 pl-12">Class</TableHead>
-                        <TableHead className="text-right">Rate</TableHead>
-                        <TableHead className="text-right">Time (min)</TableHead>
-                        <TableHead className="text-center">Taxable</TableHead>
-                        <TableHead className="text-center">Show Flag</TableHead>
-                        <TableHead className="text-center">Scan Event</TableHead>
-                        <TableHead className="text-center">Active</TableHead>
-                        <TableHead className="w-20">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {events.map((event) => (
-                        <TableRow key={event.id} className={cn(!event.is_active && "opacity-50")}>
-                          <TableCell className="pl-12">
-                            {event.class_code ? (
-                              <Badge variant="outline">{event.class_code}</Badge>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <InlineRateEditor
-                              value={event.rate}
-                              onSave={(rate) => onRateUpdate(event.id, rate)}
-                              disabled={saving}
-                            />
-                          </TableCell>
-                          <TableCell className="text-right text-muted-foreground">
-                            {event.service_time_minutes ?? '-'}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {event.taxable ? <Check className="h-4 w-4 mx-auto text-green-600" /> : '-'}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {event.add_flag ? <Check className="h-4 w-4 mx-auto text-green-600" /> : '-'}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {event.add_to_service_event_scan ? <Check className="h-4 w-4 mx-auto text-green-600" /> : '-'}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Switch
-                              checked={event.is_active}
-                              onCheckedChange={() => onToggleActive(event.id)}
-                              disabled={saving}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => onDelete(event.id, event.service_name, false)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        );
-      })}
-    </div>
-  );
-}
-
-// ============================================================================
-// Flat Service Table with Sorting
-// ============================================================================
-
-type SortField = 'service_code' | 'service_name' | 'class_code' | 'billing_unit' | 'rate' | 'service_time_minutes' | 'billing_trigger';
-type SortDirection = 'asc' | 'desc';
-
-interface FlatServiceTableProps {
-  serviceEvents: ServiceEvent[];
-  onRateUpdate: (id: string, rate: number) => Promise<void>;
-  onToggleActive: (id: string) => Promise<boolean>;
-  onDelete: (id: string, name: string) => void;
-  onDuplicate: (service: ServiceEvent) => void;
-  onViewAudit: (serviceCode: string) => void;
-  saving: boolean;
-}
-
-function FlatServiceTable({
-  serviceEvents,
-  onRateUpdate,
-  onToggleActive,
-  onDelete,
-  onDuplicate,
-  onViewAudit,
-  saving,
-}: FlatServiceTableProps) {
-  const [sortField, setSortField] = useState<SortField | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-
-  // Handle sort click
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      // Toggle direction or reset
-      if (sortDirection === 'asc') {
-        setSortDirection('desc');
-      } else {
-        setSortField(null);
-        setSortDirection('asc');
-      }
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-
-  // Sort events
-  const sortedEvents = useMemo(() => {
-    if (!sortField) return serviceEvents;
-
-    return [...serviceEvents].sort((a, b) => {
-      let aVal: any = a[sortField];
-      let bVal: any = b[sortField];
-
-      // Handle null values
-      if (aVal === null || aVal === undefined) aVal = '';
-      if (bVal === null || bVal === undefined) bVal = '';
-
-      // Numeric comparison for rate and time
-      if (sortField === 'rate' || sortField === 'service_time_minutes') {
-        aVal = Number(aVal) || 0;
-        bVal = Number(bVal) || 0;
-      } else {
-        // String comparison
-        aVal = String(aVal).toLowerCase();
-        bVal = String(bVal).toLowerCase();
-      }
-
-      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [serviceEvents, sortField, sortDirection]);
-
-  // Sortable header component
-  const SortableHeader = ({ field, children, className }: { field: SortField; children: React.ReactNode; className?: string }) => (
     <TableHead
-      className={cn('cursor-pointer select-none hover:bg-muted/50', className)}
-      onClick={() => handleSort(field)}
+      className={cn(
+        'cursor-pointer select-none hover:bg-muted/50',
+        column.key === 'rate' && 'text-right',
+        column.key === 'service_time_minutes' && 'text-right'
+      )}
+      onClick={() => onSort(column.sortKey!)}
     >
-      <div className="flex items-center gap-1">
-        {children}
-        {sortField === field ? (
+      <div className={cn('flex items-center gap-1', column.key === 'rate' && 'justify-end')}>
+        {column.label}
+        {isActive ? (
           sortDirection === 'asc' ? (
             <ArrowUp className="h-3 w-3" />
           ) : (
@@ -979,188 +862,446 @@ function FlatServiceTable({
       </div>
     </TableHead>
   );
+}
+
+// ============================================================================
+// Service Event Row (Desktop)
+// ============================================================================
+
+interface ServiceEventRowProps {
+  event: ServiceEvent;
+  visibleColumns: ColumnConfig[];
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  getCurrentValue: (event: ServiceEvent, field: keyof ServiceEvent) => any;
+  hasFieldChanged: (event: ServiceEvent, field: keyof ServiceEvent) => boolean;
+  updatePendingChange: (id: string, field: string, value: any) => void;
+  onViewAudit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  saving: boolean;
+}
+
+function ServiceEventRow({
+  event,
+  visibleColumns,
+  isExpanded,
+  onToggleExpand,
+  getCurrentValue,
+  hasFieldChanged,
+  updatePendingChange,
+  onViewAudit,
+  onDuplicate,
+  onDelete,
+  saving,
+}: ServiceEventRowProps) {
+  const isActive = getCurrentValue(event, 'is_active');
 
   return (
     <>
-      {/* Mobile: Card-based layout */}
-      <div className="sm:hidden divide-y">
-        {sortedEvents.map((event) => (
-          <div key={event.id} className={cn("px-4 py-3 space-y-2", !event.is_active && "opacity-50")}>
-            {/* Row 1: Code and Name */}
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <Badge variant="outline" className="font-mono text-xs flex-shrink-0">{event.service_code}</Badge>
-                  {event.class_code && (
-                    <Badge variant="secondary" className="text-xs flex-shrink-0">{event.class_code}</Badge>
-                  )}
-                </div>
-                <p className="font-medium text-sm truncate">{event.service_name}</p>
-              </div>
-              <span className="font-mono font-semibold text-lg">${event.rate.toFixed(2)}</span>
-            </div>
+      <TableRow
+        className={cn(
+          !isActive && 'opacity-50',
+          'cursor-pointer hover:bg-muted/50'
+        )}
+        onClick={onToggleExpand}
+      >
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          {isExpanded ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          )}
+        </TableCell>
 
-            {/* Row 2: Metadata */}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-              <Badge variant="outline" className="text-xs">{event.billing_trigger}</Badge>
-              <Badge variant="outline" className="text-xs">{event.billing_unit}</Badge>
-              {event.service_time_minutes && (
-                <span><Clock className="h-3 w-3 inline mr-1" />{event.service_time_minutes}min</span>
-              )}
-              {event.taxable && <span className="text-green-600">Taxable</span>}
-            </div>
-
-            {/* Row 3: Actions */}
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => onViewAudit(event.service_code)}
-                >
-                  <History className="h-3 w-3 mr-1" />
-                  History
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => onDuplicate(event)}
-                >
-                  <Copy className="h-3 w-3 mr-1" />
-                  Copy
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs text-destructive"
-                  onClick={() => onDelete(event.id, event.service_name)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-              <Switch
-                checked={event.is_active}
-                onCheckedChange={() => onToggleActive(event.id)}
-                disabled={saving}
-              />
-            </div>
-          </div>
+        {visibleColumns.map(col => (
+          <TableCell
+            key={col.key}
+            className={cn(
+              col.key === 'rate' && 'text-right',
+              col.key === 'service_time_minutes' && 'text-right',
+              hasFieldChanged(event, col.key as keyof ServiceEvent) && 'bg-amber-50 dark:bg-amber-950'
+            )}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <InlineEditCell
+              event={event}
+              field={col.key}
+              getCurrentValue={getCurrentValue}
+              updatePendingChange={updatePendingChange}
+              saving={saving}
+            />
+          </TableCell>
         ))}
+
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onViewAudit}>
+                    <History className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>View history</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onDuplicate}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Duplicate</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={onDelete}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </TableCell>
+      </TableRow>
+
+      {/* Expanded row showing all fields */}
+      {isExpanded && (
+        <TableRow className="bg-muted/30">
+          <TableCell colSpan={visibleColumns.length + 2}>
+            <ExpandedDetails
+              event={event}
+              getCurrentValue={getCurrentValue}
+              hasFieldChanged={hasFieldChanged}
+              updatePendingChange={updatePendingChange}
+              saving={saving}
+            />
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
+
+// ============================================================================
+// Expanded Details
+// ============================================================================
+
+interface ExpandedDetailsProps {
+  event: ServiceEvent;
+  getCurrentValue: (event: ServiceEvent, field: keyof ServiceEvent) => any;
+  hasFieldChanged: (event: ServiceEvent, field: keyof ServiceEvent) => boolean;
+  updatePendingChange: (id: string, field: string, value: any) => void;
+  saving: boolean;
+}
+
+function ExpandedDetails({ event, getCurrentValue, hasFieldChanged, updatePendingChange, saving }: ExpandedDetailsProps) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-4">
+      {ALL_COLUMNS.map(col => (
+        <div key={col.key} className={cn(
+          'space-y-1',
+          hasFieldChanged(event, col.key as keyof ServiceEvent) && 'bg-amber-50 dark:bg-amber-950 p-2 rounded'
+        )}>
+          <Label className="text-xs text-muted-foreground">{col.label}</Label>
+          <div>
+            <InlineEditCell
+              event={event}
+              field={col.key}
+              getCurrentValue={getCurrentValue}
+              updatePendingChange={updatePendingChange}
+              saving={saving}
+              showLabel={false}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================================
+// Inline Edit Cell
+// ============================================================================
+
+interface InlineEditCellProps {
+  event: ServiceEvent;
+  field: string;
+  getCurrentValue: (event: ServiceEvent, field: keyof ServiceEvent) => any;
+  updatePendingChange: (id: string, field: string, value: any) => void;
+  saving: boolean;
+  showLabel?: boolean;
+}
+
+function InlineEditCell({ event, field, getCurrentValue, updatePendingChange, saving, showLabel = true }: InlineEditCellProps) {
+  const value = getCurrentValue(event, field as keyof ServiceEvent);
+
+  // Boolean fields
+  if (['taxable', 'uses_class_pricing', 'is_active', 'add_flag', 'add_to_service_event_scan'].includes(field)) {
+    return (
+      <Switch
+        checked={!!value}
+        onCheckedChange={(checked) => updatePendingChange(event.id, field, checked)}
+        disabled={saving}
+      />
+    );
+  }
+
+  // Rate field
+  if (field === 'rate') {
+    return (
+      <Input
+        type="number"
+        step="0.01"
+        min="0"
+        value={value ?? ''}
+        onChange={(e) => updatePendingChange(event.id, field, parseFloat(e.target.value) || 0)}
+        className="w-24 h-8 text-right font-mono"
+        disabled={saving}
+      />
+    );
+  }
+
+  // Service time field
+  if (field === 'service_time_minutes') {
+    return (
+      <Input
+        type="number"
+        step="1"
+        min="0"
+        value={value ?? ''}
+        onChange={(e) => updatePendingChange(event.id, field, e.target.value ? parseInt(e.target.value) : null)}
+        className="w-20 h-8 text-right"
+        disabled={saving}
+        placeholder="-"
+      />
+    );
+  }
+
+  // Billing unit select
+  if (field === 'billing_unit') {
+    return (
+      <Select
+        value={value || 'Item'}
+        onValueChange={(val) => updatePendingChange(event.id, field, val)}
+        disabled={saving}
+      >
+        <SelectTrigger className="w-24 h-8">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {BILLING_UNITS.map(u => (
+            <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  // Billing trigger select
+  if (field === 'billing_trigger') {
+    return (
+      <Select
+        value={value || 'SCAN EVENT'}
+        onValueChange={(val) => updatePendingChange(event.id, field, val)}
+        disabled={saving}
+      >
+        <SelectTrigger className="w-40 h-8">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {BILLING_TRIGGERS.map(t => (
+            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  // Alert rule select
+  if (field === 'alert_rule') {
+    return (
+      <Select
+        value={value || 'none'}
+        onValueChange={(val) => updatePendingChange(event.id, field, val)}
+        disabled={saving}
+      >
+        <SelectTrigger className="w-32 h-8">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {ALERT_RULES.map(r => (
+            <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  // Class code - read only badge
+  if (field === 'class_code') {
+    return value ? (
+      <Badge variant="outline">{value}</Badge>
+    ) : (
+      <span className="text-muted-foreground">-</span>
+    );
+  }
+
+  // Service code - read only badge
+  if (field === 'service_code') {
+    return <Badge variant="outline" className="font-mono">{value}</Badge>;
+  }
+
+  // Service name - editable text
+  if (field === 'service_name') {
+    return (
+      <Input
+        value={value ?? ''}
+        onChange={(e) => updatePendingChange(event.id, field, e.target.value)}
+        className="h-8"
+        disabled={saving}
+      />
+    );
+  }
+
+  // Notes - editable text
+  if (field === 'notes') {
+    return (
+      <Input
+        value={value ?? ''}
+        onChange={(e) => updatePendingChange(event.id, field, e.target.value || null)}
+        className="h-8"
+        disabled={saving}
+        placeholder="Add notes..."
+      />
+    );
+  }
+
+  // Default text display
+  return <span className="text-sm">{value ?? '-'}</span>;
+}
+
+// ============================================================================
+// Mobile Service Card
+// ============================================================================
+
+interface MobileServiceCardProps {
+  event: ServiceEvent;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  getCurrentValue: (event: ServiceEvent, field: keyof ServiceEvent) => any;
+  hasFieldChanged: (event: ServiceEvent, field: keyof ServiceEvent) => boolean;
+  updatePendingChange: (id: string, field: string, value: any) => void;
+  onViewAudit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  saving: boolean;
+}
+
+function MobileServiceCard({
+  event,
+  isExpanded,
+  onToggleExpand,
+  getCurrentValue,
+  hasFieldChanged,
+  updatePendingChange,
+  onViewAudit,
+  onDuplicate,
+  onDelete,
+  saving,
+}: MobileServiceCardProps) {
+  const isActive = getCurrentValue(event, 'is_active');
+
+  return (
+    <div className={cn('px-4 py-3', !isActive && 'opacity-50')}>
+      {/* Header row - always visible */}
+      <div className="flex items-start justify-between gap-2" onClick={onToggleExpand}>
+        <div className="flex items-center gap-2">
+          {isExpanded ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          )}
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Badge variant="outline" className="font-mono text-xs">{event.service_code}</Badge>
+              {event.class_code && (
+                <Badge variant="secondary" className="text-xs">{event.class_code}</Badge>
+              )}
+            </div>
+            <p className="font-medium text-sm">{getCurrentValue(event, 'service_name')}</p>
+          </div>
+        </div>
+        <div className="text-right" onClick={(e) => e.stopPropagation()}>
+          <Input
+            type="number"
+            step="0.01"
+            value={getCurrentValue(event, 'rate') ?? ''}
+            onChange={(e) => updatePendingChange(event.id, 'rate', parseFloat(e.target.value) || 0)}
+            className={cn(
+              'w-24 h-8 text-right font-mono font-semibold',
+              hasFieldChanged(event, 'rate') && 'bg-amber-50 dark:bg-amber-950'
+            )}
+            disabled={saving}
+          />
+        </div>
       </div>
 
-      {/* Desktop: Table layout */}
-      <div className="hidden sm:block overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <SortableHeader field="service_code">Service Code</SortableHeader>
-              <SortableHeader field="service_name">Service Name</SortableHeader>
-              <SortableHeader field="class_code">Class</SortableHeader>
-              <SortableHeader field="billing_unit">Billing Unit</SortableHeader>
-              <SortableHeader field="rate" className="text-right">Rate</SortableHeader>
-              <SortableHeader field="service_time_minutes" className="text-right">Time (min)</SortableHeader>
-              <TableHead className="text-center">Taxable</TableHead>
-              <TableHead className="text-center">Active</TableHead>
-              <SortableHeader field="billing_trigger">Billing Trigger</SortableHeader>
-              <TableHead className="w-32">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedEvents.map((event) => (
-              <TableRow key={event.id} className={cn(!event.is_active && "opacity-50")}>
-                <TableCell>
-                  <Badge variant="outline" className="font-mono">{event.service_code}</Badge>
-                </TableCell>
-                <TableCell className="font-medium">{event.service_name}</TableCell>
-                <TableCell>
-                  {event.class_code ? (
-                    <Badge variant="outline">{event.class_code}</Badge>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{event.billing_unit}</Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <InlineRateEditor
-                    value={event.rate}
-                    onSave={(rate) => onRateUpdate(event.id, rate)}
-                    disabled={saving}
-                  />
-                </TableCell>
-                <TableCell className="text-right text-muted-foreground">
-                  {event.service_time_minutes ?? '-'}
-                </TableCell>
-                <TableCell className="text-center">
-                  {event.taxable ? <Check className="h-4 w-4 mx-auto text-green-600" /> : '-'}
-                </TableCell>
-                <TableCell className="text-center">
-                  <Switch
-                    checked={event.is_active}
-                    onCheckedChange={() => onToggleActive(event.id)}
-                    disabled={saving}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="text-xs">{event.billing_trigger}</Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => onViewAudit(event.service_code)}
-                          >
-                            <History className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>View history</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => onDuplicate(event)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Duplicate</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => onDelete(event.id, event.service_name)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Delete</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      {/* Quick info row */}
+      <div className="flex items-center gap-2 mt-2 ml-6 text-xs text-muted-foreground flex-wrap">
+        <Badge variant="outline" className="text-xs">{getCurrentValue(event, 'billing_trigger')}</Badge>
+        <Badge variant="outline" className="text-xs">{getCurrentValue(event, 'billing_unit')}</Badge>
       </div>
-    </>
+
+      {/* Expanded content */}
+      {isExpanded && (
+        <div className="mt-4 ml-6 space-y-4">
+          {/* All editable fields */}
+          <div className="grid grid-cols-2 gap-3">
+            {ALL_COLUMNS.filter(c => !['service_code', 'class_code'].includes(c.key)).map(col => (
+              <div key={col.key} className={cn(
+                'space-y-1',
+                hasFieldChanged(event, col.key as keyof ServiceEvent) && 'bg-amber-50 dark:bg-amber-950 p-2 rounded'
+              )}>
+                <Label className="text-xs text-muted-foreground">{col.label}</Label>
+                <InlineEditCell
+                  event={event}
+                  field={col.key}
+                  getCurrentValue={getCurrentValue}
+                  updatePendingChange={updatePendingChange}
+                  saving={saving}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2 pt-2 border-t">
+            <Button variant="ghost" size="sm" onClick={onViewAudit}>
+              <History className="h-4 w-4 mr-1" />
+              History
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onDuplicate}>
+              <Copy className="h-4 w-4 mr-1" />
+              Copy
+            </Button>
+            <Button variant="ghost" size="sm" className="text-destructive" onClick={onDelete}>
+              <Trash2 className="h-4 w-4 mr-1" />
+              Delete
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
