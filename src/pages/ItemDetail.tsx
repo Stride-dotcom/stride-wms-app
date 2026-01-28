@@ -786,20 +786,22 @@ export default function ItemDetail() {
                           <TableCell className="font-medium">{task.title}</TableCell>
                           <TableCell>{task.task_type}</TableCell>
                           <TableCell>
-                            <Badge variant="outline">{task.status.replace('_', ' ')}</Badge>
+                            <span className={
+                              task.status === 'pending' ? 'font-bold text-orange-500 dark:text-orange-400' :
+                              task.status === 'in_progress' ? 'font-bold text-yellow-500 dark:text-yellow-400' :
+                              task.status === 'completed' ? 'font-bold text-green-500 dark:text-green-400' :
+                              task.status === 'unable_to_complete' ? 'font-bold text-red-500 dark:text-red-400' :
+                              'font-bold text-gray-500 dark:text-gray-400'
+                            }>
+                              {task.status.replace('_', ' ').toUpperCase()}
+                            </span>
                           </TableCell>
                           <TableCell>
-                            <Badge
-                              className={
-                                task.priority === 'urgent'
-                                  ? 'bg-red-100 text-red-800'
-                                  : task.priority === 'high'
-                                  ? 'bg-orange-100 text-orange-800'
-                                  : ''
-                              }
-                            >
-                              {task.priority}
-                            </Badge>
+                            {task.priority === 'urgent' ? (
+                              <span className="font-bold text-red-500 dark:text-red-400">URGENT</span>
+                            ) : (
+                              <span className="font-bold text-blue-500 dark:text-blue-400">NORMAL</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             {task.due_date
