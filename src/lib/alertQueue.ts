@@ -468,6 +468,41 @@ export async function queueClaimNoteAddedAlert(
 }
 
 /**
+ * Queue a billing event alert (for services with alert_rule: 'email_office')
+ * This sends notification to office when billable services are performed
+ */
+export async function queueBillingEventAlert(
+  tenantId: string,
+  billingEventId: string,
+  serviceName: string,
+  itemCode: string,
+  accountName: string,
+  amount: number,
+  description?: string
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'billing_event.created',
+    entityType: 'billing_event',
+    entityId: billingEventId,
+    subject: `💰 Service Charged: ${serviceName} - ${itemCode}`,
+    bodyHtml: `
+      <h2 style="color: #16a34a;">💰 Service Event Billed</h2>
+      <p>A billable service has been recorded:</p>
+      <table style="border-collapse: collapse; margin: 20px 0;">
+        <tr><td style="padding: 8px; font-weight: bold;">Service:</td><td style="padding: 8px;">${serviceName}</td></tr>
+        <tr><td style="padding: 8px; font-weight: bold;">Item:</td><td style="padding: 8px;">${itemCode}</td></tr>
+        <tr><td style="padding: 8px; font-weight: bold;">Account:</td><td style="padding: 8px;">${accountName}</td></tr>
+        <tr><td style="padding: 8px; font-weight: bold;">Amount:</td><td style="padding: 8px; font-size: 1.2em; color: #16a34a;"><strong>$${amount.toFixed(2)}</strong></td></tr>
+        ${description ? `<tr><td style="padding: 8px; font-weight: bold;">Description:</td><td style="padding: 8px;">${description}</td></tr>` : ''}
+      </table>
+      <p style="color: #6b7280; font-size: 14px;">This is an automated notification from Stride WMS.</p>
+    `,
+    bodyText: `Service Event Billed\n\nService: ${serviceName}\nItem: ${itemCode}\nAccount: ${accountName}\nAmount: $${amount.toFixed(2)}${description ? `\nDescription: ${description}` : ''}\n\nThis is an automated notification from Stride WMS.`,
+  });
+}
+
+/**
  * Queue a claim requires approval alert (to admins/managers)
  */
 export async function queueClaimRequiresApprovalAlert(

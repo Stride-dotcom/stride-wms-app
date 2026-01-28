@@ -47,6 +47,7 @@ interface ScannedItem {
 interface ServiceScannedItem extends ScannedItem {
   class_code: string | null;
   account_id: string | null;
+  account_name: string | null;
   sidemark_id: string | null;
 }
 
@@ -140,7 +141,7 @@ export default function ScanHub() {
     const payload = parseQRPayload(input);
     if (!payload) return null;
 
-    // Query items table directly to get class (via class_id join), account_id, sidemark_id
+    // Query items table directly to get class (via class_id join), account_id, sidemark_id, account_name
     let query = supabase
       .from('items')
       .select(`
@@ -150,6 +151,7 @@ export default function ScanHub() {
         account_id,
         sidemark_id,
         class:classes(code),
+        account:accounts(account_name),
         location:locations!current_location_id(code),
         warehouse:warehouses(name)
       `);
@@ -174,6 +176,7 @@ export default function ScanHub() {
       warehouse_name: (data.warehouse as any)?.name || null,
       class_code: (data.class as any)?.code || null,
       account_id: data.account_id || null,
+      account_name: (data.account as any)?.account_name || null,
       sidemark_id: data.sidemark_id || null,
     };
   };
@@ -510,6 +513,7 @@ export default function ScanHub() {
           item_code: item.item_code,
           class_code: item.class_code,
           account_id: item.account_id,
+          account_name: item.account_name || undefined,
           sidemark_id: item.sidemark_id,
         })),
         selectedServices.map(s => s.service_code)
