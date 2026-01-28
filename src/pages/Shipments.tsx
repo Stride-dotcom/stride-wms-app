@@ -154,7 +154,7 @@ export default function Shipments() {
   const hubCards = [
     {
       title: 'Incoming Shipments',
-      description: 'Expected & receiving inbound shipments',
+      description: 'Track pending deliveries and manage receiving',
       count: counts.incoming,
       emoji: '📦',
       bgColor: 'bg-card border border-border shadow-sm',
@@ -162,7 +162,7 @@ export default function Shipments() {
     },
     {
       title: 'Outbound Shipments',
-      description: 'Will Call & Disposal releases in progress',
+      description: 'Manage outbound releases and dispatches',
       count: counts.outbound,
       emoji: '🚚',
       bgColor: 'bg-card border border-border shadow-sm',
@@ -170,7 +170,7 @@ export default function Shipments() {
     },
     {
       title: 'Recent Received',
-      description: 'Last 5 shipments fully received',
+      description: 'Recently completed incoming deliveries',
       count: counts.recentReceived,
       emoji: '✅',
       bgColor: 'bg-card border border-border shadow-sm',
@@ -179,7 +179,7 @@ export default function Shipments() {
     },
     {
       title: 'Recent Released',
-      description: 'Last 5 completed releases',
+      description: 'Recently completed outbound releases',
       count: counts.recentReleased,
       emoji: '🕒',
       bgColor: 'bg-card border border-border shadow-sm',
@@ -208,10 +208,6 @@ export default function Shipments() {
             description="Manage incoming and outbound shipments"
           />
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate('/billing')}>
-              <span className="mr-2">💲</span>
-              Add Charge
-            </Button>
             <Button variant="secondary" onClick={() => navigate('/shipments/return/new')}>
               <span className="mr-2">➕</span>
               Create Return

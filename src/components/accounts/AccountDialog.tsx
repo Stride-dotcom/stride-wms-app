@@ -1572,7 +1572,7 @@ export function AccountDialog({
                     className="mr-auto"
                   >
                     <DollarSign className="mr-2 h-4 w-4" />
-                    Add Add-on
+                    Add Charge
                   </Button>
                 )}
                 <Button
@@ -1592,7 +1592,7 @@ export function AccountDialog({
           </Form>
         )}
 
-        {/* Add Add-on Dialog */}
+        {/* Add Charge Dialog */}
         {isEditing && accountId && (
           <AddAddonDialog
             open={addAddonDialogOpen}

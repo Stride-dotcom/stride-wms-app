@@ -187,7 +187,7 @@ export function AddBillingChargeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
-          <DialogTitle>Add Add-on</DialogTitle>
+          <DialogTitle>Add Charge</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
@@ -211,7 +211,7 @@ export function AddBillingChargeDialog({
           )}
 
           <div className="grid gap-2">
-            <Label htmlFor="charge_name">Add-on name *</Label>
+            <Label htmlFor="charge_name">Charge name *</Label>
             <Input
               id="charge_name"
               value={formData.charge_name}
@@ -250,7 +250,7 @@ export function AddBillingChargeDialog({
           </Button>
           <Button onClick={handleSubmit} disabled={loading}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Add Add-on
+            Add Charge
           </Button>
         </DialogFooter>
       </DialogContent>

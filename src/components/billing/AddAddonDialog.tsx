@@ -199,7 +199,7 @@ export function AddAddonDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
-          <DialogTitle>Add Add-on</DialogTitle>
+          <DialogTitle>Add Charge</DialogTitle>
           {accountName && (
             <DialogDescription>
               Adding charge to account: {accountName}
@@ -227,7 +227,7 @@ export function AddAddonDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="addon_charge_name">Add-on name *</Label>
+            <Label htmlFor="addon_charge_name">Charge name *</Label>
             <Input
               id="addon_charge_name"
               value={formData.charge_name}
@@ -266,7 +266,7 @@ export function AddAddonDialog({
           </Button>
           <Button onClick={handleSubmit} disabled={loading}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Add Add-on
+            Add Charge
           </Button>
         </DialogFooter>
       </DialogContent>

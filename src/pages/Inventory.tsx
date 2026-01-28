@@ -239,7 +239,7 @@ export default function Inventory() {
   };
 
   const getSelectedItemsData = () => items.filter(item => selectedItems.has(item.id)).map(item => ({
-    id: item.id, item_code: item.item_code, description: item.description, quantity: item.quantity, client_account: item.client_account, warehouse_id: item.warehouse_id,
+    id: item.id, item_code: item.item_code, description: item.description, quantity: item.quantity, client_account: item.client_account, account_id: item.account_id, warehouse_id: item.warehouse_id,
   }));
 
   const getSelectedItemsAccounts = () => new Set(items.filter(item => selectedItems.has(item.id)).map(item => item.client_account).filter(Boolean));

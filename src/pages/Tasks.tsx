@@ -539,11 +539,11 @@ export default function Tasks() {
                       <TableCell>
                         {task.priority === 'urgent' ? (
                           <span className="font-bold text-red-500 dark:text-red-400">
-                            ⚠️ URGENT
+                            URGENT
                           </span>
                         ) : (
-                          <span className="text-muted-foreground">
-                            Normal
+                          <span className="font-bold text-blue-500 dark:text-blue-400">
+                            NORMAL
                           </span>
                         )}
                       </TableCell>

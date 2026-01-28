@@ -579,9 +579,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             >
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 text-[10px] bg-primary text-white">
+                <span className="absolute -top-1 -right-1 flex items-center justify-center h-5 min-w-[20px] px-1.5 text-[10px] font-bold bg-red-500 text-white rounded-full animate-pulse">
                   {unreadCount > 99 ? '99+' : unreadCount}
-                </Badge>
+                </span>
               )}
             </Button>
           </div>

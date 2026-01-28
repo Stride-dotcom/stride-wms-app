@@ -30,6 +30,7 @@ import { useToast } from '@/hooks/use-toast';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { UnableToCompleteDialog } from '@/components/tasks/UnableToCompleteDialog';
 import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
+import { PhotoUploadButton } from '@/components/common/PhotoUploadButton';
 import { PhotoGrid } from '@/components/common/PhotoGrid';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
 import { useTechnicians } from '@/hooks/useTechnicians';
@@ -452,7 +453,7 @@ export default function TaskDetailPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/tasks')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
@@ -531,14 +532,14 @@ export default function TaskDetailPage() {
               Request Repair Quote
             </Button>
           )}
-          {/* Add Add-on Button */}
+          {/* Add Charge Button */}
           {task.account_id && (
             <Button
               variant="secondary"
               onClick={() => setAddAddonDialogOpen(true)}
             >
               <DollarSign className="mr-2 h-4 w-4" />
-              Add Add-on
+              Add Charge
             </Button>
           )}
         </div>
@@ -651,17 +652,28 @@ export default function TaskDetailPage() {
                   <Camera className="h-4 w-4" />
                   Photos ({photos.length})
                 </CardTitle>
-                <PhotoScannerButton
-                  entityType="task"
-                  entityId={task.id}
-                  tenantId={task.tenant_id}
-                  existingPhotos={photos}
-                  maxPhotos={20}
-                  onPhotosSaved={handlePhotosChange}
-                  size="sm"
-                  label="Take Photos"
-                  showCount={false}
-                />
+                <div className="flex gap-2">
+                  <PhotoScannerButton
+                    entityType="task"
+                    entityId={task.id}
+                    tenantId={task.tenant_id}
+                    existingPhotos={photos}
+                    maxPhotos={20}
+                    onPhotosSaved={handlePhotosChange}
+                    size="sm"
+                    label="Take Photos"
+                    showCount={false}
+                  />
+                  <PhotoUploadButton
+                    entityType="task"
+                    entityId={task.id}
+                    tenantId={task.tenant_id}
+                    existingPhotos={photos}
+                    maxPhotos={20}
+                    onPhotosSaved={handlePhotosChange}
+                    size="sm"
+                  />
+                </div>
               </CardHeader>
               <CardContent>
                 {photos.length > 0 ? (
@@ -905,7 +917,7 @@ export default function TaskDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Add-on Dialog */}
+      {/* Add Charge Dialog */}
       {task.account_id && (
         <AddAddonDialog
           open={addAddonDialogOpen}

@@ -22,9 +22,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { DocumentCapture } from '@/components/scanner';
 import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
+import { PhotoUploadButton } from '@/components/common/PhotoUploadButton';
 import { PhotoGrid } from '@/components/common/PhotoGrid';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
+import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDialog';
 
 // ============================================
 // TYPES
@@ -121,6 +123,7 @@ export default function ShipmentDetail() {
   const [editNotes, setEditNotes] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
+  const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
   const [selectedTaskType, setSelectedTaskType] = useState<string>('');
@@ -411,7 +414,7 @@ export default function ShipmentDetail() {
     <DashboardLayout>
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/shipments')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
@@ -442,7 +445,7 @@ export default function ShipmentDetail() {
           {shipment.account_id && (
             <Button variant="secondary" onClick={() => setAddAddonDialogOpen(true)}>
               <DollarSign className="h-4 w-4 mr-2" />
-              Add Add-on
+              Add Charge
             </Button>
           )}
         </div>
@@ -605,6 +608,14 @@ export default function ShipmentDetail() {
               <CardTitle>Items</CardTitle>
               <CardDescription>Expected and received items for this shipment</CardDescription>
             </div>
+            <div className="flex items-center gap-2">
+              {/* Add Items button for inbound shipments that are not completed */}
+              {shipment.shipment_type === 'inbound' && shipment.status !== 'completed' && (
+                <Button variant="outline" size="sm" onClick={() => setAddItemDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Items
+                </Button>
+              )}
             {/* Create Task from selected items */}
             {selectedItemIds.size > 0 && (
               <div className="flex items-center gap-2">
@@ -631,6 +642,7 @@ export default function ShipmentDetail() {
                 </Button>
               </div>
             )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -704,23 +716,39 @@ export default function ShipmentDetail() {
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <div>
             <CardTitle>Photos</CardTitle>
-            <CardDescription>Capture multiple photos with interactive camera</CardDescription>
+            <CardDescription>Capture or upload photos</CardDescription>
           </div>
-          <PhotoScannerButton
-            entityType="shipment"
-            entityId={shipment.id}
-            tenantId={profile?.tenant_id}
-            existingPhotos={receivingPhotos}
-            maxPhotos={20}
-            onPhotosSaved={async (urls) => {
-              setReceivingPhotos(urls);
-              await supabase
-                .from('shipments')
-                .update({ receiving_photos: urls })
-                .eq('id', shipment.id);
-            }}
-            label="Take Photos"
-          />
+          <div className="flex gap-2">
+            <PhotoScannerButton
+              entityType="shipment"
+              entityId={shipment.id}
+              tenantId={profile?.tenant_id}
+              existingPhotos={receivingPhotos}
+              maxPhotos={20}
+              onPhotosSaved={async (urls) => {
+                setReceivingPhotos(urls);
+                await supabase
+                  .from('shipments')
+                  .update({ receiving_photos: urls })
+                  .eq('id', shipment.id);
+              }}
+              label="Take Photos"
+            />
+            <PhotoUploadButton
+              entityType="shipment"
+              entityId={shipment.id}
+              tenantId={profile?.tenant_id}
+              existingPhotos={receivingPhotos}
+              maxPhotos={20}
+              onPhotosSaved={async (urls) => {
+                setReceivingPhotos(urls);
+                await supabase
+                  .from('shipments')
+                  .update({ receiving_photos: urls })
+                  .eq('id', shipment.id);
+              }}
+            />
+          </div>
         </CardHeader>
         <CardContent>
           {receivingPhotos.length > 0 ? (
@@ -846,7 +874,7 @@ export default function ShipmentDetail() {
         description={`${createdItemsForLabels.length} items were created from receiving. Print labels now?`}
       />
 
-      {/* Add Add-on Dialog */}
+      {/* Add Charge Dialog */}
       {shipment.account_id && (
         <AddAddonDialog
           open={addAddonDialogOpen}
@@ -857,6 +885,17 @@ export default function ShipmentDetail() {
           onSuccess={fetchShipment}
         />
       )}
+
+      {/* Add Item Dialog for Inbound Shipments */}
+      <AddShipmentItemDialog
+        open={addItemDialogOpen}
+        onOpenChange={setAddItemDialogOpen}
+        shipmentId={shipment.id}
+        accountId={shipment.account_id || undefined}
+        onSuccess={() => {
+          fetchShipment();
+        }}
+      />
     </DashboardLayout>
   );
 }
