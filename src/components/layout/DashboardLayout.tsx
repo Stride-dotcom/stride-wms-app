@@ -5,6 +5,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AppIcon } from '@/components/ui/app-icon';
+import { IconName } from '@/lib/icon-assets';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,7 +44,8 @@ import { CSS } from '@dnd-kit/utilities';
 interface NavItem {
   label: string;
   href: string;
-  emoji: string;
+  emoji?: string;
+  iconName?: IconName;
   requiredRole?: string[];
 }
 
@@ -52,11 +55,11 @@ const navItems: NavItem[] = [
   { label: 'Inventory', href: '/inventory', emoji: '📦' },
   { label: 'Tasks', href: '/tasks', emoji: '📝' },
   { label: 'Cycle Counts', href: '/stocktakes', emoji: '📋' },
-  { label: 'Scan', href: '/scan', emoji: '📱' },
+  { label: 'Scan', href: '/scan', iconName: 'scan' },
 
   { label: 'Analytics', href: '/reports', emoji: '📊', requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Quotes', href: '/quotes', emoji: '💰', requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Claims', href: '/claims', emoji: '📄', requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Claims', href: '/claims', iconName: 'claimClipboard', requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Accounts', href: '/accounts', emoji: '👥', requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Settings', href: '/settings', emoji: '⚙️', requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Diagnostics', href: '/diagnostics', emoji: '🐛', requiredRole: ['admin', 'tenant_admin'] },
@@ -108,12 +111,16 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
           sidebarCollapsed && 'lg:justify-center lg:px-2'
         )}
       >
-        <div className={cn(
-          "nav-emoji-tile",
-          isActive ? "bg-white/20" : "bg-gray-100 dark:bg-white/10"
-        )}>
-          {item.emoji}
-        </div>
+        {item.iconName ? (
+          <AppIcon name={item.iconName} size={28} className="flex-shrink-0" />
+        ) : (
+          <div className={cn(
+            "nav-emoji-tile",
+            isActive ? "bg-white/20" : "bg-gray-100 dark:bg-white/10"
+          )}>
+            {item.emoji}
+          </div>
+        )}
         <span className={cn(
           "relative z-10 transition-opacity duration-200 flex-1",
           sidebarCollapsed ? "lg:hidden" : ""
