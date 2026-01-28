@@ -6,7 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, RefreshCw, Search, FileText, Plus, Pencil, Check, X, Save, Loader2 } from "lucide-react";
+import { Download, RefreshCw, Search, FileText, Plus, Pencil, Check, X, Save, Loader2, Send } from "lucide-react";
+import { PushToQuickBooksButton } from "@/components/billing/PushToQuickBooksButton";
+import { BillingEventForSync } from "@/hooks/useQuickBooks";
 import { useAuth } from "@/contexts/AuthContext";
 import { MultiSelect } from "@/components/ui/multi-select";
 import {
@@ -463,6 +465,25 @@ export function BillingReportTab() {
     return { unbilled, invoiced, voided, total: unbilled + invoiced };
   }, [rows]);
 
+  // Transform unbilled events for QuickBooks sync
+  const unbilledEventsForSync: BillingEventForSync[] = useMemo(() => {
+    return rows
+      .filter(r => r.status === "unbilled" && r.account_id)
+      .map(r => ({
+        id: r.id,
+        account_id: r.account_id,
+        event_type: r.event_type,
+        charge_type: r.charge_type,
+        description: r.description || `${r.charge_type} charge`,
+        quantity: r.quantity,
+        unit_rate: r.unit_rate,
+        total_amount: r.total_amount,
+        occurred_at: r.occurred_at,
+        item_id: r.item_id || undefined,
+        item_code: r.item_code || undefined,
+      }));
+  }, [rows]);
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "unbilled":
@@ -497,6 +518,13 @@ export function BillingReportTab() {
             <Download className="h-4 w-4 mr-2" />
             Export CSV
           </Button>
+          <PushToQuickBooksButton
+            billingEvents={unbilledEventsForSync}
+            periodStart={start}
+            periodEnd={end}
+            disabled={unbilledEventsForSync.length === 0}
+            onSyncComplete={() => fetchRows()}
+          />
         </div>
       </div>
 

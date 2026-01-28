@@ -53,6 +53,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
+import { PushToQuickBooksButton } from '@/components/billing/PushToQuickBooksButton';
+import { BillingEventForSync } from '@/hooks/useQuickBooks';
 
 interface BillingEvent {
   id: string;
@@ -311,6 +313,25 @@ export default function BillingReports() {
     const voided = filteredEvents.filter((e) => e.status === 'void').reduce((sum, e) => sum + (e.total_amount || 0), 0);
     const rateErrors = filteredEvents.filter((e) => e.has_rate_error).length;
     return { unbilled, invoiced, voided, total: unbilled + invoiced, rateErrors };
+  }, [filteredEvents]);
+
+  // Transform unbilled events for QuickBooks sync
+  const unbilledEventsForSync: BillingEventForSync[] = useMemo(() => {
+    return filteredEvents
+      .filter((e) => e.status === 'unbilled' && e.account_id)
+      .map((e) => ({
+        id: e.id,
+        account_id: e.account_id!,
+        event_type: e.event_type,
+        charge_type: e.charge_type,
+        description: e.description || `${e.charge_type} charge`,
+        quantity: e.quantity,
+        unit_rate: e.unit_rate,
+        total_amount: e.total_amount,
+        occurred_at: e.occurred_at,
+        item_id: e.item_id || undefined,
+        item_code: e.item_code || undefined,
+      }));
   }, [filteredEvents]);
 
   // Export to Excel
@@ -740,6 +761,13 @@ export default function BillingReports() {
                 <Download className="mr-2 h-4 w-4" />
                 Export Excel
               </Button>
+              <PushToQuickBooksButton
+                billingEvents={unbilledEventsForSync}
+                periodStart={format(dateFrom, 'yyyy-MM-dd')}
+                periodEnd={format(dateTo, 'yyyy-MM-dd')}
+                disabled={unbilledEventsForSync.length === 0}
+                onSyncComplete={() => loadEvents()}
+              />
               <div className="flex items-center gap-2 ml-auto">
                 <Checkbox
                   id="showTime"
