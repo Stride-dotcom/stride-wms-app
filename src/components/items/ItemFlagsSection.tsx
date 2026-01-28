@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useServiceEvents, ServiceEvent } from '@/hooks/useServiceEvents';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -35,6 +36,11 @@ export function ItemFlagsSection({
   isClientUser = false,
 }: ItemFlagsSectionProps) {
   const { profile } = useAuth();
+  const { hasRole } = usePermissions();
+
+  // Only show flag prices to certain roles
+  const canViewPrices = hasRole('tenant_admin') || hasRole('admin') || hasRole('manager');
+
   const [updatingFlag, setUpdatingFlag] = useState<string | null>(null);
   const [enabledFlags, setEnabledFlags] = useState<Set<string>>(new Set());
   const [loadingFlags, setLoadingFlags] = useState(true);
@@ -254,7 +260,7 @@ export function ItemFlagsSection({
                   )}
                   <span className="text-sm">{service.service_name}</span>
                   <div className="flex items-center gap-1 ml-auto">
-                    {service.rate > 0 && (
+                    {canViewPrices && service.rate > 0 && (
                       <Badge variant="outline" className="text-xs px-1">
                         <DollarSign className="h-3 w-3" />
                         {service.rate.toFixed(2)}

@@ -448,12 +448,9 @@ export function ServiceEventsPricingTab() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <DollarSign className="h-6 w-6" />
-            Price List Management
-          </h2>
+          <h2 className="text-2xl font-bold">Price List</h2>
           <p className="text-muted-foreground">
-            Manage service rates, billing triggers, and service configurations
+            Manage rates and service configurations
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

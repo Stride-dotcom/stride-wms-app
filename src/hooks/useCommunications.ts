@@ -28,6 +28,7 @@ export interface CommunicationTemplate {
   from_name: string | null;
   from_email: string | null;
   sms_sender_id: string | null;
+  editor_json: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }

@@ -269,22 +269,25 @@ export async function generateItemLabelsPDF(items: ItemLabelData[]): Promise<Blo
       yPos += 22;
     }
 
-    // 5. Description (wrapped, 2 lines max)
+    // 5. Description (wrapped, 2 lines max) - increased font size
     if (item.description) {
-      doc.setFontSize(12);
+      doc.setFontSize(14);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(80, 80, 80);
       const descLines = wrapText(doc, item.description, maxTextWidth, 2);
       for (const line of descLines) {
         doc.text(line, LABEL_WIDTH / 2, yPos, { align: 'center' });
-        yPos += 16;
+        yPos += 18;
       }
     }
 
-    // 6. QR Code (centered, large for easy scanning)
-    const qrSize = 180;
+    // Add extra spacing before QR code
+    yPos += 15;
+
+    // 6. QR Code (centered, large for easy scanning) - moved down
+    const qrSize = 160; // Slightly smaller to fit better after larger text
     const qrX = (LABEL_WIDTH - qrSize) / 2;
-    const qrY = yPos + 8;
+    const qrY = yPos;
     doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
     // Scan instruction at bottom

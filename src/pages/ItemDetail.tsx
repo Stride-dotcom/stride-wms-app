@@ -155,6 +155,10 @@ export default function ItemDetail() {
   const [tasks, setTasks] = useState<ItemTask[]>([]);
   const [shipments, setShipments] = useState<ShipmentLink[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accountSettings, setAccountSettings] = useState<{
+    default_item_notes: string | null;
+    highlight_item_notes: boolean;
+  } | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [selectedTaskType, setSelectedTaskType] = useState<string>('');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -174,6 +178,22 @@ export default function ItemDetail() {
     fetchTasks();
     fetchShipments();
   }, [id]);
+
+  // Fetch account settings when item is loaded
+  useEffect(() => {
+    if (item?.account_id) {
+      const fetchAccountSettings = async () => {
+        const { data } = await (supabase.from('accounts') as any)
+          .select('default_item_notes, highlight_item_notes')
+          .eq('id', item.account_id)
+          .single();
+        if (data) {
+          setAccountSettings(data);
+        }
+      };
+      fetchAccountSettings();
+    }
+  }, [item?.account_id]);
 
   const fetchItem = async () => {
     try {
@@ -670,20 +690,51 @@ export default function ItemDetail() {
               />
             </div>
 
-            {/* Receiving Shipment - Original inbound shipment */}
+            {/* Account Default Notes */}
+            {accountSettings?.default_item_notes && (
+              <Card className={cn(
+                accountSettings.highlight_item_notes
+                  ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700"
+                  : "bg-card"
+              )}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    {accountSettings.highlight_item_notes && (
+                      <span className="text-amber-600 dark:text-amber-400">⚠️</span>
+                    )}
+                    Account Notes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm whitespace-pre-wrap">{accountSettings.default_item_notes}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Inbound History - Original inbound shipment */}
             {item.receiving_shipment && (
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <span>🚚</span>
-                    Receiving Shipment
+                    Inbound History
                   </CardTitle>
                   <CardDescription>
                     The inbound shipment this item was received on
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                  <div
+                    className="flex items-center justify-between p-3 border rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => navigate(`/shipments/${item.receiving_shipment!.id}`)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        navigate(`/shipments/${item.receiving_shipment!.id}`);
+                      }
+                    }}
+                  >
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
                         <Badge className="bg-green-100 text-green-800">inbound</Badge>
@@ -696,14 +747,7 @@ export default function ItemDetail() {
                         </span>
                       )}
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/shipments/${item.receiving_shipment!.id}`)}
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      Open Shipment
-                    </Button>
+                    <ExternalLink className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </CardContent>
               </Card>

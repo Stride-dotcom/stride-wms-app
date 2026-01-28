@@ -101,6 +101,11 @@ const accountSchema = z.object({
   hide_internal_fields_from_clients: z.boolean().optional(),
   default_receiving_status: z.string().optional(),
   default_receiving_location_id: z.string().optional(),
+  // Default notes
+  default_item_notes: z.string().optional(),
+  highlight_item_notes: z.boolean().optional(),
+  default_shipment_notes: z.string().optional(),
+  highlight_shipment_notes: z.boolean().optional(),
   // Communications
   use_tenant_email_defaults: z.boolean().optional(),
   use_tenant_communication_defaults: z.boolean().optional(),
@@ -278,6 +283,10 @@ const getDefaultValues = (): AccountFormData => ({
   hide_internal_fields_from_clients: false,
   default_receiving_status: 'available',
   default_receiving_location_id: '',
+  default_item_notes: '',
+  highlight_item_notes: false,
+  default_shipment_notes: '',
+  highlight_shipment_notes: false,
   use_tenant_email_defaults: true,
   use_tenant_communication_defaults: true,
   disable_email_communications: false,
@@ -426,6 +435,10 @@ export function AccountDialog({
         hide_internal_fields_from_clients: data.hide_internal_fields_from_clients || false,
         default_receiving_status: data.default_receiving_status || 'available',
         default_receiving_location_id: data.default_receiving_location_id || '',
+        default_item_notes: data.default_item_notes || '',
+        highlight_item_notes: data.highlight_item_notes || false,
+        default_shipment_notes: data.default_shipment_notes || '',
+        highlight_shipment_notes: data.highlight_shipment_notes || false,
         use_tenant_email_defaults: data.use_tenant_email_defaults ?? true,
         use_tenant_communication_defaults: data.use_tenant_communication_defaults ?? true,
         disable_email_communications: data.disable_email_communications || false,
@@ -512,6 +525,10 @@ export function AccountDialog({
         hide_internal_fields_from_clients: data.hide_internal_fields_from_clients || false,
         default_receiving_status: data.default_receiving_status || null,
         default_receiving_location_id: data.default_receiving_location_id || null,
+        default_item_notes: data.default_item_notes || null,
+        highlight_item_notes: data.highlight_item_notes || false,
+        default_shipment_notes: data.default_shipment_notes || null,
+        highlight_shipment_notes: data.highlight_shipment_notes || false,
         use_tenant_email_defaults: data.use_tenant_email_defaults ?? true,
         use_tenant_communication_defaults: data.use_tenant_communication_defaults ?? true,
         disable_email_communications: data.disable_email_communications || false,
@@ -592,13 +609,12 @@ export function AccountDialog({
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <Tabs defaultValue="basic" className="w-full">
-                <TabsList className={`grid w-full mb-4 gap-1 h-auto ${isEditing ? 'grid-cols-4 sm:grid-cols-8' : 'grid-cols-4 sm:grid-cols-7'}`}>
+                <TabsList className={`grid w-full mb-4 gap-1 h-auto ${isEditing ? 'grid-cols-4 sm:grid-cols-7' : 'grid-cols-4 sm:grid-cols-6'}`}>
                   <TabsTrigger value="basic" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Basic</TabsTrigger>
                   <TabsTrigger value="contacts" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Contacts</TabsTrigger>
                   <TabsTrigger value="pricing" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Pricing</TabsTrigger>
                   <TabsTrigger value="billing" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Billing</TabsTrigger>
-                  <TabsTrigger value="automations" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Automations</TabsTrigger>
-                  <TabsTrigger value="inventory" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Inventory</TabsTrigger>
+                  <TabsTrigger value="preferences" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Preferences</TabsTrigger>
                   <TabsTrigger value="permissions" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Permissions</TabsTrigger>
                   {isEditing && (
                     <TabsTrigger value="portal" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0 gap-1">
@@ -1296,134 +1312,217 @@ export function AccountDialog({
                     </div>
                   </TabsContent>
 
-                  {/* Automations Tab */}
-                  <TabsContent value="automations" className="space-y-4 mt-0">
-                    <p className="text-sm text-muted-foreground">
-                      Configure per-account automation settings. Toggle switches to override defaults or leave unchecked to inherit from parent account or tenant settings.
-                    </p>
+                  {/* Preferences Tab (merged Automations + Inventory) */}
+                  <TabsContent value="preferences" className="space-y-6 mt-0">
+                    {/* Automations Section */}
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium">Automations</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Configure per-account automation settings.
+                      </p>
 
-                    <FormField
-                      control={form.control}
-                      name="auto_inspection_on_receiving"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <FormLabel className="font-normal">Auto Inspection on Receiving</FormLabel>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="auto_assembly_on_receiving"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <FormLabel className="font-normal">Auto Assembly on Receiving</FormLabel>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="auto_repair_on_damage"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <FormLabel className="font-normal">Auto Repair on Damage</FormLabel>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="auto_quarantine_damaged_items"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <FormLabel className="font-normal">Auto Quarantine Damaged Items</FormLabel>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </TabsContent>
-
-                  {/* Inventory Tab */}
-                  <TabsContent value="inventory" className="space-y-4 mt-0">
-                    <p className="text-sm text-muted-foreground">
-                      Control inventory handling and visibility rules for this account.
-                    </p>
-
-                    <FormField
-                      control={form.control}
-                      name="require_sidemark"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <FormLabel className="font-normal">Require Sidemark</FormLabel>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="require_inspection_photos"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <FormLabel className="font-normal">Require Inspection Photos</FormLabel>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="hide_internal_fields_from_clients"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <FormLabel className="font-normal">Hide Internal Fields from Clients</FormLabel>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="default_receiving_status"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Receiving Status</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                      <FormField
+                        control={form.control}
+                        name="auto_inspection_on_receiving"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <FormLabel className="font-normal">Auto Inspection on Receiving</FormLabel>
                             <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select status" />
-                              </SelectTrigger>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
                             </FormControl>
-                            <SelectContent>
-                              {RECEIVING_STATUSES.map((status) => (
-                                <SelectItem key={status.value} value={status.value}>
-                                  {status.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="auto_assembly_on_receiving"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <FormLabel className="font-normal">Auto Assembly on Receiving</FormLabel>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="auto_repair_on_damage"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <FormLabel className="font-normal">Auto Repair on Damage</FormLabel>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="auto_quarantine_damaged_items"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <FormLabel className="font-normal">Auto Quarantine Damaged Items</FormLabel>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Inventory Section */}
+                    <div className="space-y-4 pt-4 border-t">
+                      <h4 className="text-sm font-medium">Inventory Settings</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Control inventory handling and visibility rules for this account.
+                      </p>
+
+                      <FormField
+                        control={form.control}
+                        name="require_sidemark"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <FormLabel className="font-normal">Require Sidemark</FormLabel>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="require_inspection_photos"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <FormLabel className="font-normal">Require Inspection Photos</FormLabel>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="hide_internal_fields_from_clients"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <FormLabel className="font-normal">Hide Internal Fields from Clients</FormLabel>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="default_receiving_status"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Default Receiving Status</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {RECEIVING_STATUSES.map((status) => (
+                                  <SelectItem key={status.value} value={status.value}>
+                                    {status.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Default Notes Section */}
+                    <div className="space-y-4 pt-4 border-t">
+                      <h4 className="text-sm font-medium">Default Notes</h4>
+                      <p className="text-sm text-muted-foreground">
+                        These notes will automatically appear on items and shipments for this account.
+                      </p>
+
+                      <FormField
+                        control={form.control}
+                        name="default_item_notes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Default Item Notes</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Enter notes that will be displayed on all items for this account..."
+                                className="resize-none"
+                                rows={3}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              These notes will be displayed on the item details page for all items belonging to this account.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="highlight_item_notes"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <FormLabel className="font-normal">Highlight item notes on details page</FormLabel>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="default_shipment_notes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Default Shipment Notes</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Enter notes that will pre-fill the shipment notes field..."
+                                className="resize-none"
+                                rows={3}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              These notes will pre-fill the notes field when creating shipments (editable by user).
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="highlight_shipment_notes"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <FormLabel className="font-normal">Highlight shipment notes for visibility</FormLabel>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </TabsContent>
 
                   {/* Permissions Tab */}

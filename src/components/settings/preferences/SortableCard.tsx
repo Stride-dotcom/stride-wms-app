@@ -20,7 +20,8 @@ export function SortableCard({ id, children }: SortableCardProps) {
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: isDragging ? undefined : transition,
+    willChange: isDragging ? 'transform' : undefined,
   };
 
   return (
@@ -28,8 +29,8 @@ export function SortableCard({ id, children }: SortableCardProps) {
       ref={setNodeRef}
       style={style}
       className={cn(
-        'relative group',
-        isDragging && 'z-50 opacity-90'
+        'relative group backface-visibility-hidden',
+        isDragging && 'z-50'
       )}
     >
       {/* Drag Handle */}

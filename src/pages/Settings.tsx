@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/page-header';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +17,7 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Building, Users, Warehouse, Save, Plus, Package, DollarSign, Clock } from 'lucide-react';
+import { Loader2, Building, Users, Warehouse, Save, Plus, Package, DollarSign, Clock, Plug } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations, Location } from '@/hooks/useLocations';
@@ -39,6 +40,7 @@ import { ServiceEventsPricingTab } from '@/components/settings/ServiceEventsPric
 
 import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
 import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
+import { IntegrationsSettingsTab } from '@/components/settings/IntegrationsSettingsTab';
 
 interface TenantInfo {
   id: string;
@@ -54,6 +56,7 @@ const TAB_OPTIONS = [
   { value: 'alerts', label: 'Alerts' },
   { value: 'labor', label: 'Labor', adminOnly: true },
   { value: 'pricing', label: 'Pricing', adminOnly: true },
+  { value: 'integrations', label: 'Integrations', adminOnly: true },
   { value: 'sidemarks', label: 'Sidemarks' },
   // Removed: Services, Rate Sheets, Classes tabs - now using unified service_events pricing system
   { value: 'warehouses', label: 'Warehouses' },
@@ -64,9 +67,10 @@ const TAB_OPTIONS = [
 export default function Settings() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'profile');
   const [tenant, setTenant] = useState<TenantInfo | null>(null);
   const [profileData, setProfileData] = useState({
     firstName: '',
@@ -113,6 +117,37 @@ export default function Settings() {
       fetchSettingsData();
     }
   }, [profile?.tenant_id]);
+
+  // Handle URL parameters for QBO callback
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const qboStatus = searchParams.get('qbo');
+    const message = searchParams.get('message');
+
+    if (tab) {
+      setActiveTab(tab);
+    }
+
+    if (qboStatus === 'connected') {
+      toast({
+        title: 'QuickBooks Connected',
+        description: 'Your QuickBooks account has been successfully connected.',
+      });
+      // Clean up URL params
+      searchParams.delete('qbo');
+      setSearchParams(searchParams, { replace: true });
+    } else if (qboStatus === 'error') {
+      toast({
+        title: 'QuickBooks Connection Failed',
+        description: message || 'Failed to connect to QuickBooks. Please try again.',
+        variant: 'destructive',
+      });
+      // Clean up URL params
+      searchParams.delete('qbo');
+      searchParams.delete('message');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (profile) {
@@ -279,6 +314,7 @@ export default function Settings() {
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
             {isAdmin && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="integrations">Integrations</TabsTrigger>}
             <TabsTrigger value="sidemarks">Sidemarks</TabsTrigger>
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
@@ -365,6 +401,12 @@ export default function Settings() {
           {isAdmin && (
             <TabsContent value="pricing">
               <ServiceEventsPricingTab />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="integrations">
+              <IntegrationsSettingsTab />
             </TabsContent>
           )}
 

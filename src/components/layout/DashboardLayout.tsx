@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect, useMemo, useRef } from 'react';
+import { ReactNode, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -19,6 +19,11 @@ import {
   Menu,
   X,
   GripVertical,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Sun,
+  Moon,
+  Bell,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -112,7 +117,12 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
         )}
       >
         {item.iconName ? (
-          <AppIcon name={item.iconName} size={28} className="flex-shrink-0" />
+          <div className={cn(
+            "nav-emoji-tile flex items-center justify-center",
+            isActive ? "bg-white/20" : "bg-gray-100 dark:bg-white/10"
+          )}>
+            <AppIcon name={item.iconName} size={20} className="flex-shrink-0" />
+          </div>
         ) : (
           <div className={cn(
             "nav-emoji-tile",
@@ -162,6 +172,29 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { hasRole, isAdmin } = usePermissions();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Swipe to close sidebar on mobile
+  const touchStartX = useRef<number | null>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const currentX = e.touches[0].clientX;
+    const diff = touchStartX.current - currentX;
+    // If swiped left more than 50px, close the sidebar
+    if (diff > 50) {
+      setSidebarOpen(false);
+      touchStartX.current = null;
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    touchStartX.current = null;
+  }, []);
 
   // Apply theme
   useEffect(() => {
@@ -349,6 +382,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Sidebar */}
       <aside
+        ref={sidebarRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         className={cn(
           'fixed top-0 left-0 z-50 h-full border-r transform transition-all duration-300 ease-bounce lg:translate-x-0 flex flex-col',
           // Light mode: white background
@@ -356,13 +393,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           // Dark mode: keep dark gradient
           'dark:bg-gradient-to-b dark:from-slate-800 dark:via-slate-900 dark:to-slate-950 dark:border-slate-700',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-          sidebarCollapsed ? 'lg:w-16' : 'lg:w-64',
-          'w-64' // Mobile always full width
+          sidebarCollapsed ? 'lg:w-16' : 'lg:w-52',
+          'w-64' // Mobile always full width when open
         )}
       >
         {/* Fixed Header */}
         <div className={cn(
-          "flex-shrink-0 flex h-16 items-center border-b border-gray-200 dark:border-slate-700",
+          "flex-shrink-0 flex h-12 items-center border-b border-gray-200 dark:border-slate-700",
           sidebarCollapsed ? "lg:justify-center lg:px-2 px-4" : "justify-between px-4"
         )}>
           <Link to="/" className="flex items-center gap-3">
@@ -392,6 +429,29 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </Button>
         </div>
 
+        {/* Collapse/Expand button - Desktop only, at top */}
+        <div className={cn(
+          "flex-shrink-0 px-3 py-2 hidden lg:block",
+          sidebarCollapsed && "lg:px-2"
+        )}>
+          <button
+            onClick={toggleSidebarCollapsed}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors",
+              "text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10",
+              sidebarCollapsed && "lg:justify-center lg:px-2"
+            )}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen className="h-5 w-5" />
+            ) : (
+              <PanelLeftClose className="h-5 w-5" />
+            )}
+            {!sidebarCollapsed && <span>Collapse</span>}
+          </button>
+        </div>
+
         {/* Scrollable Nav */}
         <nav className={cn(
           "flex-1 overflow-y-auto p-3 space-y-1",
@@ -419,44 +479,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </DndContext>
         </nav>
 
-        {/* Fixed Footer - User controls */}
+        {/* Fixed Footer - Avatar only */}
         <div className={cn(
-          "flex-shrink-0 border-t border-gray-200 dark:border-slate-700 p-3 space-y-2",
+          "flex-shrink-0 border-t border-gray-200 dark:border-slate-700 p-2",
           sidebarCollapsed && "lg:p-2"
         )}>
-          {/* Theme toggle */}
-          <button
-            onClick={() => setIsDark(!isDark)}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
-              "text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10",
-              sidebarCollapsed && "lg:justify-center lg:px-2"
-            )}
-            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            <span className="text-lg">{isDark ? '☀️' : '🌙'}</span>
-            {!sidebarCollapsed && <span className="lg:block hidden">Theme</span>}
-          </button>
-
-          {/* Notifications */}
-          <button
-            onClick={() => navigate('/messages')}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors relative",
-              "text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10",
-              sidebarCollapsed && "lg:justify-center lg:px-2"
-            )}
-            title="Messages & Notifications"
-          >
-            <span className="text-lg">🔔</span>
-            {!sidebarCollapsed && <span className="lg:block hidden">Notifications</span>}
-            {unreadCount > 0 && (
-              <Badge className="absolute top-1 right-1 h-5 min-w-[20px] px-1 text-[10px] bg-primary text-white">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </Badge>
-            )}
-          </button>
-
           {/* User Avatar/Profile */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -473,7 +500,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </AvatarFallback>
                 </Avatar>
                 {!sidebarCollapsed && (
-                  <span className="text-sm font-medium text-gray-900 dark:text-white lg:block hidden">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white lg:block hidden truncate">
                     {profile?.first_name} {profile?.last_name}
                   </span>
                 )}
@@ -497,47 +524,63 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          {/* Collapse button */}
-          <button
-            onClick={toggleSidebarCollapsed}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hidden lg:flex",
-              "text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10",
-              sidebarCollapsed && "lg:justify-center lg:px-2"
-            )}
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <span>{sidebarCollapsed ? '▶️' : '◀️'}</span>
-            {!sidebarCollapsed && <span>Collapse</span>}
-          </button>
         </div>
       </aside>
 
       {/* Main content */}
       <div className={cn(
         "flex flex-col flex-1 min-h-0 transition-all duration-300",
-        sidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
+        sidebarCollapsed ? "lg:pl-16" : "lg:pl-52"
       )}>
         {/* Header - Auto-hides on scroll */}
         <header className={cn(
-          "sticky top-0 z-30 shrink-0 bg-card border-b flex items-center px-4 lg:px-6 pt-safe h-[calc(4rem+env(safe-area-inset-top,0px))] transition-transform duration-300",
+          "sticky top-0 z-30 shrink-0 bg-card border-b flex items-center px-4 lg:px-6 pt-safe h-[calc(3rem+env(safe-area-inset-top,0px))] transition-transform duration-300",
           !headerVisible && "-translate-y-full"
         )}>
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="lg:hidden h-9 w-9"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="h-5 w-5" />
           </Button>
 
           <div className="flex-1" />
+
+          {/* Right side controls */}
+          <div className="flex items-center gap-1">
+            {/* Theme toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setIsDark(!isDark)}
+              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </Button>
+
+            {/* Notifications */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 relative"
+              onClick={() => navigate('/messages')}
+              title="Messages & Notifications"
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <Badge className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 text-[10px] bg-primary text-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Badge>
+              )}
+            </Button>
+          </div>
         </header>
 
-        {/* Page content - scrollable */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-safe animate-fade-in">{children}</main>
+        {/* Page content - scrollable with extra bottom padding for full scrolling */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-24 animate-fade-in">{children}</main>
       </div>
     </div>
   );

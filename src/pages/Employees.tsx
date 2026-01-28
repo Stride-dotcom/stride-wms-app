@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { AvatarWithPresence } from '@/components/ui/online-indicator';
+import { usePresence } from '@/hooks/usePresence';
 import {
   Table,
   TableBody,
@@ -69,6 +72,18 @@ export default function Employees() {
   const { toast } = useToast();
   const { hasRole } = usePermissions();
   const isAdmin = hasRole('admin');
+  const { getUserStatus } = usePresence();
+
+  // Get initials from name or email
+  const getInitials = (employee: Employee) => {
+    if (employee.first_name && employee.last_name) {
+      return `${employee.first_name[0]}${employee.last_name[0]}`.toUpperCase();
+    }
+    if (employee.first_name) {
+      return employee.first_name.substring(0, 2).toUpperCase();
+    }
+    return employee.email.substring(0, 2).toUpperCase();
+  };
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -369,13 +384,23 @@ export default function Employees() {
                     selected={selectedIds.has(employee.id)}
                   >
                     <MobileDataCardHeader>
-                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={selectedIds.has(employee.id)}
                           onCheckedChange={(checked) => handleSelect(employee.id, !!checked)}
                           aria-label={`Select ${employee.email}`}
                           className="h-5 w-5"
                         />
+                        <AvatarWithPresence
+                          status={getUserStatus(employee.id)}
+                          indicatorSize="sm"
+                        >
+                          <Avatar className="h-10 w-10">
+                            <AvatarFallback className="text-sm bg-primary/10 text-primary">
+                              {getInitials(employee)}
+                            </AvatarFallback>
+                          </Avatar>
+                        </AvatarWithPresence>
                         <div>
                           <MobileDataCardTitle>
                             {employee.first_name || employee.last_name
@@ -456,9 +481,23 @@ export default function Employees() {
                         />
                       </TableCell>
                       <TableCell className="font-medium">
-                        {employee.first_name || employee.last_name
-                          ? `${employee.first_name || ''} ${employee.last_name || ''}`.trim()
-                          : '-'}
+                        <div className="flex items-center gap-3">
+                          <AvatarWithPresence
+                            status={getUserStatus(employee.id)}
+                            indicatorSize="sm"
+                          >
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                {getInitials(employee)}
+                              </AvatarFallback>
+                            </Avatar>
+                          </AvatarWithPresence>
+                          <span>
+                            {employee.first_name || employee.last_name
+                              ? `${employee.first_name || ''} ${employee.last_name || ''}`.trim()
+                              : '-'}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell>{employee.email}</TableCell>
                       <TableCell>{employee.phone || '-'}</TableCell>

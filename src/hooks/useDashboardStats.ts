@@ -80,6 +80,7 @@ export function useDashboardStats() {
   const [assemblyTasks, setAssemblyTasks] = useState<TaskItem[]>([]);
   const [willCallTasks, setWillCallTasks] = useState<TaskItem[]>([]);
   const [disposalTasks, setDisposalTasks] = useState<TaskItem[]>([]);
+  const [repairTasks, setRepairTasks] = useState<TaskItem[]>([]);
   const [incomingShipments, setIncomingShipments] = useState<ShipmentItem[]>([]);
   const [putAwayItems, setPutAwayItems] = useState<PutAwayItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -311,6 +312,7 @@ export function useDashboardStats() {
       setAssemblyTasks(assemblies || []);
       setWillCallTasks(willCalls || []);
       setDisposalTasks(disposals || []);
+      setRepairTasks(repairs || []);
       setIncomingShipments(shipments || []);
       setPutAwayItems(putAwayData);
     } catch (error) {
@@ -330,6 +332,7 @@ export function useDashboardStats() {
     assemblyTasks,
     willCallTasks,
     disposalTasks,
+    repairTasks,
     incomingShipments,
     putAwayItems,
     loading,
