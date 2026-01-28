@@ -906,12 +906,22 @@ function ServiceEventRow({
         )}
         onClick={onToggleExpand}
       >
-        <TableCell onClick={(e) => e.stopPropagation()}>
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )}
+        <TableCell>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExpand();
+            }}
+          >
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            )}
+          </Button>
         </TableCell>
 
         {visibleColumns.map(col => (
