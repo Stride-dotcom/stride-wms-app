@@ -16,7 +16,6 @@ import ItemDetail from "./pages/ItemDetail";
 
 import Reports from "./pages/Reports";
 import Accounts from "./pages/Accounts";
-import RateCards from "./pages/RateCards";
 import Settings from "./pages/Settings";
 import Shipments from "./pages/Shipments";
 import ShipmentsList from "./pages/ShipmentsList";
@@ -118,7 +117,6 @@ const App = () => (
             <Route path="/quotes" element={<ProtectedRoute><RequireRole role="tenant_admin"><Quotes /></RequireRole></ProtectedRoute>} />
             <Route path="/quotes/new" element={<ProtectedRoute><RequireRole role="tenant_admin"><QuoteBuilder /></RequireRole></ProtectedRoute>} />
             <Route path="/quotes/:id" element={<ProtectedRoute><RequireRole role="tenant_admin"><QuoteBuilder /></RequireRole></ProtectedRoute>} />
-            <Route path="/rate-cards" element={<ProtectedRoute><RequireRole role="tenant_admin"><RateCards /></RequireRole></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><RequireRole role="tenant_admin"><Settings /></RequireRole></ProtectedRoute>} />
             <Route path="/diagnostics" element={<ProtectedRoute><RequireRole role="tenant_admin"><Diagnostics /></RequireRole></ProtectedRoute>} />
             <Route path="/repair-access" element={<RepairTechAccess />} />

@@ -130,13 +130,6 @@ interface Account {
   account_name: string;
 }
 
-interface RateCard {
-  id: string;
-  rate_card_code: string;
-  rate_card_name: string;
-  is_active: boolean;
-}
-
 const ACCOUNT_TYPES = [
   'Retail',
   'Retail w/NO Warehousing',
@@ -167,7 +160,6 @@ const ACCOUNT_STATUSES = [
 
 const PRICING_LEVELS = [
   { value: 'default', label: 'Use Default Price List' },
-  { value: 'rate_card', label: 'Assign Rate Card' },
   { value: 'percentage', label: 'Apply Percentage Change' },
 ];
 
@@ -319,7 +311,6 @@ export function AccountDialog({
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [rateCards, setRateCards] = useState<RateCard[]>([]);
   const [serviceSelectionOpen, setServiceSelectionOpen] = useState(false);
   const [accountCodeManuallyEdited, setAccountCodeManuallyEdited] = useState(false);
   const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
@@ -334,7 +325,6 @@ export function AccountDialog({
   useEffect(() => {
     if (open) {
       fetchAccounts();
-      fetchRateCards();
       if (accountId) {
         fetchAccount(accountId);
         setAccountCodeManuallyEdited(true); // Existing accounts have their own code
@@ -364,20 +354,6 @@ export function AccountDialog({
       setAccounts(data || []);
     } catch (error) {
       console.error('Error fetching accounts:', error);
-    }
-  };
-
-  const fetchRateCards = async () => {
-    try {
-      const { data } = await supabase
-        .from('rate_cards')
-        .select('id, rate_card_code, rate_card_name, is_active')
-        .is('deleted_at', null)
-        .eq('is_active', true)
-        .order('rate_card_name');
-      setRateCards(data || []);
-    } catch (error) {
-      console.error('Error fetching rate cards:', error);
     }
   };
 
