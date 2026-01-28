@@ -58,7 +58,7 @@ export function usePresence() {
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
         if (newPresences && newPresences.length > 0) {
-          const latest = newPresences[newPresences.length - 1] as PresenceUser;
+          const latest = newPresences[newPresences.length - 1] as unknown as PresenceUser;
           setOnlineUsers((prev) => ({
             ...prev,
             [key]: {
