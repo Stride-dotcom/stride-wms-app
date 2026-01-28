@@ -24,6 +24,7 @@ export function AlertsSettingsTab() {
     createAlert,
     updateAlert,
     deleteAlert,
+    createTemplate,
     updateTemplate,
     getTemplateVersions,
     revertToVersion,
@@ -164,7 +165,11 @@ export function AlertsSettingsTab() {
               template={emailTemplate || null}
               designElements={designElements}
               brandSettings={brandSettings}
+              alertId={selectedAlert?.id}
+              alertName={selectedAlert?.name}
+              triggerEvent={selectedAlert?.trigger_event}
               onUpdateTemplate={updateTemplate}
+              onCreateTemplate={createTemplate}
               onGetVersions={getTemplateVersions}
               onRevertToVersion={revertToVersion}
             />
@@ -180,7 +185,11 @@ export function AlertsSettingsTab() {
           <TabsContent value="sms" className="m-0 h-full">
             <SmsTab
               template={smsTemplate || null}
+              alertId={selectedAlert?.id}
+              alertName={selectedAlert?.name}
+              triggerEvent={selectedAlert?.trigger_event}
               onUpdateTemplate={updateTemplate}
+              onCreateTemplate={createTemplate}
             />
           </TabsContent>
 

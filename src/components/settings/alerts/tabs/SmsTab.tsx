@@ -14,7 +14,11 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface SmsTabProps {
   template: CommunicationTemplate | null;
+  alertId?: string;
+  alertName?: string;
+  triggerEvent?: string;
   onUpdateTemplate: (id: string, updates: Partial<CommunicationTemplate>) => Promise<boolean>;
+  onCreateTemplate?: (alertId: string, channel: 'email' | 'sms', alertName: string, triggerEvent?: string) => Promise<CommunicationTemplate | null>;
 }
 
 const SMS_SEGMENT_LENGTH = 160;
@@ -22,7 +26,11 @@ const SMS_SEGMENT_LENGTH_UNICODE = 70;
 
 export function SmsTab({
   template,
+  alertId,
+  alertName,
+  triggerEvent,
   onUpdateTemplate,
+  onCreateTemplate,
 }: SmsTabProps) {
   const [body, setBody] = useState('');
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
@@ -91,10 +99,25 @@ export function SmsTab({
   const charInfo = getCharacterInfo();
   const previewText = renderPreview();
 
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleCreateTemplate = async () => {
+    if (!alertId || !alertName || !onCreateTemplate) return;
+    setIsCreating(true);
+    await onCreateTemplate(alertId, 'sms', alertName, triggerEvent);
+    setIsCreating(false);
+  };
+
   if (!template) {
     return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        No SMS template available. Enable SMS channel for this alert.
+      <div className="flex flex-col items-center justify-center h-64 gap-4 text-muted-foreground">
+        <MessageSquare className="h-12 w-12 opacity-50" />
+        <p>No SMS template available for this alert.</p>
+        {onCreateTemplate && alertId && alertName && (
+          <Button onClick={handleCreateTemplate} disabled={isCreating}>
+            {isCreating ? 'Creating...' : 'Create SMS Template'}
+          </Button>
+        )}
       </div>
     );
   }
