@@ -31,7 +31,7 @@ function generateUUID(): string {
   });
 }
 
-// Hook for fetching quote classes
+// Hook for fetching quote classes from standard classes table
 export function useQuoteClasses() {
   const { profile } = useAuth();
   const [classes, setClasses] = useState<QuoteClass[]>([]);
@@ -41,17 +41,30 @@ export function useQuoteClasses() {
     if (!profile?.tenant_id) return;
     setLoading(true);
     try {
+      // Fetch from standard classes table (Price List consolidation)
       const { data, error } = await (supabase as any)
-        .from('quote_classes')
+        .from('classes')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
-        .eq('is_active', true)
-        .order('display_order');
+        .order('code');
 
       if (error) throw error;
-      setClasses((data as QuoteClass[]) || []);
+
+      // Map classes to QuoteClass format
+      const quoteClasses: QuoteClass[] = (data || []).map((cls: any, index: number) => ({
+        id: cls.id,
+        tenant_id: cls.tenant_id,
+        name: cls.name || cls.code,
+        description: cls.description || `Size class ${cls.code}`,
+        display_order: index,
+        is_active: true,
+        created_at: cls.created_at,
+        updated_at: cls.updated_at,
+      }));
+
+      setClasses(quoteClasses);
     } catch (e) {
-      console.error('Error fetching quote classes:', e);
+      console.error('Error fetching classes:', e);
     } finally {
       setLoading(false);
     }
@@ -64,7 +77,7 @@ export function useQuoteClasses() {
   return { classes, loading, refetch: fetchClasses };
 }
 
-// Hook for fetching quote services
+// Hook for fetching quote services from Price List (service_events)
 export function useQuoteServices() {
   const { profile } = useAuth();
   const [services, setServices] = useState<QuoteService[]>([]);
@@ -74,17 +87,68 @@ export function useQuoteServices() {
     if (!profile?.tenant_id) return;
     setLoading(true);
     try {
+      // Fetch from service_events (Price List) for quote services
       const { data, error } = await (supabase as any)
-        .from('quote_services')
+        .from('service_events')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
         .eq('is_active', true)
-        .order('display_order');
+        .order('service_name');
 
       if (error) throw error;
-      setServices((data as QuoteService[]) || []);
+
+      // Map service_events to QuoteService format
+      // Group by service_code to get unique services
+      const serviceMap = new Map<string, QuoteService>();
+
+      (data || []).forEach((se: any) => {
+        if (!serviceMap.has(se.service_code)) {
+          // Map billing_unit from service_events to quote_billing_unit
+          let billingUnit: 'flat' | 'per_piece' | 'per_line_item' | 'per_class' | 'per_hour' | 'per_day' = 'per_piece';
+          if (se.billing_unit === 'Day') billingUnit = 'per_day';
+          else if (se.billing_unit === 'Task') billingUnit = 'per_hour';
+          else if (se.billing_unit === 'Item') billingUnit = 'per_piece';
+
+          // Determine category from service_code or service_name
+          let category = 'General';
+          const code = se.service_code.toLowerCase();
+          const name = se.service_name.toLowerCase();
+
+          if (code.includes('strg') || code.includes('storage') || name.includes('storage')) {
+            category = 'Storage';
+          } else if (code.includes('rcvg') || code.includes('recv') || name.includes('receiv')) {
+            category = 'Receiving';
+          } else if (code.includes('prep') || code.includes('pack') || name.includes('prep') || name.includes('pack')) {
+            category = 'Handling';
+          } else if (code.includes('insp') || name.includes('inspect')) {
+            category = 'Receiving';
+          } else if (code.includes('delivery') || code.includes('will_call') || name.includes('delivery')) {
+            category = 'Delivery';
+          } else if (code.includes('assemb') || code.includes('disassemb') || name.includes('assemb')) {
+            category = 'Assembly';
+          }
+
+          serviceMap.set(se.service_code, {
+            id: se.id,
+            tenant_id: se.tenant_id,
+            category,
+            name: se.service_name,
+            description: se.notes || '',
+            billing_unit: billingUnit,
+            trigger_label: category,
+            is_storage_service: se.billing_unit === 'Day',
+            is_taxable_default: se.taxable,
+            display_order: 0,
+            is_active: se.is_active,
+            created_at: se.created_at,
+            updated_at: se.updated_at,
+          });
+        }
+      });
+
+      setServices(Array.from(serviceMap.values()));
     } catch (e) {
-      console.error('Error fetching quote services:', e);
+      console.error('Error fetching services from Price List:', e);
     } finally {
       setLoading(false);
     }
@@ -109,7 +173,7 @@ export function useQuoteServices() {
   return { services, servicesByCategory, loading, refetch: fetchServices };
 }
 
-// Hook for fetching service rates
+// Hook for fetching service rates from Price List (service_events)
 export function useQuoteServiceRates() {
   const { profile } = useAuth();
   const [rates, setRates] = useState<QuoteServiceRate[]>([]);
@@ -119,16 +183,43 @@ export function useQuoteServiceRates() {
     if (!profile?.tenant_id) return;
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any)
-        .from('quote_service_rates')
+      // Fetch from service_events (Price List) for quote rates
+      const { data: serviceEvents, error: seError } = await (supabase as any)
+        .from('service_events')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
-        .eq('is_current', true);
+        .eq('is_active', true);
 
-      if (error) throw error;
-      setRates((data as QuoteServiceRate[]) || []);
+      if (seError) throw seError;
+
+      // Fetch classes to map class_code to class_id
+      const { data: classes, error: classError } = await supabase
+        .from('classes')
+        .select('id, code')
+        .eq('tenant_id', profile.tenant_id);
+
+      if (classError) throw classError;
+
+      const classMap = new Map((classes || []).map(c => [c.code, c.id]));
+
+      // Convert service_events to QuoteServiceRate format
+      const convertedRates: QuoteServiceRate[] = (serviceEvents || []).map((se: any) => ({
+        id: se.id,
+        tenant_id: se.tenant_id,
+        service_id: se.id, // Using same ID since we're mapping from service_events
+        class_id: se.class_code ? classMap.get(se.class_code) || null : null,
+        rate_amount: se.rate,
+        currency: 'USD',
+        effective_date: se.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+        is_current: true,
+        notes: se.notes,
+        created_at: se.created_at,
+        updated_at: se.updated_at,
+      }));
+
+      setRates(convertedRates);
     } catch (e) {
-      console.error('Error fetching quote service rates:', e);
+      console.error('Error fetching rates from Price List:', e);
     } finally {
       setLoading(false);
     }
