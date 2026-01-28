@@ -645,157 +645,238 @@ function GroupedServiceTable({
             onOpenChange={() => toggleGroup(serviceCode)}
           >
             <CollapsibleTrigger asChild>
-              <div className="flex items-center gap-4 px-4 py-3 hover:bg-muted/50 cursor-pointer">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 py-3 hover:bg-muted/50 cursor-pointer">
+                {/* Mobile: Top row with code, name, and rate */}
+                <div className="flex items-center gap-2 flex-1 min-w-0">
                   {hasMultipleVariants ? (
                     isExpanded ? (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     )
                   ) : (
-                    <div className="w-4" />
+                    <div className="w-4 flex-shrink-0" />
                   )}
-                  <Badge variant="outline" className="font-mono">{serviceCode}</Badge>
-                </div>
-                <div className="flex-1 min-w-0">
+                  <Badge variant="outline" className="font-mono flex-shrink-0 text-xs">{serviceCode}</Badge>
                   <span className="font-medium truncate">{firstEvent.service_name}</span>
                   {hasMultipleVariants && (
-                    <Badge variant="secondary" className="ml-2 text-xs">
+                    <Badge variant="secondary" className="text-xs flex-shrink-0 hidden sm:inline-flex">
                       {events.length} classes
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-4 text-sm">
-                  <Badge variant="outline">{firstEvent.billing_unit}</Badge>
-                  <Badge variant="outline">{firstEvent.billing_trigger}</Badge>
-                  {!hasMultipleVariants && (
-                    <span className="font-mono w-20 text-right">${firstEvent.rate.toFixed(2)}</span>
-                  )}
-                  {hasMultipleVariants && (
-                    <span className="text-muted-foreground w-20 text-right">varies</span>
-                  )}
-                  <div className={cn(
-                    "w-16 text-center",
-                    allActive ? "text-green-600" : someActive ? "text-amber-600" : "text-muted-foreground"
-                  )}>
-                    {allActive ? "Active" : someActive ? "Mixed" : "Inactive"}
+
+                {/* Mobile: Bottom row with metadata */}
+                <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 text-sm pl-6 sm:pl-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="text-xs">{firstEvent.billing_trigger}</Badge>
+                    {hasMultipleVariants && (
+                      <Badge variant="secondary" className="text-xs sm:hidden">
+                        {events.length} classes
+                      </Badge>
+                    )}
                   </div>
-                </div>
-                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => onViewAudit(serviceCode)}
-                        >
-                          <History className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>View history</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => onDuplicate(firstEvent)}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Duplicate service</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => onDelete(firstEvent.id, firstEvent.service_name, hasMultipleVariants)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Delete {hasMultipleVariants ? 'all variants' : 'service'}</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <div className="flex items-center gap-2 sm:gap-4">
+                    {!hasMultipleVariants ? (
+                      <span className="font-mono text-right font-semibold">${firstEvent.rate.toFixed(2)}</span>
+                    ) : (
+                      <span className="text-muted-foreground text-right text-xs sm:text-sm">varies</span>
+                    )}
+                    <div className={cn(
+                      "text-xs sm:text-sm font-medium",
+                      allActive ? "text-green-600" : someActive ? "text-amber-600" : "text-muted-foreground"
+                    )}>
+                      {allActive ? "Active" : someActive ? "Mixed" : "Inactive"}
+                    </div>
+                  </div>
+                  {/* Action buttons - hidden on mobile in collapsed view */}
+                  <div className="hidden sm:flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => onViewAudit(serviceCode)}
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>View history</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => onDuplicate(firstEvent)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Duplicate service</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => onDelete(firstEvent.id, firstEvent.service_name, hasMultipleVariants)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete {hasMultipleVariants ? 'all variants' : 'service'}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </div>
               </div>
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="bg-muted/30 border-t">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-20 pl-12">Class</TableHead>
-                      <TableHead className="text-right">Rate</TableHead>
-                      <TableHead className="text-right">Time (min)</TableHead>
-                      <TableHead className="text-center">Taxable</TableHead>
-                      <TableHead className="text-center">Show Flag</TableHead>
-                      <TableHead className="text-center">Scan Event</TableHead>
-                      <TableHead className="text-center">Active</TableHead>
-                      <TableHead className="w-20">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {events.map((event) => (
-                      <TableRow key={event.id} className={cn(!event.is_active && "opacity-50")}>
-                        <TableCell className="pl-12">
+                {/* Mobile: Card-based layout */}
+                <div className="sm:hidden divide-y">
+                  {/* Mobile action buttons for the service group */}
+                  <div className="flex items-center justify-end gap-2 px-4 py-2 bg-muted/50">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); onViewAudit(serviceCode); }}
+                    >
+                      <History className="h-4 w-4 mr-1" />
+                      History
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); onDuplicate(firstEvent); }}
+                    >
+                      <Copy className="h-4 w-4 mr-1" />
+                      Duplicate
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive"
+                      onClick={(e) => { e.stopPropagation(); onDelete(firstEvent.id, firstEvent.service_name, hasMultipleVariants); }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {events.map((event) => (
+                    <div key={event.id} className={cn("px-4 py-3 space-y-2", !event.is_active && "opacity-50")}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
                           {event.class_code ? (
                             <Badge variant="outline">{event.class_code}</Badge>
                           ) : (
-                            <span className="text-muted-foreground">-</span>
+                            <span className="text-muted-foreground text-sm">No class</span>
                           )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <InlineRateEditor
-                            value={event.rate}
-                            onSave={(rate) => onRateUpdate(event.id, rate)}
-                            disabled={saving}
-                          />
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {event.service_time_minutes ?? '-'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {event.taxable ? <Check className="h-4 w-4 mx-auto text-green-600" /> : '-'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {event.add_flag ? <Check className="h-4 w-4 mx-auto text-green-600" /> : '-'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {event.add_to_service_event_scan ? <Check className="h-4 w-4 mx-auto text-green-600" /> : '-'}
-                        </TableCell>
-                        <TableCell className="text-center">
+                        </div>
+                        <span className="font-mono font-semibold">${event.rate.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-3 text-muted-foreground">
+                          {event.service_time_minutes && (
+                            <span><Clock className="h-3 w-3 inline mr-1" />{event.service_time_minutes}min</span>
+                          )}
+                          {event.taxable && <span className="text-green-600">Taxable</span>}
+                          {event.add_flag && <span className="text-blue-600">Flag</span>}
+                        </div>
+                        <div className="flex items-center gap-2">
                           <Switch
                             checked={event.is_active}
                             onCheckedChange={() => onToggleActive(event.id)}
                             disabled={saving}
                           />
-                        </TableCell>
-                        <TableCell>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
                             onClick={() => onDelete(event.id, event.service_name, false)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
-                        </TableCell>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop: Table layout */}
+                <div className="hidden sm:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-20 pl-12">Class</TableHead>
+                        <TableHead className="text-right">Rate</TableHead>
+                        <TableHead className="text-right">Time (min)</TableHead>
+                        <TableHead className="text-center">Taxable</TableHead>
+                        <TableHead className="text-center">Show Flag</TableHead>
+                        <TableHead className="text-center">Scan Event</TableHead>
+                        <TableHead className="text-center">Active</TableHead>
+                        <TableHead className="w-20">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {events.map((event) => (
+                        <TableRow key={event.id} className={cn(!event.is_active && "opacity-50")}>
+                          <TableCell className="pl-12">
+                            {event.class_code ? (
+                              <Badge variant="outline">{event.class_code}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <InlineRateEditor
+                              value={event.rate}
+                              onSave={(rate) => onRateUpdate(event.id, rate)}
+                              disabled={saving}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right text-muted-foreground">
+                            {event.service_time_minutes ?? '-'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {event.taxable ? <Check className="h-4 w-4 mx-auto text-green-600" /> : '-'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {event.add_flag ? <Check className="h-4 w-4 mx-auto text-green-600" /> : '-'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {event.add_to_service_event_scan ? <Check className="h-4 w-4 mx-auto text-green-600" /> : '-'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Switch
+                              checked={event.is_active}
+                              onCheckedChange={() => onToggleActive(event.id)}
+                              disabled={saving}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => onDelete(event.id, event.service_name, false)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             </CollapsibleContent>
           </Collapsible>
@@ -900,113 +981,186 @@ function FlatServiceTable({
   );
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <SortableHeader field="service_code">Service Code</SortableHeader>
-          <SortableHeader field="service_name">Service Name</SortableHeader>
-          <SortableHeader field="class_code">Class</SortableHeader>
-          <SortableHeader field="billing_unit">Billing Unit</SortableHeader>
-          <SortableHeader field="rate" className="text-right">Rate</SortableHeader>
-          <SortableHeader field="service_time_minutes" className="text-right">Time (min)</SortableHeader>
-          <TableHead className="text-center">Taxable</TableHead>
-          <TableHead className="text-center">Active</TableHead>
-          <SortableHeader field="billing_trigger">Billing Trigger</SortableHeader>
-          <TableHead className="w-32">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <>
+      {/* Mobile: Card-based layout */}
+      <div className="sm:hidden divide-y">
         {sortedEvents.map((event) => (
-          <TableRow key={event.id} className={cn(!event.is_active && "opacity-50")}>
-            <TableCell>
-              <Badge variant="outline" className="font-mono">{event.service_code}</Badge>
-            </TableCell>
-            <TableCell className="font-medium">{event.service_name}</TableCell>
-            <TableCell>
-              {event.class_code ? (
-                <Badge variant="outline">{event.class_code}</Badge>
-              ) : (
-                <span className="text-muted-foreground">-</span>
+          <div key={event.id} className={cn("px-4 py-3 space-y-2", !event.is_active && "opacity-50")}>
+            {/* Row 1: Code and Name */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="font-mono text-xs flex-shrink-0">{event.service_code}</Badge>
+                  {event.class_code && (
+                    <Badge variant="secondary" className="text-xs flex-shrink-0">{event.class_code}</Badge>
+                  )}
+                </div>
+                <p className="font-medium text-sm truncate">{event.service_name}</p>
+              </div>
+              <span className="font-mono font-semibold text-lg">${event.rate.toFixed(2)}</span>
+            </div>
+
+            {/* Row 2: Metadata */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+              <Badge variant="outline" className="text-xs">{event.billing_trigger}</Badge>
+              <Badge variant="outline" className="text-xs">{event.billing_unit}</Badge>
+              {event.service_time_minutes && (
+                <span><Clock className="h-3 w-3 inline mr-1" />{event.service_time_minutes}min</span>
               )}
-            </TableCell>
-            <TableCell>
-              <Badge variant="secondary">{event.billing_unit}</Badge>
-            </TableCell>
-            <TableCell className="text-right">
-              <InlineRateEditor
-                value={event.rate}
-                onSave={(rate) => onRateUpdate(event.id, rate)}
-                disabled={saving}
-              />
-            </TableCell>
-            <TableCell className="text-right text-muted-foreground">
-              {event.service_time_minutes ?? '-'}
-            </TableCell>
-            <TableCell className="text-center">
-              {event.taxable ? <Check className="h-4 w-4 mx-auto text-green-600" /> : '-'}
-            </TableCell>
-            <TableCell className="text-center">
+              {event.taxable && <span className="text-green-600">Taxable</span>}
+            </div>
+
+            {/* Row 3: Actions */}
+            <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => onViewAudit(event.service_code)}
+                >
+                  <History className="h-3 w-3 mr-1" />
+                  History
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => onDuplicate(event)}
+                >
+                  <Copy className="h-3 w-3 mr-1" />
+                  Copy
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-destructive"
+                  onClick={() => onDelete(event.id, event.service_name)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
               <Switch
                 checked={event.is_active}
                 onCheckedChange={() => onToggleActive(event.id)}
                 disabled={saving}
               />
-            </TableCell>
-            <TableCell>
-              <Badge variant="outline" className="text-xs">{event.billing_trigger}</Badge>
-            </TableCell>
-            <TableCell>
-              <div className="flex items-center gap-1">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => onViewAudit(event.service_code)}
-                      >
-                        <History className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>View history</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => onDuplicate(event)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Duplicate</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => onDelete(event.id, event.service_name)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Delete</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </TableCell>
-          </TableRow>
+            </div>
+          </div>
         ))}
-      </TableBody>
-    </Table>
+      </div>
+
+      {/* Desktop: Table layout */}
+      <div className="hidden sm:block overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <SortableHeader field="service_code">Service Code</SortableHeader>
+              <SortableHeader field="service_name">Service Name</SortableHeader>
+              <SortableHeader field="class_code">Class</SortableHeader>
+              <SortableHeader field="billing_unit">Billing Unit</SortableHeader>
+              <SortableHeader field="rate" className="text-right">Rate</SortableHeader>
+              <SortableHeader field="service_time_minutes" className="text-right">Time (min)</SortableHeader>
+              <TableHead className="text-center">Taxable</TableHead>
+              <TableHead className="text-center">Active</TableHead>
+              <SortableHeader field="billing_trigger">Billing Trigger</SortableHeader>
+              <TableHead className="w-32">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortedEvents.map((event) => (
+              <TableRow key={event.id} className={cn(!event.is_active && "opacity-50")}>
+                <TableCell>
+                  <Badge variant="outline" className="font-mono">{event.service_code}</Badge>
+                </TableCell>
+                <TableCell className="font-medium">{event.service_name}</TableCell>
+                <TableCell>
+                  {event.class_code ? (
+                    <Badge variant="outline">{event.class_code}</Badge>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="secondary">{event.billing_unit}</Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <InlineRateEditor
+                    value={event.rate}
+                    onSave={(rate) => onRateUpdate(event.id, rate)}
+                    disabled={saving}
+                  />
+                </TableCell>
+                <TableCell className="text-right text-muted-foreground">
+                  {event.service_time_minutes ?? '-'}
+                </TableCell>
+                <TableCell className="text-center">
+                  {event.taxable ? <Check className="h-4 w-4 mx-auto text-green-600" /> : '-'}
+                </TableCell>
+                <TableCell className="text-center">
+                  <Switch
+                    checked={event.is_active}
+                    onCheckedChange={() => onToggleActive(event.id)}
+                    disabled={saving}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="text-xs">{event.billing_trigger}</Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => onViewAudit(event.service_code)}
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>View history</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => onDuplicate(event)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Duplicate</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => onDelete(event.id, event.service_name)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }
