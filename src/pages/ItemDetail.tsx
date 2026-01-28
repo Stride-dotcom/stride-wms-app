@@ -670,20 +670,30 @@ export default function ItemDetail() {
               />
             </div>
 
-            {/* Receiving Shipment - Original inbound shipment */}
+            {/* Inbound History - Original inbound shipment */}
             {item.receiving_shipment && (
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <span>🚚</span>
-                    Receiving Shipment
+                    Inbound History
                   </CardTitle>
                   <CardDescription>
                     The inbound shipment this item was received on
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                  <div
+                    className="flex items-center justify-between p-3 border rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => navigate(`/shipments/${item.receiving_shipment!.id}`)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        navigate(`/shipments/${item.receiving_shipment!.id}`);
+                      }
+                    }}
+                  >
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
                         <Badge className="bg-green-100 text-green-800">inbound</Badge>
@@ -696,14 +706,7 @@ export default function ItemDetail() {
                         </span>
                       )}
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/shipments/${item.receiving_shipment!.id}`)}
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      Open Shipment
-                    </Button>
+                    <ExternalLink className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </CardContent>
               </Card>

@@ -5,9 +5,11 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDashboardStats, PutAwayItem } from '@/hooks/useDashboardStats';
+import { useDashboardStats, PutAwayItem, TaskItem, ShipmentItem } from '@/hooks/useDashboardStats';
 
 /**
  * Format minutes to a readable time string
@@ -22,23 +24,39 @@ function formatTimeEstimate(minutes: number): string {
   return `${hours}h ${mins}m`;
 }
 
+type ExpandedCard = 'put_away' | 'inspection' | 'assembly' | 'incoming_shipments' | 'repairs' | null;
+
 /**
  * Phase 2 Dashboard (Command Center)
  * Requirements:
  * - 5 large tiles: Put Away, Needs Inspection, Needs Assembly, Incoming Shipments, Repairs
  * - Each tile shows total count + urgent badge if urgent > 0
+ * - Each tile has expandable dropdown showing items
  * - Clicking each tile navigates to the correct page with the correct default filter/tab
  */
 export default function Dashboard() {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { stats, putAwayItems, loading, refetch } = useDashboardStats();
-  const [putAwayExpanded, setPutAwayExpanded] = useState(false);
+  const {
+    stats,
+    putAwayItems,
+    inspectionTasks,
+    assemblyTasks,
+    repairTasks,
+    incomingShipments,
+    loading,
+    refetch
+  } = useDashboardStats();
+  const [expandedCard, setExpandedCard] = useState<ExpandedCard>(null);
+
+  const toggleCard = (key: ExpandedCard) => {
+    setExpandedCard(expandedCard === key ? null : key);
+  };
 
   const tiles = useMemo(
     () => [
       {
-        key: 'put_away',
+        key: 'put_away' as ExpandedCard,
         title: 'PUT AWAY',
         emoji: '📦',
         count: stats.putAwayCount,
@@ -49,7 +67,7 @@ export default function Dashboard() {
         onClick: () => navigate('/inventory?location=receiving'),
       },
       {
-        key: 'inspection',
+        key: 'inspection' as ExpandedCard,
         title: 'NEEDS INSPECTION',
         emoji: '🔍',
         count: stats.needToInspect,
@@ -61,7 +79,7 @@ export default function Dashboard() {
         timeEstimate: stats.inspectionTimeEstimate,
       },
       {
-        key: 'assembly',
+        key: 'assembly' as ExpandedCard,
         title: 'NEEDS ASSEMBLY',
         emoji: '🔧',
         count: stats.needToAssemble,
@@ -73,7 +91,7 @@ export default function Dashboard() {
         timeEstimate: stats.assemblyTimeEstimate,
       },
       {
-        key: 'incoming_shipments',
+        key: 'incoming_shipments' as ExpandedCard,
         title: 'INCOMING SHIPMENTS',
         emoji: '🚚',
         count: stats.incomingShipments,
@@ -84,7 +102,7 @@ export default function Dashboard() {
         onClick: () => navigate('/shipments/incoming'),
       },
       {
-        key: 'repairs',
+        key: 'repairs' as ExpandedCard,
         title: 'REPAIRS',
         emoji: '🔨',
         count: stats.repairCount,
@@ -99,9 +117,101 @@ export default function Dashboard() {
     [navigate, stats]
   );
 
+  // Get items for expanded card
+  const getExpandedItems = (key: ExpandedCard) => {
+    switch (key) {
+      case 'put_away':
+        return putAwayItems;
+      case 'inspection':
+        return inspectionTasks;
+      case 'assembly':
+        return assemblyTasks;
+      case 'repairs':
+        return repairTasks;
+      case 'incoming_shipments':
+        return incomingShipments;
+      default:
+        return [];
+    }
+  };
+
+  // Render item row based on type
+  const renderItemRow = (item: PutAwayItem | TaskItem | ShipmentItem, key: ExpandedCard) => {
+    if (key === 'put_away') {
+      const putAwayItem = item as PutAwayItem;
+      return (
+        <div
+          key={putAwayItem.id}
+          className="flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer group"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/inventory/${putAwayItem.id}`);
+          }}
+          role="button"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="font-mono text-sm font-medium truncate">{putAwayItem.item_code}</div>
+            {putAwayItem.description && (
+              <div className="text-xs text-muted-foreground truncate">{putAwayItem.description}</div>
+            )}
+          </div>
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+        </div>
+      );
+    }
+
+    if (key === 'incoming_shipments') {
+      const shipment = item as ShipmentItem;
+      return (
+        <div
+          key={shipment.id}
+          className="flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer group"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/shipments/${shipment.id}`);
+          }}
+          role="button"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="font-mono text-sm font-medium truncate">{shipment.shipment_number}</div>
+            <div className="text-xs text-muted-foreground truncate">
+              {shipment.account?.account_name || 'Unknown'} • {shipment.carrier || 'No carrier'}
+            </div>
+          </div>
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+        </div>
+      );
+    }
+
+    // Task items (inspection, assembly, repairs)
+    const task = item as TaskItem;
+    return (
+      <div
+        key={task.id}
+        className="flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer group"
+        onClick={(e) => {
+          e.stopPropagation();
+          navigate(`/tasks?id=${task.id}`);
+        }}
+        role="button"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium truncate">{task.title}</div>
+          <div className="text-xs text-muted-foreground truncate">
+            {task.account?.account_name || 'No account'}
+            {task.priority === 'urgent' && (
+              <Badge variant="destructive" className="ml-2 text-[10px] px-1 py-0">Urgent</Badge>
+            )}
+          </div>
+        </div>
+        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+      </div>
+    );
+  };
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 pb-20">
         <div className="flex items-center justify-between gap-3">
           <PageHeader
             primaryText="Command"
@@ -121,99 +231,35 @@ export default function Dashboard() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {tiles.map((t) => {
-              // Special handling for put_away tile to show expandable items list
-              if (t.key === 'put_away') {
-                return (
-                  <Card key={t.key} className="hover:shadow-lg transition-shadow">
-                    <CardHeader
-                      className="flex flex-row items-center justify-between space-y-0 pb-2 cursor-pointer"
-                      onClick={() => setPutAwayExpanded(!putAwayExpanded)}
-                      role="button"
-                    >
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-[11px] font-semibold tracking-wide text-muted-foreground">{t.title}</CardTitle>
-                        {typeof t.urgent === 'number' && t.urgent > 0 && (
-                          <Badge className="bg-red-500 text-white">
-                            ⚠️ {t.urgent}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className={`emoji-tile emoji-tile-lg rounded-lg ${t.bgColor}`}>
-                          {t.emoji}
-                        </div>
-                        {putAwayExpanded ? (
-                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div
-                        className={`text-3xl font-bold cursor-pointer hover:opacity-80 transition-opacity ${t.countColor}`}
-                        onClick={t.onClick}
-                        role="button"
-                      >
-                        {t.count ?? 0}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">{t.description}</p>
-
-                      {putAwayExpanded && putAwayItems.length > 0 && (
-                        <div className="mt-4 border-t pt-3 space-y-2 max-h-64 overflow-y-auto">
-                          {putAwayItems.slice(0, 10).map((item: PutAwayItem) => (
-                            <div
-                              key={item.id}
-                              className="flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer group"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/inventory/${item.id}`);
-                              }}
-                              role="button"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="font-mono text-sm font-medium truncate">{item.item_code}</div>
-                                {item.description && (
-                                  <div className="text-xs text-muted-foreground truncate">{item.description}</div>
-                                )}
-                              </div>
-                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
-                            </div>
-                          ))}
-                          {putAwayItems.length > 10 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="w-full text-xs"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                t.onClick();
-                              }}
-                            >
-                              View all {t.count} items
-                            </Button>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              }
-
-              // Standard tile rendering for other tiles
+              const isExpanded = expandedCard === t.key;
+              const items = getExpandedItems(t.key);
               const timeStr = t.timeEstimate ? formatTimeEstimate(t.timeEstimate) : '';
+
               return (
-                <Card
-                  key={t.key}
-                  className="cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={t.onClick}
-                  role="button"
-                >
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Card key={t.key} className="hover:shadow-lg transition-shadow relative">
+                  {/* Expand/Collapse Button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 h-6 w-6 z-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleCard(t.key);
+                    }}
+                  >
+                    <ChevronDown className={cn(
+                      "h-4 w-4 transition-transform duration-200",
+                      isExpanded && "rotate-180"
+                    )} />
+                  </Button>
+
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pr-10">
                     <div className="flex items-center gap-2">
-                      <CardTitle className="text-[11px] font-semibold tracking-wide text-muted-foreground">{t.title}</CardTitle>
+                      <CardTitle className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+                        {t.title}
+                      </CardTitle>
                       {typeof t.urgent === 'number' && t.urgent > 0 && (
-                        <Badge className="bg-red-500 text-white">
+                        <Badge className="bg-red-500 text-white text-[10px]">
                           ⚠️ {t.urgent}
                         </Badge>
                       )}
@@ -222,8 +268,13 @@ export default function Dashboard() {
                       {t.emoji}
                     </div>
                   </CardHeader>
+
                   <CardContent>
-                    <div className="flex items-baseline gap-2">
+                    <div
+                      className={`flex items-baseline gap-2 cursor-pointer hover:opacity-80 transition-opacity`}
+                      onClick={t.onClick}
+                      role="button"
+                    >
                       <span className={`text-3xl font-bold ${t.countColor}`}>{t.count ?? 0}</span>
                       {timeStr && t.count > 0 && (
                         <span className="text-sm text-muted-foreground">
@@ -232,6 +283,36 @@ export default function Dashboard() {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">{t.description}</p>
+
+                    {/* Expandable Items List */}
+                    {isExpanded && items.length > 0 && (
+                      <div className="mt-4 border-t pt-3">
+                        <ScrollArea className="max-h-64">
+                          <div className="space-y-1">
+                            {items.slice(0, 10).map((item) => renderItemRow(item, t.key))}
+                          </div>
+                        </ScrollArea>
+                        {items.length > 10 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full text-xs mt-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              t.onClick();
+                            }}
+                          >
+                            View all {t.count} items
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
+                    {isExpanded && items.length === 0 && (
+                      <div className="mt-4 border-t pt-3 text-center text-sm text-muted-foreground">
+                        No items to display
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );

@@ -504,7 +504,7 @@ export default function QuoteBuilder() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="account">Account *</Label>
                     <Select
@@ -526,13 +526,17 @@ export default function QuoteBuilder() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="expiration">Expiration Date</Label>
-                    <Input
-                      id="expiration"
-                      type="date"
-                      value={formData.expiration_date || ''}
-                      onChange={(e) => setFormData((p) => ({ ...p, expiration_date: e.target.value || null }))}
-                      disabled={!canEdit}
-                    />
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <Input
+                        id="expiration"
+                        type="date"
+                        value={formData.expiration_date || ''}
+                        onChange={(e) => setFormData((p) => ({ ...p, expiration_date: e.target.value || null }))}
+                        disabled={!canEdit}
+                        className="w-full"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-4">
@@ -567,16 +571,18 @@ export default function QuoteBuilder() {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                   {classes.map((cls) => {
                     const line = formData.class_lines.find((l) => l.class_id === cls.id);
+                    const qtyValue = line?.qty;
                     return (
                       <div key={cls.id} className="space-y-1">
                         <Label className="text-xs">{cls.name}</Label>
                         <Input
                           type="number"
                           min="0"
-                          value={line?.qty || 0}
+                          value={qtyValue && qtyValue > 0 ? qtyValue : ''}
                           onChange={(e) => updateClassQty(cls.id, parseInt(e.target.value) || 0)}
                           disabled={!canEdit}
                           className="text-center"
+                          placeholder="0"
                         />
                       </div>
                     );

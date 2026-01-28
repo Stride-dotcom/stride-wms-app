@@ -2,13 +2,16 @@ import { useState, useMemo, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useMessages, Message, MessageRecipient, InAppNotification, SendMessageParams } from '@/hooks/useMessages';
 import { useDepartments } from '@/hooks/useDepartments';
-import { useUsers } from '@/hooks/useUsers';
+import { useUsers, type User } from '@/hooks/useUsers';
+import { usePresence } from '@/hooks/usePresence';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { AvatarWithPresence } from '@/components/ui/online-indicator';
 import {
   Dialog,
   DialogContent,
@@ -69,6 +72,18 @@ export default function Messages() {
 
   const { departments } = useDepartments();
   const { users, roles } = useUsers();
+  const { getUserStatus } = usePresence();
+
+  // Get initials from user
+  const getInitials = (user: User) => {
+    if (user.first_name && user.last_name) {
+      return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
+    }
+    if (user.first_name) {
+      return user.first_name.substring(0, 2).toUpperCase();
+    }
+    return user.email?.substring(0, 2).toUpperCase() || '??';
+  };
 
   const [activeTab, setActiveTab] = useState('inbox');
   const [searchQuery, setSearchQuery] = useState('');
@@ -590,12 +605,64 @@ export default function Messages() {
 
               <div className="space-y-2">
                 <Label>Recipients</Label>
-                <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
+                <div className="border rounded-md p-3 max-h-48 overflow-y-auto space-y-1">
                   {recipientOptions.length === 0 ? (
                     <p className="text-sm text-muted-foreground">No {newMessage.recipientType}s available</p>
+                  ) : newMessage.recipientType === 'user' ? (
+                    // User list with avatars and presence
+                    users.map((user) => (
+                      <div
+                        key={user.id}
+                        className={cn(
+                          "flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors",
+                          newMessage.recipientIds.includes(user.id)
+                            ? "bg-primary/10"
+                            : "hover:bg-muted"
+                        )}
+                        onClick={() => {
+                          if (newMessage.recipientIds.includes(user.id)) {
+                            setNewMessage({
+                              ...newMessage,
+                              recipientIds: newMessage.recipientIds.filter((id) => id !== user.id),
+                            });
+                          } else {
+                            setNewMessage({
+                              ...newMessage,
+                              recipientIds: [...newMessage.recipientIds, user.id],
+                            });
+                          }
+                        }}
+                      >
+                        <Checkbox
+                          id={user.id}
+                          checked={newMessage.recipientIds.includes(user.id)}
+                          onCheckedChange={() => {}}
+                          className="pointer-events-none"
+                        />
+                        <AvatarWithPresence
+                          status={getUserStatus(user.id)}
+                          indicatorSize="sm"
+                        >
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                              {getInitials(user)}
+                            </AvatarFallback>
+                          </Avatar>
+                        </AvatarWithPresence>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {user.first_name || user.last_name
+                              ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                              : 'Unnamed'}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                        </div>
+                      </div>
+                    ))
                   ) : (
+                    // Roles or departments without avatars
                     recipientOptions.map((option) => (
-                      <div key={option.value} className="flex items-center space-x-2">
+                      <div key={option.value} className="flex items-center space-x-2 p-2">
                         <Checkbox
                           id={option.value}
                           checked={newMessage.recipientIds.includes(option.value)}
