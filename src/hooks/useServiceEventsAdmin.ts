@@ -117,9 +117,9 @@ export const CLASS_LABELS: Record<string, string> = {
 };
 
 export const BILLING_UNITS = [
-  { value: 'Day', label: 'Per Day' },
-  { value: 'Item', label: 'Per Item' },
-  { value: 'Task', label: 'Per Task' },
+  { value: 'Day', label: 'Day' },
+  { value: 'Item', label: 'Item' },
+  { value: 'Task', label: 'Task' },
 ];
 
 export const ALERT_RULES = [
