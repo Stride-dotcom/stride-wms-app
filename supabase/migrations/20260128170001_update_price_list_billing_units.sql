@@ -115,13 +115,13 @@ BEGIN
 
   -- Assembly Services (billing_unit = Item)
   (p_tenant_id, NULL, '5MA', 'Assembly <15', 'Item', 5, 25, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
-  (p_tenant_id, NULL, '15MA', '15 Minute Assembly', 'Item', 15, 35, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
-  (p_tenant_id, NULL, '30MA', '30 Minute Assembly', 'Item', 30, 70, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
-  (p_tenant_id, NULL, '45MA', '45 Minute Assembly', 'Item', 45, 105, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
-  (p_tenant_id, NULL, '60MA', '60 Minute Assembly', 'Item', 60, 140, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
-  (p_tenant_id, NULL, '75MA', '75 Minute Assembly', 'Item', 75, 175, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
-  (p_tenant_id, NULL, '90MA', '90 Minute Assembly', 'Item', 90, 210, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
-  (p_tenant_id, NULL, '120MA', '120 Minute Assembly', 'Item', 120, 245, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
+  (p_tenant_id, NULL, '15MA', 'Assembly 15m', 'Item', 15, 35, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
+  (p_tenant_id, NULL, '30MA', 'Assembly 30m', 'Item', 30, 70, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
+  (p_tenant_id, NULL, '45MA', 'Assembly 45m', 'Item', 45, 105, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
+  (p_tenant_id, NULL, '60MA', 'Assembly 60m', 'Item', 60, 140, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
+  (p_tenant_id, NULL, '75MA', 'Assembly 75m', 'Item', 75, 175, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
+  (p_tenant_id, NULL, '90MA', 'Assembly 90m', 'Item', 90, 210, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
+  (p_tenant_id, NULL, '120MA', 'Assembly 120m', 'Item', 120, 245, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
 
   -- Quote Required Assembly
   (p_tenant_id, NULL, 'QR_ASSM', 'Assembly Mgr Quote Req', 'Item', NULL, 0, true, false, true, 'Manager Quote Required Assembly', false, false, 'email_office', 'Task - Assign Rate'),
