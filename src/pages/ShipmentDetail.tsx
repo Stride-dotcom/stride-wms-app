@@ -108,7 +108,10 @@ export default function ShipmentDetail() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { toast } = useToast();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasRole } = usePermissions();
+
+  // Only managers and admins can see billing fields
+  const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
 
   // State
   const [loading, setLoading] = useState(true);
@@ -457,7 +460,7 @@ export default function ShipmentDetail() {
               Start Receiving
             </Button>
           )}
-          {shipment.account_id && (
+          {shipment.account_id && canSeeBilling && (
             <Button variant="secondary" onClick={() => setAddAddonDialogOpen(true)}>
               <DollarSign className="h-4 w-4 mr-2" />
               Add Charge
@@ -946,8 +949,8 @@ export default function ShipmentDetail() {
         description={`${createdItemsForLabels.length} items were created from receiving. Print labels now?`}
       />
 
-      {/* Add Charge Dialog */}
-      {shipment.account_id && (
+      {/* Add Charge Dialog - Manager/Admin Only */}
+      {shipment.account_id && canSeeBilling && (
         <AddAddonDialog
           open={addAddonDialogOpen}
           onOpenChange={setAddAddonDialogOpen}
