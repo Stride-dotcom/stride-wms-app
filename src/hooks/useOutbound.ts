@@ -2,8 +2,60 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { getServiceRate } from '@/lib/billingRates';
 import { createBillingEventsBatch, CreateBillingEventParams } from '@/lib/billing/createBillingEvent';
+
+// Helper to get rate from Price List (service_events table)
+async function getRateFromPriceList(
+  tenantId: string,
+  serviceCode: string,
+  classCode: string | null
+): Promise<{ rate: number; hasError: boolean; errorMessage?: string }> {
+  try {
+    // Try class-specific rate first
+    if (classCode) {
+      const { data: classRate } = await (supabase
+        .from('service_events') as any)
+        .select('rate')
+        .eq('tenant_id', tenantId)
+        .eq('service_code', serviceCode)
+        .eq('class_code', classCode)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (classRate) {
+        return { rate: classRate.rate, hasError: false };
+      }
+    }
+
+    // Fall back to general rate (no class_code)
+    const { data: generalRate } = await (supabase
+      .from('service_events') as any)
+      .select('rate')
+      .eq('tenant_id', tenantId)
+      .eq('service_code', serviceCode)
+      .is('class_code', null)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (generalRate) {
+      return { rate: generalRate.rate, hasError: false };
+    }
+
+    // No rate found
+    return {
+      rate: 0,
+      hasError: true,
+      errorMessage: `No rate found in Price List for service: ${serviceCode}`,
+    };
+  } catch (error) {
+    console.error('[getRateFromPriceList] Error:', error);
+    return {
+      rate: 0,
+      hasError: true,
+      errorMessage: 'Error looking up rate from Price List',
+    };
+  }
+}
 
 // ============================================
 // TYPES
@@ -339,14 +391,14 @@ export function useOutboundShipments(filters?: {
 
       if (shipmentError) throw shipmentError;
 
-      // Get shipment items
+      // Get shipment items with class_code for billing
       const { data: shipmentItems } = await (supabase
         .from('shipment_items') as any)
         .select(`
           id,
           item_id,
           expected_quantity,
-          items:item_id(id, item_code, item_type_id, sidemark_id, account_id)
+          items:item_id(id, item_code, item_type_id, sidemark_id, account_id, class:classes(code))
         `)
         .eq('shipment_id', params.shipment_id);
 
@@ -418,7 +470,7 @@ export function useOutboundShipments(filters?: {
     }
   };
 
-  // Helper to create billing events
+  // Helper to create billing events using Price List rates
   const createOutboundBillingEvents = async (shipmentId: string, shipmentItems: any[]) => {
     if (!profile?.tenant_id || !profile?.id) return;
 
@@ -432,12 +484,15 @@ export function useOutboundShipments(filters?: {
         const accountId = item.account_id;
         if (!accountId) continue;
 
-        // Get will call rate
-        const rateResult = await getServiceRate({
-          accountId,
-          serviceType: 'will_call',
-          itemTypeId: item.item_type_id,
-        });
+        // Get item's class code for rate lookup
+        const classCode = item.class?.code || null;
+
+        // Get will call rate from Price List
+        const rateResult = await getRateFromPriceList(
+          profile.tenant_id,
+          'Will_Call',
+          classCode
+        );
 
         const quantity = si.expected_quantity || 1;
         const unitRate = rateResult.rate;
@@ -450,8 +505,8 @@ export function useOutboundShipments(filters?: {
           class_id: item.item_type_id || null,
           item_id: item.id,
           shipment_id: shipmentId,
-          event_type: 'outbound_shipment',
-          charge_type: 'will_call',
+          event_type: 'will_call',
+          charge_type: 'Will_Call',
           description: `Will Call: ${item.item_code}`,
           quantity,
           unit_rate: unitRate,
@@ -459,8 +514,9 @@ export function useOutboundShipments(filters?: {
           status: 'unbilled',
           occurred_at: new Date().toISOString(),
           metadata: {
-            rate_source: rateResult.source,
-            needs_review: rateResult.needsReview,
+            class_code: classCode,
+            has_rate_error: rateResult.hasError,
+            rate_error_message: rateResult.errorMessage,
           },
           created_by: profile.id,
         });
