@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { queueBillingEventAlert } from '@/lib/alertQueue';
 
 export interface ServiceEvent {
   id: string;
@@ -119,6 +120,7 @@ export function useServiceEvents() {
   const getServiceRate = useCallback((serviceCode: string, classCode?: string | null): {
     rate: number;
     serviceName: string;
+    alertRule: string;
     hasError: boolean;
     errorMessage: string | null;
   } => {
@@ -131,6 +133,7 @@ export function useServiceEvents() {
         return {
           rate: classSpecific.rate,
           serviceName: classSpecific.service_name,
+          alertRule: classSpecific.alert_rule || 'none',
           hasError: false,
           errorMessage: null,
         };
@@ -148,6 +151,7 @@ export function useServiceEvents() {
         return {
           rate: general.rate,
           serviceName: general.service_name,
+          alertRule: general.alert_rule || 'none',
           hasError: true,
           errorMessage: 'Item has no class assigned - using default rate',
         };
@@ -155,6 +159,7 @@ export function useServiceEvents() {
       return {
         rate: general.rate,
         serviceName: general.service_name,
+        alertRule: general.alert_rule || 'none',
         hasError: false,
         errorMessage: null,
       };
@@ -164,6 +169,7 @@ export function useServiceEvents() {
     return {
       rate: 0,
       serviceName: serviceCode,
+      alertRule: 'none',
       hasError: true,
       errorMessage: `Service not found: ${serviceCode}`,
     };
@@ -171,7 +177,7 @@ export function useServiceEvents() {
 
   // Create billing events for items with selected services
   const createBillingEvents = useCallback(async (
-    items: Array<{ id: string; item_code: string; class_code?: string | null; account_id?: string | null; sidemark_id?: string | null }>,
+    items: Array<{ id: string; item_code: string; class_code?: string | null; account_id?: string | null; sidemark_id?: string | null; account_name?: string }>,
     serviceCodes: string[]
   ): Promise<{ success: boolean; count: number; errors: number }> => {
     if (!profile?.tenant_id || !profile?.id) {
@@ -189,8 +195,9 @@ export function useServiceEvents() {
     for (const item of items) {
       for (const serviceCode of serviceCodes) {
         const rateInfo = getServiceRate(serviceCode, item.class_code);
+        const description = `${rateInfo.serviceName} - ${item.item_code}`;
 
-        const { error } = await (supabase
+        const { data: billingEvent, error } = await (supabase
           .from('billing_events') as any)
           .insert({
             tenant_id: profile.tenant_id,
@@ -199,20 +206,35 @@ export function useServiceEvents() {
             sidemark_id: item.sidemark_id,
             event_type: 'service_scan',
             charge_type: serviceCode,
-            description: `${rateInfo.serviceName} - ${item.item_code}`,
+            description,
             quantity: 1,
             unit_rate: rateInfo.rate,
             status: 'unbilled',
             created_by: profile.id,
             has_rate_error: rateInfo.hasError,
             rate_error_message: rateInfo.errorMessage,
-          });
+          })
+          .select('id')
+          .single();
 
         if (error) {
           console.error('[useServiceEvents] Failed to create billing event:', error);
           errorCount++;
         } else {
           successCount++;
+
+          // Queue alert if service has email_office alert rule
+          if (rateInfo.alertRule === 'email_office' && billingEvent?.id) {
+            await queueBillingEventAlert(
+              profile.tenant_id,
+              billingEvent.id,
+              rateInfo.serviceName,
+              item.item_code,
+              item.account_name || 'Unknown Account',
+              rateInfo.rate,
+              description
+            );
+          }
         }
       }
     }

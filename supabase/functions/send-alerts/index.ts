@@ -301,13 +301,53 @@ async function buildTemplateVariables(
 
       if (invoice) {
         variables.invoice_number = invoice.invoice_number || entityId;
-        variables.amount_due = invoice.total_amount 
-          ? `$${Number(invoice.total_amount).toFixed(2)}` 
+        variables.amount_due = invoice.total_amount
+          ? `$${Number(invoice.total_amount).toFixed(2)}`
           : '$0.00';
         variables.account_name = invoice.account?.account_name || 'N/A';
         variables.account_contact_name = invoice.account?.primary_contact_name || 'Customer';
         variables.account_contact_email = invoice.account?.primary_contact_email || '';
         variables.items_count = '0';
+      }
+    } else if (entityType === 'billing_event') {
+      const { data: billingEvent } = await supabase
+        .from('billing_events')
+        .select(`
+          *,
+          account:accounts(account_name, primary_contact_name),
+          item:items(item_code, description),
+          created_by_user:users!billing_events_created_by_fkey(first_name, last_name)
+        `)
+        .eq('id', entityId)
+        .single();
+
+      if (billingEvent) {
+        variables.service_name = billingEvent.charge_type || 'Service';
+        variables.service_code = billingEvent.charge_type || '';
+        variables.service_amount = billingEvent.total_amount
+          ? `$${Number(billingEvent.total_amount).toFixed(2)}`
+          : '$0.00';
+        variables.billing_description = billingEvent.description || '';
+        variables.account_name = billingEvent.account?.account_name || 'N/A';
+        variables.account_contact_name = billingEvent.account?.primary_contact_name || 'Customer';
+        variables.item_code = billingEvent.item?.item_code || 'N/A';
+        variables.item_id = billingEvent.item?.item_code || 'N/A';
+        variables.item_description = billingEvent.item?.description || 'N/A';
+        variables.items_count = '1';
+
+        if (billingEvent.created_by_user) {
+          const firstName = billingEvent.created_by_user.first_name || '';
+          const lastName = billingEvent.created_by_user.last_name || '';
+          variables.user_name = `${firstName} ${lastName}`.trim() || 'System';
+          variables.created_by_name = variables.user_name;
+        } else {
+          variables.user_name = 'System';
+          variables.created_by_name = 'System';
+        }
+
+        if (billingEvent.item_id) {
+          itemIds = [billingEvent.item_id];
+        }
       }
     }
   } catch (error) {

@@ -120,7 +120,7 @@ BEGIN
   (p_tenant_id, NULL, '45MA', 'Assembly 45m', 'Item', 45, 105, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
   (p_tenant_id, NULL, '60MA', 'Assembly 60m', 'Item', 60, 140, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
   (p_tenant_id, NULL, '75MA', 'Assembly 75m', 'Item', 75, 175, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
-  (p_tenant_id, NULL, '90MA', 'Assembly 90m', 'Item', 90, 210, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
+  (p_tenant_id, NULL, '90MA', 'Assembly 1.5hr', 'Item', 90, 210, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
   (p_tenant_id, NULL, '120MA', 'Assembly 120m', 'Item', 120, 245, true, false, true, 'Assembly', false, false, 'none', 'Task - Assign Rate'),
 
   -- Quote Required Assembly

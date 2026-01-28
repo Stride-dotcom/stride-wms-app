@@ -3,19 +3,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { createBillingEventsBatch, CreateBillingEventParams } from '@/lib/billing/createBillingEvent';
+import { queueBillingEventAlert } from '@/lib/alertQueue';
 
 // Helper to get rate from Price List (service_events table)
 async function getRateFromPriceList(
   tenantId: string,
   serviceCode: string,
   classCode: string | null
-): Promise<{ rate: number; hasError: boolean; errorMessage?: string }> {
+): Promise<{ rate: number; serviceName: string; alertRule: string; hasError: boolean; errorMessage?: string }> {
   try {
     // Try class-specific rate first
     if (classCode) {
       const { data: classRate } = await (supabase
         .from('service_events') as any)
-        .select('rate')
+        .select('rate, service_name, alert_rule')
         .eq('tenant_id', tenantId)
         .eq('service_code', serviceCode)
         .eq('class_code', classCode)
@@ -23,14 +24,19 @@ async function getRateFromPriceList(
         .maybeSingle();
 
       if (classRate) {
-        return { rate: classRate.rate, hasError: false };
+        return {
+          rate: classRate.rate,
+          serviceName: classRate.service_name || serviceCode,
+          alertRule: classRate.alert_rule || 'none',
+          hasError: false
+        };
       }
     }
 
     // Fall back to general rate (no class_code)
     const { data: generalRate } = await (supabase
       .from('service_events') as any)
-      .select('rate')
+      .select('rate, service_name, alert_rule')
       .eq('tenant_id', tenantId)
       .eq('service_code', serviceCode)
       .is('class_code', null)
@@ -38,12 +44,19 @@ async function getRateFromPriceList(
       .maybeSingle();
 
     if (generalRate) {
-      return { rate: generalRate.rate, hasError: false };
+      return {
+        rate: generalRate.rate,
+        serviceName: generalRate.service_name || serviceCode,
+        alertRule: generalRate.alert_rule || 'none',
+        hasError: false
+      };
     }
 
     // No rate found
     return {
       rate: 0,
+      serviceName: serviceCode,
+      alertRule: 'none',
       hasError: true,
       errorMessage: `No rate found in Price List for service: ${serviceCode}`,
     };
@@ -51,6 +64,8 @@ async function getRateFromPriceList(
     console.error('[getRateFromPriceList] Error:', error);
     return {
       rate: 0,
+      serviceName: serviceCode,
+      alertRule: 'none',
       hasError: true,
       errorMessage: 'Error looking up rate from Price List',
     };
@@ -476,6 +491,14 @@ export function useOutboundShipments(filters?: {
 
     try {
       const billingEvents: CreateBillingEventParams[] = [];
+      const alertsToQueue: Array<{
+        serviceName: string;
+        itemCode: string;
+        accountName: string;
+        amount: number;
+        description: string;
+        alertRule: string;
+      }> = [];
 
       for (const si of shipmentItems) {
         const item = si.items;
@@ -487,7 +510,7 @@ export function useOutboundShipments(filters?: {
         // Get item's class code for rate lookup
         const classCode = item.class?.code || null;
 
-        // Get will call rate from Price List
+        // Get will call rate from Price List (includes alert_rule)
         const rateResult = await getRateFromPriceList(
           profile.tenant_id,
           'Will_Call',
@@ -497,6 +520,7 @@ export function useOutboundShipments(filters?: {
         const quantity = si.expected_quantity || 1;
         const unitRate = rateResult.rate;
         const totalAmount = quantity * unitRate;
+        const description = `Will Call: ${item.item_code}`;
 
         billingEvents.push({
           tenant_id: profile.tenant_id,
@@ -507,7 +531,7 @@ export function useOutboundShipments(filters?: {
           shipment_id: shipmentId,
           event_type: 'will_call',
           charge_type: 'Will_Call',
-          description: `Will Call: ${item.item_code}`,
+          description,
           quantity,
           unit_rate: unitRate,
           total_amount: totalAmount,
@@ -520,10 +544,39 @@ export function useOutboundShipments(filters?: {
           },
           created_by: profile.id,
         });
+
+        // Track alerts to queue for services with email_office alert rule
+        if (rateResult.alertRule === 'email_office') {
+          alertsToQueue.push({
+            serviceName: rateResult.serviceName,
+            itemCode: item.item_code,
+            accountName: item.account?.account_name || 'Unknown Account',
+            amount: totalAmount,
+            description,
+            alertRule: rateResult.alertRule,
+          });
+        }
       }
 
       if (billingEvents.length > 0) {
-        await createBillingEventsBatch(billingEvents);
+        const results = await createBillingEventsBatch(billingEvents);
+
+        // Queue alerts for services with email_office alert rule
+        for (let i = 0; i < alertsToQueue.length && i < results.length; i++) {
+          const alertInfo = alertsToQueue[i];
+          const billingEvent = results[i];
+          if (billingEvent?.id) {
+            await queueBillingEventAlert(
+              profile.tenant_id,
+              billingEvent.id,
+              alertInfo.serviceName,
+              alertInfo.itemCode,
+              alertInfo.accountName,
+              alertInfo.amount,
+              alertInfo.description
+            );
+          }
+        }
       }
     } catch (error) {
       console.error('Error creating outbound billing events:', error);

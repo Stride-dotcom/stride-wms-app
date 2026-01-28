@@ -73,6 +73,8 @@ export const TRIGGER_EVENTS = [
   { value: 'item.received', label: 'Item Received' },
   { value: 'item.damaged', label: 'Item Damaged' },
   { value: 'item.location_changed', label: 'Item Location Changed' },
+  { value: 'item.flag_added', label: 'Item Flag Added' },
+  { value: 'billing_event.created', label: 'Billing Event Created' },
   { value: 'task.created', label: 'Task Created' },
   { value: 'task.assigned', label: 'Task Assigned' },
   { value: 'task.completed', label: 'Task Completed' },
@@ -141,7 +143,14 @@ export const COMMUNICATION_VARIABLES = [
   { key: 'amount_due', label: 'Amount Due', group: 'Releases', sample: '$150.00', description: 'Total amount due' },
   { key: 'payment_status', label: 'Payment Status', group: 'Releases', sample: 'Paid', description: 'Current payment status' },
   
+  // Billing/Services
+  { key: 'service_name', label: 'Service Name', group: 'Billing', sample: 'Assembly 15m', description: 'Name of the service' },
+  { key: 'service_code', label: 'Service Code', group: 'Billing', sample: '15MA', description: 'Code of the service' },
+  { key: 'service_amount', label: 'Service Amount', group: 'Billing', sample: '$35.00', description: 'Total amount charged' },
+  { key: 'billing_description', label: 'Billing Description', group: 'Billing', sample: 'Assembly 15m: ITM-001', description: 'Billing event description' },
+
   // General
+  { key: 'user_name', label: 'User Name', group: 'General', sample: 'Jane Doe', description: 'Name of the user who performed action' },
   { key: 'created_by_name', label: 'Created By', group: 'General', sample: 'Jane Doe', description: 'Name of person who triggered' },
   { key: 'created_at', label: 'Created At', group: 'General', sample: '2024-01-15 10:30:00', description: 'Timestamp when created' },
 ];
