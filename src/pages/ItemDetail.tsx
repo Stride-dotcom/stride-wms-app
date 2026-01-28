@@ -24,7 +24,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { isValidUuid } from '@/lib/utils';
+import { isValidUuid, cn } from '@/lib/utils';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { ItemFlagsSection } from '@/components/items/ItemFlagsSection';
 import { ItemNotesSection } from '@/components/items/ItemNotesSection';

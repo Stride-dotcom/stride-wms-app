@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useMessages, Message, MessageRecipient, InAppNotification, SendMessageParams } from '@/hooks/useMessages';
 import { useDepartments } from '@/hooks/useDepartments';
-import { useUsers, type User } from '@/hooks/useUsers';
+import { useUsers } from '@/hooks/useUsers';
 import { usePresence } from '@/hooks/usePresence';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,7 +45,7 @@ import {
   MailOpen,
   Trash2,
   Clock,
-  User,
+  User as UserIcon,
   Users,
   Building2,
   Loader2,
@@ -76,7 +76,7 @@ export default function Messages() {
   const { getUserStatus, onlineCount } = usePresence();
 
   // Get initials from user
-  const getInitials = (user: User) => {
+  const getInitials = (user: { first_name?: string | null; last_name?: string | null; email?: string | null }) => {
     if (user.first_name && user.last_name) {
       return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
     }
@@ -403,7 +403,7 @@ export default function Messages() {
                         <div>
                           <h2 className="text-xl font-semibold">{selectedMessage.message.subject}</h2>
                           <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                            <User className="h-4 w-4" />
+                            <UserIcon className="h-4 w-4" />
                             From: {selectedMessage.message.sender?.first_name} {selectedMessage.message.sender?.last_name}
                             <span className="text-muted-foreground">
                               ({selectedMessage.message.sender?.email})
@@ -627,7 +627,7 @@ export default function Messages() {
                     <SelectContent>
                       <SelectItem value="user">
                         <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
+                          <UserIcon className="h-4 w-4" />
                           Individual User
                         </div>
                       </SelectItem>
