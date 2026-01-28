@@ -183,47 +183,47 @@ export default function Stocktakes() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card className="bg-blue-500/10 border-blue-500/30">
+        <Card className="bg-card border border-border shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Draft</p>
-                <p className="text-2xl font-bold text-blue-400">{stats.draft}</p>
+                <p className="text-2xl font-bold text-blue-500 dark:text-blue-400">{stats.draft}</p>
               </div>
-              <FileEdit className="h-8 w-8 text-blue-400/50" />
+              <span className="text-3xl opacity-50">📄</span>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-yellow-500/10 border-yellow-500/30">
+        <Card className="bg-card border border-border shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Active</p>
-                <p className="text-2xl font-bold text-yellow-400">{stats.active}</p>
+                <p className="text-2xl font-bold text-yellow-500 dark:text-yellow-400">{stats.active}</p>
               </div>
-              <Play className="h-8 w-8 text-yellow-400/50" />
+              <span className="text-3xl opacity-50">📋</span>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-green-500/10 border-green-500/30">
+        <Card className="bg-card border border-border shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Closed</p>
-                <p className="text-2xl font-bold text-green-400">{stats.closed}</p>
+                <p className="text-2xl font-bold text-green-500 dark:text-green-400">{stats.closed}</p>
               </div>
-              <CheckCircle className="h-8 w-8 text-green-400/50" />
+              <span className="text-3xl opacity-50">✅</span>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-red-500/10 border-red-500/30">
+        <Card className="bg-card border border-border shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">With Variance</p>
-                <p className="text-2xl font-bold text-red-400">{stats.withVariance}</p>
+                <p className="text-2xl font-bold text-red-500 dark:text-red-400">{stats.withVariance}</p>
               </div>
-              <AlertTriangle className="h-8 w-8 text-red-400/50" />
+              <span className="text-3xl opacity-50">⚠️</span>
             </div>
           </CardContent>
         </Card>

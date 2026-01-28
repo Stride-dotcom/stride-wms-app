@@ -41,6 +41,24 @@ import {
   Check,
 } from 'lucide-react';
 
+// Status text classes for bold colored text without background
+const getStatusTextClass = (status: string) => {
+  switch (status) {
+    case 'pending':
+      return 'font-bold text-orange-500 dark:text-orange-400';
+    case 'in_progress':
+      return 'font-bold text-yellow-500 dark:text-yellow-400';
+    case 'completed':
+      return 'font-bold text-green-500 dark:text-green-400';
+    case 'unable_to_complete':
+      return 'font-bold text-red-500 dark:text-red-400';
+    case 'cancelled':
+      return 'font-bold text-gray-500 dark:text-gray-400';
+    default:
+      return '';
+  }
+};
+
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
   in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
@@ -313,10 +331,16 @@ export default function Tasks() {
             accentText="Queue"
             description="Manage inspections, assemblies, repairs, and other tasks"
           />
-          <Button onClick={() => handleCreate()} className="w-full sm:w-auto">
-            <span className="mr-2">➕</span>
-            Create Task
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate('/billing')}>
+              <span className="mr-2">💲</span>
+              Add Charge
+            </Button>
+            <Button onClick={() => handleCreate()} className="w-full sm:w-auto">
+              <span className="mr-2">➕</span>
+              Create Task
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -324,7 +348,7 @@ export default function Tasks() {
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilters(f => ({ ...f, status: 'pending' }))}>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="emoji-tile emoji-tile-lg bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                <div className="emoji-tile emoji-tile-lg bg-card border border-border shadow-sm rounded-lg">
                   🕒
                 </div>
                 <div>
@@ -338,7 +362,7 @@ export default function Tasks() {
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilters(f => ({ ...f, status: 'in_progress' }))}>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="emoji-tile emoji-tile-lg bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <div className="emoji-tile emoji-tile-lg bg-card border border-border shadow-sm rounded-lg">
                   🔄
                 </div>
                 <div>
@@ -352,7 +376,7 @@ export default function Tasks() {
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilters(f => ({ ...f, status: 'completed' }))}>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="emoji-tile emoji-tile-lg bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <div className="emoji-tile emoji-tile-lg bg-card border border-border shadow-sm rounded-lg">
                   ✅
                 </div>
                 <div>
@@ -366,7 +390,7 @@ export default function Tasks() {
           <Card className="cursor-pointer hover:shadow-md transition-shadow">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="emoji-tile emoji-tile-lg bg-red-100 dark:bg-red-900/30 rounded-lg">
+                <div className="emoji-tile emoji-tile-lg bg-card border border-border shadow-sm rounded-lg">
                   🚨
                 </div>
                 <div>
@@ -508,19 +532,19 @@ export default function Tasks() {
                         <Badge variant="outline">{task.task_type}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={statusColors[task.status] || ''}>
-                          {statusLabels[task.status] || task.status.replace('_', ' ')}
-                        </Badge>
+                        <span className={getStatusTextClass(task.status)}>
+                          {statusLabels[task.status]?.toUpperCase() || task.status.replace('_', ' ').toUpperCase()}
+                        </span>
                       </TableCell>
                       <TableCell>
                         {task.priority === 'urgent' ? (
-                          <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 gap-1">
-                            ⚠️ Urgent
-                          </Badge>
+                          <span className="font-bold text-red-500 dark:text-red-400">
+                            ⚠️ URGENT
+                          </span>
                         ) : (
-                          <Badge className="bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
+                          <span className="text-muted-foreground">
                             Normal
-                          </Badge>
+                          </span>
                         )}
                       </TableCell>
                       <TableCell>

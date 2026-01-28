@@ -26,6 +26,60 @@ export function AIClientBot() {
   const { profile } = useAuth();
   const { toast } = useToast();
 
+  // Dragging state
+  const [position, setPosition] = useState({ x: 24, y: 24 }); // bottom-right default
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null);
+
+  const handleDragStart = (e: React.TouchEvent | React.MouseEvent) => {
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    dragRef.current = {
+      startX: clientX,
+      startY: clientY,
+      startPosX: position.x,
+      startPosY: position.y,
+    };
+    setIsDragging(true);
+  };
+
+  const handleDragMove = useCallback((e: TouchEvent | MouseEvent) => {
+    if (!isDragging || !dragRef.current) return;
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    const deltaX = dragRef.current.startX - clientX;
+    const deltaY = dragRef.current.startY - clientY;
+
+    setPosition({
+      x: Math.max(8, Math.min(window.innerWidth - 48, dragRef.current.startPosX + deltaX)),
+      y: Math.max(8, Math.min(window.innerHeight - 48, dragRef.current.startPosY + deltaY)),
+    });
+  }, [isDragging]);
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+    dragRef.current = null;
+  }, []);
+
+  // Add global event listeners for drag
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleDragMove);
+      window.addEventListener('mouseup', handleDragEnd);
+      window.addEventListener('touchmove', handleDragMove);
+      window.addEventListener('touchend', handleDragEnd);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleDragMove);
+      window.removeEventListener('mouseup', handleDragEnd);
+      window.removeEventListener('touchmove', handleDragMove);
+      window.removeEventListener('touchend', handleDragEnd);
+    };
+  }, [isDragging, handleDragMove, handleDragEnd]);
+
   const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/client-chat`;
 
   useEffect(() => {
@@ -215,13 +269,21 @@ export function AIClientBot() {
 
   if (!isOpen) {
     return (
-      <Button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
-        size="icon"
+      <button
+        onClick={() => !isDragging && setIsOpen(true)}
+        onMouseDown={handleDragStart}
+        onTouchStart={handleDragStart}
+        className={`fixed h-10 w-10 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center z-50 transition-shadow duration-200 ${
+          isDragging ? 'shadow-2xl scale-110 cursor-grabbing' : 'hover:shadow-xl cursor-grab'
+        }`}
+        style={{
+          right: position.x,
+          bottom: position.y,
+          transition: isDragging ? 'none' : 'box-shadow 0.2s, transform 0.2s',
+        }}
       >
-        <MessageCircle className="h-6 w-6" />
-      </Button>
+        🤖
+      </button>
     );
   }
 

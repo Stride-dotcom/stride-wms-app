@@ -157,7 +157,7 @@ export default function Shipments() {
       description: 'Expected & receiving inbound shipments',
       count: counts.incoming,
       emoji: '📦',
-      bgColor: 'bg-amber-100 dark:bg-amber-900/30',
+      bgColor: 'bg-card border border-border shadow-sm',
       href: '/shipments/incoming',
     },
     {
@@ -165,7 +165,7 @@ export default function Shipments() {
       description: 'Will Call & Disposal releases in progress',
       count: counts.outbound,
       emoji: '🚚',
-      bgColor: 'bg-orange-100 dark:bg-orange-900/30',
+      bgColor: 'bg-card border border-border shadow-sm',
       href: '/shipments/outbound',
     },
     {
@@ -173,7 +173,7 @@ export default function Shipments() {
       description: 'Last 5 shipments fully received',
       count: counts.recentReceived,
       emoji: '✅',
-      bgColor: 'bg-green-100 dark:bg-green-900/30',
+      bgColor: 'bg-card border border-border shadow-sm',
       href: '/shipments/received',
       recentItems: recentReceived,
     },
@@ -182,7 +182,7 @@ export default function Shipments() {
       description: 'Last 5 completed releases',
       count: counts.recentReleased,
       emoji: '🕒',
-      bgColor: 'bg-purple-100 dark:bg-purple-900/30',
+      bgColor: 'bg-card border border-border shadow-sm',
       href: '/shipments/released',
       recentItems: recentReleased,
     },
@@ -208,6 +208,10 @@ export default function Shipments() {
             description="Manage incoming and outbound shipments"
           />
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate('/billing')}>
+              <span className="mr-2">💲</span>
+              Add Charge
+            </Button>
             <Button variant="secondary" onClick={() => navigate('/shipments/return/new')}>
               <span className="mr-2">➕</span>
               Create Return

@@ -1,7 +1,8 @@
-import { ReactNode, useState, useEffect, useMemo } from 'react';
+import { ReactNode, useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -103,13 +104,13 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
           'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
           isActive
             ? 'bg-primary text-white'
-            : 'text-white/70 hover:text-white hover:bg-white/10',
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10',
           sidebarCollapsed && 'lg:justify-center lg:px-2'
         )}
       >
         <div className={cn(
           "nav-emoji-tile",
-          isActive && "bg-white/20"
+          isActive ? "bg-white/20" : "bg-gray-100 dark:bg-white/10"
         )}>
           {item.emoji}
         </div>
@@ -123,10 +124,10 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
         <button
           {...attributes}
           {...listeners}
-          className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-white/10 transition-opacity cursor-grab active:cursor-grabbing hidden lg:block"
+          className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-100 dark:hover:bg-white/10 transition-opacity cursor-grab active:cursor-grabbing hidden lg:block"
           title="Drag to reorder"
         >
-          <GripVertical className="h-4 w-4 text-white/40" />
+          <GripVertical className="h-4 w-4 text-gray-400 dark:text-white/40" />
         </button>
       )}
     </div>
@@ -135,11 +136,7 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    // Check localStorage for saved preference
-    const saved = localStorage.getItem('sidebar-collapsed');
-    return saved === 'true';
-  });
+  const { sidebarCollapsed, setSidebarCollapsed } = useSidebar();
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('stride-theme');
@@ -152,6 +149,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [tenantLogo, setTenantLogo] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string>('Stride WMS');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const lastScrollY = useRef(0);
   const { profile, signOut } = useAuth();
   const { hasRole, isAdmin } = usePermissions();
   const location = useLocation();
@@ -166,6 +165,26 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
     localStorage.setItem('stride-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
+
+  // Auto-hide header on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      if (currentScrollY > lastScrollY.current && currentScrollY > 60) {
+        // Scrolling down - hide header
+        setHeaderVisible(false);
+      } else {
+        // Scrolling up - show header
+        setHeaderVisible(true);
+      }
+
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Fetch unread notification/message count
   useEffect(() => {
@@ -202,11 +221,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     })
   );
 
-  // Save sidebar collapsed preference
+  // Toggle sidebar collapsed state (localStorage handled by context)
   const toggleSidebarCollapsed = () => {
-    const newValue = !sidebarCollapsed;
-    setSidebarCollapsed(newValue);
-    localStorage.setItem('sidebar-collapsed', String(newValue));
+    setSidebarCollapsed(!sidebarCollapsed);
   };
 
   // Load nav order from localStorage per user
@@ -323,19 +340,22 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         />
       )}
 
-      {/* Sidebar - Glossy Dark Surface */}
+      {/* Sidebar */}
       <aside
         className={cn(
-          'fixed top-0 left-0 z-50 h-full border-r border-white/5 transform transition-all duration-300 ease-bounce lg:translate-x-0',
-          'bg-gradient-to-b from-slate-800 to-slate-950',
-          'shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),inset_0_-1px_0_0_rgba(0,0,0,0.2)]',
+          'fixed top-0 left-0 z-50 h-full border-r transform transition-all duration-300 ease-bounce lg:translate-x-0 flex flex-col',
+          // Light mode: white background
+          'bg-white border-gray-200',
+          // Dark mode: keep dark gradient
+          'dark:bg-gradient-to-b dark:from-slate-800 dark:via-slate-900 dark:to-slate-950 dark:border-slate-700',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
           sidebarCollapsed ? 'lg:w-16' : 'lg:w-64',
           'w-64' // Mobile always full width
         )}
       >
+        {/* Fixed Header */}
         <div className={cn(
-          "flex h-16 items-center border-b border-white/10",
+          "flex-shrink-0 flex h-16 items-center border-b border-gray-200 dark:border-slate-700",
           sidebarCollapsed ? "lg:justify-center lg:px-2 px-4" : "justify-between px-4"
         )}>
           <Link to="/" className="flex items-center gap-3">
@@ -346,27 +366,28 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 className="h-8 w-8 object-contain rounded"
               />
             ) : (
-              <div className="nav-emoji-tile bg-white/10">
+              <div className="nav-emoji-tile bg-gray-100 dark:bg-white/10">
                 📦
               </div>
             )}
             <span className={cn(
-              "font-bold text-white transition-opacity duration-200",
+              "font-bold text-gray-900 dark:text-white transition-opacity duration-200",
               sidebarCollapsed ? "lg:hidden" : ""
             )}>{tenantName}</span>
           </Link>
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden text-white"
+            className="lg:hidden text-gray-700 dark:text-white"
             onClick={() => setSidebarOpen(false)}
           >
             <X className="h-5 w-5" />
           </Button>
         </div>
 
+        {/* Scrollable Nav */}
         <nav className={cn(
-          "p-4 space-y-1 relative",
+          "flex-1 overflow-y-auto p-3 space-y-1",
           sidebarCollapsed && "lg:p-2"
         )}>
           <DndContext
@@ -391,75 +412,65 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </DndContext>
         </nav>
 
-        {/* Collapse toggle button - only visible on desktop */}
+        {/* Fixed Footer - User controls */}
         <div className={cn(
-          "absolute bottom-4 hidden lg:flex",
-          sidebarCollapsed ? "left-0 right-0 justify-center" : "left-4 right-4"
+          "flex-shrink-0 border-t border-gray-200 dark:border-slate-700 p-3 space-y-2",
+          sidebarCollapsed && "lg:p-2"
         )}>
-          <button
-            onClick={toggleSidebarCollapsed}
-            className={cn(
-              "flex items-center gap-2 rounded-xl px-3 py-2 text-white/60 hover:bg-white/10 hover:text-white transition-colors",
-              sidebarCollapsed ? "justify-center" : ""
-            )}
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <span>{sidebarCollapsed ? '▶️' : '◀️'}</span>
-            {!sidebarCollapsed && <span className="text-sm">Collapse</span>}
-          </button>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <div className={cn(
-        "flex flex-col flex-1 min-h-0 transition-all duration-300",
-        sidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
-      )}>
-        {/* Header */}
-        <header className="sticky top-0 z-30 shrink-0 bg-card border-b flex items-center justify-between px-4 lg:px-6 pt-safe h-[calc(4rem+env(safe-area-inset-top,0px))]">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-
-          <div className="flex-1" />
-
-          {/* Theme Toggle */}
+          {/* Theme toggle */}
           <button
             onClick={() => setIsDark(!isDark)}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-muted hover:bg-muted/80 transition-colors mr-2"
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
+              "text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10",
+              sidebarCollapsed && "lg:justify-center lg:px-2"
+            )}
             title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           >
-            {isDark ? '☀️' : '🌙'}
+            <span className="text-lg">{isDark ? '☀️' : '🌙'}</span>
+            {!sidebarCollapsed && <span className="lg:block hidden">Theme</span>}
           </button>
 
-          {/* Notification Bell */}
+          {/* Notifications */}
           <button
             onClick={() => navigate('/messages')}
-            className="relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted transition-colors mr-2"
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors relative",
+              "text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10",
+              sidebarCollapsed && "lg:justify-center lg:px-2"
+            )}
             title="Messages & Notifications"
           >
-            🔔
+            <span className="text-lg">🔔</span>
+            {!sidebarCollapsed && <span className="lg:block hidden">Notifications</span>}
             {unreadCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
+              <Badge className="absolute top-1 right-1 h-5 min-w-[20px] px-1 text-[10px] bg-primary text-white">
                 {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
+              </Badge>
             )}
           </button>
 
+          {/* User Avatar/Profile */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+              <button
+                className={cn(
+                  "w-full flex items-center gap-3 p-2 rounded-xl transition-colors",
+                  "hover:bg-gray-100 dark:hover:bg-slate-800",
+                  sidebarCollapsed && "lg:justify-center"
+                )}
+              >
                 <Avatar className="h-9 w-9">
-                  <AvatarFallback className="bg-primary text-primary-foreground">
+                  <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
                     {getInitials()}
                   </AvatarFallback>
                 </Avatar>
-              </Button>
+                {!sidebarCollapsed && (
+                  <span className="text-sm font-medium text-gray-900 dark:text-white lg:block hidden">
+                    {profile?.first_name} {profile?.last_name}
+                  </span>
+                )}
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
@@ -479,6 +490,43 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Collapse button */}
+          <button
+            onClick={toggleSidebarCollapsed}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hidden lg:flex",
+              "text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10",
+              sidebarCollapsed && "lg:justify-center lg:px-2"
+            )}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <span>{sidebarCollapsed ? '▶️' : '◀️'}</span>
+            {!sidebarCollapsed && <span>Collapse</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <div className={cn(
+        "flex flex-col flex-1 min-h-0 transition-all duration-300",
+        sidebarCollapsed ? "lg:pl-16" : "lg:pl-64"
+      )}>
+        {/* Header - Auto-hides on scroll */}
+        <header className={cn(
+          "sticky top-0 z-30 shrink-0 bg-card border-b flex items-center px-4 lg:px-6 pt-safe h-[calc(4rem+env(safe-area-inset-top,0px))] transition-transform duration-300",
+          !headerVisible && "-translate-y-full"
+        )}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+
+          <div className="flex-1" />
         </header>
 
         {/* Page content - scrollable */}
