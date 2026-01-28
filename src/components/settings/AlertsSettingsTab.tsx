@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -45,6 +45,16 @@ export function AlertsSettingsTab() {
   const handleBack = () => {
     setSelectedAlert(null);
   };
+
+  // Sync selectedAlert with updated alerts from the hook
+  useEffect(() => {
+    if (selectedAlert) {
+      const updatedAlert = alerts.find(a => a.id === selectedAlert.id);
+      if (updatedAlert && JSON.stringify(updatedAlert) !== JSON.stringify(selectedAlert)) {
+        setSelectedAlert(updatedAlert);
+      }
+    }
+  }, [alerts, selectedAlert]);
 
   // Get templates for the selected alert
   const emailTemplate = selectedAlert 
