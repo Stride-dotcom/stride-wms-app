@@ -45,6 +45,7 @@ import {
   DollarSign, Save, ScanLine,
 } from 'lucide-react';
 import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
+import { DocumentUploadButton } from '@/components/scanner/DocumentUploadButton';
 import { DocumentList } from '@/components/scanner/DocumentList';
 
 interface TaskDetail {
@@ -708,21 +709,31 @@ export default function TaskDetailPage() {
 
             {/* Documents */}
             <Card>
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-base flex items-center gap-2">
                   <ScanLine className="h-4 w-4" />
                   Documents
                 </CardTitle>
+                <div className="flex gap-2">
+                  <ScanDocumentButton
+                    context={{ type: 'general', label: `Task: ${task.title}` }}
+                    onSuccess={() => {
+                      // Trigger a refetch
+                    }}
+                    label="Scan"
+                    size="sm"
+                    directToCamera
+                  />
+                  <DocumentUploadButton
+                    context={{ type: 'general', label: `Task: ${task.title}` }}
+                    onSuccess={() => {
+                      // Trigger a refetch
+                    }}
+                    size="sm"
+                  />
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <ScanDocumentButton
-                  context={{ type: 'general', label: `Task: ${task.title}` }}
-                  onSuccess={() => {
-                    // Trigger a refetch or show toast
-                  }}
-                  label="Scan Document"
-                  variant="outline"
-                />
+              <CardContent>
                 <DocumentList
                   contextType="general"
                   contextId={task.id}

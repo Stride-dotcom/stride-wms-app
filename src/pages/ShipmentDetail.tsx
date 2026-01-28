@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle, Printer, Pencil, Plus, ClipboardList, DollarSign, CalendarIcon } from 'lucide-react';
+import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle, Printer, Pencil, Plus, ClipboardList, DollarSign, CalendarIcon, ScanLine } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
@@ -22,7 +22,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
-import { DocumentCapture } from '@/components/scanner';
+import { ScanDocumentButton, DocumentUploadButton, DocumentList } from '@/components/scanner';
 import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
 import { PhotoUploadButton } from '@/components/common/PhotoUploadButton';
 import { PhotoGrid } from '@/components/common/PhotoGrid';
@@ -847,16 +847,34 @@ export default function ShipmentDetail() {
 
       {/* Documents Section */}
       <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Documents</CardTitle>
-          <CardDescription>Scan or upload receiving paperwork, BOLs, and delivery receipts</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <div>
+            <CardTitle>Documents</CardTitle>
+            <CardDescription>Scan or upload receiving paperwork, BOLs, and delivery receipts</CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <ScanDocumentButton
+              context={{ type: 'shipment', shipmentId: shipment.id }}
+              onSuccess={() => {
+                // Documents will auto-refresh via the DocumentList
+              }}
+              label="Scan"
+              size="sm"
+              directToCamera
+            />
+            <DocumentUploadButton
+              context={{ type: 'shipment', shipmentId: shipment.id }}
+              onSuccess={() => {
+                // Documents will auto-refresh via the DocumentList
+              }}
+              size="sm"
+            />
+          </div>
         </CardHeader>
         <CardContent>
-          <DocumentCapture
-            context={{ type: 'shipment', shipmentId: shipment.id }}
-            maxDocuments={10}
-            ocrEnabled={true}
-            onDocumentAdded={(docId) => console.log('Document added:', docId)}
+          <DocumentList
+            contextType="shipment"
+            contextId={shipment.id}
           />
         </CardContent>
       </Card>
