@@ -93,15 +93,50 @@ export function AddServiceDialog({
     uses_class_pricing: false,
   });
 
+  // Track if user has manually edited the service code
+  const [codeManuallyEdited, setCodeManuallyEdited] = useState(false);
+
   const [classRates, setClassRates] = useState<ClassRate[]>([]);
+
+  // Generate service code from service name
+  const generateServiceCode = (name: string): string => {
+    return name
+      .toUpperCase()
+      .replace(/[^A-Z0-9\s]/g, '') // Remove special characters except spaces
+      .replace(/\s+/g, '_') // Replace spaces with underscores
+      .replace(/^_+|_+$/g, '') // Trim leading/trailing underscores
+      .substring(0, 20); // Limit length
+  };
+
+  // Handle service name change - auto-generate code if not manually edited
+  const handleServiceNameChange = (name: string) => {
+    const updates: Partial<typeof formData> = { service_name: name };
+
+    // Auto-generate service code if user hasn't manually edited it
+    if (!codeManuallyEdited) {
+      updates.service_code = generateServiceCode(name);
+    }
+
+    setFormData({ ...formData, ...updates });
+  };
+
+  // Handle service code change - mark as manually edited
+  const handleServiceCodeChange = (code: string) => {
+    setCodeManuallyEdited(true);
+    setFormData({
+      ...formData,
+      service_code: code.toUpperCase().replace(/\s+/g, '_'),
+    });
+  };
 
   // Initialize form when duplicating or opening
   useEffect(() => {
     if (open) {
       if (duplicateFrom) {
+        const copyName = `${duplicateFrom.service_name} (Copy)`;
         setFormData({
-          service_code: '', // Always blank for duplicate
-          service_name: `${duplicateFrom.service_name} (Copy)`,
+          service_code: generateServiceCode(copyName), // Auto-generate from name
+          service_name: copyName,
           billing_unit: duplicateFrom.billing_unit,
           rate: duplicateFrom.rate,
           service_time_minutes: duplicateFrom.service_time_minutes,
@@ -114,6 +149,7 @@ export function AddServiceDialog({
           billing_trigger: duplicateFrom.billing_trigger,
           uses_class_pricing: duplicateFrom.uses_class_pricing,
         });
+        setCodeManuallyEdited(false); // Reset manual edit flag
         // If duplicating a class-based service, initialize class rates
         if (duplicateFrom.uses_class_pricing) {
           setClassRates(
@@ -143,6 +179,7 @@ export function AddServiceDialog({
           billing_trigger: 'SCAN EVENT',
           uses_class_pricing: false,
         });
+        setCodeManuallyEdited(false); // Reset manual edit flag
         setClassRates([]);
       }
     }
@@ -353,33 +390,29 @@ export function AddServiceDialog({
           {/* Basic Info */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="service_code">Service Code *</Label>
-              <Input
-                id="service_code"
-                value={formData.service_code}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    service_code: e.target.value.toUpperCase().replace(/\s+/g, '_'),
-                  })
-                }
-                placeholder="e.g., STORAGE_DAILY"
-              />
-              <p className="text-xs text-muted-foreground">
-                Unique identifier (uppercase, underscores allowed)
-              </p>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="service_name">Service Name *</Label>
               <Input
                 id="service_name"
                 value={formData.service_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, service_name: e.target.value })
-                }
+                onChange={(e) => handleServiceNameChange(e.target.value)}
                 placeholder="e.g., Daily Storage"
               />
+              <p className="text-xs text-muted-foreground">
+                Display name for the service
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="service_code">Service Code *</Label>
+              <Input
+                id="service_code"
+                value={formData.service_code}
+                onChange={(e) => handleServiceCodeChange(e.target.value)}
+                placeholder="e.g., STORAGE_DAILY"
+              />
+              <p className="text-xs text-muted-foreground">
+                {codeManuallyEdited ? 'Manually set' : 'Auto-generated from name'}
+              </p>
             </div>
           </div>
 
