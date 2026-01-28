@@ -34,6 +34,8 @@ import { useTenantSettings } from '@/hooks/useTenantSettings';
 import { OrganizationLogoUpload } from './OrganizationLogoUpload';
 import { DueDateRulesSettingsTab } from './DueDateRulesSettingsTab';
 import { PreferencesContent } from './preferences/PreferencesContent';
+import { LegalLinksSection } from './preferences/LegalLinksSection';
+import { EmailDomainSection } from './preferences/EmailDomainSection';
 
 const organizationSchema = z.object({
   // Company Info
@@ -319,6 +321,9 @@ export function OrganizationSettingsTab() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Legal Links Section */}
+              <LegalLinksSection standalone />
             </TabsContent>
 
             {/* Contact Tab */}
@@ -384,6 +389,9 @@ export function OrganizationSettingsTab() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Email Domain Configuration */}
+              <EmailDomainSection />
             </TabsContent>
 
             {/* Address Tab */}

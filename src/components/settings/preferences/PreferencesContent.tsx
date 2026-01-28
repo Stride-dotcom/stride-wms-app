@@ -6,13 +6,11 @@ import { useTenantPreferences, TenantPreferencesUpdate } from '@/hooks/useTenant
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { StorageInspectionSection } from './StorageInspectionSection';
 import { FlagSettingsSection } from './FlagSettingsSection';
-import { BillingRatesSection } from './BillingRatesSection';
-import { LegalLinksSection } from './LegalLinksSection';
 import { DefaultNotesSection } from './DefaultNotesSection';
 import { ComingSoonSection } from './ComingSoonSection';
-import { EmailDomainSection } from './EmailDomainSection';
 import { ClaimSettingsSection } from './ClaimSettingsSection';
 import { DisplaySettingsSection } from './DisplaySettingsSection';
+import { AccountTypesSection } from './AccountTypesSection';
 import { SortableCard } from './SortableCard';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -38,7 +36,7 @@ const DEFAULT_CARD_ORDER = [
   'storage-inspection',
   'flag-settings',
   'display-settings',
-  'billing-rates',
+  'account-types',
   'claim-settings',
   'custom-field-labels',
   'cancellation-fees',
@@ -46,8 +44,6 @@ const DEFAULT_CARD_ORDER = [
   'scheduling',
   'break-settings',
   'default-notes',
-  'legal-links',
-  'email-domain',
 ];
 
 export function PreferencesContent() {
@@ -188,22 +184,9 @@ export function PreferencesContent() {
         />
       </SortableCard>
     ),
-    'billing-rates': (
-      <SortableCard id="billing-rates" key="billing-rates">
-        <BillingRatesSection
-          dailyStorageRatePerCuft={formData.daily_storage_rate_per_cuft}
-          onDailyStorageRateChange={(value) => setFormData(prev => ({ ...prev, daily_storage_rate_per_cuft: value }))}
-          salesTaxRate={formData.sales_tax_rate}
-          onSalesTaxRateChange={(value) => setFormData(prev => ({ ...prev, sales_tax_rate: value }))}
-          willCallMinimum={formData.will_call_minimum}
-          onWillCallMinimumChange={(value) => setFormData(prev => ({ ...prev, will_call_minimum: value }))}
-          receivingChargeMinimum={formData.receiving_charge_minimum}
-          onReceivingChargeMinimumChange={(value) => setFormData(prev => ({ ...prev, receiving_charge_minimum: value }))}
-          shipmentMinimum={preferences?.shipment_minimum}
-          hourlyRate={preferences?.hourly_rate}
-          baseRateIncludesPieces={preferences?.base_rate_includes_pieces}
-          additionalPieceRate={preferences?.additional_piece_rate}
-        />
+    'account-types': (
+      <SortableCard id="account-types" key="account-types">
+        <AccountTypesSection />
       </SortableCard>
     ),
     'claim-settings': (
@@ -314,21 +297,6 @@ export function PreferencesContent() {
           defaultShipmentNotes={formData.default_shipment_notes}
           onDefaultShipmentNotesChange={(value) => setFormData(prev => ({ ...prev, default_shipment_notes: value }))}
         />
-      </SortableCard>
-    ),
-    'legal-links': (
-      <SortableCard id="legal-links" key="legal-links">
-        <LegalLinksSection
-          termsOfServiceUrl={formData.terms_of_service_url}
-          privacyPolicyUrl={formData.privacy_policy_url}
-          onTermsOfServiceUrlChange={(value) => setFormData(prev => ({ ...prev, terms_of_service_url: value }))}
-          onPrivacyPolicyUrlChange={(value) => setFormData(prev => ({ ...prev, privacy_policy_url: value }))}
-        />
-      </SortableCard>
-    ),
-    'email-domain': (
-      <SortableCard id="email-domain" key="email-domain">
-        <EmailDomainSection />
       </SortableCard>
     ),
   };

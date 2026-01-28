@@ -40,6 +40,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ClientPortalSection } from './ClientPortalSection';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
 import { AccountPricingTab } from './AccountPricingTab';
+import { useAccountTypes } from '@/components/settings/preferences/AccountTypesSection';
 
 const accountSchema = z.object({
   // Basic
@@ -134,14 +135,7 @@ interface Account {
   account_name: string;
 }
 
-const ACCOUNT_TYPES = [
-  'Retail',
-  'Retail w/NO Warehousing',
-  'Wholesale',
-  'Designer',
-  'Manufacturer',
-  'Other',
-];
+// Account types are now managed via useAccountTypes hook from preferences
 
 const BILLING_TYPES = [
   { value: 'automatic', label: 'Automatic' },
@@ -323,6 +317,7 @@ export function AccountDialog({
   const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
   const { toast } = useToast();
   const { profile } = useAuth();
+  const { types: accountTypes } = useAccountTypes();
 
   const form = useForm<AccountFormData>({
     resolver: zodResolver(accountSchema),
@@ -629,7 +624,7 @@ export function AccountDialog({
                         name="account_name"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Account Name *</FormLabel>
+                            <FormLabel>Client Account Name *</FormLabel>
                             <FormControl>
                               <Input placeholder="Alchemy Collections" {...field} />
                             </FormControl>
@@ -677,7 +672,7 @@ export function AccountDialog({
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {ACCOUNT_TYPES.map((type) => (
+                                {accountTypes.map((type) => (
                                   <SelectItem key={type} value={type}>
                                     {type}
                                   </SelectItem>

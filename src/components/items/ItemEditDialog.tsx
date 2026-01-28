@@ -338,6 +338,7 @@ export function ItemEditDialog({
                           value={field.value}
                           onChange={field.onChange}
                           placeholder="Select sidemark..."
+                          allowCreate={true}
                         />
                       </FormControl>
                       <FormMessage />

@@ -40,6 +40,7 @@ import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ClaimCreateDialog } from '@/components/claims/ClaimCreateDialog';
 import { InventoryFiltersSheet, InventoryFilters } from '@/components/inventory/InventoryFiltersSheet';
 import { CreateManifestFromItemsDialog } from '@/components/inventory/CreateManifestFromItemsDialog';
+import { AddItemDialog } from '@/components/inventory/AddItemDialog';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations } from '@/hooks/useLocations';
 import { ItemLabelData } from '@/lib/labelGenerator';
@@ -109,6 +110,7 @@ export default function Inventory() {
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
   const [claimDialogOpen, setClaimDialogOpen] = useState(false);
   const [manifestDialogOpen, setManifestDialogOpen] = useState(false);
+  const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { warehouses } = useWarehouses();
@@ -285,7 +287,7 @@ export default function Inventory() {
               </>
             )}
             <Button variant="secondary" onClick={handleImportClick}><Upload className="mr-2 h-4 w-4" />Import</Button>
-            <Button><Package className="mr-2 h-4 w-4" />Add Item</Button>
+            <Button onClick={() => setAddItemDialogOpen(true)}><Package className="mr-2 h-4 w-4" />Add Item</Button>
           </div>
         </div>
 
@@ -370,6 +372,11 @@ export default function Inventory() {
         onOpenChange={(open) => { setManifestDialogOpen(open); if (!open) setSelectedItems(new Set()); }}
         selectedItems={getSelectedItemsData()}
         onSuccess={() => { setSelectedItems(new Set()); fetchItems(); }}
+      />
+      <AddItemDialog
+        open={addItemDialogOpen}
+        onOpenChange={setAddItemDialogOpen}
+        onSuccess={fetchItems}
       />
       <AlertDialog open={validationDialogOpen} onOpenChange={setValidationDialogOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-destructive" />Cannot Proceed</AlertDialogTitle><AlertDialogDescription>{validationMessage}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogAction onClick={() => setValidationDialogOpen(false)}>OK</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </DashboardLayout>
