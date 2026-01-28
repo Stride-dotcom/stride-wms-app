@@ -80,7 +80,6 @@ export function QuickReleaseDialog({
       const shipmentData = {
         tenant_id: profile.tenant_id,
         shipment_type: 'outbound',
-        direction: 'outbound',
         release_type: 'manual_release',
         status: 'completed',
         warehouse_id: selectedItems[0]?.warehouse_id || null,
