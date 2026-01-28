@@ -106,6 +106,24 @@ const statusLabels: Record<string, string> = {
   unable_to_complete: 'Unable to Complete',
 };
 
+// Status text classes for bold colored text
+const getStatusTextClass = (status: string) => {
+  switch (status) {
+    case 'pending':
+      return 'font-bold text-orange-500 dark:text-orange-400';
+    case 'in_progress':
+      return 'font-bold text-yellow-500 dark:text-yellow-400';
+    case 'completed':
+      return 'font-bold text-green-500 dark:text-green-400';
+    case 'unable_to_complete':
+      return 'font-bold text-red-500 dark:text-red-400';
+    case 'cancelled':
+      return 'font-bold text-gray-500 dark:text-gray-400';
+    default:
+      return '';
+  }
+};
+
 export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -458,16 +476,15 @@ export default function TaskDetailPage() {
             </Button>
             <div>
               <h1 className="text-2xl font-semibold">{task.title}</h1>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-3 mt-1">
                 <Badge variant="outline">{task.task_type}</Badge>
-                <Badge className={statusColors[task.status] || ''}>
-                  {statusLabels[task.status] || task.status}
-                </Badge>
-                {task.priority === 'urgent' && (
-                  <Badge className="bg-red-100 text-red-800 gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    Urgent
-                  </Badge>
+                <span className={getStatusTextClass(task.status)}>
+                  {(statusLabels[task.status] || task.status).toUpperCase()}
+                </span>
+                {task.priority === 'urgent' ? (
+                  <span className="font-bold text-red-500 dark:text-red-400">URGENT</span>
+                ) : (
+                  <span className="font-bold text-blue-500 dark:text-blue-400">NORMAL</span>
                 )}
               </div>
             </div>
