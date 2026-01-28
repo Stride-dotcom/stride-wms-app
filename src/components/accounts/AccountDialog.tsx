@@ -101,6 +101,11 @@ const accountSchema = z.object({
   hide_internal_fields_from_clients: z.boolean().optional(),
   default_receiving_status: z.string().optional(),
   default_receiving_location_id: z.string().optional(),
+  // Default notes
+  default_item_notes: z.string().optional(),
+  highlight_item_notes: z.boolean().optional(),
+  default_shipment_notes: z.string().optional(),
+  highlight_shipment_notes: z.boolean().optional(),
   // Communications
   use_tenant_email_defaults: z.boolean().optional(),
   use_tenant_communication_defaults: z.boolean().optional(),
@@ -278,6 +283,10 @@ const getDefaultValues = (): AccountFormData => ({
   hide_internal_fields_from_clients: false,
   default_receiving_status: 'available',
   default_receiving_location_id: '',
+  default_item_notes: '',
+  highlight_item_notes: false,
+  default_shipment_notes: '',
+  highlight_shipment_notes: false,
   use_tenant_email_defaults: true,
   use_tenant_communication_defaults: true,
   disable_email_communications: false,
@@ -426,6 +435,10 @@ export function AccountDialog({
         hide_internal_fields_from_clients: data.hide_internal_fields_from_clients || false,
         default_receiving_status: data.default_receiving_status || 'available',
         default_receiving_location_id: data.default_receiving_location_id || '',
+        default_item_notes: data.default_item_notes || '',
+        highlight_item_notes: data.highlight_item_notes || false,
+        default_shipment_notes: data.default_shipment_notes || '',
+        highlight_shipment_notes: data.highlight_shipment_notes || false,
         use_tenant_email_defaults: data.use_tenant_email_defaults ?? true,
         use_tenant_communication_defaults: data.use_tenant_communication_defaults ?? true,
         disable_email_communications: data.disable_email_communications || false,
@@ -512,6 +525,10 @@ export function AccountDialog({
         hide_internal_fields_from_clients: data.hide_internal_fields_from_clients || false,
         default_receiving_status: data.default_receiving_status || null,
         default_receiving_location_id: data.default_receiving_location_id || null,
+        default_item_notes: data.default_item_notes || null,
+        highlight_item_notes: data.highlight_item_notes || false,
+        default_shipment_notes: data.default_shipment_notes || null,
+        highlight_shipment_notes: data.highlight_shipment_notes || false,
         use_tenant_email_defaults: data.use_tenant_email_defaults ?? true,
         use_tenant_communication_defaults: data.use_tenant_communication_defaults ?? true,
         disable_email_communications: data.disable_email_communications || false,
@@ -1424,6 +1441,84 @@ export function AccountDialog({
                               </SelectContent>
                             </Select>
                             <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Default Notes Section */}
+                    <div className="space-y-4 pt-4 border-t">
+                      <h4 className="text-sm font-medium">Default Notes</h4>
+                      <p className="text-sm text-muted-foreground">
+                        These notes will automatically appear on items and shipments for this account.
+                      </p>
+
+                      <FormField
+                        control={form.control}
+                        name="default_item_notes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Default Item Notes</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Enter notes that will be displayed on all items for this account..."
+                                className="resize-none"
+                                rows={3}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              These notes will be displayed on the item details page for all items belonging to this account.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="highlight_item_notes"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <FormLabel className="font-normal">Highlight item notes on details page</FormLabel>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="default_shipment_notes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Default Shipment Notes</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Enter notes that will pre-fill the shipment notes field..."
+                                className="resize-none"
+                                rows={3}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              These notes will pre-fill the notes field when creating shipments (editable by user).
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="highlight_shipment_notes"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <FormLabel className="font-normal">Highlight shipment notes for visibility</FormLabel>
+                            <FormControl>
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
                           </FormItem>
                         )}
                       />

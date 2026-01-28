@@ -579,8 +579,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </header>
 
-        {/* Page content - scrollable */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-safe animate-fade-in">{children}</main>
+        {/* Page content - scrollable with extra bottom padding for full scrolling */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-24 animate-fade-in">{children}</main>
       </div>
     </div>
   );
