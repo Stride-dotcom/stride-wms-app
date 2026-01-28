@@ -13,6 +13,7 @@ import {
   Minimize2,
   Send,
   Loader2,
+  Mail,
 } from 'lucide-react';
 import {
   CommunicationTemplate,
@@ -41,7 +42,11 @@ interface EmailHtmlTabProps {
   template: CommunicationTemplate | null;
   designElements: CommunicationDesignElement[];
   brandSettings: CommunicationBrandSettings | null;
+  alertId?: string;
+  alertName?: string;
+  triggerEvent?: string;
   onUpdateTemplate: (id: string, updates: Partial<CommunicationTemplate>) => Promise<boolean>;
+  onCreateTemplate?: (alertId: string, channel: 'email' | 'sms', alertName: string, triggerEvent?: string) => Promise<CommunicationTemplate | null>;
   onGetVersions: (templateId: string) => Promise<CommunicationTemplateVersion[]>;
   onRevertToVersion: (templateId: string, version: CommunicationTemplateVersion) => Promise<boolean>;
 }
@@ -50,7 +55,11 @@ export function EmailHtmlTab({
   template,
   designElements,
   brandSettings,
+  alertId,
+  alertName,
+  triggerEvent,
   onUpdateTemplate,
+  onCreateTemplate,
   onGetVersions,
   onRevertToVersion,
 }: EmailHtmlTabProps) {
@@ -113,10 +122,25 @@ export function EmailHtmlTab({
     setBody(html);
   };
 
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleCreateTemplate = async () => {
+    if (!alertId || !alertName || !onCreateTemplate) return;
+    setIsCreating(true);
+    await onCreateTemplate(alertId, 'email', alertName, triggerEvent);
+    setIsCreating(false);
+  };
+
   if (!template) {
     return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        No email template available. Enable email channel for this alert.
+      <div className="flex flex-col items-center justify-center h-64 gap-4 text-muted-foreground">
+        <Mail className="h-12 w-12 opacity-50" />
+        <p>No email template available for this alert.</p>
+        {onCreateTemplate && alertId && alertName && (
+          <Button onClick={handleCreateTemplate} disabled={isCreating}>
+            {isCreating ? 'Creating...' : 'Create Email Template'}
+          </Button>
+        )}
       </div>
     );
   }

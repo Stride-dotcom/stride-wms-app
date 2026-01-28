@@ -371,9 +371,52 @@ export function useCommunications() {
     }
   };
 
+  const createTemplate = async (alertId: string, channel: 'email' | 'sms', alertName: string, triggerEvent?: string) => {
+    if (!profile?.tenant_id) return null;
+
+    try {
+      const isEmail = channel === 'email';
+      const defaultBody = isEmail
+        ? getDefaultEmailTemplate(alertName, triggerEvent)
+        : getDefaultSmsTemplate(alertName, triggerEvent);
+
+      const { data, error } = await supabase
+        .from('communication_templates')
+        .insert({
+          tenant_id: profile.tenant_id,
+          alert_id: alertId,
+          channel,
+          subject_template: isEmail ? `{{tenant_name}}: ${alertName}` : null,
+          body_template: defaultBody,
+          body_format: isEmail ? 'html' : 'text',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await fetchTemplates();
+
+      toast({
+        title: 'Template Created',
+        description: `${channel.toUpperCase()} template has been created.`,
+      });
+
+      return data as CommunicationTemplate;
+    } catch (error: any) {
+      console.error('Error creating template:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to create template',
+      });
+      return null;
+    }
+  };
+
   const updateTemplate = async (id: string, updates: Partial<CommunicationTemplate>) => {
     if (!profile?.id) return false;
-    
+
     try {
       // Get current template for versioning
       const currentTemplate = templates.find(t => t.id === id);
@@ -483,6 +526,7 @@ export function useCommunications() {
     createAlert,
     updateAlert,
     deleteAlert,
+    createTemplate,
     updateTemplate,
     getTemplateVersions,
     revertToVersion,

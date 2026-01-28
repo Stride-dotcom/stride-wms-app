@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { AvatarWithPresence } from '@/components/ui/online-indicator';
+import { AvatarWithPresence, OnlineIndicator } from '@/components/ui/online-indicator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
@@ -72,7 +73,7 @@ export default function Messages() {
 
   const { departments } = useDepartments();
   const { users, roles } = useUsers();
-  const { getUserStatus } = usePresence();
+  const { getUserStatus, onlineCount } = usePresence();
 
   // Get initials from user
   const getInitials = (user: User) => {
@@ -323,7 +324,7 @@ export default function Messages() {
 
           {/* Inbox Tab */}
           <TabsContent value="inbox" className="mt-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
               {/* Message List */}
               <Card className="lg:col-span-1">
                 <CardHeader className="pb-2">
@@ -357,6 +358,13 @@ export default function Messages() {
                               <div className="flex items-center gap-2">
                                 {!msg.is_read && (
                                   <span className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
+                                )}
+                                {msg.message?.sender_id && (
+                                  <OnlineIndicator
+                                    status={getUserStatus(msg.message.sender_id)}
+                                    size="sm"
+                                    showPulse={false}
+                                  />
                                 )}
                                 <span className="font-medium text-sm truncate">
                                   {msg.message?.sender?.first_name} {msg.message?.sender?.last_name}
@@ -457,6 +465,64 @@ export default function Messages() {
                       </div>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* Online Users Sidebar */}
+              <Card className="hidden lg:block">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    </span>
+                    Online Now ({onlineCount})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <ScrollArea className="h-[60vh]">
+                    <div className="p-3 space-y-1">
+                      {users.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No users found
+                        </p>
+                      ) : (
+                        users.map((user) => {
+                          const status = getUserStatus(user.id);
+                          return (
+                            <div
+                              key={user.id}
+                              className={cn(
+                                "flex items-center gap-3 p-2 rounded-lg transition-colors",
+                                status === 'online' && "bg-green-50 dark:bg-green-950/30"
+                              )}
+                            >
+                              <AvatarWithPresence
+                                status={status}
+                                indicatorSize="sm"
+                              >
+                                <Avatar className="h-8 w-8">
+                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                    {getInitials(user)}
+                                  </AvatarFallback>
+                                </Avatar>
+                              </AvatarWithPresence>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">
+                                  {user.first_name || user.last_name
+                                    ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                                    : 'Unnamed'}
+                                </p>
+                                <p className="text-xs text-muted-foreground capitalize">
+                                  {status}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </ScrollArea>
                 </CardContent>
               </Card>
             </div>
