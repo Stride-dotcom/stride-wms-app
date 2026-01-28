@@ -170,6 +170,7 @@ export function ServiceEventsPricingTab() {
   const [auditDialogOpen, setAuditDialogOpen] = useState(false);
   const [selectedServiceCode, setSelectedServiceCode] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string; deleteAll: boolean } | null>(null);
+  const [resetConfirm, setResetConfirm] = useState(false);
   const [duplicateService, setDuplicateService] = useState<ServiceEvent | null>(null);
   const [seeding, setSeeding] = useState(false);
 
@@ -456,29 +457,29 @@ export function ServiceEventsPricingTab() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {filteredServiceEvents.length === 0 && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    onClick={handleSeedPricing}
-                    disabled={seeding}
-                  >
-                    {seeding ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="mr-2 h-4 w-4" />
-                    )}
-                    Load Default Pricing
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Load standard price list with all default services and rates</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  onClick={() => filteredServiceEvents.length === 0 ? handleSeedPricing() : setResetConfirm(true)}
+                  disabled={seeding}
+                >
+                  {seeding ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                  )}
+                  {filteredServiceEvents.length === 0 ? 'Load Default Pricing' : 'Reset to Defaults'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{filteredServiceEvents.length === 0
+                  ? 'Load standard price list with all default services and rates'
+                  : 'Clear all services and reload default pricing'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button onClick={() => { setDuplicateService(null); setAddDialogOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" />
             Add New Service
@@ -736,7 +737,7 @@ export function ServiceEventsPricingTab() {
                     {seeding ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
-                      <Download className="mr-2 h-4 w-4" />
+                      <RotateCcw className="mr-2 h-4 w-4" />
                     )}
                     Load Default Pricing
                   </Button>
@@ -806,6 +807,31 @@ export function ServiceEventsPricingTab() {
               onClick={handleDeleteConfirm}
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset to Defaults Confirmation */}
+      <AlertDialog open={resetConfirm} onOpenChange={setResetConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset to Default Pricing?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will <strong>delete all existing services</strong> and reload the standard default pricing.
+              Any custom services or rate changes will be lost. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                setResetConfirm(false);
+                handleSeedPricing();
+              }}
+            >
+              Reset to Defaults
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
