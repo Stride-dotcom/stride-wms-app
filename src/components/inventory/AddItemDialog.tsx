@@ -18,10 +18,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { ItemTypeCombobox } from '@/components/items/ItemTypeCombobox';
-import { AccountSelect } from '@/components/ui/account-select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { SidemarkSelect } from '@/components/ui/sidemark-select';
 import { supabase } from '@/integrations/supabase/client';
 import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
+import { useClasses } from '@/hooks/useClasses';
+import { useAccounts } from '@/hooks/useAccounts';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Plus } from 'lucide-react';
@@ -39,6 +41,8 @@ export function AddItemDialog({
 }: AddItemDialogProps) {
   const { toast } = useToast();
   const { profile } = useAuth();
+  const { classes } = useClasses();
+  const { accounts } = useAccounts();
   const [saving, setSaving] = useState(false);
 
   // Form state
@@ -81,7 +85,7 @@ export function AddItemDialog({
       const random = Math.random().toString(36).substring(2, 5).toUpperCase();
       const itemCode = `${prefix}-${timestamp}-${random}`;
 
-      const { error } = await supabase.from('items').insert({
+      const { error } = await (supabase as any).from('items').insert({
         tenant_id: profile.tenant_id,
         item_code: itemCode,
         description: description || null,
@@ -150,6 +154,7 @@ export function AddItemDialog({
             <div className="space-y-2">
               <Label htmlFor="item_type">Item Type</Label>
               <ItemTypeCombobox
+                itemTypes={(classes || []).map(c => ({ id: c.id, name: c.name }))}
                 value={itemTypeId}
                 onChange={setItemTypeId}
               />
@@ -179,7 +184,8 @@ export function AddItemDialog({
 
           <div className="space-y-2">
             <Label htmlFor="account">Account</Label>
-            <AccountSelect
+            <SearchableSelect
+              options={(accounts || []).map(a => ({ value: a.id, label: a.account_name }))}
               value={accountId}
               onChange={setAccountId}
               placeholder="Select account..."
