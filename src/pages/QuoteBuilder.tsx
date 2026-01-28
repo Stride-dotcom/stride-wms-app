@@ -315,15 +315,16 @@ export default function QuoteBuilder() {
             id: ss.service_id,
             quote_id: quote.id,
             service_id: ss.service_id,
-            class_id: null,
-            rate_amount: serviceTotal?.rate || 0,
-            quantity: serviceTotal?.quantity || 1,
+            is_selected: ss.is_selected,
+            hours_input: ss.hours_input,
+            computed_billable_qty: serviceTotal?.billable_qty || 1,
+            applied_rate_amount: serviceTotal?.rate || 0,
             line_total: serviceTotal?.total || 0,
-            is_taxable: service?.is_taxable_default || false,
             created_at: quote.created_at,
+            updated_at: quote.updated_at,
             quote_service: service,
           };
-        }),
+        }) as any,
     });
 
     downloadQuotePdf(pdfData);
@@ -359,15 +360,16 @@ export default function QuoteBuilder() {
             id: ss.service_id,
             quote_id: quote.id,
             service_id: ss.service_id,
-            class_id: null,
-            rate_amount: serviceTotal?.rate || 0,
-            quantity: serviceTotal?.quantity || 1,
+            is_selected: ss.is_selected,
+            hours_input: ss.hours_input,
+            computed_billable_qty: serviceTotal?.billable_qty || 1,
+            applied_rate_amount: serviceTotal?.rate || 0,
             line_total: serviceTotal?.total || 0,
-            is_taxable: service?.is_taxable_default || false,
             created_at: quote.created_at,
+            updated_at: quote.updated_at,
             quote_service: service,
           };
-        }),
+        }) as any,
     });
 
     exportQuoteToExcel(pdfData);
@@ -403,7 +405,7 @@ export default function QuoteBuilder() {
   const openSendDialog = () => {
     if (quote?.account) {
       setSendEmail(quote.account.billing_email || '');
-      setSendName(quote.account.billing_contact_name || '');
+      setSendName('');
     }
     setShowSendDialog(true);
   };

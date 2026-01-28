@@ -1613,6 +1613,82 @@ export type Database = {
           },
         ]
       }
+      chat_conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          tenant_id: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          tenant_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          tenant_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_conversations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string | null
+          created_by: string | null
+          entity_map: Json | null
+          id: string
+          role: string
+          tool_calls: Json | null
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string | null
+          created_by?: string | null
+          entity_map?: Json | null
+          id?: string
+          role: string
+          tool_calls?: Json | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          entity_map?: Json | null
+          id?: string
+          role?: string
+          tool_calls?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claim_acceptance_log: {
         Row: {
           action: string
@@ -3004,6 +3080,66 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "custom_fields_definitions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_reports: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string | null
+          data_source: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          is_shared: boolean
+          is_template: boolean
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          data_source: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          is_shared?: boolean
+          is_template?: boolean
+          name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          data_source?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          is_shared?: boolean
+          is_template?: boolean
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_reports_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_reports_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -5591,6 +5727,56 @@ export type Database = {
           },
         ]
       }
+      outbound_types: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          is_system: boolean
+          name: string
+          sort_order: number | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name: string
+          sort_order?: number | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name?: string
+          sort_order?: number | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbound_types_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pricing_flags: {
         Row: {
           adds_minutes: number | null
@@ -6516,6 +6702,67 @@ export type Database = {
           },
         ]
       }
+      report_executions: {
+        Row: {
+          data_source: string
+          executed_at: string
+          executed_by: string | null
+          execution_time_ms: number | null
+          filters_applied: Json | null
+          id: string
+          report_id: string | null
+          report_name: string
+          row_count: number | null
+          tenant_id: string
+        }
+        Insert: {
+          data_source: string
+          executed_at?: string
+          executed_by?: string | null
+          execution_time_ms?: number | null
+          filters_applied?: Json | null
+          id?: string
+          report_id?: string | null
+          report_name: string
+          row_count?: number | null
+          tenant_id: string
+        }
+        Update: {
+          data_source?: string
+          executed_at?: string
+          executed_by?: string | null
+          execution_time_ms?: number | null
+          filters_applied?: Json | null
+          id?: string
+          report_id?: string | null
+          report_name?: string
+          row_count?: number | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_executions_executed_by_fkey"
+            columns: ["executed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_executions_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "custom_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_executions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           allowed: boolean
@@ -6948,10 +7195,13 @@ export type Database = {
           created_at: string
           created_by: string | null
           deleted_at: string | null
+          driver_name: string | null
           expected_arrival_date: string | null
           id: string
+          liability_accepted: boolean | null
           metadata: Json | null
           notes: string | null
+          outbound_type_id: string | null
           payment_amount: number | null
           payment_method: string | null
           payment_reference: string | null
@@ -6968,6 +7218,7 @@ export type Database = {
           return_type: string | null
           shipment_number: string
           shipment_type: string
+          shipped_at: string | null
           sidemark: string | null
           sidemark_id: string | null
           signature_data: string | null
@@ -6988,10 +7239,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
+          driver_name?: string | null
           expected_arrival_date?: string | null
           id?: string
+          liability_accepted?: boolean | null
           metadata?: Json | null
           notes?: string | null
+          outbound_type_id?: string | null
           payment_amount?: number | null
           payment_method?: string | null
           payment_reference?: string | null
@@ -7008,6 +7262,7 @@ export type Database = {
           return_type?: string | null
           shipment_number: string
           shipment_type?: string
+          shipped_at?: string | null
           sidemark?: string | null
           sidemark_id?: string | null
           signature_data?: string | null
@@ -7028,10 +7283,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
+          driver_name?: string | null
           expected_arrival_date?: string | null
           id?: string
+          liability_accepted?: boolean | null
           metadata?: Json | null
           notes?: string | null
+          outbound_type_id?: string | null
           payment_amount?: number | null
           payment_method?: string | null
           payment_reference?: string | null
@@ -7048,6 +7306,7 @@ export type Database = {
           return_type?: string | null
           shipment_number?: string
           shipment_type?: string
+          shipped_at?: string | null
           sidemark?: string | null
           sidemark_id?: string | null
           signature_data?: string | null
@@ -7079,6 +7338,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_outbound_type_id_fkey"
+            columns: ["outbound_type_id"]
+            isOneToOne: false
+            referencedRelation: "outbound_types"
             referencedColumns: ["id"]
           },
           {
@@ -10334,6 +10600,10 @@ export type Database = {
         Returns: undefined
       }
       seed_default_classes: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
+      seed_default_outbound_types: {
         Args: { p_tenant_id: string }
         Returns: undefined
       }

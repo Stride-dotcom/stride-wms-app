@@ -11,6 +11,9 @@ export interface ChatbotTool {
   handler: (params: any) => Promise<any>;
 }
 
+// Type-safe helper for tables with columns not yet in generated types
+const db = supabase as any;
+
 /**
  * Get all chatbot tools for entity lookup and listing
  */
@@ -133,7 +136,7 @@ async function lookupTask({ query }: { query: string }) {
       ? query.toUpperCase()
       : `TSK-${query.padStart(5, '0')}`;
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('tasks')
       .select('id, task_number, title, status, assignee_name, due_date, priority, description')
       .eq('task_number', num)
@@ -158,7 +161,7 @@ async function lookupTask({ query }: { query: string }) {
   }
 
   // Search by keywords
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('tasks')
     .select('id, task_number, title, status, assignee_name, due_date')
     .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
@@ -170,7 +173,7 @@ async function lookupTask({ query }: { query: string }) {
 
   return {
     found: !!data?.length,
-    tasks: data?.map((t) => ({
+    tasks: data?.map((t: any) => ({
       number: t.task_number,
       title: t.title,
       status: t.status,
@@ -182,9 +185,9 @@ async function lookupTask({ query }: { query: string }) {
 
 async function lookupShipment({ query }: { query: string }) {
   if (/^SHP-\d{5}$/i.test(query)) {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('shipments')
-      .select('id, shipment_number, status, carrier, tracking_number, direction, eta, account_id')
+      .select('id, shipment_number, status, carrier, tracking_number, shipment_type, expected_arrival_date, account_id')
       .eq('shipment_number', query.toUpperCase())
       .single();
 
@@ -199,16 +202,16 @@ async function lookupShipment({ query }: { query: string }) {
         status: data.status,
         carrier: data.carrier,
         tracking: data.tracking_number,
-        direction: data.direction,
-        eta: data.eta,
+        direction: data.shipment_type,
+        eta: data.expected_arrival_date,
       },
     };
   }
 
   // Search by tracking number
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('shipments')
-    .select('id, shipment_number, status, carrier, tracking_number, direction')
+    .select('id, shipment_number, status, carrier, tracking_number, shipment_type')
     .or(`tracking_number.ilike.%${query}%`)
     .limit(5);
 
@@ -218,22 +221,22 @@ async function lookupShipment({ query }: { query: string }) {
 
   return {
     found: !!data?.length,
-    shipments: data?.map((s) => ({
+    shipments: data?.map((s: any) => ({
       number: s.shipment_number,
       status: s.status,
       carrier: s.carrier,
       tracking: s.tracking_number,
-      direction: s.direction,
+      direction: s.shipment_type,
     })) || [],
   };
 }
 
 async function lookupItem({ query }: { query: string }) {
   if (/^ITM-\d{5}$/i.test(query)) {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('items')
-      .select('id, item_number, sku, description, status, location_code, quantity')
-      .eq('item_number', query.toUpperCase())
+      .select('id, item_code, description, status, quantity')
+      .eq('item_code', query.toUpperCase())
       .single();
 
     if (error || !data) {
@@ -243,21 +246,19 @@ async function lookupItem({ query }: { query: string }) {
     return {
       found: true,
       item: {
-        number: data.item_number,
-        sku: data.sku,
+        number: data.item_code,
         name: data.description,
         quantity: data.quantity,
-        location: data.location_code,
         status: data.status,
       },
     };
   }
 
-  // Search by SKU or name
-  const { data, error } = await supabase
+  // Search by description
+  const { data, error } = await db
     .from('items')
-    .select('id, item_number, sku, description, status, location_code, quantity')
-    .or(`sku.ilike.%${query}%,description.ilike.%${query}%`)
+    .select('id, item_code, description, status, quantity')
+    .or(`description.ilike.%${query}%,item_code.ilike.%${query}%`)
     .limit(5);
 
   if (error) {
@@ -266,12 +267,10 @@ async function lookupItem({ query }: { query: string }) {
 
   return {
     found: !!data?.length,
-    items: data?.map((i) => ({
-      number: i.item_number,
-      sku: i.sku,
+    items: data?.map((i: any) => ({
+      number: i.item_code,
       name: i.description,
       quantity: i.quantity,
-      location: i.location_code,
       status: i.status,
     })) || [],
   };
@@ -279,7 +278,7 @@ async function lookupItem({ query }: { query: string }) {
 
 async function lookupQuote({ query }: { query: string }) {
   if (/^EST-\d{5}$/i.test(query)) {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('quotes')
       .select('id, quote_number, status, grand_total, expiration_date, account:accounts(account_name)')
       .eq('quote_number', query.toUpperCase())
@@ -294,7 +293,7 @@ async function lookupQuote({ query }: { query: string }) {
       quote: {
         number: data.quote_number,
         status: data.status,
-        account: (data.account as any)?.account_name,
+        account: data.account?.account_name,
         total: data.grand_total,
         expires: data.expiration_date,
       },
@@ -302,7 +301,7 @@ async function lookupQuote({ query }: { query: string }) {
   }
 
   // Search by account name
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('quotes')
     .select('id, quote_number, status, grand_total, account:accounts(account_name)')
     .limit(10);
@@ -311,16 +310,16 @@ async function lookupQuote({ query }: { query: string }) {
     return { found: false, message: 'Error searching quotes' };
   }
 
-  const filtered = data?.filter((q) =>
-    (q.account as any)?.account_name?.toLowerCase().includes(query.toLowerCase())
+  const filtered = data?.filter((q: any) =>
+    q.account?.account_name?.toLowerCase().includes(query.toLowerCase())
   ) || [];
 
   return {
     found: !!filtered.length,
-    quotes: filtered.slice(0, 5).map((q) => ({
+    quotes: filtered.slice(0, 5).map((q: any) => ({
       number: q.quote_number,
       status: q.status,
-      account: (q.account as any)?.account_name,
+      account: q.account?.account_name,
       total: q.grand_total,
     })),
   };
@@ -328,7 +327,7 @@ async function lookupQuote({ query }: { query: string }) {
 
 async function lookupRepairQuote({ query }: { query: string }) {
   if (/^RPQ-\d{5}$/i.test(query)) {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('repair_quotes')
       .select('id, quote_number, status, total_amount, account:accounts(account_name)')
       .eq('quote_number', query.toUpperCase())
@@ -343,14 +342,14 @@ async function lookupRepairQuote({ query }: { query: string }) {
       repair_quote: {
         number: data.quote_number,
         status: data.status,
-        account: (data.account as any)?.account_name,
+        account: data.account?.account_name,
         total: data.total_amount,
       },
     };
   }
 
   // Search by account name
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('repair_quotes')
     .select('id, quote_number, status, total_amount, account:accounts(account_name)')
     .limit(10);
@@ -359,16 +358,16 @@ async function lookupRepairQuote({ query }: { query: string }) {
     return { found: false, message: 'Error searching repair quotes' };
   }
 
-  const filtered = data?.filter((q) =>
-    (q.account as any)?.account_name?.toLowerCase().includes(query.toLowerCase())
+  const filtered = data?.filter((q: any) =>
+    q.account?.account_name?.toLowerCase().includes(query.toLowerCase())
   ) || [];
 
   return {
     found: !!filtered.length,
-    repair_quotes: filtered.slice(0, 5).map((q) => ({
+    repair_quotes: filtered.slice(0, 5).map((q: any) => ({
       number: q.quote_number,
       status: q.status,
-      account: (q.account as any)?.account_name,
+      account: q.account?.account_name,
       total: q.total_amount,
     })),
   };
@@ -381,7 +380,7 @@ async function listTasks(filters: {
   priority?: string;
   limit?: number;
 }) {
-  let query = supabase
+  let query = db
     .from('tasks')
     .select('id, task_number, title, status, assignee_name, due_date, priority');
 
@@ -408,7 +407,7 @@ async function listTasks(filters: {
 
   return {
     count: data?.length || 0,
-    tasks: data?.map((t) => ({
+    tasks: data?.map((t: any) => ({
       number: t.task_number,
       title: t.title,
       status: t.status,
@@ -426,23 +425,23 @@ async function listShipments(filters: {
   direction?: string;
   limit?: number;
 }) {
-  let query = supabase
+  let query = db
     .from('shipments')
-    .select('id, shipment_number, status, carrier, direction, eta, account:accounts(account_name)');
+    .select('id, shipment_number, status, carrier, shipment_type, expected_arrival_date, account:accounts(account_name)');
 
   if (filters.status) {
     query = query.eq('status', filters.status);
   }
   if (filters.direction) {
-    query = query.eq('direction', filters.direction);
+    query = query.eq('shipment_type', filters.direction);
   }
   if (filters.arriving_today) {
     const today = new Date().toISOString().split('T')[0];
-    query = query.eq('eta', today);
+    query = query.eq('expected_arrival_date', today);
   }
 
   const { data, error } = await query
-    .order('eta', { ascending: true })
+    .order('expected_arrival_date', { ascending: true })
     .limit(filters.limit || 10);
 
   if (error) {
@@ -451,20 +450,20 @@ async function listShipments(filters: {
 
   let results = data || [];
   if (filters.account) {
-    results = results.filter((s) =>
-      (s.account as any)?.account_name?.toLowerCase().includes(filters.account!.toLowerCase())
+    results = results.filter((s: any) =>
+      s.account?.account_name?.toLowerCase().includes(filters.account!.toLowerCase())
     );
   }
 
   return {
     count: results.length,
-    shipments: results.map((s) => ({
+    shipments: results.map((s: any) => ({
       number: s.shipment_number,
       status: s.status,
       carrier: s.carrier,
-      direction: s.direction,
-      account: (s.account as any)?.account_name,
-      eta: s.eta,
+      direction: s.shipment_type,
+      account: s.account?.account_name,
+      eta: s.expected_arrival_date,
     })),
   };
 }
@@ -475,7 +474,7 @@ async function listQuotes(filters: {
   expiring_within_days?: number;
   limit?: number;
 }) {
-  let query = supabase
+  let query = db
     .from('quotes')
     .select('id, quote_number, status, grand_total, expiration_date, account:accounts(account_name)');
 
@@ -501,17 +500,17 @@ async function listQuotes(filters: {
 
   let results = data || [];
   if (filters.account) {
-    results = results.filter((q) =>
-      (q.account as any)?.account_name?.toLowerCase().includes(filters.account!.toLowerCase())
+    results = results.filter((q: any) =>
+      q.account?.account_name?.toLowerCase().includes(filters.account!.toLowerCase())
     );
   }
 
   return {
     count: results.length,
-    quotes: results.map((q) => ({
+    quotes: results.map((q: any) => ({
       number: q.quote_number,
       status: q.status,
-      account: (q.account as any)?.account_name,
+      account: q.account?.account_name,
       total: q.grand_total,
       expires: q.expiration_date,
     })),

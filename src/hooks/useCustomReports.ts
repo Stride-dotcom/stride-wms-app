@@ -11,7 +11,6 @@ import {
   FilterDefinition,
   ReportData,
   ColumnSelection,
-  SortDefinition,
 } from '@/lib/reports/types';
 import { DATA_SOURCES } from '@/lib/reports/dataSources';
 
@@ -27,7 +26,7 @@ export function useCustomReports() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('custom_reports')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
@@ -35,7 +34,7 @@ export function useCustomReports() {
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
-      setReports((data as CustomReport[]) || []);
+      setReports((data || []) as CustomReport[]);
     } catch (e) {
       console.error('Error fetching reports:', e);
       toast({
@@ -59,14 +58,14 @@ export function useCustomReports() {
       if (!profile?.tenant_id || !profile?.id) return null;
 
       try {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('custom_reports')
           .insert({
             tenant_id: profile.tenant_id,
             name,
             description: description || null,
             data_source: dataSource,
-            config: config as unknown as Record<string, unknown>,
+            config: config,
             created_by: profile.id,
           })
           .select()
@@ -101,12 +100,9 @@ export function useCustomReports() {
       updates: Partial<Pick<CustomReport, 'name' | 'description' | 'config' | 'is_shared'>>
     ): Promise<boolean> => {
       try {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('custom_reports')
-          .update({
-            ...updates,
-            config: updates.config as unknown as Record<string, unknown>,
-          })
+          .update(updates)
           .eq('id', id);
 
         if (error) throw error;
@@ -135,7 +131,7 @@ export function useCustomReports() {
   const deleteReport = useCallback(
     async (id: string): Promise<boolean> => {
       try {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('custom_reports')
           .update({ deleted_at: new Date().toISOString() })
           .eq('id', id);
@@ -183,7 +179,7 @@ export function useCustomReports() {
         const selectFields = buildSelectFields(dataSource, visibleColumns);
 
         // Start query
-        let query = supabase
+        let query = (supabase as any)
           .from(source.tableName)
           .select(selectFields, { count: 'exact' })
           .eq('tenant_id', profile.tenant_id)
@@ -347,16 +343,16 @@ async function enrichWithJoinedData(
         }
       });
 
-      const { data: joinedData } = await supabase
+      const { data: joinedData } = await (supabase as any)
         .from(colDef.joinTable)
         .select(Array.from(neededColumns).join(', '))
         .in('id', ids);
 
-      if (joinedData) {
+      if (joinedData && Array.isArray(joinedData)) {
         if (!lookupMaps[colDef.joinTable]) {
           lookupMaps[colDef.joinTable] = {};
         }
-        joinedData.forEach((row: Record<string, unknown>) => {
+        (joinedData as Record<string, unknown>[]).forEach((row) => {
           lookupMaps[colDef.joinTable!][row.id as string] = row;
         });
       }
@@ -385,10 +381,10 @@ async function enrichWithJoinedData(
 
 // Helper: Apply filters to query
 function applyFilters(
-  query: ReturnType<typeof supabase.from>,
+  query: any,
   filters: FilterDefinition[],
-  source: typeof DATA_SOURCES[string]
-): ReturnType<typeof supabase.from> {
+  source: (typeof DATA_SOURCES)[string]
+): any {
   filters.forEach((filter) => {
     const colDef = source.columns.find((c) => c.id === filter.column);
     if (!colDef) return;
@@ -515,12 +511,12 @@ async function logExecution(
   executionTime: number
 ): Promise<void> {
   try {
-    await supabase.from('report_executions').insert({
+    await (supabase as any).from('report_executions').insert({
       tenant_id: tenantId,
       report_id: reportId,
       report_name: reportName,
       data_source: dataSource,
-      filters_applied: filters as unknown as Record<string, unknown>,
+      filters_applied: filters,
       row_count: rowCount,
       execution_time_ms: executionTime,
       executed_by: userId,
