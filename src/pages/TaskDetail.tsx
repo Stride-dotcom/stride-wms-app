@@ -87,6 +87,7 @@ interface TaskItemRow {
     item_code: string;
     description: string | null;
     vendor: string | null;
+    inspection_result: string | null;
     location?: { code: string } | null;
     account?: { account_name: string } | null;
     sidemark: string | null;
@@ -187,7 +188,7 @@ export default function TaskDetailPage() {
         .select(`
           id, item_id, quantity,
           item:items!task_items_item_id_fkey(
-            id, item_code, description, vendor, sidemark,
+            id, item_code, description, vendor, sidemark, inspection_result,
             location:locations(code),
             account:accounts(account_name)
           )
@@ -205,7 +206,7 @@ export default function TaskDetailPage() {
           const itemIds = fallbackData.map((ti: any) => ti.item_id);
           const { data: items } = await supabase
             .from('items')
-            .select('id, item_code, description, vendor, sidemark')
+            .select('id, item_code, description, vendor, sidemark, inspection_result')
             .in('id', itemIds);
 
           const itemMap = Object.fromEntries((items || []).map(i => [i.id, i]));
@@ -287,29 +288,27 @@ export default function TaskDetailPage() {
     }
   };
 
-  const handleInspectionResult = async (result: 'pass' | 'fail') => {
-    if (!id) return;
-    setActionLoading(true);
+  // Handle individual item inspection result
+  const handleItemInspectionResult = async (itemId: string, result: 'pass' | 'fail') => {
     try {
-      const { error } = await (supabase.from('tasks') as any)
+      const { error } = await (supabase.from('items') as any)
         .update({ inspection_result: result })
-        .eq('id', id);
+        .eq('id', itemId);
       if (error) throw error;
 
-      // Also update items if inspection result is set
-      if (taskItems.length > 0) {
-        const itemIds = taskItems.map(ti => ti.item_id);
-        await (supabase.from('items') as any)
-          .update({ inspection_result: result })
-          .in('id', itemIds);
-      }
+      // Update local state
+      setTaskItems(prev => prev.map(ti =>
+        ti.item_id === itemId
+          ? { ...ti, item: ti.item ? { ...ti.item, inspection_result: result } : ti.item }
+          : ti
+      ));
 
-      toast({ title: `Inspection ${result === 'pass' ? 'Passed' : 'Failed'}` });
-      fetchTask();
+      toast({ title: `Item ${result === 'pass' ? 'Passed' : 'Failed'}` });
+
+      // Refresh task items to get updated data
+      fetchTaskItems();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to save inspection result' });
-    } finally {
-      setActionLoading(false);
     }
   };
 
@@ -491,29 +490,6 @@ export default function TaskDetailPage() {
               </Button>
             </>
           )}
-          {/* Inspection Pass/Fail */}
-          {task.task_type === 'Inspection' && task.status === 'in_progress' && (
-            <>
-              <Button
-                variant="outline"
-                className="border-green-500 text-green-700 hover:bg-green-50"
-                onClick={() => handleInspectionResult('pass')}
-                disabled={actionLoading}
-              >
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Pass
-              </Button>
-              <Button
-                variant="outline"
-                className="border-red-500 text-red-700 hover:bg-red-50"
-                onClick={() => handleInspectionResult('fail')}
-                disabled={actionLoading}
-              >
-                <X className="mr-2 h-4 w-4" />
-                Fail
-              </Button>
-            </>
-          )}
           {/* Request Quote Button */}
           {canRequestQuote && (
             <Button
@@ -552,15 +528,23 @@ export default function TaskDetailPage() {
               </Card>
             )}
 
-            {/* Inspection Result Display */}
-            {task.task_type === 'Inspection' && task.inspection_result && (
+            {/* Inspection Summary */}
+            {task.task_type === 'Inspection' && taskItems.length > 0 && (
               <Card>
                 <CardContent className="pt-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">Inspection Result:</span>
-                    <Badge className={task.inspection_result === 'pass' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                      {task.inspection_result === 'pass' ? 'PASSED' : 'FAILED'}
-                    </Badge>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-medium">Inspection Summary:</span>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-green-100 text-green-800">
+                        {taskItems.filter(ti => ti.item?.inspection_result === 'pass').length} Passed
+                      </Badge>
+                      <Badge className="bg-red-100 text-red-800">
+                        {taskItems.filter(ti => ti.item?.inspection_result === 'fail').length} Failed
+                      </Badge>
+                      <Badge variant="outline">
+                        {taskItems.filter(ti => !ti.item?.inspection_result).length} Pending
+                      </Badge>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -584,26 +568,78 @@ export default function TaskDetailPage() {
                         <TableHead>Vendor</TableHead>
                         <TableHead>Description</TableHead>
                         <TableHead>Location</TableHead>
-                        <TableHead>Account</TableHead>
-                        <TableHead>Sidemark</TableHead>
+                        {task.task_type === 'Inspection' ? (
+                          <>
+                            <TableHead className="text-center">Pass</TableHead>
+                            <TableHead className="text-center">Fail</TableHead>
+                          </>
+                        ) : (
+                          <>
+                            <TableHead>Account</TableHead>
+                            <TableHead>Sidemark</TableHead>
+                          </>
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {taskItems.map((ti) => (
                         <TableRow
                           key={ti.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => ti.item?.id && navigate(`/inventory/${ti.item.id}`)}
+                          className={task.task_type !== 'Inspection' ? "cursor-pointer hover:bg-muted/50" : "hover:bg-muted/50"}
+                          onClick={() => task.task_type !== 'Inspection' && ti.item?.id && navigate(`/inventory/${ti.item.id}`)}
                         >
-                          <TableCell className="font-medium text-primary">
+                          <TableCell
+                            className="font-medium text-primary cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              ti.item?.id && navigate(`/inventory/${ti.item.id}`);
+                            }}
+                          >
                             {ti.item?.item_code || ti.item_id.slice(0, 8)}
                           </TableCell>
                           <TableCell>{ti.quantity || 1}</TableCell>
                           <TableCell>{ti.item?.vendor || '-'}</TableCell>
                           <TableCell className="max-w-[200px] truncate">{ti.item?.description || '-'}</TableCell>
                           <TableCell>{(ti.item as any)?.location?.code || '-'}</TableCell>
-                          <TableCell>{(ti.item as any)?.account?.account_name || '-'}</TableCell>
-                          <TableCell>{ti.item?.sidemark || '-'}</TableCell>
+                          {task.task_type === 'Inspection' ? (
+                            <>
+                              <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                                {ti.item?.inspection_result === 'pass' ? (
+                                  <Badge className="bg-green-100 text-green-800">PASSED</Badge>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-green-500 text-green-700 hover:bg-green-50 h-7 px-2"
+                                    onClick={() => ti.item_id && handleItemInspectionResult(ti.item_id, 'pass')}
+                                    disabled={task.status !== 'in_progress'}
+                                  >
+                                    <CheckCircle className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                                {ti.item?.inspection_result === 'fail' ? (
+                                  <Badge className="bg-red-100 text-red-800">FAILED</Badge>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-red-500 text-red-700 hover:bg-red-50 h-7 px-2"
+                                    onClick={() => ti.item_id && handleItemInspectionResult(ti.item_id, 'fail')}
+                                    disabled={task.status !== 'in_progress'}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </>
+                          ) : (
+                            <>
+                              <TableCell>{(ti.item as any)?.account?.account_name || '-'}</TableCell>
+                              <TableCell>{ti.item?.sidemark || '-'}</TableCell>
+                            </>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
