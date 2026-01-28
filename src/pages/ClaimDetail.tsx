@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, FileText, Clock, User, Package, Truck, Building, DollarSign, ScanLine, Camera } from 'lucide-react';
 import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
+import { PhotoUploadButton } from '@/components/common/PhotoUploadButton';
 import { PhotoGrid } from '@/components/common/PhotoGrid';
 import { useAuth } from '@/contexts/AuthContext';
 import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
@@ -106,7 +107,7 @@ export default function ClaimDetail() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/claims')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
@@ -230,17 +231,28 @@ export default function ClaimDetail() {
                       <Camera className="h-4 w-4" />
                       Photos ({claimPhotos.length})
                     </CardTitle>
-                    <PhotoScannerButton
-                      entityType="claim"
-                      entityId={claim.id}
-                      tenantId={profile?.tenant_id}
-                      existingPhotos={claimPhotos}
-                      maxPhotos={20}
-                      onPhotosSaved={(urls) => setClaimPhotos(urls)}
-                      size="sm"
-                      label="Take Photos"
-                      showCount={false}
-                    />
+                    <div className="flex gap-2">
+                      <PhotoScannerButton
+                        entityType="claim"
+                        entityId={claim.id}
+                        tenantId={profile?.tenant_id}
+                        existingPhotos={claimPhotos}
+                        maxPhotos={20}
+                        onPhotosSaved={(urls) => setClaimPhotos(urls)}
+                        size="sm"
+                        label="Take Photos"
+                        showCount={false}
+                      />
+                      <PhotoUploadButton
+                        entityType="claim"
+                        entityId={claim.id}
+                        tenantId={profile?.tenant_id}
+                        existingPhotos={claimPhotos}
+                        maxPhotos={20}
+                        onPhotosSaved={(urls) => setClaimPhotos(urls)}
+                        size="sm"
+                      />
+                    </div>
                   </CardHeader>
                   <CardContent>
                     {claimPhotos.length > 0 ? (

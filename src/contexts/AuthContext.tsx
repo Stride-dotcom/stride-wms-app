@@ -35,9 +35,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state changed:', event);
+
+        // Handle token refresh errors
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          // Token refresh failed - clear state and redirect to login
+          console.warn('Token refresh failed, signing out');
+          handleInvalidSession();
+          return;
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         // Defer profile fetch with setTimeout to avoid deadlock
         if (session?.user) {
           setTimeout(() => {
@@ -50,17 +60,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      // Handle invalid refresh token error
+      if (error) {
+        console.error('Session error:', error);
+        if (error.message?.includes('Refresh Token') || error.message?.includes('refresh_token')) {
+          handleInvalidSession();
+          return;
+        }
+      }
+
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
       }
       setLoading(false);
+    }).catch((error) => {
+      console.error('Failed to get session:', error);
+      handleInvalidSession();
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Handle invalid or expired sessions
+  const handleInvalidSession = async () => {
+    console.log('Clearing invalid session');
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setLoading(false);
+
+    // Clear any cached auth data
+    try {
+      localStorage.removeItem('user_profile_cache');
+      // Sign out to clear Supabase's stored tokens
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (e) {
+      // Ignore errors during cleanup
+      console.warn('Error during session cleanup:', e);
+    }
+  };
 
   const fetchProfile = async (userId: string) => {
     try {

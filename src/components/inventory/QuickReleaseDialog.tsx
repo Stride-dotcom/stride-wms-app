@@ -13,9 +13,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CalendarIcon, PackageX } from 'lucide-react';
+import { Loader2, CalendarIcon, PackageX, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
 
 interface QuickReleaseDialogProps {
   open: boolean;
@@ -30,6 +31,7 @@ interface SelectedItem {
   description: string | null;
   quantity: number;
   client_account?: string | null;
+  account_id?: string | null;
   warehouse_id?: string | null;
 }
 
@@ -41,6 +43,14 @@ export function QuickReleaseDialog({
 }: QuickReleaseDialogProps) {
   const [releaseDate, setReleaseDate] = useState<Date | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
+  const [showAddChargePrompt, setShowAddChargePrompt] = useState(false);
+  const [addChargeDialogOpen, setAddChargeDialogOpen] = useState(false);
+  const [releaseData, setReleaseData] = useState<{
+    accountId: string;
+    accountName: string;
+    shipmentId: string;
+    itemCount: number;
+  } | null>(null);
   const { toast } = useToast();
 
   const handleSubmit = async () => {
@@ -80,7 +90,6 @@ export function QuickReleaseDialog({
       const shipmentData = {
         tenant_id: profile.tenant_id,
         shipment_type: 'outbound',
-        direction: 'outbound',
         release_type: 'manual_release',
         status: 'completed',
         warehouse_id: selectedItems[0]?.warehouse_id || null,
@@ -131,8 +140,24 @@ export function QuickReleaseDialog({
       });
 
       onSuccess();
-      onOpenChange(false);
-      setReleaseDate(undefined);
+
+      // Check if there's an account to add charges to
+      const accountId = selectedItems[0]?.account_id;
+      const accountName = selectedItems[0]?.client_account;
+
+      if (accountId && accountName) {
+        // Show add charge prompt
+        setReleaseData({
+          accountId,
+          accountName,
+          shipmentId: shipment.id,
+          itemCount: selectedItems.length,
+        });
+        setShowAddChargePrompt(true);
+      } else {
+        onOpenChange(false);
+        setReleaseDate(undefined);
+      }
     } catch (error: any) {
       console.error('Error releasing items:', error);
       toast({
@@ -148,84 +173,151 @@ export function QuickReleaseDialog({
   const handleClose = (open: boolean) => {
     if (!open) {
       setReleaseDate(undefined);
+      setShowAddChargePrompt(false);
+      setReleaseData(null);
     }
     onOpenChange(open);
   };
 
-  return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <PackageX className="h-5 w-5" />
-            Release Items
-          </DialogTitle>
-          <DialogDescription>
-            Release {selectedItems.length} item(s) from inventory. This will mark them as released and create a shipment record for tracking.
-          </DialogDescription>
-        </DialogHeader>
+  const handleSkipCharge = () => {
+    setShowAddChargePrompt(false);
+    setReleaseData(null);
+    onOpenChange(false);
+    setReleaseDate(undefined);
+  };
 
-        <div className="space-y-4 py-4">
-          {/* Selected Items Summary */}
-          <div className="space-y-2">
-            <Label>Items to Release ({selectedItems.length})</Label>
-            <div className="border rounded-md p-3 max-h-32 overflow-y-auto bg-muted/30">
-              <div className="space-y-1">
-                {selectedItems.slice(0, 5).map((item) => (
-                  <div key={item.id} className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{item.item_code}</span>
-                    <span className="text-muted-foreground truncate max-w-[150px]">
-                      {item.description || 'No description'}
-                    </span>
-                  </div>
-                ))}
-                {selectedItems.length > 5 && (
-                  <div className="text-sm text-muted-foreground pt-1">
-                    ...and {selectedItems.length - 5} more
-                  </div>
-                )}
+  const handleAddCharge = () => {
+    setShowAddChargePrompt(false);
+    setAddChargeDialogOpen(true);
+  };
+
+  const handleChargeSuccess = () => {
+    setAddChargeDialogOpen(false);
+    setReleaseData(null);
+    onOpenChange(false);
+    setReleaseDate(undefined);
+  };
+
+  // Show add charge prompt after successful release
+  if (showAddChargePrompt && releaseData) {
+    return (
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Add Release Charge?
+            </DialogTitle>
+            <DialogDescription>
+              {releaseData.itemCount} item(s) released for {releaseData.accountName}. Would you like to add a release charge?
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleSkipCharge}>
+              Skip
+            </Button>
+            <Button onClick={handleAddCharge}>
+              <DollarSign className="mr-2 h-4 w-4" />
+              Add Charge
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PackageX className="h-5 w-5" />
+              Release Items
+            </DialogTitle>
+            <DialogDescription>
+              Release {selectedItems.length} item(s) from inventory. This will mark them as released and create a shipment record for tracking.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Selected Items Summary */}
+            <div className="space-y-2">
+              <Label>Items to Release ({selectedItems.length})</Label>
+              <div className="border rounded-md p-3 max-h-32 overflow-y-auto bg-muted/30">
+                <div className="space-y-1">
+                  {selectedItems.slice(0, 5).map((item) => (
+                    <div key={item.id} className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{item.item_code}</span>
+                      <span className="text-muted-foreground truncate max-w-[150px]">
+                        {item.description || 'No description'}
+                      </span>
+                    </div>
+                  ))}
+                  {selectedItems.length > 5 && (
+                    <div className="text-sm text-muted-foreground pt-1">
+                      ...and {selectedItems.length - 5} more
+                    </div>
+                  )}
+                </div>
               </div>
+            </div>
+
+            {/* Release Date Picker */}
+            <div className="space-y-2">
+              <Label>Release Date *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'w-full justify-start text-left font-normal',
+                      !releaseDate && 'text-muted-foreground'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {releaseDate ? format(releaseDate, 'PPP') : 'Select release date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={releaseDate}
+                    onSelect={setReleaseDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
-          {/* Release Date Picker */}
-          <div className="space-y-2">
-            <Label>Release Date *</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    'w-full justify-start text-left font-normal',
-                    !releaseDate && 'text-muted-foreground'
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {releaseDate ? format(releaseDate, 'PPP') : 'Select release date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={releaseDate}
-                  onSelect={setReleaseDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => handleClose(false)} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} disabled={submitting || !releaseDate}>
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Release Items
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => handleClose(false)} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={submitting || !releaseDate}>
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Release Items
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      {/* Add Charge Dialog */}
+      {releaseData && (
+        <AddAddonDialog
+          open={addChargeDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) handleChargeSuccess();
+            else setAddChargeDialogOpen(open);
+          }}
+          accountId={releaseData.accountId}
+          accountName={releaseData.accountName}
+          shipmentId={releaseData.shipmentId}
+          onSuccess={handleChargeSuccess}
+        />
+      )}
+    </>
   );
 }

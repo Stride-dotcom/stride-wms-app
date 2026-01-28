@@ -5,6 +5,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AvatarWithPresence } from '@/components/ui/online-indicator';
+import { usePresence } from '@/hooks/usePresence';
 import { AppIcon } from '@/components/ui/app-icon';
 import { IconName } from '@/lib/icon-assets';
 import {
@@ -170,6 +172,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const lastScrollY = useRef(0);
   const { profile, signOut } = useAuth();
   const { hasRole, isAdmin } = usePermissions();
+  const { getUserStatus } = usePresence();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -494,11 +497,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   sidebarCollapsed && "lg:justify-center"
                 )}
               >
-                <Avatar className="h-9 w-9">
-                  <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-                    {getInitials()}
-                  </AvatarFallback>
-                </Avatar>
+                <AvatarWithPresence
+                  status={profile?.id ? getUserStatus(profile.id) : 'offline'}
+                  indicatorSize="sm"
+                >
+                  <Avatar className="h-9 w-9">
+                    <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
+                      {getInitials()}
+                    </AvatarFallback>
+                  </Avatar>
+                </AvatarWithPresence>
                 {!sidebarCollapsed && (
                   <span className="text-sm font-medium text-gray-900 dark:text-white lg:block hidden truncate">
                     {profile?.first_name} {profile?.last_name}
@@ -571,9 +579,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             >
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 text-[10px] bg-primary text-white">
+                <span className="absolute -top-1 -right-1 flex items-center justify-center h-5 min-w-[20px] px-1.5 text-[10px] font-bold bg-red-500 text-white rounded-full animate-pulse">
                   {unreadCount > 99 ? '99+' : unreadCount}
-                </Badge>
+                </span>
               )}
             </Button>
           </div>

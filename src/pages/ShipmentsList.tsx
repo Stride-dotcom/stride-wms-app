@@ -63,6 +63,8 @@ export default function ShipmentsList() {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [accountFilter, setAccountFilter] = useState<string>('all');
+  const [carrierFilter, setCarrierFilter] = useState<string>('all');
 
   const deriveTabFromRoute = (): TabValue => {
     const last = location.pathname.split('/').pop();
@@ -75,6 +77,8 @@ export default function ShipmentsList() {
   useEffect(() => {
     setActiveTab(deriveTabFromRoute());
     setStatusFilter('all');
+    setAccountFilter('all');
+    setCarrierFilter('all');
     setSearchQuery('');
   }, [location.pathname]);
 
@@ -173,6 +177,8 @@ export default function ShipmentsList() {
     const next = tab as TabValue;
     setActiveTab(next);
     setStatusFilter('all');
+    setAccountFilter('all');
+    setCarrierFilter('all');
     setSearchQuery('');
     navigate(TAB_CONFIG[next].route);
   };
@@ -185,7 +191,7 @@ export default function ShipmentsList() {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const matchesSearch = 
+        const matchesSearch =
           shipment.shipment_number.toLowerCase().includes(query) ||
           shipment.account_name?.toLowerCase().includes(query) ||
           shipment.carrier?.toLowerCase().includes(query) ||
@@ -198,13 +204,31 @@ export default function ShipmentsList() {
         return false;
       }
 
+      // Account filter
+      if (accountFilter !== 'all' && shipment.account_name !== accountFilter) {
+        return false;
+      }
+
+      // Carrier filter
+      if (carrierFilter !== 'all' && shipment.carrier !== carrierFilter) {
+        return false;
+      }
+
       return true;
     });
-  }, [shipments, searchQuery, statusFilter]);
+  }, [shipments, searchQuery, statusFilter, accountFilter, carrierFilter]);
 
-  // Get unique statuses for current tab
+  // Get unique values for filters
   const uniqueStatuses = useMemo(() => {
     return [...new Set(shipments.map(s => s.status))];
+  }, [shipments]);
+
+  const uniqueAccounts = useMemo(() => {
+    return [...new Set(shipments.map(s => s.account_name).filter(Boolean))] as string[];
+  }, [shipments]);
+
+  const uniqueCarriers = useMemo(() => {
+    return [...new Set(shipments.map(s => s.carrier).filter(Boolean))] as string[];
   }, [shipments]);
 
   // ------------------------------------------
@@ -396,7 +420,7 @@ export default function ShipmentsList() {
     <DashboardLayout>
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/shipments')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <PageHeader
@@ -429,8 +453,8 @@ export default function ShipmentsList() {
         </TabsList>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search shipments..."
@@ -439,8 +463,32 @@ export default function ShipmentsList() {
               className="pl-10"
             />
           </div>
+          <Select value={accountFilter} onValueChange={setAccountFilter}>
+            <SelectTrigger className="w-full sm:w-44">
+              <SelectValue placeholder="All accounts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All accounts</SelectItem>
+              {uniqueAccounts.map(account => (
+                <SelectItem key={account} value={account}>{account}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {activeTab !== 'outbound' && (
+            <Select value={carrierFilter} onValueChange={setCarrierFilter}>
+              <SelectTrigger className="w-full sm:w-36">
+                <SelectValue placeholder="All carriers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All carriers</SelectItem>
+                {uniqueCarriers.map(carrier => (
+                  <SelectItem key={carrier} value={carrier}>{carrier}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-40">
+            <SelectTrigger className="w-full sm:w-36">
               <SelectValue placeholder="All statuses" />
             </SelectTrigger>
             <SelectContent>
