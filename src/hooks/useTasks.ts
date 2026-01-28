@@ -3,8 +3,71 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { queueTaskCreatedAlert, queueTaskAssignedAlert, queueTaskCompletedAlert, queueInspectionCompletedAlert } from '@/lib/alertQueue';
-import { getServiceRate, taskTypeToServiceType } from '@/lib/billingRates';
 import { createBillingEventsBatch, CreateBillingEventParams } from '@/lib/billing/createBillingEvent';
+
+// Map task types to service codes in the Price List
+const TASK_TYPE_TO_SERVICE_CODE: Record<string, string> = {
+  'Inspection': 'INSP',
+  'Will Call': 'Will_Call',
+  'Disposal': 'Disposal',
+  'Assembly': '15MA', // Default assembly tier - can be overridden per task
+  'Repair': '1HRO', // Default repair tier - can be overridden per task
+  'Receiving': 'RCVG',
+  'Returns': 'Returns',
+};
+
+// Helper to get rate from Price List (service_events table)
+async function getRateFromPriceList(
+  tenantId: string,
+  serviceCode: string,
+  classCode: string | null
+): Promise<{ rate: number; hasError: boolean; errorMessage?: string }> {
+  try {
+    // Try class-specific rate first
+    if (classCode) {
+      const { data: classRate } = await (supabase
+        .from('service_events') as any)
+        .select('rate')
+        .eq('tenant_id', tenantId)
+        .eq('service_code', serviceCode)
+        .eq('class_code', classCode)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (classRate) {
+        return { rate: classRate.rate, hasError: false };
+      }
+    }
+
+    // Fall back to general rate (no class_code)
+    const { data: generalRate } = await (supabase
+      .from('service_events') as any)
+      .select('rate')
+      .eq('tenant_id', tenantId)
+      .eq('service_code', serviceCode)
+      .is('class_code', null)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (generalRate) {
+      return { rate: generalRate.rate, hasError: false };
+    }
+
+    // No rate found
+    return {
+      rate: 0,
+      hasError: true,
+      errorMessage: `No rate found in Price List for service: ${serviceCode}`,
+    };
+  } catch (error) {
+    console.error('[getRateFromPriceList] Error:', error);
+    return {
+      rate: 0,
+      hasError: true,
+      errorMessage: 'Error looking up rate from Price List',
+    };
+  }
+}
 
 export interface Task {
   id: string;
@@ -225,20 +288,20 @@ export function useTasks(filters?: {
     if (!profile?.tenant_id || !profile?.id) return;
 
     try {
-      // Get task items with item details
+      // Get task items with item details including class_code
       const { data: taskItems } = await (supabase
         .from('task_items') as any)
         .select(`
           item_id,
           quantity,
-          items:item_id(id, item_type_id, sidemark_id, account_id, item_code)
+          items:item_id(id, item_type_id, sidemark_id, account_id, item_code, class:classes(code))
         `)
         .eq('task_id', taskId);
 
       if (!taskItems || taskItems.length === 0) return;
 
-      // Get service code for this task type
-      const serviceType = taskTypeToServiceType(taskType);
+      // Get service code for this task type from Price List mapping
+      const serviceCode = TASK_TYPE_TO_SERVICE_CODE[taskType] || taskType;
 
       // Build billing events for each item
       const billingEvents: CreateBillingEventParams[] = [];
@@ -250,12 +313,15 @@ export function useTasks(filters?: {
         const itemAccountId = accountId || item.account_id;
         if (!itemAccountId) continue;
 
-        // Get the rate for this service and item type
-        const rateResult = await getServiceRate({
-          accountId: itemAccountId,
-          serviceType,
-          itemTypeId: item.item_type_id,
-        });
+        // Get the item's class code for rate lookup
+        const classCode = item.class?.code || null;
+
+        // Get the rate from the Price List
+        const rateResult = await getRateFromPriceList(
+          profile.tenant_id,
+          serviceCode,
+          classCode
+        );
 
         const quantity = taskItem.quantity || 1;
         const unitRate = rateResult.rate;
@@ -269,7 +335,7 @@ export function useTasks(filters?: {
           item_id: item.id,
           task_id: taskId,
           event_type: 'task_completion',
-          charge_type: serviceType,
+          charge_type: serviceCode,
           description: `${taskType}: ${item.item_code}`,
           quantity,
           unit_rate: unitRate,
@@ -278,8 +344,9 @@ export function useTasks(filters?: {
           occurred_at: new Date().toISOString(),
           metadata: {
             task_type: taskType,
-            rate_source: rateResult.source,
-            needs_review: rateResult.needsReview,
+            class_code: classCode,
+            has_rate_error: rateResult.hasError,
+            rate_error_message: rateResult.errorMessage,
           },
           created_by: profile.id,
         });

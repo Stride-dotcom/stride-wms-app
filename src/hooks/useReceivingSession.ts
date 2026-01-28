@@ -2,8 +2,60 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { getServiceRate } from '@/lib/billingRates';
 import { queueShipmentReceivedAlert, queueShipmentCompletedAlert } from '@/lib/alertQueue';
+
+// Helper to get rate from Price List (service_events table)
+async function getRateFromPriceList(
+  tenantId: string,
+  serviceCode: string,
+  classCode: string | null
+): Promise<{ rate: number; hasError: boolean; errorMessage?: string }> {
+  try {
+    // Try class-specific rate first
+    if (classCode) {
+      const { data: classRate } = await (supabase
+        .from('service_events') as any)
+        .select('rate')
+        .eq('tenant_id', tenantId)
+        .eq('service_code', serviceCode)
+        .eq('class_code', classCode)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (classRate) {
+        return { rate: classRate.rate, hasError: false };
+      }
+    }
+
+    // Fall back to general rate (no class_code)
+    const { data: generalRate } = await (supabase
+      .from('service_events') as any)
+      .select('rate')
+      .eq('tenant_id', tenantId)
+      .eq('service_code', serviceCode)
+      .is('class_code', null)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (generalRate) {
+      return { rate: generalRate.rate, hasError: false };
+    }
+
+    // No rate found
+    return {
+      rate: 0,
+      hasError: true,
+      errorMessage: `No rate found in Price List for service: ${serviceCode}`,
+    };
+  } catch (error) {
+    console.error('[getRateFromPriceList] Error:', error);
+    return {
+      rate: 0,
+      hasError: true,
+      errorMessage: 'Error looking up rate from Price List',
+    };
+  }
+}
 
 interface ReceivingSession {
   id: string;
@@ -321,15 +373,26 @@ export function useReceivingSession(shipmentId: string | undefined) {
 
             // Determine service type based on shipment type (return shipments use Returns Processing)
             const isReturnShipment = (shipment as any).shipment_type === 'return';
-            const serviceType = isReturnShipment ? 'returns_processing' : 'receiving';
+            const serviceCode = isReturnShipment ? 'Returns' : 'RCVG';
             const chargeDescription = isReturnShipment ? 'Returns Processing' : 'Receiving';
 
-            // Get rate using unified rate lookup
-            const rateResult = await getServiceRate({
-              accountId: shipment.account_id,
-              itemTypeId: newItem?.item_type_id || null,
-              serviceType: serviceType,
-            });
+            // Get class code for rate lookup (if item has a class assigned)
+            let classCode: string | null = null;
+            if (newItem?.class_id) {
+              const { data: classData } = await (supabase
+                .from('classes') as any)
+                .select('code')
+                .eq('id', newItem.class_id)
+                .maybeSingle();
+              classCode = classData?.code || null;
+            }
+
+            // Get rate from Price List
+            const rateResult = await getRateFromPriceList(
+              profile.tenant_id,
+              serviceCode,
+              classCode
+            );
 
             const totalAmount = rateResult.rate * item.quantity;
 
@@ -341,24 +404,23 @@ export function useReceivingSession(shipmentId: string | undefined) {
                 account_id: shipment.account_id,
                 item_id: newItem?.id,
                 event_type: isReturnShipment ? 'returns_processing' : 'receiving',
-                charge_type: serviceType,
+                charge_type: serviceCode,
                 description: `${chargeDescription}: ${item.description}`,
                 quantity: item.quantity,
                 unit_rate: rateResult.rate,
                 total_amount: totalAmount,
                 created_by: profile.id,
-                rate_source: rateResult.source,
-                service_category: rateResult.category,
-                needs_review: rateResult.source === 'default',
+                has_rate_error: rateResult.hasError,
+                rate_error_message: rateResult.errorMessage,
               });
 
             // Create billing event for "Received Without ID" if flag is set
             if (item.receivedWithoutId && newItem) {
-              const noIdRateResult = await getServiceRate({
-                accountId: shipment.account_id,
-                itemTypeId: newItem?.item_type_id || null,
-                serviceType: 'received_without_id',
-              });
+              const noIdRateResult = await getRateFromPriceList(
+                profile.tenant_id,
+                'RECEIVED_WITHOUT_ID', // Flag service in Price List
+                null // No class-based pricing for this flag
+              );
 
               await (supabase
                 .from('billing_events') as any)
@@ -366,16 +428,15 @@ export function useReceivingSession(shipmentId: string | undefined) {
                   tenant_id: profile.tenant_id,
                   account_id: shipment.account_id,
                   item_id: newItem?.id,
-                  event_type: 'flag_change',
-                  charge_type: 'received_without_id',
+                  event_type: 'flag',
+                  charge_type: 'RECEIVED_WITHOUT_ID',
                   description: `Received Without ID: ${item.description}`,
                   quantity: 1,
                   unit_rate: noIdRateResult.rate,
                   total_amount: noIdRateResult.rate,
                   created_by: profile.id,
-                  rate_source: noIdRateResult.source,
-                  service_category: noIdRateResult.category,
-                  needs_review: noIdRateResult.source === 'default',
+                  has_rate_error: noIdRateResult.hasError,
+                  rate_error_message: noIdRateResult.errorMessage,
                 });
             }
           }
