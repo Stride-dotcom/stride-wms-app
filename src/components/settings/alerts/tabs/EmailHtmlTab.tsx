@@ -1,31 +1,25 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
-import { 
-  Code, 
-  Eye, 
-  Save, 
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Save,
   History,
-  Smartphone,
-  Monitor,
   Maximize2,
   Minimize2,
-  Send
+  Send,
+  Loader2,
 } from 'lucide-react';
-import { 
-  CommunicationTemplate, 
-  CommunicationDesignElement, 
+import {
+  CommunicationTemplate,
+  CommunicationDesignElement,
   CommunicationBrandSettings,
   CommunicationTemplateVersion,
-  COMMUNICATION_VARIABLES 
 } from '@/hooks/useCommunications';
-import { VariablesTable } from '../VariablesTable';
 import {
   Sheet,
   SheetContent,
@@ -34,6 +28,14 @@ import {
 } from '@/components/ui/sheet';
 import { SendTestDialog } from '@/components/settings/communications/SendTestDialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { TReaderDocument } from '@usewaypoint/email-builder';
+
+// Lazy load the WYSIWYG editor to reduce initial bundle size
+const EmailWysiwygEditor = lazy(() =>
+  import('@/components/settings/communications/EmailWysiwygEditor').then((mod) => ({
+    default: mod.EmailWysiwygEditor,
+  }))
+);
 
 interface EmailHtmlTabProps {
   template: CommunicationTemplate | null;
@@ -54,8 +56,7 @@ export function EmailHtmlTab({
 }: EmailHtmlTabProps) {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
-  const [editorMode, setEditorMode] = useState<'code' | 'preview'>('code');
-  const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
+  const [editorJson, setEditorJson] = useState<TReaderDocument | null>(null);
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<CommunicationTemplateVersion[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -67,6 +68,16 @@ export function EmailHtmlTab({
     if (template) {
       setSubject(template.subject_template || '');
       setBody(template.body_template || '');
+      // Parse stored editor JSON if available
+      if ((template as any).editor_json) {
+        try {
+          setEditorJson((template as any).editor_json as TReaderDocument);
+        } catch {
+          setEditorJson(null);
+        }
+      } else {
+        setEditorJson(null);
+      }
     }
   }, [template]);
 
@@ -89,45 +100,18 @@ export function EmailHtmlTab({
     await onUpdateTemplate(template.id, {
       subject_template: subject,
       body_template: body,
-    });
+      editor_json: editorJson,
+    } as Partial<CommunicationTemplate>);
     setIsSaving(false);
   };
 
-  const insertVariable = useCallback((variable: string) => {
-    setBody(prev => prev + variable);
-  }, []);
-
-  const getSampleData = (): Record<string, string> => {
-    const data: Record<string, string> = {};
-    COMMUNICATION_VARIABLES.forEach(v => {
-      data[v.key] = v.sample;
-    });
-    if (brandSettings) {
-      data.brand_logo_url = brandSettings.brand_logo_url || '';
-      data.brand_primary_color = brandSettings.brand_primary_color || '#FD5A2A';
-      data.brand_support_email = brandSettings.brand_support_email || '';
-      data.portal_base_url = brandSettings.portal_base_url || '';
-    }
-    return data;
+  const handleJsonChange = (json: TReaderDocument) => {
+    setEditorJson(json);
   };
 
-  const renderPreview = () => {
-    const sampleData = getSampleData();
-    let html = body;
-    let subjectPreview = subject;
-    
-    Object.entries(sampleData).forEach(([key, value]) => {
-      // Support both {{}} and [[]] syntax
-      const regexBraces = new RegExp(`{{${key}}}`, 'g');
-      const regexBrackets = new RegExp(`\\[\\[${key}\\]\\]`, 'g');
-      html = html.replace(regexBraces, value).replace(regexBrackets, value);
-      subjectPreview = subjectPreview.replace(regexBraces, value).replace(regexBrackets, value);
-    });
-
-    return { html, subject: subjectPreview };
+  const handleHtmlChange = (html: string) => {
+    setBody(html);
   };
-
-  const preview = renderPreview();
 
   if (!template) {
     return (
@@ -142,37 +126,9 @@ export function EmailHtmlTab({
       {/* Toolbar */}
       <div className="flex items-center justify-between p-4 border-b bg-card flex-shrink-0">
         <div className="flex items-center gap-2">
-          <Tabs value={editorMode} onValueChange={(v) => setEditorMode(v as 'code' | 'preview')}>
-            <TabsList>
-              <TabsTrigger value="code" className="gap-2">
-                <Code className="h-4 w-4" />
-                Code
-              </TabsTrigger>
-              <TabsTrigger value="preview" className="gap-2">
-                <Eye className="h-4 w-4" />
-                Preview
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          
-          {editorMode === 'preview' && (
-            <div className="flex items-center gap-1 ml-4">
-              <Button
-                variant={previewMode === 'desktop' ? 'secondary' : 'ghost'}
-                size="icon"
-                onClick={() => setPreviewMode('desktop')}
-              >
-                <Monitor className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={previewMode === 'mobile' ? 'secondary' : 'ghost'}
-                size="icon"
-                onClick={() => setPreviewMode('mobile')}
-              >
-                <Smartphone className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+          <span className="text-sm font-medium text-muted-foreground">
+            Email Template Editor
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -192,7 +148,11 @@ export function EmailHtmlTab({
             {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
           <Button onClick={handleSave} disabled={isSaving}>
-            <Save className="h-4 w-4 mr-2" />
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
             {isSaving ? 'Saving...' : 'Save'}
           </Button>
         </div>
@@ -205,48 +165,30 @@ export function EmailHtmlTab({
           <Input
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="Email subject line..."
+            placeholder="Email subject line... Use {{variable_name}} for dynamic content"
             className="flex-1 font-mono"
           />
         </div>
       </div>
 
-      {/* Editor / Preview */}
-      <div className="flex-1 overflow-y-auto min-h-0">
-        {editorMode === 'code' ? (
-          <Textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            className="w-full h-full min-h-[300px] font-mono text-sm resize-none rounded-none border-0 focus-visible:ring-0"
-            placeholder="Enter your HTML template here..."
-          />
-        ) : (
-          <div className="h-full overflow-auto p-4 bg-muted/30">
-            <div 
-              className={`mx-auto bg-background border rounded-lg shadow-sm overflow-hidden transition-all ${
-                previewMode === 'mobile' ? 'max-w-[375px]' : 'max-w-[800px]'
-              }`}
-            >
-              {/* Email Header Preview */}
-              <div className="border-b p-4 bg-muted/50">
-                <p className="text-sm">
-                  <span className="text-muted-foreground">Subject:</span>{' '}
-                  <span className="font-medium">{preview.subject}</span>
-                </p>
-              </div>
-              {/* Email Body Preview */}
-              <div 
-                className="p-4"
-                dangerouslySetInnerHTML={{ __html: preview.html }}
-              />
+      {/* WYSIWYG Editor */}
+      <div className="flex-1 overflow-hidden min-h-0">
+        <Suspense
+          fallback={
+            <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <p className="text-muted-foreground">Loading editor...</p>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Variables Table at bottom */}
-      <div className="flex-shrink-0">
-        <VariablesTable onInsertVariable={insertVariable} />
+          }
+        >
+          <EmailWysiwygEditor
+            initialJson={editorJson}
+            initialHtml={body}
+            brandSettings={brandSettings}
+            onJsonChange={handleJsonChange}
+            onHtmlChange={handleHtmlChange}
+          />
+        </Suspense>
       </div>
 
       {/* Version History Sheet */}
