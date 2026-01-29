@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Building, Users, Warehouse, Save, Plus, Package, DollarSign, Clock, Plug } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations, Location } from '@/hooks/useLocations';
@@ -274,7 +274,7 @@ export default function Settings() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-96">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
@@ -363,12 +363,12 @@ export default function Settings() {
                 <Button onClick={handleSaveProfile} disabled={saving}>
                   {saving ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                       Saving...
                     </>
                   ) : (
                     <>
-                      <Save className="mr-2 h-4 w-4" />
+                      <MaterialIcon name="save" size="sm" className="mr-2" />
                       Save Changes
                     </>
                   )}
@@ -421,7 +421,7 @@ export default function Settings() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-medium flex items-center gap-2">
-                    <Warehouse className="h-5 w-5" />
+                    <MaterialIcon name="warehouse" size="md" />
                     Warehouses
                   </h3>
                   <p className="text-sm text-muted-foreground">
@@ -429,7 +429,7 @@ export default function Settings() {
                   </p>
                 </div>
                 <Button onClick={handleCreateWarehouse} className="w-full sm:w-auto">
-                  <Plus className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="add" size="sm" className="mr-2" />
                   Add Warehouse
                 </Button>
               </div>
@@ -462,7 +462,7 @@ export default function Settings() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-medium flex items-center gap-2">
-                    <Users className="h-5 w-5" />
+                    <MaterialIcon name="group" size="md" />
                     Users
                   </h3>
                   <p className="text-sm text-muted-foreground">

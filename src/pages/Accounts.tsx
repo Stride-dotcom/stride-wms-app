@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Loader2, Filter, Plus, Building2, Upload } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { AccountDialog } from '@/components/accounts/AccountDialog';
 import { AccountImportDialog } from '@/components/accounts/AccountImportDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -172,11 +172,11 @@ export default function Accounts() {
               className="hidden"
             />
             <Button variant="secondary" onClick={handleImportClick}>
-              <Upload className="mr-2 h-4 w-4" />
+              <MaterialIcon name="upload" size="sm" className="mr-2" />
               Import
             </Button>
             <Button onClick={() => { setEditingAccountId(null); setDialogOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" />
+              <MaterialIcon name="add" size="sm" className="mr-2" />
               New Account
             </Button>
           </div>
@@ -192,7 +192,7 @@ export default function Accounts() {
           <CardContent>
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search by account code, name, or contact..."
                   value={searchQuery}
@@ -202,7 +202,7 @@ export default function Accounts() {
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full sm:w-48">
-                  <Filter className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="filter_list" size="sm" className="mr-2" />
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -218,11 +218,11 @@ export default function Accounts() {
 
             {loading ? (
               <div className="flex items-center justify-center h-48">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
               </div>
             ) : nestedAccounts.length === 0 ? (
               <div className="text-center py-12">
-                <Building2 className="mx-auto h-12 w-12 text-muted-foreground" />
+                <MaterialIcon name="business" size="xl" className="mx-auto text-muted-foreground" />
                 <h3 className="mt-4 text-lg font-semibold">No accounts found</h3>
                 <p className="text-muted-foreground">
                   {searchQuery || statusFilter !== 'all'
