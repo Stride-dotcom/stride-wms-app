@@ -402,6 +402,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
               .insert({
                 tenant_id: profile.tenant_id,
                 account_id: shipment.account_id,
+                class_id: newItem?.class_id || null,
                 item_id: newItem?.id,
                 event_type: isReturnShipment ? 'returns_processing' : 'receiving',
                 charge_type: serviceCode,
@@ -427,6 +428,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
                 .insert({
                   tenant_id: profile.tenant_id,
                   account_id: shipment.account_id,
+                  class_id: newItem?.class_id || null,
                   item_id: newItem?.id,
                   event_type: 'flag',
                   charge_type: 'RECEIVED_WITHOUT_ID',
