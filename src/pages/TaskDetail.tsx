@@ -88,10 +88,11 @@ interface TaskItemRow {
     description: string | null;
     vendor: string | null;
     inspection_result: string | null;
+    current_location_id: string | null;
     location?: { code: string } | null;
     account?: { account_name: string } | null;
     sidemark: string | null;
-  };
+  } | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -183,41 +184,54 @@ export default function TaskDetailPage() {
   const fetchTaskItems = useCallback(async () => {
     if (!id) return;
     try {
-      const { data, error } = await (supabase
+      // First get task_items for this task
+      const { data: taskItemsData, error: taskItemsError } = await (supabase
         .from('task_items') as any)
-        .select(`
-          id, item_id, quantity,
-          item:items!task_items_item_id_fkey(
-            id, item_code, description, vendor, sidemark, inspection_result,
-            location:locations(code),
-            account:accounts(account_name)
-          )
-        `)
+        .select('id, item_id, quantity')
         .eq('task_id', id);
 
-      if (error) {
-        // Fallback without FK hint if it fails
-        const { data: fallbackData } = await (supabase
-          .from('task_items') as any)
-          .select('id, item_id, quantity')
-          .eq('task_id', id);
-
-        if (fallbackData && fallbackData.length > 0) {
-          const itemIds = fallbackData.map((ti: any) => ti.item_id);
-          const { data: items } = await supabase
-            .from('items')
-            .select('id, item_code, description, vendor, sidemark, inspection_result')
-            .in('id', itemIds);
-
-          const itemMap = Object.fromEntries((items || []).map(i => [i.id, i]));
-          setTaskItems(fallbackData.map((ti: any) => ({
-            ...ti,
-            item: itemMap[ti.item_id] || null,
-          })));
-        }
+      if (taskItemsError) {
+        console.error('Error fetching task_items:', taskItemsError);
         return;
       }
-      setTaskItems(data || []);
+
+      if (!taskItemsData || taskItemsData.length === 0) {
+        setTaskItems([]);
+        return;
+      }
+
+      // Get the item IDs
+      const itemIds = taskItemsData.map((ti: any) => ti.item_id).filter(Boolean);
+
+      if (itemIds.length === 0) {
+        setTaskItems(taskItemsData.map((ti: any) => ({ ...ti, item: null })));
+        return;
+      }
+
+      // Fetch items with their details
+      const { data: items, error: itemsError } = await (supabase
+        .from('items') as any)
+        .select(`
+          id, item_code, description, vendor, sidemark, inspection_result,
+          current_location_id,
+          location:locations!items_current_location_id_fkey(code),
+          account:accounts!items_account_id_fkey(account_name)
+        `)
+        .in('id', itemIds);
+
+      if (itemsError) {
+        console.error('Error fetching items:', itemsError);
+        // Still return task items without item details
+        setTaskItems(taskItemsData.map((ti: any) => ({ ...ti, item: null })));
+        return;
+      }
+
+      // Map items to task_items
+      const itemMap = Object.fromEntries((items || []).map((i: any) => [i.id, i]));
+      setTaskItems(taskItemsData.map((ti: any) => ({
+        ...ti,
+        item: itemMap[ti.item_id] || null,
+      })));
     } catch (error) {
       console.error('Error fetching task items:', error);
     }

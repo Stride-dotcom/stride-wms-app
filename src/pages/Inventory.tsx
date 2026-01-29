@@ -152,15 +152,45 @@ export default function Inventory() {
 
   const fetchItems = async () => {
     try {
+      // Fetch from items table with proper joins to get account name
       const { data, error } = await (supabase
-        .from('v_items_with_location') as any)
-        .select('id, item_code, description, status, quantity, client_account, sidemark, vendor, room, location_id, location_code, location_name, warehouse_id, warehouse_name, account_id, received_at, primary_photo_url')
+        .from('items') as any)
+        .select(`
+          id, item_code, description, status, quantity, client_account, sidemark, vendor, room,
+          current_location_id, account_id, received_at, primary_photo_url, warehouse_id,
+          location:locations!items_current_location_id_fkey(id, code, name),
+          warehouse:warehouses!items_warehouse_id_fkey(id, name),
+          account:accounts!items_account_id_fkey(id, account_name)
+        `)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(500);
 
       if (error) throw error;
-      setItems(data || []);
+
+      // Transform data to match expected Item interface
+      const transformedData: Item[] = (data || []).map((item: any) => ({
+        id: item.id,
+        item_code: item.item_code,
+        description: item.description,
+        status: item.status,
+        quantity: item.quantity,
+        // Use account name from joined accounts table, fallback to client_account text field
+        client_account: item.account?.account_name || item.client_account,
+        sidemark: item.sidemark,
+        vendor: item.vendor,
+        room: item.room,
+        location_id: item.current_location_id,
+        location_code: item.location?.code || null,
+        location_name: item.location?.name || null,
+        warehouse_id: item.warehouse_id,
+        warehouse_name: item.warehouse?.name || null,
+        account_id: item.account_id,
+        received_at: item.received_at,
+        primary_photo_url: item.primary_photo_url,
+      }));
+
+      setItems(transformedData);
     } catch (error) {
       console.error('Error fetching items:', error);
     } finally {
