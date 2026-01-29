@@ -382,6 +382,12 @@ export function useQuotes() {
           .select('*')
           .eq('quote_id', quoteId);
 
+        // Fetch class service selections (per-class service selections)
+        const { data: classServiceSelections } = await (supabase as any)
+          .from('quote_class_service_selections')
+          .select('*')
+          .eq('quote_id', quoteId);
+
         // Fetch events
         const { data: events } = await (supabase as any)
           .from('quote_events')
@@ -393,6 +399,7 @@ export function useQuotes() {
           ...(quote as Quote),
           class_lines: (classLines as QuoteClassLine[]) || [],
           selected_services: (selectedServices as QuoteSelectedService[]) || [],
+          class_service_selections: (classServiceSelections || []) as { class_id: string; service_id: string; is_selected: boolean; qty_override: number | null }[],
           rate_overrides: (rateOverrides as QuoteRateOverride[]) || [],
           events: (events as QuoteEvent[]) || [],
         };
@@ -416,7 +423,7 @@ export function useQuotes() {
 
   // Create new quote
   const createQuote = useCallback(
-    async (formData: QuoteFormData): Promise<Quote | null> => {
+    async (formData: QuoteFormData, calculatedTotals?: { subtotal: number; tax: number; grand_total: number }): Promise<Quote | null> => {
       if (!profile?.tenant_id || !profile?.id) return null;
 
       try {
@@ -435,7 +442,7 @@ export function useQuotes() {
           formData.expiration_date ||
           new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-        // Create quote
+        // Create quote with totals
         const { data: quote, error: quoteError } = await (supabase as any)
           .from('quotes')
           .insert({
@@ -459,6 +466,11 @@ export function useQuotes() {
             notes: formData.notes,
             internal_notes: formData.internal_notes,
             created_by: profile.id,
+            // Save calculated totals
+            subtotal_before_discounts: calculatedTotals?.subtotal || 0,
+            subtotal_after_discounts: calculatedTotals?.subtotal || 0,
+            tax_amount: calculatedTotals?.tax || 0,
+            grand_total: calculatedTotals?.grand_total || 0,
           })
           .select()
           .single();
@@ -485,7 +497,7 @@ export function useQuotes() {
           }
         }
 
-        // Insert selected services
+        // Insert selected services (non-class based)
         if (formData.selected_services.length > 0) {
           const serviceInserts = formData.selected_services
             .filter((ss) => ss.is_selected)
@@ -501,6 +513,26 @@ export function useQuotes() {
               .from('quote_selected_services')
               .insert(serviceInserts);
             if (serviceError) throw serviceError;
+          }
+        }
+
+        // Insert class service selections (per-class service selections)
+        if (formData.class_service_selections && formData.class_service_selections.length > 0) {
+          const classServiceInserts = formData.class_service_selections
+            .filter((css) => css.is_selected)
+            .map((css) => ({
+              quote_id: quote.id,
+              class_id: css.class_id,
+              service_id: css.service_id,
+              is_selected: css.is_selected,
+              qty_override: css.qty_override,
+            }));
+
+          if (classServiceInserts.length > 0) {
+            const { error: cssError } = await (supabase as any)
+              .from('quote_class_service_selections')
+              .insert(classServiceInserts);
+            if (cssError) throw cssError;
           }
         }
 
@@ -546,7 +578,7 @@ export function useQuotes() {
 
   // Update quote
   const updateQuote = useCallback(
-    async (quoteId: string, formData: Partial<QuoteFormData>): Promise<boolean> => {
+    async (quoteId: string, formData: Partial<QuoteFormData>, calculatedTotals?: { subtotal: number; tax: number; grand_total: number }): Promise<boolean> => {
       if (!profile?.tenant_id || !profile?.id) return false;
 
       try {
@@ -578,6 +610,14 @@ export function useQuotes() {
         if (formData.notes !== undefined) updateData.notes = formData.notes;
         if (formData.internal_notes !== undefined)
           updateData.internal_notes = formData.internal_notes;
+
+        // Add calculated totals if provided
+        if (calculatedTotals) {
+          updateData.subtotal_before_discounts = calculatedTotals.subtotal;
+          updateData.subtotal_after_discounts = calculatedTotals.subtotal;
+          updateData.tax_amount = calculatedTotals.tax;
+          updateData.grand_total = calculatedTotals.grand_total;
+        }
 
         if (Object.keys(updateData).length > 0) {
           const { error } = await (supabase as any)
@@ -611,7 +651,7 @@ export function useQuotes() {
           }
         }
 
-        // Update selected services if provided
+        // Update selected services if provided (non-class based)
         if (formData.selected_services) {
           // Delete existing
           await (supabase as any)
@@ -633,6 +673,33 @@ export function useQuotes() {
             const { error } = await (supabase as any)
               .from('quote_selected_services')
               .insert(serviceInserts);
+            if (error) throw error;
+          }
+        }
+
+        // Update class service selections if provided (per-class service selections)
+        if (formData.class_service_selections) {
+          // Delete existing
+          await (supabase as any)
+            .from('quote_class_service_selections')
+            .delete()
+            .eq('quote_id', quoteId);
+
+          // Insert new
+          const classServiceInserts = formData.class_service_selections
+            .filter((css) => css.is_selected)
+            .map((css) => ({
+              quote_id: quoteId,
+              class_id: css.class_id,
+              service_id: css.service_id,
+              is_selected: css.is_selected,
+              qty_override: css.qty_override,
+            }));
+
+          if (classServiceInserts.length > 0) {
+            const { error } = await (supabase as any)
+              .from('quote_class_service_selections')
+              .insert(classServiceInserts);
             if (error) throw error;
           }
         }
