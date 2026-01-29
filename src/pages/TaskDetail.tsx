@@ -31,7 +31,7 @@ import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { UnableToCompleteDialog } from '@/components/tasks/UnableToCompleteDialog';
 import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
 import { PhotoUploadButton } from '@/components/common/PhotoUploadButton';
-import { PhotoGrid } from '@/components/common/PhotoGrid';
+import { TaggablePhotoGrid, TaggablePhoto, getPhotoUrls } from '@/components/common/TaggablePhotoGrid';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
 import { BillingChargesSection } from '@/components/billing/BillingChargesSection';
 import { useTechnicians } from '@/hooks/useTechnicians';
@@ -60,7 +60,7 @@ interface TaskDetail {
   unable_to_complete_note: string | null;
   task_notes: string | null;
   inspection_result: string | null;
-  photos: string[] | null;
+  photos: (string | TaggablePhoto)[] | null;
   created_at: string;
   updated_at: string;
   // Billing rate fields
@@ -136,7 +136,7 @@ export default function TaskDetailPage() {
   const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
   const [taskNotes, setTaskNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<(string | TaggablePhoto)[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>('');
@@ -337,7 +337,8 @@ export default function TaskDetailPage() {
     }
   };
 
-  const handlePhotosChange = async (newPhotos: string[]) => {
+  // Handler for TaggablePhotoGrid - saves with metadata
+  const handlePhotosChange = async (newPhotos: TaggablePhoto[]) => {
     const previousPhotos = photos;
     setPhotos(newPhotos);
     if (!id) return;
@@ -347,17 +348,58 @@ export default function TaskDetailPage() {
         .eq('id', id);
 
       if (error) throw error;
-
-      // Only show toast if photos were actually added (not removed)
-      if (newPhotos.length > previousPhotos.length) {
-        toast({
-          title: 'Photos saved',
-          description: `${newPhotos.length - previousPhotos.length} photo(s) added.`,
-        });
-      }
     } catch (error) {
       console.error('Error saving photos:', error);
       // Revert on error
+      setPhotos(previousPhotos);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save photos. Please try again.',
+      });
+    }
+  };
+
+  // Handler for PhotoScanner/Upload - converts URLs to TaggablePhoto format
+  const handlePhotoUrlsAdded = async (urls: string[]) => {
+    const newTaggablePhotos: TaggablePhoto[] = urls.map(url => ({
+      url,
+      isPrimary: false,
+      needsAttention: false,
+      isRepair: false,
+    }));
+
+    // Keep existing photos (with their tags), add new ones
+    const existingUrls = getPhotoUrls(photos);
+    const trulyNewPhotos = newTaggablePhotos.filter(p => !existingUrls.includes(p.url));
+
+    if (trulyNewPhotos.length === 0) return;
+
+    // Merge existing (normalized) with new
+    const normalizedExisting: TaggablePhoto[] = photos.map(p =>
+      typeof p === 'string'
+        ? { url: p, isPrimary: false, needsAttention: false, isRepair: false }
+        : p
+    );
+    const allPhotos = [...normalizedExisting, ...trulyNewPhotos];
+
+    const previousPhotos = photos;
+    setPhotos(allPhotos);
+
+    if (!id) return;
+    try {
+      const { error } = await (supabase.from('tasks') as any)
+        .update({ photos: allPhotos })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Photos saved',
+        description: `${trulyNewPhotos.length} photo(s) added.`,
+      });
+    } catch (error) {
+      console.error('Error saving photos:', error);
       setPhotos(previousPhotos);
       toast({
         variant: 'destructive',
@@ -713,9 +755,9 @@ export default function TaskDetailPage() {
                     entityType="task"
                     entityId={task.id}
                     tenantId={task.tenant_id}
-                    existingPhotos={photos}
+                    existingPhotos={getPhotoUrls(photos)}
                     maxPhotos={20}
-                    onPhotosSaved={handlePhotosChange}
+                    onPhotosSaved={handlePhotoUrlsAdded}
                     size="sm"
                     label="Take Photos"
                     showCount={false}
@@ -724,18 +766,19 @@ export default function TaskDetailPage() {
                     entityType="task"
                     entityId={task.id}
                     tenantId={task.tenant_id}
-                    existingPhotos={photos}
+                    existingPhotos={getPhotoUrls(photos)}
                     maxPhotos={20}
-                    onPhotosSaved={handlePhotosChange}
+                    onPhotosSaved={handlePhotoUrlsAdded}
                     size="sm"
                   />
                 </div>
               </CardHeader>
               <CardContent>
                 {photos.length > 0 ? (
-                  <PhotoGrid
+                  <TaggablePhotoGrid
                     photos={photos}
                     onPhotosChange={handlePhotosChange}
+                    enableTagging={true}
                   />
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-6">

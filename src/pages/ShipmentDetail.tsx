@@ -26,7 +26,7 @@ import { format } from 'date-fns';
 import { ScanDocumentButton, DocumentUploadButton, DocumentList } from '@/components/scanner';
 import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
 import { PhotoUploadButton } from '@/components/common/PhotoUploadButton';
-import { PhotoGrid } from '@/components/common/PhotoGrid';
+import { TaggablePhotoGrid, TaggablePhoto, getPhotoUrls } from '@/components/common/TaggablePhotoGrid';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDialog';
@@ -84,7 +84,7 @@ interface Shipment {
   received_at: string | null;
   notes: string | null;
   receiving_notes: string | null;
-  receiving_photos: string[] | null;
+  receiving_photos: (string | TaggablePhoto)[] | null;
   receiving_documents: string[] | null;
   release_type: string | null;
   created_at: string;
@@ -121,7 +121,7 @@ export default function ShipmentDetail() {
   const [items, setItems] = useState<ShipmentItem[]>([]);
   const [showFinishDialog, setShowFinishDialog] = useState(false);
   const [receivedItems, setReceivedItems] = useState<ReceivedItemData[]>([]);
-  const [receivingPhotos, setReceivingPhotos] = useState<string[]>([]);
+  const [receivingPhotos, setReceivingPhotos] = useState<(string | TaggablePhoto)[]>([]);
   const [receivingDocuments, setReceivingDocuments] = useState<string[]>([]);
   const [showPrintLabelsDialog, setShowPrintLabelsDialog] = useState(false);
   const [createdItemIds, setCreatedItemIds] = useState<string[]>([]);
@@ -862,13 +862,28 @@ export default function ShipmentDetail() {
               entityType="shipment"
               entityId={shipment.id}
               tenantId={profile?.tenant_id}
-              existingPhotos={receivingPhotos}
+              existingPhotos={getPhotoUrls(receivingPhotos)}
               maxPhotos={20}
               onPhotosSaved={async (urls) => {
-                setReceivingPhotos(urls);
+                // Convert new URLs to TaggablePhoto format and merge with existing
+                const existingUrls = getPhotoUrls(receivingPhotos);
+                const newUrls = urls.filter(u => !existingUrls.includes(u));
+                const newTaggablePhotos: TaggablePhoto[] = newUrls.map(url => ({
+                  url,
+                  isPrimary: false,
+                  needsAttention: false,
+                  isRepair: false,
+                }));
+                const normalizedExisting: TaggablePhoto[] = receivingPhotos.map(p =>
+                  typeof p === 'string'
+                    ? { url: p, isPrimary: false, needsAttention: false, isRepair: false }
+                    : p
+                );
+                const allPhotos = [...normalizedExisting, ...newTaggablePhotos];
+                setReceivingPhotos(allPhotos);
                 await supabase
                   .from('shipments')
-                  .update({ receiving_photos: urls })
+                  .update({ receiving_photos: allPhotos })
                   .eq('id', shipment.id);
               }}
               label="Take Photos"
@@ -877,13 +892,28 @@ export default function ShipmentDetail() {
               entityType="shipment"
               entityId={shipment.id}
               tenantId={profile?.tenant_id}
-              existingPhotos={receivingPhotos}
+              existingPhotos={getPhotoUrls(receivingPhotos)}
               maxPhotos={20}
               onPhotosSaved={async (urls) => {
-                setReceivingPhotos(urls);
+                // Convert new URLs to TaggablePhoto format and merge with existing
+                const existingUrls = getPhotoUrls(receivingPhotos);
+                const newUrls = urls.filter(u => !existingUrls.includes(u));
+                const newTaggablePhotos: TaggablePhoto[] = newUrls.map(url => ({
+                  url,
+                  isPrimary: false,
+                  needsAttention: false,
+                  isRepair: false,
+                }));
+                const normalizedExisting: TaggablePhoto[] = receivingPhotos.map(p =>
+                  typeof p === 'string'
+                    ? { url: p, isPrimary: false, needsAttention: false, isRepair: false }
+                    : p
+                );
+                const allPhotos = [...normalizedExisting, ...newTaggablePhotos];
+                setReceivingPhotos(allPhotos);
                 await supabase
                   .from('shipments')
-                  .update({ receiving_photos: urls })
+                  .update({ receiving_photos: allPhotos })
                   .eq('id', shipment.id);
               }}
             />
@@ -891,15 +921,16 @@ export default function ShipmentDetail() {
         </CardHeader>
         <CardContent>
           {receivingPhotos.length > 0 ? (
-            <PhotoGrid
+            <TaggablePhotoGrid
               photos={receivingPhotos}
-              onPhotosChange={async (urls) => {
-                setReceivingPhotos(urls);
+              onPhotosChange={async (photos) => {
+                setReceivingPhotos(photos);
                 await supabase
                   .from('shipments')
-                  .update({ receiving_photos: urls })
+                  .update({ receiving_photos: photos })
                   .eq('id', shipment.id);
               }}
+              enableTagging={true}
             />
           ) : (
             <p className="text-sm text-muted-foreground text-center py-6">
