@@ -194,11 +194,11 @@ export default function BillingReports() {
           .eq('is_active', true)
           .order('name'),
         supabase
-          .from('item_types')
+          .from('classes')
           .select('id, name')
           .eq('tenant_id', profile.tenant_id)
           .eq('is_active', true)
-          .order('name'),
+          .order('sort_order'),
       ]);
 
       if (accountsRes.data) setAccounts(accountsRes.data);
@@ -221,7 +221,7 @@ export default function BillingReports() {
           *,
           accounts:account_id(account_name),
           sidemarks:sidemark_id(sidemark_name),
-          item_types:class_id(name),
+          classes:class_id(name),
           billable_services:service_id(name),
           items:item_id(item_code)
         `)
@@ -244,7 +244,7 @@ export default function BillingReports() {
         ...event,
         account_name: event.accounts?.account_name || 'Unknown',
         sidemark_name: event.sidemarks?.sidemark_name || null,
-        class_name: event.item_types?.name || null,
+        class_name: event.classes?.name || null,
         service_name: event.billable_services?.name || event.charge_type,
         item_code: event.items?.item_code || null,
       }));
@@ -403,7 +403,7 @@ export default function BillingReports() {
           description,
           account_id,
           sidemark_id,
-          item_type_id,
+          class_id,
           received_at,
           released_at,
           length,
@@ -411,7 +411,7 @@ export default function BillingReports() {
           height,
           accounts:account_id(account_name, free_storage_days),
           sidemarks:sidemark_id(sidemark_name),
-          item_types:item_type_id(name)
+          classes:class_id(name)
         `)
         .eq('tenant_id', profile.tenant_id)
         .is('deleted_at', null)
@@ -475,8 +475,8 @@ export default function BillingReports() {
             account_name: item.accounts?.account_name || 'Unknown',
             sidemark_id: item.sidemark_id,
             sidemark_name: item.sidemarks?.sidemark_name || null,
-            class_id: item.item_type_id,
-            class_name: item.item_types?.name || null,
+            class_id: item.class_id,
+            class_name: item.classes?.name || null,
             received_at: item.received_at,
             released_at: item.released_at,
             cubic_feet: cubicFeet,
