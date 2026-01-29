@@ -14,7 +14,6 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { NavAppCard, APP_CARD_COLORS } from '@/components/ui/AppCard';
 
 interface ClientPortalLayoutProps {
   children: ReactNode;
@@ -28,19 +27,16 @@ const navItems = [
     title: 'Dashboard',
     href: '/client',
     icon: 'dashboard',
-    colorClass: APP_CARD_COLORS.blue,
   },
   {
     title: 'My Items',
     href: '/client/items',
     icon: 'inventory_2',
-    colorClass: APP_CARD_COLORS.teal,
   },
   {
     title: 'Quotes',
     href: '/client/quotes',
     icon: 'request_quote',
-    colorClass: APP_CARD_COLORS.amber,
   },
 ];
 
@@ -73,16 +69,20 @@ export function ClientPortalLayout({
             to={item.href}
             onClick={() => mobile && setMobileOpen(false)}
             className={cn(
-              'flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium transition-colors',
+              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
               isActive
-                ? 'bg-muted'
+                ? 'bg-primary/10 text-primary'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             )}
           >
-            <NavAppCard
-              icon={item.icon}
-              colorClass={item.colorClass}
-              isActive={isActive}
+            <MaterialIcon
+              name={item.icon}
+              size="md"
+              weight={isActive ? 400 : 300}
+              className={cn(
+                'flex-shrink-0',
+                isActive ? 'text-primary' : 'text-muted-foreground'
+              )}
             />
             {item.title}
           </Link>
