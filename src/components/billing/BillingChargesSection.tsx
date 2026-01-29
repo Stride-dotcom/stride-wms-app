@@ -32,22 +32,109 @@ interface BillingChargesSectionProps {
   taskId?: string;
   shipmentId?: string;
   accountId?: string;
+  accountName?: string;
   taskType?: string; // For calculating base rate
   itemCount?: number; // Number of items for calculating base rate
   baseRate?: number | null; // Override billing rate from task/shipment
   onTotalChange?: (total: number) => void;
   onBaseRateChange?: (rate: number | null) => void;
+  onSuccess?: () => void; // Callback when billing events are generated
+}
+
+// Map task types to service codes in the Price List
+const TASK_TYPE_TO_SERVICE_CODE: Record<string, string> = {
+  'Inspection': 'INSP',
+  'Will Call': 'Will_Call',
+  'Disposal': 'Disposal',
+  'Assembly': '15MA',
+  'Repair': '1HRO',
+  'Receiving': 'RCVG',
+  'Returns': 'Returns',
+  'Shipping': 'Shipping',
+  'Delivery': 'Delivery',
+};
+
+// Map shipment types to service codes
+const SHIPMENT_TYPE_TO_SERVICE_CODE: Record<string, string> = {
+  'inbound': 'RCVG',
+  'return': 'Returns',
+  'outbound': 'Shipping',
+};
+
+// Helper to get rate from Price List (service_events table)
+async function getRateFromPriceList(
+  tenantId: string,
+  serviceCode: string,
+  classCode: string | null
+): Promise<{ rate: number; serviceName: string; hasError: boolean; errorMessage?: string }> {
+  try {
+    // Try class-specific rate first
+    if (classCode) {
+      const { data: classRate } = await (supabase
+        .from('service_events') as any)
+        .select('rate, service_name')
+        .eq('tenant_id', tenantId)
+        .eq('service_code', serviceCode)
+        .eq('class_code', classCode)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (classRate) {
+        return {
+          rate: classRate.rate,
+          serviceName: classRate.service_name || serviceCode,
+          hasError: false
+        };
+      }
+    }
+
+    // Fall back to general rate (no class_code)
+    const { data: generalRate } = await (supabase
+      .from('service_events') as any)
+      .select('rate, service_name')
+      .eq('tenant_id', tenantId)
+      .eq('service_code', serviceCode)
+      .is('class_code', null)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (generalRate) {
+      return {
+        rate: generalRate.rate,
+        serviceName: generalRate.service_name || serviceCode,
+        hasError: false
+      };
+    }
+
+    // No rate found
+    return {
+      rate: 0,
+      serviceName: serviceCode,
+      hasError: true,
+      errorMessage: `No rate found in Price List for service: ${serviceCode}`,
+    };
+  } catch (error) {
+    console.error('[getRateFromPriceList] Error:', error);
+    return {
+      rate: 0,
+      serviceName: serviceCode,
+      hasError: true,
+      errorMessage: 'Error looking up rate from Price List',
+    };
+  }
 }
 
 export function BillingChargesSection({
   taskId,
   shipmentId,
   accountId,
+  accountName,
   taskType,
   itemCount = 1,
   baseRate,
   onTotalChange,
   onBaseRateChange,
+  onSuccess,
 }: BillingChargesSectionProps) {
   const { profile } = useAuth();
   const { hasRole } = usePermissions();
@@ -76,11 +163,14 @@ export function BillingChargesSection({
         .eq('tenant_id', profile.tenant_id)
         .in('status', ['unbilled', 'flagged']);
 
-      // Filter by task or shipment via metadata
+      // Filter by task or shipment
+      // Note: For tasks, we check metadata.task_id
+      // For shipments, we check both the shipment_id column AND metadata.shipment_id for compatibility
       if (taskId) {
         query = query.contains('metadata', { task_id: taskId });
       } else if (shipmentId) {
-        query = query.contains('metadata', { shipment_id: shipmentId });
+        // Query billing events where shipment_id column matches OR metadata.shipment_id matches
+        query = query.or(`shipment_id.eq.${shipmentId},metadata->shipment_id.eq.${shipmentId}`);
       }
 
       const { data, error } = await query.order('created_at', { ascending: true });
@@ -100,35 +190,35 @@ export function BillingChargesSection({
     }
   }, [profile?.tenant_id, taskId, shipmentId]);
 
-  // Calculate base rate from item types for task or shipment
+  // Calculate base rate from service_events pricing (using class-based rate lookup)
   const calculateBaseRate = useCallback(async () => {
-    if (!taskType) {
+    if (!profile?.tenant_id) {
+      setCalculatedBaseRate(0);
+      return;
+    }
+
+    // Determine service code from task type
+    const serviceCode = taskType ? TASK_TYPE_TO_SERVICE_CODE[taskType] : null;
+    if (!serviceCode && !shipmentId) {
       setCalculatedBaseRate(0);
       return;
     }
 
     try {
       let totalRate = 0;
-      const taskTypeLower = taskType.toLowerCase();
 
-      // For tasks, get task_items
-      if (taskId) {
+      // For tasks, get task_items with their class codes
+      if (taskId && serviceCode) {
         const { data: taskItems, error } = await (supabase
           .from('task_items') as any)
           .select(`
             id,
             quantity,
             item:items!task_items_item_id_fkey(
-              item_type_id,
-              item_types:item_type_id(
-                receiving_rate,
-                shipping_rate,
-                assembly_rate,
-                inspection_fee,
-                minor_touchup_rate,
-                disposal_rate,
-                will_call_rate
-              )
+              id,
+              item_code,
+              class_id,
+              classes:class_id(code)
             )
           `)
           .eq('task_id', taskId);
@@ -138,44 +228,40 @@ export function BillingChargesSection({
           return;
         }
 
+        // Look up rate for each item based on its class
         for (const taskItem of taskItems || []) {
-          const itemTypes = taskItem.item?.item_types;
-          if (!itemTypes) continue;
+          const classCode = taskItem.item?.classes?.code || null;
+          const quantity = taskItem.quantity || 1;
 
-          let rate = 0;
-          switch (taskTypeLower) {
-            case 'receiving':
-              rate = itemTypes.receiving_rate || 0;
-              break;
-            case 'shipping':
-            case 'delivery':
-              rate = itemTypes.shipping_rate || 0;
-              break;
-            case 'assembly':
-              rate = itemTypes.assembly_rate || 0;
-              break;
-            case 'inspection':
-              rate = itemTypes.inspection_fee || 0;
-              break;
-            case 'repair':
-              rate = itemTypes.minor_touchup_rate || 0;
-              break;
-            case 'disposal':
-              rate = itemTypes.disposal_rate || 0;
-              break;
-            case 'will call':
-              rate = itemTypes.will_call_rate || 0;
-              break;
-            default:
-              rate = 0;
-          }
+          // Get rate from service_events using class-based lookup
+          const rateInfo = await getRateFromPriceList(
+            profile.tenant_id,
+            serviceCode,
+            classCode
+          );
 
-          totalRate += rate * (taskItem.quantity || 1);
+          totalRate += rateInfo.rate * quantity;
         }
       }
 
-      // For shipments, get shipment_items
+      // For shipments, get shipment_items with their class codes
       if (shipmentId) {
+        // First get shipment type to determine service code
+        const { data: shipment } = await (supabase
+          .from('shipments') as any)
+          .select('shipment_type')
+          .eq('id', shipmentId)
+          .single();
+
+        const shipmentServiceCode = shipment?.shipment_type
+          ? SHIPMENT_TYPE_TO_SERVICE_CODE[shipment.shipment_type] || serviceCode
+          : serviceCode;
+
+        if (!shipmentServiceCode) {
+          setCalculatedBaseRate(0);
+          return;
+        }
+
         const { data: shipmentItems, error } = await (supabase
           .from('shipment_items') as any)
           .select(`
@@ -183,11 +269,10 @@ export function BillingChargesSection({
             expected_quantity,
             actual_quantity,
             item:items!shipment_items_item_id_fkey(
-              item_type_id,
-              item_types:item_type_id(
-                receiving_rate,
-                shipping_rate
-              )
+              id,
+              item_code,
+              class_id,
+              classes:class_id(code)
             )
           `)
           .eq('shipment_id', shipmentId);
@@ -197,25 +282,19 @@ export function BillingChargesSection({
           return;
         }
 
+        // Look up rate for each item based on its class
         for (const shipmentItem of shipmentItems || []) {
-          const itemTypes = shipmentItem.item?.item_types;
-          if (!itemTypes) continue;
-
-          let rate = 0;
+          const classCode = shipmentItem.item?.classes?.code || null;
           const quantity = shipmentItem.actual_quantity || shipmentItem.expected_quantity || 1;
 
-          switch (taskTypeLower) {
-            case 'receiving':
-              rate = itemTypes.receiving_rate || 0;
-              break;
-            case 'shipping':
-              rate = itemTypes.shipping_rate || 0;
-              break;
-            default:
-              rate = 0;
-          }
+          // Get rate from service_events using class-based lookup
+          const rateInfo = await getRateFromPriceList(
+            profile.tenant_id,
+            shipmentServiceCode,
+            classCode
+          );
 
-          totalRate += rate * quantity;
+          totalRate += rateInfo.rate * quantity;
         }
       }
 
@@ -223,7 +302,7 @@ export function BillingChargesSection({
     } catch (error) {
       console.error('[BillingChargesSection] Error calculating base rate:', error);
     }
-  }, [taskId, shipmentId, taskType]);
+  }, [taskId, shipmentId, taskType, profile?.tenant_id]);
 
   useEffect(() => {
     fetchCharges();

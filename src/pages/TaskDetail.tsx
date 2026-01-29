@@ -924,6 +924,7 @@ export default function TaskDetailPage() {
               <BillingChargesSection
                 taskId={task.id}
                 accountId={task.account_id}
+                accountName={task.account?.account_name}
                 taskType={task.task_type}
                 itemCount={taskItems.length}
                 baseRate={task.billing_rate}
