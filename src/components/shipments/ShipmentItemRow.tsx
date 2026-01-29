@@ -374,182 +374,165 @@ export function ShipmentItemRow({
 
       {/* Expanded Details */}
       {isExpanded && (
-        <TableRow className="bg-muted/20">
-          <TableCell colSpan={9} className="p-4">
-            <div className="space-y-4">
-              {/* Edit Section */}
-              {canEdit && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Edit Item</span>
-                    {!isEditing ? (
-                      <Button variant="outline" size="sm" onClick={handleStartEdit}>
-                        <MaterialIcon name="edit" size="sm" className="mr-1" />
-                        Edit
-                      </Button>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleCancelEdit}
-                          disabled={saving}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={handleSave}
-                          disabled={saving}
-                        >
-                          {saving ? (
-                            <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />
-                          ) : (
-                            <MaterialIcon name="save" size="sm" className="mr-1" />
-                          )}
-                          Save
-                        </Button>
-                      </div>
-                    )}
+        <TableRow className="bg-muted/10 border-l-4 border-l-primary/30">
+          <TableCell colSpan={9} className="py-3 px-4">
+            <div className="space-y-3">
+              {/* Flags Section - FIRST and most prominent (only for received items) */}
+              {item.item_id && (
+                <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MaterialIcon name="flag" size="sm" className="text-amber-600" />
+                    <span className="text-sm font-medium">Item Flags</span>
                   </div>
-
-                  {isEditing && (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground">Description</label>
-                        <AutocompleteInput
-                          value={editDescription}
-                          onChange={setEditDescription}
-                          suggestions={descriptionSuggestions}
-                          placeholder="Description"
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground">Vendor</label>
-                        <AutocompleteInput
-                          value={editVendor}
-                          onChange={setEditVendor}
-                          suggestions={vendorSuggestions}
-                          placeholder="Vendor"
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground">Sidemark</label>
-                        <Input
-                          value={editSidemark}
-                          onChange={(e) => setEditSidemark(e.target.value)}
-                          placeholder="Sidemark"
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground">Quantity</label>
-                        <Input
-                          type="number"
-                          value={editQuantity}
-                          onChange={(e) => setEditQuantity(e.target.value)}
-                          min="1"
-                          className="h-9"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Info Section (when not editing) */}
-              {!isEditing && (
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div>
-                    <span className="text-xs text-muted-foreground">Sidemark</span>
-                    <p className="font-medium text-sm">{item.expected_sidemark || '-'}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Expected Qty</span>
-                    <p className="font-medium text-sm">{item.expected_quantity || 1}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Status</span>
-                    <p className="font-medium text-sm">{item.status}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Flags Section (only for received items) */}
-              {item.item_id && flagServiceEvents.length > 0 && (
-                <div className="border-t pt-4">
-                  <span className="text-sm font-medium">Flags</span>
-                  <p className="text-xs text-muted-foreground mb-2">Add flags to this item for billing</p>
                   {loadingFlags || serviceEventsLoading ? (
-                    <div className="flex gap-2">
-                      <Skeleton className="h-8 w-24" />
-                      <Skeleton className="h-8 w-24" />
+                    <div className="flex gap-3">
+                      <Skeleton className="h-6 w-32" />
+                      <Skeleton className="h-6 w-32" />
                     </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
+                  ) : flagServiceEvents.length > 0 ? (
+                    <div className="flex flex-wrap gap-x-4 gap-y-2">
                       {flagServiceEvents.map((service) => {
                         const isEnabled = enabledFlags.has(service.service_code);
                         const isUpdating = updatingFlag === service.service_code;
                         return (
-                          <Button
+                          <label
                             key={service.id}
-                            variant={isEnabled ? "default" : "outline"}
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFlagToggle(service, isEnabled);
-                            }}
-                            disabled={isUpdating}
                             className={cn(
-                              "text-xs",
-                              isEnabled && "bg-amber-500 hover:bg-amber-600 text-white"
+                              "flex items-center gap-2 cursor-pointer select-none",
+                              isUpdating && "opacity-50"
                             )}
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            {isUpdating ? (
-                              <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />
-                            ) : isEnabled ? (
-                              <MaterialIcon name="flag" size="sm" className="mr-1" />
-                            ) : (
-                              <MaterialIcon name="outlined_flag" size="sm" className="mr-1" />
+                            <Checkbox
+                              checked={isEnabled}
+                              onCheckedChange={() => handleFlagToggle(service, isEnabled)}
+                              disabled={isUpdating}
+                              className={cn(
+                                isEnabled && "bg-amber-500 border-amber-500 data-[state=checked]:bg-amber-500"
+                              )}
+                            />
+                            <span className={cn(
+                              "text-sm",
+                              isEnabled && "font-medium text-amber-700 dark:text-amber-400"
+                            )}>
+                              {service.service_name}
+                            </span>
+                            {isUpdating && (
+                              <MaterialIcon name="progress_activity" size="xs" className="animate-spin" />
                             )}
-                            {service.service_name}
-                          </Button>
+                          </label>
                         );
                       })}
                     </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No flags available. Configure flags in the Price List.</p>
                   )}
                 </div>
               )}
 
-              {/* Actions */}
-              <div className="border-t pt-4 flex flex-wrap gap-2">
+              {/* Not received notice */}
+              {!item.item_id && (
+                <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
+                  <MaterialIcon name="info" size="sm" className="inline mr-1" />
+                  Flags can be added after this item is received
+                </div>
+              )}
+
+              {/* Quick Info Row */}
+              <div className="flex flex-wrap items-center gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Sidemark: </span>
+                  <span className="font-medium">{item.expected_sidemark || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Expected: </span>
+                  <span className="font-medium">{item.expected_quantity || 1}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Received: </span>
+                  <span className="font-medium">{item.actual_quantity || '-'}</span>
+                </div>
+              </div>
+
+              {/* Action buttons row */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {canEdit && !isEditing && (
+                  <Button variant="outline" size="sm" onClick={handleStartEdit}>
+                    <MaterialIcon name="edit" size="sm" className="mr-1" />
+                    Edit
+                  </Button>
+                )}
                 {item.item_id && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleItemCodeClick}
-                  >
+                  <Button variant="outline" size="sm" onClick={handleItemCodeClick}>
                     <MaterialIcon name="visibility" size="sm" className="mr-1" />
                     View Item
                   </Button>
                 )}
                 {canEdit && onDuplicate && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDuplicate}
-                  >
+                  <Button variant="outline" size="sm" onClick={handleDuplicate}>
                     <MaterialIcon name="content_copy" size="sm" className="mr-1" />
                     Duplicate
                   </Button>
                 )}
-                <div className="flex-1" />
-                <span className="text-xs text-muted-foreground self-center">
-                  ID: {item.id.slice(0, 8)}
-                </span>
               </div>
+
+              {/* Edit Form (when editing) */}
+              {isEditing && (
+                <div className="bg-background border rounded-lg p-3 space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Description</label>
+                      <AutocompleteInput
+                        value={editDescription}
+                        onChange={setEditDescription}
+                        suggestions={descriptionSuggestions}
+                        placeholder="Description"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Vendor</label>
+                      <AutocompleteInput
+                        value={editVendor}
+                        onChange={setEditVendor}
+                        suggestions={vendorSuggestions}
+                        placeholder="Vendor"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Sidemark</label>
+                      <Input
+                        value={editSidemark}
+                        onChange={(e) => setEditSidemark(e.target.value)}
+                        placeholder="Sidemark"
+                        className="h-9"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Quantity</label>
+                      <Input
+                        type="number"
+                        value={editQuantity}
+                        onChange={(e) => setEditQuantity(e.target.value)}
+                        min="1"
+                        className="h-9"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" size="sm" onClick={handleCancelEdit} disabled={saving}>
+                      Cancel
+                    </Button>
+                    <Button size="sm" onClick={handleSave} disabled={saving}>
+                      {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />}
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </TableCell>
         </TableRow>
