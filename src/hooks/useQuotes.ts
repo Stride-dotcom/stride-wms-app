@@ -212,11 +212,13 @@ export function useQuoteServiceRates() {
     setLoading(true);
     try {
       // Fetch from service_events (Price List) for quote rates
+      // IMPORTANT: Must use same ordering as useQuoteServices to ensure consistent canonical service_id
       const { data: serviceEvents, error: seError } = await (supabase as any)
         .from('service_events')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('service_name');
 
       if (seError) throw seError;
 
