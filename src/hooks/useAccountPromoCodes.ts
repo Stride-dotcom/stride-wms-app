@@ -57,8 +57,8 @@ export function useAccountPromoCodes(accountId: string | null | undefined) {
 
     try {
       setLoading(true);
-      const { data, error } = await (supabase
-        .from('account_promo_codes') as any)
+      const { data, error } = await (supabase as any)
+        .from('account_promo_codes')
         .select(`
           id,
           promo_code_id,
@@ -127,8 +127,8 @@ export function useAccountPromoCodes(accountId: string | null | undefined) {
       if (codesError) throw codesError;
 
       // Get already assigned codes for this account
-      const { data: assigned, error: assignedError } = await (supabase
-        .from('account_promo_codes') as any)
+      const { data: assigned, error: assignedError } = await (supabase as any)
+        .from('account_promo_codes')
         .select('promo_code_id')
         .eq('account_id', accountId);
 
@@ -156,8 +156,8 @@ export function useAccountPromoCodes(accountId: string | null | undefined) {
     }
 
     try {
-      const { error } = await (supabase
-        .from('account_promo_codes') as any)
+      const { error } = await (supabase as any)
+        .from('account_promo_codes')
         .insert({
           account_id: accountId,
           promo_code_id: promoCodeId,
@@ -186,8 +186,8 @@ export function useAccountPromoCodes(accountId: string | null | undefined) {
 
   const removePromoCode = useCallback(async (assignmentId: string): Promise<boolean> => {
     try {
-      const { error } = await (supabase
-        .from('account_promo_codes') as any)
+      const { error } = await (supabase as any)
+        .from('account_promo_codes')
         .delete()
         .eq('id', assignmentId);
 

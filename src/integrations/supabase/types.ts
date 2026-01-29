@@ -6725,6 +6725,7 @@ export type Database = {
           expected_quantity: number
           expected_sidemark: string | null
           expected_vendor: string | null
+          flags: string[] | null
           id: string
           item_id: string | null
           item_type_id: string | null
@@ -6743,6 +6744,7 @@ export type Database = {
           expected_quantity?: number
           expected_sidemark?: string | null
           expected_vendor?: string | null
+          flags?: string[] | null
           id?: string
           item_id?: string | null
           item_type_id?: string | null
@@ -6761,6 +6763,7 @@ export type Database = {
           expected_quantity?: number
           expected_sidemark?: string | null
           expected_vendor?: string | null
+          flags?: string[] | null
           id?: string
           item_id?: string | null
           item_type_id?: string | null
