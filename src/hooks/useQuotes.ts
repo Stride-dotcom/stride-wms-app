@@ -212,11 +212,13 @@ export function useQuoteServiceRates() {
     setLoading(true);
     try {
       // Fetch from service_events (Price List) for quote rates
+      // IMPORTANT: Must use same ordering as useQuoteServices to ensure consistent canonical service_id
       const { data: serviceEvents, error: seError } = await (supabase as any)
         .from('service_events')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('service_name');
 
       if (seError) throw seError;
 
@@ -230,11 +232,21 @@ export function useQuoteServiceRates() {
 
       const classMap = new Map((classes || []).map(c => [c.code, c.id]));
 
+      // Build a map of service_code to canonical service_id (first ID for each service_code)
+      // This ensures rates use the same service_id as the services in useQuoteServices
+      const serviceCodeToId = new Map<string, string>();
+      (serviceEvents || []).forEach((se: any) => {
+        if (!serviceCodeToId.has(se.service_code)) {
+          serviceCodeToId.set(se.service_code, se.id);
+        }
+      });
+
       // Convert service_events to QuoteServiceRate format
+      // Use the canonical service_id from serviceCodeToId for consistency
       const convertedRates: QuoteServiceRate[] = (serviceEvents || []).map((se: any) => ({
         id: se.id,
         tenant_id: se.tenant_id,
-        service_id: se.id, // Using same ID since we're mapping from service_events
+        service_id: serviceCodeToId.get(se.service_code) || se.id, // Use canonical ID for consistency
         class_id: se.class_code ? classMap.get(se.class_code) || null : null,
         rate_amount: se.rate,
         currency: 'USD',

@@ -56,35 +56,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
-// Service codes for main row columns
-const MAIN_ROW_SERVICES = ['RCVG', 'INSP', '15MA']; // Receiving, Inspection, Assembly 1hr
-const MAIN_ROW_SERVICE_LABELS: Record<string, string> = {
-  'RCVG': 'Receiving',
-  'INSP': 'Inspection',
-  '15MA': 'Assembly 1hr',
-};
-
-// Service codes for expanded section
-const EXPANDED_SERVICES = [
-  'Minor_Touch_Up',
-  'Disposal',
-  'Pull_Prep',
-  'STRG_ST',
-  'STRG',
-  'Will_Call',
-  'Sit_Test',
-  'Returns',
-];
-const EXPANDED_SERVICE_LABELS: Record<string, string> = {
-  'Minor_Touch_Up': 'Minor Touch Up',
-  'Disposal': 'Disposal',
-  'Pull_Prep': 'Pull Prep',
-  'STRG_ST': 'Short Term Storage',
-  'STRG': 'Day Storage',
-  'Will_Call': 'Will Call',
-  'Sit_Test': 'Sit Test',
-  'Returns': 'Returns Processing',
-};
+// NOTE: All services are now dynamically fetched from the Price List (service_events table)
+// No hardcoded service codes - the quote tool automatically adapts to whatever
+// services and classes exist in the tenant's Price List
 
 export default function QuoteBuilder() {
   const { id } = useParams<{ id: string }>();
@@ -135,32 +109,20 @@ export default function QuoteBuilder() {
   const [sendName, setSendName] = useState('');
   const [sending, setSending] = useState(false);
 
-  // Find services by code
-  const getServiceByCode = useCallback((code: string) => {
-    return services.find(s => s.service_code?.toLowerCase() === code.toLowerCase());
-  }, [services]);
+  // All class-based services from Price List (dynamically fetched, no hardcoding)
+  // These are services that have class-specific rates in service_events
+  const classBasedServiceList = useMemo(() => {
+    return classBasedServices.map(service => ({
+      code: service.service_code,
+      label: service.name,
+      service,
+    }));
+  }, [classBasedServices]);
 
-  // Get services for main row and expanded section
-  const mainRowServiceList = useMemo(() => {
-    return MAIN_ROW_SERVICES.map(code => ({
-      code,
-      label: MAIN_ROW_SERVICE_LABELS[code] || code,
-      service: getServiceByCode(code),
-    })).filter(item => item.service);
-  }, [getServiceByCode]);
-
-  const expandedServiceList = useMemo(() => {
-    return EXPANDED_SERVICES.map(code => ({
-      code,
-      label: EXPANDED_SERVICE_LABELS[code] || code,
-      service: getServiceByCode(code),
-    })).filter(item => item.service);
-  }, [getServiceByCode]);
-
-  // Get remaining services (not in main row or expanded)
-  const remainingServices = useMemo(() => {
-    const usedCodes = new Set([...MAIN_ROW_SERVICES, ...EXPANDED_SERVICES].map(c => c.toLowerCase()));
-    return nonClassBasedServices.filter(s => !usedCodes.has(s.service_code?.toLowerCase() || ''));
+  // All non-class-based services from Price List (dynamically fetched)
+  // These are flat-rate services that don't vary by class
+  const otherServiceList = useMemo(() => {
+    return nonClassBasedServices;
   }, [nonClassBasedServices]);
 
   // Load existing quote
@@ -570,38 +532,6 @@ export default function QuoteBuilder() {
     );
   }
 
-  // Render service input cell (checkbox + qty input)
-  const renderServiceCell = (classId: string, serviceId: string | undefined, classQty: number) => {
-    if (!serviceId) return <td className="px-2 py-2 text-center text-muted-foreground">-</td>;
-
-    const selection = getClassServiceSelection(classId, serviceId);
-    const isSelected = selection?.is_selected || false;
-    const qty = selection?.qty_override;
-
-    return (
-      <td className="px-2 py-2">
-        <div className="flex items-center gap-1 justify-center">
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={() => toggleClassServiceCheckbox(classId, serviceId, classQty)}
-            disabled={!canEdit}
-            className="mr-1"
-          />
-          <Input
-            type="number"
-            min="0"
-            step="0.1"
-            value={qty ?? ''}
-            onChange={(e) => updateClassServiceQty(classId, serviceId, e.target.value ? parseFloat(e.target.value) : null)}
-            disabled={!canEdit}
-            className="w-14 h-7 text-center text-sm"
-            placeholder="0"
-          />
-        </div>
-      </td>
-    );
-  };
-
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -734,7 +664,7 @@ export default function QuoteBuilder() {
               </CardContent>
             </Card>
 
-            {/* Class-Based Services Table */}
+            {/* Class-Based Services Table - Dynamically populated from Price List */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -742,115 +672,135 @@ export default function QuoteBuilder() {
                   Items & Services by Class
                 </CardTitle>
                 <CardDescription>
-                  Enter quantities per class. Check services and adjust quantities as needed. Expand rows for additional services.
+                  Enter quantities per class. Expand rows to select services. All services are pulled from your Price List.
                 </CardDescription>
               </CardHeader>
               <CardContent className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="w-8 px-2 py-2"></th>
-                      <th className="px-2 py-2 text-left font-medium">Class</th>
-                      <th className="px-2 py-2 text-center font-medium w-20">Qty</th>
-                      {mainRowServiceList.map(({ code, label }) => (
-                        <th key={code} className="px-2 py-2 text-center font-medium min-w-[100px]">
-                          {label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {classes.map((cls) => {
-                      const line = formData.class_lines.find((l) => l.class_id === cls.id);
-                      const classQty = line?.qty || 0;
-                      const isExpanded = expandedClasses.has(cls.id);
+                {classes.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MaterialIcon name="category" size="xl" className="mx-auto mb-2 opacity-50" />
+                    <p>No classes found in your Price List.</p>
+                    <p className="text-sm">Add classes to your Price List to create quotes.</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="w-8 px-2 py-2"></th>
+                        <th className="px-2 py-2 text-left font-medium">Class</th>
+                        <th className="px-2 py-2 text-center font-medium w-24">Qty</th>
+                        <th className="px-2 py-2 text-left font-medium">Services Selected</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {classes.map((cls) => {
+                        const line = formData.class_lines.find((l) => l.class_id === cls.id);
+                        const classQty = line?.qty || 0;
+                        const isExpanded = expandedClasses.has(cls.id);
 
-                      return (
-                        <Collapsible key={cls.id} open={isExpanded} onOpenChange={() => toggleClassExpanded(cls.id)} asChild>
-                          <>
-                            <tr className={`border-b ${classQty > 0 ? 'bg-primary/5' : ''}`}>
-                              <td className="px-2 py-2">
-                                <CollapsibleTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                                    <MaterialIcon
-                                      name={isExpanded ? 'expand_less' : 'expand_more'}
-                                      size="sm"
-                                    />
-                                  </Button>
-                                </CollapsibleTrigger>
-                              </td>
-                              <td className="px-2 py-2 font-medium">{cls.name}</td>
-                              <td className="px-2 py-2">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  value={classQty > 0 ? classQty : ''}
-                                  onChange={(e) => updateClassQty(cls.id, parseInt(e.target.value) || 0)}
-                                  disabled={!canEdit}
-                                  className="w-16 h-7 text-center text-sm"
-                                  placeholder="0"
-                                />
-                              </td>
-                              {mainRowServiceList.map(({ service }) =>
-                                renderServiceCell(cls.id, service?.id, classQty)
-                              )}
-                            </tr>
-                            <CollapsibleContent asChild>
-                              <tr>
-                                <td colSpan={3 + mainRowServiceList.length} className="bg-muted/30 p-0">
-                                  <div className="p-3">
-                                    <div className="text-xs font-medium text-muted-foreground mb-2">
-                                      Additional Services for {cls.name}
-                                    </div>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                      {expandedServiceList.map(({ code, label, service }) => {
-                                        if (!service) return null;
-                                        const selection = getClassServiceSelection(cls.id, service.id);
-                                        const isSelected = selection?.is_selected || false;
-                                        const qty = selection?.qty_override;
+                        // Count selected services for this class
+                        const selectedCount = formData.class_service_selections.filter(
+                          (css) => css.class_id === cls.id && css.is_selected
+                        ).length;
 
-                                        return (
-                                          <div
-                                            key={code}
-                                            className={`flex items-center gap-2 p-2 rounded border ${
-                                              isSelected ? 'border-primary bg-primary/5' : 'border-border'
-                                            }`}
-                                          >
-                                            <Checkbox
-                                              checked={isSelected}
-                                              onCheckedChange={() => toggleClassServiceCheckbox(cls.id, service.id, classQty)}
-                                              disabled={!canEdit}
-                                            />
-                                            <span className="text-xs flex-1 truncate">{label}</span>
-                                            <Input
-                                              type="number"
-                                              min="0"
-                                              step="0.1"
-                                              value={qty ?? ''}
-                                              onChange={(e) => updateClassServiceQty(cls.id, service.id, e.target.value ? parseFloat(e.target.value) : null)}
-                                              disabled={!canEdit}
-                                              className="w-12 h-6 text-center text-xs"
-                                              placeholder="0"
-                                            />
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
+                        return (
+                          <Collapsible key={cls.id} open={isExpanded} onOpenChange={() => toggleClassExpanded(cls.id)} asChild>
+                            <>
+                              <tr className={`border-b ${classQty > 0 ? 'bg-primary/5' : ''}`}>
+                                <td className="px-2 py-2">
+                                  <CollapsibleTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                      <MaterialIcon
+                                        name={isExpanded ? 'expand_less' : 'expand_more'}
+                                        size="sm"
+                                      />
+                                    </Button>
+                                  </CollapsibleTrigger>
+                                </td>
+                                <td className="px-2 py-2 font-medium">{cls.name}</td>
+                                <td className="px-2 py-2">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={classQty > 0 ? classQty : ''}
+                                    onChange={(e) => updateClassQty(cls.id, parseInt(e.target.value) || 0)}
+                                    disabled={!canEdit}
+                                    className="w-20 h-7 text-center text-sm"
+                                    placeholder="0"
+                                  />
+                                </td>
+                                <td className="px-2 py-2">
+                                  {selectedCount > 0 ? (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {selectedCount} service{selectedCount !== 1 ? 's' : ''} selected
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">Click to expand and select services</span>
+                                  )}
                                 </td>
                               </tr>
-                            </CollapsibleContent>
-                          </>
-                        </Collapsible>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                              <CollapsibleContent asChild>
+                                <tr>
+                                  <td colSpan={4} className="bg-muted/30 p-0">
+                                    <div className="p-3">
+                                      <div className="text-xs font-medium text-muted-foreground mb-2">
+                                        Available Services for {cls.name} ({classBasedServiceList.length} services from Price List)
+                                      </div>
+                                      {classBasedServiceList.length === 0 ? (
+                                        <div className="text-center py-4 text-muted-foreground text-sm">
+                                          No class-based services found in your Price List.
+                                        </div>
+                                      ) : (
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                          {classBasedServiceList.map(({ code, label, service }) => {
+                                            const selection = getClassServiceSelection(cls.id, service.id);
+                                            const isSelected = selection?.is_selected || false;
+                                            const qty = selection?.qty_override;
+
+                                            return (
+                                              <div
+                                                key={code}
+                                                className={`flex items-center gap-2 p-2 rounded border ${
+                                                  isSelected ? 'border-primary bg-primary/5' : 'border-border'
+                                                }`}
+                                              >
+                                                <Checkbox
+                                                  checked={isSelected}
+                                                  onCheckedChange={() => toggleClassServiceCheckbox(cls.id, service.id, classQty)}
+                                                  disabled={!canEdit}
+                                                />
+                                                <span className="text-xs flex-1 truncate" title={label}>{label}</span>
+                                                <Input
+                                                  type="number"
+                                                  min="0"
+                                                  step="0.1"
+                                                  value={qty ?? ''}
+                                                  onChange={(e) => updateClassServiceQty(cls.id, service.id, e.target.value ? parseFloat(e.target.value) : null)}
+                                                  disabled={!canEdit}
+                                                  className="w-14 h-6 text-center text-xs"
+                                                  placeholder="0"
+                                                />
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              </CollapsibleContent>
+                            </>
+                          </Collapsible>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
               </CardContent>
             </Card>
 
-            {/* Additional/Remaining Services */}
-            {remainingServices.length > 0 && (
+            {/* Other Services - Non-class-based services from Price List */}
+            {otherServiceList.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -858,12 +808,12 @@ export default function QuoteBuilder() {
                     Other Services
                   </CardTitle>
                   <CardDescription>
-                    Additional flat-rate services
+                    Additional services from your Price List (not class-specific)
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {remainingServices.map((service) => {
+                    {otherServiceList.map((service) => {
                       const selected = formData.selected_services.find(
                         (ss) => ss.service_id === service.id
                       );
