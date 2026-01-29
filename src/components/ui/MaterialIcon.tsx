@@ -20,7 +20,7 @@ export function MaterialIcon({
   className,
   size = 'md',
   filled = false,
-  weight = 400
+  weight = 300
 }: MaterialIconProps) {
   return (
     <span

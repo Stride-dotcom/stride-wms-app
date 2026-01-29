@@ -99,7 +99,7 @@ export function ClientPortalLayout({
           {/* Logo/Brand */}
           <div className="flex h-16 items-center gap-2 border-b px-4">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md">
-              <MaterialIcon name="warehouse" size="sm" className="text-white" filled />
+              <MaterialIcon name="warehouse" size="sm" className="text-white" weight={300} />
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-semibold">{warehouseName}</span>
@@ -159,7 +159,7 @@ export function ClientPortalLayout({
               {/* Logo/Brand */}
               <div className="flex h-14 items-center gap-2 border-b px-4">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md">
-                  <MaterialIcon name="warehouse" size="sm" className="text-white" filled />
+                  <MaterialIcon name="warehouse" size="sm" className="text-white" weight={300} />
                 </div>
                 <span className="text-sm font-semibold">{warehouseName}</span>
               </div>
@@ -192,7 +192,7 @@ export function ClientPortalLayout({
 
         <div className="ml-2 flex flex-1 items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-sm">
-            <MaterialIcon name="warehouse" size="sm" className="text-white" filled />
+            <MaterialIcon name="warehouse" size="sm" className="text-white" weight={300} />
           </div>
           <span className="text-sm font-semibold">{warehouseName}</span>
         </div>
