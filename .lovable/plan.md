@@ -1,103 +1,96 @@
 
+# Fix Plan: Task Items Not Loading & Build Errors
 
-## Fix Build Errors Preventing App Load
+## Summary
+There are **two separate issues** that need to be resolved:
 
-The application is stuck on a loading spinner because TypeScript build errors are preventing compilation. I've identified **6 distinct issues** across multiple files that need to be resolved.
+1. **Task Items Not Loading**: The TaskDetail page is failing to fetch items because it queries for a column `inspection_result` that doesn't exist in the database. The correct column name is `inspection_status`.
 
----
-
-### Issue Summary
-
-| File | Error Type | Cause |
-|------|------------|-------|
-| `AccountDialog.tsx` | Missing properties | Database types out of sync |
-| `EmailWysiwygEditor.tsx` | Invalid property | Wrong email-builder API usage |
-| `usePresence.ts` | Type assertion error | Missing type cast |
-| `useQuickBooks.ts` | Unknown table | Database types out of sync |
-| `ItemDetail.tsx` | Missing identifier | Missing `cn` import |
-| `Messages.tsx` | Duplicate identifier | Name collision between import and Lucide icon |
+2. **Build Errors (30+ files)**: Previous icon migration work left the `MaterialIcon` component without support for `style` and `onClick` props, causing TypeScript errors across many files.
 
 ---
 
-### Fix Plan
+## Root Cause Analysis
 
-#### 1. Regenerate Supabase Types
-The database has new tables and columns from recent migrations that aren't reflected in `types.ts`:
-- `accounts` table missing: `default_item_notes`, `highlight_item_notes`, `default_shipment_notes`, `highlight_shipment_notes`
-- `qbo_invoice_sync_log` table completely missing
+### Issue 1: Database Column Mismatch
+The `TaskDetail.tsx` file queries for `inspection_result` on the `items` table, but the actual database schema has:
+- `inspection_status` ✓
+- `inspection_photos` ✓  
+- `needs_inspection` ✓
+- `inspection_result` ✗ (does not exist)
 
-This requires regenerating the types file from the database schema.
+This causes a PostgreSQL error `42703: column items.inspection_result does not exist`.
 
-#### 2. Fix `Messages.tsx` - Duplicate User Identifier
-**Problem**: `User` is imported from both:
-- `lucide-react` as an icon component
-- `@/hooks/useUsers` as a type
+### Issue 2: MaterialIcon Props Missing
+The `MaterialIcon` component only accepts: `name`, `className`, `size`, `filled`, `weight`
 
-**Solution**: Rename the Lucide icon import to avoid collision:
-```typescript
-import { User as UserIcon, ... } from 'lucide-react';
-```
-
-Then update usages of `<User ... />` to `<UserIcon ... />` throughout the file.
-
-#### 3. Fix `ItemDetail.tsx` - Missing cn Import
-**Problem**: Using `cn()` utility but it's not imported.
-
-**Solution**: Add the import at the top of the file:
-```typescript
-import { cn } from '@/lib/utils';
-```
-
-#### 4. Fix `usePresence.ts` - Type Assertion
-**Problem**: Converting presence state to custom type fails type checking.
-
-**Solution**: Use proper type assertion through `unknown`:
-```typescript
-const latest = newPresences[newPresences.length - 1] as unknown as PresenceUser;
-```
-
-#### 5. Fix `EmailWysiwygEditor.tsx` - Invalid childrenIds Property
-**Problem**: The email builder library's type definitions don't allow `childrenIds` on certain block types.
-
-**Solution**: Type the document manipulation more loosely using type assertions for the email builder's internal structure, as this is a known limitation of the library's type definitions.
-
-#### 6. Fix `useQuickBooks.ts` - Table Type Workaround
-**Problem**: `qbo_invoice_sync_log` table isn't in generated types yet.
-
-**Solution**: Use type assertion to bypass the type check until types are regenerated:
-```typescript
-(supabase.from('qbo_invoice_sync_log') as any)
-```
+But various files are passing:
+- `style={{ fontSize: '...' }}` - not supported
+- `onClick={...}` - not supported
 
 ---
 
-### Implementation Order
+## Implementation Plan
 
-1. **Regenerate types** - Run the types regeneration to add missing tables/columns
-2. **Fix Messages.tsx** - Rename User icon to avoid duplicate identifier
-3. **Fix ItemDetail.tsx** - Add missing `cn` import
-4. **Fix usePresence.ts** - Fix type assertion
-5. **Fix EmailWysiwygEditor.tsx** - Work around library type limitations
-6. **Verify useQuickBooks.ts** - Should be fixed after types regeneration; add fallback if needed
+### Part 1: Fix Task Items Query (TaskDetail.tsx)
+
+**Changes needed:**
+1. Replace all references to `inspection_result` with `inspection_status`
+2. Update the database query to use the correct column
+3. Update the update function to use the correct column
+4. Update all UI display logic to check `inspection_status`
+
+Affected lines in `src/pages/TaskDetail.tsx`:
+- Line 62: Interface definition
+- Line 85: TaskItemRow interface
+- Line 210: Supabase query
+- Lines 302-312: Update function
+- Lines 546-555: Badge counting logic
+- Lines 616-632: Table cell rendering
+
+### Part 2: Fix MaterialIcon Component
+
+**Option A (Recommended)**: Extend `MaterialIcon` to support `style` and `onClick` props
+- Add `style?: React.CSSProperties` to the interface
+- Add `onClick?: React.MouseEventHandler` to the interface
+- Pass these through to the underlying `span` element
+
+This is the cleanest solution as it makes the component more flexible.
+
+### Part 3: Fix Missing Import Errors
+
+Two files have missing imports that need to be added:
+- `src/components/settings/alerts/tabs/EmailHtmlTab.tsx` - missing `Loader2` 
+- `src/components/ui/searchable-select.tsx` - missing `Check`
+
+These need to either import from lucide-react or be replaced with MaterialIcon.
 
 ---
 
-### Technical Details
+## Technical Details
 
-**Messages.tsx Changes:**
-- Line 5: Remove duplicate `User` type import (hook doesn't export it)
-- Line 48: Rename `User` to `UserIcon` in Lucide imports
-- Lines 406, 630: Update JSX to use `<UserIcon />` instead of `<User />`
+### Database Schema (items table - relevant columns)
+| Column | Exists |
+|--------|--------|
+| inspection_status | ✓ |
+| inspection_photos | ✓ |
+| needs_inspection | ✓ |
+| inspection_result | ✗ |
 
-**ItemDetail.tsx Changes:**
-- Add `cn` to the existing `@/lib/utils` import (line ~27)
+### Files to Modify
 
-**usePresence.ts Changes:**
-- Line 61: Change type assertion to go through `unknown` first
+| File | Changes |
+|------|---------|
+| `src/pages/TaskDetail.tsx` | Replace `inspection_result` → `inspection_status` |
+| `src/components/ui/MaterialIcon.tsx` | Add `style` and `onClick` props |
+| `src/components/settings/alerts/tabs/EmailHtmlTab.tsx` | Fix missing Loader2 reference |
+| `src/components/ui/searchable-select.tsx` | Fix missing Check reference |
 
-**EmailWysiwygEditor.tsx Changes:**
-- Lines 210-280: Use type assertions for document structure to work around library limitations
+---
 
-**useQuickBooks.ts Changes:**
-- Lines 288, 343: Add type assertions for the table query (already partially done with `as any`)
-
+## Expected Outcome
+After these fixes:
+1. Task items will load and display correctly on the Task Detail page
+2. Inspection pass/fail functionality will work again
+3. All TypeScript build errors will be resolved
+4. The app will compile and run without errors

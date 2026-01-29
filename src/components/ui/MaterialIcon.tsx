@@ -6,6 +6,8 @@ interface MaterialIconProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   filled?: boolean;
   weight?: 100 | 200 | 300 | 400 | 500 | 600 | 700;
+  style?: React.CSSProperties;
+  onClick?: React.MouseEventHandler<HTMLSpanElement>;
 }
 
 const sizeMap = {
@@ -20,18 +22,23 @@ export function MaterialIcon({
   className,
   size = 'md',
   filled = false,
-  weight = 300
+  weight = 300,
+  style,
+  onClick,
 }: MaterialIconProps) {
   return (
     <span
       className={cn(
         'material-symbols-outlined select-none',
         sizeMap[size],
+        onClick && 'cursor-pointer',
         className
       )}
       style={{
-        fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' ${weight}, 'GRAD' 0, 'opsz' 24`
+        fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' ${weight}, 'GRAD' 0, 'opsz' 24`,
+        ...style,
       }}
+      onClick={onClick}
     >
       {name}
     </span>

@@ -248,7 +248,7 @@ export default function QuoteAcceptance() {
         {/* Success Message */}
         {successMessage && (
           <Alert className="mb-6 bg-green-50 border-green-200">
-            <CheckCircle className="h-4 w-4 text-green-600" />
+            <MaterialIcon name="check_circle" size="sm" className="text-green-600" />
             <AlertDescription className="text-green-800">{successMessage}</AlertDescription>
           </Alert>
         )}
