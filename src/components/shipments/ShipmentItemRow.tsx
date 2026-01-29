@@ -331,7 +331,7 @@ export function ShipmentItemRow({
         <TableCell className="w-24">
           <Badge variant="outline" className="text-xs">{item.status}</Badge>
           {saving && (
-            <MaterialIcon name="progress_activity" size="xs" className="ml-1 animate-spin inline" />
+            <MaterialIcon name="progress_activity" size="sm" className="ml-1 animate-spin inline" />
           )}
         </TableCell>
 
@@ -397,7 +397,7 @@ export function ShipmentItemRow({
                           {service.service_name}
                         </span>
                         {isUpdating && (
-                          <MaterialIcon name="progress_activity" size="xs" className="animate-spin" />
+                          <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
                         )}
                       </label>
                     );

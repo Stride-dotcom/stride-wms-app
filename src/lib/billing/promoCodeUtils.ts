@@ -53,8 +53,8 @@ async function getRootAccountId(accountId: string): Promise<string> {
 async function getAccountUsageCount(promoCodeId: string, accountId: string): Promise<number> {
   const rootAccountId = await getRootAccountId(accountId);
 
-  const { count, error } = await (supabase
-    .from('promo_code_usages') as any)
+  const { count, error } = await (supabase as any)
+    .from('promo_code_usages')
     .select('*', { count: 'exact', head: true })
     .eq('promo_code_id', promoCodeId)
     .eq('root_account_id', rootAccountId);
@@ -79,8 +79,8 @@ export async function recordPromoUsage(
   try {
     const rootAccountId = await getRootAccountId(accountId);
 
-    const { error } = await (supabase
-      .from('promo_code_usages') as any)
+    const { error } = await (supabase as any)
+      .from('promo_code_usages')
       .insert({
         promo_code_id: promoCodeId,
         root_account_id: rootAccountId,
@@ -187,8 +187,8 @@ export async function findBestPromoCode(
     }
 
     // Fetch promo codes that are assigned to this account
-    const { data: accountPromos, error: accountError } = await (supabase
-      .from('account_promo_codes') as any)
+    const { data: accountPromos, error: accountError } = await (supabase as any)
+      .from('account_promo_codes')
       .select('promo_code_id')
       .eq('account_id', accountId);
 
@@ -383,7 +383,10 @@ export async function applyPromoToEvent(
     }
 
     // Check if already has a promo
-    if (event.metadata?.promo_discount) {
+    const existingMetadata = (event.metadata && typeof event.metadata === 'object' && !Array.isArray(event.metadata)) 
+      ? event.metadata as Record<string, unknown>
+      : {};
+    if (existingMetadata.promo_discount) {
       return { success: false, error: 'This billing event already has a promo code applied' };
     }
 
@@ -405,7 +408,7 @@ export async function applyPromoToEvent(
 
     // Update the billing event
     const newMetadata = {
-      ...(event.metadata || {}),
+      ...existingMetadata,
       promo_discount: {
         promo_code_id: discount.promo_code_id,
         promo_code: discount.promo_code,
@@ -461,21 +464,24 @@ export async function removePromoFromEvent(
       return { success: false, error: 'Can only remove promo codes from unbilled events' };
     }
 
-    const promoDiscount = event.metadata?.promo_discount;
+    const existingMetadata = (event.metadata && typeof event.metadata === 'object' && !Array.isArray(event.metadata)) 
+      ? event.metadata as Record<string, unknown>
+      : {};
+    const promoDiscount = existingMetadata.promo_discount as { original_amount: number } | undefined;
     if (!promoDiscount) {
       return { success: false, error: 'No promo code applied to this event' };
     }
 
     // Restore original amount
     const originalAmount = promoDiscount.original_amount;
-    const newMetadata = { ...(event.metadata || {}) };
+    const newMetadata = { ...existingMetadata };
     delete newMetadata.promo_discount;
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await (supabase as any)
       .from('billing_events')
       .update({
         total_amount: originalAmount,
-        metadata: newMetadata,
+        metadata: newMetadata as Record<string, unknown>,
       })
       .eq('id', billingEventId);
 
@@ -484,7 +490,7 @@ export async function removePromoFromEvent(
     }
 
     // Remove the usage record
-    await (supabase.from('promo_code_usages') as any)
+    await (supabase as any).from('promo_code_usages')
       .delete()
       .eq('billing_event_id', billingEventId);
 

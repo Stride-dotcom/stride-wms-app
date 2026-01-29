@@ -182,8 +182,14 @@ export function useCustomReports() {
         let query = (supabase as any)
           .from(source.tableName)
           .select(selectFields, { count: 'exact' })
-          .eq('tenant_id', profile.tenant_id)
-          .is('deleted_at', null);
+          .eq('tenant_id', profile.tenant_id);
+        
+        // Only apply deleted_at filter for tables that have it
+        // billing_events and invoices do NOT have deleted_at
+        const tablesWithoutDeletedAt = ['billing_events', 'invoices'];
+        if (!tablesWithoutDeletedAt.includes(source.tableName)) {
+          query = query.is('deleted_at', null);
+        }
 
         // Apply filters
         query = applyFilters(query, config.filters, source);

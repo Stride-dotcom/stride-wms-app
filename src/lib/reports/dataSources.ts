@@ -18,7 +18,7 @@ const itemsColumns: ColumnDefinition[] = [
   { id: 'sidemark_name', label: 'Sidemark', dbColumn: 'sidemark_id', format: 'text', sortable: true, filterable: true, aggregatable: false, joinTable: 'sidemarks', joinColumn: 'sidemark_name' },
   { id: 'class_name', label: 'Class', dbColumn: 'item_type_id', format: 'text', sortable: true, filterable: true, aggregatable: false, joinTable: 'item_types', joinColumn: 'name' },
   { id: 'vendor', label: 'Vendor', dbColumn: 'vendor', format: 'text', sortable: true, filterable: true, aggregatable: false },
-  { id: 'location_name', label: 'Location', dbColumn: 'location_id', format: 'text', sortable: true, filterable: true, aggregatable: false, joinTable: 'locations', joinColumn: 'name' },
+  { id: 'location_name', label: 'Location', dbColumn: 'current_location_id', format: 'text', sortable: true, filterable: true, aggregatable: false, joinTable: 'locations', joinColumn: 'name' },
   { id: 'declared_value', label: 'Declared Value', dbColumn: 'declared_value', format: 'currency', sortable: true, filterable: true, aggregatable: true },
   { id: 'weight', label: 'Weight', dbColumn: 'weight', format: 'number', sortable: true, filterable: true, aggregatable: true },
   { id: 'length', label: 'Length', dbColumn: 'length', format: 'number', sortable: true, filterable: true, aggregatable: false },
@@ -58,7 +58,7 @@ const billingEventsColumns: ColumnDefinition[] = [
 
 // Tasks data source
 const tasksColumns: ColumnDefinition[] = [
-  { id: 'task_number', label: 'Task #', dbColumn: 'task_number', format: 'text', sortable: true, filterable: true, aggregatable: false },
+  { id: 'task_id', label: 'Task ID', dbColumn: 'id', format: 'text', sortable: true, filterable: true, aggregatable: false },
   { id: 'task_type', label: 'Type', dbColumn: 'task_type', format: 'badge', sortable: true, filterable: true, aggregatable: false,
     badgeConfig: {
       'receiving': { label: 'Receiving', variant: 'default' },
@@ -144,7 +144,7 @@ const claimsColumns: ColumnDefinition[] = [
   },
   { id: 'account_name', label: 'Account', dbColumn: 'account_id', format: 'text', sortable: true, filterable: true, aggregatable: false, joinTable: 'accounts', joinColumn: 'account_name' },
   { id: 'claim_type', label: 'Claim Type', dbColumn: 'claim_type', format: 'text', sortable: true, filterable: true, aggregatable: false },
-  { id: 'total_declared_value', label: 'Declared Value', dbColumn: 'total_declared_value', format: 'currency', sortable: true, filterable: true, aggregatable: true },
+  { id: 'total_claimed_value', label: 'Claimed Value', dbColumn: 'total_claimed_value', format: 'currency', sortable: true, filterable: true, aggregatable: true },
   { id: 'total_payout', label: 'Payout', dbColumn: 'total_payout', format: 'currency', sortable: true, filterable: true, aggregatable: true },
   { id: 'payout_method', label: 'Payout Method', dbColumn: 'payout_method', format: 'text', sortable: true, filterable: true, aggregatable: false },
   { id: 'filed_at', label: 'Filed Date', dbColumn: 'filed_at', format: 'date', sortable: true, filterable: true, aggregatable: false },
