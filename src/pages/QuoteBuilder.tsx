@@ -115,6 +115,10 @@ export default function QuoteBuilder() {
     { pattern: /receiv/i, label: 'Receiving' },
     { pattern: /inspect/i, label: 'Inspection' },
     { pattern: /pull.?prep/i, label: 'Pull Prep' },
+  ];
+
+  // Define services for expanded section (in order)
+  const EXPANDED_SERVICE_PATTERNS = [
     { pattern: /will.?call/i, label: 'Will Call' },
     { pattern: /disposal/i, label: 'Disposal' },
     { pattern: /return/i, label: 'Returns' },
@@ -147,19 +151,25 @@ export default function QuoteBuilder() {
     return classBasedServices.filter(s => s.billing_unit === 'per_day');
   }, [classBasedServices]);
 
-  // Expanded services: All other class-based services not in main row or storage
+  // Expanded services: Services specified for expanded section (in order)
   const expandedServices = useMemo(() => {
-    const mainRowIds = new Set(mainRowServices.map(s => s.service.id));
-    const storageIds = new Set(storageServiceList.map(s => s.id));
+    const result: { code: string; label: string; service: typeof classBasedServices[0] }[] = [];
 
-    return classBasedServices
-      .filter(s => !mainRowIds.has(s.id) && !storageIds.has(s.id))
-      .map(service => ({
-        code: service.service_code || service.id,
-        label: service.name,
-        service,
-      }));
-  }, [classBasedServices, mainRowServices, storageServiceList]);
+    for (const { pattern, label } of EXPANDED_SERVICE_PATTERNS) {
+      const service = classBasedServices.find(s =>
+        pattern.test(s.name) || pattern.test(s.service_code || '')
+      );
+      if (service) {
+        result.push({
+          code: service.service_code || service.id,
+          label: label,
+          service,
+        });
+      }
+    }
+
+    return result;
+  }, [classBasedServices]);
 
   // All non-class-based services from Price List (dynamically fetched)
   // These are flat-rate services that don't vary by class
@@ -892,96 +902,106 @@ export default function QuoteBuilder() {
               </CardContent>
             </Card>
 
-            {/* Other Services - Non-class-based services from Price List */}
+            {/* Other Services - Non-class-based services from Price List (Collapsible) */}
             {otherServiceList.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MaterialIcon name="handyman" size="md" />
-                    Other Services
-                  </CardTitle>
-                  <CardDescription>
-                    Additional services from your Price List (not class-specific)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {otherServiceList.map((service) => {
-                      const selected = formData.selected_services.find(
-                        (ss) => ss.service_id === service.id
-                      );
-                      const isSelected = selected?.is_selected ?? false;
+              <Collapsible>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CollapsibleTrigger className="flex items-center justify-between w-full">
+                      <CardTitle className="flex items-center gap-2">
+                        <MaterialIcon name="handyman" size="md" />
+                        Other Services
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          {otherServiceList.length} available
+                        </Badge>
+                      </CardTitle>
+                      <MaterialIcon name="expand_more" size="md" className="text-muted-foreground" />
+                    </CollapsibleTrigger>
+                    <CardDescription>
+                      Additional services from your Price List (not class-specific)
+                    </CardDescription>
+                  </CardHeader>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0">
+                      <div className="space-y-2">
+                        {otherServiceList.map((service) => {
+                          const selected = formData.selected_services.find(
+                            (ss) => ss.service_id === service.id
+                          );
+                          const isSelected = selected?.is_selected ?? false;
 
-                      return (
-                        <div
-                          key={service.id}
-                          className={`flex items-center justify-between p-3 rounded-lg border ${
-                            isSelected ? 'border-primary bg-primary/5' : 'border-border'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => toggleNonClassService(service.id)}
-                              disabled={!canEdit}
-                            />
-                            <div>
-                              <div className="font-medium">{service.name}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {service.category} - {service.billing_unit.replace('_', ' ')}
+                          return (
+                            <div
+                              key={service.id}
+                              className={`flex items-center justify-between p-3 rounded-lg border ${
+                                isSelected ? 'border-primary bg-primary/5' : 'border-border'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleNonClassService(service.id)}
+                                  disabled={!canEdit}
+                                />
+                                <div>
+                                  <div className="font-medium">{service.name}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {service.category} - {service.billing_unit.replace('_', ' ')}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          </div>
-                          {isSelected && (
-                            <div className="flex items-center gap-4">
-                              {service.billing_unit === 'per_hour' && (
-                                <div className="flex items-center gap-2">
-                                  <Label className="text-xs">Hours:</Label>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.5"
-                                    value={selected?.hours_input || ''}
-                                    onChange={(e) =>
-                                      updateNonClassServiceInput(
-                                        service.id,
-                                        'hours_input',
-                                        e.target.value ? parseFloat(e.target.value) : null
-                                      )
-                                    }
-                                    disabled={!canEdit}
-                                    className="w-20 h-8"
-                                  />
+                              {isSelected && (
+                                <div className="flex items-center gap-4">
+                                  {service.billing_unit === 'per_hour' && (
+                                    <div className="flex items-center gap-2">
+                                      <Label className="text-xs">Hours:</Label>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        step="0.5"
+                                        value={selected?.hours_input || ''}
+                                        onChange={(e) =>
+                                          updateNonClassServiceInput(
+                                            service.id,
+                                            'hours_input',
+                                            e.target.value ? parseFloat(e.target.value) : null
+                                          )
+                                        }
+                                        disabled={!canEdit}
+                                        className="w-20 h-8"
+                                      />
+                                    </div>
+                                  )}
+                                  {service.billing_unit === 'per_piece' && (
+                                    <div className="flex items-center gap-2">
+                                      <Label className="text-xs">Qty:</Label>
+                                      <Input
+                                        type="number"
+                                        min="0.1"
+                                        step="0.1"
+                                        value={selected?.qty_input || 1}
+                                        onChange={(e) =>
+                                          updateNonClassServiceInput(
+                                            service.id,
+                                            'qty_input',
+                                            e.target.value ? parseFloat(e.target.value) : 1
+                                          )
+                                        }
+                                        disabled={!canEdit}
+                                        className="w-20 h-8"
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                               )}
-                              {service.billing_unit === 'per_piece' && (
-                                <div className="flex items-center gap-2">
-                                  <Label className="text-xs">Qty:</Label>
-                                  <Input
-                                    type="number"
-                                    min="0.1"
-                                    step="0.1"
-                                    value={selected?.qty_input || 1}
-                                    onChange={(e) =>
-                                      updateNonClassServiceInput(
-                                        service.id,
-                                        'qty_input',
-                                        e.target.value ? parseFloat(e.target.value) : 1
-                                      )
-                                    }
-                                    disabled={!canEdit}
-                                    className="w-20 h-8"
-                                  />
-                                </div>
-                              )}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
             )}
 
             {/* Storage Duration & Rates */}
