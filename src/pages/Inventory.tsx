@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Package, Loader2, Truck, Trash2, ClipboardList, Upload, Printer, AlertTriangle, PackageX, ChevronUp, ChevronDown, FileSpreadsheet, ShieldAlert } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { InventoryImportDialog } from '@/components/settings/InventoryImportDialog';
 import { QuickReleaseDialog } from '@/components/inventory/QuickReleaseDialog';
@@ -253,7 +253,7 @@ export default function Inventory() {
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return null;
-    return sortDirection === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />;
+    return <MaterialIcon name={sortDirection === 'asc' ? 'expand_less' : 'expand_more'} size="sm" />;
   };
 
   const toggleItemSelection = (itemId: string) => {
@@ -306,18 +306,18 @@ export default function Inventory() {
           <div className="flex items-center gap-2 flex-wrap">
             {selectedItems.size > 0 && (
               <>
-                <Button variant="outline" onClick={() => { if (hasMultipleAccounts) { setValidationMessage('Cannot create a task for items from different accounts.'); setValidationDialogOpen(true); return; } if (hasMultipleWarehouses) { setValidationMessage('Cannot create a task for items in different warehouses.'); setValidationDialogOpen(true); return; } setTaskDialogOpen(true); }}><ClipboardList className="mr-2 h-4 w-4" />Task ({selectedItems.size})</Button>
-                <Button variant="outline" onClick={() => { if (hasMultipleAccounts) { setValidationMessage('Cannot create an outbound shipment for items from different accounts.'); setValidationDialogOpen(true); return; } const firstItem = items.find(i => selectedItems.has(i.id)); navigate('/shipments/outbound/new', { state: { itemIds: Array.from(selectedItems), accountId: firstItem?.account_id } }); }}><Truck className="mr-2 h-4 w-4" />Outbound</Button>
-                <Button variant="outline" onClick={() => { if (hasMultipleAccounts) { setValidationMessage('Cannot create a disposal for items from different accounts.'); setValidationDialogOpen(true); return; } setPreSelectedTaskType('Disposal'); setTaskDialogOpen(true); }}><Trash2 className="mr-2 h-4 w-4" />Dispose</Button>
-                <Button variant="outline" onClick={() => { if (hasMultipleAccounts) { setValidationMessage('Cannot create a claim for items from different accounts.'); setValidationDialogOpen(true); return; } setClaimDialogOpen(true); }}><ShieldAlert className="mr-2 h-4 w-4" />Claim</Button>
-                <Button variant="outline" onClick={() => setManifestDialogOpen(true)}><ClipboardList className="mr-2 h-4 w-4" />Manifest</Button>
-                <Button variant="outline" onClick={() => setPrintLabelsDialogOpen(true)}><Printer className="mr-2 h-4 w-4" />Print</Button>
-                <Button variant="outline" onClick={handleExportExcel}><FileSpreadsheet className="mr-2 h-4 w-4" />Export</Button>
-                <Button variant="default" onClick={() => setReleaseDialogOpen(true)}><PackageX className="mr-2 h-4 w-4" />Release</Button>
+                <Button variant="outline" onClick={() => { if (hasMultipleAccounts) { setValidationMessage('Cannot create a task for items from different accounts.'); setValidationDialogOpen(true); return; } if (hasMultipleWarehouses) { setValidationMessage('Cannot create a task for items in different warehouses.'); setValidationDialogOpen(true); return; } setTaskDialogOpen(true); }}><MaterialIcon name="assignment" size="sm" className="mr-2" />Task ({selectedItems.size})</Button>
+                <Button variant="outline" onClick={() => { if (hasMultipleAccounts) { setValidationMessage('Cannot create an outbound shipment for items from different accounts.'); setValidationDialogOpen(true); return; } const firstItem = items.find(i => selectedItems.has(i.id)); navigate('/shipments/outbound/new', { state: { itemIds: Array.from(selectedItems), accountId: firstItem?.account_id } }); }}><MaterialIcon name="local_shipping" size="sm" className="mr-2" />Outbound</Button>
+                <Button variant="outline" onClick={() => { if (hasMultipleAccounts) { setValidationMessage('Cannot create a disposal for items from different accounts.'); setValidationDialogOpen(true); return; } setPreSelectedTaskType('Disposal'); setTaskDialogOpen(true); }}><MaterialIcon name="delete" size="sm" className="mr-2" />Dispose</Button>
+                <Button variant="outline" onClick={() => { if (hasMultipleAccounts) { setValidationMessage('Cannot create a claim for items from different accounts.'); setValidationDialogOpen(true); return; } setClaimDialogOpen(true); }}><MaterialIcon name="report_problem" size="sm" className="mr-2" />Claim</Button>
+                <Button variant="outline" onClick={() => setManifestDialogOpen(true)}><MaterialIcon name="list_alt" size="sm" className="mr-2" />Manifest</Button>
+                <Button variant="outline" onClick={() => setPrintLabelsDialogOpen(true)}><MaterialIcon name="print" size="sm" className="mr-2" />Print</Button>
+                <Button variant="outline" onClick={handleExportExcel}><MaterialIcon name="download" size="sm" className="mr-2" />Export</Button>
+                <Button variant="default" onClick={() => setReleaseDialogOpen(true)}><MaterialIcon name="package_2" size="sm" className="mr-2" />Release</Button>
               </>
             )}
-            <Button variant="secondary" onClick={handleImportClick}><Upload className="mr-2 h-4 w-4" />Import</Button>
-            <Button onClick={() => setAddItemDialogOpen(true)}><Package className="mr-2 h-4 w-4" />Add Item</Button>
+            <Button variant="secondary" onClick={handleImportClick}><MaterialIcon name="upload" size="sm" className="mr-2" />Import</Button>
+            <Button onClick={() => setAddItemDialogOpen(true)}><MaterialIcon name="add_box" size="sm" className="mr-2" />Add Item</Button>
           </div>
         </div>
 
@@ -325,13 +325,13 @@ export default function Inventory() {
           <CardHeader><CardTitle>Items</CardTitle><CardDescription>{filteredAndSortedItems.length} items found{selectedItems.size > 0 && ` • ${selectedItems.size} selected`}</CardDescription></CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
-              <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search item code, description, vendor, sidemark, client..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" /></div>
+              <div className="relative flex-1"><MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input placeholder="Search item code, description, vendor, sidemark, client..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" /></div>
               <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="all">All</SelectItem><SelectItem value="released">Released</SelectItem><SelectItem value="disposed">Disposed</SelectItem></SelectContent></Select>
               <InventoryFiltersSheet filters={filters} onFiltersChange={setFilters} />
             </div>
 
-            {loading ? (<div className="flex items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-            ) : filteredAndSortedItems.length === 0 ? (<div className="text-center py-12"><Package className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-4 text-lg font-semibold">No items found</h3><p className="text-muted-foreground">{searchQuery || statusFilter !== 'all' ? 'Try adjusting your search or filters' : 'Get started by adding your first item'}</p></div>
+            {loading ? (<div className="flex items-center justify-center h-48"><MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" /></div>
+            ) : filteredAndSortedItems.length === 0 ? (<div className="text-center py-12"><MaterialIcon name="inventory_2" size="xl" className="mx-auto text-muted-foreground" /><h3 className="mt-4 text-lg font-semibold">No items found</h3><p className="text-muted-foreground">{searchQuery || statusFilter !== 'all' ? 'Try adjusting your search or filters' : 'Get started by adding your first item'}</p></div>
             ) : isMobile ? (
               <div className="space-y-3">{filteredAndSortedItems.map((item) => (<MobileDataCard key={item.id} onClick={() => navigate(`/inventory/${item.id}`)} selected={selectedItems.has(item.id)}><MobileDataCardHeader><div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={() => toggleItemSelection(item.id)} className="h-5 w-5" /><div><MobileDataCardTitle>{item.item_code}</MobileDataCardTitle><MobileDataCardDescription>{item.description || '-'}</MobileDataCardDescription></div></div></MobileDataCardHeader><MobileDataCardContent><div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground"><div><span>Qty:</span><div className="text-foreground font-medium">{item.quantity}</div></div><div><span>Location:</span><div className="text-foreground">{item.location_code || '-'}</div></div><div><span>Room:</span><div className="text-foreground">{item.room || '-'}</div></div></div></MobileDataCardContent></MobileDataCard>))}</div>
             ) : (
@@ -408,7 +408,7 @@ export default function Inventory() {
         onOpenChange={setAddItemDialogOpen}
         onSuccess={fetchItems}
       />
-      <AlertDialog open={validationDialogOpen} onOpenChange={setValidationDialogOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-destructive" />Cannot Proceed</AlertDialogTitle><AlertDialogDescription>{validationMessage}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogAction onClick={() => setValidationDialogOpen(false)}>OK</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog open={validationDialogOpen} onOpenChange={setValidationDialogOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle className="flex items-center gap-2"><MaterialIcon name="warning" size="md" className="text-destructive" />Cannot Proceed</AlertDialogTitle><AlertDialogDescription>{validationMessage}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogAction onClick={() => setValidationDialogOpen(false)}>OK</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </DashboardLayout>
   );
 }

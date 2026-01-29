@@ -16,9 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { AddShipmentDialog } from '@/components/shipments/AddShipmentDialog';
-import {
-  Loader2, Plus
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 
 interface ShipmentCounts {
@@ -194,7 +192,7 @@ export default function Shipments() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-[50vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
@@ -210,7 +208,7 @@ export default function Shipments() {
             description="Manage incoming and outbound shipments"
           />
           <Button onClick={() => setAddShipmentDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+            <MaterialIcon name="add" size="sm" className="mr-2" />
             Add Shipment
           </Button>
         </div>
