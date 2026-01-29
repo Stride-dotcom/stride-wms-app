@@ -43,10 +43,16 @@ interface ShipmentItem {
   expected_description: string | null;
   expected_vendor: string | null;
   expected_sidemark: string | null;
+  expected_class_id: string | null;
   expected_quantity: number;
   actual_quantity: number | null;
   status: string;
   item_id: string | null;
+  expected_class?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
   item?: {
     id: string;
     item_code: string;
@@ -56,6 +62,11 @@ interface ShipmentItem {
     room: string | null;
     current_location?: { code: string } | null;
     account?: { account_name: string } | null;
+    class?: {
+      id: string;
+      code: string;
+      name: string;
+    } | null;
   } | null;
 }
 
@@ -148,6 +159,7 @@ export default function ShipmentDetail() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [showReassignDialog, setShowReassignDialog] = useState(false);
+  const [classes, setClasses] = useState<{ id: string; code: string; name: string }[]>([]);
 
   // Receiving session hook
   const {
@@ -193,10 +205,16 @@ export default function ShipmentDetail() {
           expected_description,
           expected_vendor,
           expected_sidemark,
+          expected_class_id,
           expected_quantity,
           actual_quantity,
           status,
           item_id,
+          expected_class:classes!shipment_items_expected_class_id_fkey(
+            id,
+            code,
+            name
+          ),
           item:items!shipment_items_item_id_fkey(
             id,
             item_code,
@@ -205,7 +223,12 @@ export default function ShipmentDetail() {
             sidemark,
             room,
             current_location:locations!items_current_location_id_fkey(code),
-            account:accounts!items_account_id_fkey(account_name)
+            account:accounts!items_account_id_fkey(account_name),
+            class:classes!items_item_type_id_fkey(
+              id,
+              code,
+              name
+            )
           )
         `)
         .eq('shipment_id', id)
@@ -217,6 +240,17 @@ export default function ShipmentDetail() {
 
       setShipment(shipmentData as unknown as Shipment);
       setItems((itemsData || []) as unknown as ShipmentItem[]);
+
+      // Fetch classes for autocomplete
+      const { data: classesData } = await supabase
+        .from('classes')
+        .select('id, code, name')
+        .eq('tenant_id', profile.tenant_id)
+        .order('code');
+
+      if (classesData) {
+        setClasses(classesData);
+      }
 
       // Initialize receiving photos/documents from shipment
       if (shipmentData.receiving_photos) {
@@ -840,10 +874,10 @@ export default function ShipmentDetail() {
                 </TableHead>
                 <TableHead className="w-10"></TableHead>
                 <TableHead className="w-28">Item Code</TableHead>
+                <TableHead className="w-20 text-right">Qty</TableHead>
                 <TableHead className="w-32">Vendor</TableHead>
-                <TableHead className="min-w-[180px]">Description</TableHead>
-                <TableHead className="w-28 text-right">Expected</TableHead>
-                <TableHead className="w-28 text-right">Received</TableHead>
+                <TableHead className="min-w-[140px]">Description</TableHead>
+                <TableHead className="w-24">Class</TableHead>
                 <TableHead className="w-24">Status</TableHead>
                 <TableHead className="w-16"></TableHead>
               </TableRow>
@@ -878,6 +912,7 @@ export default function ShipmentDetail() {
                     onDuplicate={handleDuplicateItem}
                     isInbound={isInbound}
                     isCompleted={shipment.status === 'completed' || shipment.status === 'cancelled'}
+                    classes={classes}
                   />
                 ))
               )}
@@ -1117,6 +1152,7 @@ export default function ShipmentDetail() {
         onOpenChange={setAddItemDialogOpen}
         shipmentId={shipment.id}
         accountId={shipment.account_id || undefined}
+        classes={classes}
         onSuccess={() => {
           fetchShipment();
         }}

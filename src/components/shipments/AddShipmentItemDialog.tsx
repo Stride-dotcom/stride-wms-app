@@ -21,12 +21,19 @@ import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
 import { useToast } from '@/hooks/use-toast';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
+interface ClassOption {
+  id: string;
+  code: string;
+  name: string;
+}
+
 interface AddShipmentItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   shipmentId: string;
   accountId?: string;
   onSuccess: () => void;
+  classes?: ClassOption[];
 }
 
 export function AddShipmentItemDialog({
@@ -35,6 +42,7 @@ export function AddShipmentItemDialog({
   shipmentId,
   accountId,
   onSuccess,
+  classes = [],
 }: AddShipmentItemDialogProps) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -44,6 +52,7 @@ export function AddShipmentItemDialog({
   const [vendor, setVendor] = useState('');
   const [sidemark, setSidemark] = useState('');
   const [quantity, setQuantity] = useState('1');
+  const [selectedClass, setSelectedClass] = useState('');
 
   // Field suggestions - async search with previously used values
   const { suggestions: vendorSuggestions, addOrUpdateSuggestion: addVendorSuggestion } = useFieldSuggestions('vendor');
@@ -60,11 +69,15 @@ export function AddShipmentItemDialog({
     
     setSaving(true);
     try {
+      // Find the class ID from the selected code
+      const matchedClass = classes.find(c => c.code === selectedClass);
+
       const { error } = await (supabase.from('shipment_items') as any).insert({
         shipment_id: shipmentId,
         expected_description: description.trim(),
         expected_vendor: vendor.trim() || null,
         expected_sidemark: sidemark.trim() || null,
+        expected_class_id: matchedClass?.id || null,
         expected_quantity: parseInt(quantity) || 1,
         status: 'pending',
       });
@@ -83,6 +96,7 @@ export function AddShipmentItemDialog({
       setVendor('');
       setSidemark('');
       setQuantity('1');
+      setSelectedClass('');
       
       onOpenChange(false);
       onSuccess();
@@ -137,14 +151,25 @@ export function AddShipmentItemDialog({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="sidemark">Sidemark</Label>
-            <AutocompleteInput
-              value={sidemark}
-              onChange={setSidemark}
-              suggestions={sidemarkSuggestions}
-              placeholder="Customer reference or sidemark"
-            />
+          <div className="grid gap-4 grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="class">Class</Label>
+              <AutocompleteInput
+                value={selectedClass}
+                onChange={setSelectedClass}
+                suggestions={classes.map(c => ({ value: c.code, label: `${c.code} - ${c.name}` }))}
+                placeholder="Size class"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sidemark">Sidemark</Label>
+              <AutocompleteInput
+                value={sidemark}
+                onChange={setSidemark}
+                suggestions={sidemarkSuggestions}
+                placeholder="Sidemark"
+              />
+            </div>
           </div>
 
           <DialogFooter>

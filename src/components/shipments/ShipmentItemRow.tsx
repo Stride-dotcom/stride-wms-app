@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useServiceEvents, ServiceEvent } from '@/hooks/useServiceEvents';
@@ -28,6 +29,7 @@ interface ShipmentItem {
   expected_description: string | null;
   expected_vendor: string | null;
   expected_sidemark: string | null;
+  expected_class_id: string | null;
   expected_quantity: number | null;
   actual_quantity: number | null;
   status: string;
@@ -35,7 +37,23 @@ interface ShipmentItem {
     item_code: string;
     description: string | null;
     vendor: string | null;
+    class?: {
+      id: string;
+      code: string;
+      name: string;
+    } | null;
   } | null;
+  expected_class?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+}
+
+interface ClassOption {
+  id: string;
+  code: string;
+  name: string;
 }
 
 interface ShipmentItemRowProps {
@@ -46,6 +64,7 @@ interface ShipmentItemRowProps {
   onDuplicate?: (item: ShipmentItem) => void;
   isInbound: boolean;
   isCompleted: boolean;
+  classes?: ClassOption[];
 }
 
 export function ShipmentItemRow({
@@ -56,6 +75,7 @@ export function ShipmentItemRow({
   onDuplicate,
   isInbound,
   isCompleted,
+  classes = [],
 }: ShipmentItemRowProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -66,6 +86,9 @@ export function ShipmentItemRow({
   const [vendor, setVendor] = useState(item.expected_vendor || '');
   const [description, setDescription] = useState(item.expected_description || '');
   const [quantity, setQuantity] = useState(item.expected_quantity?.toString() || '1');
+  const [selectedClass, setSelectedClass] = useState(
+    item.expected_class?.code || item.item?.class?.code || ''
+  );
 
   // Track if we're currently saving
   const [saving, setSaving] = useState(false);
@@ -84,7 +107,8 @@ export function ShipmentItemRow({
     setVendor(item.expected_vendor || '');
     setDescription(item.expected_description || '');
     setQuantity(item.expected_quantity?.toString() || '1');
-  }, [item.expected_vendor, item.expected_description, item.expected_quantity]);
+    setSelectedClass(item.expected_class?.code || item.item?.class?.code || '');
+  }, [item.expected_vendor, item.expected_description, item.expected_quantity, item.expected_class, item.item?.class]);
 
   // Fetch enabled flags when expanded and item has been received
   useEffect(() => {
@@ -122,6 +146,11 @@ export function ShipmentItemRow({
     if (field === 'vendor') updateData.expected_vendor = value || null;
     if (field === 'description') updateData.expected_description = value || null;
     if (field === 'quantity') updateData.expected_quantity = parseInt(value) || 1;
+    if (field === 'class') {
+      // Find the class ID from the code
+      const matchedClass = classes.find(c => c.code === value);
+      updateData.expected_class_id = matchedClass?.id || null;
+    }
 
     setSaving(true);
     try {
@@ -137,7 +166,7 @@ export function ShipmentItemRow({
     } finally {
       setSaving(false);
     }
-  }, [item.id, item.item_id, onUpdate, toast]);
+  }, [item.id, item.item_id, classes, onUpdate, toast]);
 
   // Handle blur - save the field
   const handleBlur = useCallback((field: string, value: string) => {
@@ -276,6 +305,24 @@ export function ShipmentItemRow({
           )}
         </TableCell>
 
+        {/* Qty - shows expected for pending, received for received items */}
+        <TableCell className="w-20 text-right" onClick={(e) => canEdit && e.stopPropagation()}>
+          {canEdit ? (
+            <Input
+              type="number"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              onBlur={() => handleBlur('quantity', quantity)}
+              min="1"
+              className="h-7 w-16 text-sm text-right border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input ml-auto"
+            />
+          ) : (
+            <span className="text-sm">
+              {item.item_id ? (item.actual_quantity || '-') : (item.expected_quantity || '-')}
+            </span>
+          )}
+        </TableCell>
+
         {/* Vendor - editable for pending items */}
         <TableCell className="w-32" onClick={(e) => canEdit && e.stopPropagation()}>
           {canEdit ? (
@@ -292,7 +339,7 @@ export function ShipmentItemRow({
         </TableCell>
 
         {/* Description - editable for pending items */}
-        <TableCell className="min-w-[180px]" onClick={(e) => canEdit && e.stopPropagation()}>
+        <TableCell className="min-w-[140px]" onClick={(e) => canEdit && e.stopPropagation()}>
           {canEdit ? (
             <Input
               value={description}
@@ -306,25 +353,22 @@ export function ShipmentItemRow({
           )}
         </TableCell>
 
-        {/* Expected Qty - editable for pending items */}
-        <TableCell className="w-28 text-right" onClick={(e) => canEdit && e.stopPropagation()}>
+        {/* Class - editable for pending items with autocomplete */}
+        <TableCell className="w-24" onClick={(e) => canEdit && e.stopPropagation()}>
           {canEdit ? (
-            <Input
-              type="number"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              onBlur={() => handleBlur('quantity', quantity)}
-              min="1"
-              className="h-7 w-16 text-sm text-right border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input ml-auto"
+            <AutocompleteInput
+              value={selectedClass}
+              onChange={(value) => setSelectedClass(value)}
+              onBlur={() => handleBlur('class', selectedClass)}
+              suggestions={classes.map(c => ({ value: c.code, label: `${c.code} - ${c.name}` }))}
+              placeholder="Class"
+              className="h-7 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
             />
           ) : (
-            <span className="text-sm">{item.expected_quantity || '-'}</span>
+            <span className="text-sm">
+              {item.item?.class?.code || item.expected_class?.code || '-'}
+            </span>
           )}
-        </TableCell>
-
-        {/* Received Qty */}
-        <TableCell className="w-28 text-right">
-          <span className="text-sm">{item.actual_quantity || '-'}</span>
         </TableCell>
 
         {/* Status */}
