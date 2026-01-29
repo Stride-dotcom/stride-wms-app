@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -33,8 +34,6 @@ import { ItemPhotoGallery } from '@/components/items/ItemPhotoGallery';
 import { ItemHistoryTab } from '@/components/items/ItemHistoryTab';
 import { ItemEditDialog } from '@/components/items/ItemEditDialog';
 import { ItemAdvancedTab } from '@/components/items/ItemAdvancedTab';
-import { SidemarkInlineEdit } from '@/components/items/SidemarkInlineEdit';
-import { RoomInlineEdit } from '@/components/items/RoomInlineEdit';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { AddBillingChargeDialog } from '@/components/items/AddBillingChargeDialog';
 import { LinkToShipmentDialog } from '@/components/items/LinkToShipmentDialog';
@@ -401,7 +400,7 @@ export default function ItemDetail() {
       const { error } = await (supabase.from('items') as any)
         .update({ room: newValue || null })
         .eq('id', item.id);
-      
+
       if (error) throw error;
       setItem({ ...item, room: newValue || null });
       toast({ title: 'Room updated' });
@@ -409,6 +408,40 @@ export default function ItemDetail() {
     } catch (error) {
       console.error('Error updating room:', error);
       toast({ title: 'Error', description: 'Failed to update room', variant: 'destructive' });
+      return false;
+    }
+  };
+
+  const handleVendorSave = async (newValue: string): Promise<boolean> => {
+    if (!item) return false;
+    try {
+      const { error } = await (supabase.from('items') as any)
+        .update({ vendor: newValue || null })
+        .eq('id', item.id);
+
+      if (error) throw error;
+      setItem({ ...item, vendor: newValue || null });
+      return true;
+    } catch (error) {
+      console.error('Error updating vendor:', error);
+      toast({ title: 'Error', description: 'Failed to update vendor', variant: 'destructive' });
+      return false;
+    }
+  };
+
+  const handleDescriptionSave = async (newValue: string): Promise<boolean> => {
+    if (!item) return false;
+    try {
+      const { error } = await (supabase.from('items') as any)
+        .update({ description: newValue || null })
+        .eq('id', item.id);
+
+      if (error) throw error;
+      setItem({ ...item, description: newValue || null });
+      return true;
+    } catch (error) {
+      console.error('Error updating description:', error);
+      toast({ title: 'Error', description: 'Failed to update description', variant: 'destructive' });
       return false;
     }
   };
@@ -600,15 +633,41 @@ export default function ItemDetail() {
                       <span className="text-muted-foreground">Quantity</span>
                       <p className="font-medium">{item.quantity}</p>
                     </div>
-                    {/* Vendor */}
+                    {/* Vendor - inline editable */}
                     <div>
                       <span className="text-muted-foreground">Vendor</span>
-                      <p className="font-medium">{item.vendor || '-'}</p>
+                      {isClientUser ? (
+                        <p className="font-medium">{item.vendor || '-'}</p>
+                      ) : (
+                        <Input
+                          defaultValue={item.vendor || ''}
+                          placeholder="Add vendor"
+                          onBlur={(e) => {
+                            if (e.target.value !== (item.vendor || '')) {
+                              handleVendorSave(e.target.value);
+                            }
+                          }}
+                          className="h-7 mt-1 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
+                        />
+                      )}
                     </div>
-                    {/* Description */}
+                    {/* Description - inline editable */}
                     <div>
                       <span className="text-muted-foreground">Description</span>
-                      <p className="font-medium">{item.description || '-'}</p>
+                      {isClientUser ? (
+                        <p className="font-medium">{item.description || '-'}</p>
+                      ) : (
+                        <Input
+                          defaultValue={item.description || ''}
+                          placeholder="Add description"
+                          onBlur={(e) => {
+                            if (e.target.value !== (item.description || '')) {
+                              handleDescriptionSave(e.target.value);
+                            }
+                          }}
+                          className="h-7 mt-1 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
+                        />
+                      )}
                     </div>
                     {/* Account */}
                     <div>
@@ -618,24 +677,38 @@ export default function ItemDetail() {
                     {/* Sidemark - inline editable */}
                     <div>
                       <span className="text-muted-foreground">Sidemark</span>
-                      <SidemarkInlineEdit
-                        value={item.sidemark || ''}
-                        accountId={null}
-                        onSave={handleSidemarkSave}
-                        placeholder="Add sidemark"
-                        disabled={isClientUser}
-                      />
+                      {isClientUser ? (
+                        <p className="font-medium">{item.sidemark || '-'}</p>
+                      ) : (
+                        <Input
+                          defaultValue={item.sidemark || ''}
+                          placeholder="Add sidemark"
+                          onBlur={(e) => {
+                            if (e.target.value !== (item.sidemark || '')) {
+                              handleSidemarkSave(e.target.value);
+                            }
+                          }}
+                          className="h-7 mt-1 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
+                        />
+                      )}
                     </div>
                     {/* Room - inline editable */}
                     <div>
                       <span className="text-muted-foreground">Room</span>
-                      <RoomInlineEdit
-                        value={item.room || ''}
-                        accountId={null}
-                        onSave={handleRoomSave}
-                        placeholder="Add room"
-                        disabled={isClientUser}
-                      />
+                      {isClientUser ? (
+                        <p className="font-medium">{item.room || '-'}</p>
+                      ) : (
+                        <Input
+                          defaultValue={item.room || ''}
+                          placeholder="Add room"
+                          onBlur={(e) => {
+                            if (e.target.value !== (item.room || '')) {
+                              handleRoomSave(e.target.value);
+                            }
+                          }}
+                          className="h-7 mt-1 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
+                        />
+                      )}
                     </div>
                     {/* Size */}
                     <div>
