@@ -30,6 +30,7 @@ import { TaggablePhotoGrid, TaggablePhoto, getPhotoUrls } from '@/components/com
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDialog';
+import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
 
 // ============================================
@@ -56,6 +57,11 @@ interface ShipmentItem {
     account?: { account_name: string } | null;
   } | null;
 }
+
+// Type adapter to match ShipmentItemRow expected interface
+type ShipmentItemRowData = ShipmentItem & {
+  expected_quantity: number | null;
+};
 
 // Local type for received item tracking in UI
 interface ReceivedItemData {
@@ -370,6 +376,34 @@ export default function ShipmentDetail() {
     // Navigate to create task page with selected items
     const itemIds = Array.from(selectedItemIds).join(',');
     navigate(`/tasks/new?items=${itemIds}&type=${selectedTaskType}`);
+  };
+
+  // ------------------------------------------
+  // Handle duplicate shipment item
+  // ------------------------------------------
+  const handleDuplicateItem = async (itemToDuplicate: ShipmentItem) => {
+    if (!shipment || !profile?.tenant_id) return;
+
+    try {
+      const { error } = await supabase
+        .from('shipment_items')
+        .insert({
+          shipment_id: shipment.id,
+          expected_description: itemToDuplicate.expected_description,
+          expected_vendor: itemToDuplicate.expected_vendor,
+          expected_sidemark: itemToDuplicate.expected_sidemark,
+          expected_quantity: itemToDuplicate.expected_quantity,
+          status: 'expected',
+        });
+
+      if (error) throw error;
+
+      toast({ title: 'Item duplicated' });
+      fetchShipment();
+    } catch (error) {
+      console.error('Error duplicating item:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to duplicate item' });
+    }
   };
 
   // ------------------------------------------
@@ -803,14 +837,14 @@ export default function ShipmentDetail() {
                     aria-label="Select all"
                   />
                 </TableHead>
-                <TableHead>Item Code</TableHead>
-                <TableHead className="text-center">Qty</TableHead>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Account</TableHead>
-                <TableHead>Sidemark</TableHead>
-                <TableHead>Room</TableHead>
+                <TableHead className="w-10"></TableHead>
+                <TableHead className="w-28">Item Code</TableHead>
+                <TableHead className="w-32">Vendor</TableHead>
+                <TableHead className="min-w-[180px]">Description</TableHead>
+                <TableHead className="w-28 text-right">Expected</TableHead>
+                <TableHead className="w-28 text-right">Received</TableHead>
+                <TableHead className="w-24">Status</TableHead>
+                <TableHead className="w-16"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -822,35 +856,28 @@ export default function ShipmentDetail() {
                 </TableRow>
               ) : (
                 items.map((item) => (
-                  <TableRow
+                  <ShipmentItemRow
                     key={item.id}
-                    className={item.item ? "cursor-pointer hover:bg-muted/50" : ""}
-                    onClick={() => item.item && navigate(`/inventory/${item.item.id}`)}
-                  >
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      {item.item && (
-                        <Checkbox
-                          checked={selectedItemIds.has(item.item.id)}
-                          onCheckedChange={() => toggleItemSelection(item.item!.id)}
-                          aria-label={`Select ${item.item.item_code}`}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono font-medium">
-                      {item.item?.item_code || <span className="text-muted-foreground">Pending</span>}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {item.actual_quantity ?? item.expected_quantity}
-                    </TableCell>
-                    <TableCell>{item.item?.vendor || item.expected_vendor || '-'}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">
-                      {item.item?.description || item.expected_description || '-'}
-                    </TableCell>
-                    <TableCell>{item.item?.current_location?.code || '-'}</TableCell>
-                    <TableCell>{item.item?.account?.account_name || '-'}</TableCell>
-                    <TableCell>{item.item?.sidemark || item.expected_sidemark || '-'}</TableCell>
-                    <TableCell>{item.item?.room || '-'}</TableCell>
-                  </TableRow>
+                    item={item as ShipmentItemRowData}
+                    isSelected={item.item?.id ? selectedItemIds.has(item.item.id) : false}
+                    onSelect={(checked) => {
+                      if (item.item?.id) {
+                        if (checked) {
+                          setSelectedItemIds(prev => new Set([...prev, item.item!.id]));
+                        } else {
+                          setSelectedItemIds(prev => {
+                            const next = new Set(prev);
+                            next.delete(item.item!.id);
+                            return next;
+                          });
+                        }
+                      }
+                    }}
+                    onUpdate={fetchShipment}
+                    onDuplicate={handleDuplicateItem}
+                    isInbound={isInbound}
+                    isCompleted={shipment.status === 'completed' || shipment.status === 'cancelled'}
+                  />
                 ))
               )}
             </TableBody>
