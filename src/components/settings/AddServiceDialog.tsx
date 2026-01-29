@@ -509,10 +509,11 @@ export function AddServiceDialog({
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.rate}
+                  value={formData.rate === 0 ? '' : formData.rate}
                   onChange={(e) =>
                     setFormData({ ...formData, rate: parseFloat(e.target.value) || 0 })
                   }
+                  placeholder="0"
                 />
               </div>
 
