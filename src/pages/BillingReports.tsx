@@ -33,6 +33,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
@@ -43,6 +50,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import { PushToQuickBooksButton } from '@/components/billing/PushToQuickBooksButton';
+import { ApplyPromoDialog } from '@/components/billing/ApplyPromoDialog';
 import { BillingEventForSync } from '@/hooks/useQuickBooks';
 
 interface BillingEvent {
@@ -155,6 +163,10 @@ export default function BillingReports() {
   const [storageFrom, setStorageFrom] = useState<Date>(startOfMonth(new Date()));
   const [storageTo, setStorageTo] = useState<Date>(endOfMonth(new Date()));
   const [generatingStorage, setGeneratingStorage] = useState(false);
+
+  // Promo code dialog
+  const [promoDialogOpen, setPromoDialogOpen] = useState(false);
+  const [selectedEventForPromo, setSelectedEventForPromo] = useState<BillingEvent | null>(null);
 
   // Load reference data
   useEffect(() => {
@@ -823,6 +835,7 @@ export default function BillingReports() {
                           <TableHead className="text-right">Prep</TableHead>
                         </>
                       )}
+                      <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -879,6 +892,28 @@ export default function BillingReports() {
                             </TableCell>
                           </>
                         )}
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          {event.status === 'unbilled' && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MaterialIcon name="more_vert" size="sm" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedEventForPromo(event);
+                                    setPromoDialogOpen(true);
+                                  }}
+                                >
+                                  <MaterialIcon name="confirmation_number" size="sm" className="mr-2" />
+                                  {event.metadata?.promo_discount ? 'Manage Promo Code' : 'Apply Promo Code'}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -990,6 +1025,24 @@ export default function BillingReports() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Apply Promo Code Dialog */}
+      <ApplyPromoDialog
+        open={promoDialogOpen}
+        onOpenChange={setPromoDialogOpen}
+        billingEvent={selectedEventForPromo ? {
+          id: selectedEventForPromo.id,
+          account_id: selectedEventForPromo.account_id || '',
+          charge_type: selectedEventForPromo.charge_type,
+          description: selectedEventForPromo.description,
+          total_amount: selectedEventForPromo.total_amount,
+          metadata: selectedEventForPromo.metadata,
+        } : null}
+        onSuccess={() => {
+          setSelectedEventForPromo(null);
+          loadEvents();
+        }}
+      />
     </DashboardLayout>
   );
 }

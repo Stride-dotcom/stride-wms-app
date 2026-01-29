@@ -37,6 +37,7 @@ export async function createBillingEvent(params: CreateBillingEventParams): Prom
   const quantity = params.quantity || 1;
   let totalAmount = params.total_amount ?? (quantity * params.unit_rate);
   let metadata: Record<string, any> = params.metadata || {};
+  let appliedPromoCodeId: string | null = null;
 
   // Apply promo code discount if applicable
   if (!params.skip_promo && totalAmount > 0) {
@@ -50,6 +51,7 @@ export async function createBillingEvent(params: CreateBillingEventParams): Prom
     if (promoCode) {
       const discount = calculateDiscount(promoCode, totalAmount);
       totalAmount = discount.final_amount;
+      appliedPromoCodeId = promoCode.id;
 
       // Store discount info in metadata
       metadata = {
@@ -63,9 +65,6 @@ export async function createBillingEvent(params: CreateBillingEventParams): Prom
           discount_amount: discount.discount_amount,
         },
       };
-
-      // Increment promo code usage count
-      await incrementPromoCodeUsage(promoCode.id);
     }
   }
 
@@ -102,6 +101,11 @@ export async function createBillingEvent(params: CreateBillingEventParams): Prom
     return null;
   }
 
+  // Record promo usage after billing event is created (so we have the billing_event_id)
+  if (appliedPromoCodeId && data) {
+    await incrementPromoCodeUsage(appliedPromoCodeId, params.account_id, data.id);
+  }
+
   return data;
 }
 
@@ -110,10 +114,10 @@ export async function createBillingEvent(params: CreateBillingEventParams): Prom
  * Automatically applies best available promo code discounts
  */
 export async function createBillingEventsBatch(events: CreateBillingEventParams[]): Promise<BillingEventResult[]> {
-  // Track promo code usage across the batch
-  const promoCodeUsages = new Map<string, number>();
+  // Track promo code usage across the batch (promoId -> { accountId, indices of events with this promo })
+  const promoCodeUsages = new Map<string, { accountId: string; eventIndices: number[] }>();
 
-  const eventDataArray = await Promise.all(events.map(async (params) => {
+  const eventDataArray = await Promise.all(events.map(async (params, index) => {
     const quantity = params.quantity || 1;
     let totalAmount = params.total_amount ?? (quantity * params.unit_rate);
     let metadata: Record<string, any> = params.metadata || {};
@@ -145,8 +149,12 @@ export async function createBillingEventsBatch(events: CreateBillingEventParams[
         };
 
         // Track usage for batch increment
-        const currentCount = promoCodeUsages.get(promoCode.id) || 0;
-        promoCodeUsages.set(promoCode.id, currentCount + 1);
+        const existing = promoCodeUsages.get(promoCode.id);
+        if (existing) {
+          existing.eventIndices.push(index);
+        } else {
+          promoCodeUsages.set(promoCode.id, { accountId: params.account_id, eventIndices: [index] });
+        }
       }
     }
 
@@ -183,9 +191,16 @@ export async function createBillingEventsBatch(events: CreateBillingEventParams[
     return [];
   }
 
-  // Batch increment promo code usage counts
-  if (promoCodeUsages.size > 0) {
-    await incrementPromoCodeUsageBatch(promoCodeUsages);
+  // Record promo usage with billing event IDs
+  if (promoCodeUsages.size > 0 && data) {
+    for (const [promoCodeId, usage] of promoCodeUsages) {
+      for (const eventIndex of usage.eventIndices) {
+        const billingEventId = data[eventIndex]?.id;
+        if (billingEventId) {
+          await incrementPromoCodeUsage(promoCodeId, usage.accountId, billingEventId);
+        }
+      }
+    }
   }
 
   return data || [];
