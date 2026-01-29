@@ -3,7 +3,7 @@
  * Inline editable row for shipment items with expandable details
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -11,20 +11,13 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
-import { ItemTypeCombobox } from '@/components/items/ItemTypeCombobox';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
-import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ItemPreviewCard } from '@/components/items/ItemPreviewCard';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
-
-interface ItemType {
-  id: string;
-  name: string;
-}
 
 interface ShipmentItem {
   id: string;
@@ -32,7 +25,6 @@ interface ShipmentItem {
   expected_description: string | null;
   expected_vendor: string | null;
   expected_sidemark: string | null;
-  expected_item_type_id: string | null;
   expected_quantity: number | null;
   actual_quantity: number | null;
   status: string;
@@ -61,40 +53,20 @@ export function ShipmentItemRow({
   isCompleted,
 }: ShipmentItemRowProps) {
   const navigate = useNavigate();
-  const { profile } = useAuth();
   const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
-  
+
   // Edit state
   const [editDescription, setEditDescription] = useState(item.expected_description || '');
   const [editVendor, setEditVendor] = useState(item.expected_vendor || '');
   const [editSidemark, setEditSidemark] = useState(item.expected_sidemark || '');
-  const [editItemTypeId, setEditItemTypeId] = useState(item.expected_item_type_id || '');
   const [editQuantity, setEditQuantity] = useState(item.expected_quantity?.toString() || '1');
-  
+
   // Field suggestions
   const { suggestions: vendorSuggestions, addOrUpdateSuggestion: addVendorSuggestion } = useFieldSuggestions('vendor');
   const { suggestions: descriptionSuggestions, addOrUpdateSuggestion: addDescSuggestion } = useFieldSuggestions('description');
-
-  // Fetch item types - both global and tenant-specific
-  useEffect(() => {
-    const fetchItemTypes = async () => {
-      const { data, error } = await supabase
-        .from('item_types')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-      
-      if (error) {
-        console.error('Error fetching item types:', error);
-      }
-      setItemTypes(data || []);
-    };
-    fetchItemTypes();
-  }, []);
 
   const handleStartEdit = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -103,7 +75,6 @@ export function ShipmentItemRow({
     setEditDescription(item.expected_description || '');
     setEditVendor(item.expected_vendor || '');
     setEditSidemark(item.expected_sidemark || '');
-    setEditItemTypeId(item.expected_item_type_id || '');
     setEditQuantity(item.expected_quantity?.toString() || '1');
   }, [item, isCompleted]);
 
@@ -115,14 +86,13 @@ export function ShipmentItemRow({
   const handleSave = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     setSaving(true);
-    
+
     try {
       const { error } = await (supabase.from('shipment_items') as any)
         .update({
           expected_description: editDescription || null,
           expected_vendor: editVendor || null,
           expected_sidemark: editSidemark || null,
-          expected_item_type_id: editItemTypeId || null,
           expected_quantity: parseInt(editQuantity) || 1,
         })
         .eq('id', item.id);
@@ -142,7 +112,7 @@ export function ShipmentItemRow({
     } finally {
       setSaving(false);
     }
-  }, [item.id, editDescription, editVendor, editSidemark, editItemTypeId, editQuantity, onUpdate, addVendorSuggestion, addDescSuggestion, toast]);
+  }, [item.id, editDescription, editVendor, editSidemark, editQuantity, onUpdate, addVendorSuggestion, addDescSuggestion, toast]);
 
   const handleRowClick = useCallback(() => {
     if (item.item_id && !isEditing) {
@@ -311,7 +281,7 @@ export function ShipmentItemRow({
       {isExpanded && (
         <TableRow className="bg-muted/20 hover:bg-muted/30">
           <TableCell colSpan={9} className="p-4">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <span className="text-xs text-muted-foreground">Sidemark</span>
                 {isEditing ? (
@@ -323,20 +293,6 @@ export function ShipmentItemRow({
                   />
                 ) : (
                   <p className="font-medium">{item.expected_sidemark || '-'}</p>
-                )}
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground">Class</span>
-                {isEditing ? (
-                  <div className="mt-1">
-                    <ItemTypeCombobox
-                      itemTypes={itemTypes}
-                      value={editItemTypeId}
-                      onChange={setEditItemTypeId}
-                    />
-                  </div>
-                ) : (
-                  <p className="font-medium">{item.expected_item_type_id ? 'Set' : '-'}</p>
                 )}
               </div>
               <div>

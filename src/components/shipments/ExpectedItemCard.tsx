@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
-import { SearchableSelect, SelectOption } from "@/components/ui/searchable-select";
 import { Card, CardContent } from "@/components/ui/card";
 
 /**
@@ -21,7 +20,6 @@ export interface ExpectedItemData {
   description: string;
   vendor: string;
   quantity: number;
-  item_type_id: string;
 }
 
 export interface ExpectedItemErrors {
@@ -32,7 +30,6 @@ export interface ExpectedItemErrors {
 export interface ExpectedItemCardProps {
   item: ExpectedItemData;
   index: number;
-  itemTypeOptions: SelectOption[];
   vendorSuggestions: string[];
   errors?: ExpectedItemErrors;
   canDelete: boolean;
@@ -44,7 +41,6 @@ export interface ExpectedItemCardProps {
 export function ExpectedItemCard({
   item,
   index,
-  itemTypeOptions,
   vendorSuggestions,
   errors,
   canDelete,
@@ -126,23 +122,6 @@ export function ExpectedItemCard({
           minRows={2}
           maxRows={4}
         />
-
-        {/* Row 2: Class */}
-        <div className="grid grid-cols-1 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Class</label>
-            <SearchableSelect
-              options={itemTypeOptions}
-              value={item.item_type_id}
-              onChange={(v) => onUpdate(item.id, "item_type_id", v)}
-              placeholder="Select class..."
-              searchPlaceholder="Search classes..."
-              emptyText="No classes found"
-              recentKey="shipment-item-types"
-              clearable
-            />
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

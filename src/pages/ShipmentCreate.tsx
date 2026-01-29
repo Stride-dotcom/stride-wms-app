@@ -39,11 +39,6 @@ interface Warehouse {
   name: string;
 }
 
-interface ItemType {
-  id: string;
-  name: string;
-}
-
 interface FormErrors {
   account?: string;
   warehouse?: string;
@@ -68,7 +63,6 @@ export default function ShipmentCreate() {
   const [saving, setSaving] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
 
   // Validation errors
   const [errors, setErrors] = useState<FormErrors>({});
@@ -97,7 +91,7 @@ export default function ShipmentCreate() {
 
   // Expected items
   const [expectedItems, setExpectedItems] = useState<ExpectedItemData[]>([
-    { id: crypto.randomUUID(), description: "", vendor: "", quantity: 1, item_type_id: "" },
+    { id: crypto.randomUUID(), description: "", vendor: "", quantity: 1 },
   ]);
 
   // Field suggestions hooks
@@ -120,11 +114,6 @@ export default function ShipmentCreate() {
   const warehouseOptions: SelectOption[] = useMemo(
     () => warehouses.map((w) => ({ value: w.id, label: w.name })),
     [warehouses],
-  );
-
-  const itemTypeOptions: SelectOption[] = useMemo(
-    () => itemTypes.map((t) => ({ value: t.id, label: t.name })),
-    [itemTypes],
   );
 
   const sidemarkOptions: SelectOption[] = useMemo(
@@ -159,14 +148,6 @@ export default function ShipmentCreate() {
           .is("deleted_at", null)
           .order("name");
 
-        // Fetch item types (no deleted_at - use is_active only)
-        const itemTypesRes = await (supabase.from("item_types") as any)
-          .select("id, name, is_active, sort_order")
-          .eq("tenant_id", profile.tenant_id)
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true, nullsFirst: true })
-          .order("name", { ascending: true });
-
         if (accountsRes.error) {
           console.error("[ShipmentCreate] accounts fetch:", accountsRes.error);
           toast({
@@ -183,18 +164,9 @@ export default function ShipmentCreate() {
             description: warehousesRes.error.message,
           });
         }
-        if (itemTypesRes.error) {
-          console.error("[ShipmentCreate] classes fetch:", itemTypesRes.error);
-          toast({
-            variant: "destructive",
-            title: "Failed to load classes",
-            description: itemTypesRes.error.message,
-          });
-        }
 
         setAccounts(accountsRes.data || []);
         setWarehouses(warehousesRes.data || []);
-        setItemTypes(itemTypesRes.data || []);
 
         // Set default warehouse if only one exists
         if (warehousesRes.data?.length === 1) {
@@ -271,7 +243,7 @@ export default function ShipmentCreate() {
   const addItem = () => {
     setExpectedItems([
       ...expectedItems,
-      { id: crypto.randomUUID(), description: "", vendor: "", quantity: 1, item_type_id: "" },
+      { id: crypto.randomUUID(), description: "", vendor: "", quantity: 1 },
     ]);
   };
 
@@ -388,10 +360,8 @@ export default function ShipmentCreate() {
           shipment_id: shipment.id,
           expected_description: item.description.trim(),
           expected_quantity: item.quantity,
-          // IMPORTANT: shipment_items table uses expected_* columns (see migration 20260118085955...)
           expected_vendor: item.vendor || null,
           expected_sidemark: null,
-          expected_item_type_id: item.item_type_id || null,
           status: "pending",
         }));
 
@@ -600,7 +570,6 @@ export default function ShipmentCreate() {
                   key={item.id}
                   item={item}
                   index={index}
-                  itemTypeOptions={itemTypeOptions}
                   vendorSuggestions={vendorValues}
                   errors={errors.items?.[item.id]}
                   canDelete={expectedItems.length > 1}
