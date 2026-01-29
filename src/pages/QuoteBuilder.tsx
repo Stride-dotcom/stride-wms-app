@@ -212,20 +212,44 @@ export default function QuoteBuilder() {
     }
   }, [id, isNew, fetchQuoteDetails, acquireLock]);
 
-  // Initialize class lines when classes load
+  // Sync class lines with available classes from price list
+  // This ensures new classes added to the price list automatically appear in quotes
   useEffect(() => {
-    if (classes.length > 0 && formData.class_lines.length === 0) {
-      setFormData((prev) => ({
-        ...prev,
-        class_lines: classes.map((cls) => ({
+    if (classes.length === 0) return;
+
+    setFormData((prev) => {
+      const existingClassIds = new Set(prev.class_lines.map(l => l.class_id));
+      const availableClassIds = new Set(classes.map(c => c.id));
+
+      // Check if we need to add new classes or remove old ones
+      const needsNewClasses = classes.some(cls => !existingClassIds.has(cls.id));
+      const hasRemovedClasses = prev.class_lines.some(l => !availableClassIds.has(l.class_id));
+
+      if (!needsNewClasses && !hasRemovedClasses && prev.class_lines.length > 0) {
+        return prev; // No changes needed
+      }
+
+      // Build new class_lines array, preserving existing values
+      const newClassLines = classes.map((cls) => {
+        const existing = prev.class_lines.find(l => l.class_id === cls.id);
+        if (existing) {
+          return existing; // Preserve existing values
+        }
+        // New class - create with default values
+        return {
           class_id: cls.id,
           qty: 0,
           line_discount_type: null,
           line_discount_value: null,
-        })),
-      }));
-    }
-  }, [classes, formData.class_lines.length]);
+        };
+      });
+
+      return {
+        ...prev,
+        class_lines: newClassLines,
+      };
+    });
+  }, [classes]);
 
   // Calculate totals
   const calculation = useMemo(() => {
