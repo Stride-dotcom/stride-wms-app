@@ -65,6 +65,7 @@ interface InventoryItem {
   vendor: string | null;
   sidemark: string | null;
   client_account: string | null;
+  account_id: string | null;
   warehouse_id: string | null;
 }
 
@@ -191,16 +192,11 @@ export function TaskDialog({
   // Auto-populate account and warehouse when items are selected from inventory
   useEffect(() => {
     if (selectedItems.length > 0) {
-      // Auto-populate account
+      // Auto-populate account directly from item's account_id
       if (formData.account_id === 'none') {
-        const firstItemAccount = selectedItems[0]?.client_account;
-        if (firstItemAccount) {
-          const matchingAccount = accounts.find(
-            acc => acc.account_name === firstItemAccount
-          );
-          if (matchingAccount) {
-            setFormData(prev => ({ ...prev, account_id: matchingAccount.id }));
-          }
+        const firstItemAccountId = selectedItems[0]?.account_id;
+        if (firstItemAccountId) {
+          setFormData(prev => ({ ...prev, account_id: firstItemAccountId }));
         }
       }
       // Auto-populate warehouse from items
@@ -209,7 +205,7 @@ export function TaskDialog({
         setFormData(prev => ({ ...prev, warehouse_id: firstItemWarehouse }));
       }
     }
-  }, [selectedItems, accounts]);
+  }, [selectedItems]);
 
   // Validation: Check for multiple accounts/warehouses
   const hasMultipleAccounts = (() => {
@@ -247,7 +243,7 @@ export function TaskDialog({
 
     const { data } = await (supabase
       .from('items') as any)
-      .select('id, item_code, description, vendor, sidemark, client_account, warehouse_id')
+      .select('id, item_code, description, vendor, sidemark, client_account, account_id, warehouse_id')
       .in('id', selectedItemIds);
 
     setSelectedItems(data || []);
@@ -256,14 +252,10 @@ export function TaskDialog({
   const fetchAccountItems = async (accountId: string) => {
     setLoadingItems(true);
     try {
-      // Get the account name first
-      const account = accounts.find(a => a.id === accountId);
-      if (!account) return;
-
       const { data, error } = await (supabase
         .from('items') as any)
-        .select('id, item_code, description, vendor, sidemark, client_account, warehouse_id')
-        .eq('client_account', account.account_name)
+        .select('id, item_code, description, vendor, sidemark, client_account, account_id, warehouse_id')
+        .eq('account_id', accountId)
         // Items status is now 'active' (legacy 'in_stock' was migrated)
         .neq('status', 'released')
         .neq('status', 'disposed')
@@ -383,6 +375,9 @@ export function TaskDialog({
     }
   };
 
+  // Task types that require one task per item
+  const SINGLE_ITEM_TASK_TYPES = ['Assembly', 'Inspection'];
+
   const handleSubmit = async () => {
     if (!profile?.tenant_id || !formData.task_type) return;
 
@@ -394,51 +389,44 @@ export function TaskDialog({
         ? selectedItemIds
         : selectedItems.map(i => i.id);
 
-      const taskData = {
-        tenant_id: profile.tenant_id,
-        title: generateTitle(),
-        description: formData.description || null,
-        task_type: formData.task_type,
-        priority: formData.priority,
-        due_date: formData.due_date?.toISOString() || null,
-        assigned_to: formData.assigned_to === 'unassigned' ? null : formData.assigned_to || null,
-        assigned_department: formData.assigned_department || null,
-        warehouse_id: formData.warehouse_id === 'none' ? null : formData.warehouse_id || null,
-        account_id: formData.account_id === 'none' ? null : formData.account_id || null,
-        status: task ? task.status : 'pending', // New tasks start as pending
-        bill_to: formData.bill_to,
-        bill_to_customer_name:
-          formData.bill_to === 'customer' ? formData.bill_to_customer_name : null,
-        bill_to_customer_email:
-          formData.bill_to === 'customer' ? formData.bill_to_customer_email : null,
-      };
+      // Check if this is a single-item task type with multiple items
+      const isSingleItemTaskType = SINGLE_ITEM_TASK_TYPES.includes(formData.task_type);
+      const hasMultipleItems = allItemIds.length > 1;
 
-      if (task) {
-        const { error } = await (supabase
+      if (isSingleItemTaskType && hasMultipleItems && !task) {
+        // Create one task per item
+        const tasksToCreate = allItemIds.map((itemId, index) => ({
+          tenant_id: profile.tenant_id,
+          title: `${formData.task_type} - Item ${index + 1}`,
+          description: formData.description || null,
+          task_type: formData.task_type,
+          priority: formData.priority,
+          due_date: formData.due_date?.toISOString() || null,
+          assigned_to: formData.assigned_to === 'unassigned' ? null : formData.assigned_to || null,
+          assigned_department: formData.assigned_department || null,
+          warehouse_id: formData.warehouse_id === 'none' ? null : formData.warehouse_id || null,
+          account_id: formData.account_id === 'none' ? null : formData.account_id || null,
+          status: 'pending',
+          bill_to: formData.bill_to,
+          bill_to_customer_name:
+            formData.bill_to === 'customer' ? formData.bill_to_customer_name : null,
+          bill_to_customer_email:
+            formData.bill_to === 'customer' ? formData.bill_to_customer_email : null,
+        }));
+
+        // Insert all tasks
+        const { data: newTasks, error: tasksError } = await (supabase
           .from('tasks') as any)
-          .update(taskData)
-          .eq('id', task.id);
+          .insert(tasksToCreate)
+          .select();
 
-        if (error) throw error;
+        if (tasksError) throw tasksError;
 
-        toast({
-          title: 'Task Updated',
-          description: 'Your changes were saved.',
-        });
-      } else {
-        const { data: newTask, error } = await (supabase
-          .from('tasks') as any)
-          .insert(taskData)
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        // Add task items
-        if (allItemIds.length > 0 && newTask) {
-          const taskItems = allItemIds.map(itemId => ({
-            task_id: newTask.id,
-            item_id: itemId,
+        // Create task_items linking each task to its single item
+        if (newTasks && newTasks.length > 0) {
+          const taskItems = newTasks.map((task: any, index: number) => ({
+            task_id: task.id,
+            item_id: allItemIds[index],
           }));
 
           const { error: taskItemsError } = await (supabase
@@ -447,14 +435,78 @@ export function TaskDialog({
 
           if (taskItemsError) throw taskItemsError;
 
-          // Update inventory status to pending
+          // Update inventory status to pending for all items
           await updateInventoryStatus(allItemIds, formData.task_type, 'pending');
         }
 
         toast({
-          title: 'Task Created',
-          description: 'Your task is now in the queue.',
+          title: `${allItemIds.length} Tasks Created`,
+          description: `Created one ${formData.task_type} task per item.`,
         });
+      } else {
+        // Original logic: create single task with all items
+        const taskData = {
+          tenant_id: profile.tenant_id,
+          title: generateTitle(),
+          description: formData.description || null,
+          task_type: formData.task_type,
+          priority: formData.priority,
+          due_date: formData.due_date?.toISOString() || null,
+          assigned_to: formData.assigned_to === 'unassigned' ? null : formData.assigned_to || null,
+          assigned_department: formData.assigned_department || null,
+          warehouse_id: formData.warehouse_id === 'none' ? null : formData.warehouse_id || null,
+          account_id: formData.account_id === 'none' ? null : formData.account_id || null,
+          status: task ? task.status : 'pending',
+          bill_to: formData.bill_to,
+          bill_to_customer_name:
+            formData.bill_to === 'customer' ? formData.bill_to_customer_name : null,
+          bill_to_customer_email:
+            formData.bill_to === 'customer' ? formData.bill_to_customer_email : null,
+        };
+
+        if (task) {
+          const { error } = await (supabase
+            .from('tasks') as any)
+            .update(taskData)
+            .eq('id', task.id);
+
+          if (error) throw error;
+
+          toast({
+            title: 'Task Updated',
+            description: 'Your changes were saved.',
+          });
+        } else {
+          const { data: newTask, error } = await (supabase
+            .from('tasks') as any)
+            .insert(taskData)
+            .select()
+            .single();
+
+          if (error) throw error;
+
+          // Add task items
+          if (allItemIds.length > 0 && newTask) {
+            const taskItems = allItemIds.map(itemId => ({
+              task_id: newTask.id,
+              item_id: itemId,
+            }));
+
+            const { error: taskItemsError } = await (supabase
+              .from('task_items') as any)
+              .insert(taskItems);
+
+            if (taskItemsError) throw taskItemsError;
+
+            // Update inventory status to pending
+            await updateInventoryStatus(allItemIds, formData.task_type, 'pending');
+          }
+
+          toast({
+            title: 'Task Created',
+            description: 'Your task is now in the queue.',
+          });
+        }
       }
 
       onSuccess();

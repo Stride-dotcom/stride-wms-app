@@ -26,10 +26,11 @@ import { format } from 'date-fns';
 import { ScanDocumentButton, DocumentUploadButton, DocumentList } from '@/components/scanner';
 import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
 import { PhotoUploadButton } from '@/components/common/PhotoUploadButton';
-import { PhotoGrid } from '@/components/common/PhotoGrid';
+import { TaggablePhotoGrid, TaggablePhoto, getPhotoUrls } from '@/components/common/TaggablePhotoGrid';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDialog';
+import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
 
 // ============================================
@@ -56,6 +57,11 @@ interface ShipmentItem {
     account?: { account_name: string } | null;
   } | null;
 }
+
+// Type adapter to match ShipmentItemRow expected interface
+type ShipmentItemRowData = ShipmentItem & {
+  expected_quantity: number | null;
+};
 
 // Local type for received item tracking in UI
 interface ReceivedItemData {
@@ -84,7 +90,7 @@ interface Shipment {
   received_at: string | null;
   notes: string | null;
   receiving_notes: string | null;
-  receiving_photos: string[] | null;
+  receiving_photos: (string | TaggablePhoto)[] | null;
   receiving_documents: string[] | null;
   release_type: string | null;
   created_at: string;
@@ -121,7 +127,7 @@ export default function ShipmentDetail() {
   const [items, setItems] = useState<ShipmentItem[]>([]);
   const [showFinishDialog, setShowFinishDialog] = useState(false);
   const [receivedItems, setReceivedItems] = useState<ReceivedItemData[]>([]);
-  const [receivingPhotos, setReceivingPhotos] = useState<string[]>([]);
+  const [receivingPhotos, setReceivingPhotos] = useState<(string | TaggablePhoto)[]>([]);
   const [receivingDocuments, setReceivingDocuments] = useState<string[]>([]);
   const [showPrintLabelsDialog, setShowPrintLabelsDialog] = useState(false);
   const [createdItemIds, setCreatedItemIds] = useState<string[]>([]);
@@ -373,6 +379,34 @@ export default function ShipmentDetail() {
   };
 
   // ------------------------------------------
+  // Handle duplicate shipment item
+  // ------------------------------------------
+  const handleDuplicateItem = async (itemToDuplicate: ShipmentItem) => {
+    if (!shipment || !profile?.tenant_id) return;
+
+    try {
+      const { error } = await supabase
+        .from('shipment_items')
+        .insert({
+          shipment_id: shipment.id,
+          expected_description: itemToDuplicate.expected_description,
+          expected_vendor: itemToDuplicate.expected_vendor,
+          expected_sidemark: itemToDuplicate.expected_sidemark,
+          expected_quantity: itemToDuplicate.expected_quantity,
+          status: 'expected',
+        });
+
+      if (error) throw error;
+
+      toast({ title: 'Item duplicated' });
+      fetchShipment();
+    } catch (error) {
+      console.error('Error duplicating item:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to duplicate item' });
+    }
+  };
+
+  // ------------------------------------------
   // Handle cancel shipment
   // ------------------------------------------
   const handleCancelShipment = async () => {
@@ -462,26 +496,28 @@ export default function ShipmentDetail() {
   return (
     <DashboardLayout>
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-          <MaterialIcon name="arrow_back" size="md" />
-        </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{shipment.shipment_number}</h1>
-            {getStatusBadge(shipment.status)}
-            {shipment.release_type && (
-              <Badge variant="outline">{shipment.release_type}</Badge>
-            )}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
+            <MaterialIcon name="arrow_back" size="md" />
+          </Button>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold truncate">{shipment.shipment_number}</h1>
+              {getStatusBadge(shipment.status)}
+              {shipment.release_type && (
+                <Badge variant="outline" className="text-xs">{shipment.release_type}</Badge>
+              )}
+            </div>
+            <p className="text-muted-foreground text-sm truncate">
+              {shipment.accounts?.name || 'No account'} • {shipment.warehouses?.name || 'No warehouse'}
+            </p>
           </div>
-          <p className="text-muted-foreground">
-            {shipment.accounts?.name || 'No account'} • {shipment.warehouses?.name || 'No warehouse'}
-          </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => {
+        <div className="flex flex-wrap gap-2 sm:flex-nowrap">
+          <Button variant="outline" size="sm" onClick={() => {
             if (!isEditing) {
               setEditCarrier(shipment.carrier || '');
               setEditTrackingNumber(shipment.tracking_number || '');
@@ -491,33 +527,36 @@ export default function ShipmentDetail() {
             }
             setIsEditing(!isEditing);
           }}>
-            <MaterialIcon name="edit" size="sm" className="mr-2" />
-            {isEditing ? 'Cancel Edit' : 'Edit'}
+            <MaterialIcon name="edit" size="sm" className="mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">{isEditing ? 'Cancel Edit' : 'Edit'}</span>
+            <span className="sm:hidden">{isEditing ? 'Cancel' : 'Edit'}</span>
           </Button>
           {canReceive && !isReceiving && hasPermission(PERMISSIONS.SHIPMENTS_RECEIVE) && (
-            <Button onClick={startSession} disabled={sessionLoading}>
-              <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
-              Start Receiving
+            <Button size="sm" onClick={startSession} disabled={sessionLoading}>
+              <MaterialIcon name="play_arrow" size="sm" className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Start Receiving</span>
+              <span className="sm:hidden">Receive</span>
             </Button>
           )}
           {shipment.account_id && canSeeBilling && (
-            <Button variant="secondary" onClick={() => setAddAddonDialogOpen(true)}>
-              <MaterialIcon name="attach_money" size="sm" className="mr-2" />
-              Add Charge
+            <Button variant="secondary" size="sm" onClick={() => setAddAddonDialogOpen(true)}>
+              <MaterialIcon name="attach_money" size="sm" className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Add Charge</span>
+              <span className="sm:hidden">Charge</span>
             </Button>
           )}
           {/* Reassign Account */}
           {shipment.account_id && (
-            <Button variant="outline" onClick={() => setShowReassignDialog(true)}>
-              <MaterialIcon name="swap_horiz" size="sm" className="mr-2" />
-              Reassign
+            <Button variant="outline" size="sm" onClick={() => setShowReassignDialog(true)}>
+              <MaterialIcon name="swap_horiz" size="sm" className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Reassign</span>
             </Button>
           )}
           {/* Cancel Shipment - only for expected or receiving shipments */}
           {['expected', 'receiving', 'in_progress'].includes(shipment.status) && (
-            <Button variant="outline" onClick={() => setShowCancelDialog(true)}>
-              <MaterialIcon name="block" size="sm" className="mr-2" />
-              Cancel
+            <Button variant="outline" size="sm" onClick={() => setShowCancelDialog(true)}>
+              <MaterialIcon name="block" size="sm" className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Cancel</span>
             </Button>
           )}
         </div>
@@ -527,7 +566,7 @@ export default function ShipmentDetail() {
       {isReceiving && (
         <Card className="mb-6 border-primary bg-primary/5">
           <CardContent className="py-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="h-3 w-3 bg-primary rounded-full animate-pulse" />
                 <span className="font-medium">Receiving in progress</span>
@@ -741,26 +780,27 @@ export default function ShipmentDetail() {
 
       {/* Shipment Items */}
       <Card className="mt-6">
-        <CardHeader>
-          <div className="flex items-center justify-between">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <CardTitle>Items</CardTitle>
               <CardDescription>Expected and received items for this shipment</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Add Items button for inbound shipments that are not completed */}
               {shipment.shipment_type === 'inbound' && shipment.status !== 'completed' && (
                 <Button variant="outline" size="sm" onClick={() => setAddItemDialogOpen(true)}>
-                  <MaterialIcon name="add" size="sm" className="mr-2" />
-                  Add Items
+                  <MaterialIcon name="add" size="sm" className="mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Add Items</span>
+                  <span className="sm:hidden">Add</span>
                 </Button>
               )}
             {/* Create Task from selected items */}
             {selectedItemIds.size > 0 && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm text-muted-foreground">{selectedItemIds.size} selected</span>
                 <Select value={selectedTaskType} onValueChange={setSelectedTaskType}>
-                  <SelectTrigger className="w-[160px]">
+                  <SelectTrigger className="w-[130px] sm:w-[160px]">
                     <SelectValue placeholder="Task type..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -776,15 +816,17 @@ export default function ShipmentDetail() {
                   onClick={handleCreateTask}
                   disabled={!selectedTaskType}
                 >
-                  <MaterialIcon name="assignment" size="sm" className="mr-2" />
-                  Create Task
+                  <MaterialIcon name="assignment" size="sm" className="mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Create Task</span>
+                  <span className="sm:hidden">Create</span>
                 </Button>
               </div>
             )}
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0 sm:px-6">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -795,14 +837,14 @@ export default function ShipmentDetail() {
                     aria-label="Select all"
                   />
                 </TableHead>
-                <TableHead>Item Code</TableHead>
-                <TableHead className="text-center">Qty</TableHead>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Account</TableHead>
-                <TableHead>Sidemark</TableHead>
-                <TableHead>Room</TableHead>
+                <TableHead className="w-10"></TableHead>
+                <TableHead className="w-28">Item Code</TableHead>
+                <TableHead className="w-32">Vendor</TableHead>
+                <TableHead className="min-w-[180px]">Description</TableHead>
+                <TableHead className="w-28 text-right">Expected</TableHead>
+                <TableHead className="w-28 text-right">Received</TableHead>
+                <TableHead className="w-24">Status</TableHead>
+                <TableHead className="w-16"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -814,39 +856,33 @@ export default function ShipmentDetail() {
                 </TableRow>
               ) : (
                 items.map((item) => (
-                  <TableRow
+                  <ShipmentItemRow
                     key={item.id}
-                    className={item.item ? "cursor-pointer hover:bg-muted/50" : ""}
-                    onClick={() => item.item && navigate(`/inventory/${item.item.id}`)}
-                  >
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      {item.item && (
-                        <Checkbox
-                          checked={selectedItemIds.has(item.item.id)}
-                          onCheckedChange={() => toggleItemSelection(item.item!.id)}
-                          aria-label={`Select ${item.item.item_code}`}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono font-medium">
-                      {item.item?.item_code || <span className="text-muted-foreground">Pending</span>}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {item.actual_quantity ?? item.expected_quantity}
-                    </TableCell>
-                    <TableCell>{item.item?.vendor || item.expected_vendor || '-'}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">
-                      {item.item?.description || item.expected_description || '-'}
-                    </TableCell>
-                    <TableCell>{item.item?.current_location?.code || '-'}</TableCell>
-                    <TableCell>{item.item?.account?.account_name || '-'}</TableCell>
-                    <TableCell>{item.item?.sidemark || item.expected_sidemark || '-'}</TableCell>
-                    <TableCell>{item.item?.room || '-'}</TableCell>
-                  </TableRow>
+                    item={item as ShipmentItemRowData}
+                    isSelected={item.item?.id ? selectedItemIds.has(item.item.id) : false}
+                    onSelect={(checked) => {
+                      if (item.item?.id) {
+                        if (checked) {
+                          setSelectedItemIds(prev => new Set([...prev, item.item!.id]));
+                        } else {
+                          setSelectedItemIds(prev => {
+                            const next = new Set(prev);
+                            next.delete(item.item!.id);
+                            return next;
+                          });
+                        }
+                      }
+                    }}
+                    onUpdate={fetchShipment}
+                    onDuplicate={handleDuplicateItem}
+                    isInbound={isInbound}
+                    isCompleted={shipment.status === 'completed' || shipment.status === 'cancelled'}
+                  />
                 ))
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 
@@ -862,13 +898,28 @@ export default function ShipmentDetail() {
               entityType="shipment"
               entityId={shipment.id}
               tenantId={profile?.tenant_id}
-              existingPhotos={receivingPhotos}
+              existingPhotos={getPhotoUrls(receivingPhotos)}
               maxPhotos={20}
               onPhotosSaved={async (urls) => {
-                setReceivingPhotos(urls);
+                // Convert new URLs to TaggablePhoto format and merge with existing
+                const existingUrls = getPhotoUrls(receivingPhotos);
+                const newUrls = urls.filter(u => !existingUrls.includes(u));
+                const newTaggablePhotos: TaggablePhoto[] = newUrls.map(url => ({
+                  url,
+                  isPrimary: false,
+                  needsAttention: false,
+                  isRepair: false,
+                }));
+                const normalizedExisting: TaggablePhoto[] = receivingPhotos.map(p =>
+                  typeof p === 'string'
+                    ? { url: p, isPrimary: false, needsAttention: false, isRepair: false }
+                    : p
+                );
+                const allPhotos = [...normalizedExisting, ...newTaggablePhotos];
+                setReceivingPhotos(allPhotos);
                 await supabase
                   .from('shipments')
-                  .update({ receiving_photos: urls })
+                  .update({ receiving_photos: allPhotos })
                   .eq('id', shipment.id);
               }}
               label="Take Photos"
@@ -877,13 +928,28 @@ export default function ShipmentDetail() {
               entityType="shipment"
               entityId={shipment.id}
               tenantId={profile?.tenant_id}
-              existingPhotos={receivingPhotos}
+              existingPhotos={getPhotoUrls(receivingPhotos)}
               maxPhotos={20}
               onPhotosSaved={async (urls) => {
-                setReceivingPhotos(urls);
+                // Convert new URLs to TaggablePhoto format and merge with existing
+                const existingUrls = getPhotoUrls(receivingPhotos);
+                const newUrls = urls.filter(u => !existingUrls.includes(u));
+                const newTaggablePhotos: TaggablePhoto[] = newUrls.map(url => ({
+                  url,
+                  isPrimary: false,
+                  needsAttention: false,
+                  isRepair: false,
+                }));
+                const normalizedExisting: TaggablePhoto[] = receivingPhotos.map(p =>
+                  typeof p === 'string'
+                    ? { url: p, isPrimary: false, needsAttention: false, isRepair: false }
+                    : p
+                );
+                const allPhotos = [...normalizedExisting, ...newTaggablePhotos];
+                setReceivingPhotos(allPhotos);
                 await supabase
                   .from('shipments')
-                  .update({ receiving_photos: urls })
+                  .update({ receiving_photos: allPhotos })
                   .eq('id', shipment.id);
               }}
             />
@@ -891,15 +957,16 @@ export default function ShipmentDetail() {
         </CardHeader>
         <CardContent>
           {receivingPhotos.length > 0 ? (
-            <PhotoGrid
+            <TaggablePhotoGrid
               photos={receivingPhotos}
-              onPhotosChange={async (urls) => {
-                setReceivingPhotos(urls);
+              onPhotosChange={async (photos) => {
+                setReceivingPhotos(photos);
                 await supabase
                   .from('shipments')
-                  .update({ receiving_photos: urls })
+                  .update({ receiving_photos: photos })
                   .eq('id', shipment.id);
               }}
+              enableTagging={true}
             />
           ) : (
             <p className="text-sm text-muted-foreground text-center py-6">

@@ -15,16 +15,31 @@ export interface ItemPhoto {
   mime_type: string | null;
   is_primary: boolean;
   needs_attention: boolean;
+  is_repair: boolean;
   photo_type: 'general' | 'inspection' | 'repair' | 'receiving';
   uploaded_by: string | null;
   created_at: string;
   updated_at: string;
+  // For task photos that are linked to items
+  source_task_id?: string;
+  source_task_type?: string;
+  source_task_title?: string;
+  is_from_task?: boolean;
 }
 
-export function useItemPhotos(itemId: string | undefined) {
+// Structure for photos stored in tasks.photos JSON column
+interface TaskPhotoData {
+  url: string;
+  isPrimary?: boolean;
+  needsAttention?: boolean;
+  isRepair?: boolean;
+}
+
+export function useItemPhotos(itemId: string | undefined, includeTaskPhotos: boolean = true) {
   const { profile } = useAuth();
   const { toast } = useToast();
   const [photos, setPhotos] = useState<ItemPhoto[]>([]);
+  const [taskPhotos, setTaskPhotos] = useState<ItemPhoto[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchPhotos = useCallback(async () => {
@@ -32,6 +47,8 @@ export function useItemPhotos(itemId: string | undefined) {
 
     try {
       setLoading(true);
+
+      // Fetch item photos
       const { data, error } = await (supabase
         .from('item_photos') as any)
         .select('*')
@@ -40,12 +57,92 @@ export function useItemPhotos(itemId: string | undefined) {
 
       if (error) throw error;
       setPhotos(data || []);
+
+      // Also fetch task photos if enabled
+      if (includeTaskPhotos) {
+        await fetchTaskPhotos();
+      }
     } catch (error) {
       console.error('Error fetching item photos:', error);
     } finally {
       setLoading(false);
     }
-  }, [itemId]);
+  }, [itemId, includeTaskPhotos]);
+
+  const fetchTaskPhotos = useCallback(async () => {
+    if (!itemId) return;
+
+    try {
+      // Find all tasks linked to this item via task_items
+      const { data: taskItemsData, error: taskItemsError } = await (supabase
+        .from('task_items') as any)
+        .select(`
+          task_id,
+          task:tasks(
+            id,
+            title,
+            task_type,
+            photos,
+            created_at
+          )
+        `)
+        .eq('item_id', itemId);
+
+      if (taskItemsError) {
+        console.error('Error fetching task items:', taskItemsError);
+        return;
+      }
+
+      // Convert task photos to ItemPhoto format
+      const convertedTaskPhotos: ItemPhoto[] = [];
+
+      for (const taskItem of taskItemsData || []) {
+        const task = taskItem.task;
+        if (!task || !task.photos || !Array.isArray(task.photos)) continue;
+
+        // Map task_type to photo_type
+        const photoType = task.task_type === 'Inspection' ? 'inspection'
+          : task.task_type === 'Repair' ? 'repair'
+          : task.task_type === 'Assembly' ? 'general'
+          : 'general';
+
+        task.photos.forEach((photo: string | TaskPhotoData, index: number) => {
+          const isPhotoObject = typeof photo === 'object' && photo !== null;
+          const url = isPhotoObject ? photo.url : photo;
+          const isPrimary = isPhotoObject ? photo.isPrimary || false : false;
+          const needsAttention = isPhotoObject ? photo.needsAttention || false : false;
+          const isRepair = isPhotoObject ? photo.isRepair || false : false;
+
+          convertedTaskPhotos.push({
+            id: `task-${task.id}-photo-${index}`,
+            item_id: itemId,
+            tenant_id: profile?.tenant_id || '',
+            storage_key: url,
+            storage_url: url,
+            file_name: `Task Photo ${index + 1}`,
+            file_size: null,
+            mime_type: 'image/jpeg',
+            is_primary: isPrimary,
+            needs_attention: needsAttention,
+            is_repair: isRepair,
+            photo_type: photoType as ItemPhoto['photo_type'],
+            uploaded_by: null,
+            created_at: task.created_at,
+            updated_at: task.created_at,
+            // Mark as from task
+            source_task_id: task.id,
+            source_task_type: task.task_type,
+            source_task_title: task.title,
+            is_from_task: true,
+          });
+        });
+      }
+
+      setTaskPhotos(convertedTaskPhotos);
+    } catch (error) {
+      console.error('Error fetching task photos:', error);
+    }
+  }, [itemId, profile?.tenant_id]);
 
   useEffect(() => {
     fetchPhotos();
@@ -84,6 +181,7 @@ export function useItemPhotos(itemId: string | undefined) {
           photo_type: photoType,
           is_primary: false,
           needs_attention: false,
+          is_repair: false,
           uploaded_by: profile.id,
         })
         .select()
@@ -206,6 +304,48 @@ export function useItemPhotos(itemId: string | undefined) {
     }
   };
 
+  const toggleRepair = async (photoId: string, isRepair: boolean) => {
+    if (!profile?.tenant_id || !itemId) return false;
+
+    try {
+      const { error } = await (supabase
+        .from('item_photos') as any)
+        .update({ is_repair: isRepair })
+        .eq('id', photoId);
+
+      if (error) throw error;
+
+      // If marking as repair, update item's needs_repair flag
+      if (isRepair) {
+        await (supabase
+          .from('items') as any)
+          .update({ needs_repair: true })
+          .eq('id', itemId);
+
+        toast({
+          title: 'Repair Photo Tagged',
+          description: 'Photo has been marked as a repair photo.',
+        });
+      } else {
+        toast({
+          title: 'Tag Removed',
+          description: 'Repair tag has been removed.',
+        });
+      }
+
+      fetchPhotos();
+      return true;
+    } catch (error) {
+      console.error('Error toggling repair flag:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update photo flag',
+      });
+      return false;
+    }
+  };
+
   const deletePhoto = async (photoId: string) => {
     try {
       const photo = photos.find(p => p.id === photoId);
@@ -265,6 +405,7 @@ export function useItemPhotos(itemId: string | undefined) {
           photo_type: photoType,
           is_primary: false,
           needs_attention: false,
+          is_repair: false,
           uploaded_by: profile.id,
         })
         .select()
@@ -300,6 +441,7 @@ export function useItemPhotos(itemId: string | undefined) {
           photo_type: photoType,
           is_primary: false,
           needs_attention: false,
+          is_repair: false,
           uploaded_by: profile.id,
         };
       });
@@ -323,13 +465,20 @@ export function useItemPhotos(itemId: string | undefined) {
     }
   };
 
+  // Combine item photos with task photos for the "all photos" view
+  const allPhotos = [...photos, ...taskPhotos];
+
   const primaryPhoto = photos.find(p => p.is_primary) || photos[0] || null;
-  const needsAttentionPhotos = photos.filter(p => p.needs_attention);
+  const needsAttentionPhotos = allPhotos.filter(p => p.needs_attention);
+  const repairPhotos = allPhotos.filter(p => p.is_repair);
 
   return {
-    photos,
+    photos,           // Only direct item photos
+    taskPhotos,       // Only photos from linked tasks
+    allPhotos,        // Combined: item photos + task photos
     primaryPhoto,
     needsAttentionPhotos,
+    repairPhotos,
     loading,
     refetch: fetchPhotos,
     addPhoto,
@@ -337,6 +486,7 @@ export function useItemPhotos(itemId: string | undefined) {
     addPhotosFromUrls,
     setPrimaryPhoto,
     toggleNeedsAttention,
+    toggleRepair,
     deletePhoto,
   };
 }

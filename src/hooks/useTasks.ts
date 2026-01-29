@@ -308,7 +308,7 @@ export function useTasks(filters?: {
         .select(`
           item_id,
           quantity,
-          items:item_id(id, item_type_id, sidemark_id, account_id, item_code, class:classes(code), account:accounts(account_name))
+          items:item_id(id, class_id, sidemark_id, account_id, item_code, class:classes(code), account:accounts(account_name))
         `)
         .eq('task_id', taskId);
 
@@ -353,7 +353,7 @@ export function useTasks(filters?: {
           tenant_id: profile.tenant_id,
           account_id: itemAccountId,
           sidemark_id: item.sidemark_id || null,
-          class_id: item.item_type_id || null,
+          class_id: item.class_id || null,
           item_id: item.id,
           task_id: taskId,
           event_type: 'task_completion',

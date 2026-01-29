@@ -24,13 +24,17 @@ interface ItemPhotoGalleryProps {
 export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGalleryProps) {
   const {
     photos,
+    taskPhotos,
+    allPhotos,
     primaryPhoto,
     needsAttentionPhotos,
+    repairPhotos,
     loading,
     addPhoto,
     addPhotosFromUrls,
     setPrimaryPhoto,
     toggleNeedsAttention,
+    toggleRepair,
     deletePhoto,
   } = useItemPhotos(itemId);
   const { toast } = useToast();
@@ -114,27 +118,40 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
     await toggleNeedsAttention(photoId, !current);
   };
 
+  const handleToggleRepair = async (photoId: string, current: boolean) => {
+    await toggleRepair(photoId, !current);
+  };
+
   const handleDelete = async (photoId: string) => {
     await deletePhoto(photoId);
   };
 
-  // Filter photos by type and attention flag
+  // Filter photos by type and attention flag (using allPhotos which includes task photos)
   const getFilteredPhotos = (type?: ItemPhoto['photo_type']) => {
-    let filtered = type ? photos.filter(p => p.photo_type === type) : photos;
+    let filtered = type ? allPhotos.filter(p => p.photo_type === type) : allPhotos;
     if (filterNeedsAttention) {
       filtered = filtered.filter(p => p.needs_attention);
     }
     return filtered;
   };
 
+  // Helper to check if a photo is from a task (read-only)
+  const isTaskPhoto = (photo: ItemPhoto) => photo.is_from_task === true;
+
   const renderPhotoGrid = (photosToRender: ItemPhoto[]) => (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
-      {photosToRender.map((photo) => (
+      {photosToRender.map((photo) => {
+        // Determine border color: red for attention, green for repair, transparent otherwise
+        const borderClass = photo.needs_attention
+          ? 'border-red-500'
+          : photo.is_repair
+          ? 'border-green-500'
+          : 'border-transparent';
+
+        return (
         <div
           key={photo.id}
-          className={`relative aspect-square rounded-lg border-2 overflow-hidden bg-muted cursor-pointer group ${
-            photo.needs_attention ? 'border-red-500' : 'border-transparent'
-          } ${photo.is_primary ? 'ring-2 ring-primary' : ''}`}
+          className={`relative aspect-square rounded-lg border-2 overflow-hidden bg-muted cursor-pointer group ${borderClass} ${photo.is_primary ? 'ring-2 ring-primary' : ''}`}
           onClick={() => setLightboxPhoto(photo)}
         >
           <img
@@ -144,8 +161,14 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
           />
 
           {/* Overlay badges - High contrast styling */}
-          <div className="absolute top-1 left-1 flex gap-1 flex-wrap">
-            {photo.is_primary && (
+          <div className="absolute top-1 left-1 flex gap-1 flex-wrap max-w-[calc(100%-2rem)]">
+            {isTaskPhoto(photo) && (
+              <Badge className="h-6 text-xs bg-blue-600 text-white px-2 shadow-md border border-blue-700">
+                <MaterialIcon name="assignment" className="text-[12px] mr-1" />
+                {photo.source_task_type || 'Task'}
+              </Badge>
+            )}
+            {photo.is_primary && !isTaskPhoto(photo) && (
               <Badge className="h-6 text-xs bg-amber-500 text-white px-2 shadow-md border border-amber-600">
                 <MaterialIcon name="star" className="text-[12px] mr-1" />
                 Primary
@@ -157,10 +180,16 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                 Attention
               </Badge>
             )}
+            {photo.is_repair && (
+              <Badge className="h-6 text-xs bg-green-600 text-white px-2 shadow-md border border-green-700">
+                <MaterialIcon name="build" className="text-[12px] mr-1" />
+                Repair
+              </Badge>
+            )}
           </div>
 
-          {/* Selection checkbox (for staff) - always visible */}
-          {!isClientUser && (
+          {/* Selection checkbox (for staff) - only for non-task photos */}
+          {!isClientUser && !isTaskPhoto(photo) && (
             <div
               className="absolute top-1 right-1"
               onClick={(e) => {
@@ -189,7 +218,8 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
               >
                 <MaterialIcon name="download" size="md" />
               </Button>
-              {!isClientUser && (
+              {/* Only show editing actions for non-task photos (task photos are read-only from item view) */}
+              {!isClientUser && !isTaskPhoto(photo) && (
                 <>
                   {!photo.is_primary && (
                     <Button
@@ -214,6 +244,17 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                     }}
                   >
                     <MaterialIcon name="warning" size="md" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className={`h-8 w-8 ${photo.is_repair ? 'text-green-400 bg-green-500/20' : 'text-white'} hover:text-green-400 hover:bg-green-500/20`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleRepair(photo.id, photo.is_repair);
+                    }}
+                  >
+                    <MaterialIcon name="build" size="md" />
                   </Button>
                   <Button
                     size="icon"
@@ -257,7 +298,12 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <MaterialIcon name="photo_camera" size="md" />
-              Photos ({photos.length})
+              Photos ({allPhotos.length})
+              {taskPhotos.length > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {taskPhotos.length} from tasks
+                </Badge>
+              )}
               {needsAttentionPhotos.length > 0 && (
                 <Badge variant="destructive">
                   {needsAttentionPhotos.length} need attention
@@ -317,7 +363,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
           </div>
         </CardHeader>
         <CardContent className="pb-6">
-          {photos.length === 0 ? (
+          {allPhotos.length === 0 ? (
             <div className="text-center py-8">
               <MaterialIcon name="photo_camera" className="mx-auto text-[48px] text-muted-foreground" />
               <p className="mt-2 text-sm text-muted-foreground">
@@ -331,16 +377,16 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
               <div className="overflow-x-auto -mx-1 px-1 pb-2">
                 <TabsList className="w-full min-w-max grid grid-cols-4 mb-4">
                   <TabsTrigger value="all" className="text-xs sm:text-sm px-2 sm:px-3">
-                    All ({photos.length})
+                    All ({allPhotos.length})
                   </TabsTrigger>
                   <TabsTrigger value="general" className="text-xs sm:text-sm px-2 sm:px-3">
-                    General ({photos.filter(p => p.photo_type === 'general').length})
+                    General ({allPhotos.filter(p => p.photo_type === 'general').length})
                   </TabsTrigger>
                   <TabsTrigger value="inspection" className="text-xs sm:text-sm px-2 sm:px-3">
-                    Inspect ({photos.filter(p => p.photo_type === 'inspection').length})
+                    Inspect ({allPhotos.filter(p => p.photo_type === 'inspection').length})
                   </TabsTrigger>
                   <TabsTrigger value="repair" className="text-xs sm:text-sm px-2 sm:px-3">
-                    Repair ({photos.filter(p => p.photo_type === 'repair').length})
+                    Repair ({allPhotos.filter(p => p.photo_type === 'repair').length})
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -366,9 +412,15 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
       <Dialog open={!!lightboxPhoto} onOpenChange={() => setLightboxPhoto(null)}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
               {lightboxPhoto?.file_name}
-              {lightboxPhoto?.is_primary && (
+              {lightboxPhoto && isTaskPhoto(lightboxPhoto) && (
+                <Badge className="bg-blue-600 text-white">
+                  <MaterialIcon name="assignment" className="text-[12px] mr-1" />
+                  From {lightboxPhoto.source_task_type || 'Task'}
+                </Badge>
+              )}
+              {lightboxPhoto?.is_primary && !lightboxPhoto?.is_from_task && (
                 <Badge className="bg-amber-500 text-white"><MaterialIcon name="star" className="text-[12px] mr-1" />Primary</Badge>
               )}
               {lightboxPhoto?.needs_attention && (
@@ -376,10 +428,29 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                   <MaterialIcon name="warning" className="text-[12px] mr-1" />Needs Attention
                 </Badge>
               )}
+              {lightboxPhoto?.is_repair && (
+                <Badge className="bg-green-600 text-white">
+                  <MaterialIcon name="build" className="text-[12px] mr-1" />Repair
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
           {lightboxPhoto && (
             <div className="relative">
+              {/* Task info banner for task photos */}
+              {isTaskPhoto(lightboxPhoto) && lightboxPhoto.source_task_title && (
+                <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm flex items-center gap-2">
+                  <MaterialIcon name="assignment" size="sm" className="text-blue-600" />
+                  <span className="text-muted-foreground">From task:</span>
+                  <a
+                    href={`/tasks/${lightboxPhoto.source_task_id}`}
+                    className="text-blue-600 hover:underline font-medium"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {lightboxPhoto.source_task_title}
+                  </a>
+                </div>
+              )}
               <img
                 src={lightboxPhoto.storage_url || ''}
                 alt={lightboxPhoto.file_name}
@@ -393,7 +464,8 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                   <MaterialIcon name="download" size="sm" className="mr-2" />
                   Download
                 </Button>
-                {!isClientUser && (
+                {/* Only show editing actions for non-task photos */}
+                {!isClientUser && !isTaskPhoto(lightboxPhoto) && (
                   <>
                     {!lightboxPhoto.is_primary && (
                       <Button
@@ -416,6 +488,17 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                     >
                       <MaterialIcon name="warning" size="sm" className="mr-2" />
                       {lightboxPhoto.needs_attention ? 'Remove Attention Flag' : 'Mark Needs Attention'}
+                    </Button>
+                    <Button
+                      variant={lightboxPhoto.is_repair ? 'secondary' : 'outline'}
+                      className={lightboxPhoto.is_repair ? 'bg-green-100 hover:bg-green-200 text-green-700' : ''}
+                      onClick={() => {
+                        handleToggleRepair(lightboxPhoto.id, lightboxPhoto.is_repair);
+                        setLightboxPhoto(null);
+                      }}
+                    >
+                      <MaterialIcon name="build" size="sm" className="mr-2" />
+                      {lightboxPhoto.is_repair ? 'Remove Repair Tag' : 'Mark as Repair'}
                     </Button>
                     <Button
                       variant="destructive"

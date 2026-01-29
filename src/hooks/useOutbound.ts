@@ -413,7 +413,7 @@ export function useOutboundShipments(filters?: {
           id,
           item_id,
           expected_quantity,
-          items:item_id(id, item_code, item_type_id, sidemark_id, account_id, class:classes(code))
+          items:item_id(id, item_code, class_id, sidemark_id, account_id, class:classes(code), account:accounts(account_name))
         `)
         .eq('shipment_id', params.shipment_id);
 
@@ -526,7 +526,7 @@ export function useOutboundShipments(filters?: {
           tenant_id: profile.tenant_id,
           account_id: accountId,
           sidemark_id: item.sidemark_id || null,
-          class_id: item.item_type_id || null,
+          class_id: item.class_id || null,
           item_id: item.id,
           shipment_id: shipmentId,
           event_type: 'will_call',

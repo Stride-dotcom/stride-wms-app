@@ -32,9 +32,10 @@ import {
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { ItemTypeCombobox } from './ItemTypeCombobox';
 import { SidemarkSelect } from '@/components/ui/sidemark-select';
 import { ClassSelect } from '@/components/ui/class-select';
+import { AutocompleteInput } from '@/components/ui/autocomplete-input';
+import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
 
 const itemSchema = z.object({
   description: z.string().optional(),
@@ -55,17 +56,11 @@ const itemSchema = z.object({
     return val;
   }),
   status: z.string().optional(),
-  item_type_id: z.string().optional(),
   client_account: z.string().optional(),
   account_id: z.string().optional(),
 });
 
 type ItemFormData = z.infer<typeof itemSchema>;
-
-interface ItemType {
-  id: string;
-  name: string;
-}
 
 interface Account {
   id: string;
@@ -117,26 +112,20 @@ export function ItemEditDialog({
 }: ItemEditDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
 
-  // Fetch item types and accounts
+  // Field suggestions for room
+  const { suggestions: roomSuggestions, addOrUpdateSuggestion: addRoomSuggestion } = useFieldSuggestions('room');
+
+  // Fetch accounts
   useEffect(() => {
     const fetchData = async () => {
-      const [itemTypesRes, accountsRes] = await Promise.all([
-        supabase
-          .from('item_types')
-          .select('id, name')
-          .eq('is_active', true)
-          .order('name'),
-        supabase
-          .from('accounts')
-          .select('id, account_name, account_code')
-          .is('deleted_at', null)
-          .eq('status', 'active')
-          .order('account_name'),
-      ]);
-      if (itemTypesRes.data) setItemTypes(itemTypesRes.data);
+      const accountsRes = await supabase
+        .from('accounts')
+        .select('id, account_name, account_code')
+        .is('deleted_at', null)
+        .eq('status', 'active')
+        .order('account_name');
       if (accountsRes.data) setAccounts(accountsRes.data);
     };
     if (open) fetchData();
@@ -157,7 +146,6 @@ export function ItemEditDialog({
       room: '',
       link: '',
       status: 'active',
-      item_type_id: '',
       client_account: '',
     },
   });
@@ -180,7 +168,6 @@ export function ItemEditDialog({
         room: item.room || '',
         link: item.link || '',
         status: item.status || 'active',
-        item_type_id: item.item_type_id || '',
         client_account: item.client_account || '',
       });
     }
@@ -204,7 +191,6 @@ export function ItemEditDialog({
         room: data.room || null,
         link: data.link || null,
         status: data.status || 'active',
-        item_type_id: data.item_type_id || null,
         client_account: data.client_account || null,
       };
 
@@ -213,6 +199,9 @@ export function ItemEditDialog({
         .eq('id', item.id);
 
       if (error) throw error;
+
+      // Add room to suggestions
+      if (data.room) addRoomSuggestion(data.room);
 
       toast({
         title: 'Item Updated',
@@ -246,35 +235,16 @@ export function ItemEditDialog({
         <div className="flex-1 overflow-y-auto min-h-0 pr-4">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {/* Class (Pricing Tier) */}
               <FormField
                 control={form.control}
-                name="description"
+                name="class_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>Class (Pricing Tier)</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="Item description..."
-                        className="resize-none"
-                        rows={2}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="item_type_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Class</FormLabel>
-                    <FormControl>
-                      <ItemTypeCombobox
-                        itemTypes={itemTypes}
-                        value={field.value || ''}
+                      <ClassSelect
+                        value={field.value}
                         onChange={field.onChange}
                         placeholder="Select class..."
                       />
@@ -284,87 +254,7 @@ export function ItemEditDialog({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="account_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Account</FormLabel>
-                    <Select 
-                      onValueChange={(val) => {
-                        if (val === '_none_') {
-                          field.onChange('');
-                          form.setValue('client_account', '');
-                          form.setValue('sidemark_id', ''); // Clear sidemark when account changes
-                        } else {
-                          field.onChange(val);
-                          const account = accounts.find(a => a.id === val);
-                          form.setValue('client_account', account?.account_name || '');
-                          form.setValue('sidemark_id', ''); // Clear sidemark when account changes
-                        }
-                      }} 
-                      value={field.value || '_none_'}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select account..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="_none_">No account</SelectItem>
-                        {accounts.filter(account => account.id).map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.account_name} ({account.account_code})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Sidemark (structured) and Class selectors */}
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="sidemark_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sidemark (Project)</FormLabel>
-                      <FormControl>
-                        <SidemarkSelect
-                          accountId={selectedAccountId}
-                          value={field.value}
-                          onChange={field.onChange}
-                          placeholder="Select sidemark..."
-                          allowCreate={true}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="class_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Class (Pricing Tier)</FormLabel>
-                      <FormControl>
-                        <ClassSelect
-                          value={field.value}
-                          onChange={field.onChange}
-                          placeholder="Select class..."
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
+              {/* Quantity & Status */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -394,8 +284,8 @@ export function ItemEditDialog({
                         </FormControl>
                         <SelectContent>
                           {STATUS_OPTIONS.map((opt) => (
-                            <SelectItem 
-                              key={opt.value} 
+                            <SelectItem
+                              key={opt.value}
                               value={opt.value}
                               disabled={'disabled' in opt && opt.disabled}
                             >
@@ -410,6 +300,7 @@ export function ItemEditDialog({
                 />
               </div>
 
+              {/* Vendor */}
               <FormField
                 control={form.control}
                 name="vendor"
@@ -424,7 +315,89 @@ export function ItemEditDialog({
                 )}
               />
 
+              {/* Description */}
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Item description..."
+                        className="resize-none"
+                        rows={2}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Account */}
+              <FormField
+                control={form.control}
+                name="account_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Account</FormLabel>
+                    <Select
+                      onValueChange={(val) => {
+                        if (val === '_none_') {
+                          field.onChange('');
+                          form.setValue('client_account', '');
+                          form.setValue('sidemark_id', ''); // Clear sidemark when account changes
+                        } else {
+                          field.onChange(val);
+                          const account = accounts.find(a => a.id === val);
+                          form.setValue('client_account', account?.account_name || '');
+                          form.setValue('sidemark_id', ''); // Clear sidemark when account changes
+                        }
+                      }}
+                      value={field.value || '_none_'}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select account..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="_none_">No account</SelectItem>
+                        {accounts.filter(account => account.id).map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.account_name} ({account.account_code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Sidemark & Room */}
               <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="sidemark_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sidemark (Project)</FormLabel>
+                      <FormControl>
+                        <SidemarkSelect
+                          accountId={selectedAccountId}
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Select sidemark..."
+                          allowCreate={true}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <FormField
                   control={form.control}
                   name="room"
@@ -432,21 +405,12 @@ export function ItemEditDialog({
                     <FormItem>
                       <FormLabel>Room</FormLabel>
                       <FormControl>
-                        <Input placeholder="Room / Area" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="link"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Link (URL)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://..." {...field} />
+                        <AutocompleteInput
+                          value={field.value || ''}
+                          onChange={field.onChange}
+                          suggestions={roomSuggestions}
+                          placeholder="e.g., Living Room"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -454,6 +418,22 @@ export function ItemEditDialog({
                 />
               </div>
 
+              {/* Link */}
+              <FormField
+                control={form.control}
+                name="link"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Link (URL)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Size & Size Unit */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}

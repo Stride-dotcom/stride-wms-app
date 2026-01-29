@@ -3,7 +3,7 @@
  * Dialog for adding new items to a shipment
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -16,16 +16,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
-import { ItemTypeCombobox } from '@/components/items/ItemTypeCombobox';
 import { supabase } from '@/integrations/supabase/client';
 import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
 import { useToast } from '@/hooks/use-toast';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-
-interface ItemType {
-  id: string;
-  name: string;
-}
 
 interface AddShipmentItemDialogProps {
   open: boolean;
@@ -44,38 +38,17 @@ export function AddShipmentItemDialog({
 }: AddShipmentItemDialogProps) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
-  const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
-  
+
   // Form state
   const [description, setDescription] = useState('');
   const [vendor, setVendor] = useState('');
   const [sidemark, setSidemark] = useState('');
-  const [itemTypeId, setItemTypeId] = useState('');
   const [quantity, setQuantity] = useState('1');
-  
+
   // Field suggestions - async search with previously used values
   const { suggestions: vendorSuggestions, addOrUpdateSuggestion: addVendorSuggestion } = useFieldSuggestions('vendor');
   const { suggestions: descriptionSuggestions, addOrUpdateSuggestion: addDescSuggestion } = useFieldSuggestions('description');
   const { suggestions: sidemarkSuggestions, addOrUpdateSuggestion: addSidemarkSuggestion } = useFieldSuggestions('sidemark');
-
-  // Fetch item types - both global and tenant-specific (no restrictive filter)
-  useEffect(() => {
-    const fetchItemTypes = async () => {
-      const { data, error } = await supabase
-        .from('item_types')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-      
-      if (error) {
-        console.error('Error fetching item types:', error);
-      }
-      setItemTypes(data || []);
-    };
-    if (open) {
-      fetchItemTypes();
-    }
-  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +65,6 @@ export function AddShipmentItemDialog({
         expected_description: description.trim(),
         expected_vendor: vendor.trim() || null,
         expected_sidemark: sidemark.trim() || null,
-        expected_item_type_id: itemTypeId || null,
         expected_quantity: parseInt(quantity) || 1,
         status: 'pending',
       });
@@ -105,12 +77,11 @@ export function AddShipmentItemDialog({
       if (sidemark) addSidemarkSuggestion(sidemark);
 
       toast({ title: 'Item added to shipment' });
-      
+
       // Reset form
       setDescription('');
       setVendor('');
       setSidemark('');
-      setItemTypeId('');
       setQuantity('1');
       
       onOpenChange(false);
@@ -173,15 +144,6 @@ export function AddShipmentItemDialog({
               onChange={setSidemark}
               suggestions={sidemarkSuggestions}
               placeholder="Customer reference or sidemark"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Class</Label>
-            <ItemTypeCombobox
-              itemTypes={itemTypes}
-              value={itemTypeId}
-              onChange={setItemTypeId}
             />
           </div>
 

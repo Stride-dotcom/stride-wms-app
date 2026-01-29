@@ -583,21 +583,34 @@ export default function ItemDetail() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    {/* Status - now prominent with badge */}
+                    {/* Status - prominent with badge */}
                     <div className="col-span-2">
                       <span className="text-muted-foreground">Status</span>
                       <div className="mt-1">
                         {getStatusBadge(item.status)}
                       </div>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Quantity</span>
-                      <p className="font-medium">{item.quantity}</p>
-                    </div>
+                    {/* Class */}
                     <div>
                       <span className="text-muted-foreground">Class</span>
                       <p className="font-medium">{item.item_type?.name || '-'}</p>
                     </div>
+                    {/* Quantity */}
+                    <div>
+                      <span className="text-muted-foreground">Quantity</span>
+                      <p className="font-medium">{item.quantity}</p>
+                    </div>
+                    {/* Vendor */}
+                    <div>
+                      <span className="text-muted-foreground">Vendor</span>
+                      <p className="font-medium">{item.vendor || '-'}</p>
+                    </div>
+                    {/* Description */}
+                    <div>
+                      <span className="text-muted-foreground">Description</span>
+                      <p className="font-medium">{item.description || '-'}</p>
+                    </div>
+                    {/* Account */}
                     <div>
                       <span className="text-muted-foreground">Account</span>
                       <p className="font-medium">{item.account?.account_name || '-'}</p>
@@ -613,10 +626,6 @@ export default function ItemDetail() {
                         disabled={isClientUser}
                       />
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Vendor</span>
-                      <p className="font-medium">{item.vendor || '-'}</p>
-                    </div>
                     {/* Room - inline editable */}
                     <div>
                       <span className="text-muted-foreground">Room</span>
@@ -628,6 +637,7 @@ export default function ItemDetail() {
                         disabled={isClientUser}
                       />
                     </div>
+                    {/* Size */}
                     <div>
                       <span className="text-muted-foreground">Size</span>
                       <p className="font-medium">
@@ -638,9 +648,9 @@ export default function ItemDetail() {
                       <div className="col-span-2">
                         <span className="text-muted-foreground">Link</span>
                         <p className="font-medium">
-                          <a 
-                            href={item.link} 
-                            target="_blank" 
+                          <a
+                            href={item.link}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="text-primary hover:underline flex items-center gap-1"
                           >
