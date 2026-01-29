@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useReceivingSession } from '@/hooks/useReceivingSession';
 import { usePermissions, PERMISSIONS } from '@/hooks/usePermissions';
-import { isValidUuid } from '@/lib/utils';
+import { isValidUuid, cn } from '@/lib/utils';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,13 +14,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle, Printer, Pencil, Plus, ClipboardList, DollarSign } from 'lucide-react';
+import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle, Printer, Pencil, Plus, ClipboardList, DollarSign, CalendarIcon, ScanLine } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
+import { BillingChargesSection } from '@/components/billing/BillingChargesSection';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
-import { DocumentCapture } from '@/components/scanner';
+import { ScanDocumentButton, DocumentUploadButton, DocumentList } from '@/components/scanner';
 import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
 import { PhotoUploadButton } from '@/components/common/PhotoUploadButton';
 import { PhotoGrid } from '@/components/common/PhotoGrid';
@@ -106,7 +109,10 @@ export default function ShipmentDetail() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { toast } = useToast();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasRole } = usePermissions();
+
+  // Only managers and admins can see billing fields
+  const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
 
   // State
   const [loading, setLoading] = useState(true);
@@ -120,6 +126,10 @@ export default function ShipmentDetail() {
   const [createdItemIds, setCreatedItemIds] = useState<string[]>([]);
   const [createdItemsForLabels, setCreatedItemsForLabels] = useState<ItemLabelData[]>([]);
   const [isEditing, setIsEditing] = useState(false);
+  const [editCarrier, setEditCarrier] = useState('');
+  const [editTrackingNumber, setEditTrackingNumber] = useState('');
+  const [editPoNumber, setEditPoNumber] = useState('');
+  const [editExpectedArrival, setEditExpectedArrival] = useState<Date | undefined>(undefined);
   const [editNotes, setEditNotes] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
@@ -432,7 +442,16 @@ export default function ShipmentDetail() {
 
         {/* Action Buttons */}
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { setIsEditing(!isEditing); setEditNotes(shipment.notes || ''); }}>
+          <Button variant="outline" onClick={() => {
+            if (!isEditing) {
+              setEditCarrier(shipment.carrier || '');
+              setEditTrackingNumber(shipment.tracking_number || '');
+              setEditPoNumber(shipment.po_number || '');
+              setEditExpectedArrival(shipment.expected_arrival_date ? new Date(shipment.expected_arrival_date) : undefined);
+              setEditNotes(shipment.notes || '');
+            }
+            setIsEditing(!isEditing);
+          }}>
             <Pencil className="h-4 w-4 mr-2" />
             {isEditing ? 'Cancel Edit' : 'Edit'}
           </Button>
@@ -442,7 +461,7 @@ export default function ShipmentDetail() {
               Start Receiving
             </Button>
           )}
-          {shipment.account_id && (
+          {shipment.account_id && canSeeBilling && (
             <Button variant="secondary" onClick={() => setAddAddonDialogOpen(true)}>
               <DollarSign className="h-4 w-4 mr-2" />
               Add Charge
@@ -480,16 +499,67 @@ export default function ShipmentDetail() {
         <Card className="mb-6 border-primary/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Edit Shipment</CardTitle>
-            <CardDescription>Update shipment notes and details</CardDescription>
+            <CardDescription>Update shipment details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Carrier</Label>
+                <Input
+                  value={editCarrier}
+                  onChange={(e) => setEditCarrier(e.target.value)}
+                  placeholder="e.g., FedEx, UPS, Local Delivery"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Tracking Number</Label>
+                <Input
+                  value={editTrackingNumber}
+                  onChange={(e) => setEditTrackingNumber(e.target.value)}
+                  placeholder="Enter tracking number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>PO Number</Label>
+                <Input
+                  value={editPoNumber}
+                  onChange={(e) => setEditPoNumber(e.target.value)}
+                  placeholder="Enter PO number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Expected Arrival</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !editExpectedArrival && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {editExpectedArrival ? format(editExpectedArrival, 'PPP') : 'Select date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={editExpectedArrival}
+                      onSelect={setEditExpectedArrival}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea
                 value={editNotes}
                 onChange={(e) => setEditNotes(e.target.value)}
                 placeholder="Add notes about this shipment..."
-                rows={4}
+                rows={3}
               />
             </div>
             <div className="flex gap-2">
@@ -499,7 +569,13 @@ export default function ShipmentDetail() {
                   try {
                     const { error } = await supabase
                       .from('shipments')
-                      .update({ notes: editNotes })
+                      .update({
+                        carrier: editCarrier || null,
+                        tracking_number: editTrackingNumber || null,
+                        po_number: editPoNumber || null,
+                        expected_arrival_date: editExpectedArrival?.toISOString() || null,
+                        notes: editNotes || null,
+                      })
                       .eq('id', shipment.id);
                     if (error) throw error;
                     toast({ title: 'Shipment Updated' });
@@ -598,6 +674,16 @@ export default function ShipmentDetail() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Billing Charges - Manager/Admin Only */}
+        {canSeeBilling && shipment.account_id && (
+          <BillingChargesSection
+            shipmentId={shipment.id}
+            accountId={shipment.account_id}
+            taskType={shipment.shipment_type === 'inbound' ? 'Receiving' : 'Shipping'}
+            itemCount={items.length}
+          />
+        )}
       </div>
 
       {/* Shipment Items */}
@@ -772,16 +858,34 @@ export default function ShipmentDetail() {
 
       {/* Documents Section */}
       <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Documents</CardTitle>
-          <CardDescription>Scan or upload receiving paperwork, BOLs, and delivery receipts</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <div>
+            <CardTitle>Documents</CardTitle>
+            <CardDescription>Scan or upload receiving paperwork, BOLs, and delivery receipts</CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <ScanDocumentButton
+              context={{ type: 'shipment', shipmentId: shipment.id }}
+              onSuccess={() => {
+                // Documents will auto-refresh via the DocumentList
+              }}
+              label="Scan"
+              size="sm"
+              directToCamera
+            />
+            <DocumentUploadButton
+              context={{ type: 'shipment', shipmentId: shipment.id }}
+              onSuccess={() => {
+                // Documents will auto-refresh via the DocumentList
+              }}
+              size="sm"
+            />
+          </div>
         </CardHeader>
         <CardContent>
-          <DocumentCapture
-            context={{ type: 'shipment', shipmentId: shipment.id }}
-            maxDocuments={10}
-            ocrEnabled={true}
-            onDocumentAdded={(docId) => console.log('Document added:', docId)}
+          <DocumentList
+            contextType="shipment"
+            contextId={shipment.id}
           />
         </CardContent>
       </Card>
@@ -874,8 +978,8 @@ export default function ShipmentDetail() {
         description={`${createdItemsForLabels.length} items were created from receiving. Print labels now?`}
       />
 
-      {/* Add Charge Dialog */}
-      {shipment.account_id && (
+      {/* Add Charge Dialog - Manager/Admin Only */}
+      {shipment.account_id && canSeeBilling && (
         <AddAddonDialog
           open={addAddonDialogOpen}
           onOpenChange={setAddAddonDialogOpen}

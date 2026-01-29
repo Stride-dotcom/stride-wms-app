@@ -33,18 +33,19 @@ import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
 import { PhotoUploadButton } from '@/components/common/PhotoUploadButton';
 import { PhotoGrid } from '@/components/common/PhotoGrid';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
+import { BillingChargesSection } from '@/components/billing/BillingChargesSection';
 import { useTechnicians } from '@/hooks/useTechnicians';
 import { useRepairQuoteWorkflow } from '@/hooks/useRepairQuotes';
 import { usePermissions } from '@/hooks/usePermissions';
 import { format } from 'date-fns';
-import { Input } from '@/components/ui/input';
 import {
   ArrowLeft, Pencil, Play, Check, XCircle, Loader2,
-  ClipboardList, User, Calendar, Building2, AlertTriangle,
-  Camera, FileText, MessageSquare, CheckCircle, X, Wrench,
-  DollarSign, Save, ScanLine,
+  ClipboardList, User, Calendar, Building2,
+  Camera, MessageSquare, CheckCircle, X, Wrench,
+  DollarSign, ScanLine,
 } from 'lucide-react';
 import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
+import { DocumentUploadButton } from '@/components/scanner/DocumentUploadButton';
 import { DocumentList } from '@/components/scanner/DocumentList';
 
 interface TaskDetail {
@@ -86,6 +87,7 @@ interface TaskItemRow {
     item_code: string;
     description: string | null;
     vendor: string | null;
+    inspection_result: string | null;
     location?: { code: string } | null;
     account?: { account_name: string } | null;
     sidemark: string | null;
@@ -104,6 +106,24 @@ const statusLabels: Record<string, string> = {
   in_progress: 'In Progress',
   completed: 'Completed',
   unable_to_complete: 'Unable to Complete',
+};
+
+// Status text classes for bold colored text
+const getStatusTextClass = (status: string) => {
+  switch (status) {
+    case 'pending':
+      return 'font-bold text-orange-500 dark:text-orange-400';
+    case 'in_progress':
+      return 'font-bold text-yellow-500 dark:text-yellow-400';
+    case 'completed':
+      return 'font-bold text-green-500 dark:text-green-400';
+    case 'unable_to_complete':
+      return 'font-bold text-red-500 dark:text-red-400';
+    case 'cancelled':
+      return 'font-bold text-gray-500 dark:text-gray-400';
+    default:
+      return '';
+  }
 };
 
 export default function TaskDetailPage() {
@@ -130,10 +150,8 @@ export default function TaskDetailPage() {
   const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
   const { hasRole } = usePermissions();
 
-  // Billing rate state
-  const [billingRate, setBillingRate] = useState<string>('');
-  const [savingBillingRate, setSavingBillingRate] = useState(false);
-  const canEditBillingRate = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
+  // Only managers and admins can see billing
+  const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
 
   const fetchTask = useCallback(async () => {
     if (!id) return;
@@ -154,7 +172,6 @@ export default function TaskDetailPage() {
       setTask(data);
       setTaskNotes(data.task_notes || '');
       setPhotos(data.photos || []);
-      setBillingRate(data.billing_rate !== null ? String(data.billing_rate) : '');
     } catch (error) {
       console.error('Error fetching task:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to load task' });
@@ -171,7 +188,7 @@ export default function TaskDetailPage() {
         .select(`
           id, item_id, quantity,
           item:items!task_items_item_id_fkey(
-            id, item_code, description, vendor, sidemark,
+            id, item_code, description, vendor, sidemark, inspection_result,
             location:locations(code),
             account:accounts(account_name)
           )
@@ -189,7 +206,7 @@ export default function TaskDetailPage() {
           const itemIds = fallbackData.map((ti: any) => ti.item_id);
           const { data: items } = await supabase
             .from('items')
-            .select('id, item_code, description, vendor, sidemark')
+            .select('id, item_code, description, vendor, sidemark, inspection_result')
             .in('id', itemIds);
 
           const itemMap = Object.fromEntries((items || []).map(i => [i.id, i]));
@@ -271,29 +288,27 @@ export default function TaskDetailPage() {
     }
   };
 
-  const handleInspectionResult = async (result: 'pass' | 'fail') => {
-    if (!id) return;
-    setActionLoading(true);
+  // Handle individual item inspection result
+  const handleItemInspectionResult = async (itemId: string, result: 'pass' | 'fail') => {
     try {
-      const { error } = await (supabase.from('tasks') as any)
+      const { error } = await (supabase.from('items') as any)
         .update({ inspection_result: result })
-        .eq('id', id);
+        .eq('id', itemId);
       if (error) throw error;
 
-      // Also update items if inspection result is set
-      if (taskItems.length > 0) {
-        const itemIds = taskItems.map(ti => ti.item_id);
-        await (supabase.from('items') as any)
-          .update({ inspection_result: result })
-          .in('id', itemIds);
-      }
+      // Update local state
+      setTaskItems(prev => prev.map(ti =>
+        ti.item_id === itemId
+          ? { ...ti, item: ti.item ? { ...ti.item, inspection_result: result } : ti.item }
+          : ti
+      ));
 
-      toast({ title: `Inspection ${result === 'pass' ? 'Passed' : 'Failed'}` });
-      fetchTask();
+      toast({ title: `Item ${result === 'pass' ? 'Passed' : 'Failed'}` });
+
+      // Refresh task items to get updated data
+      fetchTaskItems();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to save inspection result' });
-    } finally {
-      setActionLoading(false);
     }
   };
 
@@ -329,28 +344,6 @@ export default function TaskDetailPage() {
     setEditDialogOpen(false);
     fetchTask();
     fetchTaskItems();
-  };
-
-  const handleSaveBillingRate = async () => {
-    if (!id || !profile?.id) return;
-    setSavingBillingRate(true);
-    try {
-      const rate = billingRate ? parseFloat(billingRate) : null;
-      const { error } = await (supabase.from('tasks') as any)
-        .update({
-          billing_rate: rate,
-          billing_rate_overridden: rate !== null,
-          billing_rate_override_by: rate !== null ? profile.id : null,
-        })
-        .eq('id', id);
-      if (error) throw error;
-      toast({ title: 'Billing Rate Saved' });
-      fetchTask();
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save billing rate' });
-    } finally {
-      setSavingBillingRate(false);
-    }
   };
 
   const handleCreateQuote = async () => {
@@ -458,16 +451,15 @@ export default function TaskDetailPage() {
             </Button>
             <div>
               <h1 className="text-2xl font-semibold">{task.title}</h1>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-3 mt-1">
                 <Badge variant="outline">{task.task_type}</Badge>
-                <Badge className={statusColors[task.status] || ''}>
-                  {statusLabels[task.status] || task.status}
-                </Badge>
-                {task.priority === 'urgent' && (
-                  <Badge className="bg-red-100 text-red-800 gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    Urgent
-                  </Badge>
+                <span className={getStatusTextClass(task.status)}>
+                  {(statusLabels[task.status] || task.status).toUpperCase()}
+                </span>
+                {task.priority === 'urgent' ? (
+                  <span className="font-bold text-red-500 dark:text-red-400">URGENT</span>
+                ) : (
+                  <span className="font-bold text-blue-500 dark:text-blue-400">NORMAL</span>
                 )}
               </div>
             </div>
@@ -498,29 +490,6 @@ export default function TaskDetailPage() {
               </Button>
             </>
           )}
-          {/* Inspection Pass/Fail */}
-          {task.task_type === 'Inspection' && task.status === 'in_progress' && (
-            <>
-              <Button
-                variant="outline"
-                className="border-green-500 text-green-700 hover:bg-green-50"
-                onClick={() => handleInspectionResult('pass')}
-                disabled={actionLoading}
-              >
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Pass
-              </Button>
-              <Button
-                variant="outline"
-                className="border-red-500 text-red-700 hover:bg-red-50"
-                onClick={() => handleInspectionResult('fail')}
-                disabled={actionLoading}
-              >
-                <X className="mr-2 h-4 w-4" />
-                Fail
-              </Button>
-            </>
-          )}
           {/* Request Quote Button */}
           {canRequestQuote && (
             <Button
@@ -532,8 +501,8 @@ export default function TaskDetailPage() {
               Request Repair Quote
             </Button>
           )}
-          {/* Add Charge Button */}
-          {task.account_id && (
+          {/* Add Charge Button - Manager/Admin Only */}
+          {task.account_id && canSeeBilling && (
             <Button
               variant="secondary"
               onClick={() => setAddAddonDialogOpen(true)}
@@ -559,15 +528,23 @@ export default function TaskDetailPage() {
               </Card>
             )}
 
-            {/* Inspection Result Display */}
-            {task.task_type === 'Inspection' && task.inspection_result && (
+            {/* Inspection Summary */}
+            {task.task_type === 'Inspection' && taskItems.length > 0 && (
               <Card>
                 <CardContent className="pt-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">Inspection Result:</span>
-                    <Badge className={task.inspection_result === 'pass' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                      {task.inspection_result === 'pass' ? 'PASSED' : 'FAILED'}
-                    </Badge>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-medium">Inspection Summary:</span>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-green-100 text-green-800">
+                        {taskItems.filter(ti => ti.item?.inspection_result === 'pass').length} Passed
+                      </Badge>
+                      <Badge className="bg-red-100 text-red-800">
+                        {taskItems.filter(ti => ti.item?.inspection_result === 'fail').length} Failed
+                      </Badge>
+                      <Badge variant="outline">
+                        {taskItems.filter(ti => !ti.item?.inspection_result).length} Pending
+                      </Badge>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -591,26 +568,78 @@ export default function TaskDetailPage() {
                         <TableHead>Vendor</TableHead>
                         <TableHead>Description</TableHead>
                         <TableHead>Location</TableHead>
-                        <TableHead>Account</TableHead>
-                        <TableHead>Sidemark</TableHead>
+                        {task.task_type === 'Inspection' ? (
+                          <>
+                            <TableHead className="text-center">Pass</TableHead>
+                            <TableHead className="text-center">Fail</TableHead>
+                          </>
+                        ) : (
+                          <>
+                            <TableHead>Account</TableHead>
+                            <TableHead>Sidemark</TableHead>
+                          </>
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {taskItems.map((ti) => (
                         <TableRow
                           key={ti.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => ti.item?.id && navigate(`/inventory/${ti.item.id}`)}
+                          className={task.task_type !== 'Inspection' ? "cursor-pointer hover:bg-muted/50" : "hover:bg-muted/50"}
+                          onClick={() => task.task_type !== 'Inspection' && ti.item?.id && navigate(`/inventory/${ti.item.id}`)}
                         >
-                          <TableCell className="font-medium text-primary">
+                          <TableCell
+                            className="font-medium text-primary cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              ti.item?.id && navigate(`/inventory/${ti.item.id}`);
+                            }}
+                          >
                             {ti.item?.item_code || ti.item_id.slice(0, 8)}
                           </TableCell>
                           <TableCell>{ti.quantity || 1}</TableCell>
                           <TableCell>{ti.item?.vendor || '-'}</TableCell>
                           <TableCell className="max-w-[200px] truncate">{ti.item?.description || '-'}</TableCell>
                           <TableCell>{(ti.item as any)?.location?.code || '-'}</TableCell>
-                          <TableCell>{(ti.item as any)?.account?.account_name || '-'}</TableCell>
-                          <TableCell>{ti.item?.sidemark || '-'}</TableCell>
+                          {task.task_type === 'Inspection' ? (
+                            <>
+                              <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                                {ti.item?.inspection_result === 'pass' ? (
+                                  <Badge className="bg-green-100 text-green-800">PASSED</Badge>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-green-500 text-green-700 hover:bg-green-50 h-7 px-2"
+                                    onClick={() => ti.item_id && handleItemInspectionResult(ti.item_id, 'pass')}
+                                    disabled={task.status !== 'in_progress'}
+                                  >
+                                    <CheckCircle className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                                {ti.item?.inspection_result === 'fail' ? (
+                                  <Badge className="bg-red-100 text-red-800">FAILED</Badge>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-red-500 text-red-700 hover:bg-red-50 h-7 px-2"
+                                    onClick={() => ti.item_id && handleItemInspectionResult(ti.item_id, 'fail')}
+                                    disabled={task.status !== 'in_progress'}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </>
+                          ) : (
+                            <>
+                              <TableCell>{(ti.item as any)?.account?.account_name || '-'}</TableCell>
+                              <TableCell>{ti.item?.sidemark || '-'}</TableCell>
+                            </>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -691,21 +720,31 @@ export default function TaskDetailPage() {
 
             {/* Documents */}
             <Card>
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-base flex items-center gap-2">
                   <ScanLine className="h-4 w-4" />
                   Documents
                 </CardTitle>
+                <div className="flex gap-2">
+                  <ScanDocumentButton
+                    context={{ type: 'general', label: `Task: ${task.title}` }}
+                    onSuccess={() => {
+                      // Trigger a refetch
+                    }}
+                    label="Scan"
+                    size="sm"
+                    directToCamera
+                  />
+                  <DocumentUploadButton
+                    context={{ type: 'general', label: `Task: ${task.title}` }}
+                    onSuccess={() => {
+                      // Trigger a refetch
+                    }}
+                    size="sm"
+                  />
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <ScanDocumentButton
-                  context={{ type: 'general', label: `Task: ${task.title}` }}
-                  onSuccess={() => {
-                    // Trigger a refetch or show toast
-                  }}
-                  label="Scan Document"
-                  variant="outline"
-                />
+              <CardContent>
                 <DocumentList
                   contextType="general"
                   contextId={task.id}
@@ -778,46 +817,6 @@ export default function TaskDetailPage() {
                   </div>
                 )}
 
-                {/* Billing Rate - Manager/Admin Only */}
-                {canEditBillingRate && (
-                  <div className="border-t pt-3 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">Billing Rate</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="0.00"
-                            value={billingRate}
-                            onChange={(e) => setBillingRate(e.target.value)}
-                            className="h-8 w-24"
-                          />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleSaveBillingRate}
-                            disabled={savingBillingRate}
-                          >
-                            {savingBillingRate ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Save className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                        {task.billing_rate_overridden && task.override_user && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Set by {task.override_user.first_name} {task.override_user.last_name}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 <div className="border-t pt-3 space-y-2 text-xs text-muted-foreground">
                   <p>Created: {format(new Date(task.created_at), 'MMM d, yyyy h:mm a')}</p>
                   {task.completed_at && (
@@ -826,6 +825,33 @@ export default function TaskDetailPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Billing Charges - Manager/Admin Only */}
+            {canSeeBilling && task.account_id && (
+              <BillingChargesSection
+                taskId={task.id}
+                accountId={task.account_id}
+                taskType={task.task_type}
+                itemCount={taskItems.length}
+                baseRate={task.billing_rate}
+                onBaseRateChange={async (rate) => {
+                  if (!profile?.id) return;
+                  try {
+                    const { error } = await (supabase.from('tasks') as any)
+                      .update({
+                        billing_rate: rate,
+                        billing_rate_overridden: rate !== null,
+                        billing_rate_override_by: rate !== null ? profile.id : null,
+                      })
+                      .eq('id', task.id);
+                    if (error) throw error;
+                    fetchTask();
+                  } catch (error) {
+                    toast({ variant: 'destructive', title: 'Error', description: 'Failed to save billing rate' });
+                  }
+                }}
+              />
+            )}
           </div>
         </div>
       </div>
