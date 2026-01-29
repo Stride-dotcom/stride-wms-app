@@ -364,16 +364,16 @@ export function useQuotes() {
 
         if (quoteError) throw quoteError;
 
-        // Fetch class lines
+        // Fetch class lines - joins with classes table
         const { data: classLines } = await (supabase as any)
           .from('quote_class_lines')
-          .select(`*, class:quote_classes(*)`)
+          .select(`*, class:classes(*)`)
           .eq('quote_id', quoteId);
 
-        // Fetch selected services
+        // Fetch selected services - joins with service_events table (Price List)
         const { data: selectedServices } = await (supabase as any)
           .from('quote_selected_services')
-          .select(`*, service:quote_services(*)`)
+          .select(`*, service:service_events(*)`)
           .eq('quote_id', quoteId);
 
         // Fetch rate overrides
