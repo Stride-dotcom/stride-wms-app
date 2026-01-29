@@ -218,13 +218,15 @@ export default function QuoteBuilder() {
             })),
           });
           if (isQuoteEditable(data.status)) {
+            // Don't await lock - it's non-blocking
             acquireLock();
           }
         }
         setLoading(false);
       });
     }
-  }, [id, isNew, fetchQuoteDetails, acquireLock]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isNew, fetchQuoteDetails]); // Note: acquireLock intentionally excluded to prevent re-render loop
 
   // Sync class lines with available classes from price list
   // This ensures new classes added to the price list automatically appear in quotes
