@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useReceivingSession } from '@/hooks/useReceivingSession';
@@ -919,7 +920,7 @@ export default function ShipmentDetail() {
                 setReceivingPhotos(allPhotos);
                 await supabase
                   .from('shipments')
-                  .update({ receiving_photos: allPhotos })
+                  .update({ receiving_photos: allPhotos as unknown as Json })
                   .eq('id', shipment.id);
               }}
               label="Take Photos"
@@ -949,7 +950,7 @@ export default function ShipmentDetail() {
                 setReceivingPhotos(allPhotos);
                 await supabase
                   .from('shipments')
-                  .update({ receiving_photos: allPhotos })
+                  .update({ receiving_photos: allPhotos as unknown as Json })
                   .eq('id', shipment.id);
               }}
             />
@@ -963,7 +964,7 @@ export default function ShipmentDetail() {
                 setReceivingPhotos(photos);
                 await supabase
                   .from('shipments')
-                  .update({ receiving_photos: photos })
+                  .update({ receiving_photos: photos as unknown as Json })
                   .eq('id', shipment.id);
               }}
               enableTagging={true}

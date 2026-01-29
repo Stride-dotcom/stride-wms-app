@@ -108,10 +108,10 @@ export function useItemPhotos(itemId: string | undefined, includeTaskPhotos: boo
 
         task.photos.forEach((photo: string | TaskPhotoData, index: number) => {
           const isPhotoObject = typeof photo === 'object' && photo !== null;
-          const url = isPhotoObject ? photo.url : photo;
-          const isPrimary = isPhotoObject ? photo.isPrimary || false : false;
-          const needsAttention = isPhotoObject ? photo.needsAttention || false : false;
-          const isRepair = isPhotoObject ? photo.isRepair || false : false;
+          const url: string = isPhotoObject ? (photo as TaskPhotoData).url : (photo as string);
+          const isPrimary = isPhotoObject ? (photo as TaskPhotoData).isPrimary || false : false;
+          const needsAttention = isPhotoObject ? (photo as TaskPhotoData).needsAttention || false : false;
+          const isRepair = isPhotoObject ? (photo as TaskPhotoData).isRepair || false : false;
 
           convertedTaskPhotos.push({
             id: `task-${task.id}-photo-${index}`,
