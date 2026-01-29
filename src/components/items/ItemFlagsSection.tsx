@@ -125,6 +125,7 @@ export function ItemFlagsSection({
             description: `${service.service_name}`,
             quantity: 1,
             unit_rate: rateInfo.rate,
+            total_amount: rateInfo.rate, // quantity * unit_rate
             status: 'unbilled',
             created_by: profile!.id,
             has_rate_error: rateInfo.hasError,
