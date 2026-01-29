@@ -358,7 +358,7 @@ export function ShipmentItemRow({
             {/* Show flags indicator if item has flags */}
             {item.item_id && enabledFlags.size > 0 && (
               <Badge variant="outline" className="bg-amber-100 text-amber-700 text-[10px] px-1">
-                <MaterialIcon name="flag" size="xs" />
+                <MaterialIcon name="flag" size="sm" className="text-[10px]" />
                 {enabledFlags.size}
               </Badge>
             )}
