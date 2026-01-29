@@ -954,28 +954,44 @@ export function useEditLock(resourceType: string, resourceId: string | null) {
         return false;
       }
 
-      // Delete any existing lock (might be stale)
-      await (supabase as any)
-        .from('edit_locks')
-        .delete()
-        .eq('resource_type', resourceType)
-        .eq('resource_id', resourceId);
+      // Use upsert to handle race conditions - update if exists, insert if not
+      const lockData = {
+        tenant_id: profile.tenant_id,
+        resource_type: resourceType,
+        resource_id: resourceId,
+        locked_by: profile.id,
+        locked_by_name: (profile as any).full_name || profile.email || 'Unknown',
+        locked_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15 min expiry
+      };
 
-      // Create new lock
       const { data, error } = await (supabase as any)
         .from('edit_locks')
-        .insert({
-          tenant_id: profile.tenant_id,
-          resource_type: resourceType,
-          resource_id: resourceId,
-          locked_by: profile.id,
-          locked_by_name: (profile as any).full_name || profile.email || 'Unknown',
-          expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15 min expiry
+        .upsert(lockData, {
+          onConflict: 'resource_type,resource_id',
+          ignoreDuplicates: false,
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // If upsert fails, try to check if we already own the lock
+        const { data: existingLock } = await (supabase as any)
+          .from('edit_locks')
+          .select('*')
+          .eq('resource_type', resourceType)
+          .eq('resource_id', resourceId)
+          .single();
+
+        if (existingLock && existingLock.locked_by === profile.id) {
+          // We already own the lock, that's fine
+          setLock(existingLock as EditLock);
+          setIsLocked(true);
+          setLockedByOther(false);
+          return true;
+        }
+        throw error;
+      }
 
       setLock(data as EditLock);
       setIsLocked(true);
