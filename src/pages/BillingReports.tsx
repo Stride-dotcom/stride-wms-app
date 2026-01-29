@@ -33,6 +33,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
@@ -43,6 +50,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import { PushToQuickBooksButton } from '@/components/billing/PushToQuickBooksButton';
+import { ApplyPromoDialog } from '@/components/billing/ApplyPromoDialog';
 import { BillingEventForSync } from '@/hooks/useQuickBooks';
 
 interface BillingEvent {
@@ -155,6 +163,10 @@ export default function BillingReports() {
   const [storageFrom, setStorageFrom] = useState<Date>(startOfMonth(new Date()));
   const [storageTo, setStorageTo] = useState<Date>(endOfMonth(new Date()));
   const [generatingStorage, setGeneratingStorage] = useState(false);
+
+  // Promo code dialog
+  const [promoDialogOpen, setPromoDialogOpen] = useState(false);
+  const [selectedEventForPromo, setSelectedEventForPromo] = useState<BillingEvent | null>(null);
 
   // Load reference data
   useEffect(() => {
@@ -301,7 +313,8 @@ export default function BillingReports() {
     const invoiced = filteredEvents.filter((e) => e.status === 'invoiced').reduce((sum, e) => sum + (e.total_amount || 0), 0);
     const voided = filteredEvents.filter((e) => e.status === 'void').reduce((sum, e) => sum + (e.total_amount || 0), 0);
     const rateErrors = filteredEvents.filter((e) => e.has_rate_error).length;
-    return { unbilled, invoiced, voided, total: unbilled + invoiced, rateErrors };
+    const promoDiscounts = filteredEvents.reduce((sum, e) => sum + (e.metadata?.promo_discount?.discount_amount || 0), 0);
+    return { unbilled, invoiced, voided, total: unbilled + invoiced, rateErrors, promoDiscounts };
   }, [filteredEvents]);
 
   // Transform unbilled events for QuickBooks sync
@@ -354,6 +367,9 @@ export default function BillingReports() {
       'Qty': event.quantity || 1,
       'Unit Rate': event.unit_rate || 0,
       'Amount': event.total_amount || 0,
+      'Promo Code': event.metadata?.promo_discount?.promo_code || '',
+      'Original Amount': event.metadata?.promo_discount?.original_amount || '',
+      'Discount Amount': event.metadata?.promo_discount?.discount_amount || '',
       'Status': event.status,
       'Event Type': event.event_type,
       'Rate Error': event.has_rate_error ? 'Yes' : '',
@@ -592,7 +608,7 @@ export default function BillingReports() {
         />
 
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-6">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Unbilled</CardDescription>
@@ -615,6 +631,17 @@ export default function BillingReports() {
             <CardHeader className="pb-2">
               <CardDescription>Total (excl. void)</CardDescription>
               <CardTitle className="text-2xl">{formatCurrency(totals.total)}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card className={totals.promoDiscounts > 0 ? "border-green-500/50 bg-green-500/5" : ""}>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-1">
+                {totals.promoDiscounts > 0 && <MaterialIcon name="confirmation_number" className="h-3 w-3 text-green-500" />}
+                Promo Discounts
+              </CardDescription>
+              <CardTitle className={cn("text-2xl", totals.promoDiscounts > 0 ? "text-green-500" : "text-muted-foreground")}>
+                -{formatCurrency(totals.promoDiscounts)}
+              </CardTitle>
             </CardHeader>
           </Card>
           <Card className={totals.rateErrors > 0 ? "border-amber-500/50 bg-amber-500/5" : ""}>
@@ -808,6 +835,7 @@ export default function BillingReports() {
                           <TableHead className="text-right">Prep</TableHead>
                         </>
                       )}
+                      <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -845,6 +873,11 @@ export default function BillingReports() {
                                 Est.
                               </Badge>
                             )}
+                            {event.metadata?.promo_discount && (
+                              <Badge variant="outline" className="text-xs text-green-500 border-green-500/30 bg-green-500/10" title={`${event.metadata.promo_discount.promo_code}: -${formatCurrency(event.metadata.promo_discount.discount_amount)}`}>
+                                {event.metadata.promo_discount.promo_code}
+                              </Badge>
+                            )}
                             {formatCurrency(event.total_amount || 0)}
                           </div>
                         </TableCell>
@@ -859,6 +892,28 @@ export default function BillingReports() {
                             </TableCell>
                           </>
                         )}
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          {event.status === 'unbilled' && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MaterialIcon name="more_vert" size="sm" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedEventForPromo(event);
+                                    setPromoDialogOpen(true);
+                                  }}
+                                >
+                                  <MaterialIcon name="confirmation_number" size="sm" className="mr-2" />
+                                  {event.metadata?.promo_discount ? 'Manage Promo Code' : 'Apply Promo Code'}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -970,6 +1025,24 @@ export default function BillingReports() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Apply Promo Code Dialog */}
+      <ApplyPromoDialog
+        open={promoDialogOpen}
+        onOpenChange={setPromoDialogOpen}
+        billingEvent={selectedEventForPromo ? {
+          id: selectedEventForPromo.id,
+          account_id: selectedEventForPromo.account_id || '',
+          charge_type: selectedEventForPromo.charge_type,
+          description: selectedEventForPromo.description,
+          total_amount: selectedEventForPromo.total_amount,
+          metadata: selectedEventForPromo.metadata,
+        } : null}
+        onSuccess={() => {
+          setSelectedEventForPromo(null);
+          loadEvents();
+        }}
+      />
     </DashboardLayout>
   );
 }

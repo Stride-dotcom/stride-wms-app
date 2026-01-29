@@ -27,6 +27,7 @@ import TaskDetail from "./pages/TaskDetail";
 import Billing from "./pages/Billing";
 import BillingReports from "./pages/BillingReports";
 import BillingReport from "./pages/BillingReport";
+import PromoCodes from "./pages/PromoCodes";
 import Invoices from "./pages/Invoices";
 import Employees from "./pages/Employees";
 import Claims from "./pages/Claims";
@@ -99,6 +100,7 @@ const App = () => (
             <Route path="/billing/reports" element={<ProtectedRoute><RequireRole role="tenant_admin"><BillingReports /></RequireRole></ProtectedRoute>} />
             <Route path="/billing/report" element={<ProtectedRoute><RequireRole role="tenant_admin"><BillingReport /></RequireRole></ProtectedRoute>} />
             <Route path="/billing/invoices" element={<ProtectedRoute><RequireRole role="tenant_admin"><Invoices /></RequireRole></ProtectedRoute>} />
+            <Route path="/billing/promo-codes" element={<ProtectedRoute><RequireRole role="tenant_admin"><PromoCodes /></RequireRole></ProtectedRoute>} />
             <Route path="/claims" element={<ProtectedRoute><RequireRole role="tenant_admin"><Claims /></RequireRole></ProtectedRoute>} />
             <Route path="/claims/:id" element={<ProtectedRoute><RequireRole role="tenant_admin"><ClaimDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/coverage" element={<ProtectedRoute><RequireRole role="tenant_admin"><CoverageQuickEntry /></RequireRole></ProtectedRoute>} />

@@ -36,6 +36,7 @@ import { useAccountPricing, AccountServiceSetting } from '@/hooks/useAccountPric
 import { CreateAdjustmentDialog } from './CreateAdjustmentDialog';
 import { EditAdjustmentDialog } from './EditAdjustmentDialog';
 import { AccountPricingHistoryDialog } from './AccountPricingHistoryDialog';
+import { AccountPromoCodesSection } from './AccountPromoCodesSection';
 import { cn } from '@/lib/utils';
 
 interface AccountPricingTabProps {
@@ -343,6 +344,11 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
           Percentage adjustments are applied to the base rate. Fixed adjustments add/subtract from the base.
           Override adjustments replace the base rate entirely.
         </p>
+      </div>
+
+      {/* Promo Codes Section */}
+      <div className="pt-6 border-t mt-6">
+        <AccountPromoCodesSection accountId={accountId} accountName={accountName} />
       </div>
 
       {/* Create Adjustment Dialog */}

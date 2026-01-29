@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { findBestPromoCode, calculateDiscount, incrementPromoCodeUsage, incrementPromoCodeUsageBatch } from './promoCodeUtils';
 
 export interface CreateBillingEventParams {
   tenant_id: string;
@@ -19,6 +20,7 @@ export interface CreateBillingEventParams {
   occurred_at?: string;
   metadata?: Record<string, any>;
   created_by?: string;
+  skip_promo?: boolean; // Skip promo code application (e.g., for manual adjustments)
 }
 
 export interface BillingEventResult {
@@ -29,10 +31,42 @@ export interface BillingEventResult {
 
 /**
  * Create a billing event with proper defaults and validation
+ * Automatically applies best available promo code discount
  */
 export async function createBillingEvent(params: CreateBillingEventParams): Promise<BillingEventResult | null> {
   const quantity = params.quantity || 1;
-  const totalAmount = params.total_amount ?? (quantity * params.unit_rate);
+  let totalAmount = params.total_amount ?? (quantity * params.unit_rate);
+  let metadata: Record<string, any> = params.metadata || {};
+  let appliedPromoCodeId: string | null = null;
+
+  // Apply promo code discount if applicable
+  if (!params.skip_promo && totalAmount > 0) {
+    const promoCode = await findBestPromoCode(
+      params.tenant_id,
+      params.charge_type,
+      totalAmount,
+      params.account_id
+    );
+
+    if (promoCode) {
+      const discount = calculateDiscount(promoCode, totalAmount);
+      totalAmount = discount.final_amount;
+      appliedPromoCodeId = promoCode.id;
+
+      // Store discount info in metadata
+      metadata = {
+        ...metadata,
+        promo_discount: {
+          promo_code_id: discount.promo_code_id,
+          promo_code: discount.promo_code,
+          discount_type: discount.discount_type,
+          discount_value: discount.discount_value,
+          original_amount: discount.original_amount,
+          discount_amount: discount.discount_amount,
+        },
+      };
+    }
+  }
 
   const eventData = {
     tenant_id: params.tenant_id,
@@ -51,7 +85,7 @@ export async function createBillingEvent(params: CreateBillingEventParams): Prom
     total_amount: totalAmount,
     status: params.status || 'unbilled',
     occurred_at: params.occurred_at || new Date().toISOString(),
-    metadata: params.metadata || {},
+    metadata,
     created_by: params.created_by || null,
     needs_review: params.unit_rate === 0,
   };
@@ -67,16 +101,62 @@ export async function createBillingEvent(params: CreateBillingEventParams): Prom
     return null;
   }
 
+  // Record promo usage after billing event is created (so we have the billing_event_id)
+  if (appliedPromoCodeId && data) {
+    await incrementPromoCodeUsage(appliedPromoCodeId, params.account_id, data.id);
+  }
+
   return data;
 }
 
 /**
  * Create multiple billing events in a batch
+ * Automatically applies best available promo code discounts
  */
 export async function createBillingEventsBatch(events: CreateBillingEventParams[]): Promise<BillingEventResult[]> {
-  const eventDataArray = events.map(params => {
+  // Track promo code usage across the batch (promoId -> { accountId, indices of events with this promo })
+  const promoCodeUsages = new Map<string, { accountId: string; eventIndices: number[] }>();
+
+  const eventDataArray = await Promise.all(events.map(async (params, index) => {
     const quantity = params.quantity || 1;
-    const totalAmount = params.total_amount ?? (quantity * params.unit_rate);
+    let totalAmount = params.total_amount ?? (quantity * params.unit_rate);
+    let metadata: Record<string, any> = params.metadata || {};
+
+    // Apply promo code discount if applicable
+    if (!params.skip_promo && totalAmount > 0) {
+      const promoCode = await findBestPromoCode(
+        params.tenant_id,
+        params.charge_type,
+        totalAmount,
+        params.account_id
+      );
+
+      if (promoCode) {
+        const discount = calculateDiscount(promoCode, totalAmount);
+        totalAmount = discount.final_amount;
+
+        // Store discount info in metadata
+        metadata = {
+          ...metadata,
+          promo_discount: {
+            promo_code_id: discount.promo_code_id,
+            promo_code: discount.promo_code,
+            discount_type: discount.discount_type,
+            discount_value: discount.discount_value,
+            original_amount: discount.original_amount,
+            discount_amount: discount.discount_amount,
+          },
+        };
+
+        // Track usage for batch increment
+        const existing = promoCodeUsages.get(promoCode.id);
+        if (existing) {
+          existing.eventIndices.push(index);
+        } else {
+          promoCodeUsages.set(promoCode.id, { accountId: params.account_id, eventIndices: [index] });
+        }
+      }
+    }
 
     return {
       tenant_id: params.tenant_id,
@@ -95,11 +175,11 @@ export async function createBillingEventsBatch(events: CreateBillingEventParams[
       total_amount: totalAmount,
       status: params.status || 'unbilled',
       occurred_at: params.occurred_at || new Date().toISOString(),
-      metadata: params.metadata || {},
+      metadata,
       created_by: params.created_by || null,
       needs_review: params.unit_rate === 0,
     };
-  });
+  }));
 
   const { data, error } = await supabase
     .from('billing_events')
@@ -109,6 +189,18 @@ export async function createBillingEventsBatch(events: CreateBillingEventParams[
   if (error) {
     console.error('Error creating billing events batch:', error);
     return [];
+  }
+
+  // Record promo usage with billing event IDs
+  if (promoCodeUsages.size > 0 && data) {
+    for (const [promoCodeId, usage] of promoCodeUsages) {
+      for (const eventIndex of usage.eventIndices) {
+        const billingEventId = data[eventIndex]?.id;
+        if (billingEventId) {
+          await incrementPromoCodeUsage(promoCodeId, usage.accountId, billingEventId);
+        }
+      }
+    }
   }
 
   return data || [];

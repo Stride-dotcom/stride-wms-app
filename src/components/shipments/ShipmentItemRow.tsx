@@ -1,23 +1,20 @@
 /**
  * ShipmentItemRow Component
- * Inline editable row for shipment items with expandable details
- * - Tap row to expand and edit
- * - Flags section for received items
- * - Duplicate item functionality
+ * Row for shipment items with:
+ * - Inline editable fields for pending items (not yet received)
+ * - Tap row to expand and show flags (for received items)
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { supabase } from '@/integrations/supabase/client';
-import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
 import { useServiceEvents, ServiceEvent } from '@/hooks/useServiceEvents';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -64,26 +61,30 @@ export function ShipmentItemRow({
   const { toast } = useToast();
   const { profile } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
 
-  // Edit state
-  const [editDescription, setEditDescription] = useState(item.expected_description || '');
-  const [editVendor, setEditVendor] = useState(item.expected_vendor || '');
-  const [editSidemark, setEditSidemark] = useState(item.expected_sidemark || '');
-  const [editQuantity, setEditQuantity] = useState(item.expected_quantity?.toString() || '1');
+  // Inline edit state - tracks local values
+  const [vendor, setVendor] = useState(item.expected_vendor || '');
+  const [description, setDescription] = useState(item.expected_description || '');
+  const [quantity, setQuantity] = useState(item.expected_quantity?.toString() || '1');
+
+  // Track if we're currently saving
+  const [saving, setSaving] = useState(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Flags state (only for received items)
   const [enabledFlags, setEnabledFlags] = useState<Set<string>>(new Set());
   const [loadingFlags, setLoadingFlags] = useState(false);
   const [updatingFlag, setUpdatingFlag] = useState<string | null>(null);
 
-  // Field suggestions
-  const { suggestions: vendorSuggestions, addOrUpdateSuggestion: addVendorSuggestion } = useFieldSuggestions('vendor');
-  const { suggestions: descriptionSuggestions, addOrUpdateSuggestion: addDescSuggestion } = useFieldSuggestions('description');
-
   // Get flag services from price list
   const { flagServiceEvents, getServiceRate, loading: serviceEventsLoading } = useServiceEvents();
+
+  // Sync local state when item prop changes
+  useEffect(() => {
+    setVendor(item.expected_vendor || '');
+    setDescription(item.expected_description || '');
+    setQuantity(item.expected_quantity?.toString() || '1');
+  }, [item.expected_vendor, item.expected_description, item.expected_quantity]);
 
   // Fetch enabled flags when expanded and item has been received
   useEffect(() => {
@@ -113,13 +114,49 @@ export function ShipmentItemRow({
     }
   };
 
+  // Auto-save function with debounce
+  const saveField = useCallback(async (field: string, value: string) => {
+    if (item.item_id) return; // Don't edit received items
+
+    const updateData: Record<string, any> = {};
+    if (field === 'vendor') updateData.expected_vendor = value || null;
+    if (field === 'description') updateData.expected_description = value || null;
+    if (field === 'quantity') updateData.expected_quantity = parseInt(value) || 1;
+
+    setSaving(true);
+    try {
+      const { error } = await (supabase.from('shipment_items') as any)
+        .update(updateData)
+        .eq('id', item.id);
+
+      if (error) throw error;
+      onUpdate();
+    } catch (error) {
+      console.error('Error updating item:', error);
+      toast({ title: 'Error', description: 'Failed to save', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  }, [item.id, item.item_id, onUpdate, toast]);
+
+  // Handle blur - save the field
+  const handleBlur = useCallback((field: string, value: string) => {
+    // Clear any pending timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    // Save after a short delay to allow for tab navigation
+    saveTimeoutRef.current = setTimeout(() => {
+      saveField(field, value);
+    }, 200);
+  }, [saveField]);
+
   const handleFlagToggle = async (service: ServiceEvent, currentlyEnabled: boolean) => {
     if (!item.item_id || !profile?.tenant_id) return;
     setUpdatingFlag(service.service_code);
 
     try {
       if (currentlyEnabled) {
-        // Remove the flag billing event
         await (supabase.from('billing_events') as any)
           .delete()
           .eq('item_id', item.item_id)
@@ -134,7 +171,6 @@ export function ShipmentItemRow({
         });
         toast({ title: `${service.service_name} removed` });
       } else {
-        // Get item details for billing event
         const { data: itemData } = await (supabase.from('items') as any)
           .select('account_id, sidemark_id, class:classes(code)')
           .eq('id', item.item_id)
@@ -143,7 +179,6 @@ export function ShipmentItemRow({
         const classCode = itemData?.class?.code || null;
         const rateInfo = getServiceRate(service.service_code, classCode);
 
-        // Create billing event for the flag
         await (supabase.from('billing_events') as any)
           .insert({
             tenant_id: profile.tenant_id,
@@ -172,61 +207,13 @@ export function ShipmentItemRow({
     }
   };
 
-  // Handle row tap to expand
   const handleRowTap = useCallback((e: React.MouseEvent) => {
-    // Don't expand if clicking on interactive elements
     const target = e.target as HTMLElement;
     if (target.closest('button') || target.closest('input') || target.closest('[role="checkbox"]')) {
       return;
     }
     setIsExpanded(!isExpanded);
   }, [isExpanded]);
-
-  const handleStartEdit = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isCompleted) return;
-    setIsEditing(true);
-    setEditDescription(item.expected_description || '');
-    setEditVendor(item.expected_vendor || '');
-    setEditSidemark(item.expected_sidemark || '');
-    setEditQuantity(item.expected_quantity?.toString() || '1');
-  }, [item, isCompleted]);
-
-  const handleCancelEdit = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsEditing(false);
-  }, []);
-
-  const handleSave = useCallback(async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSaving(true);
-
-    try {
-      const { error } = await (supabase.from('shipment_items') as any)
-        .update({
-          expected_description: editDescription || null,
-          expected_vendor: editVendor || null,
-          expected_sidemark: editSidemark || null,
-          expected_quantity: parseInt(editQuantity) || 1,
-        })
-        .eq('id', item.id);
-
-      if (error) throw error;
-
-      // Record field usage for autocomplete
-      if (editVendor) addVendorSuggestion(editVendor);
-      if (editDescription) addDescSuggestion(editDescription);
-
-      setIsEditing(false);
-      onUpdate();
-      toast({ title: 'Item updated' });
-    } catch (error) {
-      console.error('Error updating item:', error);
-      toast({ title: 'Error', description: 'Failed to update item', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
-  }, [item.id, editDescription, editVendor, editSidemark, editQuantity, onUpdate, addVendorSuggestion, addDescSuggestion, toast]);
 
   const handleItemCodeClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -235,22 +222,15 @@ export function ShipmentItemRow({
     }
   }, [item.item_id, navigate]);
 
-  const handleDuplicate = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onDuplicate) {
-      onDuplicate(item);
-    }
-  }, [onDuplicate, item]);
-
-  const canEdit = isInbound && !isCompleted;
+  // Can edit if inbound, not completed, and item not yet received
+  const canEdit = isInbound && !isCompleted && !item.item_id;
 
   return (
     <>
       <TableRow
         className={cn(
           "cursor-pointer hover:bg-muted/50 transition-colors",
-          isEditing && "bg-muted/30",
-          isExpanded && "bg-muted/20"
+          isExpanded && "bg-amber-50/30 dark:bg-amber-950/10"
         )}
         onClick={handleRowTap}
       >
@@ -267,17 +247,16 @@ export function ShipmentItemRow({
 
         {/* Expand toggle */}
         <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-6 w-6"
             onClick={() => setIsExpanded(!isExpanded)}
           >
-            {isExpanded ? (
-              <MaterialIcon name="expand_more" size="sm" />
-            ) : (
-              <MaterialIcon name="chevron_right" size="sm" />
-            )}
+            <MaterialIcon
+              name={isExpanded ? "expand_less" : "expand_more"}
+              size="sm"
+            />
           </Button>
         </TableCell>
 
@@ -293,66 +272,70 @@ export function ShipmentItemRow({
               </span>
             </ItemPreviewCard>
           ) : (
-            <span className="text-muted-foreground">-</span>
+            <span className="text-muted-foreground italic text-xs">pending</span>
           )}
         </TableCell>
 
-        {/* Vendor */}
-        <TableCell className="w-32" onClick={isEditing ? (e) => e.stopPropagation() : undefined}>
-          {isEditing ? (
-            <AutocompleteInput
-              value={editVendor}
-              onChange={setEditVendor}
-              suggestions={vendorSuggestions}
+        {/* Vendor - editable for pending items */}
+        <TableCell className="w-32" onClick={(e) => canEdit && e.stopPropagation()}>
+          {canEdit ? (
+            <Input
+              value={vendor}
+              onChange={(e) => setVendor(e.target.value)}
+              onBlur={() => handleBlur('vendor', vendor)}
               placeholder="Vendor"
-              className="h-8"
+              className="h-7 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
             />
           ) : (
-            item.item?.vendor || item.expected_vendor || '-'
+            <span className="text-sm">{item.item?.vendor || item.expected_vendor || '-'}</span>
           )}
         </TableCell>
 
-        {/* Description */}
-        <TableCell className="min-w-[180px]" onClick={isEditing ? (e) => e.stopPropagation() : undefined}>
-          {isEditing ? (
-            <AutocompleteInput
-              value={editDescription}
-              onChange={setEditDescription}
-              suggestions={descriptionSuggestions}
+        {/* Description - editable for pending items */}
+        <TableCell className="min-w-[180px]" onClick={(e) => canEdit && e.stopPropagation()}>
+          {canEdit ? (
+            <Input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              onBlur={() => handleBlur('description', description)}
               placeholder="Description"
-              className="h-8"
+              className="h-7 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
             />
           ) : (
-            item.item?.description || item.expected_description || '-'
+            <span className="text-sm">{item.item?.description || item.expected_description || '-'}</span>
           )}
         </TableCell>
 
-        {/* Expected Qty */}
-        <TableCell className="w-28 text-right" onClick={isEditing ? (e) => e.stopPropagation() : undefined}>
-          {isEditing ? (
+        {/* Expected Qty - editable for pending items */}
+        <TableCell className="w-28 text-right" onClick={(e) => canEdit && e.stopPropagation()}>
+          {canEdit ? (
             <Input
               type="number"
-              value={editQuantity}
-              onChange={(e) => setEditQuantity(e.target.value)}
-              className="h-8 w-20 text-right"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              onBlur={() => handleBlur('quantity', quantity)}
               min="1"
+              className="h-7 w-16 text-sm text-right border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input ml-auto"
             />
           ) : (
-            item.expected_quantity || '-'
+            <span className="text-sm">{item.expected_quantity || '-'}</span>
           )}
         </TableCell>
 
         {/* Received Qty */}
         <TableCell className="w-28 text-right">
-          {item.actual_quantity || '-'}
+          <span className="text-sm">{item.actual_quantity || '-'}</span>
         </TableCell>
 
         {/* Status */}
         <TableCell className="w-24">
-          <Badge variant="outline">{item.status}</Badge>
+          <Badge variant="outline" className="text-xs">{item.status}</Badge>
+          {saving && (
+            <MaterialIcon name="progress_activity" size="xs" className="ml-1 animate-spin inline" />
+          )}
         </TableCell>
 
-        {/* Actions */}
+        {/* Flags indicator */}
         <TableCell className="w-16" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1">
             {/* Show flags indicator if item has flags */}
@@ -372,185 +355,64 @@ export function ShipmentItemRow({
         </TableCell>
       </TableRow>
 
-      {/* Expanded Details */}
+      {/* Expanded Row - ONLY shows flags */}
       {isExpanded && (
-        <TableRow className="bg-muted/20">
-          <TableCell colSpan={9} className="p-4">
-            <div className="space-y-4">
-              {/* Edit Section */}
-              {canEdit && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Edit Item</span>
-                    {!isEditing ? (
-                      <Button variant="outline" size="sm" onClick={handleStartEdit}>
-                        <MaterialIcon name="edit" size="sm" className="mr-1" />
-                        Edit
-                      </Button>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleCancelEdit}
-                          disabled={saving}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={handleSave}
-                          disabled={saving}
-                        >
-                          {saving ? (
-                            <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />
-                          ) : (
-                            <MaterialIcon name="save" size="sm" className="mr-1" />
+        <TableRow className="bg-amber-50/50 dark:bg-amber-950/20">
+          <TableCell colSpan={9} className="py-2 px-4">
+            {item.item_id ? (
+              // Item has been received - show flags
+              loadingFlags || serviceEventsLoading ? (
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-5 w-28" />
+                  <Skeleton className="h-5 w-28" />
+                  <Skeleton className="h-5 w-28" />
+                </div>
+              ) : flagServiceEvents.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+                  {flagServiceEvents.map((service) => {
+                    const isEnabled = enabledFlags.has(service.service_code);
+                    const isUpdating = updatingFlag === service.service_code;
+                    return (
+                      <label
+                        key={service.id}
+                        className={cn(
+                          "flex items-center gap-2 cursor-pointer select-none py-1",
+                          isUpdating && "opacity-50"
+                        )}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Checkbox
+                          checked={isEnabled}
+                          onCheckedChange={() => handleFlagToggle(service, isEnabled)}
+                          disabled={isUpdating}
+                          className={cn(
+                            "h-5 w-5",
+                            isEnabled && "bg-amber-500 border-amber-500 data-[state=checked]:bg-amber-500"
                           )}
-                          Save
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-
-                  {isEditing && (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground">Description</label>
-                        <AutocompleteInput
-                          value={editDescription}
-                          onChange={setEditDescription}
-                          suggestions={descriptionSuggestions}
-                          placeholder="Description"
-                          className="h-9"
                         />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground">Vendor</label>
-                        <AutocompleteInput
-                          value={editVendor}
-                          onChange={setEditVendor}
-                          suggestions={vendorSuggestions}
-                          placeholder="Vendor"
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground">Sidemark</label>
-                        <Input
-                          value={editSidemark}
-                          onChange={(e) => setEditSidemark(e.target.value)}
-                          placeholder="Sidemark"
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground">Quantity</label>
-                        <Input
-                          type="number"
-                          value={editQuantity}
-                          onChange={(e) => setEditQuantity(e.target.value)}
-                          min="1"
-                          className="h-9"
-                        />
-                      </div>
-                    </div>
-                  )}
+                        <span className={cn(
+                          "text-sm",
+                          isEnabled ? "font-medium text-amber-700 dark:text-amber-300" : "text-muted-foreground"
+                        )}>
+                          {service.service_name}
+                        </span>
+                        {isUpdating && (
+                          <MaterialIcon name="progress_activity" size="xs" className="animate-spin" />
+                        )}
+                      </label>
+                    );
+                  })}
                 </div>
-              )}
-
-              {/* Info Section (when not editing) */}
-              {!isEditing && (
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div>
-                    <span className="text-xs text-muted-foreground">Sidemark</span>
-                    <p className="font-medium text-sm">{item.expected_sidemark || '-'}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Expected Qty</span>
-                    <p className="font-medium text-sm">{item.expected_quantity || 1}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Status</span>
-                    <p className="font-medium text-sm">{item.status}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Flags Section (only for received items) */}
-              {item.item_id && flagServiceEvents.length > 0 && (
-                <div className="border-t pt-4">
-                  <span className="text-sm font-medium">Flags</span>
-                  <p className="text-xs text-muted-foreground mb-2">Add flags to this item for billing</p>
-                  {loadingFlags || serviceEventsLoading ? (
-                    <div className="flex gap-2">
-                      <Skeleton className="h-8 w-24" />
-                      <Skeleton className="h-8 w-24" />
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {flagServiceEvents.map((service) => {
-                        const isEnabled = enabledFlags.has(service.service_code);
-                        const isUpdating = updatingFlag === service.service_code;
-                        return (
-                          <Button
-                            key={service.id}
-                            variant={isEnabled ? "default" : "outline"}
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFlagToggle(service, isEnabled);
-                            }}
-                            disabled={isUpdating}
-                            className={cn(
-                              "text-xs",
-                              isEnabled && "bg-amber-500 hover:bg-amber-600 text-white"
-                            )}
-                          >
-                            {isUpdating ? (
-                              <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />
-                            ) : isEnabled ? (
-                              <MaterialIcon name="flag" size="sm" className="mr-1" />
-                            ) : (
-                              <MaterialIcon name="outlined_flag" size="sm" className="mr-1" />
-                            )}
-                            {service.service_name}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="border-t pt-4 flex flex-wrap gap-2">
-                {item.item_id && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleItemCodeClick}
-                  >
-                    <MaterialIcon name="visibility" size="sm" className="mr-1" />
-                    View Item
-                  </Button>
-                )}
-                {canEdit && onDuplicate && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDuplicate}
-                  >
-                    <MaterialIcon name="content_copy" size="sm" className="mr-1" />
-                    Duplicate
-                  </Button>
-                )}
-                <div className="flex-1" />
-                <span className="text-xs text-muted-foreground self-center">
-                  ID: {item.id.slice(0, 8)}
-                </span>
-              </div>
-            </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No flags configured in Price List</p>
+              )
+            ) : (
+              // Item not yet received
+              <p className="text-sm text-muted-foreground">
+                <MaterialIcon name="schedule" size="sm" className="inline mr-1 align-text-bottom" />
+                Flags available after item is received
+              </p>
+            )}
           </TableCell>
         </TableRow>
       )}
