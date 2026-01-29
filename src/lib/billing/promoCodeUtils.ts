@@ -25,6 +25,7 @@ export interface PromoDiscount {
 
 /**
  * Find the best applicable promo code for a billing event
+ * Only returns promo codes that have been assigned to the account
  * Returns the promo code that gives the highest discount
  */
 export async function findBestPromoCode(
@@ -34,16 +35,35 @@ export async function findBestPromoCode(
   accountId?: string | null
 ): Promise<ApplicablePromoCode | null> {
   try {
-    // Fetch all active, non-expired promo codes for this tenant
-    const now = new Date().toISOString();
+    // Must have an account to apply promo codes
+    if (!accountId) {
+      return null;
+    }
 
-    let query = (supabase.from('promo_codes') as any)
-      .select('id, code, discount_type, discount_value, service_scope, selected_services, usage_limit_type, usage_limit, usage_count')
+    // Fetch promo codes that are assigned to this account
+    const { data: accountPromos, error: accountError } = await (supabase
+      .from('account_promo_codes') as any)
+      .select('promo_code_id')
+      .eq('account_id', accountId);
+
+    if (accountError) {
+      console.error('[promoCodeUtils] Error fetching account promo codes:', accountError);
+      return null;
+    }
+
+    if (!accountPromos || accountPromos.length === 0) {
+      return null;
+    }
+
+    const assignedPromoIds = accountPromos.map((ap: any) => ap.promo_code_id);
+
+    // Fetch active promo codes that are assigned to this account
+    const { data: promoCodes, error } = await (supabase.from('promo_codes') as any)
+      .select('id, code, discount_type, discount_value, service_scope, selected_services, usage_limit_type, usage_limit, usage_count, expiration_type, expiration_date')
       .eq('tenant_id', tenantId)
       .eq('is_active', true)
-      .is('deleted_at', null);
-
-    const { data: promoCodes, error } = await query;
+      .is('deleted_at', null)
+      .in('id', assignedPromoIds);
 
     if (error) {
       console.error('[promoCodeUtils] Error fetching promo codes:', error);
