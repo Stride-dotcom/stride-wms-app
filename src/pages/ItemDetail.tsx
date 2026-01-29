@@ -45,6 +45,7 @@ import { ScanDocumentButton, DocumentList } from '@/components/scanner';
 import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { QuickReleaseDialog } from '@/components/inventory/QuickReleaseDialog';
+import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
 
 interface ReceivingShipment {
   id: string;
@@ -163,6 +164,7 @@ export default function ItemDetail() {
   const [billingChargeDialogOpen, setBillingChargeDialogOpen] = useState(false);
   const [linkShipmentDialogOpen, setLinkShipmentDialogOpen] = useState(false);
   const [claimDialogOpen, setClaimDialogOpen] = useState(false);
+  const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
 
   // Check if user is a client (simplified check)
   const isClientUser = false; // Will be determined by role system
@@ -534,6 +536,10 @@ export default function ItemDetail() {
                     💰 Add Charge
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setReassignDialogOpen(true)}>
+                    <MaterialIcon name="swap_horiz" size="sm" className="mr-2" />
+                    Reassign Account
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setClaimDialogOpen(true)}>
                     ⚠️ File Claim
                   </DropdownMenuItem>
@@ -970,6 +976,18 @@ export default function ItemDetail() {
           itemId={item.id}
           accountId={item.account_id || undefined}
           sidemarkId={item.sidemark_id || undefined}
+        />
+      )}
+
+      {item && (
+        <ReassignAccountDialog
+          open={reassignDialogOpen}
+          onOpenChange={setReassignDialogOpen}
+          entityType="item"
+          entityIds={[item.id]}
+          currentAccountId={item.account_id}
+          currentAccountName={item.account?.account_name}
+          onSuccess={fetchItem}
         />
       )}
     </DashboardLayout>

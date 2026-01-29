@@ -30,6 +30,7 @@ import { PhotoGrid } from '@/components/common/PhotoGrid';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDialog';
+import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
 
 // ============================================
 // TYPES
@@ -139,6 +140,7 @@ export default function ShipmentDetail() {
   const [selectedTaskType, setSelectedTaskType] = useState<string>('');
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [showReassignDialog, setShowReassignDialog] = useState(false);
 
   // Receiving session hook
   const {
@@ -502,6 +504,13 @@ export default function ShipmentDetail() {
             <Button variant="secondary" onClick={() => setAddAddonDialogOpen(true)}>
               <MaterialIcon name="attach_money" size="sm" className="mr-2" />
               Add Charge
+            </Button>
+          )}
+          {/* Reassign Account */}
+          {shipment.account_id && (
+            <Button variant="outline" onClick={() => setShowReassignDialog(true)}>
+              <MaterialIcon name="swap_horiz" size="sm" className="mr-2" />
+              Reassign
             </Button>
           )}
           {/* Cancel Shipment - only for expected or receiving shipments */}
@@ -1073,6 +1082,19 @@ export default function ShipmentDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reassign Account Dialog */}
+      {shipment.account_id && (
+        <ReassignAccountDialog
+          open={showReassignDialog}
+          onOpenChange={setShowReassignDialog}
+          entityType="shipment"
+          entityIds={[shipment.id]}
+          currentAccountId={shipment.account_id}
+          currentAccountName={shipment.accounts?.name}
+          onSuccess={fetchShipment}
+        />
+      )}
     </DashboardLayout>
   );
 }
