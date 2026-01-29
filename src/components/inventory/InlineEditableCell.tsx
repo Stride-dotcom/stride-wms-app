@@ -5,32 +5,51 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 
 interface InlineEditableCellProps {
-  value: string | null;
-  suggestions: string[];
+  value: string | number | null;
+  suggestions?: string[];
   onSave: (newValue: string) => Promise<void>;
   placeholder?: string;
+  type?: 'text' | 'number';
+  className?: string;
+  align?: 'left' | 'right';
 }
 
-export function InlineEditableCell({ value, suggestions, onSave, placeholder = '-' }: InlineEditableCellProps) {
+export function InlineEditableCell({
+  value,
+  suggestions = [],
+  onSave,
+  placeholder = '-',
+  type = 'text',
+  className,
+  align = 'left',
+}: InlineEditableCellProps) {
   const [open, setOpen] = useState(false);
-  const [inputValue, setInputValue] = useState(value || '');
+  const [inputValue, setInputValue] = useState(String(value ?? ''));
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
-      setInputValue(value || '');
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setInputValue(String(value ?? ''));
+      setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }, 50);
     }
   }, [open, value]);
 
   const filteredSuggestions = useMemo(() => {
-    if (!inputValue.trim()) return suggestions.slice(0, 20);
-    const lower = inputValue.toLowerCase();
+    if (type === 'number' || suggestions.length === 0) return [];
+    const trimmed = String(inputValue).trim();
+    if (!trimmed) return suggestions.slice(0, 20);
+    const lower = trimmed.toLowerCase();
     return suggestions.filter(s => s.toLowerCase().includes(lower)).slice(0, 20);
-  }, [inputValue, suggestions]);
+  }, [inputValue, suggestions, type]);
 
-  const isNewValue = inputValue.trim() && !suggestions.some(s => s.toLowerCase() === inputValue.trim().toLowerCase());
+  const isNewValue = type === 'text' && String(inputValue).trim() && suggestions.length > 0 &&
+    !suggestions.some(s => s.toLowerCase() === String(inputValue).trim().toLowerCase());
+
+  const displayValue = value !== null && value !== undefined && value !== '' ? String(value) : placeholder;
 
   const handleSelect = async (val: string) => {
     setSaving(true);
@@ -45,72 +64,91 @@ export function InlineEditableCell({ value, suggestions, onSave, placeholder = '
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && inputValue.trim()) {
+    if (e.key === 'Enter') {
       e.preventDefault();
-      handleSelect(inputValue.trim());
+      const trimmed = String(inputValue).trim();
+      if (type === 'number') {
+        // For numbers, allow saving even if empty (will be handled as 0 or cleared)
+        handleSelect(trimmed || '0');
+      } else if (trimmed) {
+        handleSelect(trimmed);
+      }
     } else if (e.key === 'Escape') {
       setOpen(false);
     }
   };
 
+  const showSuggestionsList = type === 'text' && suggestions.length > 0;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <div
-          className="group flex items-center gap-1 cursor-pointer min-h-[24px] px-1 -mx-1 rounded hover:bg-muted/80 transition-colors"
+          className={cn(
+            "group flex items-center gap-1 cursor-pointer min-h-[24px] px-1 -mx-1 rounded hover:bg-muted/80 transition-colors",
+            align === 'right' && "justify-end",
+            className
+          )}
           onClick={(e) => {
             e.stopPropagation();
             setOpen(true);
           }}
         >
-          <span className={cn("text-sm truncate", !value && "text-muted-foreground")}>
-            {value || placeholder}
+          <span className={cn(
+            "text-sm truncate",
+            (value === null || value === undefined || value === '') && "text-muted-foreground"
+          )}>
+            {displayValue}
           </span>
           <MaterialIcon name="edit" className="text-[12px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
         </div>
       </PopoverTrigger>
       <PopoverContent
-        className="w-56 p-2"
-        align="start"
+        className={cn("p-2", showSuggestionsList ? "w-56" : "w-40")}
+        align={align === 'right' ? 'end' : 'start'}
         side="bottom"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <Input
           ref={inputRef}
+          type={type}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type to search or add..."
-          className="h-8 text-sm mb-1"
+          placeholder={type === 'number' ? "Enter value..." : "Type to search or add..."}
+          className={cn("h-8 text-sm", showSuggestionsList && "mb-1", type === 'number' && "text-right")}
           disabled={saving}
+          min={type === 'number' ? 0 : undefined}
         />
-        <div className="max-h-40 overflow-y-auto">
-          {isNewValue && (
-            <button
-              className="flex items-center gap-2 w-full px-2 py-1.5 text-sm text-left rounded hover:bg-muted/80 text-primary"
-              onClick={() => handleSelect(inputValue.trim())}
-              disabled={saving}
-            >
-              <MaterialIcon name="add" className="text-[12px]" />
-              Add "{inputValue.trim()}"
-            </button>
-          )}
-          {filteredSuggestions.map((suggestion) => (
-            <button
-              key={suggestion}
-              className="flex items-center gap-2 w-full px-2 py-1.5 text-sm text-left rounded hover:bg-muted/80"
-              onClick={() => handleSelect(suggestion)}
-              disabled={saving}
-            >
-              {suggestion === value && <MaterialIcon name="check" className="text-[12px] text-primary" />}
-              {suggestion !== value && <span className="w-3" />}
-              <span className="truncate">{suggestion}</span>
-            </button>
-          ))}
-          {filteredSuggestions.length === 0 && !isNewValue && (
-            <p className="text-xs text-muted-foreground px-2 py-2">No matches found</p>
-          )}
-        </div>
+        {showSuggestionsList && (
+          <div className="max-h-40 overflow-y-auto">
+            {isNewValue && (
+              <button
+                className="flex items-center gap-2 w-full px-2 py-1.5 text-sm text-left rounded hover:bg-muted/80 text-primary"
+                onClick={() => handleSelect(String(inputValue).trim())}
+                disabled={saving}
+              >
+                <MaterialIcon name="add" className="text-[12px]" />
+                Add "{String(inputValue).trim()}"
+              </button>
+            )}
+            {filteredSuggestions.map((suggestion) => (
+              <button
+                key={suggestion}
+                className="flex items-center gap-2 w-full px-2 py-1.5 text-sm text-left rounded hover:bg-muted/80"
+                onClick={() => handleSelect(suggestion)}
+                disabled={saving}
+              >
+                {suggestion === String(value) && <MaterialIcon name="check" className="text-[12px] text-primary" />}
+                {suggestion !== String(value) && <span className="w-3" />}
+                <span className="truncate">{suggestion}</span>
+              </button>
+            ))}
+            {filteredSuggestions.length === 0 && !isNewValue && (
+              <p className="text-xs text-muted-foreground px-2 py-2">No matches found</p>
+            )}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
