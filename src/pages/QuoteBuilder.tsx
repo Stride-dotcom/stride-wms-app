@@ -898,6 +898,9 @@ export default function QuoteBuilder() {
                   <MaterialIcon name="schedule" size="md" />
                   Storage Duration
                 </CardTitle>
+                <CardDescription>
+                  Enter the storage period. This multiplies with any storage services (per-day billing) selected above.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-4">

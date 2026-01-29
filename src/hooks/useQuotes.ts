@@ -186,8 +186,10 @@ export function useQuoteServices() {
   );
 
   // Separate class-based and non-class-based services
-  const classBasedServices = services.filter(s => s.is_class_based && !s.is_storage_service);
-  const nonClassBasedServices = services.filter(s => !s.is_class_based && !s.is_storage_service);
+  // Storage services are included in their respective lists (class-based or non-class-based)
+  // so they appear in the quote tool and can be selected
+  const classBasedServices = services.filter(s => s.is_class_based);
+  const nonClassBasedServices = services.filter(s => !s.is_class_based);
   const storageServices = services.filter(s => s.is_storage_service);
 
   return {
