@@ -122,7 +122,7 @@ export function useInvoices() {
       let taxableServices = new Set<string>();
 
       if (serviceTypes.length > 0 && salesTaxRate > 0) {
-        const { data: rateDetails } = await supabase
+        const { data: rateDetails } = await (supabase as any)
           .from('rate_card_details')
           .select('service_type, is_taxable')
           .in('service_type', serviceTypes)

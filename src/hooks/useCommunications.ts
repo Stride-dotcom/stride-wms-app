@@ -421,7 +421,7 @@ export function useCommunications() {
       // Get current template for versioning
       const currentTemplate = templates.find(t => t.id === id);
       
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('communication_templates')
         .update(updates)
         .eq('id', id);

@@ -274,7 +274,7 @@ export default function Settings() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-96">
-          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );

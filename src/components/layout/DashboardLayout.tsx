@@ -102,16 +102,19 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
         className={cn(
           'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
           isActive
-            ? 'bg-primary text-primary-foreground'
-            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10',
+            ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
+            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-white/60 dark:hover:text-white dark:hover:bg-white/5',
           sidebarCollapsed && 'lg:justify-center lg:px-2'
         )}
       >
         <MaterialIcon
           name={item.icon}
           size="md"
-          className="flex-shrink-0"
-          filled={isActive}
+          weight={isActive ? 400 : 300}
+          className={cn(
+            'flex-shrink-0 transition-colors',
+            isActive ? 'text-primary' : 'text-gray-400 dark:text-white/50'
+          )}
         />
         <span className={cn(
           "relative z-10 transition-opacity duration-200 flex-1",
@@ -393,8 +396,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 className="h-8 w-8 object-contain rounded"
               />
             ) : (
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <MaterialIcon name="warehouse" size="sm" className="text-primary-foreground" filled />
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md">
+                <MaterialIcon name="warehouse" size="sm" className="text-white" weight={300} />
               </div>
             )}
             <span className={cn(

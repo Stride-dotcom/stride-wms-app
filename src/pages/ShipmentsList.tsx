@@ -269,7 +269,7 @@ export default function ShipmentsList() {
     if (loading) {
       return (
         <div className="flex items-center justify-center h-48">
-          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
         </div>
       );
     }

@@ -201,48 +201,6 @@ export type Database = {
           },
         ]
       }
-      account_rate_adjustments: {
-        Row: {
-          account_id: string
-          created_at: string
-          created_by: string | null
-          id: string
-          percent_adjust: number
-          tenant_id: string
-        }
-        Insert: {
-          account_id: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          percent_adjust?: number
-          tenant_id: string
-        }
-        Update: {
-          account_id?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          percent_adjust?: number
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "account_rate_adjustments_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "account_rate_adjustments_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       account_rate_overrides: {
         Row: {
           account_id: string
@@ -584,9 +542,11 @@ export type Database = {
           credit_limit_amount: number | null
           currency: string | null
           default_coverage_type: string | null
+          default_item_notes: string | null
           default_receiving_location_id: string | null
           default_receiving_notes: string | null
           default_receiving_status: string | null
+          default_shipment_notes: string | null
           default_sidemark_id: string | null
           deleted_at: string | null
           disable_email_communications: boolean | null
@@ -597,6 +557,8 @@ export type Database = {
           free_storage_days: number | null
           global_rate_adjust_pct: number
           hide_internal_fields_from_clients: boolean | null
+          highlight_item_notes: boolean | null
+          highlight_shipment_notes: boolean | null
           id: string
           is_active: boolean
           is_master_account: boolean | null
@@ -610,7 +572,6 @@ export type Database = {
           primary_contact_email: string | null
           primary_contact_name: string | null
           primary_contact_phone: string | null
-          rate_card_id: string | null
           read_only_access: boolean | null
           require_inspection_photos: boolean | null
           require_sidemark: boolean | null
@@ -661,9 +622,11 @@ export type Database = {
           credit_limit_amount?: number | null
           currency?: string | null
           default_coverage_type?: string | null
+          default_item_notes?: string | null
           default_receiving_location_id?: string | null
           default_receiving_notes?: string | null
           default_receiving_status?: string | null
+          default_shipment_notes?: string | null
           default_sidemark_id?: string | null
           deleted_at?: string | null
           disable_email_communications?: boolean | null
@@ -674,6 +637,8 @@ export type Database = {
           free_storage_days?: number | null
           global_rate_adjust_pct?: number
           hide_internal_fields_from_clients?: boolean | null
+          highlight_item_notes?: boolean | null
+          highlight_shipment_notes?: boolean | null
           id?: string
           is_active?: boolean
           is_master_account?: boolean | null
@@ -687,7 +652,6 @@ export type Database = {
           primary_contact_email?: string | null
           primary_contact_name?: string | null
           primary_contact_phone?: string | null
-          rate_card_id?: string | null
           read_only_access?: boolean | null
           require_inspection_photos?: boolean | null
           require_sidemark?: boolean | null
@@ -738,9 +702,11 @@ export type Database = {
           credit_limit_amount?: number | null
           currency?: string | null
           default_coverage_type?: string | null
+          default_item_notes?: string | null
           default_receiving_location_id?: string | null
           default_receiving_notes?: string | null
           default_receiving_status?: string | null
+          default_shipment_notes?: string | null
           default_sidemark_id?: string | null
           deleted_at?: string | null
           disable_email_communications?: boolean | null
@@ -751,6 +717,8 @@ export type Database = {
           free_storage_days?: number | null
           global_rate_adjust_pct?: number
           hide_internal_fields_from_clients?: boolean | null
+          highlight_item_notes?: boolean | null
+          highlight_shipment_notes?: boolean | null
           id?: string
           is_active?: boolean
           is_master_account?: boolean | null
@@ -764,7 +732,6 @@ export type Database = {
           primary_contact_email?: string | null
           primary_contact_name?: string | null
           primary_contact_phone?: string | null
-          rate_card_id?: string | null
           read_only_access?: boolean | null
           require_inspection_photos?: boolean | null
           require_sidemark?: boolean | null
@@ -811,13 +778,6 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_accounts_rate_card"
-            columns: ["rate_card_id"]
-            isOneToOne: false
-            referencedRelation: "rate_cards"
             referencedColumns: ["id"]
           },
         ]
@@ -1246,65 +1206,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "app_issues_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      assembly_tiers: {
-        Row: {
-          billing_mode: string
-          created_at: string | null
-          default_minutes: number | null
-          display_name: string
-          id: string
-          is_active: boolean | null
-          notes: string | null
-          rate: number | null
-          requires_manual_quote: boolean | null
-          requires_special_installer: boolean | null
-          sort_order: number | null
-          tenant_id: string
-          tier_number: number
-          updated_at: string | null
-        }
-        Insert: {
-          billing_mode?: string
-          created_at?: string | null
-          default_minutes?: number | null
-          display_name: string
-          id?: string
-          is_active?: boolean | null
-          notes?: string | null
-          rate?: number | null
-          requires_manual_quote?: boolean | null
-          requires_special_installer?: boolean | null
-          sort_order?: number | null
-          tenant_id: string
-          tier_number: number
-          updated_at?: string | null
-        }
-        Update: {
-          billing_mode?: string
-          created_at?: string | null
-          default_minutes?: number | null
-          display_name?: string
-          id?: string
-          is_active?: boolean | null
-          notes?: string | null
-          rate?: number | null
-          requires_manual_quote?: boolean | null
-          requires_special_installer?: boolean | null
-          sort_order?: number | null
-          tenant_id?: string
-          tier_number?: number
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "assembly_tiers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -2708,6 +2609,7 @@ export type Database = {
           body_template: string
           channel: string
           created_at: string
+          editor_json: Json | null
           from_email: string | null
           from_name: string | null
           id: string
@@ -2722,6 +2624,7 @@ export type Database = {
           body_template: string
           channel: string
           created_at?: string
+          editor_json?: Json | null
           from_email?: string | null
           from_name?: string | null
           id?: string
@@ -2736,6 +2639,7 @@ export type Database = {
           body_template?: string
           channel?: string
           created_at?: string
+          editor_json?: Json | null
           from_email?: string | null
           from_name?: string | null
           id?: string
@@ -3668,66 +3572,6 @@ export type Database = {
           },
         ]
       }
-      flag_service_rules: {
-        Row: {
-          adds_flat_fee: number | null
-          adds_minutes: number | null
-          adds_percent: number | null
-          created_at: string | null
-          flag_id: string
-          id: string
-          is_active: boolean | null
-          multiplier: number | null
-          notes: string | null
-          service_code: string
-          tenant_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          adds_flat_fee?: number | null
-          adds_minutes?: number | null
-          adds_percent?: number | null
-          created_at?: string | null
-          flag_id: string
-          id?: string
-          is_active?: boolean | null
-          multiplier?: number | null
-          notes?: string | null
-          service_code: string
-          tenant_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          adds_flat_fee?: number | null
-          adds_minutes?: number | null
-          adds_percent?: number | null
-          created_at?: string | null
-          flag_id?: string
-          id?: string
-          is_active?: boolean | null
-          multiplier?: number | null
-          notes?: string | null
-          service_code?: string
-          tenant_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "flag_service_rules_flag_id_fkey"
-            columns: ["flag_id"]
-            isOneToOne: false
-            referencedRelation: "pricing_flags"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "flag_service_rules_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       in_app_notifications: {
         Row: {
           action_url: string | null
@@ -4545,110 +4389,6 @@ export type Database = {
           },
         ]
       }
-      item_flags: {
-        Row: {
-          applied_at: string
-          applied_by: string | null
-          billing_event_id: string | null
-          flag_id: string
-          id: string
-          item_id: string
-          notes: string | null
-          resolved_at: string | null
-          resolved_by: string | null
-          set_at: string | null
-          set_by: string | null
-          task_id: string | null
-          tenant_id: string
-          unset_at: string | null
-          unset_by: string | null
-        }
-        Insert: {
-          applied_at?: string
-          applied_by?: string | null
-          billing_event_id?: string | null
-          flag_id: string
-          id?: string
-          item_id: string
-          notes?: string | null
-          resolved_at?: string | null
-          resolved_by?: string | null
-          set_at?: string | null
-          set_by?: string | null
-          task_id?: string | null
-          tenant_id: string
-          unset_at?: string | null
-          unset_by?: string | null
-        }
-        Update: {
-          applied_at?: string
-          applied_by?: string | null
-          billing_event_id?: string | null
-          flag_id?: string
-          id?: string
-          item_id?: string
-          notes?: string | null
-          resolved_at?: string | null
-          resolved_by?: string | null
-          set_at?: string | null
-          set_by?: string | null
-          task_id?: string | null
-          tenant_id?: string
-          unset_at?: string | null
-          unset_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "item_flags_applied_by_fkey"
-            columns: ["applied_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "item_flags_billing_event_id_fkey"
-            columns: ["billing_event_id"]
-            isOneToOne: false
-            referencedRelation: "billing_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "item_flags_item_id_fkey"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "item_flags_item_id_fkey"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "v_items_with_location"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "item_flags_resolved_by_fkey"
-            columns: ["resolved_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "item_flags_task_id_fkey"
-            columns: ["task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "item_flags_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       item_notes: {
         Row: {
           created_at: string
@@ -5181,13 +4921,6 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "items_assembly_tier_id_fkey"
-            columns: ["assembly_tier_id"]
-            isOneToOne: false
-            referencedRelation: "assembly_tiers"
             referencedColumns: ["id"]
           },
           {
@@ -5777,95 +5510,6 @@ export type Database = {
           },
         ]
       }
-      pricing_flags: {
-        Row: {
-          adds_minutes: number | null
-          adds_percent: number | null
-          applies_to_services: string | null
-          billing_charge_type: string | null
-          client_can_set: boolean | null
-          color: string | null
-          created_at: string | null
-          creates_billing_event: boolean | null
-          description: string | null
-          display_name: string
-          flag_key: string
-          flag_type: string
-          flat_fee: number | null
-          icon: string | null
-          id: string
-          is_active: boolean | null
-          is_billable: boolean | null
-          notes: string | null
-          sort_order: number | null
-          tenant_id: string
-          triggers_alert: boolean | null
-          triggers_task_type: string | null
-          updated_at: string | null
-          visible_to_client: boolean | null
-        }
-        Insert: {
-          adds_minutes?: number | null
-          adds_percent?: number | null
-          applies_to_services?: string | null
-          billing_charge_type?: string | null
-          client_can_set?: boolean | null
-          color?: string | null
-          created_at?: string | null
-          creates_billing_event?: boolean | null
-          description?: string | null
-          display_name: string
-          flag_key: string
-          flag_type?: string
-          flat_fee?: number | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean | null
-          is_billable?: boolean | null
-          notes?: string | null
-          sort_order?: number | null
-          tenant_id: string
-          triggers_alert?: boolean | null
-          triggers_task_type?: string | null
-          updated_at?: string | null
-          visible_to_client?: boolean | null
-        }
-        Update: {
-          adds_minutes?: number | null
-          adds_percent?: number | null
-          applies_to_services?: string | null
-          billing_charge_type?: string | null
-          client_can_set?: boolean | null
-          color?: string | null
-          created_at?: string | null
-          creates_billing_event?: boolean | null
-          description?: string | null
-          display_name?: string
-          flag_key?: string
-          flag_type?: string
-          flat_fee?: number | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean | null
-          is_billable?: boolean | null
-          notes?: string | null
-          sort_order?: number | null
-          tenant_id?: string
-          triggers_alert?: boolean | null
-          triggers_task_type?: string | null
-          updated_at?: string | null
-          visible_to_client?: boolean | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pricing_flags_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       promo_codes: {
         Row: {
           code: string
@@ -5941,124 +5585,236 @@ export type Database = {
           },
         ]
       }
-      rate_card_details: {
+      qbo_connections: {
         Row: {
-          category: string | null
-          charge_unit: string
-          created_at: string
-          deleted_at: string | null
+          access_token: string
+          access_token_expires_at: string
+          company_name: string | null
+          connected_at: string | null
+          connected_by: string | null
+          created_at: string | null
           id: string
-          is_taxable: boolean | null
-          item_type_id: string | null
-          metadata: Json | null
-          minimum_charge: number | null
-          rate: number
-          rate_card_id: string
-          service_description: string | null
-          service_type: string
-          size_threshold: number | null
-          updated_at: string
+          is_active: boolean | null
+          last_sync_at: string | null
+          realm_id: string
+          refresh_token: string
+          refresh_token_expires_at: string
+          tenant_id: string
+          updated_at: string | null
         }
         Insert: {
-          category?: string | null
-          charge_unit: string
-          created_at?: string
-          deleted_at?: string | null
+          access_token: string
+          access_token_expires_at: string
+          company_name?: string | null
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string | null
           id?: string
-          is_taxable?: boolean | null
-          item_type_id?: string | null
-          metadata?: Json | null
-          minimum_charge?: number | null
-          rate: number
-          rate_card_id: string
-          service_description?: string | null
-          service_type: string
-          size_threshold?: number | null
-          updated_at?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          realm_id: string
+          refresh_token: string
+          refresh_token_expires_at: string
+          tenant_id: string
+          updated_at?: string | null
         }
         Update: {
-          category?: string | null
-          charge_unit?: string
-          created_at?: string
-          deleted_at?: string | null
+          access_token?: string
+          access_token_expires_at?: string
+          company_name?: string | null
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string | null
           id?: string
-          is_taxable?: boolean | null
-          item_type_id?: string | null
-          metadata?: Json | null
-          minimum_charge?: number | null
-          rate?: number
-          rate_card_id?: string
-          service_description?: string | null
-          service_type?: string
-          size_threshold?: number | null
-          updated_at?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          realm_id?: string
+          refresh_token?: string
+          refresh_token_expires_at?: string
+          tenant_id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "rate_card_details_item_type_id_fkey"
-            columns: ["item_type_id"]
+            foreignKeyName: "qbo_connections_connected_by_fkey"
+            columns: ["connected_by"]
             isOneToOne: false
-            referencedRelation: "item_types"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "rate_card_details_rate_card_id_fkey"
-            columns: ["rate_card_id"]
-            isOneToOne: false
-            referencedRelation: "rate_cards"
+            foreignKeyName: "qbo_connections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
       }
-      rate_cards: {
+      qbo_customer_map: {
         Row: {
-          created_at: string
-          deleted_at: string | null
-          description: string | null
-          effective_date: string
-          expiration_date: string | null
+          account_id: string
+          created_at: string | null
           id: string
-          is_active: boolean | null
-          is_default: boolean | null
-          metadata: Json | null
-          rate_card_code: string
-          rate_card_name: string
+          last_synced_at: string | null
+          qbo_customer_id: string
+          qbo_display_name: string | null
           tenant_id: string
-          updated_at: string
         }
         Insert: {
-          created_at?: string
-          deleted_at?: string | null
-          description?: string | null
-          effective_date?: string
-          expiration_date?: string | null
+          account_id: string
+          created_at?: string | null
           id?: string
-          is_active?: boolean | null
-          is_default?: boolean | null
-          metadata?: Json | null
-          rate_card_code: string
-          rate_card_name: string
+          last_synced_at?: string | null
+          qbo_customer_id: string
+          qbo_display_name?: string | null
           tenant_id: string
-          updated_at?: string
         }
         Update: {
-          created_at?: string
-          deleted_at?: string | null
-          description?: string | null
-          effective_date?: string
-          expiration_date?: string | null
+          account_id?: string
+          created_at?: string | null
           id?: string
-          is_active?: boolean | null
-          is_default?: boolean | null
-          metadata?: Json | null
-          rate_card_code?: string
-          rate_card_name?: string
+          last_synced_at?: string | null
+          qbo_customer_id?: string
+          qbo_display_name?: string | null
           tenant_id?: string
-          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "rate_cards_tenant_id_fkey"
+            foreignKeyName: "qbo_customer_map_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qbo_customer_map_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qbo_invoice_sync_log: {
+        Row: {
+          account_id: string
+          billing_event_ids: string[] | null
+          billing_report_id: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          line_count: number | null
+          period_end: string | null
+          period_start: string | null
+          qbo_doc_number: string | null
+          qbo_invoice_id: string
+          qbo_invoice_number: string | null
+          status: string | null
+          subtotal: number | null
+          synced_at: string | null
+          synced_by: string | null
+          tax_amount: number | null
+          tenant_id: string
+          total_amount: number | null
+        }
+        Insert: {
+          account_id: string
+          billing_event_ids?: string[] | null
+          billing_report_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          line_count?: number | null
+          period_end?: string | null
+          period_start?: string | null
+          qbo_doc_number?: string | null
+          qbo_invoice_id: string
+          qbo_invoice_number?: string | null
+          status?: string | null
+          subtotal?: number | null
+          synced_at?: string | null
+          synced_by?: string | null
+          tax_amount?: number | null
+          tenant_id: string
+          total_amount?: number | null
+        }
+        Update: {
+          account_id?: string
+          billing_event_ids?: string[] | null
+          billing_report_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          line_count?: number | null
+          period_end?: string | null
+          period_start?: string | null
+          qbo_doc_number?: string | null
+          qbo_invoice_id?: string
+          qbo_invoice_number?: string | null
+          status?: string | null
+          subtotal?: number | null
+          synced_at?: string | null
+          synced_by?: string | null
+          tax_amount?: number | null
+          tenant_id?: string
+          total_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qbo_invoice_sync_log_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qbo_invoice_sync_log_synced_by_fkey"
+            columns: ["synced_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qbo_invoice_sync_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qbo_item_map: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_synced_at: string | null
+          qbo_item_id: string
+          qbo_item_name: string | null
+          service_type: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_synced_at?: string | null
+          qbo_item_id: string
+          qbo_item_name?: string | null
+          service_type: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_synced_at?: string | null
+          qbo_item_id?: string
+          qbo_item_name?: string | null
+          service_type?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qbo_item_map_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -6960,74 +6716,6 @@ export type Database = {
           },
         ]
       }
-      service_rates: {
-        Row: {
-          class_id: string | null
-          created_at: string | null
-          id: string
-          is_active: boolean | null
-          minimum_charge: number | null
-          rate: number
-          rate_card_id: string
-          service_id: string
-          tenant_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          class_id?: string | null
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          minimum_charge?: number | null
-          rate?: number
-          rate_card_id: string
-          service_id: string
-          tenant_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          class_id?: string | null
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          minimum_charge?: number | null
-          rate?: number
-          rate_card_id?: string
-          service_id?: string
-          tenant_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "service_rates_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "service_rates_rate_card_id_fkey"
-            columns: ["rate_card_id"]
-            isOneToOne: false
-            referencedRelation: "rate_cards"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "service_rates_service_id_fkey"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "billable_services"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "service_rates_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       shipment_items: {
         Row: {
           actual_quantity: number | null
@@ -7197,6 +6885,7 @@ export type Database = {
           deleted_at: string | null
           driver_name: string | null
           expected_arrival_date: string | null
+          highlight_notes: boolean | null
           id: string
           liability_accepted: boolean | null
           metadata: Json | null
@@ -7241,6 +6930,7 @@ export type Database = {
           deleted_at?: string | null
           driver_name?: string | null
           expected_arrival_date?: string | null
+          highlight_notes?: boolean | null
           id?: string
           liability_accepted?: boolean | null
           metadata?: Json | null
@@ -7285,6 +6975,7 @@ export type Database = {
           deleted_at?: string | null
           driver_name?: string | null
           expected_arrival_date?: string | null
+          highlight_notes?: boolean | null
           id?: string
           liability_accepted?: boolean | null
           metadata?: Json | null
@@ -10409,26 +10100,6 @@ export type Database = {
           hierarchy_account_id: string
         }[]
       }
-      get_available_flags: {
-        Args: { p_is_client?: boolean; p_tenant_id: string }
-        Returns: {
-          adds_minutes: number
-          adds_percent: number
-          applies_to_services: string
-          client_can_set: boolean
-          color: string
-          description: string
-          display_name: string
-          flag_key: string
-          flat_fee: number
-          icon: string
-          id: string
-          is_billable: boolean
-          sort_order: number
-          triggers_task_type: string
-          visible_to_client: boolean
-        }[]
-      }
       get_claim_by_acceptance_token: {
         Args: { p_token: string }
         Returns: {
@@ -10471,26 +10142,6 @@ export type Database = {
         Returns: string
       }
       get_current_user_tenant_id: { Args: never; Returns: string }
-      get_item_flags: {
-        Args: { p_item_id: string }
-        Returns: {
-          adds_percent: number
-          billing_event_id: string
-          client_can_set: boolean
-          color: string
-          description: string
-          display_name: string
-          flag_id: string
-          flag_key: string
-          flat_fee: number
-          icon: string
-          is_billable: boolean
-          set_at: string
-          set_by: string
-          task_id: string
-          visible_to_client: boolean
-        }[]
-      }
       get_or_create_receiving_dock: {
         Args: { p_warehouse_id: string }
         Returns: string
@@ -10607,10 +10258,6 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: undefined
       }
-      seed_default_pricing: {
-        Args: { p_tenant_id: string }
-        Returns: undefined
-      }
       seed_enhanced_flags: { Args: { p_tenant_id: string }; Returns: undefined }
       seed_service_events: { Args: { p_tenant_id: string }; Returns: undefined }
       seed_standard_roles: { Args: { p_tenant_id: string }; Returns: undefined }
@@ -10623,15 +10270,6 @@ export type Database = {
         }
         Returns: Json
       }
-      set_item_flag: {
-        Args: {
-          p_flag_key: string
-          p_item_id: string
-          p_notes?: string
-          p_user_id?: string
-        }
-        Returns: Json
-      }
       start_manifest: {
         Args: { p_manifest_id: string; p_user_id: string }
         Returns: {
@@ -10639,10 +10277,6 @@ export type Database = {
           message: string
           success: boolean
         }[]
-      }
-      unset_item_flag: {
-        Args: { p_flag_key: string; p_item_id: string; p_user_id?: string }
-        Returns: Json
       }
       user_can_access_sidemark: {
         Args: { p_sidemark_id: string; p_user_id: string }

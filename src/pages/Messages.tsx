@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useMessages, Message, MessageRecipient, InAppNotification, SendMessageParams } from '@/hooks/useMessages';
 import { useDepartments } from '@/hooks/useDepartments';
-import { useUsers, type User } from '@/hooks/useUsers';
+import { useUsers } from '@/hooks/useUsers';
 import { usePresence } from '@/hooks/usePresence';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +56,7 @@ export default function Messages() {
   const { getUserStatus, onlineCount } = usePresence();
 
   // Get initials from user
-  const getInitials = (user: User) => {
+  const getInitials = (user: { first_name?: string | null; last_name?: string | null; email?: string | null }) => {
     if (user.first_name && user.last_name) {
       return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
     }

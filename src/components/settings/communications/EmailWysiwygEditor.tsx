@@ -191,7 +191,7 @@ export function EmailWysiwygEditor({
         newChildrenIds = [...childrenIds, blockId];
       }
 
-      const newDocument: TReaderDocument = {
+      const newDocument = {
         ...document,
         root: {
           ...document.root,
@@ -204,7 +204,7 @@ export function EmailWysiwygEditor({
           type: blockConfig.type,
           data: blockConfig.defaultData,
         },
-      };
+      } as TReaderDocument;
 
       updateDocument(newDocument);
       setEditingBlockId(blockId);
@@ -218,7 +218,7 @@ export function EmailWysiwygEditor({
       const childrenIds = getChildrenIds();
       const newChildrenIds = childrenIds.filter((id) => id !== blockId);
 
-      const newDocument = { ...document };
+      const newDocument = { ...document } as Record<string, any>;
       delete newDocument[blockId];
       newDocument.root = {
         ...newDocument.root,
@@ -252,7 +252,7 @@ export function EmailWysiwygEditor({
         newChildrenIds[index],
       ];
 
-      const newDocument: TReaderDocument = {
+      const newDocument = {
         ...document,
         root: {
           ...document.root,
@@ -261,7 +261,7 @@ export function EmailWysiwygEditor({
             childrenIds: newChildrenIds,
           },
         },
-      };
+      } as TReaderDocument;
 
       updateDocument(newDocument);
     },
@@ -273,7 +273,7 @@ export function EmailWysiwygEditor({
     (blockId: string, updates: Record<string, unknown>) => {
       if (!document[blockId]) return;
 
-      const newDocument: TReaderDocument = {
+      const newDocument = {
         ...document,
         [blockId]: {
           ...document[blockId],
@@ -282,7 +282,7 @@ export function EmailWysiwygEditor({
             ...updates,
           },
         },
-      };
+      } as TReaderDocument;
 
       updateDocument(newDocument);
     },

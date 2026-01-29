@@ -23,9 +23,21 @@ interface ClientPortalLayoutProps {
 }
 
 const navItems = [
-  { title: 'Dashboard', href: '/client', icon: 'dashboard' },
-  { title: 'My Items', href: '/client/items', icon: 'inventory_2' },
-  { title: 'Quotes', href: '/client/quotes', icon: 'request_quote' },
+  {
+    title: 'Dashboard',
+    href: '/client',
+    icon: 'dashboard',
+  },
+  {
+    title: 'My Items',
+    href: '/client/items',
+    icon: 'inventory_2',
+  },
+  {
+    title: 'Quotes',
+    href: '/client/quotes',
+    icon: 'request_quote',
+  },
 ];
 
 export function ClientPortalLayout({
@@ -57,13 +69,21 @@ export function ClientPortalLayout({
             to={item.href}
             onClick={() => mobile && setMobileOpen(false)}
             className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
               isActive
-                ? 'bg-primary text-primary-foreground'
+                ? 'bg-primary/10 text-primary'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             )}
           >
-            <MaterialIcon name={item.icon} size="md" filled={isActive} />
+            <MaterialIcon
+              name={item.icon}
+              size="md"
+              weight={isActive ? 400 : 300}
+              className={cn(
+                'flex-shrink-0',
+                isActive ? 'text-primary' : 'text-muted-foreground'
+              )}
+            />
             {item.title}
           </Link>
         );
@@ -78,8 +98,8 @@ export function ClientPortalLayout({
         <div className="flex h-full flex-col">
           {/* Logo/Brand */}
           <div className="flex h-16 items-center gap-2 border-b px-4">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <MaterialIcon name="warehouse" size="sm" className="text-primary-foreground" filled />
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md">
+              <MaterialIcon name="warehouse" size="sm" className="text-white" weight={300} />
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-semibold">{warehouseName}</span>
@@ -138,8 +158,8 @@ export function ClientPortalLayout({
             <div className="flex h-full flex-col">
               {/* Logo/Brand */}
               <div className="flex h-14 items-center gap-2 border-b px-4">
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                  <MaterialIcon name="warehouse" size="sm" className="text-primary-foreground" filled />
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md">
+                  <MaterialIcon name="warehouse" size="sm" className="text-white" weight={300} />
                 </div>
                 <span className="text-sm font-semibold">{warehouseName}</span>
               </div>
@@ -171,8 +191,8 @@ export function ClientPortalLayout({
         </Sheet>
 
         <div className="ml-2 flex flex-1 items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-            <MaterialIcon name="warehouse" size="sm" className="text-primary-foreground" filled />
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-sm">
+            <MaterialIcon name="warehouse" size="sm" className="text-white" weight={300} />
           </div>
           <span className="text-sm font-semibold">{warehouseName}</span>
         </div>

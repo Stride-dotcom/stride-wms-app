@@ -218,7 +218,7 @@ export default function Accounts() {
 
             {loading ? (
               <div className="flex items-center justify-center h-48">
-                <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
+                <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
               </div>
             ) : nestedAccounts.length === 0 ? (
               <div className="text-center py-12">
