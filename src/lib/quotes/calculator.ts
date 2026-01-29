@@ -23,6 +23,13 @@ interface SelectedServiceInput {
   hours_input: number | null;
 }
 
+interface ClassServiceSelectionInput {
+  class_id: string;
+  service_id: string;
+  is_selected: boolean;
+  qty_override: number | null;
+}
+
 interface RateOverrideInput {
   service_id: string;
   class_id: string | null;
@@ -35,6 +42,7 @@ interface CalculateQuoteParams {
   rates: QuoteServiceRate[];
   classLines: ClassLineInput[];
   selectedServices: SelectedServiceInput[];
+  classServiceSelections: ClassServiceSelectionInput[];
   rateOverrides: RateOverrideInput[];
   storageDaysInput: number | null;
   storageMonthsInput: number | null;
@@ -154,6 +162,7 @@ export function calculateQuote(params: CalculateQuoteParams): QuoteCalculation {
     rates,
     classLines,
     selectedServices,
+    classServiceSelections,
     rateOverrides,
     storageDaysInput,
     storageMonthsInput,
@@ -222,6 +231,58 @@ export function calculateQuote(params: CalculateQuoteParams): QuoteCalculation {
     });
   }
 
+  // Calculate totals from class-based service selections
+  // Group selections by service_id and sum up totals
+  const classServiceSelectionsByService = new Map<string, ClassServiceSelectionInput[]>();
+  for (const css of classServiceSelections) {
+    if (!css.is_selected || (css.qty_override ?? 0) <= 0) continue;
+    const existing = classServiceSelectionsByService.get(css.service_id);
+    if (existing) {
+      existing.push(css);
+    } else {
+      classServiceSelectionsByService.set(css.service_id, [css]);
+    }
+  }
+
+  for (const [serviceId, selections] of classServiceSelectionsByService) {
+    // Skip if already handled in selectedServices
+    if (selectedServiceIds.has(serviceId)) continue;
+
+    const service = services.find((s) => s.id === serviceId);
+    if (!service) continue;
+
+    let total = 0;
+    let totalQty = 0;
+
+    for (const selection of selections) {
+      const qty = selection.qty_override ?? 0;
+      if (qty <= 0) continue;
+
+      const rate = getApplicableRate(serviceId, selection.class_id, rates, rateOverrides);
+
+      if (service.is_storage_service && service.billing_unit === 'per_day') {
+        // Storage service: qty * days * rate
+        total += qty * storageDays * rate;
+      } else {
+        // Other services: qty * rate
+        total += qty * rate;
+      }
+      totalQty += qty;
+    }
+
+    if (total > 0) {
+      serviceTotals.push({
+        service_id: service.id,
+        service_name: service.name,
+        category: service.category,
+        billing_unit: service.billing_unit,
+        billable_qty: totalQty,
+        rate: getApplicableRate(serviceId, null, rates, rateOverrides),
+        total,
+      });
+    }
+  }
+
   // Calculate class line totals
   const classLineTotals: QuoteCalculation['class_line_totals'] = [];
 
@@ -232,7 +293,7 @@ export function calculateQuote(params: CalculateQuoteParams): QuoteCalculation {
     let servicesTotal = 0;
     let storageTotal = 0;
 
-    // Calculate services applicable to this class
+    // Calculate services from selectedServices applicable to this class
     for (const selectedService of activeSelectedServices) {
       const service = services.find((s) => s.id === selectedService.service_id);
       if (!service) continue;
@@ -247,6 +308,29 @@ export function calculateQuote(params: CalculateQuoteParams): QuoteCalculation {
         servicesTotal += line.qty * rate;
       }
       // Note: flat, per_hour, per_line_item are not class-specific
+    }
+
+    // Calculate services from classServiceSelections for this specific class
+    for (const css of classServiceSelections) {
+      if (css.class_id !== line.class_id || !css.is_selected) continue;
+      // Skip if already handled in selectedServices
+      if (selectedServiceIds.has(css.service_id)) continue;
+
+      const qty = css.qty_override ?? 0;
+      if (qty <= 0) continue;
+
+      const service = services.find((s) => s.id === css.service_id);
+      if (!service) continue;
+
+      const rate = getApplicableRate(css.service_id, css.class_id, rates, rateOverrides);
+
+      if (service.is_storage_service && service.billing_unit === 'per_day') {
+        // Storage service: qty * days * rate
+        storageTotal += qty * storageDays * rate;
+      } else {
+        // Other services: qty * rate
+        servicesTotal += qty * rate;
+      }
     }
 
     const subtotalBeforeDiscount = servicesTotal + storageTotal;

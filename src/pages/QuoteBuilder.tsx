@@ -261,6 +261,7 @@ export default function QuoteBuilder() {
       rates,
       classLines: formData.class_lines,
       selectedServices: formData.selected_services,
+      classServiceSelections: formData.class_service_selections,
       rateOverrides: formData.rate_overrides,
       storageDaysInput: formData.storage_days_input,
       storageMonthsInput: formData.storage_months_input,
