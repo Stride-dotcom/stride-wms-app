@@ -38,12 +38,7 @@ import { useTechnicians } from '@/hooks/useTechnicians';
 import { useRepairQuoteWorkflow } from '@/hooks/useRepairQuotes';
 import { usePermissions } from '@/hooks/usePermissions';
 import { format } from 'date-fns';
-import {
-  ArrowLeft, Pencil, Play, Check, XCircle, Loader2,
-  ClipboardList, User, Calendar, Building2,
-  Camera, MessageSquare, CheckCircle, X, Wrench,
-  DollarSign, ScanLine,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
 import { DocumentUploadButton } from '@/components/scanner/DocumentUploadButton';
 import { DocumentList } from '@/components/scanner/DocumentList';
@@ -432,7 +427,7 @@ export default function TaskDetailPage() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
@@ -444,7 +439,7 @@ export default function TaskDetailPage() {
         <div className="flex flex-col items-center justify-center h-64 gap-4">
           <p className="text-muted-foreground">Task not found</p>
           <Button variant="outline" onClick={() => navigate('/tasks')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <MaterialIcon name="arrow_back" size="sm" className="mr-2" />
             Back to Tasks
           </Button>
         </div>
@@ -461,7 +456,7 @@ export default function TaskDetailPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-5 w-5" />
+              <MaterialIcon name="arrow_back" size="md" />
             </Button>
             <div>
               <h1 className="text-2xl font-semibold">{task.title}</h1>
@@ -479,7 +474,7 @@ export default function TaskDetailPage() {
             </div>
           </div>
           <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
-            <Pencil className="mr-2 h-4 w-4" />
+            <MaterialIcon name="edit" size="sm" className="mr-2" />
             Edit Task
           </Button>
         </div>
@@ -488,18 +483,18 @@ export default function TaskDetailPage() {
         <div className="flex flex-wrap gap-2">
           {task.status === 'pending' && (
             <Button onClick={handleStartTask} disabled={actionLoading}>
-              <Play className="mr-2 h-4 w-4" />
+              <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
               Start Task
             </Button>
           )}
           {task.status === 'in_progress' && (
             <>
               <Button onClick={handleCompleteTask} disabled={actionLoading}>
-                <Check className="mr-2 h-4 w-4" />
+                <MaterialIcon name="check" size="sm" className="mr-2" />
                 Complete Task
               </Button>
               <Button variant="destructive" onClick={() => setUnableDialogOpen(true)} disabled={actionLoading}>
-                <XCircle className="mr-2 h-4 w-4" />
+                <MaterialIcon name="cancel" size="sm" className="mr-2" />
                 Unable to Complete
               </Button>
             </>
@@ -511,7 +506,7 @@ export default function TaskDetailPage() {
               onClick={() => setQuoteDialogOpen(true)}
               disabled={actionLoading}
             >
-              <Wrench className="mr-2 h-4 w-4" />
+              <MaterialIcon name="build" size="sm" className="mr-2" />
               Request Repair Quote
             </Button>
           )}
@@ -521,7 +516,7 @@ export default function TaskDetailPage() {
               variant="secondary"
               onClick={() => setAddAddonDialogOpen(true)}
             >
-              <DollarSign className="mr-2 h-4 w-4" />
+              <MaterialIcon name="attach_money" size="sm" className="mr-2" />
               Add Charge
             </Button>
           )}
@@ -569,7 +564,7 @@ export default function TaskDetailPage() {
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <ClipboardList className="h-4 w-4" />
+                    <MaterialIcon name="assignment" size="sm" />
                     Items ({taskItems.length})
                   </CardTitle>
                 </CardHeader>
@@ -628,7 +623,7 @@ export default function TaskDetailPage() {
                                     onClick={() => ti.item_id && handleItemInspectionResult(ti.item_id, 'pass')}
                                     disabled={task.status !== 'in_progress'}
                                   >
-                                    <CheckCircle className="h-4 w-4" />
+                                    <MaterialIcon name="check_circle" size="sm" />
                                   </Button>
                                 )}
                               </TableCell>
@@ -643,7 +638,7 @@ export default function TaskDetailPage() {
                                     onClick={() => ti.item_id && handleItemInspectionResult(ti.item_id, 'fail')}
                                     disabled={task.status !== 'in_progress'}
                                   >
-                                    <X className="h-4 w-4" />
+                                    <MaterialIcon name="close" size="sm" />
                                   </Button>
                                 )}
                               </TableCell>
@@ -666,7 +661,7 @@ export default function TaskDetailPage() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" />
+                  <MaterialIcon name="comment" size="sm" />
                   {notesLabel}
                 </CardTitle>
               </CardHeader>
@@ -682,7 +677,7 @@ export default function TaskDetailPage() {
                   onClick={handleSaveNotes}
                   disabled={savingNotes || taskNotes === (task.task_notes || '')}
                 >
-                  {savingNotes && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                  {savingNotes && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
                   Save Notes
                 </Button>
               </CardContent>
@@ -692,7 +687,7 @@ export default function TaskDetailPage() {
             <Card>
               <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Camera className="h-4 w-4" />
+                  <MaterialIcon name="photo_camera" size="sm" />
                   Photos ({photos.length})
                 </CardTitle>
                 <div className="flex gap-2">
@@ -736,7 +731,7 @@ export default function TaskDetailPage() {
             <Card>
               <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <ScanLine className="h-4 w-4" />
+                  <MaterialIcon name="qr_code_scanner" size="sm" />
                   Documents
                 </CardTitle>
                 <div className="flex gap-2">
@@ -786,7 +781,7 @@ export default function TaskDetailPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="person" size="sm" className="text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">Assigned To</p>
                     <p className="text-sm font-medium">
@@ -798,7 +793,7 @@ export default function TaskDetailPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="calendar_today" size="sm" className="text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">Due Date</p>
                     <p className={`text-sm font-medium ${
@@ -813,7 +808,7 @@ export default function TaskDetailPage() {
 
                 {task.warehouse && (
                   <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <MaterialIcon name="business" size="sm" className="text-muted-foreground" />
                     <div>
                       <p className="text-xs text-muted-foreground">Warehouse</p>
                       <p className="text-sm font-medium">{task.warehouse.name}</p>
@@ -823,7 +818,7 @@ export default function TaskDetailPage() {
 
                 {task.account && (
                   <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <MaterialIcon name="business" size="sm" className="text-muted-foreground" />
                     <div>
                       <p className="text-xs text-muted-foreground">Account</p>
                       <p className="text-sm font-medium">{task.account.account_name}</p>
@@ -891,7 +886,7 @@ export default function TaskDetailPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Wrench className="h-5 w-5" />
+              <MaterialIcon name="build" size="md" />
               Request Repair Quote
             </DialogTitle>
             <DialogDescription>
@@ -950,7 +945,7 @@ export default function TaskDetailPage() {
               Cancel
             </Button>
             <Button onClick={handleCreateQuote} disabled={creatingQuote}>
-              {creatingQuote && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {creatingQuote && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               Create Quote
             </Button>
           </DialogFooter>

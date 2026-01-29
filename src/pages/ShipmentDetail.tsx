@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle, Printer, Pencil, Plus, ClipboardList, DollarSign, CalendarIcon, ScanLine, Ban } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
@@ -427,7 +427,7 @@ export default function ShipmentDetail() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
@@ -440,11 +440,11 @@ export default function ShipmentDetail() {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
-          <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <MaterialIcon name="inventory_2" size="xl" className="mx-auto text-muted-foreground mb-4" />
           <h2 className="text-xl font-semibold mb-2">Shipment Not Found</h2>
           <p className="text-muted-foreground mb-4">This shipment doesn't exist or you don't have access.</p>
           <Button onClick={() => navigate('/shipments')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <MaterialIcon name="arrow_back" size="sm" className="mr-2" />
             Back to Shipments
           </Button>
         </div>
@@ -462,7 +462,7 @@ export default function ShipmentDetail() {
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-5 w-5" />
+          <MaterialIcon name="arrow_back" size="md" />
         </Button>
         <div className="flex-1">
           <div className="flex items-center gap-3">
@@ -489,25 +489,25 @@ export default function ShipmentDetail() {
             }
             setIsEditing(!isEditing);
           }}>
-            <Pencil className="h-4 w-4 mr-2" />
+            <MaterialIcon name="edit" size="sm" className="mr-2" />
             {isEditing ? 'Cancel Edit' : 'Edit'}
           </Button>
           {canReceive && !isReceiving && hasPermission(PERMISSIONS.SHIPMENTS_RECEIVE) && (
             <Button onClick={startSession} disabled={sessionLoading}>
-              <Play className="h-4 w-4 mr-2" />
+              <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
               Start Receiving
             </Button>
           )}
           {shipment.account_id && canSeeBilling && (
             <Button variant="secondary" onClick={() => setAddAddonDialogOpen(true)}>
-              <DollarSign className="h-4 w-4 mr-2" />
+              <MaterialIcon name="attach_money" size="sm" className="mr-2" />
               Add Charge
             </Button>
           )}
           {/* Cancel Shipment - only for expected or receiving shipments */}
           {['expected', 'receiving', 'in_progress'].includes(shipment.status) && (
             <Button variant="outline" onClick={() => setShowCancelDialog(true)}>
-              <Ban className="h-4 w-4 mr-2" />
+              <MaterialIcon name="block" size="sm" className="mr-2" />
               Cancel
             </Button>
           )}
@@ -525,11 +525,11 @@ export default function ShipmentDetail() {
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={handleCancelReceiving}>
-                  <XCircle className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="cancel" size="sm" className="mr-2" />
                   Cancel
                 </Button>
                 <Button size="sm" onClick={openFinishDialog}>
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="check_circle" size="sm" className="mr-2" />
                   Finish Receiving
                 </Button>
               </div>
@@ -582,7 +582,7 @@ export default function ShipmentDetail() {
                         !editExpectedArrival && 'text-muted-foreground'
                       )}
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      <MaterialIcon name="calendar_today" size="sm" className="mr-2" />
                       {editExpectedArrival ? format(editExpectedArrival, 'PPP') : 'Select date'}
                     </Button>
                   </PopoverTrigger>
@@ -633,7 +633,7 @@ export default function ShipmentDetail() {
                 }}
                 disabled={savingEdit}
               >
-                {savingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {savingEdit && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
                 Save Changes
               </Button>
               <Button variant="outline" onClick={() => setIsEditing(false)}>
@@ -742,7 +742,7 @@ export default function ShipmentDetail() {
               {/* Add Items button for inbound shipments that are not completed */}
               {shipment.shipment_type === 'inbound' && shipment.status !== 'completed' && (
                 <Button variant="outline" size="sm" onClick={() => setAddItemDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="add" size="sm" className="mr-2" />
                   Add Items
                 </Button>
               )}
@@ -767,7 +767,7 @@ export default function ShipmentDetail() {
                   onClick={handleCreateTask}
                   disabled={!selectedTaskType}
                 >
-                  <ClipboardList className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="assignment" size="sm" className="mr-2" />
                   Create Task
                 </Button>
               </div>
@@ -999,7 +999,7 @@ export default function ShipmentDetail() {
 
           {receivedItems.some(i => i.status !== 'received') && (
             <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-md text-sm">
-              <AlertTriangle className="h-4 w-4 text-yellow-600" />
+              <MaterialIcon name="warning" size="sm" className="text-yellow-600" />
               <span>Some items have discrepancies. These will be flagged for review.</span>
             </div>
           )}
@@ -1063,7 +1063,7 @@ export default function ShipmentDetail() {
             >
               {cancelling ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Cancelling...
                 </>
               ) : (

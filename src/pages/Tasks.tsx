@@ -35,11 +35,7 @@ import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { UnableToCompleteDialog } from '@/components/tasks/UnableToCompleteDialog';
 import { WillCallCompletionDialog } from '@/components/tasks/WillCallCompletionDialog';
 import { format } from 'date-fns';
-import {
-  Loader2,
-  Search,
-  Check,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 // Status text classes for bold colored text without background
 const getStatusTextClass = (status: string) => {
@@ -405,7 +401,7 @@ export default function Tasks() {
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-4">
           <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search tasks..."
               value={searchQuery}
@@ -461,13 +457,13 @@ export default function Tasks() {
           {/* Subtle loading overlay for refetching */}
           {isRefetching && (
             <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10 rounded-lg">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
             </div>
           )}
           
           {showInitialLoading ? (
             <CardContent className="flex items-center justify-center h-48">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
             </CardContent>
           ) : (
             <CardContent className="p-0">

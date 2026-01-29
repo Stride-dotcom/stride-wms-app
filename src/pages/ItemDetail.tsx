@@ -43,11 +43,7 @@ import { ClaimCreateDialog } from '@/components/claims/ClaimCreateDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 import { ScanDocumentButton, DocumentList } from '@/components/scanner';
 import { format } from 'date-fns';
-import {
-  ArrowLeft,
-  Loader2,
-  ExternalLink,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { QuickReleaseDialog } from '@/components/inventory/QuickReleaseDialog';
 
 interface ReceivingShipment {
@@ -419,7 +415,7 @@ export default function ItemDetail() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-[50vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
@@ -446,7 +442,7 @@ export default function ItemDetail() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-5 w-5" />
+              <MaterialIcon name="arrow_back" size="md" />
             </Button>
             <div>
               <div className="flex items-center gap-3">
@@ -643,7 +639,7 @@ export default function ItemDetail() {
                             className="text-primary hover:underline flex items-center gap-1"
                           >
                             {item.link.length > 40 ? item.link.substring(0, 40) + '...' : item.link}
-                            <ExternalLink className="h-3 w-3" />
+                            <MaterialIcon name="open_in_new" size="sm" />
                           </a>
                         </p>
                       </div>
@@ -747,7 +743,7 @@ export default function ItemDetail() {
                         </span>
                       )}
                     </div>
-                    <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                    <MaterialIcon name="open_in_new" size="sm" className="text-muted-foreground" />
                   </div>
                 </CardContent>
               </Card>

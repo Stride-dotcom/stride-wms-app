@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardStats, PutAwayItem, TaskItem, ShipmentItem } from '@/hooks/useDashboardStats';
@@ -155,7 +155,7 @@ export default function Dashboard() {
               <div className="text-xs text-muted-foreground truncate">{putAwayItem.description}</div>
             )}
           </div>
-          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+          <MaterialIcon name="chevron_right" size="sm" className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
         </div>
       );
     }
@@ -178,7 +178,7 @@ export default function Dashboard() {
               {shipment.account?.account_name || 'Unknown'} • {shipment.carrier || 'No carrier'}
             </div>
           </div>
-          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+          <MaterialIcon name="chevron_right" size="sm" className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
         </div>
       );
     }
@@ -204,7 +204,7 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+        <MaterialIcon name="chevron_right" size="sm" className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
       </div>
     );
   };
@@ -219,14 +219,14 @@ export default function Dashboard() {
             description={`Welcome back${profile?.first_name ? `, ${profile.first_name}` : ''}.`}
           />
           <Button variant="outline" size="sm" onClick={refetch} disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <span className="mr-2">🔄</span>}
+            <MaterialIcon name={loading ? "sync" : "refresh"} size="sm" className={cn("mr-2", loading && "animate-spin")} />
             Refresh
           </Button>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center h-40">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -247,8 +247,8 @@ export default function Dashboard() {
                       toggleCard(t.key);
                     }}
                   >
-                    <ChevronDown className={cn(
-                      "h-4 w-4 transition-transform duration-200",
+                    <MaterialIcon name="expand_more" size="sm" className={cn(
+                      "transition-transform duration-200",
                       isExpanded && "rotate-180"
                     )} />
                   </Button>

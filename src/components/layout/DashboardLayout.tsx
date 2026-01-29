@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AvatarWithPresence } from '@/components/ui/online-indicator';
 import { usePresence } from '@/hooks/usePresence';
-import { AppIcon } from '@/components/ui/app-icon';
-import { IconName } from '@/lib/icon-assets';
+import { NavAppCard, APP_CARD_COLORS } from '@/components/ui/AppCard';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,16 +17,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Menu,
-  X,
-  GripVertical,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Sun,
-  Moon,
-  Bell,
-} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,25 +41,27 @@ import { CSS } from '@dnd-kit/utilities';
 interface NavItem {
   label: string;
   href: string;
-  emoji?: string;
-  iconName?: IconName;
+  /** Material Symbols icon name */
+  icon: string;
+  /** Color class from APP_CARD_COLORS */
+  colorClass: string;
   requiredRole?: string[];
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/', emoji: '🎛️' },
-  { label: 'Shipments', href: '/shipments', emoji: '🚚' },
-  { label: 'Inventory', href: '/inventory', emoji: '📦' },
-  { label: 'Tasks', href: '/tasks', emoji: '📝' },
-  { label: 'Cycle Counts', href: '/stocktakes', emoji: '📋' },
-  { label: 'Scan', href: '/scan', iconName: 'scan' },
+  { label: 'Dashboard', href: '/', icon: 'dashboard', colorClass: APP_CARD_COLORS.blue },
+  { label: 'Shipments', href: '/shipments', icon: 'local_shipping', colorClass: APP_CARD_COLORS.orange },
+  { label: 'Inventory', href: '/inventory', icon: 'inventory_2', colorClass: APP_CARD_COLORS.teal },
+  { label: 'Tasks', href: '/tasks', icon: 'task_alt', colorClass: APP_CARD_COLORS.green },
+  { label: 'Cycle Counts', href: '/stocktakes', icon: 'fact_check', colorClass: APP_CARD_COLORS.purple },
+  { label: 'Scan', href: '/scan', icon: 'qr_code_scanner', colorClass: APP_CARD_COLORS.slate },
 
-  { label: 'Analytics', href: '/reports', emoji: '📊', requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Quotes', href: '/quotes', emoji: '💰', requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Claims', href: '/claims', iconName: 'claimClipboard', requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Accounts', href: '/accounts', emoji: '👥', requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Settings', href: '/settings', emoji: '⚙️', requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Diagnostics', href: '/diagnostics', emoji: '🐛', requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Analytics', href: '/reports', icon: 'analytics', colorClass: APP_CARD_COLORS.indigo, requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Quotes', href: '/quotes', icon: 'request_quote', colorClass: APP_CARD_COLORS.amber, requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Claims', href: '/claims', icon: 'assignment_late', colorClass: APP_CARD_COLORS.red, requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Accounts', href: '/accounts', icon: 'group', colorClass: APP_CARD_COLORS.cyan, requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Settings', href: '/settings', icon: 'settings', colorClass: APP_CARD_COLORS.slate, requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Diagnostics', href: '/diagnostics', icon: 'bug_report', colorClass: APP_CARD_COLORS.pink, requiredRole: ['admin', 'tenant_admin'] },
 ];
 
 interface DashboardLayoutProps {
@@ -111,28 +103,19 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
         onClick={onNavigate}
         title={sidebarCollapsed ? item.label : undefined}
         className={cn(
-          'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+          'relative flex items-center gap-3 px-2 py-2 rounded-xl text-sm font-medium transition-all duration-200',
           isActive
-            ? 'bg-primary text-white'
-            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10',
+            ? 'bg-gray-100 dark:bg-white/10'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/5',
           sidebarCollapsed && 'lg:justify-center lg:px-2'
         )}
       >
-        {item.iconName ? (
-          <div className={cn(
-            "nav-emoji-tile flex items-center justify-center",
-            isActive ? "bg-white/20" : "bg-gray-100 dark:bg-white/10"
-          )}>
-            <AppIcon name={item.iconName} size={20} className="flex-shrink-0" />
-          </div>
-        ) : (
-          <div className={cn(
-            "nav-emoji-tile",
-            isActive ? "bg-white/20" : "bg-gray-100 dark:bg-white/10"
-          )}>
-            {item.emoji}
-          </div>
-        )}
+        <NavAppCard
+          icon={item.icon}
+          colorClass={item.colorClass}
+          isActive={isActive}
+          collapsed={sidebarCollapsed}
+        />
         <span className={cn(
           "relative z-10 transition-opacity duration-200 flex-1",
           sidebarCollapsed ? "lg:hidden" : ""
@@ -146,7 +129,7 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
           className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-100 dark:hover:bg-white/10 transition-opacity cursor-grab active:cursor-grabbing hidden lg:block"
           title="Drag to reorder"
         >
-          <GripVertical className="h-4 w-4 text-gray-400 dark:text-white/40" />
+          <MaterialIcon name="drag_indicator" size="sm" className="text-gray-400 dark:text-white/40" />
         </button>
       )}
     </div>
@@ -413,8 +396,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 className="h-8 w-8 object-contain rounded"
               />
             ) : (
-              <div className="nav-emoji-tile bg-gray-100 dark:bg-white/10">
-                📦
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md">
+                <MaterialIcon name="warehouse" size="sm" className="text-white" filled />
               </div>
             )}
             <span className={cn(
@@ -428,7 +411,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             className="lg:hidden text-gray-700 dark:text-white"
             onClick={() => setSidebarOpen(false)}
           >
-            <X className="h-5 w-5" />
+            <MaterialIcon name="close" size="md" />
           </Button>
         </div>
 
@@ -447,9 +430,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {sidebarCollapsed ? (
-              <PanelLeftOpen className="h-5 w-5" />
+              <MaterialIcon name="menu_open" size="md" />
             ) : (
-              <PanelLeftClose className="h-5 w-5" />
+              <MaterialIcon name="left_panel_close" size="md" />
             )}
             {!sidebarCollapsed && <span>Collapse</span>}
           </button>
@@ -527,7 +510,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
-                <span className="mr-2">🚪</span>
+                <MaterialIcon name="logout" size="sm" className="mr-2" />
                 <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -551,7 +534,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             className="lg:hidden h-9 w-9"
             onClick={() => setSidebarOpen(true)}
           >
-            <Menu className="h-5 w-5" />
+            <MaterialIcon name="menu" size="md" />
           </Button>
 
           <div className="flex-1" />
@@ -566,7 +549,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               onClick={() => setIsDark(!isDark)}
               title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
             >
-              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              <MaterialIcon name={isDark ? 'light_mode' : 'dark_mode'} size="md" />
             </Button>
 
             {/* Notifications */}
@@ -577,7 +560,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               onClick={() => navigate('/messages')}
               title="Messages & Notifications"
             >
-              <Bell className="h-5 w-5" />
+              <MaterialIcon name="notifications" size="md" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex items-center justify-center h-5 min-w-[20px] px-1.5 text-[10px] font-bold bg-red-500 text-white rounded-full animate-pulse">
                   {unreadCount > 99 ? '99+' : unreadCount}
