@@ -15,8 +15,9 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { AddShipmentDialog } from '@/components/shipments/AddShipmentDialog';
 import {
-  Loader2
+  Loader2, Plus
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -50,6 +51,7 @@ export default function Shipments() {
   const [recentReceived, setRecentReceived] = useState<RecentShipment[]>([]);
   const [recentReleased, setRecentReleased] = useState<RecentShipment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addShipmentDialogOpen, setAddShipmentDialogOpen] = useState(false);
 
   useEffect(() => {
     if (profile?.tenant_id) {
@@ -61,12 +63,12 @@ export default function Shipments() {
     try {
       // Fetch counts in parallel
       const [incomingRes, outboundRes, recentReceivedRes, recentReleasedRes] = await Promise.all([
-        // Incoming: expected or in_progress inbound shipments (valid statuses only)
+        // Incoming: expected, in_progress, or receiving inbound shipments
         supabase
           .from('shipments')
           .select('id', { count: 'exact', head: true })
           .eq('shipment_type', 'inbound')
-          .in('status', ['expected', 'in_progress'])
+          .in('status', ['expected', 'in_progress', 'receiving'])
           .is('deleted_at', null),
         // Outbound: expected or in_progress outbound shipments
         supabase
@@ -207,16 +209,10 @@ export default function Shipments() {
             accentText="Console"
             description="Manage incoming and outbound shipments"
           />
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => navigate('/shipments/return/new')}>
-              <span className="mr-2">➕</span>
-              Create Return
-            </Button>
-            <Button onClick={() => navigate('/shipments/new')}>
-              <span className="mr-2">➕</span>
-              Create Shipment
-            </Button>
-          </div>
+          <Button onClick={() => setAddShipmentDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Shipment
+          </Button>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
@@ -276,6 +272,12 @@ export default function Shipments() {
           ))}
         </div>
       </div>
+
+      {/* Add Shipment Dialog */}
+      <AddShipmentDialog
+        open={addShipmentDialogOpen}
+        onOpenChange={setAddShipmentDialogOpen}
+      />
     </DashboardLayout>
   );
 }

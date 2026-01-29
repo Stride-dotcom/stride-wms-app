@@ -59,6 +59,7 @@ import PrintPreview from "./pages/PrintPreview";
 import Diagnostics from "./pages/Diagnostics";
 import Messages from "./pages/Messages";
 import ComponentsDemo from "./pages/ComponentsDemo";
+import MaterialIconsSample from "./pages/MaterialIconsSample";
 import NotFound from "./pages/NotFound";
 import { AIClientBot } from "./components/ai/AIClientBot";
 
@@ -131,6 +132,7 @@ const App = () => (
             <Route path="/client/quotes" element={<ProtectedRoute><ClientQuotes /></ProtectedRoute>} />
             <Route path="/client/claims" element={<ProtectedRoute><ClientClaims /></ProtectedRoute>} />
             <Route path="/components-demo" element={<ProtectedRoute><ComponentsDemo /></ProtectedRoute>} />
+            <Route path="/material-icons" element={<ProtectedRoute><MaterialIconsSample /></ProtectedRoute>} />
             <Route path="/print-preview" element={<PrintPreview />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

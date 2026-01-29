@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle, Printer, Pencil, Plus, ClipboardList, DollarSign, CalendarIcon, ScanLine } from 'lucide-react';
+import { Loader2, ArrowLeft, Package, CheckCircle, Play, XCircle, AlertTriangle, Printer, Pencil, Plus, ClipboardList, DollarSign, CalendarIcon, ScanLine, Ban } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
@@ -137,6 +137,8 @@ export default function ShipmentDetail() {
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
   const [selectedTaskType, setSelectedTaskType] = useState<string>('');
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   // Receiving session hook
   const {
@@ -369,18 +371,53 @@ export default function ShipmentDetail() {
   };
 
   // ------------------------------------------
+  // Handle cancel shipment
+  // ------------------------------------------
+  const handleCancelShipment = async () => {
+    if (!shipment) return;
+    setCancelling(true);
+    try {
+      const { error } = await supabase
+        .from('shipments')
+        .update({ status: 'cancelled' })
+        .eq('id', shipment.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Shipment Cancelled' });
+      setShowCancelDialog(false);
+      fetchShipment();
+    } catch (error) {
+      console.error('Error cancelling shipment:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to cancel shipment' });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  // ------------------------------------------
   // Status badge helper
   // ------------------------------------------
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       expected: 'secondary',
       receiving: 'default',
+      in_progress: 'default',
       received: 'default',
       partial: 'destructive',
       completed: 'default',
       cancelled: 'outline',
     };
-    return <Badge variant={variants[status] || 'secondary'}>{status}</Badge>;
+    const labels: Record<string, string> = {
+      expected: 'Expected',
+      receiving: 'In Progress',
+      in_progress: 'In Progress',
+      received: 'Received',
+      partial: 'Partial',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+    };
+    return <Badge variant={variants[status] || 'secondary'}>{labels[status] || status}</Badge>;
   };
 
   // ------------------------------------------
@@ -465,6 +502,13 @@ export default function ShipmentDetail() {
             <Button variant="secondary" onClick={() => setAddAddonDialogOpen(true)}>
               <DollarSign className="h-4 w-4 mr-2" />
               Add Charge
+            </Button>
+          )}
+          {/* Cancel Shipment - only for expected or receiving shipments */}
+          {['expected', 'receiving', 'in_progress'].includes(shipment.status) && (
+            <Button variant="outline" onClick={() => setShowCancelDialog(true)}>
+              <Ban className="h-4 w-4 mr-2" />
+              Cancel
             </Button>
           )}
         </div>
@@ -1000,6 +1044,35 @@ export default function ShipmentDetail() {
           fetchShipment();
         }}
       />
+
+      {/* Cancel Shipment Dialog */}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Shipment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this shipment? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Shipment</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelShipment}
+              disabled={cancelling}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {cancelling ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                'Cancel Shipment'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
