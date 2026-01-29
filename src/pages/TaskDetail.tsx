@@ -513,74 +513,88 @@ export default function TaskDetailPage() {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
               <MaterialIcon name="arrow_back" size="md" />
             </Button>
             <div>
-              <h1 className="text-2xl font-semibold">{task.title}</h1>
-              <div className="flex items-center gap-3 mt-1">
-                <Badge variant="outline">{task.task_type}</Badge>
+              <h1 className="text-xl sm:text-2xl font-semibold">{task.title}</h1>
+              <div className="flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
+                <Badge variant="outline" className="text-xs">TSK-{task.id.slice(0, 8).toUpperCase()}</Badge>
                 <span className={getStatusTextClass(task.status)}>
                   {(statusLabels[task.status] || task.status).toUpperCase()}
                 </span>
                 {task.priority === 'urgent' ? (
-                  <span className="font-bold text-red-500 dark:text-red-400">URGENT</span>
+                  <span className="font-bold text-red-500 dark:text-red-400 text-sm">URGENT</span>
                 ) : (
-                  <span className="font-bold text-blue-500 dark:text-blue-400">NORMAL</span>
+                  <span className="font-bold text-blue-500 dark:text-blue-400 text-sm">NORMAL</span>
                 )}
               </div>
             </div>
           </div>
-          <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
+          <Button variant="outline" onClick={() => setEditDialogOpen(true)} className="self-start sm:self-center">
             <MaterialIcon name="edit" size="sm" className="mr-2" />
             Edit Task
           </Button>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2">
-          {task.status === 'pending' && (
-            <Button onClick={handleStartTask} disabled={actionLoading}>
-              <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
-              Start Task
-            </Button>
-          )}
-          {task.status === 'in_progress' && (
-            <>
-              <Button onClick={handleCompleteTask} disabled={actionLoading}>
-                <MaterialIcon name="check" size="sm" className="mr-2" />
-                Complete Task
+        {/* Task In Progress Banner - similar to Shipment receiving banner */}
+        {task.status === 'in_progress' && (
+          <Card className="border-primary bg-primary/5">
+            <CardContent className="py-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-3 w-3 bg-primary rounded-full animate-pulse" />
+                  <span className="font-medium">Task in progress</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setUnableDialogOpen(true)} disabled={actionLoading}>
+                    <MaterialIcon name="cancel" size="sm" className="mr-2" />
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={handleCompleteTask} disabled={actionLoading}>
+                    <MaterialIcon name="check" size="sm" className="mr-2" />
+                    Finish {task.task_type}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Action Buttons - show only when not in progress */}
+        {task.status !== 'in_progress' && (
+          <div className="flex flex-wrap gap-2">
+            {task.status === 'pending' && (
+              <Button onClick={handleStartTask} disabled={actionLoading}>
+                <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
+                Start Task
               </Button>
-              <Button variant="destructive" onClick={() => setUnableDialogOpen(true)} disabled={actionLoading}>
-                <MaterialIcon name="cancel" size="sm" className="mr-2" />
-                Unable to Complete
+            )}
+            {/* Request Quote Button */}
+            {canRequestQuote && (
+              <Button
+                variant="secondary"
+                onClick={() => setQuoteDialogOpen(true)}
+                disabled={actionLoading}
+              >
+                <MaterialIcon name="build" size="sm" className="mr-2" />
+                Request Repair Quote
               </Button>
-            </>
-          )}
-          {/* Request Quote Button */}
-          {canRequestQuote && (
-            <Button
-              variant="secondary"
-              onClick={() => setQuoteDialogOpen(true)}
-              disabled={actionLoading}
-            >
-              <MaterialIcon name="build" size="sm" className="mr-2" />
-              Request Repair Quote
-            </Button>
-          )}
-          {/* Add Charge Button - Manager/Admin Only */}
-          {task.account_id && canSeeBilling && (
-            <Button
-              variant="secondary"
-              onClick={() => setAddAddonDialogOpen(true)}
-            >
-              <MaterialIcon name="attach_money" size="sm" className="mr-2" />
-              Add Charge
-            </Button>
-          )}
-        </div>
+            )}
+            {/* Add Charge Button - Manager/Admin Only */}
+            {task.account_id && canSeeBilling && (
+              <Button
+                variant="secondary"
+                onClick={() => setAddAddonDialogOpen(true)}
+              >
+                <MaterialIcon name="attach_money" size="sm" className="mr-2" />
+                Add Charge
+              </Button>
+            )}
+          </div>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Left Column - Details */}
