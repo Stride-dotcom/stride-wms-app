@@ -27,12 +27,17 @@ export interface ItemPhoto {
   is_from_task?: boolean;
 }
 
-// Structure for photos stored in tasks.photos JSON column
+// Structure for photos stored in tasks.metadata.photos JSON field
 interface TaskPhotoData {
   url: string;
   isPrimary?: boolean;
   needsAttention?: boolean;
   isRepair?: boolean;
+}
+
+// Interface for task metadata containing photos
+interface TaskMetadata {
+  photos?: (string | TaskPhotoData)[];
 }
 
 export function useItemPhotos(itemId: string | undefined, includeTaskPhotos: boolean = true) {
@@ -74,6 +79,7 @@ export function useItemPhotos(itemId: string | undefined, includeTaskPhotos: boo
 
     try {
       // Find all tasks linked to this item via task_items
+      // Note: photos are stored in metadata.photos, not a separate photos column
       const { data: taskItemsData, error: taskItemsError } = await (supabase
         .from('task_items') as any)
         .select(`
@@ -82,7 +88,7 @@ export function useItemPhotos(itemId: string | undefined, includeTaskPhotos: boo
             id,
             title,
             task_type,
-            photos,
+            metadata,
             created_at
           )
         `)
@@ -98,7 +104,9 @@ export function useItemPhotos(itemId: string | undefined, includeTaskPhotos: boo
 
       for (const taskItem of taskItemsData || []) {
         const task = taskItem.task;
-        if (!task || !task.photos || !Array.isArray(task.photos)) continue;
+        const taskMetadata = task?.metadata as TaskMetadata | null;
+        const taskPhotos = taskMetadata?.photos;
+        if (!task || !taskPhotos || !Array.isArray(taskPhotos)) continue;
 
         // Map task_type to photo_type
         const photoType = task.task_type === 'Inspection' ? 'inspection'
@@ -106,7 +114,7 @@ export function useItemPhotos(itemId: string | undefined, includeTaskPhotos: boo
           : task.task_type === 'Assembly' ? 'general'
           : 'general';
 
-        task.photos.forEach((photo: string | TaskPhotoData, index: number) => {
+        taskPhotos.forEach((photo: string | TaskPhotoData, index: number) => {
           const isPhotoObject = typeof photo === 'object' && photo !== null;
           const url: string = isPhotoObject ? (photo as TaskPhotoData).url : (photo as string);
           const isPrimary = isPhotoObject ? (photo as TaskPhotoData).isPrimary || false : false;

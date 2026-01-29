@@ -277,52 +277,57 @@ async function lookupItem({ query }: { query: string }) {
 }
 
 async function lookupQuote({ query }: { query: string }) {
-  if (/^EST-\d{5}$/i.test(query)) {
-    const { data, error } = await db
-      .from('quotes')
-      .select('id, quote_number, status, grand_total, expiration_date, account:accounts(account_name)')
-      .eq('quote_number', query.toUpperCase())
-      .single();
+  // Note: quotes table may not exist yet - handle gracefully
+  try {
+    if (/^EST-\d{5}$/i.test(query)) {
+      const { data, error } = await db
+        .from('quotes')
+        .select('id, quote_number, status, grand_total, expiration_date, account:accounts(account_name)')
+        .eq('quote_number', query.toUpperCase())
+        .single();
 
-    if (error || !data) {
-      return { found: false, message: `Quote ${query.toUpperCase()} not found` };
+      if (error || !data) {
+        return { found: false, message: `Quote ${query.toUpperCase()} not found` };
+      }
+
+      return {
+        found: true,
+        quote: {
+          number: data.quote_number,
+          status: data.status,
+          account: data.account?.account_name,
+          total: data.grand_total,
+          expires: data.expiration_date,
+        },
+      };
     }
 
+    // Search by account name
+    const { data, error } = await db
+      .from('quotes')
+      .select('id, quote_number, status, grand_total, account:accounts(account_name)')
+      .limit(10);
+
+    if (error) {
+      return { found: false, message: 'Service quotes feature not available' };
+    }
+
+    const filtered = data?.filter((q: any) =>
+      q.account?.account_name?.toLowerCase().includes(query.toLowerCase())
+    ) || [];
+
     return {
-      found: true,
-      quote: {
-        number: data.quote_number,
-        status: data.status,
-        account: data.account?.account_name,
-        total: data.grand_total,
-        expires: data.expiration_date,
-      },
+      found: !!filtered.length,
+      quotes: filtered.slice(0, 5).map((q: any) => ({
+        number: q.quote_number,
+        status: q.status,
+        account: q.account?.account_name,
+        total: q.grand_total,
+      })),
     };
+  } catch {
+    return { found: false, message: 'Service quotes feature not available' };
   }
-
-  // Search by account name
-  const { data, error } = await db
-    .from('quotes')
-    .select('id, quote_number, status, grand_total, account:accounts(account_name)')
-    .limit(10);
-
-  if (error) {
-    return { found: false, message: 'Error searching quotes' };
-  }
-
-  const filtered = data?.filter((q: any) =>
-    q.account?.account_name?.toLowerCase().includes(query.toLowerCase())
-  ) || [];
-
-  return {
-    found: !!filtered.length,
-    quotes: filtered.slice(0, 5).map((q: any) => ({
-      number: q.quote_number,
-      status: q.status,
-      account: q.account?.account_name,
-      total: q.grand_total,
-    })),
-  };
 }
 
 async function lookupRepairQuote({ query }: { query: string }) {
@@ -474,47 +479,52 @@ async function listQuotes(filters: {
   expiring_within_days?: number;
   limit?: number;
 }) {
-  let query = db
-    .from('quotes')
-    .select('id, quote_number, status, grand_total, expiration_date, account:accounts(account_name)');
+  // Note: quotes table may not exist yet - handle gracefully
+  try {
+    let query = db
+      .from('quotes')
+      .select('id, quote_number, status, grand_total, expiration_date, account:accounts(account_name)');
 
-  if (filters.status) {
-    query = query.eq('status', filters.status);
+    if (filters.status) {
+      query = query.eq('status', filters.status);
+    }
+    if (filters.expiring_within_days) {
+      const today = new Date();
+      const futureDate = new Date();
+      futureDate.setDate(today.getDate() + filters.expiring_within_days);
+      query = query
+        .gte('expiration_date', today.toISOString().split('T')[0])
+        .lte('expiration_date', futureDate.toISOString().split('T')[0]);
+    }
+
+    const { data, error } = await query
+      .order('expiration_date', { ascending: true })
+      .limit(filters.limit || 10);
+
+    if (error) {
+      return { count: 0, quotes: [], message: 'Service quotes feature not available' };
+    }
+
+    let results = data || [];
+    if (filters.account) {
+      results = results.filter((q: any) =>
+        q.account?.account_name?.toLowerCase().includes(filters.account!.toLowerCase())
+      );
+    }
+
+    return {
+      count: results.length,
+      quotes: results.map((q: any) => ({
+        number: q.quote_number,
+        status: q.status,
+        account: q.account?.account_name,
+        total: q.grand_total,
+        expires: q.expiration_date,
+      })),
+    };
+  } catch {
+    return { count: 0, quotes: [], message: 'Service quotes feature not available' };
   }
-  if (filters.expiring_within_days) {
-    const today = new Date();
-    const futureDate = new Date();
-    futureDate.setDate(today.getDate() + filters.expiring_within_days);
-    query = query
-      .gte('expiration_date', today.toISOString().split('T')[0])
-      .lte('expiration_date', futureDate.toISOString().split('T')[0]);
-  }
-
-  const { data, error } = await query
-    .order('expiration_date', { ascending: true })
-    .limit(filters.limit || 10);
-
-  if (error) {
-    return { count: 0, quotes: [], error: 'Error listing quotes' };
-  }
-
-  let results = data || [];
-  if (filters.account) {
-    results = results.filter((q: any) =>
-      q.account?.account_name?.toLowerCase().includes(filters.account!.toLowerCase())
-    );
-  }
-
-  return {
-    count: results.length,
-    quotes: results.map((q: any) => ({
-      number: q.quote_number,
-      status: q.status,
-      account: q.account?.account_name,
-      total: q.grand_total,
-      expires: q.expiration_date,
-    })),
-  };
 }
 
 /**
