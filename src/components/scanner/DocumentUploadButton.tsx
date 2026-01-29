@@ -63,7 +63,7 @@ export function DocumentUploadButton({
             URL.revokeObjectURL(scanOutput.pdfUri);
           }
 
-          onSuccess?.(result.id);
+          onSuccess?.(result.documentId);
         } else if (file.type === 'application/pdf') {
           // Upload PDF directly
           const pdfUri = URL.createObjectURL(file);
@@ -84,7 +84,7 @@ export function DocumentUploadButton({
           );
 
           URL.revokeObjectURL(pdfUri);
-          onSuccess?.(result.id);
+          onSuccess?.(result.documentId);
         } else {
           // For other file types (Word, Excel, etc.)
           const fileUri = URL.createObjectURL(file);
@@ -105,7 +105,7 @@ export function DocumentUploadButton({
           );
 
           URL.revokeObjectURL(fileUri);
-          onSuccess?.(result.id);
+          onSuccess?.(result.documentId);
         }
       }
 
