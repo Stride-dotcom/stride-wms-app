@@ -590,8 +590,9 @@ export default function QuoteBuilder() {
           <Input
             type="number"
             min="0"
+            step="0.1"
             value={qty ?? ''}
-            onChange={(e) => updateClassServiceQty(classId, serviceId, e.target.value ? parseInt(e.target.value) : null)}
+            onChange={(e) => updateClassServiceQty(classId, serviceId, e.target.value ? parseFloat(e.target.value) : null)}
             disabled={!canEdit}
             className="w-14 h-7 text-center text-sm"
             placeholder="0"
@@ -824,8 +825,9 @@ export default function QuoteBuilder() {
                                             <Input
                                               type="number"
                                               min="0"
+                                              step="0.1"
                                               value={qty ?? ''}
-                                              onChange={(e) => updateClassServiceQty(cls.id, service.id, e.target.value ? parseInt(e.target.value) : null)}
+                                              onChange={(e) => updateClassServiceQty(cls.id, service.id, e.target.value ? parseFloat(e.target.value) : null)}
                                               disabled={!canEdit}
                                               className="w-12 h-6 text-center text-xs"
                                               placeholder="0"
@@ -914,13 +916,14 @@ export default function QuoteBuilder() {
                                   <Label className="text-xs">Qty:</Label>
                                   <Input
                                     type="number"
-                                    min="1"
+                                    min="0.1"
+                                    step="0.1"
                                     value={selected?.qty_input || 1}
                                     onChange={(e) =>
                                       updateNonClassServiceInput(
                                         service.id,
                                         'qty_input',
-                                        e.target.value ? parseInt(e.target.value) : 1
+                                        e.target.value ? parseFloat(e.target.value) : 1
                                       )
                                     }
                                     disabled={!canEdit}
