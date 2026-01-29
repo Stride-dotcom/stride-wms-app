@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useItemNotes, ItemNote } from '@/hooks/useItemNotes';
 import { useAuth } from '@/contexts/AuthContext';
@@ -155,43 +156,65 @@ export function ItemNotesSection({ itemId, isClientUser = false }: ItemNotesSect
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <MaterialIcon name="chat" size="md" />
-          Notes ({visibleNotes.length})
+          {isClientUser ? 'Notes' : noteType === 'internal' ? 'Internal Note' : 'Public Note'} ({visibleNotes.length})
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* New note input */}
         {!isClientUser && (
-          <div className="space-y-2">
+          <div className="space-y-3">
+            {/* Note Type Toggle - More prominent */}
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Note Type:</span>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={noteType === 'internal' ? 'default' : 'outline'}
+                  size="sm"
+                  className={`flex-1 ${noteType === 'internal' ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}`}
+                  onClick={() => setNoteType('internal')}
+                >
+                  <MaterialIcon name="lock" className="text-[14px] mr-2" />
+                  Internal
+                </Button>
+                <Button
+                  type="button"
+                  variant={noteType === 'public' ? 'default' : 'outline'}
+                  size="sm"
+                  className={`flex-1 ${noteType === 'public' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}`}
+                  onClick={() => setNoteType('public')}
+                >
+                  <MaterialIcon name="public" className="text-[14px] mr-2" />
+                  Public
+                </Button>
+              </div>
+              {/* Description text based on note type */}
+              <p className={`text-xs ${noteType === 'internal' ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                {noteType === 'internal'
+                  ? 'Internal Note is only viewable by company'
+                  : 'Public notes for client viewing'}
+              </p>
+            </div>
+
             <Textarea
               value={newNote}
               onChange={(e) => setNewNote(e.target.value)}
-              placeholder="Add a note..."
-              className="min-h-[80px]"
+              placeholder={noteType === 'internal' ? 'Add an internal note...' : 'Add a public note for client...'}
+              className={`min-h-[80px] ${noteType === 'internal' ? 'border-amber-300 focus:border-amber-500' : 'border-blue-300 focus:border-blue-500'}`}
             />
-            <div className="flex items-center justify-between">
-              <Tabs value={noteType} onValueChange={(v) => setNoteType(v as 'internal' | 'public')}>
-                <TabsList className="h-8">
-                  <TabsTrigger value="internal" className="text-xs h-6">
-                    <MaterialIcon name="lock" className="text-[12px] mr-1" />
-                    Internal
-                  </TabsTrigger>
-                  <TabsTrigger value="public" className="text-xs h-6">
-                    <MaterialIcon name="public" className="text-[12px] mr-1" />
-                    Public
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+            <div className="flex justify-end">
               <Button
                 size="sm"
                 onClick={handleSubmit}
                 disabled={submitting || !newNote.trim()}
+                className={noteType === 'internal' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'}
               >
                 {submitting ? (
                   <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                 ) : (
                   <MaterialIcon name="send" size="sm" className="mr-2" />
                 )}
-                Add Note
+                Add {noteType === 'internal' ? 'Internal' : 'Public'} Note
               </Button>
             </div>
           </div>
