@@ -38,18 +38,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInvoices, useBillableCharges, BillableCharge, Invoice } from '@/hooks/useBilling';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
-import {
-  Loader2,
-  CalendarIcon,
-  FileText,
-  DollarSign,
-  Search,
-  Filter,
-  Plus,
-  Eye,
-  Send,
-  CheckCircle,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -306,7 +295,7 @@ export default function Billing() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Filter className="h-5 w-5" />
+                  <MaterialIcon name="filter_list" size="md" />
                   Filter Charges
                 </CardTitle>
               </CardHeader>
@@ -318,7 +307,7 @@ export default function Billing() {
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-start">
-                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          <MaterialIcon name="calendar_today" size="sm" className="mr-2" />
                           {format(dateRange.start, 'PPP')}
                         </Button>
                       </PopoverTrigger>
@@ -339,7 +328,7 @@ export default function Billing() {
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-start">
-                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          <MaterialIcon name="calendar_today" size="sm" className="mr-2" />
                           {format(dateRange.end, 'PPP')}
                         </Button>
                       </PopoverTrigger>
@@ -452,7 +441,7 @@ export default function Billing() {
                   </div>
                   {selectedCharges.size > 0 && (
                     <Button onClick={() => setCreateDialogOpen(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
+                      <MaterialIcon name="add" size="sm" className="mr-2" />
                       Create Invoice(s)
                     </Button>
                   )}
@@ -461,7 +450,7 @@ export default function Billing() {
               <CardContent>
                 <div className="mb-4">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       placeholder="Search charges..."
                       value={searchQuery}
@@ -473,11 +462,11 @@ export default function Billing() {
 
                 {chargesLoading ? (
                   <div className="flex items-center justify-center h-48">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
                   </div>
                 ) : selectedAccountIds.length === 0 ? (
                   <div className="text-center py-12">
-                    <DollarSign className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <MaterialIcon name="attach_money" className="mx-auto h-12 w-12 text-muted-foreground" />
                     <h3 className="mt-4 text-lg font-semibold">Select accounts</h3>
                     <p className="text-muted-foreground">
                       Choose accounts to view billable charges
@@ -485,7 +474,7 @@ export default function Billing() {
                   </div>
                 ) : filteredCharges.length === 0 ? (
                   <div className="text-center py-12">
-                    <DollarSign className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <MaterialIcon name="attach_money" className="mx-auto h-12 w-12 text-muted-foreground" />
                     <h3 className="mt-4 text-lg font-semibold">No charges found</h3>
                     <p className="text-muted-foreground">
                       No billable charges for the selected period and accounts
@@ -556,7 +545,7 @@ export default function Billing() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
+                  <MaterialIcon name="description" size="md" />
                   Invoices
                 </CardTitle>
                 <CardDescription>
@@ -566,11 +555,11 @@ export default function Billing() {
               <CardContent>
                 {invoicesLoading ? (
                   <div className="flex items-center justify-center h-48">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
                   </div>
                 ) : invoices.length === 0 ? (
                   <div className="text-center py-12">
-                    <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <MaterialIcon name="description" className="mx-auto h-12 w-12 text-muted-foreground" />
                     <h3 className="mt-4 text-lg font-semibold">No invoices yet</h3>
                     <p className="text-muted-foreground">
                       Create invoices from the Create Invoice tab
@@ -612,7 +601,7 @@ export default function Billing() {
                                   size="icon"
                                   onClick={() => handleViewInvoice(invoice)}
                                 >
-                                  <Eye className="h-4 w-4" />
+                                  <MaterialIcon name="visibility" size="sm" />
                                 </Button>
                                 {invoice.status === 'draft' && (
                                   <Button
@@ -620,7 +609,7 @@ export default function Billing() {
                                     size="icon"
                                     onClick={() => handleSendInvoice(invoice.id)}
                                   >
-                                    <Send className="h-4 w-4" />
+                                    <MaterialIcon name="send" size="sm" />
                                   </Button>
                                 )}
                                 {invoice.status === 'sent' && (
@@ -629,7 +618,7 @@ export default function Billing() {
                                     size="icon"
                                     onClick={() => handleMarkPaid(invoice.id)}
                                   >
-                                    <CheckCircle className="h-4 w-4" />
+                                    <MaterialIcon name="check_circle" size="sm" />
                                   </Button>
                                 )}
                               </div>
@@ -669,7 +658,7 @@ export default function Billing() {
             <Button onClick={handleCreateInvoice} disabled={creatingInvoice}>
               {creatingInvoice ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Creating...
                 </>
               ) : (

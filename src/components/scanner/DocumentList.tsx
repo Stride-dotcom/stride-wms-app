@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { FileText, Download, Trash2, Eye, Loader2, Search, AlertCircle } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -140,7 +140,7 @@ export function DocumentList({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -148,7 +148,7 @@ export function DocumentList({
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-        <AlertCircle className="h-8 w-8 mb-2" />
+        <MaterialIcon name="warning" className="mb-2" style={{ fontSize: '32px' }} />
         <p className="text-sm">Failed to load documents</p>
         <Button variant="ghost" size="sm" onClick={() => refetch()} className="mt-2">
           Try again
@@ -160,7 +160,7 @@ export function DocumentList({
   if (documents.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-        <FileText className="h-8 w-8 mb-2" />
+        <MaterialIcon name="description" className="mb-2" style={{ fontSize: '32px' }} />
         <p className="text-sm">No documents yet</p>
       </div>
     );
@@ -170,7 +170,7 @@ export function DocumentList({
     <div className="space-y-3">
       {showSearch && documents.length > 3 && (
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search documents..."
             value={searchQuery}
@@ -190,7 +190,7 @@ export function DocumentList({
           >
             <div className="flex-shrink-0">
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <FileText className="h-5 w-5 text-primary" />
+                <MaterialIcon name="description" size="md" className="text-primary" />
               </div>
             </div>
 
@@ -216,9 +216,9 @@ export function DocumentList({
                 disabled={loadingUrl === doc.id}
               >
                 {loadingUrl === doc.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
                 ) : (
-                  <Eye className="h-4 w-4" />
+                  <MaterialIcon name="visibility" size="sm" />
                 )}
               </Button>
               <Button
@@ -227,7 +227,7 @@ export function DocumentList({
                 onClick={() => handleDownload(doc)}
                 disabled={loadingUrl === doc.id}
               >
-                <Download className="h-4 w-4" />
+                <MaterialIcon name="download" size="sm" />
               </Button>
               <Button
                 variant="ghost"
@@ -235,7 +235,7 @@ export function DocumentList({
                 onClick={() => setDeletingDoc(doc)}
                 className="text-destructive hover:text-destructive"
               >
-                <Trash2 className="h-4 w-4" />
+                <MaterialIcon name="delete" size="sm" />
               </Button>
             </div>
           </div>

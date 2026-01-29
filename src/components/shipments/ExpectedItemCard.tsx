@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Trash2 } from "lucide-react";
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
@@ -77,8 +77,7 @@ export function ExpectedItemCard({
             disabled={!canDelete}
             className="h-8 w-8"
           >
-            <Trash2 className={cn(
-              "h-4 w-4",
+            <MaterialIcon name="delete" size="sm" className={cn(
               canDelete ? "text-destructive" : "text-muted-foreground"
             )} />
           </Button>

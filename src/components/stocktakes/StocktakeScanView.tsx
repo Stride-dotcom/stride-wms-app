@@ -31,77 +31,55 @@ import {
   hapticSuccess,
   hapticError,
 } from '@/lib/haptics';
-import {
-  ArrowLeft,
-  MapPin,
-  Package,
-  CheckCircle,
-  AlertTriangle,
-  XCircle,
-  AlertOctagon,
-  Loader2,
-  Keyboard,
-  RefreshCw,
-  BarChart3,
-  Lock,
-  Wrench,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  Filter,
-  X,
-  Search,
-  List,
-  ScanLine,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 
 const scanResultConfig: Record<ScanResult, {
   color: string;
   bgColor: string;
-  icon: React.ComponentType<{ className?: string }>;
+  iconName: string;
   label: string;
   audio?: 'success' | 'warning' | 'error';
 }> = {
   expected: {
     color: 'text-green-400',
     bgColor: 'bg-green-500/20 border-green-500/30',
-    icon: CheckCircle,
+    iconName: 'check_circle',
     label: 'Found',
     audio: 'success',
   },
   wrong_location: {
     color: 'text-yellow-400',
     bgColor: 'bg-yellow-500/20 border-yellow-500/30',
-    icon: AlertTriangle,
+    iconName: 'warning',
     label: 'Wrong Location',
     audio: 'warning',
   },
   unexpected: {
     color: 'text-orange-400',
     bgColor: 'bg-orange-500/20 border-orange-500/30',
-    icon: AlertOctagon,
+    iconName: 'error',
     label: 'Unexpected',
     audio: 'warning',
   },
   released_conflict: {
     color: 'text-red-400',
     bgColor: 'bg-red-500/20 border-red-500/30',
-    icon: XCircle,
+    iconName: 'cancel',
     label: 'Released',
     audio: 'error',
   },
   duplicate: {
     color: 'text-gray-400',
     bgColor: 'bg-gray-500/20 border-gray-500/30',
-    icon: RefreshCw,
+    iconName: 'refresh',
     label: 'Duplicate',
     audio: 'warning',
   },
   not_found: {
     color: 'text-red-400',
     bgColor: 'bg-red-500/20 border-red-500/30',
-    icon: XCircle,
+    iconName: 'cancel',
     label: 'Not Found',
     audio: 'error',
   },
@@ -338,8 +316,8 @@ export default function StocktakeScanView() {
   };
 
   const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 opacity-50" />;
-    return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+    if (sortField !== field) return <MaterialIcon name="swap_vert" size="sm" className="opacity-50" />;
+    return sortDirection === 'asc' ? <MaterialIcon name="arrow_upward" size="sm" /> : <MaterialIcon name="arrow_downward" size="sm" />;
   };
 
   const parseQRPayload = (input: string): { type: string; id: string; code?: string } | null => {
@@ -456,7 +434,7 @@ export default function StocktakeScanView() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[50vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
@@ -466,7 +444,7 @@ export default function StocktakeScanView() {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
-          <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
+          <MaterialIcon name="warning" className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
           <h2 className="text-xl font-bold mb-2">Stocktake Not Active</h2>
           <p className="text-muted-foreground mb-4">
             This stocktake is {stocktake.status}. Cannot scan items.
@@ -481,7 +459,7 @@ export default function StocktakeScanView() {
     ? Math.round((stats.unique_items_scanned / (stats.expected_item_count || 1)) * 100)
     : 0;
 
-  const LastScanIcon = lastScan ? scanResultConfig[lastScan.result]?.icon || Package : Package;
+  const lastScanIconName = lastScan ? scanResultConfig[lastScan.result]?.iconName || 'inventory_2' : 'inventory_2';
 
   return (
     <DashboardLayout>
@@ -489,16 +467,16 @@ export default function StocktakeScanView() {
         {/* Header */}
         <div className="flex items-center gap-4 mb-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/stocktakes')}>
-            <ArrowLeft className="h-5 w-5" />
+            <MaterialIcon name="arrow_back" size="md" />
           </Button>
           <div className="flex-1">
             <h1 className="text-xl font-bold flex items-center gap-2">
               {stocktake.name || stocktake.stocktake_number}
               {stocktake.freeze_moves && (
-                <Lock className="h-4 w-4 text-yellow-500" />
+                <MaterialIcon name="lock" size="sm" className="text-yellow-500" />
               )}
               {stocktake.allow_location_auto_fix && (
-                <Wrench className="h-4 w-4 text-blue-500" />
+                <MaterialIcon name="build" size="sm" className="text-blue-500" />
               )}
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -511,7 +489,7 @@ export default function StocktakeScanView() {
               size="sm"
               onClick={() => setViewMode('scan')}
             >
-              <ScanLine className="h-4 w-4 mr-1" />
+              <MaterialIcon name="document_scanner" size="sm" className="mr-1" />
               Scan
             </Button>
             <Button
@@ -519,7 +497,7 @@ export default function StocktakeScanView() {
               size="sm"
               onClick={() => setViewMode('list')}
             >
-              <List className="h-4 w-4 mr-1" />
+              <MaterialIcon name="list" size="sm" className="mr-1" />
               List
             </Button>
             <Button
@@ -527,7 +505,7 @@ export default function StocktakeScanView() {
               size="sm"
               onClick={() => navigate(`/stocktakes/${id}/report`)}
             >
-              <BarChart3 className="h-4 w-4 mr-1" />
+              <MaterialIcon name="bar_chart" size="sm" className="mr-1" />
               Report
             </Button>
           </div>
@@ -584,7 +562,7 @@ export default function StocktakeScanView() {
                     )}
                   >
                     <div className="flex items-center gap-2">
-                      <MapPin className="h-5 w-5" />
+                      <MaterialIcon name="location_on" size="md" />
                       <span className="font-mono font-bold">{location.code}</span>
                     </div>
                   </button>
@@ -601,7 +579,7 @@ export default function StocktakeScanView() {
                 )}
               >
                 <div className="flex items-center gap-3">
-                  <LastScanIcon className="h-8 w-8" />
+                  <MaterialIcon name={lastScanIconName} className="h-8 w-8" />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-lg">{lastScan.itemCode}</span>
@@ -632,7 +610,7 @@ export default function StocktakeScanView() {
             {/* Processing Indicator */}
             {processing && (
               <div className="flex items-center justify-center gap-2 py-4 text-primary">
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <MaterialIcon name="progress_activity" size="md" className="animate-spin" />
                 <span>Processing...</span>
               </div>
             )}
@@ -662,7 +640,7 @@ export default function StocktakeScanView() {
                   onClick={() => setShowManualEntry(true)}
                   className="w-full flex items-center justify-center gap-3 p-4 bg-muted hover:bg-muted/80 rounded-xl transition-colors"
                 >
-                  <Keyboard className="h-5 w-5" />
+                  <MaterialIcon name="keyboard" size="md" />
                   <span className="font-medium">Enter Item Code Manually</span>
                 </button>
               )}
@@ -676,7 +654,7 @@ export default function StocktakeScanView() {
               <CardContent className="p-4">
                 <div className="flex flex-wrap gap-4 items-center">
                   <div className="relative flex-1 min-w-[200px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       placeholder="Search items..."
                       value={filters.search}
@@ -691,20 +669,20 @@ export default function StocktakeScanView() {
                     onClick={() => setShowFilters(!showFilters)}
                     className={cn(hasActiveFilters && 'border-primary text-primary')}
                   >
-                    <Filter className="h-4 w-4 mr-1" />
+                    <MaterialIcon name="filter_list" size="sm" className="mr-1" />
                     Filters
                     {hasActiveFilters && <Badge variant="secondary" className="ml-2">Active</Badge>}
                   </Button>
 
                   {hasActiveFilters && (
                     <Button variant="ghost" size="sm" onClick={clearFilters}>
-                      <X className="h-4 w-4 mr-1" />
+                      <MaterialIcon name="close" size="sm" className="mr-1" />
                       Clear
                     </Button>
                   )}
 
                   <Button variant="outline" size="icon" onClick={refetch}>
-                    <RefreshCw className="h-4 w-4" />
+                    <MaterialIcon name="refresh" size="sm" />
                   </Button>
                 </div>
 
@@ -815,7 +793,6 @@ export default function StocktakeScanView() {
                       ) : (
                         filteredAndSortedItems.map((item) => {
                           const config = scanResultConfig[item.scan_result];
-                          const Icon = config?.icon || Package;
                           return (
                             <TableRow
                               key={item.scan_id}
@@ -824,7 +801,7 @@ export default function StocktakeScanView() {
                             >
                               <TableCell>
                                 <Badge className={cn('gap-1', config?.bgColor)}>
-                                  <Icon className="h-3 w-3" />
+                                  <MaterialIcon name={config?.iconName || 'inventory_2'} className="h-3 w-3" />
                                   {config?.label || item.scan_result}
                                 </Badge>
                                 {item.auto_fix_applied && (

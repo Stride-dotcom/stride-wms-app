@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, UserPlus, Users, Clock, CheckCircle, XCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -112,7 +112,7 @@ export function ClientPortalSection({ accountId, accountName }: ClientPortalSect
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
+              <MaterialIcon name="group" size="md" />
               Client Portal Access
             </CardTitle>
             <CardDescription>
@@ -120,7 +120,7 @@ export function ClientPortalSection({ accountId, accountName }: ClientPortalSect
             </CardDescription>
           </div>
           <Button onClick={() => setShowInviteDialog(true)}>
-            <UserPlus className="h-4 w-4 mr-2" />
+            <MaterialIcon name="person_add" size="sm" className="mr-2" />
             Invite Client
           </Button>
         </div>
@@ -129,11 +129,11 @@ export function ClientPortalSection({ accountId, accountName }: ClientPortalSect
         <Tabs defaultValue="users">
           <TabsList>
             <TabsTrigger value="users" className="gap-2">
-              <Users className="h-4 w-4" />
+              <MaterialIcon name="group" size="sm" />
               Active Users ({portalUsers.length})
             </TabsTrigger>
             <TabsTrigger value="invitations" className="gap-2">
-              <Mail className="h-4 w-4" />
+              <MaterialIcon name="mail" size="sm" />
               Invitations ({pendingInvitations.length})
             </TabsTrigger>
           </TabsList>
@@ -143,7 +143,7 @@ export function ClientPortalSection({ accountId, accountName }: ClientPortalSect
               <div className="py-8 text-center text-muted-foreground">Loading...</div>
             ) : portalUsers.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <MaterialIcon name="group" className="h-12 w-12 mx-auto mb-3 opacity-50" />
                 <p>No active portal users</p>
                 <p className="text-sm mt-1">Invite clients to give them access to the portal</p>
               </div>
@@ -186,7 +186,7 @@ export function ClientPortalSection({ accountId, accountName }: ClientPortalSect
                           size="sm"
                           onClick={() => setConfirmDeactivate(user.id)}
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <MaterialIcon name="delete" size="sm" className="text-destructive" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -201,7 +201,7 @@ export function ClientPortalSection({ accountId, accountName }: ClientPortalSect
               <div className="py-8 text-center text-muted-foreground">Loading...</div>
             ) : invitations.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
-                <Mail className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <MaterialIcon name="mail" className="h-12 w-12 mx-auto mb-3 opacity-50" />
                 <p>No invitations sent</p>
                 <p className="text-sm mt-1">Click "Invite Client" to send an invitation</p>
               </div>
@@ -261,7 +261,7 @@ export function ClientPortalSection({ accountId, accountName }: ClientPortalSect
                                 onClick={() => resendInvitation.mutate(invitation.id)}
                                 disabled={resendInvitation.isPending}
                               >
-                                <RefreshCw className="h-4 w-4" />
+                                <MaterialIcon name="refresh" size="sm" />
                               </Button>
                             )}
                             {canCancel && (
@@ -270,7 +270,7 @@ export function ClientPortalSection({ accountId, accountName }: ClientPortalSect
                                 size="sm"
                                 onClick={() => setConfirmCancel(invitation.id)}
                               >
-                                <XCircle className="h-4 w-4 text-destructive" />
+                                <MaterialIcon name="cancel" size="sm" className="text-destructive" />
                               </Button>
                             )}
                           </div>

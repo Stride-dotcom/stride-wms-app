@@ -277,7 +277,7 @@ export default function ShipmentsList() {
     if (filteredShipments.length === 0) {
       return (
         <div className="text-center py-12">
-          <MaterialIcon name="package_2" size="xl" className="mx-auto text-muted-foreground mb-4" />
+          <MaterialIcon name="inventory_2" size="xl" className="mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium mb-2">No shipments found</h3>
           <p className="text-muted-foreground mb-4">
             {searchQuery || statusFilter !== 'all'
@@ -421,11 +421,11 @@ export default function ShipmentsList() {
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
           <TabsTrigger value="incoming" className="gap-2">
-            <MaterialIcon name="download" size="sm" />
+            <MaterialIcon name="move_to_inbox" size="sm" />
             <span className="hidden sm:inline">Incoming</span>
           </TabsTrigger>
           <TabsTrigger value="outbound" className="gap-2">
-            <MaterialIcon name="upload" size="sm" />
+            <MaterialIcon name="outbox" size="sm" />
             <span className="hidden sm:inline">Outbound</span>
           </TabsTrigger>
           <TabsTrigger value="received" className="gap-2">
@@ -433,7 +433,7 @@ export default function ShipmentsList() {
             <span className="hidden sm:inline">Received</span>
           </TabsTrigger>
           <TabsTrigger value="released" className="gap-2">
-            <MaterialIcon name="package_2" size="sm" />
+            <MaterialIcon name="inventory_2" size="sm" />
             <span className="hidden sm:inline">Released</span>
           </TabsTrigger>
         </TabsList>

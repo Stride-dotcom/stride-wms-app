@@ -48,25 +48,7 @@ import { CreateManifestDialog } from '@/components/manifests/CreateManifestDialo
 import { useManifests, ManifestStatus, CreateManifestData } from '@/hooks/useManifests';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useIsMobile } from '@/hooks/use-mobile';
-import {
-  Plus,
-  Search,
-  RefreshCw,
-  ClipboardList,
-  Play,
-  CheckCircle,
-  XCircle,
-  FileEdit,
-  Loader2,
-  DollarSign,
-  ScanLine,
-  Eye,
-  MoreVertical,
-  History,
-  Trash2,
-  Edit,
-  ArrowLeft,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 
 const statusColors: Record<ManifestStatus, string> = {
@@ -185,7 +167,7 @@ export default function Manifests() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4" />
+            <MaterialIcon name="arrow_back" size="sm" />
           </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
@@ -196,7 +178,7 @@ export default function Manifests() {
           </div>
         </div>
         <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
+          <MaterialIcon name="add" size="sm" className="mr-2" />
           New Manifest
         </Button>
       </div>
@@ -210,7 +192,7 @@ export default function Manifests() {
                 <p className="text-sm text-muted-foreground">Draft</p>
                 <p className="text-2xl font-bold text-blue-400">{stats.draft}</p>
               </div>
-              <FileEdit className="h-8 w-8 text-blue-400/50" />
+              <MaterialIcon name="edit_document" size="xl" className="text-blue-400/50" />
             </div>
           </CardContent>
         </Card>
@@ -221,7 +203,7 @@ export default function Manifests() {
                 <p className="text-sm text-muted-foreground">Active</p>
                 <p className="text-2xl font-bold text-yellow-400">{stats.active}</p>
               </div>
-              <Play className="h-8 w-8 text-yellow-400/50" />
+              <MaterialIcon name="play_arrow" size="xl" className="text-yellow-400/50" />
             </div>
           </CardContent>
         </Card>
@@ -232,7 +214,7 @@ export default function Manifests() {
                 <p className="text-sm text-muted-foreground">Completed</p>
                 <p className="text-2xl font-bold text-green-400">{stats.completed}</p>
               </div>
-              <CheckCircle className="h-8 w-8 text-green-400/50" />
+              <MaterialIcon name="check_circle" size="xl" className="text-green-400/50" />
             </div>
           </CardContent>
         </Card>
@@ -243,7 +225,7 @@ export default function Manifests() {
                 <p className="text-sm text-muted-foreground">Total</p>
                 <p className="text-2xl font-bold text-primary">{stats.total}</p>
               </div>
-              <ClipboardList className="h-8 w-8 text-primary/50" />
+              <MaterialIcon name="assignment" size="xl" className="text-primary/50" />
             </div>
           </CardContent>
         </Card>
@@ -254,7 +236,7 @@ export default function Manifests() {
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search manifests..."
                 value={searchQuery}
@@ -292,7 +274,7 @@ export default function Manifests() {
               </SelectContent>
             </Select>
             <Button variant="outline" size="icon" onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4" />
+              <MaterialIcon name="refresh" size="sm" />
             </Button>
           </div>
         </CardContent>
@@ -303,11 +285,11 @@ export default function Manifests() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
             </div>
           ) : filteredManifests.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <ClipboardList className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <MaterialIcon name="assignment" className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No manifests found</p>
               <Button variant="link" onClick={() => setCreateDialogOpen(true)}>
                 Create your first manifest
@@ -321,7 +303,7 @@ export default function Manifests() {
                     <MobileDataCardTitle className="flex items-center gap-2">
                       {m.name || m.manifest_number}
                       {m.billable && (
-                        <DollarSign className="h-4 w-4 text-green-500" />
+                        <MaterialIcon name="attach_money" size="sm" className="text-green-500" />
                       )}
                     </MobileDataCardTitle>
                     {getStatusBadge(m.status)}
@@ -354,7 +336,7 @@ export default function Manifests() {
                           size="sm"
                           onClick={() => navigate(`/manifests/${m.id}`)}
                         >
-                          <Edit className="h-4 w-4 mr-1" /> Edit
+                          <MaterialIcon name="edit" size="sm" className="mr-1" /> Edit
                         </Button>
                         <Button
                           size="sm"
@@ -363,14 +345,14 @@ export default function Manifests() {
                             setConfirmAction({ type: 'start', id: m.id, name: m.manifest_number })
                           }
                         >
-                          <Play className="h-4 w-4 mr-1" /> Start
+                          <MaterialIcon name="play_arrow" size="sm" className="mr-1" /> Start
                         </Button>
                       </>
                     )}
                     {(m.status === 'active' || m.status === 'in_progress') && (
                       <>
                         <Button size="sm" onClick={() => navigate(`/manifests/${m.id}/scan`)}>
-                          <ScanLine className="h-4 w-4 mr-1" /> Scan
+                          <MaterialIcon name="qr_code_scanner" size="sm" className="mr-1" /> Scan
                         </Button>
                         <Button
                           size="sm"
@@ -379,7 +361,7 @@ export default function Manifests() {
                             setConfirmAction({ type: 'complete', id: m.id, name: m.manifest_number })
                           }
                         >
-                          <CheckCircle className="h-4 w-4 mr-1" /> Complete
+                          <MaterialIcon name="check_circle" size="sm" className="mr-1" /> Complete
                         </Button>
                       </>
                     )}
@@ -389,7 +371,7 @@ export default function Manifests() {
                         variant="outline"
                         onClick={() => navigate(`/manifests/${m.id}`)}
                       >
-                        <Eye className="h-4 w-4 mr-1" /> View
+                        <MaterialIcon name="visibility" size="sm" className="mr-1" /> View
                       </Button>
                     )}
                   </MobileDataCardActions>
@@ -421,7 +403,7 @@ export default function Manifests() {
                           <div className="font-medium flex items-center gap-2">
                             {m.name || m.manifest_number}
                             {m.billable && (
-                              <DollarSign className="h-4 w-4 text-green-500" />
+                              <MaterialIcon name="attach_money" size="sm" className="text-green-500" />
                             )}
                           </div>
                           {m.name && (
@@ -449,16 +431,16 @@ export default function Manifests() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button size="sm" variant="ghost">
-                            <MoreVertical className="h-4 w-4" />
+                            <MaterialIcon name="more_vert" size="sm" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => navigate(`/manifests/${m.id}`)}>
-                            <Eye className="h-4 w-4 mr-2" />
+                            <MaterialIcon name="visibility" size="sm" className="mr-2" />
                             View Details
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => navigate(`/manifests/${m.id}/history`)}>
-                            <History className="h-4 w-4 mr-2" />
+                            <MaterialIcon name="history" size="sm" className="mr-2" />
                             Audit History
                           </DropdownMenuItem>
                           {m.status === 'draft' && (
@@ -468,7 +450,7 @@ export default function Manifests() {
                                   setConfirmAction({ type: 'start', id: m.id, name: m.manifest_number })
                                 }
                               >
-                                <Play className="h-4 w-4 mr-2" />
+                                <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
                                 Start
                               </DropdownMenuItem>
                               <DropdownMenuItem
@@ -477,7 +459,7 @@ export default function Manifests() {
                                   setConfirmAction({ type: 'delete', id: m.id, name: m.manifest_number })
                                 }
                               >
-                                <Trash2 className="h-4 w-4 mr-2" />
+                                <MaterialIcon name="delete" size="sm" className="mr-2" />
                                 Delete
                               </DropdownMenuItem>
                             </>
@@ -485,7 +467,7 @@ export default function Manifests() {
                           {(m.status === 'active' || m.status === 'in_progress') && (
                             <>
                               <DropdownMenuItem onClick={() => navigate(`/manifests/${m.id}/scan`)}>
-                                <ScanLine className="h-4 w-4 mr-2" />
+                                <MaterialIcon name="qr_code_scanner" size="sm" className="mr-2" />
                                 Scan Items
                               </DropdownMenuItem>
                               <DropdownMenuItem
@@ -493,7 +475,7 @@ export default function Manifests() {
                                   setConfirmAction({ type: 'complete', id: m.id, name: m.manifest_number })
                                 }
                               >
-                                <CheckCircle className="h-4 w-4 mr-2" />
+                                <MaterialIcon name="check_circle" size="sm" className="mr-2" />
                                 Complete
                               </DropdownMenuItem>
                               <DropdownMenuItem
@@ -502,7 +484,7 @@ export default function Manifests() {
                                   setConfirmAction({ type: 'cancel', id: m.id, name: m.manifest_number })
                                 }
                               >
-                                <XCircle className="h-4 w-4 mr-2" />
+                                <MaterialIcon name="cancel" size="sm" className="mr-2" />
                                 Cancel
                               </DropdownMenuItem>
                             </>

@@ -44,24 +44,7 @@ import {
   MobileDataCardContent,
   MobileDataCardActions,
 } from '@/components/ui/mobile-data-card';
-import {
-  Loader2,
-  Search,
-  MoreHorizontal,
-  Wrench,
-  Send,
-  Eye,
-  Clock,
-  DollarSign,
-  User,
-  FileText,
-  RefreshCw,
-  X,
-  Building2,
-  ExternalLink,
-  Copy,
-  CheckCircle,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { RepairQuoteDetailDialog } from '@/components/repair-quotes/RepairQuoteDetailDialog';
@@ -175,7 +158,7 @@ export default function RepairQuotes() {
         <TableCell>
           {quote.technician ? (
             <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="person" size="sm" className="text-muted-foreground" />
               <span>{quote.technician.name}</span>
             </div>
           ) : (
@@ -213,7 +196,7 @@ export default function RepairQuotes() {
         <TableCell>
           {quote.expires_at && (
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Clock className="h-3 w-3" />
+              <MaterialIcon name="schedule" size="sm" />
               {format(new Date(quote.expires_at), 'MMM d')}
             </div>
           )}
@@ -222,29 +205,29 @@ export default function RepairQuotes() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
-                <MoreHorizontal className="h-4 w-4" />
+                <MaterialIcon name="more_horiz" size="sm" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => handleViewQuote(quote)}>
-                <Eye className="mr-2 h-4 w-4" />
+                <MaterialIcon name="visibility" size="sm" className="mr-2" />
                 View Details
               </DropdownMenuItem>
               {quote.technician && !['sent_to_tech', 'tech_submitted'].includes(quote.status || '') && (
                 <DropdownMenuItem onClick={() => handleSendToTech(quote)}>
-                  <Send className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="send" size="sm" className="mr-2" />
                   Send to Technician
                 </DropdownMenuItem>
               )}
               {quote.status === 'tech_submitted' && (
                 <DropdownMenuItem onClick={() => reviewQuote(quote.id)}>
-                  <FileText className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="description" size="sm" className="mr-2" />
                   Mark Under Review
                 </DropdownMenuItem>
               )}
               {['tech_submitted', 'under_review'].includes(quote.status || '') && quote.customer_total && (
                 <DropdownMenuItem onClick={() => handleSendToClient(quote)}>
-                  <ExternalLink className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="open_in_new" size="sm" className="mr-2" />
                   Send to Client
                 </DropdownMenuItem>
               )}
@@ -253,7 +236,7 @@ export default function RepairQuotes() {
                 className="text-destructive focus:text-destructive"
                 onClick={() => closeQuote(quote.id)}
               >
-                <X className="mr-2 h-4 w-4" />
+                <MaterialIcon name="close" size="sm" className="mr-2" />
                 Close Quote
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -303,7 +286,7 @@ export default function RepairQuotes() {
               handleViewQuote(quote);
             }}
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <MaterialIcon name="more_horiz" size="sm" />
           </Button>
         </MobileDataCardActions>
       </MobileDataCard>
@@ -320,7 +303,7 @@ export default function RepairQuotes() {
             description="Manage repair quote workflow"
           />
           <Button onClick={refetch} variant="outline">
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <MaterialIcon name="refresh" size="sm" className="mr-2" />
             Refresh
           </Button>
         </div>
@@ -351,7 +334,7 @@ export default function RepairQuotes() {
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Search quotes..."
                     value={searchQuery}
@@ -387,7 +370,7 @@ export default function RepairQuotes() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Wrench className="h-5 w-5" />
+                  <MaterialIcon name="build" size="md" />
                   Quotes Needing Action
                 </CardTitle>
                 <CardDescription>
@@ -397,11 +380,11 @@ export default function RepairQuotes() {
               <CardContent>
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
                   </div>
                 ) : pendingActionQuotes.length === 0 ? (
                   <div className="text-center py-12">
-                    <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
+                    <MaterialIcon name="check_circle" size="xl" className="mx-auto text-green-500" />
                     <h3 className="mt-4 text-lg font-semibold">All Caught Up</h3>
                     <p className="text-muted-foreground">No quotes need attention right now</p>
                   </div>
@@ -441,11 +424,11 @@ export default function RepairQuotes() {
               <CardContent>
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
                   </div>
                 ) : activeQuotes.length === 0 ? (
                   <div className="text-center py-12">
-                    <Wrench className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <MaterialIcon name="build" size="xl" className="mx-auto text-muted-foreground" />
                     <h3 className="mt-4 text-lg font-semibold">No Active Quotes</h3>
                     <p className="text-muted-foreground">No quotes currently in progress</p>
                   </div>
@@ -485,11 +468,11 @@ export default function RepairQuotes() {
               <CardContent>
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
                   </div>
                 ) : completedQuotes.length === 0 ? (
                   <div className="text-center py-12">
-                    <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <MaterialIcon name="description" size="xl" className="mx-auto text-muted-foreground" />
                     <h3 className="mt-4 text-lg font-semibold">No Completed Quotes</h3>
                     <p className="text-muted-foreground">Completed quotes will appear here</p>
                   </div>
@@ -531,11 +514,11 @@ export default function RepairQuotes() {
               <CardContent>
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
                   </div>
                 ) : filteredQuotes.length === 0 ? (
                   <div className="text-center py-12">
-                    <Wrench className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <MaterialIcon name="build" size="xl" className="mx-auto text-muted-foreground" />
                     <h3 className="mt-4 text-lg font-semibold">No Quotes Found</h3>
                     <p className="text-muted-foreground">
                       {searchQuery || statusFilter !== 'all'

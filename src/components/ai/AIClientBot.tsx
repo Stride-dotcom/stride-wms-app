@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { MessageCircle, X, Send, Loader2, Bot, User, Minimize2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { parseMessageWithLinks, extractEntityNumbers, EntityMap } from '@/utils/parseEntityLinks';
 import { resolveEntities, buildEntityMap } from '@/services/entityResolver';
 import { EntityType } from '@/config/entities';
@@ -252,7 +252,7 @@ export function AIClientBot() {
   // Render message content with entity links
   const renderMessageContent = (message: Message) => {
     if (!message.content) {
-      return isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null;
+      return isLoading ? <MaterialIcon name="progress_activity" size="sm" className="animate-spin" /> : null;
     }
 
     // Parse message and convert entity references to clickable links
@@ -292,15 +292,15 @@ export function AIClientBot() {
       <Card className="fixed bottom-6 right-6 w-72 shadow-lg z-50">
         <CardHeader className="p-3 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-primary" />
+            <MaterialIcon name="smart_toy" size="md" className="text-primary" />
             <CardTitle className="text-sm">AI Assistant</CardTitle>
           </div>
           <div className="flex gap-1">
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMinimized(false)}>
-              <Minimize2 className="h-4 w-4" />
+              <MaterialIcon name="fullscreen_exit" size="sm" />
             </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsOpen(false)}>
-              <X className="h-4 w-4" />
+              <MaterialIcon name="close" size="sm" />
             </Button>
           </div>
         </CardHeader>
@@ -312,15 +312,15 @@ export function AIClientBot() {
     <Card className="fixed bottom-6 right-6 w-96 h-[500px] shadow-lg z-50 flex flex-col">
       <CardHeader className="p-3 border-b flex flex-row items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-primary" />
+          <MaterialIcon name="smart_toy" size="md" className="text-primary" />
           <CardTitle className="text-sm">AI Assistant</CardTitle>
         </div>
         <div className="flex gap-1">
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMinimized(true)}>
-            <Minimize2 className="h-4 w-4" />
+            <MaterialIcon name="fullscreen_exit" size="sm" />
           </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsOpen(false)}>
-            <X className="h-4 w-4" />
+            <MaterialIcon name="close" size="sm" />
           </Button>
         </div>
       </CardHeader>
@@ -328,7 +328,7 @@ export function AIClientBot() {
       <ScrollArea ref={scrollRef} className="flex-1 p-4">
         {messages.length === 0 ? (
           <div className="text-center text-muted-foreground py-8">
-            <Bot className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <MaterialIcon name="smart_toy" className="mx-auto mb-3 opacity-50" style={{ fontSize: '48px' }} />
             <p className="text-sm">Hi! I can help you find information about:</p>
             <ul className="text-xs mt-2 space-y-1">
               <li>• Tasks (e.g., "What's the status of TSK-00142?")</li>
@@ -351,9 +351,9 @@ export function AIClientBot() {
                   }`}
                 >
                   {msg.role === 'user' ? (
-                    <User className="h-4 w-4" />
+                    <MaterialIcon name="person" size="sm" />
                   ) : (
-                    <Bot className="h-4 w-4" />
+                    <MaterialIcon name="smart_toy" size="sm" />
                   )}
                 </div>
                 <div
@@ -383,9 +383,9 @@ export function AIClientBot() {
           />
           <Button onClick={sendMessage} disabled={isLoading || !input.trim()} size="icon">
             {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
             ) : (
-              <Send className="h-4 w-4" />
+              <MaterialIcon name="send" size="sm" />
             )}
           </Button>
         </div>

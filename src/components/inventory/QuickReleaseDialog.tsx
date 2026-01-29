@@ -13,7 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CalendarIcon, PackageX, DollarSign } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
@@ -205,7 +205,7 @@ export function QuickReleaseDialog({
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
+              <MaterialIcon name="attach_money" size="md" />
               Add Release Charge?
             </DialogTitle>
             <DialogDescription>
@@ -218,7 +218,7 @@ export function QuickReleaseDialog({
               Skip
             </Button>
             <Button onClick={handleAddCharge}>
-              <DollarSign className="mr-2 h-4 w-4" />
+              <MaterialIcon name="attach_money" size="sm" className="mr-2" />
               Add Charge
             </Button>
           </DialogFooter>
@@ -233,7 +233,7 @@ export function QuickReleaseDialog({
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <PackageX className="h-5 w-5" />
+              <MaterialIcon name="unarchive" size="md" />
               Release Items
             </DialogTitle>
             <DialogDescription>
@@ -276,7 +276,7 @@ export function QuickReleaseDialog({
                       !releaseDate && 'text-muted-foreground'
                     )}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <MaterialIcon name="calendar_today" size="sm" className="mr-2" />
                     {releaseDate ? format(releaseDate, 'PPP') : 'Select release date'}
                   </Button>
                 </PopoverTrigger>
@@ -297,7 +297,7 @@ export function QuickReleaseDialog({
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={submitting || !releaseDate}>
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {submitting && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               Release Items
             </Button>
           </DialogFooter>

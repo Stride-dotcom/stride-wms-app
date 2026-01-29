@@ -5,7 +5,7 @@
  */
 
 import { useRef, useState, useCallback } from 'react';
-import { ScanLine, FileUp, Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -237,7 +237,7 @@ export function DocumentCapture({
             disabled={uploading}
             className="flex-1"
           >
-            <ScanLine className="h-4 w-4 mr-2" />
+            <MaterialIcon name="document_scanner" size="sm" className="mr-2" />
             Scan
           </Button>
 
@@ -259,9 +259,9 @@ export function DocumentCapture({
             className="flex-1"
           >
             {uploading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
             ) : (
-              <FileUp className="h-4 w-4 mr-2" />
+              <MaterialIcon name="upload" size="sm" className="mr-2" />
             )}
             Upload
           </Button>

@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, User, Package } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface WillCallItem {
   id: string;
@@ -73,7 +73,7 @@ export function WillCallCompletionDialog({
           <div className="p-3 bg-muted rounded-lg">
             <p className="font-medium text-sm">{taskTitle}</p>
             <div className="flex items-center gap-2 mt-1">
-              <Package className="h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="inventory_2" size="sm" className="text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
                 {items.length} item{items.length !== 1 ? 's' : ''} to release
               </span>
@@ -104,7 +104,7 @@ export function WillCallCompletionDialog({
           {/* Pickup Name Input */}
           <div className="space-y-2">
             <Label htmlFor="pickup-name" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
+              <MaterialIcon name="person" size="sm" />
               Picked up by *
             </Label>
             <Input
@@ -132,7 +132,7 @@ export function WillCallCompletionDialog({
           >
             {loading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                 Completing...
               </>
             ) : (

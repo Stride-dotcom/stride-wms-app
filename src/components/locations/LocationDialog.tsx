@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Warehouse } from '@/hooks/useWarehouses';
@@ -217,7 +217,7 @@ export function LocationDialog({
 
         {fetching ? (
           <div className="flex items-center justify-center h-48">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
           </div>
         ) : (
           <Form {...form}>
@@ -397,7 +397,7 @@ export function LocationDialog({
                   Cancel
                 </Button>
                 <Button type="submit" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {loading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
                   {isEditing ? 'Update Location' : 'Create Location'}
                 </Button>
               </DialogFooter>

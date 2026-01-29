@@ -30,61 +30,44 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useStocktakeScan, useStocktakeResults, ResultType } from '@/hooks/useStocktakes';
-import {
-  ArrowLeft,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  MapPinOff,
-  HelpCircle,
-  Loader2,
-  Download,
-  RefreshCw,
-  Search,
-  Filter,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  Package,
-  AlertOctagon,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const resultConfig: Record<ResultType, {
   color: string;
   bgColor: string;
-  icon: React.ComponentType<{ className?: string }>;
+  iconName: string;
   label: string;
 }> = {
   found_expected: {
     color: 'text-green-400',
     bgColor: 'bg-green-500/20 border-green-500/30',
-    icon: CheckCircle,
+    iconName: 'check_circle',
     label: 'Found',
   },
   found_wrong_location: {
     color: 'text-yellow-400',
     bgColor: 'bg-yellow-500/20 border-yellow-500/30',
-    icon: AlertTriangle,
+    iconName: 'warning',
     label: 'Wrong Location',
   },
   missing: {
     color: 'text-red-400',
     bgColor: 'bg-red-500/20 border-red-500/30',
-    icon: XCircle,
+    iconName: 'cancel',
     label: 'Missing',
   },
   found_unexpected: {
     color: 'text-orange-400',
     bgColor: 'bg-orange-500/20 border-orange-500/30',
-    icon: AlertOctagon,
+    iconName: 'error',
     label: 'Unexpected',
   },
   released_found: {
     color: 'text-purple-400',
     bgColor: 'bg-purple-500/20 border-purple-500/30',
-    icon: HelpCircle,
+    iconName: 'help',
     label: 'Released Found',
   },
 };
@@ -182,8 +165,8 @@ export default function StocktakeReport() {
   };
 
   const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 opacity-50" />;
-    return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+    if (sortField !== field) return <MaterialIcon name="swap_vert" size="sm" className="opacity-50" />;
+    return sortDirection === 'asc' ? <MaterialIcon name="arrow_upward" size="sm" /> : <MaterialIcon name="arrow_downward" size="sm" />;
   };
 
   const handleResolve = async () => {
@@ -230,7 +213,7 @@ export default function StocktakeReport() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[50vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
@@ -242,7 +225,7 @@ export default function StocktakeReport() {
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/stocktakes')}>
-            <ArrowLeft className="h-5 w-5" />
+            <MaterialIcon name="arrow_back" size="md" />
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">
@@ -259,7 +242,7 @@ export default function StocktakeReport() {
             </div>
           </div>
           <Button variant="outline" onClick={exportCSV}>
-            <Download className="h-4 w-4 mr-2" />
+            <MaterialIcon name="download" size="sm" className="mr-2" />
             Export CSV
           </Button>
         </div>
@@ -315,7 +298,7 @@ export default function StocktakeReport() {
           <CardContent className="p-4">
             <div className="flex flex-wrap gap-4 items-center">
               <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search items..."
                   value={searchQuery}
@@ -351,7 +334,7 @@ export default function StocktakeReport() {
                 </SelectContent>
               </Select>
               <Button variant="outline" size="icon" onClick={refetch}>
-                <RefreshCw className="h-4 w-4" />
+                <MaterialIcon name="refresh" size="sm" />
               </Button>
             </div>
           </CardContent>
@@ -402,7 +385,6 @@ export default function StocktakeReport() {
                   ) : (
                     filteredResults.map((result) => {
                       const config = resultConfig[result.result];
-                      const Icon = config?.icon || Package;
                       return (
                         <TableRow
                           key={result.id}
@@ -411,7 +393,7 @@ export default function StocktakeReport() {
                         >
                           <TableCell>
                             <Badge className={cn('gap-1', config?.bgColor)}>
-                              <Icon className="h-3 w-3" />
+                              <MaterialIcon name={config?.iconName || 'inventory_2'} className="h-3 w-3" />
                               {config?.label || result.result}
                             </Badge>
                           </TableCell>

@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Mail, MessageSquare, Trash2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { CommunicationAlert, TRIGGER_EVENTS } from '@/hooks/useCommunications';
 import {
   AlertDialog,
@@ -52,7 +52,7 @@ export function AlertEditorHeader({
       <div className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={onBack}>
-            <ArrowLeft className="h-5 w-5" />
+            <MaterialIcon name="arrow_back" size="md" />
           </Button>
           <div>
             <div className="flex items-center gap-3">
@@ -82,7 +82,7 @@ export function AlertEditorHeader({
                 checked={alert.channels.email}
                 onCheckedChange={() => toggleChannel('email')}
               />
-              <Mail className="h-4 w-4" />
+              <MaterialIcon name="mail" size="sm" />
               <span className="text-sm">Email</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
@@ -90,7 +90,7 @@ export function AlertEditorHeader({
                 checked={alert.channels.sms}
                 onCheckedChange={() => toggleChannel('sms')}
               />
-              <MessageSquare className="h-4 w-4" />
+              <MaterialIcon name="chat" size="sm" />
               <span className="text-sm">SMS</span>
             </label>
           </div>
@@ -100,7 +100,7 @@ export function AlertEditorHeader({
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                <Trash2 className="h-4 w-4" />
+                <MaterialIcon name="delete" size="sm" />
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>

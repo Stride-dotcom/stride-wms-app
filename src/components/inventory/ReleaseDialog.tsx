@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Package, Trash2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { queueAlert } from '@/lib/alertQueue';
 import { Badge } from '@/components/ui/badge';
 
@@ -227,9 +227,9 @@ export function ReleaseDialog({ open, onOpenChange, selectedItems, onSuccess }: 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {releaseType === 'will_call' ? (
-              <Package className="h-5 w-5" />
+              <MaterialIcon name="inventory_2" size="md" />
             ) : (
-              <Trash2 className="h-5 w-5" />
+              <MaterialIcon name="delete" size="md" />
             )}
             Create Release
           </DialogTitle>
@@ -240,7 +240,7 @@ export function ReleaseDialog({ open, onOpenChange, selectedItems, onSuccess }: 
 
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
           </div>
         ) : (
           <div className="space-y-6">
@@ -369,7 +369,7 @@ export function ReleaseDialog({ open, onOpenChange, selectedItems, onSuccess }: 
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={submitting || loading}>
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {submitting && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
             Create {releaseType === 'will_call' ? 'Will Call' : 'Disposal'}
           </Button>
         </DialogFooter>

@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2, Building2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -90,7 +90,7 @@ export default function ClientLogin() {
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <Building2 className="h-8 w-8 text-primary" />
+              <MaterialIcon name="business" size="xl" className="text-primary" />
             </div>
           </div>
           <CardTitle>Client Portal</CardTitle>
@@ -142,9 +142,9 @@ export default function ClientLogin() {
                           onClick={() => setShowPassword(!showPassword)}
                         >
                           {showPassword ? (
-                            <EyeOff className="h-4 w-4" />
+                            <MaterialIcon name="visibility_off" size="sm" />
                           ) : (
-                            <Eye className="h-4 w-4" />
+                            <MaterialIcon name="visibility" size="sm" />
                           )}
                         </Button>
                       </div>
@@ -156,7 +156,7 @@ export default function ClientLogin() {
 
               {error && (
                 <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
+                  <MaterialIcon name="error" size="sm" />
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
@@ -164,7 +164,7 @@ export default function ClientLogin() {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                     Signing in...
                   </>
                 ) : (

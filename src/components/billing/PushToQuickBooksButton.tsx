@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Send, CheckCircle2, XCircle, AlertTriangle, Building2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useQuickBooks, BillingEventForSync, SyncResult } from '@/hooks/useQuickBooks';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
@@ -116,7 +116,7 @@ export function PushToQuickBooksButton({
   if (!isConnected) {
     return (
       <Button variant="outline" disabled>
-        <Building2 className="mr-2 h-4 w-4" />
+        <MaterialIcon name="business" size="sm" className="mr-2" />
         QuickBooks Not Connected
       </Button>
     );
@@ -132,12 +132,12 @@ export function PushToQuickBooksButton({
       >
         {syncing ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
             Syncing...
           </>
         ) : (
           <>
-            <AlertTriangle className="mr-2 h-4 w-4 text-amber-500" />
+            <MaterialIcon name="warning" size="sm" className="mr-2 text-amber-500" />
             Push to QuickBooks
           </>
         )}
@@ -154,12 +154,12 @@ export function PushToQuickBooksButton({
       >
         {syncing ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
             Pushing to QuickBooks...
           </>
         ) : (
           <>
-            <Send className="mr-2 h-4 w-4" />
+            <MaterialIcon name="send" size="sm" className="mr-2" />
             Push to QuickBooks
             {billingEvents.length > 0 && (
               <Badge variant="secondary" className="ml-2">
@@ -175,7 +175,7 @@ export function PushToQuickBooksButton({
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
+              <MaterialIcon name="business" size="md" />
               QuickBooks Sync Results
             </DialogTitle>
             <DialogDescription>
@@ -213,12 +213,12 @@ export function PushToQuickBooksButton({
                     <TableCell>
                       {result.success ? (
                         <div className="flex items-center gap-1 text-green-600">
-                          <CheckCircle2 className="h-4 w-4" />
+                          <MaterialIcon name="check_circle" size="sm" />
                           <span className="text-sm">Created</span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1 text-destructive">
-                          <XCircle className="h-4 w-4" />
+                          <MaterialIcon name="cancel" size="sm" />
                           <span className="text-sm" title={result.error}>
                             Failed
                           </span>

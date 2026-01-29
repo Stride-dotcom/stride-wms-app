@@ -22,14 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  ArrowLeft,
-  Loader2,
-  Save,
-  Package,
-  Search,
-  AlertCircle,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 // ============================================
 // TYPES
@@ -295,7 +288,7 @@ export default function OutboundCreate() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
@@ -307,7 +300,7 @@ export default function OutboundCreate() {
         {/* Header */}
         <div className="flex items-center gap-4 mb-6 pt-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
-            <ArrowLeft className="h-5 w-5" />
+            <MaterialIcon name="arrow_back" size="md" />
           </Button>
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold truncate">Create Outbound Shipment</h1>
@@ -446,16 +439,16 @@ export default function OutboundCreate() {
             <CardContent>
               {!accountId ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Package className="h-10 w-10 text-muted-foreground mb-2" />
+                  <MaterialIcon name="inventory_2" size="xl" className="text-muted-foreground mb-2" />
                   <p className="text-muted-foreground">Select an account to view available items</p>
                 </div>
               ) : itemsLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
                 </div>
               ) : accountItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <AlertCircle className="h-10 w-10 text-muted-foreground mb-2" />
+                  <MaterialIcon name="error" size="xl" className="text-muted-foreground mb-2" />
                   <p className="text-muted-foreground">No available items for this account</p>
                   <p className="text-sm text-muted-foreground">Items must be in storage to be shipped</p>
                 </div>
@@ -463,7 +456,7 @@ export default function OutboundCreate() {
                 <div className="space-y-4">
                   {/* Search */}
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                     <Input
                       placeholder="Search items..."
                       value={searchQuery}
@@ -541,12 +534,12 @@ export default function OutboundCreate() {
             <Button type="submit" disabled={saving || selectedItemIds.size === 0} className="min-w-[160px]">
               {saving ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Creating...
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="save" size="sm" className="mr-2" />
                   Create Outbound
                 </>
               )}

@@ -31,7 +31,7 @@ import {
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useManifests } from '@/hooks/useManifests';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ClipboardList, Trash2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface SelectedItem {
   id: string;
@@ -148,7 +148,7 @@ export function CreateManifestFromItemsDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ClipboardList className="h-5 w-5" />
+            <MaterialIcon name="assignment" size="md" />
             Create Manifest from Selected Items
           </DialogTitle>
           <DialogDescription>
@@ -269,7 +269,7 @@ export function CreateManifestFromItemsDialog({
                               className="h-7 w-7"
                               onClick={() => handleRemoveItem(item.id)}
                             >
-                              <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                              <MaterialIcon name="delete" size="sm" className="text-muted-foreground hover:text-destructive" />
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -301,7 +301,7 @@ export function CreateManifestFromItemsDialog({
             onClick={handleSubmit}
             disabled={!formData.warehouse_id || !formData.name || itemsList.length === 0 || isSubmitting}
           >
-            {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {isSubmitting && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
             Create Manifest
           </Button>
         </DialogFooter>

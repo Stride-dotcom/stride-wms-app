@@ -31,7 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Plus, Edit2, Trash2, DollarSign } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 
 interface ChargeTemplate {
@@ -225,7 +225,7 @@ export function BillingChargeTemplatesTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -237,7 +237,7 @@ export function BillingChargeTemplatesTab() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
+                <MaterialIcon name="attach_money" size="md" />
                 Custom Charge Templates
               </CardTitle>
               <CardDescription>
@@ -245,7 +245,7 @@ export function BillingChargeTemplatesTab() {
               </CardDescription>
             </div>
             <Button onClick={() => handleOpenDialog()}>
-              <Plus className="mr-2 h-4 w-4" />
+              <MaterialIcon name="add" size="sm" className="mr-2" />
               Add Template
             </Button>
           </div>
@@ -253,7 +253,7 @@ export function BillingChargeTemplatesTab() {
         <CardContent>
           {templates.length === 0 ? (
             <div className="text-center py-8">
-              <DollarSign className="mx-auto h-12 w-12 text-muted-foreground" />
+              <MaterialIcon name="attach_money" size="lg" className="mx-auto text-muted-foreground" />
               <h3 className="mt-4 text-lg font-semibold">No templates yet</h3>
               <p className="text-muted-foreground">
                 Create charge templates for common billing items
@@ -303,14 +303,14 @@ export function BillingChargeTemplatesTab() {
                           size="icon"
                           onClick={() => handleOpenDialog(template)}
                         >
-                          <Edit2 className="h-4 w-4" />
+                          <MaterialIcon name="edit" size="sm" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDelete(template.id)}
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <MaterialIcon name="delete" size="sm" className="text-destructive" />
                         </Button>
                       </div>
                     </TableCell>
@@ -419,7 +419,7 @@ export function BillingChargeTemplatesTab() {
             <Button onClick={handleSave} disabled={saving || !formData.name}>
               {saving ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Saving...
                 </>
               ) : (

@@ -4,19 +4,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { 
-  Camera, 
-  X, 
-  RotateCcw, 
-  Check, 
-  Plus, 
-  Trash2, 
-  Loader2, 
-  FileUp,
-  ChevronLeft,
-  ChevronRight,
-  AlertCircle,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
   Dialog,
   DialogContent,
@@ -347,7 +335,7 @@ export function DocumentScanner({
           return (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
               <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
-                <FileUp className="h-10 w-10 text-primary" />
+                <MaterialIcon name="upload" className="text-primary" style={{ fontSize: '40px' }} />
               </div>
               <p className="text-muted-foreground">Select images to create a document</p>
               <input
@@ -359,7 +347,7 @@ export function DocumentScanner({
                 className="hidden"
               />
               <Button onClick={() => fileInputRef.current?.click()}>
-                <FileUp className="mr-2 h-4 w-4" />
+                <MaterialIcon name="upload" size="sm" className="mr-2" />
                 Choose Files
               </Button>
               <Button variant="ghost" onClick={() => setMode('camera')}>
@@ -384,7 +372,7 @@ export function DocumentScanner({
               
               {!cameraReady && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-                  <Loader2 className="h-8 w-8 animate-spin text-white" />
+                  <MaterialIcon name="progress_activity" className="animate-spin text-white" style={{ fontSize: '32px' }} />
                 </div>
               )}
               
@@ -404,7 +392,7 @@ export function DocumentScanner({
                 onClick={() => setMode('upload')}
                 className="h-12 w-12 rounded-full"
               >
-                <FileUp className="h-5 w-5" />
+                <MaterialIcon name="upload" size="md" />
               </Button>
               
               <Button
@@ -413,7 +401,7 @@ export function DocumentScanner({
                 disabled={!cameraReady}
                 className="h-16 w-16 rounded-full"
               >
-                <Camera className="h-8 w-8" />
+                <MaterialIcon name="photo_camera" style={{ fontSize: '32px' }} />
               </Button>
               
               <Button
@@ -423,7 +411,7 @@ export function DocumentScanner({
                 disabled={capturedImages.length === 0}
                 className="h-12 w-12 rounded-full"
               >
-                <Check className="h-5 w-5" />
+                <MaterialIcon name="check" size="md" />
               </Button>
             </div>
             
@@ -440,7 +428,7 @@ export function DocumentScanner({
                       onClick={() => removeImage(i)}
                       className="absolute top-0 right-0 bg-destructive text-destructive-foreground p-0.5 rounded-bl"
                     >
-                      <X className="h-3 w-3" />
+                      <MaterialIcon name="close" style={{ fontSize: '12px' }} />
                     </button>
                   </div>
                 ))}
@@ -449,7 +437,7 @@ export function DocumentScanner({
                   disabled={!cameraReady}
                   className="flex-shrink-0 h-16 w-12 rounded border-2 border-dashed flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
                 >
-                  <Plus className="h-5 w-5" />
+                  <MaterialIcon name="add" size="md" />
                 </button>
               </div>
             )}
@@ -478,7 +466,7 @@ export function DocumentScanner({
                     disabled={currentPreviewIndex === 0}
                     className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80"
                   >
-                    <ChevronLeft className="h-5 w-5" />
+                    <MaterialIcon name="chevron_left" size="md" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -487,7 +475,7 @@ export function DocumentScanner({
                     disabled={currentPreviewIndex === capturedImages.length - 1}
                     className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80"
                   >
-                    <ChevronRight className="h-5 w-5" />
+                    <MaterialIcon name="chevron_right" size="md" />
                   </Button>
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
                     Page {currentPreviewIndex + 1} of {capturedImages.length}
@@ -517,11 +505,11 @@ export function DocumentScanner({
                 }}
                 className="flex-1"
               >
-                <RotateCcw className="mr-2 h-4 w-4" />
+                <MaterialIcon name="undo" size="sm" className="mr-2" />
                 Retake
               </Button>
               <Button onClick={handleUpload} className="flex-1">
-                <Check className="mr-2 h-4 w-4" />
+                <MaterialIcon name="check" size="sm" className="mr-2" />
                 Save Document
               </Button>
             </div>
@@ -531,7 +519,7 @@ export function DocumentScanner({
       case 'uploading':
         return (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <MaterialIcon name="progress_activity" className="animate-spin text-primary" style={{ fontSize: '48px' }} />
             <p className="font-medium">Uploading document...</p>
             {uploadProgress && (
               <div className="w-full max-w-xs space-y-2">
@@ -551,7 +539,7 @@ export function DocumentScanner({
         return (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-              <Check className="h-8 w-8 text-green-600" />
+              <MaterialIcon name="check" className="text-green-600" style={{ fontSize: '32px' }} />
             </div>
             <p className="font-medium text-green-600">Document saved successfully!</p>
           </div>
@@ -561,7 +549,7 @@ export function DocumentScanner({
         return (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
-              <AlertCircle className="h-8 w-8 text-destructive" />
+              <MaterialIcon name="warning" className="text-destructive" style={{ fontSize: '32px' }} />
             </div>
             <p className="text-destructive font-medium">Something went wrong</p>
             <p className="text-sm text-muted-foreground text-center">{error}</p>

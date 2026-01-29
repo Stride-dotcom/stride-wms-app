@@ -6,15 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Save,
-  History,
-  Maximize2,
-  Minimize2,
-  Send,
-  Loader2,
-  Mail,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
   CommunicationTemplate,
   CommunicationDesignElement,
@@ -134,7 +126,7 @@ export function EmailHtmlTab({
   if (!template) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 text-muted-foreground">
-        <Mail className="h-12 w-12 opacity-50" />
+        <MaterialIcon name="mail" size="lg" className="opacity-50" />
         <p>No email template available for this alert.</p>
         {onCreateTemplate && alertId && alertName && (
           <Button onClick={handleCreateTemplate} disabled={isCreating}>
@@ -157,11 +149,11 @@ export function EmailHtmlTab({
 
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowTestDialog(true)}>
-            <Send className="h-4 w-4 mr-2" />
+            <MaterialIcon name="send" size="sm" className="mr-2" />
             Send Test
           </Button>
           <Button variant="outline" size="sm" onClick={loadVersions}>
-            <History className="h-4 w-4 mr-2" />
+            <MaterialIcon name="history" size="sm" className="mr-2" />
             History
           </Button>
           <Button
@@ -169,13 +161,13 @@ export function EmailHtmlTab({
             size="icon"
             onClick={() => setIsFullscreen(!isFullscreen)}
           >
-            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            {isFullscreen ? <MaterialIcon name="close_fullscreen" size="sm" /> : <MaterialIcon name="open_in_full" size="sm" />}
           </Button>
           <Button onClick={handleSave} disabled={isSaving}>
             {isSaving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
             ) : (
-              <Save className="h-4 w-4 mr-2" />
+              <MaterialIcon name="save" size="sm" className="mr-2" />
             )}
             {isSaving ? 'Saving...' : 'Save'}
           </Button>

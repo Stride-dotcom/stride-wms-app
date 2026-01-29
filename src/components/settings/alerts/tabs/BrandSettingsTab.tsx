@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Palette, Mail, Image, Globe, Save, Eye } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { CommunicationBrandSettings } from '@/hooks/useCommunications';
 
 interface BrandSettingsTabProps {
@@ -58,7 +58,7 @@ export function BrandSettingsTab({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Palette className="h-5 w-5" />
+              <MaterialIcon name="palette" size="md" />
               Brand Identity
             </CardTitle>
             <CardDescription>
@@ -134,7 +134,7 @@ export function BrandSettingsTab({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
+              <MaterialIcon name="mail" size="md" />
               Email Sender Settings
             </CardTitle>
             <CardDescription>
@@ -182,7 +182,7 @@ export function BrandSettingsTab({
 
         <div className="flex justify-end">
           <Button onClick={handleSave} disabled={isSaving}>
-            <Save className="h-4 w-4 mr-2" />
+            <MaterialIcon name="save" size="sm" className="mr-2" />
             {isSaving ? 'Saving...' : 'Save Brand Settings'}
           </Button>
         </div>
@@ -193,7 +193,7 @@ export function BrandSettingsTab({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5" />
+              <MaterialIcon name="visibility" size="md" />
               Email Preview
             </CardTitle>
             <CardDescription>
@@ -219,7 +219,7 @@ export function BrandSettingsTab({
                   />
                 ) : (
                   <div className="h-12 flex items-center justify-center">
-                    <Image className="h-8 w-8 text-white/50" />
+                    <MaterialIcon name="image" size="lg" className="text-white/50" />
                   </div>
                 )}
               </div>
@@ -242,13 +242,13 @@ export function BrandSettingsTab({
               <div className="p-6 bg-muted/50 border-t text-center text-sm text-muted-foreground space-y-2">
                 {formData.portal_base_url && (
                   <p>
-                    <Globe className="h-4 w-4 inline mr-1" />
+                    <MaterialIcon name="language" size="sm" className="inline mr-1" />
                     {formData.portal_base_url}
                   </p>
                 )}
                 {formData.brand_support_email && (
                   <p>
-                    <Mail className="h-4 w-4 inline mr-1" />
+                    <MaterialIcon name="mail" size="sm" className="inline mr-1" />
                     {formData.brand_support_email}
                   </p>
                 )}

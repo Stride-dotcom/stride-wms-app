@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Copy, Check, Search } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { COMMUNICATION_VARIABLES } from '@/hooks/useCommunications';
 import { useToast } from '@/hooks/use-toast';
 
@@ -50,7 +50,7 @@ export function VariablesTable({ onInsertVariable, filterGroups }: VariablesTabl
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Available tokens</h3>
           <div className="relative w-64">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <MaterialIcon name="search" size="sm" className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search tokens..."
               value={search}
@@ -88,9 +88,9 @@ export function VariablesTable({ onInsertVariable, filterGroups }: VariablesTabl
                         }}
                       >
                         {copiedKey === variable.key ? (
-                          <Check className="h-3 w-3 text-green-600" />
+                          <MaterialIcon name="check" size="sm" className="text-green-600" />
                         ) : (
-                          <Copy className="h-3 w-3" />
+                          <MaterialIcon name="content_copy" size="sm" />
                         )}
                       </Button>
                     </div>

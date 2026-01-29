@@ -26,7 +26,7 @@ import { useClasses } from '@/hooks/useClasses';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Plus } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface AddItemDialogProps {
   open: boolean;
@@ -129,7 +129,7 @@ export function AddItemDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5" />
+            <MaterialIcon name="add" size="md" />
             Add New Item
           </DialogTitle>
           <DialogDescription>
@@ -231,7 +231,7 @@ export function AddItemDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               Add Item
             </Button>
           </DialogFooter>

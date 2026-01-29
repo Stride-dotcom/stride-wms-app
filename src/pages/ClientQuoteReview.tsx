@@ -18,19 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useClientQuoteReview } from '@/hooks/useRepairQuotes';
-import {
-  Loader2,
-  Wrench,
-  Package,
-  ImageIcon,
-  DollarSign,
-  Clock,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Building2,
-  FileText,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 
 export default function ClientQuoteReview() {
@@ -80,7 +68,7 @@ export default function ClientQuoteReview() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
+          <MaterialIcon name="progress_activity" className="animate-spin mx-auto text-primary" style={{ fontSize: '48px' }} />
           <p className="text-muted-foreground">Loading your quote...</p>
         </div>
       </div>
@@ -94,7 +82,7 @@ export default function ClientQuoteReview() {
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-              <AlertTriangle className="h-6 w-6 text-destructive" />
+              <MaterialIcon name="warning" size="lg" className="text-destructive" />
             </div>
             <CardTitle>Quote Unavailable</CardTitle>
             <CardDescription>{error}</CardDescription>
@@ -116,7 +104,7 @@ export default function ClientQuoteReview() {
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle className="h-6 w-6 text-green-600" />
+              <MaterialIcon name="check_circle" size="lg" className="text-green-600" />
             </div>
             <CardTitle>Quote Accepted</CardTitle>
             <CardDescription>
@@ -149,7 +137,7 @@ export default function ClientQuoteReview() {
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
-              <XCircle className="h-6 w-6 text-amber-600" />
+              <MaterialIcon name="cancel" size="lg" className="text-amber-600" />
             </div>
             <CardTitle>Quote Declined</CardTitle>
             <CardDescription>
@@ -175,7 +163,7 @@ export default function ClientQuoteReview() {
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <FileText className="h-5 w-5 text-primary" />
+                <MaterialIcon name="description" size="md" className="text-primary" />
               </div>
               <div className="flex-1">
                 <CardTitle>Repair Quote</CardTitle>
@@ -189,7 +177,7 @@ export default function ClientQuoteReview() {
             <div className="flex flex-wrap gap-4 text-sm">
               {quote?.account && (
                 <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="business" size="sm" className="text-muted-foreground" />
                   <span className="font-medium">{quote.account.name}</span>
                 </div>
               )}
@@ -201,7 +189,7 @@ export default function ClientQuoteReview() {
               )}
               {tokenData?.expires_at && (
                 <div className="flex items-center gap-2 text-amber-600">
-                  <Clock className="h-4 w-4" />
+                  <MaterialIcon name="schedule" size="sm" />
                   <span>
                     Valid until: {format(new Date(tokenData.expires_at), 'MMM d, yyyy')}
                   </span>
@@ -216,7 +204,7 @@ export default function ClientQuoteReview() {
           <CardHeader className="bg-primary/5">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
+                <MaterialIcon name="attach_money" size="md" />
                 Repair Estimate
               </CardTitle>
               <div className="text-right">
@@ -261,7 +249,7 @@ export default function ClientQuoteReview() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
+              <MaterialIcon name="inventory_2" size="md" />
               Items Included ({quoteItems.length})
             </CardTitle>
             <CardDescription>
@@ -307,7 +295,7 @@ export default function ClientQuoteReview() {
                 {item.damage_photos && item.damage_photos.length > 0 && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                      <ImageIcon className="h-3 w-3" />
+                      <MaterialIcon name="image" size="sm" />
                       Photos ({item.damage_photos.length})
                     </p>
                     <ScrollArea className="w-full">
@@ -336,7 +324,7 @@ export default function ClientQuoteReview() {
 
             {quoteItems.length === 0 && (
               <div className="text-center py-8">
-                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <MaterialIcon name="inventory_2" className="mx-auto text-muted-foreground mb-4" style={{ fontSize: '48px' }} />
                 <p className="text-muted-foreground">No items specified</p>
               </div>
             )}
@@ -362,7 +350,7 @@ export default function ClientQuoteReview() {
                   disabled={submitting}
                   className="w-full sm:w-auto"
                 >
-                  <XCircle className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="cancel" size="sm" className="mr-2" />
                   Decline Quote
                 </Button>
                 <Button
@@ -371,7 +359,7 @@ export default function ClientQuoteReview() {
                   disabled={submitting}
                   className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
                 >
-                  <CheckCircle className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="check_circle" size="sm" className="mr-2" />
                   Accept Quote
                 </Button>
               </div>
@@ -411,7 +399,7 @@ export default function ClientQuoteReview() {
               disabled={submitting}
               className="bg-green-600 hover:bg-green-700"
             >
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {submitting && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               Yes, Accept Quote
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -446,7 +434,7 @@ export default function ClientQuoteReview() {
               disabled={submitting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {submitting && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               Decline Quote
             </AlertDialogAction>
           </AlertDialogFooter>

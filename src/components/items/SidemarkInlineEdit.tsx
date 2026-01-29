@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Check, X, Pencil, Plus, Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import {
   Command,
@@ -97,7 +97,7 @@ export function SidemarkInlineEdit({
           <span className={cn('font-medium', !value && 'text-muted-foreground')}>
             {value || placeholder}
           </span>
-          <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          <MaterialIcon name="edit" className="text-[12px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-0" align="start">
@@ -110,7 +110,7 @@ export function SidemarkInlineEdit({
           <CommandList>
             {loading ? (
               <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <MaterialIcon name="progress_activity" size="sm" className="animate-spin text-muted-foreground" />
               </div>
             ) : (
               <>
@@ -121,7 +121,7 @@ export function SidemarkInlineEdit({
                       disabled={saving}
                       className="flex items-center gap-2 w-full px-2 py-1.5 text-sm hover:bg-muted rounded-sm"
                     >
-                      <Plus className="h-4 w-4" />
+                      <MaterialIcon name="add" size="sm" />
                       Add "{searchValue}"
                     </button>
                   ) : (
@@ -138,7 +138,7 @@ export function SidemarkInlineEdit({
                     >
                       {s.sidemark}
                       {s.sidemark === value && (
-                        <Check className="ml-auto h-4 w-4" />
+                        <MaterialIcon name="check" size="sm" className="ml-auto" />
                       )}
                     </CommandItem>
                   ))}
@@ -150,7 +150,7 @@ export function SidemarkInlineEdit({
                       disabled={saving}
                       className="text-primary"
                     >
-                      <Plus className="mr-2 h-4 w-4" />
+                      <MaterialIcon name="add" size="sm" className="mr-2" />
                       Add "{searchValue}"
                     </CommandItem>
                   </CommandGroup>
@@ -168,7 +168,7 @@ export function SidemarkInlineEdit({
               onClick={() => handleSelect('')}
               disabled={saving}
             >
-              <X className="mr-2 h-4 w-4" />
+              <MaterialIcon name="close" size="sm" className="mr-2" />
               Clear sidemark
             </Button>
           </div>

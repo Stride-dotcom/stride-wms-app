@@ -7,7 +7,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 // UUID v4 regex pattern
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -102,7 +102,7 @@ export default function ScanItemRedirect() {
           </>
         ) : (
           <>
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-primary" />
             <p className="text-muted-foreground">Looking up item...</p>
           </>
         )}

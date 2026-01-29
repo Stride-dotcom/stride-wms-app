@@ -1,16 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import {
-  CheckSquare,
-  Truck,
-  Wrench,
-  Package,
-  FileText,
-  Receipt,
-  Building,
-  Clipboard,
-  AlertCircle,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { ENTITY_CONFIG, EntityType } from '@/config/entities';
 import {
   Tooltip,
@@ -20,15 +10,16 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-const ICONS = {
-  CheckSquare,
-  Truck,
-  Wrench,
-  Package,
-  FileText,
-  Receipt,
-  Building,
-  Clipboard,
+// Map Lucide icon names to Material icon names
+const ICON_MAP: Record<string, string> = {
+  CheckSquare: 'check_box',
+  Truck: 'local_shipping',
+  Wrench: 'build',
+  Package: 'inventory_2',
+  FileText: 'description',
+  Receipt: 'receipt',
+  Building: 'business',
+  Clipboard: 'assignment',
 };
 
 // Color class mappings for Tailwind
@@ -99,7 +90,7 @@ export function EntityLink({
   summary,
 }: EntityLinkProps) {
   const config = ENTITY_CONFIG[type];
-  const Icon = ICONS[config.icon as keyof typeof ICONS];
+  const materialIconName = ICON_MAP[config.icon] || 'description';
   const colors = COLOR_CLASSES[config.color] || COLOR_CLASSES.blue;
 
   // Entity not found state
@@ -109,7 +100,7 @@ export function EntityLink({
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="inline-flex items-center px-2 py-0.5 rounded text-sm font-medium bg-gray-100 text-gray-500 cursor-not-allowed">
-              <AlertCircle className="w-3 h-3 mr-1" />
+              <MaterialIcon name="warning" className="mr-1" style={{ fontSize: '12px' }} />
               {number}
             </span>
           </TooltipTrigger>
@@ -132,7 +123,7 @@ export function EntityLink({
         colors.ring
       )}
     >
-      <Icon className="w-3 h-3 mr-1" />
+      <MaterialIcon name={materialIconName} className="mr-1" style={{ fontSize: '12px' }} />
       {number}
     </Link>
   );

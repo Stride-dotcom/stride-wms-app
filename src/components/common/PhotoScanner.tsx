@@ -5,16 +5,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import {
-  Camera,
-  X,
-  Check,
-  Plus,
-  Trash2,
-  Loader2,
-  FileUp,
-  Download,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
   Dialog,
   DialogContent,
@@ -275,7 +266,7 @@ export function PhotoScanner({
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
           <Button variant="ghost" size="sm" onClick={handleCancel} disabled={saving}>
-            <X className="h-4 w-4 mr-1" />
+            <MaterialIcon name="close" size="sm" className="mr-1" />
             Cancel
           </Button>
           <span className="font-medium">
@@ -283,9 +274,9 @@ export function PhotoScanner({
           </span>
           <Button size="sm" onClick={handleDone} disabled={saving}>
             {saving ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />
             ) : (
-              <Check className="h-4 w-4 mr-1" />
+              <MaterialIcon name="check" size="sm" className="mr-1" />
             )}
             Done
           </Button>
@@ -302,7 +293,7 @@ export function PhotoScanner({
           {mode === 'upload' ? (
             <div className="flex flex-col items-center justify-center py-8 space-y-4">
               <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <FileUp className="h-8 w-8 text-primary" />
+                <MaterialIcon name="upload" className="h-8 w-8 text-primary" />
               </div>
               <p className="text-muted-foreground text-sm">Select photos to upload</p>
               <input
@@ -314,7 +305,7 @@ export function PhotoScanner({
                 className="hidden"
               />
               <Button onClick={() => fileInputRef.current?.click()}>
-                <FileUp className="mr-2 h-4 w-4" />
+                <MaterialIcon name="upload" size="sm" className="mr-2" />
                 Choose Photos
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setMode('camera')}>
@@ -336,7 +327,7 @@ export function PhotoScanner({
 
                 {!cameraReady && !error && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-                    <Loader2 className="h-8 w-8 animate-spin text-white" />
+                    <MaterialIcon name="progress_activity" className="h-8 w-8 animate-spin text-white" />
                   </div>
                 )}
 
@@ -355,7 +346,7 @@ export function PhotoScanner({
                   onClick={() => setMode('upload')}
                   className="h-12 w-12 rounded-full"
                 >
-                  <FileUp className="h-5 w-5" />
+                  <MaterialIcon name="upload" size="md" />
                 </Button>
 
                 <Button
@@ -364,7 +355,7 @@ export function PhotoScanner({
                   disabled={!cameraReady || !canAddMore}
                   className="h-16 w-16 rounded-full"
                 >
-                  <Camera className="h-8 w-8" />
+                  <MaterialIcon name="photo_camera" className="h-8 w-8" />
                 </Button>
 
                 <div className="h-12 w-12" /> {/* Spacer for balance */}
@@ -393,7 +384,7 @@ export function PhotoScanner({
                       onClick={() => removePhoto(photo.id)}
                       className="absolute top-0.5 right-0.5 p-1 bg-destructive text-destructive-foreground rounded-full"
                     >
-                      <X className="h-3 w-3" />
+                      <MaterialIcon name="close" className="h-3 w-3" />
                     </button>
                   </div>
                 ))}
@@ -402,7 +393,7 @@ export function PhotoScanner({
                     onClick={captureImage}
                     className="flex-shrink-0 h-16 w-16 rounded-lg border-2 border-dashed flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
                   >
-                    <Plus className="h-5 w-5" />
+                    <MaterialIcon name="add" size="md" />
                   </button>
                 )}
               </div>

@@ -13,15 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import {
-  DollarSign,
-  Loader2,
-  Pencil,
-  Save,
-  X,
-  Trash2,
-  Plus,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface BillingCharge {
   id: string;
@@ -321,7 +313,7 @@ export function BillingChargesSection({
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
+            <MaterialIcon name="attach_money" size="sm" />
             Billing Charges
           </CardTitle>
         </CardHeader>
@@ -340,7 +332,7 @@ export function BillingChargesSection({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
-          <DollarSign className="h-4 w-4" />
+          <MaterialIcon name="attach_money" size="sm" />
           Billing Charges
         </CardTitle>
       </CardHeader>
@@ -420,9 +412,9 @@ export function BillingChargesSection({
                           disabled={savingId === charge.id}
                         >
                           {savingId === charge.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
                           ) : (
-                            <Save className="h-3 w-3" />
+                            <MaterialIcon name="save" size="sm" />
                           )}
                         </Button>
                         <Button
@@ -431,7 +423,7 @@ export function BillingChargesSection({
                           className="h-7 w-7"
                           onClick={handleCancelEdit}
                         >
-                          <X className="h-3 w-3" />
+                          <MaterialIcon name="close" size="sm" />
                         </Button>
                       </>
                     ) : (
@@ -447,7 +439,7 @@ export function BillingChargesSection({
                               className="h-7 w-7"
                               onClick={() => handleStartEdit(charge)}
                             >
-                              <Pencil className="h-3 w-3" />
+                              <MaterialIcon name="edit" size="sm" />
                             </Button>
                             <Button
                               size="icon"
@@ -457,9 +449,9 @@ export function BillingChargesSection({
                               disabled={savingId === charge.id}
                             >
                               {savingId === charge.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
+                                <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
                               ) : (
-                                <Trash2 className="h-3 w-3" />
+                                <MaterialIcon name="delete" size="sm" />
                               )}
                             </Button>
                           </>

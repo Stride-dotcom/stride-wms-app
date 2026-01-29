@@ -20,7 +20,7 @@ import { ItemTypeCombobox } from '@/components/items/ItemTypeCombobox';
 import { supabase } from '@/integrations/supabase/client';
 import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface ItemType {
   id: string;
@@ -192,12 +192,12 @@ export function AddShipmentItemDialog({
             <Button type="submit" disabled={saving}>
               {saving ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Adding...
                 </>
               ) : (
                 <>
-                  <Plus className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="add" size="sm" className="mr-2" />
                   Add Item
                 </>
               )}

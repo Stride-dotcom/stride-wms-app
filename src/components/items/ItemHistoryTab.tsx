@@ -4,19 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
-import {
-  Loader2,
-  MapPin,
-  DollarSign,
-  ClipboardList,
-  Package,
-  StickyNote,
-  Wrench,
-  History,
-  Info,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
   Tooltip,
   TooltipContent,
@@ -235,19 +223,19 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
   const getEventIcon = (type: HistoryEvent['type']) => {
     switch (type) {
       case 'movement':
-        return <MapPin className="h-4 w-4" />;
+        return <MaterialIcon name="location_on" size="sm" />;
       case 'billing':
-        return <DollarSign className="h-4 w-4" />;
+        return <MaterialIcon name="attach_money" size="sm" />;
       case 'task':
-        return <ClipboardList className="h-4 w-4" />;
+        return <MaterialIcon name="assignment" size="sm" />;
       case 'shipment':
-        return <Package className="h-4 w-4" />;
+        return <MaterialIcon name="inventory_2" size="sm" />;
       case 'note':
-        return <StickyNote className="h-4 w-4" />;
+        return <MaterialIcon name="sticky_note_2" size="sm" />;
       case 'repair':
-        return <Wrench className="h-4 w-4" />;
+        return <MaterialIcon name="handyman" size="sm" />;
       default:
-        return <History className="h-4 w-4" />;
+        return <MaterialIcon name="history" size="sm" />;
     }
   };
 
@@ -274,7 +262,7 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center h-48">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" className="text-[32px] animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -284,7 +272,7 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center h-48 text-center">
-          <History className="h-12 w-12 text-muted-foreground mb-4" />
+          <MaterialIcon name="history" className="text-[48px] text-muted-foreground mb-4" />
           <p className="text-muted-foreground">No history available for this item</p>
         </CardContent>
       </Card>
@@ -295,7 +283,7 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <History className="h-5 w-5" />
+          <MaterialIcon name="history" size="md" />
           Item History
         </CardTitle>
         <CardDescription>
@@ -390,12 +378,12 @@ function BillingMetadataDisplay({ calculation }: BillingMetadataDisplayProps) {
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger asChild>
         <Button variant="ghost" size="sm" className="mt-2 p-1 h-auto text-xs text-muted-foreground hover:text-foreground">
-          <Info className="h-3 w-3 mr-1" />
+          <MaterialIcon name="info" className="text-[12px] mr-1" />
           View calculation details
           {isOpen ? (
-            <ChevronUp className="h-3 w-3 ml-1" />
+            <MaterialIcon name="expand_less" className="text-[12px] ml-1" />
           ) : (
-            <ChevronDown className="h-3 w-3 ml-1" />
+            <MaterialIcon name="expand_more" className="text-[12px] ml-1" />
           )}
         </Button>
       </CollapsibleTrigger>

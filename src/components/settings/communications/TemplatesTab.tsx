@@ -44,25 +44,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Mail,
-  MessageSquare,
-  Code,
-  Eye,
-  Save,
-  History,
-  Search,
-  ChevronDown,
-  Smartphone,
-  Copy,
-  Check,
-  Send,
-  Loader2,
-  Variable,
-  Edit3,
-  MoreVertical,
-  X,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
   CommunicationAlert,
   CommunicationTemplate,
@@ -432,7 +414,7 @@ export function TemplatesTab({
                   <Button variant="outline" size="sm" className="h-9 touch-target">
                     <span className="hidden sm:inline">Insert Element</span>
                     <span className="sm:hidden">Insert</span>
-                    <ChevronDown className="ml-2 h-4 w-4" />
+                    <MaterialIcon name="expand_more" size="sm" className="ml-2" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[200px]">
@@ -461,7 +443,7 @@ export function TemplatesTab({
               <Tabs value={editorMode} onValueChange={(v) => setEditorMode(v as 'rich' | 'code')}>
                 <TabsList className="h-9">
                   <TabsTrigger value="code" className="text-xs px-3 h-7">
-                    <Code className="h-3 w-3 mr-1" />
+                    <MaterialIcon name="code" size="sm" className="mr-1" />
                     <span className="hidden sm:inline">Code</span>
                   </TabsTrigger>
                   <TabsTrigger value="rich" className="text-xs px-3 h-7" disabled>
@@ -497,7 +479,7 @@ export function TemplatesTab({
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-sm font-medium">Variables</CardTitle>
             <div className="relative w-full sm:w-[200px]">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="search" size="sm" className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search variables..."
                 className="pl-8 h-8 text-sm"
@@ -537,9 +519,9 @@ export function TemplatesTab({
                                 }}
                               >
                                 {copiedVar === variable.key ? (
-                                  <Check className="h-3 w-3 text-green-500" />
+                                  <MaterialIcon name="check" size="sm" className="text-green-500" />
                                 ) : (
-                                  <Copy className="h-3 w-3" />
+                                  <MaterialIcon name="content_copy" size="sm" />
                                 )}
                               </Button>
                             </div>
@@ -566,7 +548,7 @@ export function TemplatesTab({
     <div className="flex flex-col border rounded-lg overflow-hidden bg-muted/30 h-full min-h-[400px]">
       <div className="flex items-center justify-between p-3 border-b bg-background flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <Eye className="h-4 w-4" />
+          <MaterialIcon name="visibility" size="sm" />
           <span className="font-medium text-sm">Live Preview</span>
         </div>
         <Select value={previewContext} onValueChange={(v) => setPreviewContext(v as any)}>
@@ -590,7 +572,7 @@ export function TemplatesTab({
   if (!currentAlertId || !alerts.find(a => a.id === currentAlertId)) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-        <Mail className="h-12 w-12 text-muted-foreground mb-4" />
+        <MaterialIcon name="mail" size="lg" className="text-muted-foreground mb-4" />
         <h3 className="text-lg font-semibold mb-2">Select an Alert to Edit Templates</h3>
         <p className="text-muted-foreground mb-4">
           Choose an alert from the dropdown or go to the Alerts tab to create one.
@@ -641,7 +623,7 @@ export function TemplatesTab({
                   : 'bg-background hover:bg-muted'
               }`}
             >
-              <Mail className="h-5 w-5" />
+              <MaterialIcon name="mail" size="md" />
             </button>
             <button
               onClick={() => setCurrentChannel('sms')}
@@ -651,7 +633,7 @@ export function TemplatesTab({
                   : 'bg-background hover:bg-muted'
               }`}
             >
-              <MessageSquare className="h-5 w-5" />
+              <MaterialIcon name="chat" size="md" />
             </button>
           </div>
           
@@ -659,27 +641,27 @@ export function TemplatesTab({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" className="h-11 w-11 shrink-0">
-                <MoreVertical className="h-5 w-5" />
+                <MaterialIcon name="more_vert" size="md" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem onClick={() => setShowVariablesDrawer(true)} className="h-11">
-                <Variable className="h-4 w-4 mr-2" />
+                <MaterialIcon name="data_object" size="sm" className="mr-2" />
                 Insert Variable
               </DropdownMenuItem>
               <DropdownMenuItem onClick={loadVersions} className="h-11">
-                <History className="h-4 w-4 mr-2" />
+                <MaterialIcon name="history" size="sm" className="mr-2" />
                 Version History
               </DropdownMenuItem>
               {currentChannel === 'email' && (
                 <DropdownMenuItem onClick={() => setShowTestDialog(true)} className="h-11">
-                  <Send className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="send" size="sm" className="mr-2" />
                   Send Test Email
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSave} disabled={isSaving} className="h-11">
-                <Save className="h-4 w-4 mr-2" />
+                <MaterialIcon name="save" size="sm" className="mr-2" />
                 {isSaving ? 'Saving...' : 'Save Template'}
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -697,7 +679,7 @@ export function TemplatesTab({
             onClick={() => setShowEditorSheet(true)} 
             className="w-full h-12 text-base font-medium"
           >
-            <Edit3 className="h-5 w-5 mr-2" />
+            <MaterialIcon name="edit" size="md" className="mr-2" />
             Edit Template
           </Button>
         </div>
@@ -725,11 +707,11 @@ export function TemplatesTab({
             <Tabs value={currentChannel} onValueChange={(v) => setCurrentChannel(v as 'email' | 'sms')}>
               <TabsList>
                 <TabsTrigger value="email" className="gap-2">
-                  <Mail className="h-4 w-4" />
+                  <MaterialIcon name="mail" size="sm" />
                   Email
                 </TabsTrigger>
                 <TabsTrigger value="sms" className="gap-2">
-                  <MessageSquare className="h-4 w-4" />
+                  <MaterialIcon name="chat" size="sm" />
                   SMS
                 </TabsTrigger>
               </TabsList>
@@ -740,18 +722,18 @@ export function TemplatesTab({
           <div className="flex items-center gap-2 justify-end">
             {currentChannel === 'email' && (
               <Button variant="outline" size="sm" onClick={() => setShowTestDialog(true)}>
-                <Send className="h-4 w-4 mr-2" />
+                <MaterialIcon name="send" size="sm" className="mr-2" />
                 Send Test
               </Button>
             )}
             
             <Button variant="outline" size="sm" onClick={loadVersions}>
-              <History className="h-4 w-4 mr-2" />
+              <MaterialIcon name="history" size="sm" className="mr-2" />
               Versions
             </Button>
             
             <Button onClick={handleSave} disabled={isSaving} size="sm">
-              <Save className="h-4 w-4 mr-2" />
+              <MaterialIcon name="save" size="sm" className="mr-2" />
               {isSaving ? 'Saving...' : 'Save Template'}
             </Button>
           </div>
@@ -776,7 +758,7 @@ export function TemplatesTab({
                 className="h-9 w-9"
                 onClick={() => setShowEditorSheet(false)}
               >
-                <X className="h-5 w-5" />
+                <MaterialIcon name="close" size="md" />
               </Button>
             </div>
           </SheetHeader>
@@ -801,12 +783,12 @@ export function TemplatesTab({
               >
                 {isSaving ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                     Saving...
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-2" />
+                    <MaterialIcon name="save" size="sm" className="mr-2" />
                     Save
                   </>
                 )}
@@ -899,7 +881,7 @@ export function TemplatesTab({
               Cancel
             </Button>
             <Button onClick={handleSendTest} disabled={isSendingTest || !testEmail} className="w-full sm:w-auto h-12">
-              {isSendingTest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              {isSendingTest ? <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" /> : <MaterialIcon name="send" size="sm" className="mr-2" />}
               {isSendingTest ? 'Sending...' : 'Send Test'}
             </Button>
           </DialogFooter>

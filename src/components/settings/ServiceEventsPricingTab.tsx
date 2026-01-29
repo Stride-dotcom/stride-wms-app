@@ -9,32 +9,7 @@
  */
 
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
-import {
-  Loader2,
-  DollarSign,
-  Plus,
-  Trash2,
-  Search,
-  Filter,
-  Download,
-  Upload,
-  Copy,
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  Info,
-  X,
-  Check,
-  History,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  Save,
-  Settings2,
-  Eye,
-  EyeOff,
-  RotateCcw,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -403,7 +378,7 @@ export function ServiceEventsPricingTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -414,7 +389,7 @@ export function ServiceEventsPricingTab() {
       {hasPendingChanges && (
         <div className="sticky top-0 z-50 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-center justify-between shadow-lg">
           <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
-            <Info className="h-4 w-4" />
+            <MaterialIcon name="info" size="sm" />
             <span className="text-sm font-medium">
               You have unsaved changes ({pendingChanges.size} item{pendingChanges.size !== 1 ? 's' : ''})
             </span>
@@ -426,7 +401,7 @@ export function ServiceEventsPricingTab() {
               onClick={handleDiscardChanges}
               disabled={saving}
             >
-              <RotateCcw className="h-4 w-4 mr-1" />
+              <MaterialIcon name="restart_alt" size="sm" className="mr-1" />
               Discard
             </Button>
             <Button
@@ -435,9 +410,9 @@ export function ServiceEventsPricingTab() {
               disabled={saving}
             >
               {saving ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />
               ) : (
-                <Save className="h-4 w-4 mr-1" />
+                <MaterialIcon name="save" size="sm" className="mr-1" />
               )}
               Save Changes
             </Button>
@@ -463,9 +438,9 @@ export function ServiceEventsPricingTab() {
                   disabled={seeding}
                 >
                   {seeding ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   ) : (
-                    <RotateCcw className="mr-2 h-4 w-4" />
+                    <MaterialIcon name="restart_alt" size="sm" className="mr-2" />
                   )}
                   {filteredServiceEvents.length === 0 ? 'Load Default Pricing' : 'Reset to Defaults'}
                 </Button>
@@ -478,11 +453,11 @@ export function ServiceEventsPricingTab() {
             </Tooltip>
           </TooltipProvider>
           <Button onClick={() => { setDuplicateService(null); setAddDialogOpen(true); }}>
-            <Plus className="mr-2 h-4 w-4" />
+            <MaterialIcon name="add" size="sm" className="mr-2" />
             Add New Service
           </Button>
           <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" />
+            <MaterialIcon name="upload" size="sm" className="mr-2" />
             Import CSV
           </Button>
         </div>
@@ -493,7 +468,7 @@ export function ServiceEventsPricingTab() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
-              <Filter className="h-4 w-4" />
+              <MaterialIcon name="filter_list" size="sm" />
               Filters
             </CardTitle>
             <div className="flex gap-2">
@@ -501,7 +476,7 @@ export function ServiceEventsPricingTab() {
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm">
-                    <Settings2 className="h-4 w-4 mr-1" />
+                    <MaterialIcon name="settings" size="sm" className="mr-1" />
                     Columns
                   </Button>
                 </PopoverTrigger>
@@ -539,7 +514,7 @@ export function ServiceEventsPricingTab() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
-                      <Download className="h-4 w-4 mr-1" />
+                      <MaterialIcon name="download" size="sm" className="mr-1" />
                       Template
                     </Button>
                   </TooltipTrigger>
@@ -547,7 +522,7 @@ export function ServiceEventsPricingTab() {
                 </Tooltip>
               </TooltipProvider>
               <Button variant="outline" size="sm" onClick={handleExport}>
-                <Download className="h-4 w-4 mr-1" />
+                <MaterialIcon name="download" size="sm" className="mr-1" />
                 Export
               </Button>
             </div>
@@ -558,7 +533,7 @@ export function ServiceEventsPricingTab() {
             {/* Search */}
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <MaterialIcon name="search" size="sm" className="absolute left-2 top-2.5 text-muted-foreground" />
                 <Input
                   placeholder="Search services..."
                   value={filters.search || ''}
@@ -640,7 +615,7 @@ export function ServiceEventsPricingTab() {
                 onClick={() => setFilters({})}
                 className="text-muted-foreground"
               >
-                <X className="h-4 w-4 mr-1" />
+                <MaterialIcon name="close" size="sm" className="mr-1" />
                 Clear
               </Button>
             )}
@@ -721,7 +696,7 @@ export function ServiceEventsPricingTab() {
 
           {sortedEvents.length === 0 && (
             <div className="py-12 text-center">
-              <Info className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <MaterialIcon name="info" size="lg" className="mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No services found</h3>
               <p className="text-muted-foreground mb-4">
                 {filters.search || filters.service_code || filters.billing_trigger || filters.class_code || filters.is_active !== undefined
@@ -732,15 +707,15 @@ export function ServiceEventsPricingTab() {
                 {!(filters.search || filters.service_code || filters.billing_trigger || filters.class_code || filters.is_active !== undefined) && (
                   <Button onClick={handleSeedPricing} disabled={seeding}>
                     {seeding ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                     ) : (
-                      <RotateCcw className="mr-2 h-4 w-4" />
+                      <MaterialIcon name="restart_alt" size="sm" className="mr-2" />
                     )}
                     Load Default Pricing
                   </Button>
                 )}
                 <Button variant="outline" onClick={() => setAddDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="add" size="sm" className="mr-2" />
                   Add New Service
                 </Button>
               </div>
@@ -875,12 +850,12 @@ function SortableTableHead({ column, sortField, sortDirection, onSort }: Sortabl
         {column.label}
         {isActive ? (
           sortDirection === 'asc' ? (
-            <ArrowUp className="h-3 w-3" />
+            <MaterialIcon name="arrow_upward" size="sm" />
           ) : (
-            <ArrowDown className="h-3 w-3" />
+            <MaterialIcon name="arrow_downward" size="sm" />
           )
         ) : (
-          <ArrowUpDown className="h-3 w-3 opacity-30" />
+          <MaterialIcon name="swap_vert" size="sm" className="opacity-30" />
         )}
       </div>
     </TableHead>
@@ -940,9 +915,9 @@ function ServiceEventRow({
             }}
           >
             {isExpanded ? (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="expand_more" size="sm" className="text-muted-foreground" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="chevron_right" size="sm" className="text-muted-foreground" />
             )}
           </Button>
         </TableCell>
@@ -973,7 +948,7 @@ function ServiceEventRow({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onViewAudit}>
-                    <History className="h-4 w-4" />
+                    <MaterialIcon name="history" size="sm" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>View history</TooltipContent>
@@ -983,7 +958,7 @@ function ServiceEventRow({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onDuplicate}>
-                    <Copy className="h-4 w-4" />
+                    <MaterialIcon name="content_copy" size="sm" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Duplicate</TooltipContent>
@@ -998,7 +973,7 @@ function ServiceEventRow({
                     className="h-8 w-8 text-destructive hover:text-destructive"
                     onClick={onDelete}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <MaterialIcon name="delete" size="sm" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Delete</TooltipContent>
@@ -1261,9 +1236,9 @@ function MobileServiceCard({
       <div className="flex items-start justify-between gap-2" onClick={onToggleExpand}>
         <div className="flex items-center gap-2">
           {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <MaterialIcon name="expand_more" size="sm" className="text-muted-foreground flex-shrink-0" />
           ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <MaterialIcon name="chevron_right" size="sm" className="text-muted-foreground flex-shrink-0" />
           )}
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -1321,15 +1296,15 @@ function MobileServiceCard({
           {/* Actions */}
           <div className="flex items-center gap-2 pt-2 border-t">
             <Button variant="ghost" size="sm" onClick={onViewAudit}>
-              <History className="h-4 w-4 mr-1" />
+              <MaterialIcon name="history" size="sm" className="mr-1" />
               History
             </Button>
             <Button variant="ghost" size="sm" onClick={onDuplicate}>
-              <Copy className="h-4 w-4 mr-1" />
+              <MaterialIcon name="content_copy" size="sm" className="mr-1" />
               Copy
             </Button>
             <Button variant="ghost" size="sm" className="text-destructive" onClick={onDelete}>
-              <Trash2 className="h-4 w-4 mr-1" />
+              <MaterialIcon name="delete" size="sm" className="mr-1" />
               Delete
             </Button>
           </div>

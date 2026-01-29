@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { usePermissions } from '@/hooks/usePermissions';
-import { Loader2, Package, ClipboardList, Truck, TrendingUp, FileText, DollarSign, Receipt, LayoutDashboard } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
   BarChart,
   Bar,
@@ -122,7 +122,7 @@ export default function Reports() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-96">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
@@ -140,30 +140,30 @@ export default function Reports() {
         <Tabs defaultValue="analytics">
           <TabsList className="flex-wrap h-auto gap-1">
             <TabsTrigger value="analytics" className="gap-2">
-              <TrendingUp className="h-4 w-4" />
+              <MaterialIcon name="trending_up" size="sm" />
               Analytics
             </TabsTrigger>
             {isAdmin && (
               <TabsTrigger value="labor-costs" className="gap-2">
-                <DollarSign className="h-4 w-4" />
+                <MaterialIcon name="attach_money" size="sm" />
                 Labor Costs
               </TabsTrigger>
             )}
             {isAdmin && (
               <TabsTrigger value="billing" className="gap-2">
-                <FileText className="h-4 w-4" />
+                <MaterialIcon name="description" size="sm" />
                 Billing Report
               </TabsTrigger>
             )}
             {isAdmin && (
               <TabsTrigger value="invoices" className="gap-2">
-                <Receipt className="h-4 w-4" />
+                <MaterialIcon name="receipt" size="sm" />
                 Invoices
               </TabsTrigger>
             )}
             {isAdmin && (
               <TabsTrigger value="report-builder" className="gap-2">
-                <LayoutDashboard className="h-4 w-4" />
+                <MaterialIcon name="dashboard" size="sm" />
                 Report Builder
               </TabsTrigger>
             )}
@@ -175,7 +175,7 @@ export default function Reports() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Items</CardTitle>
-                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="inventory_2" size="sm" className="text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{stats.totalItems.toLocaleString()}</div>
@@ -184,7 +184,7 @@ export default function Reports() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Item Statuses</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="trending_up" size="sm" className="text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{stats.itemsByStatus.length}</div>
@@ -193,7 +193,7 @@ export default function Reports() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Receiving Batches</CardTitle>
-                  <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="assignment" size="sm" className="text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
@@ -204,7 +204,7 @@ export default function Reports() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-                  <Truck className="h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="local_shipping" size="sm" className="text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">

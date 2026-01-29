@@ -24,7 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLaborSettings } from '@/hooks/useLaborSettings';
-import { Loader2, Download, DollarSign, Clock, Users, Building } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface TaskWithTime {
   id: string;
@@ -482,7 +482,7 @@ export function LaborCostsTab() {
   if (loading || laborSettingsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -494,7 +494,7 @@ export function LaborCostsTab() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <MaterialIcon name="schedule" size="sm" className="text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totals.hours.toFixed(1)}</div>
@@ -503,7 +503,7 @@ export function LaborCostsTab() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Labor Cost</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <MaterialIcon name="attach_money" size="sm" className="text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${totals.cost.toFixed(2)}</div>
@@ -512,7 +512,7 @@ export function LaborCostsTab() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Tasks Completed</CardTitle>
-            <Building className="h-4 w-4 text-muted-foreground" />
+            <MaterialIcon name="business" size="sm" className="text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totals.tasks}</div>
@@ -521,7 +521,7 @@ export function LaborCostsTab() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Employees</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <MaterialIcon name="group" size="sm" className="text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totals.employees}</div>
@@ -628,7 +628,7 @@ export function LaborCostsTab() {
                 <CardDescription>Summary grouped by warehouse and employee role</CardDescription>
               </div>
               <Button variant="outline" size="sm" onClick={exportWarehouseRoleCSV}>
-                <Download className="h-4 w-4 mr-2" />
+                <MaterialIcon name="download" size="sm" className="mr-2" />
                 Export CSV
               </Button>
             </CardHeader>
@@ -679,7 +679,7 @@ export function LaborCostsTab() {
                 <CardDescription>Individual employee labor breakdown</CardDescription>
               </div>
               <Button variant="outline" size="sm" onClick={exportEmployeeCSV}>
-                <Download className="h-4 w-4 mr-2" />
+                <MaterialIcon name="download" size="sm" className="mr-2" />
                 Export CSV
               </Button>
             </CardHeader>
@@ -728,7 +728,7 @@ export function LaborCostsTab() {
                 <CardDescription>Hours and costs per task category</CardDescription>
               </div>
               <Button variant="outline" size="sm" onClick={exportTaskTypeCSV}>
-                <Download className="h-4 w-4 mr-2" />
+                <MaterialIcon name="download" size="sm" className="mr-2" />
                 Export CSV
               </Button>
             </CardHeader>

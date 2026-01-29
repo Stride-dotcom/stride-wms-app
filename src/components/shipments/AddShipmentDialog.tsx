@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ArrowDownToLine, ArrowUpFromLine, RotateCcw } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface AddShipmentDialogProps {
   open: boolean;
@@ -27,21 +27,21 @@ const SHIPMENT_TYPES = [
     value: 'inbound',
     label: 'Incoming Shipment',
     description: 'Receive goods into the warehouse',
-    icon: ArrowDownToLine,
+    iconName: 'download',
     route: '/shipments/new',
   },
   {
     value: 'outbound',
     label: 'Outbound Shipment',
     description: 'Ship goods out of the warehouse',
-    icon: ArrowUpFromLine,
+    iconName: 'upload',
     route: '/shipments/outbound/new',
   },
   {
     value: 'return',
     label: 'Return Shipment',
     description: 'Process customer returns',
-    icon: RotateCcw,
+    iconName: 'undo',
     route: '/shipments/return/new',
   },
 ] as const;
@@ -73,9 +73,7 @@ export function AddShipmentDialog({ open, onOpenChange }: AddShipmentDialogProps
           onValueChange={setSelectedType}
           className="space-y-3 py-4"
         >
-          {SHIPMENT_TYPES.map((type) => {
-            const Icon = type.icon;
-            return (
+          {SHIPMENT_TYPES.map((type) => (
               <div
                 key={type.value}
                 className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -86,14 +84,13 @@ export function AddShipmentDialog({ open, onOpenChange }: AddShipmentDialogProps
                 onClick={() => setSelectedType(type.value)}
               >
                 <RadioGroupItem value={type.value} id={type.value} />
-                <Icon className="h-5 w-5 text-muted-foreground" />
+                <MaterialIcon name={type.iconName} size="md" className="text-muted-foreground" />
                 <Label htmlFor={type.value} className="flex-1 cursor-pointer">
                   <div className="font-medium">{type.label}</div>
                   <div className="text-sm text-muted-foreground">{type.description}</div>
                 </Label>
               </div>
-            );
-          })}
+            ))}
         </RadioGroup>
 
         <DialogFooter>

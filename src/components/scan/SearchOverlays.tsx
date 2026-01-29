@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, X, Package, MapPin, Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 
 interface ItemResult {
@@ -86,10 +86,10 @@ export function ItemSearchOverlay({
           onClick={onClose}
           className="p-2 hover:bg-muted rounded-lg transition-colors"
         >
-          <X className="h-6 w-6" />
+          <MaterialIcon name="close" size="lg" />
         </button>
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <MaterialIcon name="search" size="md" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             ref={inputRef}
             type="text"
@@ -106,13 +106,13 @@ export function ItemSearchOverlay({
       <div className="flex-1 overflow-y-auto">
         {loading && (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <MaterialIcon name="progress_activity" className="text-[32px] animate-spin text-muted-foreground" />
           </div>
         )}
 
         {!loading && query.length > 0 && results.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <Package className="h-12 w-12 mb-4" />
+            <MaterialIcon name="inventory_2" className="text-5xl mb-4" />
             <p>No items found for "{query}"</p>
           </div>
         )}
@@ -125,7 +125,7 @@ export function ItemSearchOverlay({
                 onClick={() => onSelect(item)}
                 className="w-full flex items-center gap-4 p-4 hover:bg-muted rounded-xl transition-colors text-left"
               >
-                <Package className="h-8 w-8 text-primary shrink-0" />
+                <MaterialIcon name="inventory_2" className="text-[32px] text-primary shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-lg">{item.item_code}</p>
                   <p className="text-sm text-muted-foreground truncate">
@@ -134,7 +134,7 @@ export function ItemSearchOverlay({
                 </div>
                 {item.location_code && (
                   <div className="flex items-center gap-1 text-sm text-muted-foreground shrink-0">
-                    <MapPin className="h-4 w-4" />
+                    <MaterialIcon name="location_on" size="sm" />
                     {item.location_code}
                   </div>
                 )}
@@ -145,7 +145,7 @@ export function ItemSearchOverlay({
 
         {!loading && query.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <Search className="h-12 w-12 mb-4" />
+            <MaterialIcon name="search" className="text-5xl mb-4" />
             <p>Start typing to search items</p>
           </div>
         )}
@@ -206,10 +206,10 @@ export function LocationSearchOverlay({
           onClick={onClose}
           className="p-2 hover:bg-muted rounded-lg transition-colors"
         >
-          <X className="h-6 w-6" />
+          <MaterialIcon name="close" size="lg" />
         </button>
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <MaterialIcon name="search" size="md" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             ref={inputRef}
             type="text"
@@ -226,7 +226,7 @@ export function LocationSearchOverlay({
       <div className="flex-1 overflow-y-auto">
         {filteredLocations.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <MapPin className="h-12 w-12 mb-4" />
+            <MaterialIcon name="location_on" className="text-5xl mb-4" />
             <p>No locations found</p>
           </div>
         )}
@@ -239,7 +239,7 @@ export function LocationSearchOverlay({
                 onClick={() => onSelect(loc)}
                 className="w-full flex items-center gap-4 p-4 hover:bg-muted rounded-xl transition-colors text-left"
               >
-                <MapPin className="h-8 w-8 text-primary shrink-0" />
+                <MaterialIcon name="location_on" className="text-[32px] text-primary shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-lg">{loc.code}</p>
                   {loc.name && (

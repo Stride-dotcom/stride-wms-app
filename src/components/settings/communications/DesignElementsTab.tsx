@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Copy, Check, Eye, Plus, Lock } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { CommunicationDesignElement } from '@/hooks/useCommunications';
 
 interface DesignElementsTabProps {
@@ -123,7 +123,7 @@ export function DesignElementsTab({ designElements }: DesignElementsTabProps) {
                   <CardTitle className="text-sm font-medium">{element.name}</CardTitle>
                   {element.is_system && (
                     <Badge variant="secondary" className="text-xs">
-                      <Lock className="h-3 w-3 mr-1" />
+                      <MaterialIcon name="lock" size="sm" className="mr-1" />
                       System
                     </Badge>
                   )}
@@ -146,12 +146,12 @@ export function DesignElementsTab({ designElements }: DesignElementsTabProps) {
                 >
                   {copiedId === element.id ? (
                     <>
-                      <Check className="mr-2 h-4 w-4 text-green-500" />
+                      <MaterialIcon name="check" size="sm" className="mr-2 text-green-500" />
                       Copied
                     </>
                   ) : (
                     <>
-                      <Copy className="mr-2 h-4 w-4" />
+                      <MaterialIcon name="content_copy" size="sm" className="mr-2" />
                       Copy HTML
                     </>
                   )}
@@ -161,7 +161,7 @@ export function DesignElementsTab({ designElements }: DesignElementsTabProps) {
                   size="sm"
                   onClick={() => setPreviewElement(element)}
                 >
-                  <Eye className="h-4 w-4" />
+                  <MaterialIcon name="visibility" size="sm" />
                 </Button>
               </div>
             </CardContent>
@@ -229,12 +229,12 @@ export function DesignElementsTab({ designElements }: DesignElementsTabProps) {
             <Button onClick={() => previewElement && copySnippet(previewElement)}>
               {copiedId === previewElement?.id ? (
                 <>
-                  <Check className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="check" size="sm" className="mr-2" />
                   Copied
                 </>
               ) : (
                 <>
-                  <Copy className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="content_copy" size="sm" className="mr-2" />
                   Copy HTML
                 </>
               )}

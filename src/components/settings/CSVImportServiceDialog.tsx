@@ -22,14 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Loader2,
-  CheckCircle,
-  AlertTriangle,
-  Upload,
-  FileText,
-  X,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -389,7 +382,7 @@ export function CSVImportServiceDialog({
               className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
               onClick={() => fileInputRef.current?.click()}
             >
-              <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <MaterialIcon name="upload" size="lg" className="mx-auto text-muted-foreground mb-4" />
               <p className="text-lg font-medium mb-1">
                 Click to upload or drag and drop
               </p>
@@ -407,7 +400,7 @@ export function CSVImportServiceDialog({
 
             {parsing && (
               <div className="flex items-center justify-center gap-2 py-4">
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <MaterialIcon name="progress_activity" size="md" className="animate-spin" />
                 <span>Parsing file...</span>
               </div>
             )}
@@ -419,7 +412,7 @@ export function CSVImportServiceDialog({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-muted-foreground" />
+                <MaterialIcon name="description" size="md" className="text-muted-foreground" />
                 <span className="font-medium">{file?.name}</span>
               </div>
               <Button
@@ -431,7 +424,7 @@ export function CSVImportServiceDialog({
                   setStep('upload');
                 }}
               >
-                <X className="h-4 w-4 mr-1" />
+                <MaterialIcon name="close" size="sm" className="mr-1" />
                 Change File
               </Button>
             </div>
@@ -469,9 +462,9 @@ export function CSVImportServiceDialog({
                     >
                       <TableCell>
                         {service.valid ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <MaterialIcon name="check_circle" size="sm" className="text-green-600" />
                         ) : (
-                          <AlertTriangle className="h-4 w-4 text-red-600" />
+                          <MaterialIcon name="warning" size="sm" className="text-red-600" />
                         )}
                       </TableCell>
                       <TableCell className="font-mono text-sm">
@@ -530,7 +523,7 @@ export function CSVImportServiceDialog({
         {step === 'importing' && (
           <div className="space-y-4 py-4">
             <div className="flex items-center gap-3">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <MaterialIcon name="progress_activity" size="md" className="animate-spin text-primary" />
               <span>Importing services...</span>
             </div>
             <Progress value={progress} />
@@ -545,7 +538,7 @@ export function CSVImportServiceDialog({
           <div className="space-y-4 py-4">
             {result.success > 0 && (
               <div className="flex items-center gap-3 text-green-600">
-                <CheckCircle className="h-6 w-6" />
+                <MaterialIcon name="check_circle" size="md" />
                 <span className="font-medium">
                   {result.success} service{result.success !== 1 ? 's' : ''} imported successfully
                 </span>
@@ -553,7 +546,7 @@ export function CSVImportServiceDialog({
             )}
             {result.skipped > 0 && (
               <div className="flex items-center gap-3 text-amber-600">
-                <AlertTriangle className="h-6 w-6" />
+                <MaterialIcon name="warning" size="md" />
                 <span>
                   {result.skipped} service{result.skipped !== 1 ? 's' : ''} skipped (already exist)
                 </span>
@@ -561,7 +554,7 @@ export function CSVImportServiceDialog({
             )}
             {result.failed > 0 && (
               <div className="flex items-center gap-3 text-red-600">
-                <AlertTriangle className="h-6 w-6" />
+                <MaterialIcon name="warning" size="md" />
                 <span>
                   {result.failed} service{result.failed !== 1 ? 's' : ''} failed to import
                 </span>

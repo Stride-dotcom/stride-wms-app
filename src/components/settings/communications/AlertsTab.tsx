@@ -38,7 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Mail, MessageSquare, Trash2, Edit2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { CommunicationAlert, TRIGGER_EVENTS } from '@/hooks/useCommunications';
 import { format } from 'date-fns';
 
@@ -135,7 +135,7 @@ export function AlertsTab({
           </p>
         </div>
         <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="mr-2 h-4 w-4" />
+          <MaterialIcon name="add" size="sm" className="mr-2" />
           Create Alert
         </Button>
       </div>
@@ -186,7 +186,7 @@ export function AlertsTab({
                           size="sm"
                           onClick={() => onEditTemplate(alert.id, 'email')}
                         >
-                          <Edit2 className="h-3 w-3" />
+                          <MaterialIcon name="edit" size="sm" />
                         </Button>
                       )}
                     </div>
@@ -203,7 +203,7 @@ export function AlertsTab({
                           size="sm"
                           onClick={() => onEditTemplate(alert.id, 'sms')}
                         >
-                          <Edit2 className="h-3 w-3" />
+                          <MaterialIcon name="edit" size="sm" />
                         </Button>
                       )}
                     </div>
@@ -222,7 +222,7 @@ export function AlertsTab({
                       size="sm"
                       onClick={() => setAlertToDelete(alert)}
                     >
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <MaterialIcon name="delete" size="sm" className="text-destructive" />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -300,17 +300,17 @@ export function AlertsTab({
                       setFormData(prev => ({ ...prev, channels: { ...prev.channels, email: checked } }))
                     }
                   />
-                  <Mail className="h-4 w-4" />
+                  <MaterialIcon name="mail" size="sm" />
                   <span>Email</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Switch
                     checked={formData.channels.sms}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setFormData(prev => ({ ...prev, channels: { ...prev.channels, sms: checked } }))
                     }
                   />
-                  <MessageSquare className="h-4 w-4" />
+                  <MaterialIcon name="chat" size="sm" />
                   <span>SMS</span>
                 </label>
               </div>

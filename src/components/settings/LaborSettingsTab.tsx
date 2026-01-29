@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLaborSettings } from '@/hooks/useLaborSettings';
-import { DollarSign, Clock, Calculator, Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 export function LaborSettingsTab() {
   const { settings, loading, saveSettings } = useLaborSettings();
@@ -62,7 +62,7 @@ export function LaborSettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" />
+            <MaterialIcon name="attach_money" size="md" />
             Currency & Pay Settings
           </CardTitle>
           <CardDescription>
@@ -116,7 +116,7 @@ export function LaborSettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
+            <MaterialIcon name="schedule" size="md" />
             Work Week Settings
           </CardTitle>
           <CardDescription>
@@ -183,7 +183,7 @@ export function LaborSettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5" />
+            <MaterialIcon name="calculate" size="md" />
             Overtime Calculation Example
           </CardTitle>
         </CardHeader>
@@ -205,7 +205,7 @@ export function LaborSettingsTab() {
 
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {isSaving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
           Save Labor Settings
         </Button>
       </div>

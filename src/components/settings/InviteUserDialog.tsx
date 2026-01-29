@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Mail, UserPlus } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -145,7 +145,7 @@ export function InviteUserDialog({
       <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
+            <MaterialIcon name="person_add" size="md" />
             Invite User
           </DialogTitle>
           <DialogDescription>
@@ -163,7 +163,7 @@ export function InviteUserDialog({
                   <FormLabel>Email Address *</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <MaterialIcon name="mail" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                       <Input 
                         placeholder="user@example.com" 
                         className="pl-9"
@@ -261,7 +261,7 @@ export function InviteUserDialog({
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
                 Send Invitation
               </Button>
             </DialogFooter>

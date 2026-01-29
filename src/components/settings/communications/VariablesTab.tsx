@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Copy, Check, Info } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { COMMUNICATION_VARIABLES } from '@/hooks/useCommunications';
 
 export function VariablesTab() {
@@ -49,7 +49,7 @@ export function VariablesTab() {
       {/* Search and Copy All - Stack on mobile */}
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center">
         <div className="relative flex-1 sm:max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search variables..."
             className="pl-10"
@@ -60,12 +60,12 @@ export function VariablesTab() {
         <Button variant="outline" onClick={copyAll} className="w-full sm:w-auto">
           {copiedVar === 'all' ? (
             <>
-              <Check className="mr-2 h-4 w-4 text-green-500" />
+              <MaterialIcon name="check" size="sm" className="mr-2 text-green-500" />
               Copied All
             </>
           ) : (
             <>
-              <Copy className="mr-2 h-4 w-4" />
+              <MaterialIcon name="content_copy" size="sm" className="mr-2" />
               Copy All Variables
             </>
           )}
@@ -101,7 +101,7 @@ export function VariablesTab() {
                       {`{{${variable.key}}}`}
                     </code>
                     {copiedVar === variable.key && (
-                      <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <MaterialIcon name="check" size="sm" className="text-green-500 flex-shrink-0" />
                     )}
                   </div>
                   <p className="font-medium text-sm">{variable.label}</p>
@@ -148,7 +148,7 @@ export function VariablesTab() {
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+            <MaterialIcon name="info" size="md" className="text-primary mt-0.5 flex-shrink-0" />
             <div>
               <h4 className="font-medium text-sm">Special Variables</h4>
               <div className="text-sm text-muted-foreground mt-2 space-y-2">

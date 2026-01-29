@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Save, ArrowLeft } from "lucide-react";
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 // ============================================
 // TYPES
@@ -435,7 +435,7 @@ export default function ShipmentCreate() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
@@ -447,7 +447,7 @@ export default function ShipmentCreate() {
         {/* Header */}
         <div className="flex items-center gap-4 mb-6 pt-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
-            <ArrowLeft className="h-5 w-5" />
+            <MaterialIcon name="arrow_back" size="md" />
           </Button>
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold truncate">
@@ -510,7 +510,7 @@ export default function ShipmentCreate() {
                       title="Add new sidemark"
                       className="shrink-0"
                     >
-                      <Plus className="h-4 w-4" />
+                      <MaterialIcon name="add" size="sm" />
                     </Button>
                   </div>
                 </div>
@@ -590,7 +590,7 @@ export default function ShipmentCreate() {
             <CardHeader className="flex flex-row items-center justify-between gap-4">
               <CardTitle className="text-lg">Expected Items</CardTitle>
               <Button type="button" variant="outline" size="sm" onClick={addItem}>
-                <Plus className="h-4 w-4 mr-2" />
+                <MaterialIcon name="add" size="sm" className="mr-2" />
                 Add Item
               </Button>
             </CardHeader>
@@ -620,12 +620,12 @@ export default function ShipmentCreate() {
             <Button type="submit" disabled={saving} className="min-w-[140px]">
               {saving ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Creating...
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="save" size="sm" className="mr-2" />
                   Create Shipment
                 </>
               )}
@@ -679,7 +679,7 @@ export default function ShipmentCreate() {
                 onClick={handleCreateSidemark}
                 disabled={creatingSidemark || !newSidemarkData.sidemark_name}
               >
-                {creatingSidemark && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {creatingSidemark && <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />}
                 Create Sidemark
               </Button>
             </DialogFooter>

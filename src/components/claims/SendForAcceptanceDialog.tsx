@@ -19,7 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { queueClaimSentForAcceptanceAlert } from '@/lib/alertQueue';
-import { Send, AlertTriangle, DollarSign, Copy, CheckCircle } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import type { Claim, ClaimItem } from '@/hooks/useClaims';
 
 interface SendForAcceptanceDialogProps {
@@ -202,7 +202,7 @@ export function SendForAcceptanceDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Send className="h-5 w-5" />
+            <MaterialIcon name="send" size="md" />
             Send Claim for Acceptance
           </DialogTitle>
           <DialogDescription>
@@ -214,7 +214,7 @@ export function SendForAcceptanceDialog({
           // Success state with link
           <div className="space-y-4 py-4">
             <div className="flex items-center justify-center gap-2 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <CheckCircle className="h-6 w-6 text-green-600" />
+              <MaterialIcon name="check_circle" size="lg" className="text-green-600" />
               <span className="text-green-700 dark:text-green-400 font-medium">
                 Claim sent for acceptance!
               </span>
@@ -233,7 +233,7 @@ export function SendForAcceptanceDialog({
                   className="flex-1 text-sm p-2 bg-muted rounded border"
                 />
                 <Button variant="outline" size="sm" onClick={copyLink}>
-                  {linkCopied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {linkCopied ? <MaterialIcon name="check_circle" size="sm" /> : <MaterialIcon name="content_copy" size="sm" />}
                 </Button>
               </div>
             </Card>
@@ -248,7 +248,7 @@ export function SendForAcceptanceDialog({
               {/* Approval Warning */}
               {approvalRequired && (
                 <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
+                  <MaterialIcon name="warning" size="sm" />
                   <AlertDescription>
                     This claim exceeds the approval threshold (${approvalThreshold.toFixed(2)}) and requires admin approval before sending.
                   </AlertDescription>
@@ -258,7 +258,7 @@ export function SendForAcceptanceDialog({
               {/* Payout Summary */}
               <Card className="p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <DollarSign className="h-5 w-5 text-muted-foreground" />
+                  <MaterialIcon name="attach_money" size="md" className="text-muted-foreground" />
                   <h4 className="font-medium">Payout Summary</h4>
                 </div>
                 <div className="space-y-2 text-sm">
@@ -283,7 +283,7 @@ export function SendForAcceptanceDialog({
               {/* Validation Warning */}
               {!canSend && (
                 <Alert>
-                  <AlertTriangle className="h-4 w-4" />
+                  <MaterialIcon name="warning" size="sm" />
                   <AlertDescription>
                     {claimItems.length === 0
                       ? 'No items in this claim. Add items before sending.'
@@ -361,7 +361,7 @@ export function SendForAcceptanceDialog({
                   </>
                 ) : (
                   <>
-                    <Send className="mr-2 h-4 w-4" />
+                    <MaterialIcon name="send" size="sm" className="mr-2" />
                     Send for Acceptance
                   </>
                 )}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Save } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { VariablesTable } from '../VariablesTable';
 
 interface RecipientsTabProps {
@@ -40,7 +40,7 @@ export function RecipientsTab({ alertId }: RecipientsTabProps) {
           <p className="text-sm text-muted-foreground">Configure who receives this alert</p>
         </div>
         <Button onClick={handleSave} disabled={isSaving}>
-          <Save className="h-4 w-4 mr-2" />
+          <MaterialIcon name="save" size="sm" className="mr-2" />
           {isSaving ? 'Saving...' : 'Save'}
         </Button>
       </div>

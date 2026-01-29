@@ -48,28 +48,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
-import {
-  ArrowLeft,
-  Loader2,
-  Plus,
-  Trash2,
-  Search,
-  CheckCircle,
-  XCircle,
-  Clock,
-  User,
-  FileEdit,
-  History,
-  ScanLine,
-  Play,
-  ClipboardList,
-  Package,
-  DollarSign,
-  MapPin,
-  Calendar,
-  AlertTriangle,
-  Printer,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 
 const statusColors: Record<ManifestStatus, string> = {
@@ -88,17 +67,17 @@ const statusLabels: Record<ManifestStatus, string> = {
   cancelled: 'Cancelled',
 };
 
-const actionLabels: Record<string, { label: string; icon: any; color: string }> = {
-  created: { label: 'Created', icon: Plus, color: 'text-green-400' },
-  updated: { label: 'Updated', icon: FileEdit, color: 'text-blue-400' },
-  item_added: { label: 'Item Added', icon: Plus, color: 'text-green-400' },
-  item_removed: { label: 'Item Removed', icon: Trash2, color: 'text-red-400' },
-  items_bulk_added: { label: 'Items Added (Bulk)', icon: Plus, color: 'text-green-400' },
-  items_bulk_removed: { label: 'Items Removed (Bulk)', icon: Trash2, color: 'text-red-400' },
-  started: { label: 'Started', icon: Play, color: 'text-yellow-400' },
-  completed: { label: 'Completed', icon: CheckCircle, color: 'text-green-400' },
-  cancelled: { label: 'Cancelled', icon: XCircle, color: 'text-red-400' },
-  status_changed: { label: 'Status Changed', icon: Clock, color: 'text-blue-400' },
+const actionLabels: Record<string, { label: string; iconName: string; color: string }> = {
+  created: { label: 'Created', iconName: 'add', color: 'text-green-400' },
+  updated: { label: 'Updated', iconName: 'edit', color: 'text-blue-400' },
+  item_added: { label: 'Item Added', iconName: 'add', color: 'text-green-400' },
+  item_removed: { label: 'Item Removed', iconName: 'delete', color: 'text-red-400' },
+  items_bulk_added: { label: 'Items Added (Bulk)', iconName: 'add', color: 'text-green-400' },
+  items_bulk_removed: { label: 'Items Removed (Bulk)', iconName: 'delete', color: 'text-red-400' },
+  started: { label: 'Started', iconName: 'play_arrow', color: 'text-yellow-400' },
+  completed: { label: 'Completed', iconName: 'check_circle', color: 'text-green-400' },
+  cancelled: { label: 'Cancelled', iconName: 'cancel', color: 'text-red-400' },
+  status_changed: { label: 'Status Changed', iconName: 'schedule', color: 'text-blue-400' },
 };
 
 export default function ManifestDetail() {
@@ -243,7 +222,7 @@ export default function ManifestDetail() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
@@ -253,7 +232,7 @@ export default function ManifestDetail() {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
-          <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <MaterialIcon name="warning" size="xl" className="mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-xl font-semibold">Manifest not found</h2>
           <Button variant="link" onClick={() => navigate('/manifests')}>
             Back to Manifests
@@ -272,7 +251,7 @@ export default function ManifestDetail() {
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4" />
+          <MaterialIcon name="arrow_back" size="sm" />
         </Button>
         <div className="flex-1">
           <div className="flex items-center gap-3">
@@ -282,7 +261,7 @@ export default function ManifestDetail() {
             </Badge>
             {manifest.billable && (
               <Badge variant="secondary" className="bg-green-500/20 text-green-400">
-                <DollarSign className="h-3 w-3 mr-1" />
+                <MaterialIcon name="attach_money" size="sm" className="mr-1" />
                 Billable
               </Badge>
             )}
@@ -292,18 +271,18 @@ export default function ManifestDetail() {
         <div className="flex gap-2">
           {isDraft && items.length > 0 && (
             <Button onClick={() => setConfirmAction({ type: 'start' })}>
-              <Play className="h-4 w-4 mr-2" />
+              <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
               Start
             </Button>
           )}
           {isActive && (
             <>
               <Button onClick={() => navigate(`/manifests/${id}/scan`)}>
-                <ScanLine className="h-4 w-4 mr-2" />
+                <MaterialIcon name="qr_code_scanner" size="sm" className="mr-2" />
                 Scan Items
               </Button>
               <Button variant="outline" onClick={() => setConfirmAction({ type: 'complete' })}>
-                <CheckCircle className="h-4 w-4 mr-2" />
+                <MaterialIcon name="check_circle" size="sm" className="mr-2" />
                 Complete
               </Button>
             </>
@@ -320,7 +299,7 @@ export default function ManifestDetail() {
                 <p className="text-sm text-muted-foreground">Total Items</p>
                 <p className="text-2xl font-bold">{manifest.expected_item_count}</p>
               </div>
-              <Package className="h-8 w-8 text-muted-foreground/50" />
+              <MaterialIcon name="inventory_2" size="xl" className="text-muted-foreground/50" />
             </div>
           </CardContent>
         </Card>
@@ -331,7 +310,7 @@ export default function ManifestDetail() {
                 <p className="text-sm text-muted-foreground">Scanned</p>
                 <p className="text-2xl font-bold text-green-400">{manifest.scanned_item_count}</p>
               </div>
-              <CheckCircle className="h-8 w-8 text-green-400/50" />
+              <MaterialIcon name="check_circle" size="xl" className="text-green-400/50" />
             </div>
           </CardContent>
         </Card>
@@ -344,7 +323,7 @@ export default function ManifestDetail() {
                   {manifest.expected_item_count - manifest.scanned_item_count}
                 </p>
               </div>
-              <Clock className="h-8 w-8 text-yellow-400/50" />
+              <MaterialIcon name="schedule" size="xl" className="text-yellow-400/50" />
             </div>
           </CardContent>
         </Card>
@@ -402,11 +381,11 @@ export default function ManifestDetail() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="items" className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4" />
+            <MaterialIcon name="assignment" size="sm" />
             Items ({items.length})
           </TabsTrigger>
           <TabsTrigger value="history" className="flex items-center gap-2">
-            <History className="h-4 w-4" />
+            <MaterialIcon name="history" size="sm" />
             Audit History
           </TabsTrigger>
         </TabsList>
@@ -424,7 +403,7 @@ export default function ManifestDetail() {
                 </div>
                 <div className="flex gap-2">
                   <div className="relative flex-1 md:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       placeholder="Search items..."
                       value={searchQuery}
@@ -439,7 +418,7 @@ export default function ManifestDetail() {
                         size="sm"
                         onClick={() => setPrintLabelsOpen(true)}
                       >
-                        <Printer className="h-4 w-4 mr-1" />
+                        <MaterialIcon name="print" size="sm" className="mr-1" />
                         Print Labels ({selectedItems.length})
                       </Button>
                       {isDraft && (
@@ -448,7 +427,7 @@ export default function ManifestDetail() {
                           size="sm"
                           onClick={() => setConfirmAction({ type: 'remove', itemIds: selectedItems })}
                         >
-                          <Trash2 className="h-4 w-4 mr-1" />
+                          <MaterialIcon name="delete" size="sm" className="mr-1" />
                           Remove ({selectedItems.length})
                         </Button>
                       )}
@@ -458,7 +437,7 @@ export default function ManifestDetail() {
                     <Popover open={addItemOpen} onOpenChange={setAddItemOpen}>
                       <PopoverTrigger asChild>
                         <Button size="sm">
-                          <Plus className="h-4 w-4 mr-1" />
+                          <MaterialIcon name="add" size="sm" className="mr-1" />
                           Add Items
                         </Button>
                       </PopoverTrigger>
@@ -476,7 +455,7 @@ export default function ManifestDetail() {
                               </div>
                             ) : searchLoading ? (
                               <div className="p-4 flex justify-center">
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
                               </div>
                             ) : searchResults.length === 0 ? (
                               <CommandEmpty>No items found</CommandEmpty>
@@ -494,7 +473,7 @@ export default function ManifestDetail() {
                                         {item.description}
                                       </div>
                                     </div>
-                                    <Plus className="h-4 w-4 text-muted-foreground" />
+                                    <MaterialIcon name="add" size="sm" className="text-muted-foreground" />
                                   </CommandItem>
                                 ))}
                               </CommandGroup>
@@ -510,7 +489,7 @@ export default function ManifestDetail() {
             <CardContent className="p-0">
               {items.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
-                  <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <MaterialIcon name="inventory_2" size="xl" className="mx-auto mb-4 opacity-50" />
                   <p>No items on this manifest</p>
                   {isDraft && (
                     <Button variant="link" onClick={() => setAddItemOpen(true)}>
@@ -560,12 +539,12 @@ export default function ManifestDetail() {
                         <TableCell>
                           {item.scanned ? (
                             <Badge className="bg-green-500/20 text-green-400">
-                              <CheckCircle className="h-3 w-3 mr-1" />
+                              <MaterialIcon name="check_circle" size="sm" className="mr-1" />
                               Scanned
                             </Badge>
                           ) : (
                             <Badge variant="secondary">
-                              <Clock className="h-3 w-3 mr-1" />
+                              <MaterialIcon name="schedule" size="sm" className="mr-1" />
                               Pending
                             </Badge>
                           )}
@@ -596,11 +575,11 @@ export default function ManifestDetail() {
             <CardContent>
               {historyLoading ? (
                 <div className="flex justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
                 </div>
               ) : history.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <MaterialIcon name="history" size="xl" className="mx-auto mb-4 opacity-50" />
                   <p>No history available</p>
                 </div>
               ) : (
@@ -608,15 +587,14 @@ export default function ManifestDetail() {
                   {history.map((entry) => {
                     const actionConfig = actionLabels[entry.action] || {
                       label: entry.action,
-                      icon: Clock,
+                      iconName: 'schedule',
                       color: 'text-muted-foreground'
                     };
-                    const Icon = actionConfig.icon;
 
                     return (
                       <div key={entry.id} className="flex gap-4 pb-4 border-b last:border-0">
                         <div className={`mt-1 ${actionConfig.color}`}>
-                          <Icon className="h-5 w-5" />
+                          <MaterialIcon name={actionConfig.iconName} size="md" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -626,7 +604,7 @@ export default function ManifestDetail() {
                             </span>
                           </div>
                           <div className="text-sm text-muted-foreground flex items-center gap-1">
-                            <User className="h-3 w-3" />
+                            <MaterialIcon name="person" size="sm" />
                             {entry.changed_by_user?.first_name} {entry.changed_by_user?.last_name}
                             {entry.changed_by_user?.email && (
                               <span className="text-xs">({entry.changed_by_user.email})</span>

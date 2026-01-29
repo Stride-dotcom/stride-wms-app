@@ -46,7 +46,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Loader2, X, Check, ChevronsUpDown, AlertCircle, ArrowRight } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useAccountPricing, ServiceEvent, CreateAdjustmentInput } from '@/hooks/useAccountPricing';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -233,7 +233,7 @@ export function CreateAdjustmentDialog({
                   {selectedServices.length > 0
                     ? `${selectedServices.length} service${selectedServices.length !== 1 ? 's' : ''} selected`
                     : 'Select services...'}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  <MaterialIcon name="unfold_more" size="sm" className="ml-2 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[500px] p-0" align="start">
@@ -263,9 +263,11 @@ export function CreateAdjustmentDialog({
                                 onSelect={() => toggleService(service)}
                                 className={cn(hasExisting && 'opacity-50')}
                               >
-                                <Check
+                                <MaterialIcon
+                                  name="check"
+                                  size="sm"
                                   className={cn(
-                                    'mr-2 h-4 w-4',
+                                    'mr-2',
                                     isSelected ? 'opacity-100' : 'opacity-0'
                                   )}
                                 />
@@ -314,7 +316,7 @@ export function CreateAdjustmentDialog({
                         onClick={() => removeService(service)}
                         className="ml-1 hover:bg-black/10 rounded-full"
                       >
-                        <X className="h-3 w-3" />
+                        <MaterialIcon name="close" className="h-3 w-3" />
                       </button>
                     </Badge>
                   );
@@ -326,7 +328,7 @@ export function CreateAdjustmentDialog({
           {/* Conflict Warning */}
           {conflicts.length > 0 && (
             <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
+              <MaterialIcon name="warning" size="sm" />
               <AlertDescription>
                 {conflicts.length} selected service{conflicts.length !== 1 ? 's' : ''} already{' '}
                 {conflicts.length !== 1 ? 'have' : 'has'} adjustments and will be skipped:
@@ -462,7 +464,7 @@ export function CreateAdjustmentDialog({
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                              <MaterialIcon name="arrow_forward" className="h-3 w-3 text-muted-foreground" />
                               <span className="font-mono font-medium">
                                 ${effectiveRate.toFixed(2)}
                               </span>
@@ -493,7 +495,7 @@ export function CreateAdjustmentDialog({
             onClick={handleSave}
             disabled={saving || validCount === 0 || !adjustmentValue}
           >
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
             Create {validCount > 0 ? `${validCount} ` : ''}Adjustment
             {validCount !== 1 ? 's' : ''}
           </Button>

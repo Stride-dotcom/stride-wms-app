@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, CameraOff, ExternalLink, Loader2, RefreshCw } from "lucide-react";
+import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { Html5Qrcode } from "html5-qrcode";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -370,7 +370,7 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
       {/* Camera blocked by embedded preview - show new-tab action */}
       {scanning && isCameraBlocked && status === "idle" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/95 rounded-2xl p-6">
-          <CameraOff className="h-12 w-12 text-muted-foreground mb-4" />
+          <MaterialIcon name="no_photography" className="text-5xl text-muted-foreground mb-4" />
           <p className="text-base font-semibold text-center">Camera unavailable in embedded view</p>
           <p className="text-sm text-muted-foreground text-center mt-2 mb-4 max-w-[280px]">
             Chrome blocks camera access inside embedded previews. Open the scanner in a new tab to use your camera.
@@ -379,7 +379,7 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
             variant="outline"
             onClick={() => window.open(window.location.href, "_blank", "noopener,noreferrer")}
           >
-            <ExternalLink className="h-4 w-4 mr-2" />
+            <MaterialIcon name="open_in_new" size="sm" className="mr-2" />
             Open in new tab
           </Button>
         </div>
@@ -389,9 +389,9 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
       {scanning && !isCameraBlocked && !usingFallback && (status === "idle" || status === "starting") && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/90 rounded-2xl p-6">
           {status === "starting" ? (
-            <Loader2 className="h-12 w-12 animate-spin text-primary mb-3" />
+            <MaterialIcon name="progress_activity" className="text-5xl animate-spin text-primary mb-3" />
           ) : (
-            <Camera className="h-12 w-12 text-primary mb-3" />
+            <MaterialIcon name="photo_camera" className="text-5xl text-primary mb-3" />
           )}
 
           <div className="text-center mb-4">
@@ -401,9 +401,9 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
 
           <Button onClick={startCamera} disabled={status === "starting"}>
             {status === "starting" ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
             ) : (
-              <Camera className="h-4 w-4 mr-2" />
+              <MaterialIcon name="photo_camera" size="sm" className="mr-2" />
             )}
             {status === "starting" ? "Starting…" : "Start camera"}
           </Button>
@@ -413,13 +413,13 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
       {/* Denied overlay */}
       {scanning && status === "denied" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/95 rounded-2xl p-6">
-          <CameraOff className="h-12 w-12 text-destructive mb-4" />
+          <MaterialIcon name="no_photography" className="text-5xl text-destructive mb-4" />
           <p className="text-base font-semibold text-center">Camera blocked</p>
           <p className="text-sm text-muted-foreground text-center mt-2 mb-4 max-w-[280px]">
             Please check your browser settings or try a different browser.
           </p>
           <Button variant="outline" onClick={startCamera}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <MaterialIcon name="refresh" size="sm" className="mr-2" />
             Try again
           </Button>
         </div>
@@ -428,13 +428,13 @@ export function QRScanner({ onScan, onError, scanning = true, className }: QRSca
       {/* Error/unsupported overlay */}
       {scanning && (status === "error" || status === "unsupported") && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/95 rounded-2xl p-6">
-          <CameraOff className="h-12 w-12 text-muted-foreground mb-4" />
+          <MaterialIcon name="no_photography" className="text-5xl text-muted-foreground mb-4" />
           <p className="text-base font-semibold text-center">Camera failed to start</p>
           <p className="text-sm text-muted-foreground text-center mt-2 mb-4 max-w-[280px]">
             Please check your browser settings or try a different browser.
           </p>
           <Button variant="outline" onClick={startCamera}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <MaterialIcon name="refresh" size="sm" className="mr-2" />
             Try again
           </Button>
         </div>

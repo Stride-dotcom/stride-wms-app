@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Bell, Users, Mail, FileText, MessageSquare, Palette } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useCommunications, CommunicationAlert } from '@/hooks/useCommunications';
 import { useAuth } from '@/contexts/AuthContext';
 import { AlertList } from './alerts/AlertList';
@@ -69,7 +69,7 @@ export function AlertsSettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
+            <MaterialIcon name="notifications" size="md" />
             Alerts
           </CardTitle>
           <CardDescription>Loading alert settings...</CardDescription>
@@ -89,7 +89,7 @@ export function AlertsSettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
+            <MaterialIcon name="notifications" size="md" />
             Alerts
           </CardTitle>
           <CardDescription>
@@ -128,7 +128,7 @@ export function AlertsSettingsTab() {
               value="recipients" 
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-1 md:gap-2 px-3 md:px-6 py-3 whitespace-nowrap"
             >
-              <Users className="h-4 w-4" />
+              <MaterialIcon name="group" size="sm" />
               <span className="hidden md:inline">Recipients</span>
             </TabsTrigger>
             <TabsTrigger 
@@ -136,7 +136,7 @@ export function AlertsSettingsTab() {
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-1 md:gap-2 px-3 md:px-6 py-3 whitespace-nowrap"
               disabled={!selectedAlert.channels.email}
             >
-              <Mail className="h-4 w-4" />
+              <MaterialIcon name="mail" size="sm" />
               <span className="hidden md:inline">Email HTML</span>
             </TabsTrigger>
             <TabsTrigger 
@@ -144,7 +144,7 @@ export function AlertsSettingsTab() {
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-1 md:gap-2 px-3 md:px-6 py-3 whitespace-nowrap"
               disabled={!selectedAlert.channels.email}
             >
-              <FileText className="h-4 w-4" />
+              <MaterialIcon name="description" size="sm" />
               <span className="hidden md:inline">Email Text</span>
             </TabsTrigger>
             <TabsTrigger 
@@ -152,14 +152,14 @@ export function AlertsSettingsTab() {
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-1 md:gap-2 px-3 md:px-6 py-3 whitespace-nowrap"
               disabled={!selectedAlert.channels.sms}
             >
-              <MessageSquare className="h-4 w-4" />
+              <MaterialIcon name="chat" size="sm" />
               <span className="hidden md:inline">SMS</span>
             </TabsTrigger>
             <TabsTrigger 
               value="brand" 
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent gap-1 md:gap-2 px-3 md:px-6 py-3 whitespace-nowrap"
             >
-              <Palette className="h-4 w-4" />
+              <MaterialIcon name="palette" size="sm" />
               <span className="hidden md:inline">Brand Settings</span>
             </TabsTrigger>
           </TabsList>

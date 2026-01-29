@@ -8,15 +8,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useItemNotes, ItemNote } from '@/hooks/useItemNotes';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
-import {
-  MessageSquare,
-  Send,
-  Lock,
-  Globe,
-  Reply,
-  Loader2,
-  History,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface ItemNotesSectionProps {
   itemId: string;
@@ -88,18 +80,18 @@ export function ItemNotesSection({ itemId, isClientUser = false }: ItemNotesSect
             </span>
             {note.note_type === 'public' ? (
               <Badge variant="outline" className="text-xs">
-                <Globe className="h-3 w-3 mr-1" />
+                <MaterialIcon name="public" className="text-[12px] mr-1" />
                 Public
               </Badge>
             ) : (
               <Badge variant="secondary" className="text-xs">
-                <Lock className="h-3 w-3 mr-1" />
+                <MaterialIcon name="lock" className="text-[12px] mr-1" />
                 Internal
               </Badge>
             )}
             {note.version && note.version > 1 && (
               <Badge variant="outline" className="text-xs">
-                <History className="h-3 w-3 mr-1" />
+                <MaterialIcon name="history" className="text-[12px] mr-1" />
                 v{note.version}
               </Badge>
             )}
@@ -113,7 +105,7 @@ export function ItemNotesSection({ itemId, isClientUser = false }: ItemNotesSect
               className="mt-1 h-6 px-2 text-xs"
               onClick={() => setReplyingTo(replyingTo === note.id ? null : note.id)}
             >
-              <Reply className="h-3 w-3 mr-1" />
+              <MaterialIcon name="reply" className="text-[12px] mr-1" />
               Reply
             </Button>
           )}
@@ -133,9 +125,9 @@ export function ItemNotesSection({ itemId, isClientUser = false }: ItemNotesSect
                 disabled={submitting || !replyText.trim()}
               >
                 {submitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
                 ) : (
-                  <Send className="h-4 w-4" />
+                  <MaterialIcon name="send" size="sm" />
                 )}
               </Button>
             </div>
@@ -152,7 +144,7 @@ export function ItemNotesSection({ itemId, isClientUser = false }: ItemNotesSect
     return (
       <Card>
         <CardContent className="py-8 flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -162,7 +154,7 @@ export function ItemNotesSection({ itemId, isClientUser = false }: ItemNotesSect
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          <MessageSquare className="h-5 w-5" />
+          <MaterialIcon name="chat" size="md" />
           Notes ({visibleNotes.length})
         </CardTitle>
       </CardHeader>
@@ -180,11 +172,11 @@ export function ItemNotesSection({ itemId, isClientUser = false }: ItemNotesSect
               <Tabs value={noteType} onValueChange={(v) => setNoteType(v as 'internal' | 'public')}>
                 <TabsList className="h-8">
                   <TabsTrigger value="internal" className="text-xs h-6">
-                    <Lock className="h-3 w-3 mr-1" />
+                    <MaterialIcon name="lock" className="text-[12px] mr-1" />
                     Internal
                   </TabsTrigger>
                   <TabsTrigger value="public" className="text-xs h-6">
-                    <Globe className="h-3 w-3 mr-1" />
+                    <MaterialIcon name="public" className="text-[12px] mr-1" />
                     Public
                   </TabsTrigger>
                 </TabsList>
@@ -195,9 +187,9 @@ export function ItemNotesSection({ itemId, isClientUser = false }: ItemNotesSect
                 disabled={submitting || !newNote.trim()}
               >
                 {submitting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                 ) : (
-                  <Send className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="send" size="sm" className="mr-2" />
                 )}
                 Add Note
               </Button>

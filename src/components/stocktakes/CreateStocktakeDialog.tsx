@@ -45,17 +45,7 @@ import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations } from '@/hooks/useLocations';
 import { useAccounts } from '@/hooks/useAccounts';
 import { CreateStocktakeData } from '@/hooks/useStocktakes';
-import {
-  MapPin,
-  Loader2,
-  Lock,
-  Wrench,
-  DollarSign,
-  X,
-  CheckCircle,
-  ChevronsUpDown,
-  Search,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 
 interface CreateStocktakeDialogProps {
@@ -231,7 +221,7 @@ export function CreateStocktakeDialog({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
+                    <MaterialIcon name="location_on" size="sm" />
                     Locations
                     {selectedLocationCount > 0 && (
                       <Badge variant="secondary">{selectedLocationCount} selected</Badge>
@@ -304,7 +294,7 @@ export function CreateStocktakeDialog({
                     {/* Freeze Moves */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-start gap-3">
-                        <Lock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                        <MaterialIcon name="lock" size="md" className="text-muted-foreground mt-0.5" />
                         <div>
                           <Label htmlFor="freeze-moves" className="cursor-pointer">
                             Freeze Moves
@@ -326,7 +316,7 @@ export function CreateStocktakeDialog({
                     {/* Auto-Fix Location */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-start gap-3">
-                        <Wrench className="h-5 w-5 text-muted-foreground mt-0.5" />
+                        <MaterialIcon name="build" size="md" className="text-muted-foreground mt-0.5" />
                         <div>
                           <Label htmlFor="auto-fix" className="cursor-pointer">
                             Auto-Fix Locations
@@ -348,7 +338,7 @@ export function CreateStocktakeDialog({
                     {/* Billable */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-start gap-3">
-                        <DollarSign className="h-5 w-5 text-muted-foreground mt-0.5" />
+                        <MaterialIcon name="attach_money" size="md" className="text-muted-foreground mt-0.5" />
                         <div>
                           <Label htmlFor="billable" className="cursor-pointer">
                             Billable
@@ -385,7 +375,8 @@ export function CreateStocktakeDialog({
                                 className="flex items-center gap-1"
                               >
                                 {account.account_name}
-                                <X
+                                <MaterialIcon
+                                  name="close"
                                   className="h-3 w-3 cursor-pointer hover:text-destructive"
                                   onClick={() => removeAccount(account.id)}
                                 />
@@ -404,10 +395,10 @@ export function CreateStocktakeDialog({
                               className="w-full justify-between"
                             >
                               <span className="flex items-center gap-2">
-                                <Search className="h-4 w-4" />
+                                <MaterialIcon name="search" size="sm" />
                                 Search and select accounts...
                               </span>
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              <MaterialIcon name="unfold_more" size="sm" className="ml-2 shrink-0 opacity-50" />
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-[400px] p-0" align="start">
@@ -442,7 +433,7 @@ export function CreateStocktakeDialog({
                                         </div>
                                       </div>
                                       {formData.include_accounts?.includes(account.id) && (
-                                        <CheckCircle className="h-4 w-4 text-primary" />
+                                        <MaterialIcon name="check_circle" size="sm" className="text-primary" />
                                       )}
                                     </CommandItem>
                                   ))}
@@ -491,34 +482,34 @@ export function CreateStocktakeDialog({
                 <p className="text-sm font-medium">Summary</p>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <MaterialIcon name="check_circle" size="sm" className="text-green-500" />
                     Warehouse: {warehouses.find(w => w.id === formData.warehouse_id)?.name}
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <MaterialIcon name="check_circle" size="sm" className="text-green-500" />
                     Locations: {selectedLocationCount === 0 ? 'Entire warehouse' : `${selectedLocationCount} selected`}
                   </li>
                   <li className="flex items-center gap-2">
                     {formData.freeze_moves ? (
-                      <Lock className="h-4 w-4 text-yellow-500" />
+                      <MaterialIcon name="lock" size="sm" className="text-yellow-500" />
                     ) : (
-                      <X className="h-4 w-4 text-muted-foreground" />
+                      <MaterialIcon name="close" size="sm" className="text-muted-foreground" />
                     )}
                     Freeze moves: {formData.freeze_moves ? 'Yes' : 'No'}
                   </li>
                   <li className="flex items-center gap-2">
                     {formData.allow_location_auto_fix ? (
-                      <Wrench className="h-4 w-4 text-blue-500" />
+                      <MaterialIcon name="build" size="sm" className="text-blue-500" />
                     ) : (
-                      <X className="h-4 w-4 text-muted-foreground" />
+                      <MaterialIcon name="close" size="sm" className="text-muted-foreground" />
                     )}
                     Auto-fix: {formData.allow_location_auto_fix ? 'Yes' : 'No'}
                   </li>
                   <li className="flex items-center gap-2">
                     {formData.billable ? (
-                      <DollarSign className="h-4 w-4 text-green-500" />
+                      <MaterialIcon name="attach_money" size="sm" className="text-green-500" />
                     ) : (
-                      <X className="h-4 w-4 text-muted-foreground" />
+                      <MaterialIcon name="close" size="sm" className="text-muted-foreground" />
                     )}
                     Billable: {formData.billable ? 'Yes' : 'No'}
                   </li>
@@ -536,7 +527,7 @@ export function CreateStocktakeDialog({
             onClick={handleSubmit}
             disabled={isSubmitting || !formData.warehouse_id}
           >
-            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            {isSubmitting && <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />}
             Create Stocktake
           </Button>
         </DialogFooter>

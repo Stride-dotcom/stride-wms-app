@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Package, ClipboardCheck, Hammer, Wrench } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface StorageInspectionSectionProps {
   freeStorageDays: number;
@@ -29,7 +29,7 @@ export function StorageInspectionSection({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Package className="h-4 w-4" />
+          <MaterialIcon name="inventory_2" size="sm" />
           Storage & Automation
         </CardTitle>
         <CardDescription className="text-xs">
@@ -60,7 +60,7 @@ export function StorageInspectionSection({
         <div className="space-y-3 pt-2 border-t">
           <div className="flex items-center justify-between gap-3 py-1">
             <div className="flex items-center gap-2 min-w-0">
-              <ClipboardCheck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <MaterialIcon name="checklist" size="sm" className="text-muted-foreground flex-shrink-0" />
               <div className="min-w-0">
                 <Label className="text-sm">Auto-Create Inspections</Label>
                 <p className="text-xs text-muted-foreground truncate">
@@ -76,7 +76,7 @@ export function StorageInspectionSection({
 
           <div className="flex items-center justify-between gap-3 py-1">
             <div className="flex items-center gap-2 min-w-0">
-              <Hammer className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <MaterialIcon name="construction" size="sm" className="text-muted-foreground flex-shrink-0" />
               <div className="min-w-0">
                 <Label className="text-sm">Auto-Create Assembly Tasks</Label>
                 <p className="text-xs text-muted-foreground truncate">
@@ -92,7 +92,7 @@ export function StorageInspectionSection({
 
           <div className="flex items-center justify-between gap-3 py-1">
             <div className="flex items-center gap-2 min-w-0">
-              <Wrench className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <MaterialIcon name="build" size="sm" className="text-muted-foreground flex-shrink-0" />
               <div className="min-w-0">
                 <Label className="text-sm">Auto-Create Repair Tasks</Label>
                 <p className="text-xs text-muted-foreground truncate">

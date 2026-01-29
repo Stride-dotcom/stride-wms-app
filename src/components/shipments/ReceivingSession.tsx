@@ -30,21 +30,7 @@ import { PhotoGrid } from '@/components/common/PhotoGrid';
 import { DocumentCapture } from '@/components/scanner/DocumentCapture';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import {
-  Loader2,
-  Play,
-  CheckCircle,
-  X,
-  Camera,
-  FileText,
-  StickyNote,
-  Lock,
-  User,
-  Clock,
-  Package,
-  AlertTriangle,
-  HelpCircle,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface ShipmentItem {
   id: string;
@@ -210,7 +196,7 @@ export function ReceivingSession({
       <Card className="border-orange-200 bg-orange-50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-orange-700">
-            <Lock className="h-5 w-5" />
+            <MaterialIcon name="lock" size="md" />
             Receiving in Progress
           </CardTitle>
           <CardDescription className="text-orange-600">
@@ -220,11 +206,11 @@ export function ReceivingSession({
         <CardContent>
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <User className="h-4 w-4" />
+              <MaterialIcon name="person" size="sm" />
               <span>{userName}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
+              <MaterialIcon name="schedule" size="sm" />
               <span>Started {format(new Date(session.started_at), 'MMM d, h:mm a')}</span>
             </div>
           </div>
@@ -239,7 +225,7 @@ export function ReceivingSession({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
+            <MaterialIcon name="inventory_2" size="md" />
             Receive Shipment
           </CardTitle>
           <CardDescription>
@@ -249,9 +235,9 @@ export function ReceivingSession({
         <CardContent>
           <Button onClick={handleStartReceiving} disabled={loading} size="lg">
             {loading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
             ) : (
-              <Play className="mr-2 h-4 w-4" />
+              <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
             )}
             Start Receiving Shipment
           </Button>
@@ -269,7 +255,7 @@ export function ReceivingSession({
           <div className="flex flex-col gap-3">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
+                <MaterialIcon name="inventory_2" size="md" className="text-primary" />
                 Receiving {shipmentNumber}
               </CardTitle>
               <CardDescription>
@@ -278,11 +264,11 @@ export function ReceivingSession({
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={handleCancelSession}>
-                <X className="mr-2 h-4 w-4" />
+                <MaterialIcon name="close" size="sm" className="mr-2" />
                 Cancel
               </Button>
               <Button size="sm" onClick={() => setShowFinishDialog(true)}>
-                <CheckCircle className="mr-2 h-4 w-4" />
+                <MaterialIcon name="check_circle" size="sm" className="mr-2" />
                 Finish Receiving
               </Button>
             </div>
@@ -295,7 +281,7 @@ export function ReceivingSession({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Camera className="h-4 w-4" />
+              <MaterialIcon name="photo_camera" size="sm" />
               Receiving Photos ({existingPhotos.length})
             </CardTitle>
             <PhotoScannerButton
@@ -327,7 +313,7 @@ export function ReceivingSession({
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-base">
-                <FileText className="h-4 w-4" />
+                <MaterialIcon name="description" size="sm" />
                 Receiving Documents
               </CardTitle>
               <div className="flex items-center gap-2">
@@ -356,7 +342,7 @@ export function ReceivingSession({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <StickyNote className="h-4 w-4" />
+            <MaterialIcon name="sticky_note_2" size="sm" />
             Receiving Notes
           </CardTitle>
         </CardHeader>
@@ -437,19 +423,19 @@ export function ReceivingSession({
                             onCheckedChange={(checked) => handleReceivedWithoutIdChange(index, checked as boolean)}
                           />
                           <Label htmlFor={`no-id-${index}`} className="text-xs text-muted-foreground flex items-center gap-1">
-                            <HelpCircle className="h-3 w-3" />
+                            <MaterialIcon name="help" className="text-xs" />
                           </Label>
                         </div>
                       </TableCell>
                       <TableCell>
                         {hasDiscrepancy ? (
                           <Badge variant="destructive" className="gap-1">
-                            <AlertTriangle className="h-3 w-3" />
+                            <MaterialIcon name="warning" className="text-xs" />
                             {item.quantity < expected ? 'Short' : 'Over'}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="gap-1 text-green-600">
-                            <CheckCircle className="h-3 w-3" />
+                            <MaterialIcon name="check_circle" className="text-xs" />
                             OK
                           </Badge>
                         )}
@@ -468,12 +454,12 @@ export function ReceivingSession({
             <Button onClick={handleFinishReceiving} disabled={finishing}>
               {finishing ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Processing...
                 </>
               ) : (
                 <>
-                  <CheckCircle className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="check_circle" size="sm" className="mr-2" />
                   Complete Receiving
                 </>
               )}

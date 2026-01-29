@@ -29,17 +29,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { usePermissions } from '@/hooks/usePermissions';
 import { format } from 'date-fns';
-import {
-  Loader2,
-  Plus,
-  Search,
-  MoreHorizontal,
-  Mail,
-  Users,
-  CheckCircle,
-  Clock,
-  Upload,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { EmployeeDialog } from '@/components/employees/EmployeeDialog';
 import { EmployeeImportDialog } from '@/components/employees/EmployeeImportDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -315,25 +305,25 @@ export default function Employees() {
               className="hidden"
             />
             {selectedIds.size > 0 && (
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handleBulkInvite}
                 disabled={inviting}
               >
                 {inviting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                 ) : (
-                  <Mail className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="mail" size="sm" className="mr-2" />
                 )}
                 Invite Selected ({selectedIds.size})
               </Button>
             )}
             <Button variant="secondary" onClick={handleImportClick}>
-              <Upload className="mr-2 h-4 w-4" />
+              <MaterialIcon name="upload" size="sm" className="mr-2" />
               Import
             </Button>
             <Button onClick={handleAddEmployee}>
-              <Plus className="mr-2 h-4 w-4" />
+              <MaterialIcon name="add" size="sm" className="mr-2" />
               Add Employee
             </Button>
           </div>
@@ -344,7 +334,7 @@ export default function Employees() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
+                  <MaterialIcon name="group" size="md" />
                   Team Members
                 </CardTitle>
                 <CardDescription>
@@ -352,7 +342,7 @@ export default function Employees() {
                 </CardDescription>
               </div>
               <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search employees..."
                   value={searchQuery}
@@ -365,11 +355,11 @@ export default function Employees() {
           <CardContent>
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
               </div>
             ) : filteredEmployees.length === 0 ? (
               <div className="text-center py-12">
-                <Users className="mx-auto h-12 w-12 text-muted-foreground" />
+                <MaterialIcon name="group" className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-4 text-lg font-semibold">No employees found</h3>
                 <p className="text-muted-foreground">
                   {searchQuery ? 'Try a different search term' : 'Add your first employee to get started'}
@@ -412,12 +402,12 @@ export default function Employees() {
                       </div>
                       {employee.enrolled ? (
                         <Badge variant="outline" className="gap-1">
-                          <CheckCircle className="h-3 w-3 text-green-500" />
+                          <MaterialIcon name="check_circle" className="h-3 w-3 text-green-500" />
                           Enrolled
                         </Badge>
                       ) : (
                         <Badge variant="secondary" className="gap-1">
-                          <Clock className="h-3 w-3" />
+                          <MaterialIcon name="schedule" className="h-3 w-3" />
                           Pending
                         </Badge>
                       )}
@@ -439,7 +429,7 @@ export default function Employees() {
                     </MobileDataCardContent>
                     <MobileDataCardActions>
                       <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => handleEditEmployee(employee)}>
-                        <MoreHorizontal className="h-4 w-4" />
+                        <MaterialIcon name="more_horiz" size="sm" />
                       </Button>
                     </MobileDataCardActions>
                   </MobileDataCard>
@@ -519,12 +509,12 @@ export default function Employees() {
                       <TableCell>
                         {employee.enrolled ? (
                           <Badge variant="outline" className="gap-1">
-                            <CheckCircle className="h-3 w-3 text-green-500" />
+                            <MaterialIcon name="check_circle" className="h-3 w-3 text-green-500" />
                             Yes
                           </Badge>
                         ) : (
                           <Badge variant="secondary" className="gap-1">
-                            <Clock className="h-3 w-3" />
+                            <MaterialIcon name="schedule" className="h-3 w-3" />
                             No
                           </Badge>
                         )}
@@ -543,7 +533,7 @@ export default function Employees() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
+                              <MaterialIcon name="more_horiz" size="sm" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">

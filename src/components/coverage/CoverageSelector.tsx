@@ -24,7 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrentUserRole } from '@/hooks/useRoles';
-import { Loader2, Shield, Info } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 export type CoverageType = 'standard' | 'full_deductible' | 'full_no_deductible' | 'pending';
 
@@ -284,7 +284,7 @@ export function CoverageSelector({
         />
         {hasChanges && (
           <Button size="sm" variant="outline" onClick={handleSave} disabled={saving} className="h-8 px-2">
-            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+            {saving ? <MaterialIcon name="progress_activity" className="animate-spin" style={{ fontSize: '12px' }} /> : 'Save'}
           </Button>
         )}
       </div>
@@ -295,7 +295,7 @@ export function CoverageSelector({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Shield className="h-5 w-5" />
+          <MaterialIcon name="shield" size="md" />
           Handling Coverage
         </CardTitle>
       </CardHeader>
@@ -390,7 +390,7 @@ export function CoverageSelector({
         {coverageType === 'pending' && (
           <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-md">
             <div className="flex items-start gap-2">
-              <Info className="h-4 w-4 text-yellow-500 mt-0.5" />
+              <MaterialIcon name="info" size="sm" className="text-yellow-500 mt-0.5" />
               <p className="text-sm text-yellow-500">
                 Coverage is pending. The client will be prompted to enter a declared value and select coverage.
               </p>
@@ -405,7 +405,7 @@ export function CoverageSelector({
             disabled={saving || ((coverageType === 'full_deductible' || coverageType === 'full_no_deductible') && (!declaredValue || parseFloat(declaredValue) <= 0))}
             className="w-full"
           >
-            {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            {saving && <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />}
             Save Coverage
           </Button>
         )}

@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithRoles, Role } from '@/hooks/useUsers';
@@ -293,7 +293,7 @@ export function UserDialog({
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
                 Save Changes
               </Button>
             </DialogFooter>

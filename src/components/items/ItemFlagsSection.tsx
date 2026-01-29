@@ -14,13 +14,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useServiceEvents, ServiceEvent } from '@/hooks/useServiceEvents';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import {
-  Flag,
-  Loader2,
-  DollarSign,
-  Bell,
-  AlertTriangle,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface ItemFlagsSectionProps {
   itemId: string;
@@ -169,7 +163,7 @@ export function ItemFlagsSection({
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Flag className="h-5 w-5" />
+            <MaterialIcon name="flag" size="md" />
             Item Flags
           </CardTitle>
         </CardHeader>
@@ -193,7 +187,7 @@ export function ItemFlagsSection({
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Flag className="h-5 w-5" />
+            <MaterialIcon name="flag" size="md" />
             Item Flags
           </CardTitle>
         </CardHeader>
@@ -216,11 +210,11 @@ export function ItemFlagsSection({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          <Flag className="h-5 w-5" />
+          <MaterialIcon name="flag" size="md" />
           Item Flags
           {hasDamage && (
             <Badge variant="destructive" className="ml-2">
-              <AlertTriangle className="h-3 w-3 mr-1" />
+              <MaterialIcon name="warning" className="text-[12px] mr-1" />
               Attention Required
             </Badge>
           )}
@@ -254,21 +248,21 @@ export function ItemFlagsSection({
                   }`}
                 >
                   {isUpdating ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <MaterialIcon name="progress_activity" size="sm" className="animate-spin text-muted-foreground" />
                   ) : (
-                    <Flag className={`h-4 w-4 ${isEnabled ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <MaterialIcon name="flag" size="sm" className={isEnabled ? 'text-primary' : 'text-muted-foreground'} />
                   )}
                   <span className="text-sm">{service.service_name}</span>
                   <div className="flex items-center gap-1 ml-auto">
                     {canViewPrices && service.rate > 0 && (
                       <Badge variant="outline" className="text-xs px-1">
-                        <DollarSign className="h-3 w-3" />
+                        <MaterialIcon name="attach_money" className="text-[12px]" />
                         {service.rate.toFixed(2)}
                       </Badge>
                     )}
                     {hasAlert && (
                       <Badge variant="outline" className="text-xs px-1">
-                        <Bell className="h-3 w-3" />
+                        <MaterialIcon name="notifications" className="text-[12px]" />
                       </Badge>
                     )}
                   </div>
@@ -281,11 +275,11 @@ export function ItemFlagsSection({
         {/* Legend */}
         <div className="flex items-center gap-4 mt-4 pt-4 border-t text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
-            <DollarSign className="h-3 w-3" />
+            <MaterialIcon name="attach_money" className="text-[12px]" />
             <span>Creates Billing Charge</span>
           </div>
           <div className="flex items-center gap-1">
-            <Bell className="h-3 w-3" />
+            <MaterialIcon name="notifications" className="text-[12px]" />
             <span>Sends Alert</span>
           </div>
         </div>

@@ -17,19 +17,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
-import {
-  FileText,
-  CheckCircle,
-  XCircle,
-  Loader2,
-  Building,
-  Calendar,
-  DollarSign,
-  Package,
-  AlertTriangle,
-  Clock,
-  Download,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Quote, QuoteClassLine, QuoteSelectedService, QUOTE_STATUS_CONFIG } from '@/lib/quotes/types';
 import { formatCurrency } from '@/lib/quotes/calculator';
 
@@ -208,7 +196,7 @@ export default function QuoteAcceptance() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-primary mx-auto mb-4" />
           <p className="text-muted-foreground">Loading quote...</p>
         </div>
       </div>
@@ -220,7 +208,7 @@ export default function QuoteAcceptance() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
-            <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-2" />
+            <MaterialIcon name="warning" size="xl" className="text-destructive mx-auto mb-2" />
             <CardTitle>Unable to Load Quote</CardTitle>
           </CardHeader>
           <CardContent>
@@ -251,7 +239,7 @@ export default function QuoteAcceptance() {
               className="h-16 mx-auto mb-4"
             />
           ) : (
-            <Building className="h-16 w-16 text-primary mx-auto mb-4" />
+            <MaterialIcon name="business" size="xl" className="text-primary mx-auto mb-4" />
           )}
           <h1 className="text-2xl font-bold">{quote.tenant?.name || 'Warehouse Services'}</h1>
           <p className="text-muted-foreground">Quote #{quote.quote_number}</p>
@@ -269,9 +257,9 @@ export default function QuoteAcceptance() {
         {showSuccessState && !successMessage && (
           <Alert className={`mb-6 ${quote.status === 'accepted' ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
             {quote.status === 'accepted' ? (
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <MaterialIcon name="check_circle" size="sm" className="text-green-600" />
             ) : (
-              <XCircle className="h-4 w-4 text-gray-600" />
+              <MaterialIcon name="cancel" size="sm" className="text-gray-600" />
             )}
             <AlertDescription className={quote.status === 'accepted' ? 'text-green-800' : 'text-gray-700'}>
               {quote.status === 'accepted'
@@ -287,7 +275,7 @@ export default function QuoteAcceptance() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
+                  <MaterialIcon name="description" size="md" />
                   Quote Details
                 </CardTitle>
                 <CardDescription>
@@ -303,14 +291,14 @@ export default function QuoteAcceptance() {
             {/* Summary Info */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                <Building className="h-5 w-5 text-muted-foreground" />
+                <MaterialIcon name="business" size="md" className="text-muted-foreground" />
                 <div>
                   <p className="text-sm text-muted-foreground">Account</p>
                   <p className="font-medium">{quote.account?.account_name}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                <Calendar className="h-5 w-5 text-muted-foreground" />
+                <MaterialIcon name="calendar_today" size="md" className="text-muted-foreground" />
                 <div>
                   <p className="text-sm text-muted-foreground">Valid Until</p>
                   <p className="font-medium">
@@ -321,7 +309,7 @@ export default function QuoteAcceptance() {
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                <Clock className="h-5 w-5 text-muted-foreground" />
+                <MaterialIcon name="schedule" size="md" className="text-muted-foreground" />
                 <div>
                   <p className="text-sm text-muted-foreground">Storage Duration</p>
                   <p className="font-medium">{quote.storage_days || 0} days</p>
@@ -335,7 +323,7 @@ export default function QuoteAcceptance() {
             {quote.quote_class_lines && quote.quote_class_lines.length > 0 && (
               <div>
                 <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <Package className="h-4 w-4" />
+                  <MaterialIcon name="inventory_2" size="sm" />
                   Items by Size Class
                 </h3>
                 <div className="border rounded-lg overflow-hidden">
@@ -370,7 +358,7 @@ export default function QuoteAcceptance() {
             {quote.quote_selected_services && quote.quote_selected_services.length > 0 && (
               <div>
                 <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
+                  <MaterialIcon name="description" size="sm" />
                   Services
                 </h3>
                 <div className="border rounded-lg overflow-hidden">
@@ -445,7 +433,7 @@ export default function QuoteAcceptance() {
               <div className="flex justify-between text-lg font-bold">
                 <span>Total</span>
                 <span className="flex items-center gap-1">
-                  <DollarSign className="h-5 w-5" />
+                  <MaterialIcon name="attach_money" size="md" />
                   {formatCurrency(quote.grand_total || 0, quote.currency)}
                 </span>
               </div>
@@ -473,9 +461,9 @@ export default function QuoteAcceptance() {
                 size="lg"
               >
                 {processing ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                 ) : (
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="check_circle" size="sm" className="mr-2" />
                 )}
                 Accept Quote
               </Button>
@@ -486,7 +474,7 @@ export default function QuoteAcceptance() {
                 className="flex-1"
                 size="lg"
               >
-                <XCircle className="h-4 w-4 mr-2" />
+                <MaterialIcon name="cancel" size="sm" className="mr-2" />
                 Decline Quote
               </Button>
             </CardFooter>
@@ -524,9 +512,9 @@ export default function QuoteAcceptance() {
                 variant="destructive"
               >
                 {processing ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                 ) : (
-                  <XCircle className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="cancel" size="sm" className="mr-2" />
                 )}
                 Decline Quote
               </Button>

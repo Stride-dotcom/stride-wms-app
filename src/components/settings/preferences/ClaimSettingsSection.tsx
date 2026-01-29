@@ -19,7 +19,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { useOrganizationClaimSettings } from '@/hooks/useOrganizationClaimSettings';
-import { Shield, ChevronDown, Loader2, DollarSign } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 export function ClaimSettingsSection() {
   const { settings, loading, saving, updateSettings } = useOrganizationClaimSettings();
@@ -88,7 +88,7 @@ export function ClaimSettingsSection() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Shield className="h-5 w-5" />
+          <MaterialIcon name="shield" size="md" />
           Claim Settings
         </CardTitle>
         <CardDescription>
@@ -118,7 +118,7 @@ export function ClaimSettingsSection() {
             <div className="space-y-2 pl-4 border-l-2 border-muted">
               <Label htmlFor="threshold">Approval Threshold Amount</Label>
               <div className="relative max-w-xs">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <MaterialIcon name="attach_money" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="threshold"
                   type="number"
@@ -211,8 +211,10 @@ export function ClaimSettingsSection() {
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="w-full justify-between px-0 hover:bg-transparent">
               <span className="font-medium">Settlement Terms Template</span>
-              <ChevronDown
-                className={`h-4 w-4 transition-transform ${termsOpen ? 'rotate-180' : ''}`}
+              <MaterialIcon
+                name="expand_more"
+                size="sm"
+                className={`transition-transform ${termsOpen ? 'rotate-180' : ''}`}
               />
             </Button>
           </CollapsibleTrigger>
@@ -238,7 +240,7 @@ export function ClaimSettingsSection() {
             <Button onClick={handleSave} disabled={saving}>
               {saving ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />
                   Saving...
                 </>
               ) : (

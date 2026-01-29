@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, CheckCircle, AlertTriangle, Download } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Warehouse } from '@/hooks/useWarehouses';
@@ -486,7 +486,7 @@ export function InventoryImportDialog({
                   </Select>
                 </div>
                 <Button variant="outline" size="sm" className="ml-4 mt-6" onClick={handleDownloadTemplate}>
-                  <Download className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="download" size="sm" className="mr-2" />
                   Template
                 </Button>
               </div>
@@ -495,7 +495,7 @@ export function InventoryImportDialog({
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium">Items found:</span>
                   <span className="text-2xl font-bold">
-                    {parsing ? <Loader2 className="h-6 w-6 animate-spin" /> : parsedItems.length}
+                    {parsing ? <MaterialIcon name="progress_activity" size="md" className="animate-spin" /> : parsedItems.length}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -559,7 +559,7 @@ export function InventoryImportDialog({
           {step === 'importing' && (
             <div className="space-y-4 py-4">
               <div className="flex items-center gap-3">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <MaterialIcon name="progress_activity" size="md" className="animate-spin text-primary" />
                 <span>Importing items...</span>
               </div>
               <Progress value={progress} />
@@ -572,18 +572,18 @@ export function InventoryImportDialog({
           {step === 'complete' && result && (
             <div className="space-y-4 py-4">
               <div className="flex items-center gap-3 text-green-600">
-                <CheckCircle className="h-6 w-6" />
+                <MaterialIcon name="check_circle" size="md" />
                 <span className="font-medium">{result.success} items imported successfully</span>
               </div>
               {result.skipped > 0 && (
                 <div className="flex items-center gap-3 text-muted-foreground">
-                  <AlertTriangle className="h-6 w-6" />
+                  <MaterialIcon name="warning" size="md" />
                   <span>{result.skipped} items skipped (no item code)</span>
                 </div>
               )}
               {result.failed > 0 && (
                 <div className="flex items-center gap-3 text-amber-600">
-                  <AlertTriangle className="h-6 w-6" />
+                  <MaterialIcon name="warning" size="md" />
                   <span>{result.failed} items failed to import</span>
                 </div>
               )}

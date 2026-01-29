@@ -14,7 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Search, Link as LinkIcon, Package, Check } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 
 interface Shipment {
@@ -171,7 +171,7 @@ export function LinkToShipmentDialog({
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <LinkIcon className="h-5 w-5" />
+            <MaterialIcon name="link" size="md" />
             Link to Shipment
           </DialogTitle>
           <DialogDescription>
@@ -182,7 +182,7 @@ export function LinkToShipmentDialog({
         <div className="space-y-4 flex-1">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search shipments..."
               value={searchQuery}
@@ -195,11 +195,11 @@ export function LinkToShipmentDialog({
           <ScrollArea className="h-[300px] border rounded-lg">
             {loading ? (
               <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
               </div>
             ) : filteredShipments.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-8">
-                <Package className="h-12 w-12 mb-2" />
+                <MaterialIcon name="inventory_2" className="text-[48px] mb-2" />
                 <p className="text-sm">No available shipments found</p>
                 <p className="text-xs">Only draft, pending, scheduled, or receiving shipments can be linked</p>
               </div>
@@ -218,7 +218,7 @@ export function LinkToShipmentDialog({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {selectedShipmentId === shipment.id && (
-                          <Check className="h-4 w-4 text-primary" />
+                          <MaterialIcon name="check" size="sm" className="text-primary" />
                         )}
                         <span className="font-medium">{shipment.shipment_number}</span>
                       </div>
@@ -246,11 +246,11 @@ export function LinkToShipmentDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={linking}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleLink} 
+          <Button
+            onClick={handleLink}
             disabled={linking || !selectedShipmentId}
           >
-            {linking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {linking && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
             Link to Shipment
           </Button>
         </DialogFooter>

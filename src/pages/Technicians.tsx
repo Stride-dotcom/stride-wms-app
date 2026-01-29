@@ -32,20 +32,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useTechnicians, Technician } from '@/hooks/useTechnicians';
-import {
-  Loader2,
-  Plus,
-  Search,
-  MoreHorizontal,
-  Wrench,
-  Mail,
-  Phone,
-  DollarSign,
-  Percent,
-  Trash2,
-  Edit,
-  Power,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { TechnicianDialog } from '@/components/technicians/TechnicianDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -141,7 +128,7 @@ export default function Technicians() {
             description="Manage external contractors for repair work"
           />
           <Button onClick={handleAddTechnician}>
-            <Plus className="mr-2 h-4 w-4" />
+            <MaterialIcon name="add" size="sm" className="mr-2" />
             Add Technician
           </Button>
         </div>
@@ -151,7 +138,7 @@ export default function Technicians() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <Wrench className="h-5 w-5" />
+                  <MaterialIcon name="build" size="md" />
                   Technicians
                 </CardTitle>
                 <CardDescription>
@@ -170,7 +157,7 @@ export default function Technicians() {
                   </label>
                 </div>
                 <div className="relative w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Search technicians..."
                     value={searchQuery}
@@ -184,11 +171,11 @@ export default function Technicians() {
           <CardContent>
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
               </div>
             ) : filteredTechnicians.length === 0 ? (
               <div className="text-center py-12">
-                <Wrench className="mx-auto h-12 w-12 text-muted-foreground" />
+                <MaterialIcon name="build" size="xl" className="mx-auto text-muted-foreground" />
                 <h3 className="mt-4 text-lg font-semibold">No technicians found</h3>
                 <p className="text-muted-foreground">
                   {searchQuery
@@ -213,18 +200,18 @@ export default function Technicians() {
                           )}
                         </MobileDataCardTitle>
                         <MobileDataCardDescription className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
+                          <MaterialIcon name="mail" size="sm" />
                           {tech.email}
                         </MobileDataCardDescription>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-medium flex items-center gap-1">
-                          <Percent className="h-3 w-3" />
+                          <MaterialIcon name="percent" size="sm" />
                           {tech.markup_percent}% markup
                         </div>
                         {tech.hourly_rate && (
                           <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
-                            <DollarSign className="h-3 w-3" />
+                            <MaterialIcon name="attach_money" size="sm" />
                             ${tech.hourly_rate}/hr
                           </div>
                         )}
@@ -256,7 +243,7 @@ export default function Technicians() {
                           handleEditTechnician(tech);
                         }}
                       >
-                        <MoreHorizontal className="h-4 w-4" />
+                        <MaterialIcon name="more_horiz" size="sm" />
                       </Button>
                     </MobileDataCardActions>
                   </MobileDataCard>
@@ -288,12 +275,12 @@ export default function Technicians() {
                       <TableCell>
                         <div className="space-y-1">
                           <div className="flex items-center gap-1 text-sm">
-                            <Mail className="h-3 w-3 text-muted-foreground" />
+                            <MaterialIcon name="mail" size="sm" className="text-muted-foreground" />
                             {tech.email}
                           </div>
                           {tech.phone && (
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Phone className="h-3 w-3" />
+                              <MaterialIcon name="phone" size="sm" />
                               {tech.phone}
                             </div>
                           )}
@@ -336,16 +323,16 @@ export default function Technicians() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
+                              <MaterialIcon name="more_horiz" size="sm" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => handleEditTechnician(tech)}>
-                              <Edit className="mr-2 h-4 w-4" />
+                              <MaterialIcon name="edit" size="sm" className="mr-2" />
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleToggleActive(tech)}>
-                              <Power className="mr-2 h-4 w-4" />
+                              <MaterialIcon name="power_settings_new" size="sm" className="mr-2" />
                               {tech.is_active ? 'Deactivate' : 'Activate'}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -353,7 +340,7 @@ export default function Technicians() {
                               className="text-destructive focus:text-destructive"
                               onClick={() => handleDeleteClick(tech)}
                             >
-                              <Trash2 className="mr-2 h-4 w-4" />
+                              <MaterialIcon name="delete" size="sm" className="mr-2" />
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>

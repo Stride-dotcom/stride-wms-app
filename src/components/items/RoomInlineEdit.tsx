@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, X, Pencil, Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import {
   Command,
@@ -113,7 +113,7 @@ export function RoomInlineEdit({
           <span className={cn('font-medium', !value && 'text-muted-foreground')}>
             {value || placeholder}
           </span>
-          <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          <MaterialIcon name="edit" className="text-[12px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-0" align="start">
@@ -130,7 +130,7 @@ export function RoomInlineEdit({
         </div>
         {loading ? (
           <div className="flex items-center justify-center py-6">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <MaterialIcon name="progress_activity" size="sm" className="animate-spin text-muted-foreground" />
           </div>
         ) : filteredSuggestions.length > 0 ? (
           <div className="max-h-48 overflow-y-auto p-1">
@@ -146,7 +146,7 @@ export function RoomInlineEdit({
               >
                 <span>{s.room}</span>
                 {s.room === value && (
-                  <Check className="h-4 w-4 text-primary" />
+                  <MaterialIcon name="check" size="sm" className="text-primary" />
                 )}
               </button>
             ))}
@@ -167,7 +167,7 @@ export function RoomInlineEdit({
             onClick={() => handleSave(inputValue)}
             disabled={saving}
           >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+            {saving ? <MaterialIcon name="progress_activity" size="sm" className="animate-spin" /> : <MaterialIcon name="check" size="sm" className="mr-2" />}
             Save
           </Button>
           {value && (
@@ -177,7 +177,7 @@ export function RoomInlineEdit({
               onClick={() => handleSave('')}
               disabled={saving}
             >
-              <X className="h-4 w-4" />
+              <MaterialIcon name="close" size="sm" />
             </Button>
           )}
         </div>

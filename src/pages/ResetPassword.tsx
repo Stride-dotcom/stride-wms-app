@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Package, Loader2, CheckCircle } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 
 const resetPasswordSchema = z.object({
@@ -92,7 +92,7 @@ export default function ResetPassword() {
   if (checkingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/40">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-primary" />
       </div>
     );
   }
@@ -104,7 +104,7 @@ export default function ResetPassword() {
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
               <div className="p-3 bg-primary rounded-xl">
-                <Package className="h-8 w-8 text-primary-foreground" />
+                <MaterialIcon name="inventory_2" size="xl" className="text-primary-foreground" />
               </div>
             </div>
             <CardTitle className="text-2xl font-bold">Invalid Link</CardTitle>
@@ -129,7 +129,7 @@ export default function ResetPassword() {
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
               <div className="p-3 bg-green-500 rounded-xl">
-                <CheckCircle className="h-8 w-8 text-white" />
+                <MaterialIcon name="check_circle" size="xl" className="text-white" />
               </div>
             </div>
             <CardTitle className="text-2xl font-bold">Password Updated!</CardTitle>
@@ -148,7 +148,7 @@ export default function ResetPassword() {
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="p-3 bg-primary rounded-xl">
-              <Package className="h-8 w-8 text-primary-foreground" />
+              <MaterialIcon name="inventory_2" size="xl" className="text-primary-foreground" />
             </div>
           </div>
           <CardTitle className="text-2xl font-bold">Reset Password</CardTitle>
@@ -196,7 +196,7 @@ export default function ResetPassword() {
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                     Updating password...
                   </>
                 ) : (

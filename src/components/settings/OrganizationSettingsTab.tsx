@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Building, Loader2, Save, Mail, Globe, Phone, MapPin, Settings2, Bell, FileText } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -193,7 +193,7 @@ export function OrganizationSettingsTab() {
   if (loading || tenantSettingsLoading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -203,23 +203,23 @@ export function OrganizationSettingsTab() {
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="general" className="gap-2">
-            <Building className="h-4 w-4" />
+            <MaterialIcon name="apartment" size="sm" />
             General
           </TabsTrigger>
           <TabsTrigger value="contact" className="gap-2">
-            <Phone className="h-4 w-4" />
+            <MaterialIcon name="phone" size="sm" />
             Contact
           </TabsTrigger>
           <TabsTrigger value="address" className="gap-2">
-            <MapPin className="h-4 w-4" />
+            <MaterialIcon name="location_on" size="sm" />
             Address
           </TabsTrigger>
           <TabsTrigger value="preferences" className="gap-2">
-            <Settings2 className="h-4 w-4" />
+            <MaterialIcon name="settings" size="sm" />
             Preferences
           </TabsTrigger>
           <TabsTrigger value="due-dates" className="gap-2">
-            <Bell className="h-4 w-4" />
+            <MaterialIcon name="notifications" size="sm" />
             Due Dates
           </TabsTrigger>
         </TabsList>
@@ -231,7 +231,7 @@ export function OrganizationSettingsTab() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Building className="h-5 w-5" />
+                    <MaterialIcon name="apartment" size="md" />
                     General Information
                   </CardTitle>
                   <CardDescription>
@@ -308,12 +308,12 @@ export function OrganizationSettingsTab() {
                     <Button type="submit" disabled={saving}>
                       {saving ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                           Saving...
                         </>
                       ) : (
                         <>
-                          <Save className="mr-2 h-4 w-4" />
+                          <MaterialIcon name="save" size="sm" className="mr-2" />
                           Save Changes
                         </>
                       )}
@@ -331,7 +331,7 @@ export function OrganizationSettingsTab() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Phone className="h-5 w-5" />
+                    <MaterialIcon name="phone" size="md" />
                     Contact Information
                   </CardTitle>
                   <CardDescription>
@@ -376,12 +376,12 @@ export function OrganizationSettingsTab() {
                     <Button type="submit" disabled={saving}>
                       {saving ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                           Saving...
                         </>
                       ) : (
                         <>
-                          <Save className="mr-2 h-4 w-4" />
+                          <MaterialIcon name="save" size="sm" className="mr-2" />
                           Save Changes
                         </>
                       )}
@@ -399,7 +399,7 @@ export function OrganizationSettingsTab() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
+                    <MaterialIcon name="location_on" size="md" />
                     Business Address
                   </CardTitle>
                   <CardDescription>
@@ -515,12 +515,12 @@ export function OrganizationSettingsTab() {
                     <Button type="submit" disabled={saving}>
                       {saving ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                           Saving...
                         </>
                       ) : (
                         <>
-                          <Save className="mr-2 h-4 w-4" />
+                          <MaterialIcon name="save" size="sm" className="mr-2" />
                           Save Changes
                         </>
                       )}

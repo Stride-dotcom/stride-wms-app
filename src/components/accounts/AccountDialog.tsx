@@ -32,7 +32,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Users, DollarSign } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -594,7 +594,7 @@ export function AccountDialog({
 
         {fetching ? (
           <div className="flex items-center justify-center h-48">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <MaterialIcon name="progress_activity" className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <Form {...form}>
@@ -609,7 +609,7 @@ export function AccountDialog({
                   <TabsTrigger value="permissions" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Permissions</TabsTrigger>
                   {isEditing && (
                     <TabsTrigger value="portal" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0 gap-1">
-                      <Users className="h-3 w-3 hidden sm:inline" />
+                      <MaterialIcon name="group" className="h-3 w-3 hidden sm:inline" />
                       Portal
                     </TabsTrigger>
                   )}
@@ -1106,7 +1106,7 @@ export function AccountDialog({
                       />
                     ) : (
                       <div className="text-center py-12 text-muted-foreground">
-                        <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <MaterialIcon name="attach_money" className="h-12 w-12 mx-auto mb-4 opacity-50" />
                         <p className="font-medium">Pricing Adjustments</p>
                         <p className="text-sm mt-2">
                           Save the account first to configure custom pricing adjustments.
@@ -1571,7 +1571,7 @@ export function AccountDialog({
                     onClick={() => setAddAddonDialogOpen(true)}
                     className="mr-auto"
                   >
-                    <DollarSign className="mr-2 h-4 w-4" />
+                    <MaterialIcon name="attach_money" size="sm" className="mr-2" />
                     Add Charge
                   </Button>
                 )}
@@ -1584,7 +1584,7 @@ export function AccountDialog({
                   Cancel
                 </Button>
                 <Button type="submit" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {loading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
                   {isEditing ? 'Update Account' : 'Create Account'}
                 </Button>
               </DialogFooter>

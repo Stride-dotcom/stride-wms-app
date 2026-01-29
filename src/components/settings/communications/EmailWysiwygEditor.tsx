@@ -26,23 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Code,
-  Eye,
-  Smartphone,
-  Monitor,
-  Plus,
-  Type,
-  Image,
-  Square,
-  Minus,
-  Heading,
-  Link,
-  Trash2,
-  GripVertical,
-  ChevronUp,
-  ChevronDown,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
   CommunicationBrandSettings,
   COMMUNICATION_VARIABLES,
@@ -68,7 +52,7 @@ type BlockType = 'Heading' | 'Text' | 'Button' | 'Image' | 'Divider' | 'Spacer';
 interface BlockConfig {
   type: BlockType;
   label: string;
-  icon: typeof Type;
+  iconName: string;
   defaultData: Record<string, unknown>;
 }
 
@@ -76,7 +60,7 @@ const BLOCK_TYPES: BlockConfig[] = [
   {
     type: 'Heading',
     label: 'Heading',
-    icon: Heading,
+    iconName: 'title',
     defaultData: {
       props: { text: 'New Heading', level: 'h2' },
       style: { textAlign: 'left', fontWeight: 'bold' },
@@ -85,7 +69,7 @@ const BLOCK_TYPES: BlockConfig[] = [
   {
     type: 'Text',
     label: 'Text',
-    icon: Type,
+    iconName: 'text_fields',
     defaultData: {
       props: { text: 'Enter your text here...', markdown: false },
       style: { textAlign: 'left', padding: { top: 8, bottom: 8, left: 0, right: 0 } },
@@ -94,7 +78,7 @@ const BLOCK_TYPES: BlockConfig[] = [
   {
     type: 'Button',
     label: 'Button',
-    icon: Link,
+    iconName: 'link',
     defaultData: {
       props: { text: 'Click Here', url: 'https://example.com' },
       style: {
@@ -108,7 +92,7 @@ const BLOCK_TYPES: BlockConfig[] = [
   {
     type: 'Image',
     label: 'Image',
-    icon: Image,
+    iconName: 'image',
     defaultData: {
       props: { url: '', alt: 'Image', width: '100%' },
       style: { textAlign: 'center' },
@@ -117,7 +101,7 @@ const BLOCK_TYPES: BlockConfig[] = [
   {
     type: 'Divider',
     label: 'Divider',
-    icon: Minus,
+    iconName: 'remove',
     defaultData: {
       props: { lineColor: '#E5E7EB' },
       style: { padding: { top: 16, bottom: 16, left: 0, right: 0 } },
@@ -126,7 +110,7 @@ const BLOCK_TYPES: BlockConfig[] = [
   {
     type: 'Spacer',
     label: 'Spacer',
-    icon: Square,
+    iconName: 'check_box_outline_blank',
     defaultData: {
       props: { height: 32 },
     },
@@ -342,11 +326,11 @@ export function EmailWysiwygEditor({
           <Tabs value={editorMode} onValueChange={(v) => setEditorMode(v as 'visual' | 'code')}>
             <TabsList>
               <TabsTrigger value="visual" className="gap-2">
-                <Eye className="h-4 w-4" />
+                <MaterialIcon name="visibility" size="sm" />
                 Visual
               </TabsTrigger>
               <TabsTrigger value="code" className="gap-2">
-                <Code className="h-4 w-4" />
+                <MaterialIcon name="code" size="sm" />
                 Code
               </TabsTrigger>
             </TabsList>
@@ -359,14 +343,14 @@ export function EmailWysiwygEditor({
                 size="icon"
                 onClick={() => setPreviewMode('desktop')}
               >
-                <Monitor className="h-4 w-4" />
+                <MaterialIcon name="desktop_windows" size="sm" />
               </Button>
               <Button
                 variant={previewMode === 'mobile' ? 'secondary' : 'ghost'}
                 size="icon"
                 onClick={() => setPreviewMode('mobile')}
               >
-                <Smartphone className="h-4 w-4" />
+                <MaterialIcon name="smartphone" size="sm" />
               </Button>
             </div>
           )}
@@ -377,7 +361,7 @@ export function EmailWysiwygEditor({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="add" size="sm" className="mr-2" />
                   Add Block
                 </Button>
               </DropdownMenuTrigger>
@@ -388,7 +372,7 @@ export function EmailWysiwygEditor({
                     onClick={() => addBlock(block)}
                     className="gap-2"
                   >
-                    <block.icon className="h-4 w-4" />
+                    <MaterialIcon name={block.iconName} size="sm" />
                     {block.label}
                   </DropdownMenuItem>
                 ))}
@@ -441,7 +425,7 @@ export function EmailWysiwygEditor({
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline">
-                          <Plus className="h-4 w-4 mr-2" />
+                          <MaterialIcon name="add" size="sm" className="mr-2" />
                           Add Block
                         </Button>
                       </DropdownMenuTrigger>
@@ -452,7 +436,7 @@ export function EmailWysiwygEditor({
                             onClick={() => addBlock(block)}
                             className="gap-2"
                           >
-                            <block.icon className="h-4 w-4" />
+                            <MaterialIcon name={block.iconName} size="sm" />
                             {block.label}
                           </DropdownMenuItem>
                         ))}
@@ -475,7 +459,7 @@ export function EmailWysiwygEditor({
                         >
                           {/* Block Controls */}
                           <div className="absolute left-0 top-0 bottom-0 flex flex-col items-center justify-center gap-1 p-1 opacity-0 group-hover:opacity-100 transition-opacity bg-muted/50 z-10">
-                            <GripVertical className="h-4 w-4 text-muted-foreground" />
+                            <MaterialIcon name="drag_indicator" size="sm" className="text-muted-foreground" />
                             <Button
                               variant="ghost"
                               size="icon"
@@ -483,7 +467,7 @@ export function EmailWysiwygEditor({
                               onClick={() => moveBlock(blockId, 'up')}
                               disabled={index === 0}
                             >
-                              <ChevronUp className="h-3 w-3" />
+                              <MaterialIcon name="expand_less" size="sm" />
                             </Button>
                             <Button
                               variant="ghost"
@@ -492,7 +476,7 @@ export function EmailWysiwygEditor({
                               onClick={() => moveBlock(blockId, 'down')}
                               disabled={index === childrenIds.length - 1}
                             >
-                              <ChevronDown className="h-3 w-3" />
+                              <MaterialIcon name="expand_more" size="sm" />
                             </Button>
                             <Button
                               variant="ghost"
@@ -500,7 +484,7 @@ export function EmailWysiwygEditor({
                               className="h-6 w-6 text-destructive"
                               onClick={() => removeBlock(blockId)}
                             >
-                              <Trash2 className="h-3 w-3" />
+                              <MaterialIcon name="delete" size="sm" />
                             </Button>
                           </div>
 
@@ -623,7 +607,7 @@ function BlockPreview({ block, brandSettings }: BlockPreviewProps) {
         </div>
       ) : (
         <div className="p-4 border-2 border-dashed border-muted-foreground/30 rounded text-center text-muted-foreground">
-          <Image className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <MaterialIcon name="image" size="lg" className="mx-auto mb-2 opacity-50" />
           <p>Click to add image URL</p>
         </div>
       );

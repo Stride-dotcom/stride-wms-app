@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader2, Save, Tag, XCircle, Settings, Calendar, Coffee } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useTenantPreferences, TenantPreferencesUpdate } from '@/hooks/useTenantPreferences';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { StorageInspectionSection } from './StorageInspectionSection';
@@ -196,7 +196,7 @@ export function PreferencesContent() {
     ),
     'custom-field-labels': (
       <SortableCard id="custom-field-labels" key="custom-field-labels">
-        <ComingSoonSection title="Custom Field Labels" icon={Tag}>
+        <ComingSoonSection title="Custom Field Labels" iconName="label">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label className="text-muted-foreground">Order Field Label</Label>
@@ -212,7 +212,7 @@ export function PreferencesContent() {
     ),
     'cancellation-fees': (
       <SortableCard id="cancellation-fees" key="cancellation-fees">
-        <ComingSoonSection title="Cancellation & Removal Fees" icon={XCircle}>
+        <ComingSoonSection title="Cancellation & Removal Fees" iconName="cancel">
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label className="text-muted-foreground">Late Cancellation Fee</Label>
@@ -241,7 +241,7 @@ export function PreferencesContent() {
     ),
     'operational-rules': (
       <SortableCard id="operational-rules" key="operational-rules">
-        <ComingSoonSection title="Operational Rules" icon={Settings}>
+        <ComingSoonSection title="Operational Rules" iconName="settings">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-muted-foreground">Require Signature to Finish</Label>
@@ -261,7 +261,7 @@ export function PreferencesContent() {
     ),
     'scheduling': (
       <SortableCard id="scheduling" key="scheduling">
-        <ComingSoonSection title="Scheduling & Reservations" icon={Calendar}>
+        <ComingSoonSection title="Scheduling & Reservations" iconName="event">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label className="text-muted-foreground">Morning Starts At</Label>
@@ -277,7 +277,7 @@ export function PreferencesContent() {
     ),
     'break-settings': (
       <SortableCard id="break-settings" key="break-settings">
-        <ComingSoonSection title="Break Settings" icon={Coffee}>
+        <ComingSoonSection title="Break Settings" iconName="local_cafe">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label className="text-muted-foreground">Break Duration (minutes)</Label>
@@ -318,12 +318,12 @@ export function PreferencesContent() {
         <Button onClick={handleSave} disabled={saving}>
           {saving ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
               Saving...
             </>
           ) : (
             <>
-              <Save className="mr-2 h-4 w-4" />
+              <MaterialIcon name="save" size="sm" className="mr-2" />
               Save Preferences
             </>
           )}

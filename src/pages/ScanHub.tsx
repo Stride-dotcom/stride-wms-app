@@ -1164,7 +1164,7 @@ export default function ScanHub() {
                       )}
                     </div>
                     {(scannedItem || (mode === 'batch' && batchItems.length > 0)) && (
-                      <MaterialIcon name="check" size="sm" className="text-primary" />
+                      <MaterialIcon name="check" size="sm" className="text-primary flex-shrink-0" />
                     )}
                   </button>
 
@@ -1226,7 +1226,7 @@ export default function ScanHub() {
                       )}
                     </div>
                     {targetLocation && (
-                      <MaterialIcon name="check" size="sm" className="text-primary" />
+                      <MaterialIcon name="check" size="sm" className="text-primary flex-shrink-0" />
                     )}
                   </button>
                 </div>

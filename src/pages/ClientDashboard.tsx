@@ -1,14 +1,5 @@
 import { Link } from 'react-router-dom';
-import {
-  Package,
-  FileText,
-  Truck,
-  Archive,
-  ArrowRight,
-  Clock,
-  Loader2,
-  Shield,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,7 +29,7 @@ export default function ClientDashboard() {
     return (
       <ClientPortalLayout>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
         </div>
       </ClientPortalLayout>
     );
@@ -66,11 +57,11 @@ export default function ClientDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Total Items</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="inventory_2" size="sm" className="text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats?.totalItems || 0}
+                {isLoading ? <MaterialIcon name="progress_activity" size="lg" className="animate-spin" /> : stats?.totalItems || 0}
               </div>
               <p className="text-xs text-muted-foreground">Items in your account</p>
             </CardContent>
@@ -79,11 +70,11 @@ export default function ClientDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">In Storage</CardTitle>
-              <Archive className="h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="archive" size="sm" className="text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats?.inStorage || 0}
+                {isLoading ? <MaterialIcon name="progress_activity" size="lg" className="animate-spin" /> : stats?.inStorage || 0}
               </div>
               <p className="text-xs text-muted-foreground">Available items</p>
             </CardContent>
@@ -92,12 +83,12 @@ export default function ClientDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Pending Quotes</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="description" size="sm" className="text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {isLoading ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="lg" className="animate-spin" />
                 ) : (
                   <span className={stats?.pendingQuotes ? 'text-amber-600' : ''}>
                     {stats?.pendingQuotes || 0}
@@ -111,12 +102,12 @@ export default function ClientDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Recent Shipments</CardTitle>
-              <Truck className="h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="local_shipping" size="sm" className="text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {isLoading ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="lg" className="animate-spin" />
                 ) : (
                   stats?.recentShipments || 0
                 )}
@@ -131,7 +122,7 @@ export default function ClientDashboard() {
           <Card className="border-amber-200 bg-amber-50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-amber-800">
-                <Clock className="h-5 w-5" />
+                <MaterialIcon name="schedule" size="md" />
                 {pendingQuotes.length} Quote{pendingQuotes.length !== 1 ? 's' : ''} Awaiting Your
                 Response
               </CardTitle>
@@ -161,7 +152,7 @@ export default function ClientDashboard() {
                     <Link to={`/client/quotes?id=${quote.id}`}>
                       <Button size="sm" variant="outline">
                         Review
-                        <ArrowRight className="ml-2 h-4 w-4" />
+                        <MaterialIcon name="arrow_forward" size="sm" className="ml-2" />
                       </Button>
                     </Link>
                   </div>
@@ -171,7 +162,7 @@ export default function ClientDashboard() {
                 <Link to="/client/quotes" className="block mt-3">
                   <Button variant="link" className="px-0 text-amber-700">
                     View all {pendingQuotes.length} pending quotes
-                    <ArrowRight className="ml-1 h-4 w-4" />
+                    <MaterialIcon name="arrow_forward" size="sm" className="ml-1" />
                   </Button>
                 </Link>
               )}
@@ -191,18 +182,18 @@ export default function ClientDashboard() {
               <Link to="/client/shipments">
                 <Button variant="ghost" size="sm">
                   View All
-                  <ArrowRight className="ml-1 h-4 w-4" />
+                  <MaterialIcon name="arrow_forward" size="sm" className="ml-1" />
                 </Button>
               </Link>
             </CardHeader>
             <CardContent>
               {shipmentsLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
                 </div>
               ) : shipments.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <Truck className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <MaterialIcon name="local_shipping" size="xl" className="mx-auto mb-2 opacity-50" />
                   <p>No recent shipments</p>
                 </div>
               ) : (
@@ -254,18 +245,18 @@ export default function ClientDashboard() {
               <Link to="/client/quotes">
                 <Button variant="ghost" size="sm">
                   View All
-                  <ArrowRight className="ml-1 h-4 w-4" />
+                  <MaterialIcon name="arrow_forward" size="sm" className="ml-1" />
                 </Button>
               </Link>
             </CardHeader>
             <CardContent>
               {quotesLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
                 </div>
               ) : quotes.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <MaterialIcon name="description" size="xl" className="mx-auto mb-2 opacity-50" />
                   <p>No quotes yet</p>
                 </div>
               ) : (
@@ -322,7 +313,7 @@ export default function ClientDashboard() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Link to="/client/items">
                 <Button variant="outline" className="w-full justify-start h-auto py-4">
-                  <Package className="mr-3 h-5 w-5" />
+                  <MaterialIcon name="inventory_2" size="md" className="mr-3" />
                   <div className="text-left">
                     <p className="font-medium">View My Items</p>
                     <p className="text-xs text-muted-foreground">
@@ -333,7 +324,7 @@ export default function ClientDashboard() {
               </Link>
               <Link to="/client/quotes">
                 <Button variant="outline" className="w-full justify-start h-auto py-4">
-                  <FileText className="mr-3 h-5 w-5" />
+                  <MaterialIcon name="description" size="md" className="mr-3" />
                   <div className="text-left">
                     <p className="font-medium">Review Quotes</p>
                     <p className="text-xs text-muted-foreground">
@@ -344,7 +335,7 @@ export default function ClientDashboard() {
               </Link>
               <Link to="/client/claims">
                 <Button variant="outline" className="w-full justify-start h-auto py-4">
-                  <Shield className="mr-3 h-5 w-5" />
+                  <MaterialIcon name="shield" size="md" className="mr-3" />
                   <div className="text-left">
                     <p className="font-medium">My Claims</p>
                     <p className="text-xs text-muted-foreground">
@@ -354,7 +345,7 @@ export default function ClientDashboard() {
                 </Button>
               </Link>
               <Button variant="outline" className="w-full justify-start h-auto py-4" disabled>
-                <Truck className="mr-3 h-5 w-5" />
+                <MaterialIcon name="local_shipping" size="md" className="mr-3" />
                 <div className="text-left">
                   <p className="font-medium">Request Delivery</p>
                   <p className="text-xs text-muted-foreground">Coming soon</p>

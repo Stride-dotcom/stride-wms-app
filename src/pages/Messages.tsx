@@ -30,27 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  MessageSquare,
-  Bell,
-  Send,
-  RefreshCw,
-  Plus,
-  Inbox,
-  Archive,
-  Search,
-  Check,
-  CheckCheck,
-  Mail,
-  MailOpen,
-  Trash2,
-  Clock,
-  User as UserIcon,
-  Users,
-  Building2,
-  Loader2,
-  AlertCircle,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -273,7 +253,7 @@ export default function Messages() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold flex items-center gap-2">
-              <MessageSquare className="h-6 w-6" />
+              <MaterialIcon name="chat" size="lg" />
               Messages
             </h1>
             <p className="text-muted-foreground">
@@ -282,11 +262,11 @@ export default function Messages() {
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => { refetchMessages(); refetchNotifications(); }}>
-              <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
+              <MaterialIcon name={loading ? "progress_activity" : "refresh"} size="sm" className={cn("mr-2", loading && "animate-spin")} />
               Refresh
             </Button>
             <Button size="sm" onClick={() => setComposeOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
+              <MaterialIcon name="add" size="sm" className="mr-2" />
               New Message
             </Button>
           </div>
@@ -294,7 +274,7 @@ export default function Messages() {
 
         {/* Search */}
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search messages..."
             value={searchQuery}
@@ -307,14 +287,14 @@ export default function Messages() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="inbox" className="flex items-center gap-2">
-              <Inbox className="h-4 w-4" />
+              <MaterialIcon name="inbox" size="sm" />
               Inbox
               {unreadMessages > 0 && (
                 <Badge variant="secondary" className="ml-1">{unreadMessages}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="notifications" className="flex items-center gap-2">
-              <Bell className="h-4 w-4" />
+              <MaterialIcon name="notifications" size="sm" />
               Notifications
               {unreadNotifications > 0 && (
                 <Badge variant="secondary" className="ml-1">{unreadNotifications}</Badge>
@@ -334,12 +314,12 @@ export default function Messages() {
                   <div className="divide-y max-h-[60vh] overflow-y-auto">
                     {loading && messages.length === 0 ? (
                       <div className="p-8 text-center text-muted-foreground">
-                        <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                        <MaterialIcon name="progress_activity" size="lg" className="animate-spin mx-auto mb-2" />
                         Loading...
                       </div>
                     ) : filteredMessages.length === 0 ? (
                       <div className="p-8 text-center text-muted-foreground">
-                        <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <MaterialIcon name="mail" size="xl" className="mx-auto mb-2 opacity-50" />
                         No messages
                       </div>
                     ) : (
@@ -403,14 +383,14 @@ export default function Messages() {
                         <div>
                           <h2 className="text-xl font-semibold">{selectedMessage.message.subject}</h2>
                           <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                            <UserIcon className="h-4 w-4" />
+                            <MaterialIcon name="person" size="sm" />
                             From: {selectedMessage.message.sender?.first_name} {selectedMessage.message.sender?.last_name}
                             <span className="text-muted-foreground">
                               ({selectedMessage.message.sender?.email})
                             </span>
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4" />
+                            <MaterialIcon name="schedule" size="sm" />
                             {new Date(selectedMessage.created_at).toLocaleString()}
                           </div>
                         </div>
@@ -420,12 +400,12 @@ export default function Messages() {
                           )}
                           {selectedMessage.is_read ? (
                             <Badge variant="outline" className="text-green-600">
-                              <CheckCheck className="h-3 w-3 mr-1" />
+                              <MaterialIcon name="done_all" className="h-3 w-3 mr-1" />
                               Read
                             </Badge>
                           ) : (
                             <Badge variant="outline">
-                              <Check className="h-3 w-3 mr-1" />
+                              <MaterialIcon name="check" className="h-3 w-3 mr-1" />
                               Unread
                             </Badge>
                           )}
@@ -442,7 +422,7 @@ export default function Messages() {
                       {/* Actions */}
                       <div className="flex gap-2 pt-4 border-t">
                         <Button onClick={() => setReplyOpen(true)}>
-                          <Send className="h-4 w-4 mr-2" />
+                          <MaterialIcon name="send" size="sm" className="mr-2" />
                           Reply
                         </Button>
                         <Button
@@ -452,7 +432,7 @@ export default function Messages() {
                             setSelectedMessage(null);
                           }}
                         >
-                          <Archive className="h-4 w-4 mr-2" />
+                          <MaterialIcon name="archive" size="sm" className="mr-2" />
                           Archive
                         </Button>
                       </div>
@@ -460,7 +440,7 @@ export default function Messages() {
                   ) : (
                     <div className="h-full flex items-center justify-center text-muted-foreground py-20">
                       <div className="text-center">
-                        <MailOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <MaterialIcon name="drafts" className="h-12 w-12 mx-auto mb-4 opacity-50" />
                         <p>Select a message to read</p>
                       </div>
                     </div>
@@ -538,7 +518,7 @@ export default function Messages() {
                 </div>
                 {unreadNotifications > 0 && (
                   <Button variant="outline" size="sm" onClick={markAllNotificationsRead}>
-                    <CheckCheck className="h-4 w-4 mr-2" />
+                    <MaterialIcon name="done_all" size="sm" className="mr-2" />
                     Mark All Read
                   </Button>
                 )}
@@ -547,12 +527,12 @@ export default function Messages() {
                 <div className="divide-y">
                   {loading && notifications.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                      <MaterialIcon name="progress_activity" size="lg" className="animate-spin mx-auto mb-2" />
                       Loading...
                     </div>
                   ) : filteredNotifications.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground">
-                      <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <MaterialIcon name="notifications" size="xl" className="mx-auto mb-2 opacity-50" />
                       No notifications
                     </div>
                   ) : (
@@ -575,7 +555,7 @@ export default function Messages() {
                               <p className="text-sm text-muted-foreground mt-1">{notif.body}</p>
                             )}
                             <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                              <Clock className="h-3 w-3" />
+                              <MaterialIcon name="schedule" className="h-3 w-3" />
                               {formatDate(notif.created_at)}
                               <Badge variant="secondary" className="text-xs">{notif.category}</Badge>
                             </div>
@@ -590,7 +570,7 @@ export default function Messages() {
                             deleteNotification(notif.id);
                           }}
                         >
-                          <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          <MaterialIcon name="delete" size="sm" className="text-muted-foreground" />
                         </Button>
                       </div>
                     ))
@@ -627,19 +607,19 @@ export default function Messages() {
                     <SelectContent>
                       <SelectItem value="user">
                         <div className="flex items-center gap-2">
-                          <UserIcon className="h-4 w-4" />
+                          <MaterialIcon name="person" size="sm" />
                           Individual User
                         </div>
                       </SelectItem>
                       <SelectItem value="role">
                         <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4" />
+                          <MaterialIcon name="group" size="sm" />
                           Role (All Users)
                         </div>
                       </SelectItem>
                       <SelectItem value="department">
                         <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4" />
+                          <MaterialIcon name="business" size="sm" />
                           Department
                         </div>
                       </SelectItem>
@@ -790,7 +770,7 @@ export default function Messages() {
                 onClick={handleSendMessage}
                 disabled={sending || !newMessage.subject.trim() || !newMessage.body.trim() || newMessage.recipientIds.length === 0}
               >
-                {sending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {sending && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
                 Send Message
               </Button>
             </DialogFooter>
@@ -825,7 +805,7 @@ export default function Messages() {
                 Cancel
               </Button>
               <Button onClick={handleReply} disabled={sending || !replyBody.trim()}>
-                {sending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {sending && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
                 Send Reply
               </Button>
             </DialogFooter>

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Loader2, Shield, Users, Building2, Warehouse, Eye, Wrench, User, type LucideIcon } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 
 // Dev-only quick login users - only visible in development mode
@@ -18,18 +18,18 @@ interface DevUser {
   email: string;
   password: string;
   label: string;
-  icon: LucideIcon;
+  icon: string;
 }
 
 const DEV_USERS: DevUser[] = [
-  { role: 'admin', email: 'admin@demo.com', password: 'demo123', label: 'Admin', icon: Shield },
-  { role: 'tenant_admin', email: 'admin@demo.com', password: 'demo123', label: 'Tenant Admin', icon: Building2 },
-  { role: 'manager', email: 'manager@demo.com', password: 'demo123', label: 'Manager', icon: Users },
-  { role: 'warehouse', email: 'warehouse@demo.com', password: 'demo123', label: 'Warehouse', icon: Warehouse },
-  { role: 'warehouse_staff', email: 'warehouse@demo.com', password: 'demo123', label: 'WH Staff', icon: Package },
-  { role: 'client_user', email: 'client@demo.com', password: 'demo123', label: 'Client', icon: User },
-  { role: 'ops_viewer', email: 'client@demo.com', password: 'demo123', label: 'Ops Viewer', icon: Eye },
-  { role: 'repair_tech', email: 'warehouse@demo.com', password: 'demo123', label: 'Repair Tech', icon: Wrench },
+  { role: 'admin', email: 'admin@demo.com', password: 'demo123', label: 'Admin', icon: 'shield' },
+  { role: 'tenant_admin', email: 'admin@demo.com', password: 'demo123', label: 'Tenant Admin', icon: 'business' },
+  { role: 'manager', email: 'manager@demo.com', password: 'demo123', label: 'Manager', icon: 'group' },
+  { role: 'warehouse', email: 'warehouse@demo.com', password: 'demo123', label: 'Warehouse', icon: 'warehouse' },
+  { role: 'warehouse_staff', email: 'warehouse@demo.com', password: 'demo123', label: 'WH Staff', icon: 'inventory_2' },
+  { role: 'client_user', email: 'client@demo.com', password: 'demo123', label: 'Client', icon: 'person' },
+  { role: 'ops_viewer', email: 'client@demo.com', password: 'demo123', label: 'Ops Viewer', icon: 'visibility' },
+  { role: 'repair_tech', email: 'warehouse@demo.com', password: 'demo123', label: 'Repair Tech', icon: 'build' },
 ];
 
 const loginSchema = z.object({
@@ -182,7 +182,7 @@ export default function Auth() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-primary" />
       </div>
     );
   }
@@ -193,7 +193,7 @@ export default function Auth() {
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="p-3 bg-primary rounded-xl">
-              <Package className="h-8 w-8 text-primary-foreground" />
+              <MaterialIcon name="inventory_2" size="xl" className="text-primary-foreground" />
             </div>
           </div>
           <CardTitle className="text-2xl font-bold">Stride WMS</CardTitle>
@@ -248,7 +248,7 @@ export default function Auth() {
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                         Signing in...
                       </>
                     ) : (
@@ -313,7 +313,6 @@ export default function Auth() {
                       
                       <div className="grid grid-cols-2 gap-2">
                         {DEV_USERS.map((devUser) => {
-                          const IconComponent = devUser.icon;
                           return (
                             <Button
                               key={devUser.role}
@@ -337,7 +336,7 @@ export default function Auth() {
                               }}
                               disabled={isLoading}
                             >
-                              <IconComponent className="h-3 w-3 mr-1" />
+                              <MaterialIcon name={devUser.icon} size="sm" className="mr-1" />
                               {devUser.label}
                             </Button>
                           );
@@ -434,7 +433,7 @@ export default function Auth() {
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                         Creating account...
                       </>
                     ) : (
@@ -481,7 +480,7 @@ export default function Auth() {
                     </Button>
                     {!resetSent && (
                       <Button className="flex-1" onClick={handleForgotPassword} disabled={isLoading}>
-                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send Reset Link'}
+                        {isLoading ? <MaterialIcon name="progress_activity" size="sm" className="animate-spin" /> : 'Send Reset Link'}
                       </Button>
                     )}
                   </div>

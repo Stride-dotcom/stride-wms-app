@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check, Pencil, Plus } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 
 interface InlineEditableCellProps {
@@ -66,7 +66,7 @@ export function InlineEditableCell({ value, suggestions, onSave, placeholder = '
           <span className={cn("text-sm truncate", !value && "text-muted-foreground")}>
             {value || placeholder}
           </span>
-          <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          <MaterialIcon name="edit" className="text-[12px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
         </div>
       </PopoverTrigger>
       <PopoverContent
@@ -91,7 +91,7 @@ export function InlineEditableCell({ value, suggestions, onSave, placeholder = '
               onClick={() => handleSelect(inputValue.trim())}
               disabled={saving}
             >
-              <Plus className="h-3 w-3" />
+              <MaterialIcon name="add" className="text-[12px]" />
               Add "{inputValue.trim()}"
             </button>
           )}
@@ -102,7 +102,7 @@ export function InlineEditableCell({ value, suggestions, onSave, placeholder = '
               onClick={() => handleSelect(suggestion)}
               disabled={saving}
             >
-              {suggestion === value && <Check className="h-3 w-3 text-primary" />}
+              {suggestion === value && <MaterialIcon name="check" className="text-[12px] text-primary" />}
               {suggestion !== value && <span className="w-3" />}
               <span className="truncate">{suggestion}</span>
             </button>

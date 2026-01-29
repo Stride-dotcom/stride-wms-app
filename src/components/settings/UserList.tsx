@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, MoreHorizontal, Pencil, Trash2, Users, Shield, Search, UserPlus } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -177,7 +177,7 @@ export function UserList({
     return (
       <Card>
         <CardContent className="flex items-center justify-center h-48">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -187,7 +187,7 @@ export function UserList({
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center h-48 text-center">
-          <Users className="h-12 w-12 text-muted-foreground mb-4" />
+          <MaterialIcon name="group" size="lg" className="text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium">No users yet</h3>
           <p className="text-muted-foreground text-sm mt-1">
             Users will appear here when they register.
@@ -210,7 +210,7 @@ export function UserList({
             </div>
             {onInvite && (
               <Button onClick={onInvite}>
-                <UserPlus className="mr-2 h-4 w-4" />
+                <MaterialIcon name="person_add" size="sm" className="mr-2" />
                 Add User
               </Button>
             )}
@@ -220,7 +220,7 @@ export function UserList({
           {/* Filters */}
           <div className="flex flex-wrap gap-3">
             <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search by name or email..."
                 value={searchQuery}
@@ -267,7 +267,7 @@ export function UserList({
 
           {filteredUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Users className="h-12 w-12 text-muted-foreground mb-4" />
+              <MaterialIcon name="group" size="lg" className="text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium">No users match your filters</h3>
               <p className="text-muted-foreground text-sm mt-1">
                 Try adjusting your search or filter criteria
@@ -294,7 +294,7 @@ export function UserList({
                       {user.roles.length > 0 ? (
                         user.roles.map((role) => (
                           <Badge key={role.id} variant="outline" className="text-xs">
-                            <Shield className="h-3 w-3 mr-1" />
+                            <MaterialIcon name="shield" size="sm" className="mr-1" />
                             {role.name}
                           </Badge>
                         ))
@@ -305,7 +305,7 @@ export function UserList({
                   </MobileDataCardContent>
                   <MobileDataCardActions>
                     <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => onEdit(user.id)}>
-                      <Pencil className="h-4 w-4" />
+                      <MaterialIcon name="edit" size="sm" />
                     </Button>
                     {user.id !== currentUserId && (
                       <Button
@@ -314,7 +314,7 @@ export function UserList({
                         className="h-11 w-11 text-destructive"
                         onClick={() => handleDeleteClick(user)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <MaterialIcon name="delete" size="sm" />
                       </Button>
                     )}
                   </MobileDataCardActions>
@@ -351,7 +351,7 @@ export function UserList({
                       {user.roles.length > 0 ? (
                         user.roles.map((role) => (
                           <Badge key={role.id} variant="outline" className="text-xs">
-                            <Shield className="h-3 w-3 mr-1" />
+                            <MaterialIcon name="shield" size="sm" className="mr-1" />
                             {role.name}
                           </Badge>
                         ))
@@ -365,13 +365,13 @@ export function UserList({
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
+                          <MaterialIcon name="more_horiz" size="sm" />
                           <span className="sr-only">Open menu</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => onEdit(user.id)}>
-                          <Pencil className="mr-2 h-4 w-4" />
+                          <MaterialIcon name="edit" size="sm" className="mr-2" />
                           Edit
                         </DropdownMenuItem>
                         {user.id !== currentUserId && (
@@ -379,7 +379,7 @@ export function UserList({
                             className="text-destructive focus:text-destructive"
                             onClick={() => handleDeleteClick(user)}
                           >
-                            <Trash2 className="mr-2 h-4 w-4" />
+                            <MaterialIcon name="delete" size="sm" className="mr-2" />
                             Delete
                           </DropdownMenuItem>
                         )}
@@ -410,7 +410,7 @@ export function UserList({
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleting && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

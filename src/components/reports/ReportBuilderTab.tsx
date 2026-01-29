@@ -52,27 +52,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import {
-  Loader2,
-  Play,
-  Save,
-  Download,
-  Plus,
-  Trash2,
-  Settings2,
-  FileText,
-  FolderOpen,
-  ChevronDown,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  X,
-  RefreshCw,
-  MoreVertical,
-  Copy,
-  Star,
-  Share2,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import * as XLSX from 'xlsx';
 
 // Default empty config
@@ -459,11 +439,11 @@ export function ReportBuilderTab() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setLoadDialogOpen(true)}>
-            <FolderOpen className="h-4 w-4 mr-2" />
+            <MaterialIcon name="folder_open" size="sm" className="mr-2" />
             Load
           </Button>
           <Button variant="outline" size="sm" onClick={handleNewReport}>
-            <Plus className="h-4 w-4 mr-2" />
+            <MaterialIcon name="add" size="sm" className="mr-2" />
             New
           </Button>
           <Button
@@ -472,7 +452,7 @@ export function ReportBuilderTab() {
             onClick={() => setSaveDialogOpen(true)}
             disabled={config.columns.filter((c) => c.visible).length === 0}
           >
-            <Save className="h-4 w-4 mr-2" />
+            <MaterialIcon name="save" size="sm" className="mr-2" />
             Save
           </Button>
           <DropdownMenu>
@@ -482,27 +462,27 @@ export function ReportBuilderTab() {
                 size="sm"
                 disabled={!reportData || reportData.rows.length === 0}
               >
-                <Download className="h-4 w-4 mr-2" />
+                <MaterialIcon name="download" size="sm" className="mr-2" />
                 Export
-                <ChevronDown className="h-4 w-4 ml-2" />
+                <MaterialIcon name="expand_more" size="sm" className="ml-2" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={handleExportCSV}>
-                <FileText className="h-4 w-4 mr-2" />
+                <MaterialIcon name="description" size="sm" className="mr-2" />
                 Export CSV
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleExportExcel}>
-                <FileText className="h-4 w-4 mr-2" />
+                <MaterialIcon name="description" size="sm" className="mr-2" />
                 Export Excel
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Button onClick={handleRunReport} disabled={executing || visibleColumns.length === 0}>
             {executing ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
             ) : (
-              <Play className="h-4 w-4 mr-2" />
+              <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
             )}
             Run Report
           </Button>
@@ -517,7 +497,7 @@ export function ReportBuilderTab() {
             <AccordionItem value="source" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2">
-                  <Settings2 className="h-4 w-4" />
+                  <MaterialIcon name="settings" size="sm" />
                   <span className="font-medium">Data Source</span>
                   <Badge variant="secondary" className="ml-2">
                     {DATA_SOURCES[dataSource]?.label}
@@ -548,7 +528,7 @@ export function ReportBuilderTab() {
             <AccordionItem value="columns" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2">
-                  <Settings2 className="h-4 w-4" />
+                  <MaterialIcon name="settings" size="sm" />
                   <span className="font-medium">Columns</span>
                   <Badge variant="secondary" className="ml-2">
                     {visibleColumns.length} selected
@@ -582,7 +562,7 @@ export function ReportBuilderTab() {
             <AccordionItem value="filters" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2">
-                  <Settings2 className="h-4 w-4" />
+                  <MaterialIcon name="settings" size="sm" />
                   <span className="font-medium">Filters</span>
                   {config.filters.length > 0 && (
                     <Badge variant="secondary" className="ml-2">
@@ -658,14 +638,14 @@ export function ReportBuilderTab() {
                         onClick={() => handleRemoveFilter(filter.id)}
                         className="text-destructive hover:text-destructive"
                       >
-                        <X className="h-4 w-4" />
+                        <MaterialIcon name="close" size="sm" />
                       </Button>
                     </div>
                   );
                 })}
 
                 <Button variant="outline" size="sm" onClick={handleAddFilter}>
-                  <Plus className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="add" size="sm" className="mr-2" />
                   Add Filter
                 </Button>
               </AccordionContent>
@@ -675,7 +655,7 @@ export function ReportBuilderTab() {
             <AccordionItem value="summaries" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2">
-                  <Settings2 className="h-4 w-4" />
+                  <MaterialIcon name="settings" size="sm" />
                   <span className="font-medium">Summaries</span>
                   {config.summaries.length > 0 && (
                     <Badge variant="secondary" className="ml-2">
@@ -749,14 +729,14 @@ export function ReportBuilderTab() {
                         onClick={() => handleRemoveSummary(summary.id)}
                         className="text-destructive hover:text-destructive"
                       >
-                        <X className="h-4 w-4" />
+                        <MaterialIcon name="close" size="sm" />
                       </Button>
                     </div>
                   );
                 })}
 
                 <Button variant="outline" size="sm" onClick={handleAddSummary}>
-                  <Plus className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="add" size="sm" className="mr-2" />
                   Add Summary
                 </Button>
               </AccordionContent>
@@ -797,7 +777,7 @@ export function ReportBuilderTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+            <MaterialIcon name="description" size="md" />
             Results
             {reportData && (
               <Badge variant="secondary" className="ml-2">
@@ -817,7 +797,7 @@ export function ReportBuilderTab() {
         <CardContent>
           {executing ? (
             <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
             </div>
           ) : reportData && reportData.rows.length > 0 ? (
             <ScrollArea className="h-[500px]">
@@ -843,12 +823,12 @@ export function ReportBuilderTab() {
                                 <span className="text-muted-foreground">
                                   {sortDef ? (
                                     sortDef.direction === 'asc' ? (
-                                      <ArrowUp className="h-3 w-3" />
+                                      <MaterialIcon name="arrow_upward" style={{ fontSize: '12px' }} />
                                     ) : (
-                                      <ArrowDown className="h-3 w-3" />
+                                      <MaterialIcon name="arrow_downward" style={{ fontSize: '12px' }} />
                                     )
                                   ) : (
-                                    <ArrowUpDown className="h-3 w-3 opacity-50" />
+                                    <MaterialIcon name="swap_vert" style={{ fontSize: '12px' }} className="opacity-50" />
                                   )}
                                 </span>
                               )}
@@ -945,7 +925,7 @@ export function ReportBuilderTab() {
               Cancel
             </Button>
             <Button onClick={handleSaveReport}>
-              <Save className="h-4 w-4 mr-2" />
+              <MaterialIcon name="save" size="sm" className="mr-2" />
               {currentReport ? 'Update' : 'Save'}
             </Button>
           </DialogFooter>
@@ -965,7 +945,7 @@ export function ReportBuilderTab() {
           <ScrollArea className="h-[400px] pr-4">
             {reportsLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
               </div>
             ) : reports.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -994,12 +974,12 @@ export function ReportBuilderTab() {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-4 w-4" />
+                          <MaterialIcon name="more_vert" size="sm" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleLoadReport(report)}>
-                          <FolderOpen className="h-4 w-4 mr-2" />
+                          <MaterialIcon name="folder_open" size="sm" className="mr-2" />
                           Load
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -1010,7 +990,7 @@ export function ReportBuilderTab() {
                           }}
                           className="text-destructive"
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
+                          <MaterialIcon name="delete" size="sm" className="mr-2" />
                           Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -1046,7 +1026,7 @@ export function ReportBuilderTab() {
               variant="destructive"
               onClick={() => confirmDeleteId && handleDeleteReport(confirmDeleteId)}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
+              <MaterialIcon name="delete" size="sm" className="mr-2" />
               Delete
             </Button>
           </DialogFooter>

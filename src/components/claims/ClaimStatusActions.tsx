@@ -32,16 +32,7 @@ import {
 import { Claim, ClaimStatus, ClaimItem, useClaims } from '@/hooks/useClaims';
 import { useCurrentUserRole } from '@/hooks/useRoles';
 import { SendForAcceptanceDialog } from './SendForAcceptanceDialog';
-import {
-  Loader2,
-  ArrowRight,
-  Check,
-  DollarSign,
-  XCircle,
-  Send,
-  CheckCircle,
-  AlertTriangle,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface ClaimStatusActionsProps {
   claim: Claim;
@@ -169,7 +160,7 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
       case 'initiated':
         return (
           <Button onClick={handleMoveToReview} disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRight className="h-4 w-4 mr-2" />}
+            {loading ? <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" /> : <MaterialIcon name="arrow_forward" size="sm" className="mr-2" />}
             Move to Under Review
           </Button>
         );
@@ -178,7 +169,7 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
         return (
           <div className="flex flex-wrap gap-2">
             <Button variant="destructive" onClick={() => setShowDenyDialog(true)} disabled={loading}>
-              <XCircle className="h-4 w-4 mr-2" />
+              <MaterialIcon name="cancel" size="sm" className="mr-2" />
               Deny
             </Button>
             {allItemsDetermined ? (
@@ -187,12 +178,12 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
                 onClick={() => setShowSendForAcceptanceDialog(true)}
                 disabled={loading}
               >
-                <Send className="h-4 w-4 mr-2" />
+                <MaterialIcon name="send" size="sm" className="mr-2" />
                 Send for Acceptance
               </Button>
             ) : (
               <Button variant="outline" disabled>
-                <AlertTriangle className="h-4 w-4 mr-2" />
+                <MaterialIcon name="warning" size="sm" className="mr-2" />
                 Determine All Items First
               </Button>
             )}
@@ -217,12 +208,12 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
         return (
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
-              <CheckCircle className="h-3 w-3 mr-1" />
+              <MaterialIcon name="check_circle" className="!text-[12px] mr-1" />
               Client Accepted
             </Badge>
             {isManager && (
               <Button onClick={() => setShowPayoutDialog(true)} disabled={loading}>
-                <DollarSign className="h-4 w-4 mr-2" />
+                <MaterialIcon name="attach_money" size="sm" className="mr-2" />
                 Issue Payout
               </Button>
             )}
@@ -233,7 +224,7 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
         return (
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">
-              <XCircle className="h-3 w-3 mr-1" />
+              <MaterialIcon name="cancel" className="!text-[12px] mr-1" />
               Client Declined
             </Badge>
             {claim.counter_offer_amount && (
@@ -256,13 +247,13 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
                 onClick={() => setShowSendForAcceptanceDialog(true)}
                 disabled={loading}
               >
-                <Send className="h-4 w-4 mr-2" />
+                <MaterialIcon name="send" size="sm" className="mr-2" />
                 Send for Acceptance
               </Button>
             )}
             {isManager && claim.settlement_accepted_at && (
               <Button onClick={() => setShowPayoutDialog(true)} disabled={loading}>
-                <DollarSign className="h-4 w-4 mr-2" />
+                <MaterialIcon name="attach_money" size="sm" className="mr-2" />
                 Issue Payout
               </Button>
             )}
@@ -274,7 +265,7 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
         return (
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
-              <CheckCircle className="h-3 w-3 mr-1" />
+              <MaterialIcon name="check_circle" className="!text-[12px] mr-1" />
               Payout Complete
             </Badge>
             <Button variant="outline" onClick={() => setConfirmDialog({ action: 'Close', status: 'closed' })} disabled={loading}>
@@ -324,7 +315,7 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDenyDialog(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDeny} disabled={!denialReason.trim() || loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {loading && <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />}
               Deny Claim
             </Button>
           </DialogFooter>
@@ -375,7 +366,7 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowApproveDialog(false)}>Cancel</Button>
             <Button onClick={handleApprove} disabled={!approvedAmount || loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {loading && <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />}
               Approve Claim
             </Button>
           </DialogFooter>
@@ -420,7 +411,7 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPayoutDialog(false)}>Cancel</Button>
             <Button onClick={handleIssuePayout} disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {loading && <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />}
               Issue Payout
             </Button>
           </DialogFooter>
@@ -460,7 +451,7 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeterminationDialog(false)}>Cancel</Button>
             <Button onClick={handleSendDetermination} disabled={!settlementTerms.trim() || loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {loading && <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />}
               Send to Client
             </Button>
           </DialogFooter>

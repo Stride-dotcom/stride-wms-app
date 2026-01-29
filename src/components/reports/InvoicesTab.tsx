@@ -36,19 +36,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useInvoices, useBillableCharges, BillableCharge, Invoice } from '@/hooks/useBilling';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { jsPDF } from 'jspdf';
-import {
-  Loader2,
-  CalendarIcon,
-  FileText,
-  DollarSign,
-  Search,
-  Filter,
-  Plus,
-  Eye,
-  Send,
-  CheckCircle,
-  Download,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -394,7 +382,7 @@ export function InvoicesTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
+            <MaterialIcon name="filter_list" size="md" />
             Create Invoice
           </CardTitle>
           <CardDescription>
@@ -409,7 +397,7 @@ export function InvoicesTab() {
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <MaterialIcon name="calendar_today" size="sm" className="mr-2" />
                     {format(dateRange.start, 'PPP')}
                   </Button>
                 </PopoverTrigger>
@@ -430,7 +418,7 @@ export function InvoicesTab() {
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <MaterialIcon name="calendar_today" size="sm" className="mr-2" />
                     {format(dateRange.end, 'PPP')}
                   </Button>
                 </PopoverTrigger>
@@ -542,7 +530,7 @@ export function InvoicesTab() {
             </div>
             {selectedCharges.size > 0 && (
               <Button onClick={() => setCreateDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <MaterialIcon name="add" size="sm" className="mr-2" />
                 Create Invoice(s)
               </Button>
             )}
@@ -551,7 +539,7 @@ export function InvoicesTab() {
         <CardContent>
           <div className="mb-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search charges..."
                 value={searchQuery}
@@ -563,11 +551,11 @@ export function InvoicesTab() {
 
           {chargesLoading ? (
             <div className="flex items-center justify-center h-48">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
             </div>
           ) : selectedAccountIds.length === 0 ? (
             <div className="text-center py-12">
-              <DollarSign className="mx-auto h-12 w-12 text-muted-foreground" />
+              <MaterialIcon name="attach_money" className="mx-auto text-muted-foreground" style={{ fontSize: '48px' }} />
               <h3 className="mt-4 text-lg font-semibold">Select Accounts</h3>
               <p className="text-muted-foreground">
                 Choose one or more accounts to view billable charges
@@ -575,7 +563,7 @@ export function InvoicesTab() {
             </div>
           ) : filteredCharges.length === 0 ? (
             <div className="text-center py-12">
-              <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+              <MaterialIcon name="description" className="mx-auto text-muted-foreground" style={{ fontSize: '48px' }} />
               <h3 className="mt-4 text-lg font-semibold">No Charges Found</h3>
               <p className="text-muted-foreground">
                 No billable charges for the selected criteria
@@ -637,7 +625,7 @@ export function InvoicesTab() {
         <CardContent>
           {invoicesLoading ? (
             <div className="flex items-center justify-center h-32">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
             </div>
           ) : invoices.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">No invoices yet</p>
@@ -676,14 +664,14 @@ export function InvoicesTab() {
                           size="icon"
                           onClick={() => handleViewInvoice(invoice)}
                         >
-                          <Eye className="h-4 w-4" />
+                          <MaterialIcon name="visibility" size="sm" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDownloadPDF(invoice)}
                         >
-                          <Download className="h-4 w-4" />
+                          <MaterialIcon name="download" size="sm" />
                         </Button>
                         {invoice.status === 'draft' && (
                           <Button
@@ -691,7 +679,7 @@ export function InvoicesTab() {
                             size="icon"
                             onClick={() => handleSendInvoice(invoice.id)}
                           >
-                            <Send className="h-4 w-4" />
+                            <MaterialIcon name="send" size="sm" />
                           </Button>
                         )}
                         {invoice.status === 'sent' && (
@@ -700,7 +688,7 @@ export function InvoicesTab() {
                             size="icon"
                             onClick={() => handleMarkPaid(invoice.id)}
                           >
-                            <CheckCircle className="h-4 w-4" />
+                            <MaterialIcon name="check_circle" size="sm" />
                           </Button>
                         )}
                       </div>
@@ -735,12 +723,12 @@ export function InvoicesTab() {
             <Button onClick={handleCreateInvoice} disabled={creatingInvoice}>
               {creatingInvoice ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Creating...
                 </>
               ) : (
                 <>
-                  <Plus className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="add" size="sm" className="mr-2" />
                   Create Invoice(s)
                 </>
               )}
