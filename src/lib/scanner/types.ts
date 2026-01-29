@@ -25,12 +25,13 @@ export interface OcrPage {
 }
 
 // Document context types for polymorphic linking
-export type DocumentContextType = 
-  | 'shipment' 
-  | 'employee' 
-  | 'delivery' 
-  | 'invoice' 
-  | 'item' 
+export type DocumentContextType =
+  | 'shipment'
+  | 'employee'
+  | 'delivery'
+  | 'invoice'
+  | 'item'
+  | 'task'
   | 'general';
 
 // Context with specific metadata for each type
@@ -40,6 +41,7 @@ export type DocumentContext =
   | { type: 'delivery'; deliveryId: string; routeStopId?: string }
   | { type: 'invoice'; invoiceNumber?: string; vendorId?: string }
   | { type: 'item'; itemId: string; description?: string }
+  | { type: 'task'; taskId: string; title?: string }
   | { type: 'general'; label?: string };
 
 // Scanner state machine

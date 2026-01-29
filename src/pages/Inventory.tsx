@@ -48,6 +48,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { ItemPreviewCard } from '@/components/items/ItemPreviewCard';
+import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
 import { InlineEditableCell } from '@/components/inventory/InlineEditableCell';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -111,6 +112,7 @@ export default function Inventory() {
   const [claimDialogOpen, setClaimDialogOpen] = useState(false);
   const [manifestDialogOpen, setManifestDialogOpen] = useState(false);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
+  const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { warehouses } = useWarehouses();
@@ -311,6 +313,7 @@ export default function Inventory() {
                 <Button variant="outline" onClick={() => { if (hasMultipleAccounts) { setValidationMessage('Cannot create a disposal for items from different accounts.'); setValidationDialogOpen(true); return; } setPreSelectedTaskType('Disposal'); setTaskDialogOpen(true); }}><MaterialIcon name="delete" size="sm" className="mr-2" />Dispose</Button>
                 <Button variant="outline" onClick={() => { if (hasMultipleAccounts) { setValidationMessage('Cannot create a claim for items from different accounts.'); setValidationDialogOpen(true); return; } setClaimDialogOpen(true); }}><MaterialIcon name="report_problem" size="sm" className="mr-2" />Claim</Button>
                 <Button variant="outline" onClick={() => setManifestDialogOpen(true)}><MaterialIcon name="list_alt" size="sm" className="mr-2" />Manifest</Button>
+                <Button variant="outline" onClick={() => setReassignDialogOpen(true)}><MaterialIcon name="swap_horiz" size="sm" className="mr-2" />Reassign</Button>
                 <Button variant="outline" onClick={() => setPrintLabelsDialogOpen(true)}><MaterialIcon name="print" size="sm" className="mr-2" />Print</Button>
                 <Button variant="outline" onClick={handleExportExcel}><MaterialIcon name="download" size="sm" className="mr-2" />Export</Button>
                 <Button variant="default" onClick={() => setReleaseDialogOpen(true)}><MaterialIcon name="package_2" size="sm" className="mr-2" />Release</Button>
@@ -407,6 +410,13 @@ export default function Inventory() {
         open={addItemDialogOpen}
         onOpenChange={setAddItemDialogOpen}
         onSuccess={fetchItems}
+      />
+      <ReassignAccountDialog
+        open={reassignDialogOpen}
+        onOpenChange={(open) => { setReassignDialogOpen(open); if (!open) setSelectedItems(new Set()); }}
+        entityType="items"
+        entityIds={Array.from(selectedItems)}
+        onSuccess={() => { setSelectedItems(new Set()); fetchItems(); }}
       />
       <AlertDialog open={validationDialogOpen} onOpenChange={setValidationDialogOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle className="flex items-center gap-2"><MaterialIcon name="warning" size="md" className="text-destructive" />Cannot Proceed</AlertDialogTitle><AlertDialogDescription>{validationMessage}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogAction onClick={() => setValidationDialogOpen(false)}>OK</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </DashboardLayout>

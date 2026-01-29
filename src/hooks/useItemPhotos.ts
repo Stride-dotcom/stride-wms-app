@@ -240,6 +240,89 @@ export function useItemPhotos(itemId: string | undefined) {
     }
   };
 
+  // Add photo from an already-uploaded URL (used by PhotoScanner)
+  const addPhotoFromUrl = async (
+    storageUrl: string,
+    photoType: ItemPhoto['photo_type'] = 'general'
+  ): Promise<ItemPhoto | null> => {
+    if (!profile?.tenant_id || !itemId) return null;
+
+    try {
+      // Extract storage key from URL
+      const urlParts = storageUrl.split('/photos/');
+      const storageKey = urlParts[1] || `items/${itemId}/${Date.now()}.jpg`;
+
+      const { data, error } = await (supabase
+        .from('item_photos') as any)
+        .insert({
+          item_id: itemId,
+          tenant_id: profile.tenant_id,
+          storage_key: storageKey,
+          storage_url: storageUrl,
+          file_name: storageKey.split('/').pop() || 'photo.jpg',
+          file_size: null,
+          mime_type: 'image/jpeg',
+          photo_type: photoType,
+          is_primary: false,
+          needs_attention: false,
+          uploaded_by: profile.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error adding photo from URL:', error);
+      return null;
+    }
+  };
+
+  // Add multiple photos from URLs (batch operation for PhotoScanner)
+  const addPhotosFromUrls = async (
+    urls: string[],
+    photoType: ItemPhoto['photo_type'] = 'general'
+  ): Promise<boolean> => {
+    if (!profile?.tenant_id || !itemId || urls.length === 0) return false;
+
+    try {
+      const records = urls.map(url => {
+        const urlParts = url.split('/photos/');
+        const storageKey = urlParts[1] || `items/${itemId}/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+        return {
+          item_id: itemId,
+          tenant_id: profile.tenant_id,
+          storage_key: storageKey,
+          storage_url: url,
+          file_name: storageKey.split('/').pop() || 'photo.jpg',
+          file_size: null,
+          mime_type: 'image/jpeg',
+          photo_type: photoType,
+          is_primary: false,
+          needs_attention: false,
+          uploaded_by: profile.id,
+        };
+      });
+
+      const { error } = await (supabase
+        .from('item_photos') as any)
+        .insert(records);
+
+      if (error) throw error;
+
+      fetchPhotos();
+      return true;
+    } catch (error) {
+      console.error('Error adding photos from URLs:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save photos',
+      });
+      return false;
+    }
+  };
+
   const primaryPhoto = photos.find(p => p.is_primary) || photos[0] || null;
   const needsAttentionPhotos = photos.filter(p => p.needs_attention);
 
@@ -250,6 +333,8 @@ export function useItemPhotos(itemId: string | undefined) {
     loading,
     refetch: fetchPhotos,
     addPhoto,
+    addPhotoFromUrl,
+    addPhotosFromUrls,
     setPrimaryPhoto,
     toggleNeedsAttention,
     deletePhoto,

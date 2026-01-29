@@ -28,6 +28,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
     needsAttentionPhotos,
     loading,
     addPhoto,
+    addPhotosFromUrls,
     setPrimaryPhoto,
     toggleNeedsAttention,
     deletePhoto,
@@ -78,15 +79,23 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Handle photos from PhotoScanner - fetch and add each URL as a file
+  // Handle photos from PhotoScanner - save URLs to item_photos table
   const handleScannerPhotosSaved = async (urls: string[]) => {
-    // The PhotoScanner has already saved the photos
-    // We need to reload the photos list
-    // For now, just show a toast - the photos hook should refetch
-    toast({
-      title: 'Photos captured',
-      description: `${urls.length} photo(s) added to item.`,
-    });
+    // Filter to only new URLs (not already in existing photos)
+    const existingUrls = photos.map(p => p.storage_url);
+    const newUrls = urls.filter(url => !existingUrls.includes(url));
+
+    if (newUrls.length === 0) {
+      return;
+    }
+
+    const success = await addPhotosFromUrls(newUrls, photoType);
+    if (success) {
+      toast({
+        title: 'Photos saved',
+        description: `${newUrls.length} photo(s) added to item.`,
+      });
+    }
   };
 
   const togglePhotoSelection = (photoId: string) => {

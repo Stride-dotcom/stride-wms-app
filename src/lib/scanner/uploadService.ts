@@ -48,9 +48,9 @@ function generateStoragePath(
 /**
  * Extract context ID and type from DocumentContext
  */
-function parseContext(context: DocumentContext): { 
-  type: DocumentContextType; 
-  id: string | null 
+function parseContext(context: DocumentContext): {
+  type: DocumentContextType;
+  id: string | null
 } {
   switch (context.type) {
     case 'shipment':
@@ -63,6 +63,8 @@ function parseContext(context: DocumentContext): {
       return { type: 'invoice', id: context.vendorId ?? null };
     case 'item':
       return { type: 'item', id: context.itemId };
+    case 'task':
+      return { type: 'task', id: context.taskId };
     case 'general':
       return { type: 'general', id: null };
     default:
