@@ -122,7 +122,19 @@ export default function Inventory() {
   const { preferences } = useTenantPreferences();
   const showWarehouseInLocation = preferences?.show_warehouse_in_location ?? true;
 
-  // Compute unique suggestions for inline editing
+  // Compute unique suggestions for inline editing autocomplete
+  const vendorSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach(item => { if (item.vendor) set.add(item.vendor); });
+    return Array.from(set).sort();
+  }, [items]);
+
+  const descriptionSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach(item => { if (item.description) set.add(item.description); });
+    return Array.from(set).sort();
+  }, [items]);
+
   const sidemarkSuggestions = useMemo(() => {
     const set = new Set<string>();
     items.forEach(item => { if (item.sidemark) set.add(item.sidemark); });
@@ -135,17 +147,29 @@ export default function Inventory() {
     return Array.from(set).sort();
   }, [items]);
 
-  const handleInlineUpdate = async (itemId: string, field: 'sidemark' | 'room', value: string) => {
+  // Handle inline field updates
+  const handleInlineUpdate = async (
+    itemId: string,
+    field: 'quantity' | 'vendor' | 'description' | 'sidemark' | 'room',
+    value: string
+  ) => {
+    // Convert to appropriate type for database
+    const dbValue = field === 'quantity' ? parseInt(value, 10) || 0 : value;
+
     const { error } = await supabase
       .from('items')
-      .update({ [field]: value })
+      .update({ [field]: dbValue })
       .eq('id', itemId);
     if (error) {
       toast({ title: 'Update failed', description: error.message, variant: 'destructive' });
       throw error;
     }
     // Update local state
-    setItems(prev => prev.map(item => item.id === itemId ? { ...item, [field]: value } : item));
+    setItems(prev => prev.map(item =>
+      item.id === itemId
+        ? { ...item, [field]: field === 'quantity' ? (parseInt(value, 10) || 0) : value }
+        : item
+    ));
   };
 
   useEffect(() => {
@@ -365,9 +389,32 @@ export default function Inventory() {
                           <span className="text-primary hover:underline cursor-pointer" onClick={() => navigate(`/inventory/${item.id}`)}>{item.item_code}</span>
                         </ItemPreviewCard>
                       </TableCell>
-                      <TableCell className="text-right">{item.quantity}</TableCell>
-                      <TableCell>{item.vendor || '-'}</TableCell>
-                      <TableCell className="line-clamp-1">{item.description || '-'}</TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <InlineEditableCell
+                          value={item.quantity}
+                          type="number"
+                          onSave={(val) => handleInlineUpdate(item.id, 'quantity', val)}
+                          placeholder="0"
+                          align="right"
+                        />
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <InlineEditableCell
+                          value={item.vendor}
+                          suggestions={vendorSuggestions}
+                          onSave={(val) => handleInlineUpdate(item.id, 'vendor', val)}
+                          placeholder="-"
+                        />
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <InlineEditableCell
+                          value={item.description}
+                          suggestions={descriptionSuggestions}
+                          onSave={(val) => handleInlineUpdate(item.id, 'description', val)}
+                          placeholder="-"
+                          className="max-w-[200px]"
+                        />
+                      </TableCell>
                       <TableCell>{item.location_code ? <span className="text-sm">{item.location_code}{showWarehouseInLocation && item.warehouse_name && <span className="text-muted-foreground ml-1">({item.warehouse_name})</span>}</span> : '-'}</TableCell>
                       <TableCell>{item.client_account || '-'}</TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>

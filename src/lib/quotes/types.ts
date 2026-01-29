@@ -35,6 +35,7 @@ export interface QuoteClass {
 export interface QuoteService {
   id: string;
   tenant_id: string;
+  service_code: string;
   category: string;
   name: string;
   description: string | null;
@@ -42,6 +43,7 @@ export interface QuoteService {
   trigger_label: string | null;
   is_storage_service: boolean;
   is_taxable_default: boolean;
+  is_class_based: boolean; // true if service has class-specific rates
   display_order: number;
   is_active: boolean;
   created_at: string;
@@ -185,6 +187,14 @@ export interface QuoteWithDetails extends Quote {
   events: QuoteEvent[];
 }
 
+// Per-class service selection for class-based services
+export interface ClassServiceSelection {
+  class_id: string;
+  service_id: string;
+  is_selected: boolean;
+  qty_override: number | null; // null = use class qty, number = specific qty
+}
+
 // Form data for creating/editing quotes
 export interface QuoteFormData {
   account_id: string;
@@ -205,10 +215,14 @@ export interface QuoteFormData {
     line_discount_type: DiscountType | null;
     line_discount_value: number | null;
   }[];
+  // Class-based services: tracks per-class service selections and qty overrides
+  class_service_selections: ClassServiceSelection[];
+  // Non-class based services (flat rate)
   selected_services: {
     service_id: string;
     is_selected: boolean;
     hours_input: number | null;
+    qty_input: number | null; // for services that need quantity
   }[];
   rate_overrides: {
     service_id: string;

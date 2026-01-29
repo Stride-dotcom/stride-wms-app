@@ -195,11 +195,21 @@ export default function TaskDetailPage() {
         return;
       }
 
+      // Deduplicate task_items by item_id (keep the first occurrence)
+      const seenItemIds = new Set<string>();
+      const uniqueTaskItems = taskItemsData.filter((ti: any) => {
+        if (!ti.item_id || seenItemIds.has(ti.item_id)) {
+          return false;
+        }
+        seenItemIds.add(ti.item_id);
+        return true;
+      });
+
       // Get the item IDs
-      const itemIds = taskItemsData.map((ti: any) => ti.item_id).filter(Boolean);
+      const itemIds = uniqueTaskItems.map((ti: any) => ti.item_id).filter(Boolean);
 
       if (itemIds.length === 0) {
-        setTaskItems(taskItemsData.map((ti: any) => ({ ...ti, item: null })));
+        setTaskItems(uniqueTaskItems.map((ti: any) => ({ ...ti, item: null })));
         return;
       }
 
@@ -217,13 +227,13 @@ export default function TaskDetailPage() {
       if (itemsError) {
         console.error('Error fetching items:', itemsError);
         // Still return task items without item details
-        setTaskItems(taskItemsData.map((ti: any) => ({ ...ti, item: null })));
+        setTaskItems(uniqueTaskItems.map((ti: any) => ({ ...ti, item: null })));
         return;
       }
 
       // Map items to task_items
       const itemMap = Object.fromEntries((items || []).map((i: any) => [i.id, i]));
-      setTaskItems(taskItemsData.map((ti: any) => ({
+      setTaskItems(uniqueTaskItems.map((ti: any) => ({
         ...ti,
         item: itemMap[ti.item_id] || null,
       })));

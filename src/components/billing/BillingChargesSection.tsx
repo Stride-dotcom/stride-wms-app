@@ -228,8 +228,19 @@ export function BillingChargesSection({
           return;
         }
 
-        // Look up rate for each item based on its class
-        for (const taskItem of taskItems || []) {
+        // Deduplicate task_items by item_id (keep the first occurrence)
+        const seenItemIds = new Set<string>();
+        const uniqueTaskItems = (taskItems || []).filter((ti: any) => {
+          const itemId = ti.item?.id;
+          if (!itemId || seenItemIds.has(itemId)) {
+            return false;
+          }
+          seenItemIds.add(itemId);
+          return true;
+        });
+
+        // Look up rate for each unique item based on its class
+        for (const taskItem of uniqueTaskItems) {
           const classCode = taskItem.item?.classes?.code || null;
           const quantity = taskItem.quantity || 1;
 

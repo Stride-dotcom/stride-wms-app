@@ -99,7 +99,16 @@ export function useQuoteServices() {
 
       // Map service_events to QuoteService format
       // Group by service_code to get unique services
+      // Track which services have class-specific rates
       const serviceMap = new Map<string, QuoteService>();
+      const classBasedServiceCodes = new Set<string>();
+
+      // First pass: identify class-based services (those with class_code entries)
+      (data || []).forEach((se: any) => {
+        if (se.class_code) {
+          classBasedServiceCodes.add(se.service_code);
+        }
+      });
 
       (data || []).forEach((se: any) => {
         if (!serviceMap.has(se.service_code)) {
@@ -121,16 +130,21 @@ export function useQuoteServices() {
           } else if (code.includes('prep') || code.includes('pack') || name.includes('prep') || name.includes('pack')) {
             category = 'Handling';
           } else if (code.includes('insp') || name.includes('inspect')) {
-            category = 'Receiving';
-          } else if (code.includes('delivery') || code.includes('will_call') || name.includes('delivery')) {
+            category = 'Inspection';
+          } else if (code.includes('delivery') || code.includes('will_call') || name.includes('delivery') || name.includes('will call')) {
             category = 'Delivery';
           } else if (code.includes('assemb') || code.includes('disassemb') || name.includes('assemb')) {
             category = 'Assembly';
+          } else if (code.includes('repair') || name.includes('repair')) {
+            category = 'Repair';
+          } else if (code.includes('disposal') || name.includes('disposal')) {
+            category = 'Disposal';
           }
 
           serviceMap.set(se.service_code, {
             id: se.id,
             tenant_id: se.tenant_id,
+            service_code: se.service_code,
             category,
             name: se.service_name,
             description: se.notes || '',
@@ -138,6 +152,7 @@ export function useQuoteServices() {
             trigger_label: category,
             is_storage_service: se.billing_unit === 'Day',
             is_taxable_default: se.taxable,
+            is_class_based: classBasedServiceCodes.has(se.service_code),
             display_order: 0,
             is_active: se.is_active,
             created_at: se.created_at,
@@ -170,7 +185,20 @@ export function useQuoteServices() {
     {} as Record<string, QuoteService[]>
   );
 
-  return { services, servicesByCategory, loading, refetch: fetchServices };
+  // Separate class-based and non-class-based services
+  const classBasedServices = services.filter(s => s.is_class_based && !s.is_storage_service);
+  const nonClassBasedServices = services.filter(s => !s.is_class_based && !s.is_storage_service);
+  const storageServices = services.filter(s => s.is_storage_service);
+
+  return {
+    services,
+    servicesByCategory,
+    classBasedServices,
+    nonClassBasedServices,
+    storageServices,
+    loading,
+    refetch: fetchServices
+  };
 }
 
 // Hook for fetching service rates from Price List (service_events)

@@ -37,6 +37,9 @@ import { RepairQuoteSection } from '@/components/items/RepairQuoteSection';
 import { ItemPhotoGallery } from '@/components/items/ItemPhotoGallery';
 import { ItemHistoryTab } from '@/components/items/ItemHistoryTab';
 import { ItemEditDialog } from '@/components/items/ItemEditDialog';
+import { useItemPhotos } from '@/hooks/useItemPhotos';
+import { useItemNotes } from '@/hooks/useItemNotes';
+import { useDocuments } from '@/hooks/useDocuments';
 import { ItemAdvancedTab } from '@/components/items/ItemAdvancedTab';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { AddBillingChargeDialog } from '@/components/items/AddBillingChargeDialog';
@@ -177,6 +180,15 @@ export default function ItemDetail() {
 
   // Check if user is a client (simplified check)
   const isClientUser = false; // Will be determined by role system
+
+  // Get counts for tab indicators
+  const { allPhotos: photoList } = useItemPhotos(id);
+  const { notes: notesList } = useItemNotes(id);
+  const { documents: docsList } = useDocuments({ contextType: 'item', contextId: id });
+
+  const photoCount = photoList.length;
+  const notesCount = notesList.length;
+  const docsCount = docsList.length;
 
   // Field suggestions for autocomplete
   const { suggestions: vendorSuggestions, addOrUpdateSuggestion: addVendorSuggestion } = useFieldSuggestions('vendor');
@@ -619,9 +631,30 @@ export default function ItemDetail() {
         <Tabs defaultValue="details" className="w-full">
           <TabsList>
             <TabsTrigger value="details">📋 Details</TabsTrigger>
-            <TabsTrigger value="photos">📷 Photos</TabsTrigger>
-            <TabsTrigger value="documents">📄 Docs</TabsTrigger>
-            <TabsTrigger value="notes">💬 Notes</TabsTrigger>
+            <TabsTrigger value="photos" className="relative">
+              📷 Photos
+              {photoCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-medium bg-red-500 text-white rounded-full">
+                  {photoCount}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="relative">
+              📄 Docs
+              {docsCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-medium bg-red-500 text-white rounded-full">
+                  {docsCount}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="notes" className="relative">
+              💬 Notes
+              {notesCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-medium bg-red-500 text-white rounded-full">
+                  {notesCount}
+                </span>
+              )}
+            </TabsTrigger>
             {!isClientUser && (
               <TabsTrigger value="coverage">🛡️ Coverage</TabsTrigger>
             )}

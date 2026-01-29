@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -19,11 +17,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -47,6 +52,7 @@ import {
   DiscountType,
   QUOTE_STATUS_CONFIG,
   isQuoteEditable,
+  ClassServiceSelection,
 } from '@/lib/quotes/types';
 import { calculateQuote, formatCurrency, computeStorageDays } from '@/lib/quotes/calculator';
 import { downloadQuotePdf, exportQuoteToExcel, transformQuoteToPdfData } from '@/lib/quotes/export';
@@ -67,12 +73,12 @@ export default function QuoteBuilder() {
   // Data hooks
   const { fetchQuoteDetails, createQuote, updateQuote, sendQuote } = useQuotes();
   const { classes, loading: classesLoading } = useQuoteClasses();
-  const { services, servicesByCategory, loading: servicesLoading } = useQuoteServices();
+  const { services, classBasedServices, nonClassBasedServices, loading: servicesLoading } = useQuoteServices();
   const { rates, loading: ratesLoading } = useQuoteServiceRates();
   const { accounts } = useAccounts();
 
   // Edit lock
-  const { lock, lockedByOther, acquireLock, releaseLock } = useEditLock('quote', isNew ? null : id);
+  const { lock, lockedByOther, acquireLock } = useEditLock('quote', isNew ? null : id);
 
   // Form state
   const [loading, setLoading] = useState(false);
@@ -92,11 +98,13 @@ export default function QuoteBuilder() {
     notes: null,
     internal_notes: null,
     class_lines: [],
+    class_service_selections: [],
     selected_services: [],
     rate_overrides: [],
   });
 
   // UI state
+  const [expandedClasses, setExpandedClasses] = useState<Set<string>>(new Set());
   const [showDiscountDialog, setShowDiscountDialog] = useState(false);
   const [discountType, setDiscountType] = useState<DiscountType>('percent');
   const [discountValue, setDiscountValue] = useState('');
@@ -131,10 +139,12 @@ export default function QuoteBuilder() {
               line_discount_type: line.line_discount_type,
               line_discount_value: line.line_discount_value,
             })),
+            class_service_selections: [],
             selected_services: data.selected_services.map((ss) => ({
               service_id: ss.service_id,
               is_selected: ss.is_selected,
               hours_input: ss.hours_input,
+              qty_input: null,
             })),
             rate_overrides: data.rate_overrides.map((override) => ({
               service_id: override.service_id,
@@ -143,7 +153,6 @@ export default function QuoteBuilder() {
               reason: override.reason,
             })),
           });
-          // Acquire lock for editing
           if (isQuoteEditable(data.status)) {
             acquireLock();
           }
@@ -188,6 +197,19 @@ export default function QuoteBuilder() {
     });
   }, [classes, services, rates, formData]);
 
+  // Toggle class row expansion
+  const toggleClassExpanded = useCallback((classId: string) => {
+    setExpandedClasses((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(classId)) {
+        newSet.delete(classId);
+      } else {
+        newSet.add(classId);
+      }
+      return newSet;
+    });
+  }, []);
+
   // Update class line quantity
   const updateClassQty = useCallback((classId: string, qty: number) => {
     setFormData((prev) => ({
@@ -198,8 +220,66 @@ export default function QuoteBuilder() {
     }));
   }, []);
 
-  // Toggle service selection
-  const toggleService = useCallback((serviceId: string) => {
+  // Get class service selection
+  const getClassServiceSelection = useCallback((classId: string, serviceId: string): ClassServiceSelection | undefined => {
+    return formData.class_service_selections.find(
+      (css) => css.class_id === classId && css.service_id === serviceId
+    );
+  }, [formData.class_service_selections]);
+
+  // Toggle class-based service for a specific class
+  const toggleClassService = useCallback((classId: string, serviceId: string, classQty: number) => {
+    setFormData((prev) => {
+      const existing = prev.class_service_selections.find(
+        (css) => css.class_id === classId && css.service_id === serviceId
+      );
+      if (existing) {
+        return {
+          ...prev,
+          class_service_selections: prev.class_service_selections.map((css) =>
+            css.class_id === classId && css.service_id === serviceId
+              ? { ...css, is_selected: !css.is_selected, qty_override: css.is_selected ? null : classQty }
+              : css
+          ),
+        };
+      } else {
+        return {
+          ...prev,
+          class_service_selections: [
+            ...prev.class_service_selections,
+            { class_id: classId, service_id: serviceId, is_selected: true, qty_override: classQty },
+          ],
+        };
+      }
+    });
+  }, []);
+
+  // Update class service qty override
+  const updateClassServiceQty = useCallback((classId: string, serviceId: string, qty: number | null) => {
+    setFormData((prev) => ({
+      ...prev,
+      class_service_selections: prev.class_service_selections.map((css) =>
+        css.class_id === classId && css.service_id === serviceId
+          ? { ...css, qty_override: qty }
+          : css
+      ),
+    }));
+  }, []);
+
+  // Set all class services to use class qty
+  const setAllClassServicesToClassQty = useCallback((classId: string, classQty: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      class_service_selections: prev.class_service_selections.map((css) =>
+        css.class_id === classId && css.is_selected
+          ? { ...css, qty_override: classQty }
+          : css
+      ),
+    }));
+  }, []);
+
+  // Toggle non-class based service selection
+  const toggleNonClassService = useCallback((serviceId: string) => {
     setFormData((prev) => {
       const existing = prev.selected_services.find((ss) => ss.service_id === serviceId);
       if (existing) {
@@ -214,19 +294,19 @@ export default function QuoteBuilder() {
           ...prev,
           selected_services: [
             ...prev.selected_services,
-            { service_id: serviceId, is_selected: true, hours_input: null },
+            { service_id: serviceId, is_selected: true, hours_input: null, qty_input: 1 },
           ],
         };
       }
     });
   }, []);
 
-  // Update service hours
-  const updateServiceHours = useCallback((serviceId: string, hours: number | null) => {
+  // Update non-class service hours/qty
+  const updateNonClassServiceInput = useCallback((serviceId: string, field: 'hours_input' | 'qty_input', value: number | null) => {
     setFormData((prev) => ({
       ...prev,
       selected_services: prev.selected_services.map((ss) =>
-        ss.service_id === serviceId ? { ...ss, hours_input: hours } : ss
+        ss.service_id === serviceId ? { ...ss, [field]: value } : ss
       ),
     }));
   }, []);
@@ -371,7 +451,6 @@ export default function QuoteBuilder() {
         setShowSendDialog(false);
         setSendEmail('');
         setSendName('');
-        // Refresh quote to get updated status
         const updatedQuote = await fetchQuoteDetails(id);
         if (updatedQuote) {
           setQuote(updatedQuote);
@@ -382,7 +461,7 @@ export default function QuoteBuilder() {
     }
   };
 
-  // Initialize send dialog with account's billing email
+  // Initialize send dialog
   const openSendDialog = () => {
     if (quote?.account) {
       setSendEmail(quote.account.billing_email || '');
@@ -537,38 +616,246 @@ export default function QuoteBuilder() {
               </CardContent>
             </Card>
 
-            {/* Class Quantities */}
+            {/* Class-Based Items & Services Table */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MaterialIcon name="inventory_2" size="md" />
-                  Item Quantities by Class
+                  Items by Class
                 </CardTitle>
                 <CardDescription>
-                  Enter the quantity of items for each size class
+                  Enter quantities per class and expand rows to select class-based services
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  {classes.map((cls) => {
-                    const line = formData.class_lines.find((l) => l.class_id === cls.id);
-                    const qtyValue = line?.qty;
-                    return (
-                      <div key={cls.id} className="space-y-1">
-                        <Label className="text-xs">{cls.name}</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={qtyValue && qtyValue > 0 ? qtyValue : ''}
-                          onChange={(e) => updateClassQty(cls.id, parseInt(e.target.value) || 0)}
-                          disabled={!canEdit}
-                          className="text-center"
-                          placeholder="0"
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10"></TableHead>
+                      <TableHead>Class</TableHead>
+                      <TableHead className="w-32 text-center">Qty</TableHead>
+                      <TableHead className="text-right">Services Selected</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {classes.map((cls) => {
+                      const line = formData.class_lines.find((l) => l.class_id === cls.id);
+                      const classQty = line?.qty || 0;
+                      const isExpanded = expandedClasses.has(cls.id);
+                      const selectedServicesForClass = formData.class_service_selections.filter(
+                        (css) => css.class_id === cls.id && css.is_selected
+                      );
+
+                      return (
+                        <Collapsible key={cls.id} open={isExpanded} onOpenChange={() => toggleClassExpanded(cls.id)}>
+                          <TableRow className={classQty > 0 ? 'bg-primary/5' : ''}>
+                            <TableCell>
+                              <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <MaterialIcon
+                                    name={isExpanded ? 'expand_less' : 'expand_more'}
+                                    size="sm"
+                                  />
+                                </Button>
+                              </CollapsibleTrigger>
+                            </TableCell>
+                            <TableCell className="font-medium">{cls.name}</TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min="0"
+                                value={classQty > 0 ? classQty : ''}
+                                onChange={(e) => updateClassQty(cls.id, parseInt(e.target.value) || 0)}
+                                disabled={!canEdit}
+                                className="w-full text-center"
+                                placeholder="0"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {selectedServicesForClass.length > 0 ? (
+                                <Badge variant="secondary">
+                                  {selectedServicesForClass.length} service{selectedServicesForClass.length > 1 ? 's' : ''}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">None</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                          <CollapsibleContent asChild>
+                            <TableRow>
+                              <TableCell colSpan={4} className="bg-muted/30 p-0">
+                                <div className="p-4 space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-muted-foreground">
+                                      Class-Based Services for {cls.name}
+                                    </span>
+                                    {classQty > 0 && selectedServicesForClass.length > 0 && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setAllClassServicesToClassQty(cls.id, classQty)}
+                                        disabled={!canEdit}
+                                      >
+                                        Set all to {classQty}
+                                      </Button>
+                                    )}
+                                  </div>
+                                  {classBasedServices.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">No class-based services configured</p>
+                                  ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                      {classBasedServices.map((service) => {
+                                        const selection = getClassServiceSelection(cls.id, service.id);
+                                        const isSelected = selection?.is_selected || false;
+                                        const qtyOverride = selection?.qty_override;
+
+                                        return (
+                                          <div
+                                            key={service.id}
+                                            className={`flex items-center justify-between p-3 rounded-lg border ${
+                                              isSelected ? 'border-primary bg-primary/5' : 'border-border'
+                                            }`}
+                                          >
+                                            <div className="flex items-center gap-3">
+                                              <Checkbox
+                                                checked={isSelected}
+                                                onCheckedChange={() => toggleClassService(cls.id, service.id, classQty)}
+                                                disabled={!canEdit}
+                                              />
+                                              <div>
+                                                <div className="font-medium text-sm">{service.name}</div>
+                                                <div className="text-xs text-muted-foreground">
+                                                  {service.category}
+                                                </div>
+                                              </div>
+                                            </div>
+                                            {isSelected && (
+                                              <div className="flex items-center gap-2">
+                                                <Label className="text-xs">Qty:</Label>
+                                                <Input
+                                                  type="number"
+                                                  min="0"
+                                                  value={qtyOverride ?? ''}
+                                                  onChange={(e) =>
+                                                    updateClassServiceQty(
+                                                      cls.id,
+                                                      service.id,
+                                                      e.target.value ? parseInt(e.target.value) : null
+                                                    )
+                                                  }
+                                                  disabled={!canEdit}
+                                                  className="w-16 h-8 text-center"
+                                                  placeholder={String(classQty)}
+                                                />
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            {/* Non-Class Based Services */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MaterialIcon name="handyman" size="md" />
+                  Additional Services
+                </CardTitle>
+                <CardDescription>
+                  Flat-rate services not tied to item class (labor, delivery, etc.)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {nonClassBasedServices.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">No additional services configured</p>
+                ) : (
+                  <div className="space-y-2">
+                    {nonClassBasedServices.map((service) => {
+                      const selected = formData.selected_services.find(
+                        (ss) => ss.service_id === service.id
+                      );
+                      const isSelected = selected?.is_selected ?? false;
+
+                      return (
+                        <div
+                          key={service.id}
+                          className={`flex items-center justify-between p-3 rounded-lg border ${
+                            isSelected ? 'border-primary bg-primary/5' : 'border-border'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleNonClassService(service.id)}
+                              disabled={!canEdit}
+                            />
+                            <div>
+                              <div className="font-medium">{service.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {service.category} - {service.billing_unit.replace('_', ' ')}
+                              </div>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <div className="flex items-center gap-4">
+                              {service.billing_unit === 'per_hour' && (
+                                <div className="flex items-center gap-2">
+                                  <Label className="text-xs">Hours:</Label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.5"
+                                    value={selected?.hours_input || ''}
+                                    onChange={(e) =>
+                                      updateNonClassServiceInput(
+                                        service.id,
+                                        'hours_input',
+                                        e.target.value ? parseFloat(e.target.value) : null
+                                      )
+                                    }
+                                    disabled={!canEdit}
+                                    className="w-20 h-8"
+                                  />
+                                </div>
+                              )}
+                              {service.billing_unit === 'per_piece' && (
+                                <div className="flex items-center gap-2">
+                                  <Label className="text-xs">Qty:</Label>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={selected?.qty_input || 1}
+                                    onChange={(e) =>
+                                      updateNonClassServiceInput(
+                                        service.id,
+                                        'qty_input',
+                                        e.target.value ? parseInt(e.target.value) : 1
+                                      )
+                                    }
+                                    disabled={!canEdit}
+                                    className="w-20 h-8"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -579,13 +866,10 @@ export default function QuoteBuilder() {
                   <MaterialIcon name="schedule" size="md" />
                   Storage Duration
                 </CardTitle>
-                <CardDescription>
-                  Enter storage duration in days and/or months (1 month = 30 days)
-                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 gap-4 items-end">
-                  <div className="space-y-2">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 space-y-2">
                     <Label>Days</Label>
                     <Input
                       type="number"
@@ -601,7 +885,7 @@ export default function QuoteBuilder() {
                       placeholder="0"
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="flex-1 space-y-2">
                     <Label>Months</Label>
                     <Input
                       type="number"
@@ -617,87 +901,12 @@ export default function QuoteBuilder() {
                       placeholder="0"
                     />
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    Total: {computeStorageDays(formData.storage_months_input, formData.storage_days_input)} days
+                  <div className="flex-1 pt-6">
+                    <div className="text-sm text-muted-foreground bg-muted p-2 rounded text-center">
+                      Total: <span className="font-semibold">{computeStorageDays(formData.storage_months_input, formData.storage_days_input)}</span> days
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Services Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MaterialIcon name="calculate" size="md" />
-                  Services
-                </CardTitle>
-                <CardDescription>Select the services to include in this quote</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Accordion type="multiple" className="space-y-2">
-                  {Object.entries(servicesByCategory).map(([category, categoryServices]) => (
-                    <AccordionItem key={category} value={category} className="border rounded-lg px-4">
-                      <AccordionTrigger className="hover:no-underline">
-                        <span className="font-medium">{category}</span>
-                        <Badge variant="secondary" className="ml-2">
-                          {categoryServices.filter((s) =>
-                            formData.selected_services.some((ss) => ss.service_id === s.id && ss.is_selected)
-                          ).length} selected
-                        </Badge>
-                      </AccordionTrigger>
-                      <AccordionContent className="pt-2 pb-4 space-y-2">
-                        {categoryServices.map((service) => {
-                          const selected = formData.selected_services.find(
-                            (ss) => ss.service_id === service.id
-                          );
-                          const isSelected = selected?.is_selected ?? false;
-
-                          return (
-                            <div
-                              key={service.id}
-                              className={`flex items-center justify-between p-3 rounded-lg border ${
-                                isSelected ? 'border-primary bg-primary/5' : 'border-border'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <Checkbox
-                                  checked={isSelected}
-                                  onCheckedChange={() => toggleService(service.id)}
-                                  disabled={!canEdit}
-                                />
-                                <div>
-                                  <div className="font-medium">{service.name}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {service.trigger_label} • {service.billing_unit.replace('_', ' ')}
-                                  </div>
-                                </div>
-                              </div>
-                              {service.billing_unit === 'per_hour' && isSelected && (
-                                <div className="flex items-center gap-2">
-                                  <Label className="text-xs">Hours:</Label>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.5"
-                                    value={selected?.hours_input || ''}
-                                    onChange={(e) =>
-                                      updateServiceHours(
-                                        service.id,
-                                        e.target.value ? parseFloat(e.target.value) : null
-                                      )
-                                    }
-                                    disabled={!canEdit}
-                                    className="w-20"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
               </CardContent>
             </Card>
 
@@ -743,7 +952,6 @@ export default function QuoteBuilder() {
               <CardContent className="space-y-4">
                 {calculation ? (
                   <>
-                    {/* Service totals */}
                     <div className="space-y-2">
                       <div className="text-sm font-medium text-muted-foreground">Services</div>
                       {calculation.service_totals.map((st) => (
@@ -759,7 +967,6 @@ export default function QuoteBuilder() {
 
                     <Separator />
 
-                    {/* Subtotal */}
                     <div className="flex justify-between">
                       <span>Subtotal</span>
                       <span className="font-semibold">
@@ -767,7 +974,6 @@ export default function QuoteBuilder() {
                       </span>
                     </div>
 
-                    {/* Discount */}
                     {formData.quote_discount_value && formData.quote_discount_value > 0 && (
                       <div className="flex justify-between text-green-600">
                         <span>
@@ -780,7 +986,6 @@ export default function QuoteBuilder() {
                       </div>
                     )}
 
-                    {/* After discount */}
                     {calculation.quote_discount_amount > 0 && (
                       <div className="flex justify-between">
                         <span>After Discount</span>
@@ -790,7 +995,6 @@ export default function QuoteBuilder() {
                       </div>
                     )}
 
-                    {/* Tax */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Switch
@@ -826,20 +1030,17 @@ export default function QuoteBuilder() {
 
                     <Separator />
 
-                    {/* Grand Total */}
                     <div className="flex justify-between text-lg font-bold">
                       <span>Grand Total</span>
                       <span>{formatCurrency(calculation.grand_total)}</span>
                     </div>
 
-                    {/* Storage days info */}
                     {calculation.storage_days > 0 && (
                       <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
                         Storage: {calculation.storage_days} days
                       </div>
                     )}
 
-                    {/* Actions */}
                     {canEdit && (
                       <div className="space-y-2 pt-4">
                         <Button
@@ -862,11 +1063,10 @@ export default function QuoteBuilder() {
               </CardContent>
             </Card>
 
-            {/* Rate disclaimer */}
             {!formData.rates_locked && (
-              <Card className="border-amber-200 bg-amber-50">
+              <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
                 <CardContent className="pt-4">
-                  <div className="flex gap-2 text-amber-800 text-sm">
+                  <div className="flex gap-2 text-amber-800 dark:text-amber-200 text-sm">
                     <MaterialIcon name="error" size="sm" className="flex-shrink-0 mt-0.5" />
                     <p>
                       Rates are not locked. Prices shown are valid as of today and are subject to
