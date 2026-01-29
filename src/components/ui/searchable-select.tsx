@@ -263,9 +263,11 @@ export function SearchableSelect({
                         onSelect={() => handleSelect(opt.value)}
                         className="min-h-[44px]" // Touch target
                       >
-                        <Check
+                        <MaterialIcon
+                          name="check"
+                          size="sm"
                           className={cn(
-                            "mr-2 h-4 w-4 shrink-0",
+                            "mr-2 shrink-0",
                             value === opt.value ? "opacity-100" : "opacity-0"
                           )}
                         />

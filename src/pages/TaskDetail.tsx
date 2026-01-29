@@ -59,7 +59,7 @@ interface TaskDetail {
   completed_by: string | null;
   unable_to_complete_note: string | null;
   task_notes: string | null;
-  inspection_result: string | null;
+  inspection_status: string | null;
   photos: string[] | null;
   created_at: string;
   updated_at: string;
@@ -82,7 +82,7 @@ interface TaskItemRow {
     item_code: string;
     description: string | null;
     vendor: string | null;
-    inspection_result: string | null;
+    inspection_status: string | null;
     current_location_id: string | null;
     location?: { code: string } | null;
     account?: { account_name: string } | null;
@@ -207,7 +207,7 @@ export default function TaskDetailPage() {
       const { data: items, error: itemsError } = await (supabase
         .from('items') as any)
         .select(`
-          id, item_code, description, vendor, sidemark, inspection_result,
+          id, item_code, description, vendor, sidemark, inspection_status,
           current_location_id,
           location:locations!items_current_location_id_fkey(code),
           account:accounts!items_account_id_fkey(account_name)
@@ -301,14 +301,14 @@ export default function TaskDetailPage() {
   const handleItemInspectionResult = async (itemId: string, result: 'pass' | 'fail') => {
     try {
       const { error } = await (supabase.from('items') as any)
-        .update({ inspection_result: result })
+        .update({ inspection_status: result })
         .eq('id', itemId);
       if (error) throw error;
 
       // Update local state
       setTaskItems(prev => prev.map(ti =>
         ti.item_id === itemId
-          ? { ...ti, item: ti.item ? { ...ti.item, inspection_result: result } : ti.item }
+          ? { ...ti, item: ti.item ? { ...ti.item, inspection_status: result } : ti.item }
           : ti
       ));
 
@@ -545,13 +545,13 @@ export default function TaskDetailPage() {
                     <span className="text-sm font-medium">Inspection Summary:</span>
                     <div className="flex items-center gap-2">
                       <Badge className="bg-green-100 text-green-800">
-                        {taskItems.filter(ti => ti.item?.inspection_result === 'pass').length} Passed
+                        {taskItems.filter(ti => ti.item?.inspection_status === 'pass').length} Passed
                       </Badge>
                       <Badge className="bg-red-100 text-red-800">
-                        {taskItems.filter(ti => ti.item?.inspection_result === 'fail').length} Failed
+                        {taskItems.filter(ti => ti.item?.inspection_status === 'fail').length} Failed
                       </Badge>
                       <Badge variant="outline">
-                        {taskItems.filter(ti => !ti.item?.inspection_result).length} Pending
+                        {taskItems.filter(ti => !ti.item?.inspection_status).length} Pending
                       </Badge>
                     </div>
                   </div>
@@ -613,7 +613,7 @@ export default function TaskDetailPage() {
                           {task.task_type === 'Inspection' ? (
                             <>
                               <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                                {ti.item?.inspection_result === 'pass' ? (
+                                {ti.item?.inspection_status === 'pass' ? (
                                   <Badge className="bg-green-100 text-green-800">PASSED</Badge>
                                 ) : (
                                   <Button
@@ -628,7 +628,7 @@ export default function TaskDetailPage() {
                                 )}
                               </TableCell>
                               <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                                {ti.item?.inspection_result === 'fail' ? (
+                                {ti.item?.inspection_status === 'fail' ? (
                                   <Badge className="bg-red-100 text-red-800">FAILED</Badge>
                                 ) : (
                                   <Button

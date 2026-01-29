@@ -192,7 +192,7 @@ export function EmailHtmlTab({
         <Suspense
           fallback={
             <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
               <p className="text-muted-foreground">Loading editor...</p>
             </div>
           }
