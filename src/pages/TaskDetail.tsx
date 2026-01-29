@@ -60,7 +60,7 @@ interface TaskDetail {
   unable_to_complete_note: string | null;
   task_notes: string | null;
   inspection_status: string | null;
-  photos: (string | TaggablePhoto)[] | null;
+  metadata: { photos?: (string | TaggablePhoto)[] } | null;
   created_at: string;
   updated_at: string;
   // Billing rate fields
@@ -167,7 +167,7 @@ export default function TaskDetailPage() {
       if (error) throw error;
       setTask(data);
       setTaskNotes(data.task_notes || '');
-      setPhotos(data.photos || []);
+      setPhotos(data.metadata?.photos || []);
     } catch (error) {
       console.error('Error fetching task:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to load task' });
@@ -341,13 +341,17 @@ export default function TaskDetailPage() {
   const handlePhotosChange = async (newPhotos: TaggablePhoto[]) => {
     const previousPhotos = photos;
     setPhotos(newPhotos);
-    if (!id) return;
+    if (!id || !task) return;
     try {
+      // Merge with existing metadata, storing photos in metadata.photos
+      const updatedMetadata = { ...(task.metadata || {}), photos: newPhotos };
       const { error } = await (supabase.from('tasks') as any)
-        .update({ photos: newPhotos })
+        .update({ metadata: updatedMetadata })
         .eq('id', id);
 
       if (error) throw error;
+      // Update local task state with new metadata
+      setTask(prev => prev ? { ...prev, metadata: updatedMetadata } : prev);
     } catch (error) {
       console.error('Error saving photos:', error);
       // Revert on error
@@ -386,13 +390,18 @@ export default function TaskDetailPage() {
     const previousPhotos = photos;
     setPhotos(allPhotos);
 
-    if (!id) return;
+    if (!id || !task) return;
     try {
+      // Merge with existing metadata, storing photos in metadata.photos
+      const updatedMetadata = { ...(task.metadata || {}), photos: allPhotos };
       const { error } = await (supabase.from('tasks') as any)
-        .update({ photos: allPhotos })
+        .update({ metadata: updatedMetadata })
         .eq('id', id);
 
       if (error) throw error;
+
+      // Update local task state with new metadata
+      setTask(prev => prev ? { ...prev, metadata: updatedMetadata } : prev);
 
       toast({
         title: 'Photos saved',

@@ -87,10 +87,11 @@ export function QuickReleaseDialog({
       if (!profile) throw new Error('User profile not found');
 
       // Create the outbound shipment for tracking
+      // Note: release_type must be 'will_call', 'disposal', or 'return' per database constraint
       const shipmentData = {
         tenant_id: profile.tenant_id,
         shipment_type: 'outbound',
-        release_type: 'manual_release',
+        release_type: 'will_call',
         status: 'completed',
         warehouse_id: selectedItems[0]?.warehouse_id || null,
         notes: `Manual release of ${selectedItems.length} item(s)`,

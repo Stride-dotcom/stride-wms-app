@@ -284,7 +284,13 @@ export function useQuotes() {
 
         if (error) throw error;
         setQuotes((data as Quote[]) || []);
-      } catch (e) {
+      } catch (e: any) {
+        // Silently handle "table not found" errors (quotes table may not exist yet)
+        if (e?.code === 'PGRST205' || e?.message?.includes('Could not find')) {
+          console.warn('Quotes table not available:', e?.message);
+          setQuotes([]);
+          return;
+        }
         console.error('Error fetching quotes:', e);
         toast({
           title: 'Error',
@@ -348,7 +354,12 @@ export function useQuotes() {
           rate_overrides: (rateOverrides as QuoteRateOverride[]) || [],
           events: (events as QuoteEvent[]) || [],
         };
-      } catch (e) {
+      } catch (e: any) {
+        // Silently handle "table not found" errors (quotes table may not exist yet)
+        if (e?.code === 'PGRST205' || e?.message?.includes('Could not find')) {
+          console.warn('Quotes table not available:', e?.message);
+          return null;
+        }
         console.error('Error fetching quote details:', e);
         toast({
           title: 'Error',
