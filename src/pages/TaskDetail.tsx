@@ -338,14 +338,32 @@ export default function TaskDetailPage() {
   };
 
   const handlePhotosChange = async (newPhotos: string[]) => {
+    const previousPhotos = photos;
     setPhotos(newPhotos);
     if (!id) return;
     try {
-      await (supabase.from('tasks') as any)
+      const { error } = await (supabase.from('tasks') as any)
         .update({ photos: newPhotos })
         .eq('id', id);
+
+      if (error) throw error;
+
+      // Only show toast if photos were actually added (not removed)
+      if (newPhotos.length > previousPhotos.length) {
+        toast({
+          title: 'Photos saved',
+          description: `${newPhotos.length - previousPhotos.length} photo(s) added.`,
+        });
+      }
     } catch (error) {
       console.error('Error saving photos:', error);
+      // Revert on error
+      setPhotos(previousPhotos);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save photos. Please try again.',
+      });
     }
   };
 
@@ -736,18 +754,18 @@ export default function TaskDetailPage() {
                 </CardTitle>
                 <div className="flex gap-2">
                   <ScanDocumentButton
-                    context={{ type: 'general', label: `Task: ${task.title}` }}
+                    context={{ type: 'task', taskId: task.id, title: task.title }}
                     onSuccess={() => {
-                      // Trigger a refetch
+                      // Documents are auto-refetched by DocumentList
                     }}
                     label="Scan"
                     size="sm"
                     directToCamera
                   />
                   <DocumentUploadButton
-                    context={{ type: 'general', label: `Task: ${task.title}` }}
+                    context={{ type: 'task', taskId: task.id, title: task.title }}
                     onSuccess={() => {
-                      // Trigger a refetch
+                      // Documents are auto-refetched by DocumentList
                     }}
                     size="sm"
                   />
@@ -755,7 +773,7 @@ export default function TaskDetailPage() {
               </CardHeader>
               <CardContent>
                 <DocumentList
-                  contextType="general"
+                  contextType="task"
                   contextId={task.id}
                 />
               </CardContent>
