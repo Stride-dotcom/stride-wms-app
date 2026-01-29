@@ -90,7 +90,7 @@ export function AppCard({
           name={icon}
           size={config.icon}
           className="text-white drop-shadow-sm"
-          filled
+          weight={300}
         />
       </div>
     </div>
@@ -127,7 +127,7 @@ export function NavAppCard({
         name={icon}
         size="sm"
         className="text-white drop-shadow-sm"
-        filled
+        weight={300}
       />
     </div>
   );
