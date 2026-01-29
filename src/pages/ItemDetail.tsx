@@ -5,7 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { Separator } from '@/components/ui/separator';
+import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
+import { useAccountSidemarks } from '@/hooks/useAccountSidemarks';
+import { useAccountRoomSuggestions } from '@/hooks/useAccountRoomSuggestions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -165,8 +169,20 @@ export default function ItemDetail() {
   const [claimDialogOpen, setClaimDialogOpen] = useState(false);
   const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
 
+  // Inline edit state for autocomplete fields
+  const [editVendor, setEditVendor] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editSidemark, setEditSidemark] = useState('');
+  const [editRoom, setEditRoom] = useState('');
+
   // Check if user is a client (simplified check)
   const isClientUser = false; // Will be determined by role system
+
+  // Field suggestions for autocomplete
+  const { suggestions: vendorSuggestions, addOrUpdateSuggestion: addVendorSuggestion } = useFieldSuggestions('vendor');
+  const { suggestions: descriptionSuggestions, addOrUpdateSuggestion: addDescSuggestion } = useFieldSuggestions('description');
+  const { sidemarks } = useAccountSidemarks(item?.account_id);
+  const { rooms } = useAccountRoomSuggestions(item?.account_id);
 
   // Fetch data on mount (id is guaranteed valid UUID at this point)
   useEffect(() => {
@@ -175,6 +191,16 @@ export default function ItemDetail() {
     fetchTasks();
     fetchShipments();
   }, [id]);
+
+  // Sync local edit state when item changes
+  useEffect(() => {
+    if (item) {
+      setEditVendor(item.vendor || '');
+      setEditDescription(item.description || '');
+      setEditSidemark(item.sidemark || '');
+      setEditRoom(item.room || '');
+    }
+  }, [item?.vendor, item?.description, item?.sidemark, item?.room]);
 
   // Fetch account settings when item is loaded
   useEffect(() => {
@@ -421,6 +447,7 @@ export default function ItemDetail() {
 
       if (error) throw error;
       setItem({ ...item, vendor: newValue || null });
+      if (newValue) addVendorSuggestion(newValue);
       return true;
     } catch (error) {
       console.error('Error updating vendor:', error);
@@ -438,6 +465,7 @@ export default function ItemDetail() {
 
       if (error) throw error;
       setItem({ ...item, description: newValue || null });
+      if (newValue) addDescSuggestion(newValue);
       return true;
     } catch (error) {
       console.error('Error updating description:', error);
@@ -633,38 +661,42 @@ export default function ItemDetail() {
                       <span className="text-muted-foreground">Quantity</span>
                       <p className="font-medium">{item.quantity}</p>
                     </div>
-                    {/* Vendor - inline editable */}
+                    {/* Vendor - inline editable with autocomplete */}
                     <div>
                       <span className="text-muted-foreground">Vendor</span>
                       {isClientUser ? (
                         <p className="font-medium">{item.vendor || '-'}</p>
                       ) : (
-                        <Input
-                          defaultValue={item.vendor || ''}
-                          placeholder="Add vendor"
-                          onBlur={(e) => {
-                            if (e.target.value !== (item.vendor || '')) {
-                              handleVendorSave(e.target.value);
+                        <AutocompleteInput
+                          value={editVendor}
+                          onChange={setEditVendor}
+                          onBlur={() => {
+                            if (editVendor !== (item.vendor || '')) {
+                              handleVendorSave(editVendor);
                             }
                           }}
+                          suggestions={vendorSuggestions.map(s => ({ value: s.value }))}
+                          placeholder="Add vendor"
                           className="h-7 mt-1 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
                         />
                       )}
                     </div>
-                    {/* Description - inline editable */}
+                    {/* Description - inline editable with autocomplete */}
                     <div>
                       <span className="text-muted-foreground">Description</span>
                       {isClientUser ? (
                         <p className="font-medium">{item.description || '-'}</p>
                       ) : (
-                        <Input
-                          defaultValue={item.description || ''}
-                          placeholder="Add description"
-                          onBlur={(e) => {
-                            if (e.target.value !== (item.description || '')) {
-                              handleDescriptionSave(e.target.value);
+                        <AutocompleteInput
+                          value={editDescription}
+                          onChange={setEditDescription}
+                          onBlur={() => {
+                            if (editDescription !== (item.description || '')) {
+                              handleDescriptionSave(editDescription);
                             }
                           }}
+                          suggestions={descriptionSuggestions.map(s => ({ value: s.value }))}
+                          placeholder="Add description"
                           className="h-7 mt-1 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
                         />
                       )}
@@ -674,38 +706,42 @@ export default function ItemDetail() {
                       <span className="text-muted-foreground">Account</span>
                       <p className="font-medium">{item.account?.account_name || '-'}</p>
                     </div>
-                    {/* Sidemark - inline editable */}
+                    {/* Sidemark - inline editable with autocomplete */}
                     <div>
                       <span className="text-muted-foreground">Sidemark</span>
                       {isClientUser ? (
                         <p className="font-medium">{item.sidemark || '-'}</p>
                       ) : (
-                        <Input
-                          defaultValue={item.sidemark || ''}
-                          placeholder="Add sidemark"
-                          onBlur={(e) => {
-                            if (e.target.value !== (item.sidemark || '')) {
-                              handleSidemarkSave(e.target.value);
+                        <AutocompleteInput
+                          value={editSidemark}
+                          onChange={setEditSidemark}
+                          onBlur={() => {
+                            if (editSidemark !== (item.sidemark || '')) {
+                              handleSidemarkSave(editSidemark);
                             }
                           }}
+                          suggestions={sidemarks.map(s => ({ value: s.sidemark }))}
+                          placeholder="Add sidemark"
                           className="h-7 mt-1 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
                         />
                       )}
                     </div>
-                    {/* Room - inline editable */}
+                    {/* Room - inline editable with autocomplete */}
                     <div>
                       <span className="text-muted-foreground">Room</span>
                       {isClientUser ? (
                         <p className="font-medium">{item.room || '-'}</p>
                       ) : (
-                        <Input
-                          defaultValue={item.room || ''}
-                          placeholder="Add room"
-                          onBlur={(e) => {
-                            if (e.target.value !== (item.room || '')) {
-                              handleRoomSave(e.target.value);
+                        <AutocompleteInput
+                          value={editRoom}
+                          onChange={setEditRoom}
+                          onBlur={() => {
+                            if (editRoom !== (item.room || '')) {
+                              handleRoomSave(editRoom);
                             }
                           }}
+                          suggestions={rooms.map(r => ({ value: r.room }))}
+                          placeholder="Add room"
                           className="h-7 mt-1 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
                         />
                       )}
