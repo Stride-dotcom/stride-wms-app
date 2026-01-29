@@ -337,12 +337,21 @@ export function ShipmentItemRow({
 
         {/* Flags indicator */}
         <TableCell className="w-16" onClick={(e) => e.stopPropagation()}>
-          {item.item_id && enabledFlags.size > 0 && (
-            <Badge variant="outline" className="bg-amber-100 text-amber-700 text-[10px] px-1">
-              <MaterialIcon name="flag" size="xs" />
-              {enabledFlags.size}
-            </Badge>
-          )}
+          <div className="flex items-center gap-1">
+            {/* Show flags indicator if item has flags */}
+            {item.item_id && enabledFlags.size > 0 && (
+              <Badge variant="outline" className="bg-amber-100 text-amber-700 text-[10px] px-1">
+                <MaterialIcon name="flag" size="sm" className="text-[10px]" />
+                {enabledFlags.size}
+              </Badge>
+            )}
+            {/* Expand indicator */}
+            <MaterialIcon
+              name={isExpanded ? "expand_less" : "expand_more"}
+              size="sm"
+              className="text-muted-foreground"
+            />
+          </div>
         </TableCell>
       </TableRow>
 

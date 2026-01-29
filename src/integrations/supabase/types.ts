@@ -1488,7 +1488,7 @@ export type Database = {
             foreignKeyName: "billing_events_class_id_fkey"
             columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "item_types"
+            referencedRelation: "classes"
             referencedColumns: ["id"]
           },
           {

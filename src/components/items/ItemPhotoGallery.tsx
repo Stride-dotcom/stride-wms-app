@@ -149,11 +149,11 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
           : 'border-transparent';
 
         return (
-        <div
-          key={photo.id}
-          className={`relative aspect-square rounded-lg border-2 overflow-hidden bg-muted cursor-pointer group ${borderClass} ${photo.is_primary ? 'ring-2 ring-primary' : ''}`}
-          onClick={() => setLightboxPhoto(photo)}
-        >
+          <div
+            key={photo.id}
+            className={`relative aspect-square rounded-lg border-2 overflow-hidden bg-muted cursor-pointer group ${borderClass} ${photo.is_primary ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => setLightboxPhoto(photo)}
+          >
           <img
             src={photo.storage_url || ''}
             alt={photo.file_name}
@@ -277,7 +277,8 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
             <MaterialIcon name="zoom_in" className="text-[32px] text-white drop-shadow-lg" />
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 
