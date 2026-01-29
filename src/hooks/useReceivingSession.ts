@@ -402,6 +402,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
               .insert({
                 tenant_id: profile.tenant_id,
                 account_id: shipment.account_id,
+                shipment_id: session.shipment_id,
                 class_id: newItem?.class_id || null,
                 item_id: newItem?.id,
                 event_type: isReturnShipment ? 'returns_processing' : 'receiving',
@@ -413,6 +414,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
                 created_by: profile.id,
                 has_rate_error: rateResult.hasError,
                 rate_error_message: rateResult.errorMessage,
+                metadata: { shipment_id: session.shipment_id },
               });
 
             // Create billing event for "Received Without ID" if flag is set
@@ -428,6 +430,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
                 .insert({
                   tenant_id: profile.tenant_id,
                   account_id: shipment.account_id,
+                  shipment_id: session.shipment_id,
                   class_id: newItem?.class_id || null,
                   item_id: newItem?.id,
                   event_type: 'flag',
@@ -439,6 +442,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
                   created_by: profile.id,
                   has_rate_error: noIdRateResult.hasError,
                   rate_error_message: noIdRateResult.errorMessage,
+                  metadata: { shipment_id: session.shipment_id },
                 });
             }
           }

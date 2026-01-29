@@ -11,6 +11,7 @@ import { PushToQuickBooksButton } from "@/components/billing/PushToQuickBooksBut
 import { BillingEventForSync } from "@/hooks/useQuickBooks";
 import { useAuth } from "@/contexts/AuthContext";
 import { MultiSelect } from "@/components/ui/multi-select";
+import * as XLSX from 'xlsx';
 import {
   Dialog,
   DialogContent,
@@ -441,15 +442,47 @@ export function BillingReportTab() {
     return Array.from(types).sort();
   }, [rows, services]);
 
-  const exportCSV = () => {
-    const csv = toCSV(rows);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `billing_report_${start}_to_${end}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const exportExcel = () => {
+    // Prepare data for Excel export
+    const excelData = rows.map(r => ({
+      'Date': formatDateMMDDYY(r.occurred_at),
+      'Account': r.account_name || '-',
+      'Sidemark': r.sidemark_name || '-',
+      'Item': r.item_code || '-',
+      'Event Type': r.event_type,
+      'Charge Type': r.charge_type,
+      'Description': r.description || '',
+      'Quantity': r.quantity,
+      'Unit Rate': r.unit_rate,
+      'Total': r.total_amount,
+      'Status': r.status,
+      'Invoice ID': r.invoice_id || '',
+    }));
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 12 }, // Date
+      { wch: 25 }, // Account
+      { wch: 20 }, // Sidemark
+      { wch: 15 }, // Item
+      { wch: 15 }, // Event Type
+      { wch: 20 }, // Charge Type
+      { wch: 30 }, // Description
+      { wch: 10 }, // Quantity
+      { wch: 12 }, // Unit Rate
+      { wch: 12 }, // Total
+      { wch: 12 }, // Status
+      { wch: 15 }, // Invoice ID
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Billing Report');
+
+    // Generate Excel file and download
+    XLSX.writeFile(wb, `billing_report_${start}_to_${end}.xlsx`);
   };
 
   useEffect(() => {
@@ -514,9 +547,9 @@ export function BillingReportTab() {
             <MaterialIcon name="refresh" size="sm" className={`mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <Button variant="outline" size="sm" onClick={exportCSV} disabled={!rows.length}>
+          <Button variant="outline" size="sm" onClick={exportExcel} disabled={!rows.length}>
             <MaterialIcon name="download" size="sm" className="mr-2" />
-            Export CSV
+            Export Excel
           </Button>
           <PushToQuickBooksButton
             billingEvents={unbilledEventsForSync}
