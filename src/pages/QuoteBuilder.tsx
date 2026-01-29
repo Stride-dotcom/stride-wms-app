@@ -109,14 +109,28 @@ export default function QuoteBuilder() {
   const [sendName, setSendName] = useState('');
   const [sending, setSending] = useState(false);
 
-  // All class-based services from Price List (dynamically fetched, no hardcoding)
-  // These are services that have class-specific rates in service_events
-  const classBasedServiceList = useMemo(() => {
-    return classBasedServices.map(service => ({
-      code: service.service_code,
-      label: service.name,
-      service,
-    }));
+  // Main row services: Daily storage services (per-day billing) shown as columns in the class table
+  // These are dynamically identified by billing_unit === 'per_day'
+  const mainRowServices = useMemo(() => {
+    return classBasedServices
+      .filter(s => s.billing_unit === 'per_day')
+      .map(service => ({
+        code: service.service_code,
+        label: service.name,
+        service,
+      }));
+  }, [classBasedServices]);
+
+  // Expanded services: All other class-based services (shown when row is expanded)
+  // This includes short-term storage and other services not billed per-day
+  const expandedServices = useMemo(() => {
+    return classBasedServices
+      .filter(s => s.billing_unit !== 'per_day')
+      .map(service => ({
+        code: service.service_code,
+        label: service.name,
+        service,
+      }));
   }, [classBasedServices]);
 
   // All non-class-based services from Price List (dynamically fetched)
@@ -518,8 +532,17 @@ export default function QuoteBuilder() {
     setShowSendDialog(true);
   };
 
-  // Check if editable
-  const canEdit = isNew || (quote && isQuoteEditable(quote.status) && !lockedByOther);
+  // Check if quote is expired based on expiration_date
+  const isExpired = useMemo(() => {
+    if (!formData.expiration_date) return false;
+    const expirationDate = new Date(formData.expiration_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Compare dates only, not times
+    return expirationDate < today;
+  }, [formData.expiration_date]);
+
+  // Check if editable - also considers expiration date
+  const canEdit = isNew || (quote && isQuoteEditable(quote.status) && !lockedByOther && !isExpired);
 
   // Loading state
   if (loading || classesLoading || servicesLoading || ratesLoading) {
@@ -550,6 +573,12 @@ export default function QuoteBuilder() {
                   <Badge variant={QUOTE_STATUS_CONFIG[quote.status].variant as any}>
                     {QUOTE_STATUS_CONFIG[quote.status].label}
                   </Badge>
+                  {isExpired && (
+                    <Badge variant="destructive">
+                      <MaterialIcon name="schedule" size="sm" className="mr-1" />
+                      Expired
+                    </Badge>
+                  )}
                   {lockedByOther && lock && (
                     <Badge variant="outline" className="text-amber-600">
                       <MaterialIcon name="lock" size="sm" className="mr-1" />
@@ -688,8 +717,14 @@ export default function QuoteBuilder() {
                       <tr className="border-b bg-muted/50">
                         <th className="w-8 px-2 py-2"></th>
                         <th className="px-2 py-2 text-left font-medium">Class</th>
-                        <th className="px-2 py-2 text-center font-medium w-24">Qty</th>
-                        <th className="px-2 py-2 text-left font-medium">Services Selected</th>
+                        <th className="px-2 py-2 text-center font-medium w-20">Qty</th>
+                        {/* Dynamic columns for daily rate services (per-day billing) */}
+                        {mainRowServices.map(({ code, label }) => (
+                          <th key={code} className="px-2 py-2 text-center font-medium min-w-[90px]">
+                            {label}
+                          </th>
+                        ))}
+                        <th className="px-2 py-2 text-left font-medium">More Services</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -698,9 +733,10 @@ export default function QuoteBuilder() {
                         const classQty = line?.qty || 0;
                         const isExpanded = expandedClasses.has(cls.id);
 
-                        // Count selected services for this class
+                        // Count selected services for this class (from expanded services only)
                         const selectedCount = formData.class_service_selections.filter(
-                          (css) => css.class_id === cls.id && css.is_selected
+                          (css) => css.class_id === cls.id && css.is_selected &&
+                          expandedServices.some(es => es.service.id === css.service_id)
                         ).length;
 
                         return (
@@ -725,34 +761,63 @@ export default function QuoteBuilder() {
                                     value={classQty > 0 ? classQty : ''}
                                     onChange={(e) => updateClassQty(cls.id, parseInt(e.target.value) || 0)}
                                     disabled={!canEdit}
-                                    className="w-20 h-7 text-center text-sm"
+                                    className="w-16 h-7 text-center text-sm"
                                     placeholder="0"
                                   />
                                 </td>
+                                {/* Dynamic service cells for main row services */}
+                                {mainRowServices.map(({ code, service }) => {
+                                  const selection = getClassServiceSelection(cls.id, service.id);
+                                  const isSelected = selection?.is_selected || false;
+                                  const qty = selection?.qty_override;
+
+                                  return (
+                                    <td key={code} className="px-2 py-2">
+                                      <div className="flex items-center gap-1 justify-center">
+                                        <Checkbox
+                                          checked={isSelected}
+                                          onCheckedChange={() => toggleClassServiceCheckbox(cls.id, service.id, classQty)}
+                                          disabled={!canEdit}
+                                          className="mr-1"
+                                        />
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          step="0.1"
+                                          value={qty ?? ''}
+                                          onChange={(e) => updateClassServiceQty(cls.id, service.id, e.target.value ? parseFloat(e.target.value) : null)}
+                                          disabled={!canEdit}
+                                          className="w-14 h-7 text-center text-sm"
+                                          placeholder="0"
+                                        />
+                                      </div>
+                                    </td>
+                                  );
+                                })}
                                 <td className="px-2 py-2">
                                   {selectedCount > 0 ? (
                                     <Badge variant="secondary" className="text-xs">
-                                      {selectedCount} service{selectedCount !== 1 ? 's' : ''} selected
+                                      +{selectedCount} more
                                     </Badge>
                                   ) : (
-                                    <span className="text-muted-foreground text-xs">Click to expand and select services</span>
+                                    <span className="text-muted-foreground text-xs">Expand for more</span>
                                   )}
                                 </td>
                               </tr>
                               <CollapsibleContent asChild>
                                 <tr>
-                                  <td colSpan={4} className="bg-muted/30 p-0">
+                                  <td colSpan={4 + mainRowServices.length} className="bg-muted/30 p-0">
                                     <div className="p-3">
                                       <div className="text-xs font-medium text-muted-foreground mb-2">
-                                        Available Services for {cls.name} ({classBasedServiceList.length} services from Price List)
+                                        Additional Services for {cls.name} ({expandedServices.length} services)
                                       </div>
-                                      {classBasedServiceList.length === 0 ? (
+                                      {expandedServices.length === 0 ? (
                                         <div className="text-center py-4 text-muted-foreground text-sm">
-                                          No class-based services found in your Price List.
+                                          No additional services available.
                                         </div>
                                       ) : (
                                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                          {classBasedServiceList.map(({ code, label, service }) => {
+                                          {expandedServices.map(({ code, label, service }) => {
                                             const selection = getClassServiceSelection(cls.id, service.id);
                                             const isSelected = selection?.is_selected || false;
                                             const qty = selection?.qty_override;
@@ -898,6 +963,9 @@ export default function QuoteBuilder() {
                   <MaterialIcon name="schedule" size="md" />
                   Storage Duration
                 </CardTitle>
+                <CardDescription>
+                  Enter the storage period. This multiplies with any storage services (per-day billing) selected above.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-4">
