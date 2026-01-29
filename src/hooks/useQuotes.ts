@@ -943,54 +943,78 @@ export function useEditLock(resourceType: string, resourceId: string | null) {
     if (!resourceId || !profile?.tenant_id || !profile?.id) return false;
 
     try {
-      // Check if already locked by someone else
-      await checkLock();
-      if (lockedByOther) {
-        toast({
-          title: 'Record locked',
-          description: `This record is being edited by ${lock?.locked_by_name}`,
-          variant: 'destructive',
-        });
-        return false;
+      // First check if lock exists
+      const { data: existingLock } = await (supabase as any)
+        .from('edit_locks')
+        .select('*')
+        .eq('resource_type', resourceType)
+        .eq('resource_id', resourceId)
+        .maybeSingle();
+
+      if (existingLock) {
+        // Lock exists - check if we own it
+        if (existingLock.locked_by === profile.id) {
+          // We already own the lock, update expiry and return success
+          await (supabase as any)
+            .from('edit_locks')
+            .update({
+              locked_at: new Date().toISOString(),
+              expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+            })
+            .eq('id', existingLock.id);
+
+          setLock(existingLock as EditLock);
+          setIsLocked(true);
+          setLockedByOther(false);
+          return true;
+        } else {
+          // Someone else owns the lock
+          setLock(existingLock as EditLock);
+          setIsLocked(true);
+          setLockedByOther(true);
+          toast({
+            title: 'Record locked',
+            description: `This record is being edited by ${existingLock.locked_by_name}`,
+            variant: 'destructive',
+          });
+          return false;
+        }
       }
 
-      // Use upsert to handle race conditions - update if exists, insert if not
-      const lockData = {
-        tenant_id: profile.tenant_id,
-        resource_type: resourceType,
-        resource_id: resourceId,
-        locked_by: profile.id,
-        locked_by_name: (profile as any).full_name || profile.email || 'Unknown',
-        locked_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15 min expiry
-      };
-
+      // No lock exists, create one
       const { data, error } = await (supabase as any)
         .from('edit_locks')
-        .upsert(lockData, {
-          onConflict: 'resource_type,resource_id',
-          ignoreDuplicates: false,
+        .insert({
+          tenant_id: profile.tenant_id,
+          resource_type: resourceType,
+          resource_id: resourceId,
+          locked_by: profile.id,
+          locked_by_name: (profile as any).full_name || profile.email || 'Unknown',
+          locked_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
         })
         .select()
         .single();
 
       if (error) {
-        // If upsert fails, try to check if we already own the lock
-        const { data: existingLock } = await (supabase as any)
+        // Race condition - someone else created a lock between our check and insert
+        // Just check again and see if we can use it
+        const { data: raceLock } = await (supabase as any)
           .from('edit_locks')
           .select('*')
           .eq('resource_type', resourceType)
           .eq('resource_id', resourceId)
-          .single();
+          .maybeSingle();
 
-        if (existingLock && existingLock.locked_by === profile.id) {
-          // We already own the lock, that's fine
-          setLock(existingLock as EditLock);
+        if (raceLock && raceLock.locked_by === profile.id) {
+          setLock(raceLock as EditLock);
           setIsLocked(true);
           setLockedByOther(false);
           return true;
         }
-        throw error;
+        // Someone else got the lock
+        console.warn('Lock race condition, another user acquired the lock');
+        return false;
       }
 
       setLock(data as EditLock);
@@ -1001,7 +1025,7 @@ export function useEditLock(resourceType: string, resourceId: string | null) {
       console.error('Error acquiring lock:', e);
       return false;
     }
-  }, [resourceType, resourceId, profile, checkLock, lockedByOther, lock, toast]);
+  }, [resourceType, resourceId, profile, toast]);
 
   // Release lock
   const releaseLock = useCallback(async () => {
