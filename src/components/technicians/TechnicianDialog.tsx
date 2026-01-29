@@ -25,7 +25,7 @@ import {
   TechnicianFormData,
   TECHNICIAN_SPECIALTIES,
 } from '@/hooks/useTechnicians';
-import { Loader2, ChevronDown } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface TechnicianDialogProps {
   open: boolean;
@@ -251,8 +251,10 @@ export function TechnicianDialog({
                         </Badge>
                       )}
                     </span>
-                    <ChevronDown
-                      className={`h-4 w-4 transition-transform ${
+                    <MaterialIcon
+                      name="expand_more"
+                      size="sm"
+                      className={`transition-transform ${
                         specialtiesOpen ? 'rotate-180' : ''
                       }`}
                     />
@@ -331,7 +333,7 @@ export function TechnicianDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               {isEditing ? 'Save Changes' : 'Add Technician'}
             </Button>
           </DialogFooter>

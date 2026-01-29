@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eraser, Check, Pen } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface SignaturePadProps {
   onSignatureChange: (data: { signatureData: string | null; signatureName: string }) => void;
@@ -135,7 +135,7 @@ export function SignaturePad({ onSignatureChange, initialName = '' }: SignatureP
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="draw" className="flex items-center gap-2">
-            <Pen className="h-4 w-4" />
+            <MaterialIcon name="draw" size="sm" />
             Draw
           </TabsTrigger>
           <TabsTrigger value="type" className="flex items-center gap-2">
@@ -170,7 +170,7 @@ export function SignaturePad({ onSignatureChange, initialName = '' }: SignatureP
               onClick={clearSignature}
               disabled={!hasSignature}
             >
-              <Eraser className="h-4 w-4 mr-1" />
+              <MaterialIcon name="ink_eraser" size="sm" className="mr-1" />
               Clear
             </Button>
           </div>
@@ -200,7 +200,7 @@ export function SignaturePad({ onSignatureChange, initialName = '' }: SignatureP
 
       {(hasSignature || typedName) && (
         <div className="flex items-center gap-2 text-sm text-green-600">
-          <Check className="h-4 w-4" />
+          <MaterialIcon name="check" size="sm" />
           Signature captured
         </div>
       )}

@@ -42,7 +42,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSidemarks, Sidemark } from '@/hooks/useSidemarks';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Search, Edit2, Trash2, Loader2, Tag } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface Account {
   id: string;
@@ -208,7 +208,7 @@ export function SidemarksSettingsTab() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Tag className="h-5 w-5" />
+              <MaterialIcon name="label" size="md" />
               Sidemarks
             </CardTitle>
             <CardDescription>
@@ -216,7 +216,7 @@ export function SidemarksSettingsTab() {
             </CardDescription>
           </div>
           <Button onClick={handleOpenCreate}>
-            <Plus className="h-4 w-4 mr-2" />
+            <MaterialIcon name="add" size="sm" className="mr-2" />
             Add Sidemark
           </Button>
         </div>
@@ -225,7 +225,7 @@ export function SidemarksSettingsTab() {
         {/* Filters */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search sidemarks..."
               value={searchQuery}
@@ -251,11 +251,11 @@ export function SidemarksSettingsTab() {
         {/* Table */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
           </div>
         ) : filteredSidemarks.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            <Tag className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <MaterialIcon name="label" size="lg" className="mx-auto mb-4 opacity-50" />
             <p>No sidemarks found</p>
             <Button variant="link" onClick={handleOpenCreate}>
               Create your first sidemark
@@ -292,14 +292,14 @@ export function SidemarksSettingsTab() {
                         size="icon"
                         onClick={() => handleOpenEdit(sm)}
                       >
-                        <Edit2 className="h-4 w-4" />
+                        <MaterialIcon name="edit" size="sm" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDelete(sm.id)}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <MaterialIcon name="delete" size="sm" className="text-destructive" />
                       </Button>
                     </div>
                   </TableCell>
@@ -376,7 +376,7 @@ export function SidemarksSettingsTab() {
               onClick={handleSubmit} 
               disabled={isSubmitting || !formData.sidemark_name || !formData.account_id}
             >
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {isSubmitting && <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />}
               {editingSidemark ? 'Save Changes' : 'Create'}
             </Button>
           </DialogFooter>

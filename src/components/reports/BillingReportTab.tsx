@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, RefreshCw, Search, FileText, Plus, Pencil, Check, X, Save, Loader2, Send } from "lucide-react";
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { PushToQuickBooksButton } from "@/components/billing/PushToQuickBooksButton";
 import { BillingEventForSync } from "@/hooks/useQuickBooks";
 import { useAuth } from "@/contexts/AuthContext";
@@ -507,15 +507,15 @@ export function BillingReportTab() {
         </div>
         <div className="flex gap-2">
           <Button onClick={() => setAddChargeOpen(true)} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
+            <MaterialIcon name="add" size="sm" className="mr-2" />
             Add Charge
           </Button>
           <Button onClick={fetchRows} disabled={loading} variant="outline" size="sm">
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            <MaterialIcon name="refresh" size="sm" className={`mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
           <Button variant="outline" size="sm" onClick={exportCSV} disabled={!rows.length}>
-            <Download className="h-4 w-4 mr-2" />
+            <MaterialIcon name="download" size="sm" className="mr-2" />
             Export CSV
           </Button>
           <PushToQuickBooksButton
@@ -619,7 +619,7 @@ export function BillingReportTab() {
             <div className="space-y-1">
               <label className="text-sm font-medium">Service (search)</label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={serviceFilter}
                   onChange={(e) => setServiceFilter(e.target.value)}
@@ -642,7 +642,7 @@ export function BillingReportTab() {
                 </Button>
               )}
               <Button onClick={fetchRows} disabled={loading}>
-                <Search className="h-4 w-4 mr-2" />
+                <MaterialIcon name="search" size="sm" className="mr-2" />
                 Run Report
               </Button>
             </div>
@@ -654,7 +654,7 @@ export function BillingReportTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+            <MaterialIcon name="description" size="md" />
             Billing Events ({rows.length})
           </CardTitle>
           <CardDescription>
@@ -763,7 +763,7 @@ export function BillingReportTab() {
                                 onClick={saveEditedRow}
                                 disabled={savingEdit}
                               >
-                                {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                {savingEdit ? <MaterialIcon name="progress_activity" size="sm" className="animate-spin" /> : <MaterialIcon name="check" size="sm" />}
                               </Button>
                               <Button
                                 size="icon"
@@ -772,7 +772,7 @@ export function BillingReportTab() {
                                 onClick={cancelEditing}
                                 disabled={savingEdit}
                               >
-                                <X className="h-4 w-4" />
+                                <MaterialIcon name="close" size="sm" />
                               </Button>
                             </>
                           ) : canEdit ? (
@@ -783,7 +783,7 @@ export function BillingReportTab() {
                               onClick={() => startEditing(r)}
                               title="Edit charge"
                             >
-                              <Pencil className="h-4 w-4" />
+                              <MaterialIcon name="edit" size="sm" />
                             </Button>
                           ) : null}
                         </div>
@@ -935,7 +935,7 @@ export function BillingReportTab() {
               Cancel
             </Button>
             <Button onClick={handleAddCharge} disabled={addChargeLoading}>
-              {addChargeLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {addChargeLoading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               Add Charge
             </Button>
           </DialogFooter>

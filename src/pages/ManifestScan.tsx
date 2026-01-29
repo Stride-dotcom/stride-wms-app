@@ -42,66 +42,49 @@ import {
   hapticSuccess,
   hapticError,
 } from '@/lib/haptics';
-import {
-  ArrowLeft,
-  MapPin,
-  Package,
-  CheckCircle,
-  AlertTriangle,
-  XCircle,
-  AlertOctagon,
-  Loader2,
-  Keyboard,
-  RefreshCw,
-  BarChart3,
-  Search,
-  List,
-  ScanLine,
-  Clock,
-  Ban,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
 const scanResultConfig: Record<ManifestScanResult, {
   color: string;
   bgColor: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: string;
   label: string;
   isError: boolean;
 }> = {
   valid: {
     color: 'text-green-400',
     bgColor: 'bg-green-500/20 border-green-500/30',
-    icon: CheckCircle,
+    icon: 'check_circle',
     label: 'Valid',
     isError: false,
   },
   not_on_manifest: {
     color: 'text-red-400',
     bgColor: 'bg-red-500/20 border-red-500/30',
-    icon: Ban,
+    icon: 'block',
     label: 'NOT ON MANIFEST',
     isError: true,
   },
   duplicate: {
     color: 'text-yellow-400',
     bgColor: 'bg-yellow-500/20 border-yellow-500/30',
-    icon: RefreshCw,
+    icon: 'refresh',
     label: 'Already Scanned',
     isError: true,
   },
   wrong_location: {
     color: 'text-orange-400',
     bgColor: 'bg-orange-500/20 border-orange-500/30',
-    icon: AlertTriangle,
+    icon: 'warning',
     label: 'Wrong Location',
     isError: false,
   },
   item_not_found: {
     color: 'text-red-400',
     bgColor: 'bg-red-500/20 border-red-500/30',
-    icon: XCircle,
+    icon: 'cancel',
     label: 'Not Found',
     isError: true,
   },
@@ -307,7 +290,7 @@ export default function ManifestScan() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
@@ -317,7 +300,7 @@ export default function ManifestScan() {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
-          <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <MaterialIcon name="warning" size="xl" className="mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-xl font-semibold">Manifest not found</h2>
           <Button variant="link" onClick={() => navigate('/manifests')}>
             Back to Manifests
@@ -345,7 +328,7 @@ export default function ManifestScan() {
       {/* Header */}
       <div className="flex items-center gap-4 mb-4">
         <Button variant="ghost" size="icon" onClick={() => navigate(`/manifests/${id}`)}>
-          <ArrowLeft className="h-4 w-4" />
+          <MaterialIcon name="arrow_back" size="sm" />
         </Button>
         <div className="flex-1">
           <h1 className="text-xl font-bold">{manifest.name}</h1>
@@ -357,7 +340,7 @@ export default function ManifestScan() {
             size="sm"
             onClick={() => setViewMode('scan')}
           >
-            <ScanLine className="h-4 w-4 mr-1" />
+            <MaterialIcon name="qr_code_scanner" size="sm" className="mr-1" />
             Scan
           </Button>
           <Button
@@ -365,7 +348,7 @@ export default function ManifestScan() {
             size="sm"
             onClick={() => setViewMode('list')}
           >
-            <List className="h-4 w-4 mr-1" />
+            <MaterialIcon name="list" size="sm" className="mr-1" />
             List
           </Button>
         </div>
@@ -391,7 +374,7 @@ export default function ManifestScan() {
             </div>
             {isActive && (
               <Button onClick={() => setConfirmComplete(true)}>
-                <CheckCircle className="h-4 w-4 mr-2" />
+                <MaterialIcon name="check_circle" size="sm" className="mr-2" />
                 Complete
               </Button>
             )}
@@ -407,7 +390,7 @@ export default function ManifestScan() {
           <Card className="mb-4">
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
-                <MapPin className="h-5 w-5 text-muted-foreground" />
+                <MaterialIcon name="location_on" size="md" className="text-muted-foreground" />
                 <div className="flex-1">
                   <label className="text-sm font-medium">Current Location</label>
                   <Select
@@ -443,9 +426,9 @@ export default function ManifestScan() {
                 <div className="flex items-start gap-4">
                   {(() => {
                     const config = scanResultConfig[lastScan.result];
-                    const Icon = config?.icon || AlertTriangle;
+                    const iconName = config?.icon || 'warning';
                     return (
-                      <Icon className={cn('h-8 w-8', config?.color || 'text-muted-foreground')} />
+                      <MaterialIcon name={iconName} size="lg" className={cn(config?.color || 'text-muted-foreground')} />
                     );
                   })()}
                   <div className="flex-1">
@@ -494,7 +477,7 @@ export default function ManifestScan() {
                       onClick={() => setShowManualEntry(true)}
                       disabled={!activeLocationId || !isActive}
                     >
-                      <Keyboard className="h-4 w-4 mr-2" />
+                      <MaterialIcon name="keyboard" size="sm" className="mr-2" />
                       Manual Entry
                     </Button>
                   </div>
@@ -512,9 +495,9 @@ export default function ManifestScan() {
                     />
                     <Button onClick={handleManualEntry} disabled={processing || !isActive}>
                       {processing ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
                       ) : (
-                        <CheckCircle className="h-4 w-4" />
+                        <MaterialIcon name="check_circle" size="sm" />
                       )}
                     </Button>
                   </div>
@@ -526,7 +509,7 @@ export default function ManifestScan() {
                         setManualItemCode('');
                       }}
                     >
-                      <ScanLine className="h-4 w-4 mr-2" />
+                      <MaterialIcon name="qr_code_scanner" size="sm" className="mr-2" />
                       Use Scanner
                     </Button>
                   </div>
@@ -539,7 +522,7 @@ export default function ManifestScan() {
           <Card>
             <CardContent className="p-4">
               <h3 className="font-medium mb-3 flex items-center gap-2">
-                <Clock className="h-4 w-4" />
+                <MaterialIcon name="schedule" size="sm" />
                 Recent Scans
               </h3>
               {scans.length === 0 ? (
@@ -550,7 +533,7 @@ export default function ManifestScan() {
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {scans.slice(0, 10).map((scan) => {
                     const config = scanResultConfig[scan.scan_result as ManifestScanResult];
-                    const Icon = config?.icon || AlertTriangle;
+                    const iconName = config?.icon || 'warning';
                     return (
                       <div
                         key={scan.id}
@@ -559,7 +542,7 @@ export default function ManifestScan() {
                           config?.bgColor
                         )}
                       >
-                        <Icon className={cn('h-4 w-4', config?.color)} />
+                        <MaterialIcon name={iconName} size="sm" className={cn(config?.color)} />
                         <span className="font-mono flex-1">{scan.item_code}</span>
                         <span className="text-xs text-muted-foreground">
                           {format(new Date(scan.scanned_at), 'h:mm a')}
@@ -578,7 +561,7 @@ export default function ManifestScan() {
           <CardContent className="p-4">
             <div className="flex items-center gap-4 mb-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search items..."
                   value={searchQuery}
@@ -587,7 +570,7 @@ export default function ManifestScan() {
                 />
               </div>
               <Button variant="outline" size="icon" onClick={() => refetch()}>
-                <RefreshCw className="h-4 w-4" />
+                <MaterialIcon name="refresh" size="sm" />
               </Button>
             </div>
 
@@ -610,12 +593,12 @@ export default function ManifestScan() {
                         <TableCell>
                           {item.scanned ? (
                             <Badge className="bg-green-500/20 text-green-400">
-                              <CheckCircle className="h-3 w-3 mr-1" />
+                              <MaterialIcon name="check_circle" size="sm" className="mr-1" />
                               Scanned
                             </Badge>
                           ) : (
                             <Badge variant="secondary">
-                              <Clock className="h-3 w-3 mr-1" />
+                              <MaterialIcon name="schedule" size="sm" className="mr-1" />
                               Pending
                             </Badge>
                           )}

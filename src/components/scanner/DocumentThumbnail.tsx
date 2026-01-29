@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { FileText, X, Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { getDocumentSignedUrl } from '@/lib/scanner/uploadService';
 import { cn } from '@/lib/utils';
 
@@ -80,7 +80,7 @@ export function DocumentThumbnail({
     <div className={cn("relative group", className)}>
       <div className="aspect-square rounded-lg border overflow-hidden bg-muted flex items-center justify-center">
         {loading ? (
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
         ) : thumbnailUrl && !error ? (
           <img
             src={thumbnailUrl}
@@ -90,7 +90,7 @@ export function DocumentThumbnail({
           />
         ) : (
           <div className="flex flex-col items-center justify-center p-2">
-            <FileText className="h-8 w-8 text-muted-foreground" />
+            <MaterialIcon name="description" className="text-muted-foreground" style={{ fontSize: '32px' }} />
           </div>
         )}
       </div>
@@ -102,7 +102,7 @@ export function DocumentThumbnail({
           onClick={onRemove}
           className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
         >
-          <X className="h-3 w-3" />
+          <MaterialIcon name="close" style={{ fontSize: '12px' }} />
         </button>
       )}
       

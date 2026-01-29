@@ -35,25 +35,7 @@ import {
 } from '@/hooks/useRepairQuotes';
 import { useTechnicians } from '@/hooks/useTechnicians';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  Loader2,
-  User,
-  Building2,
-  Clock,
-  DollarSign,
-  Wrench,
-  Package,
-  Send,
-  FileText,
-  History,
-  ExternalLink,
-  Copy,
-  X,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  ImageIcon,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
@@ -188,27 +170,27 @@ export function RepairQuoteDetailDialog({
   const getAuditIcon = (action: string) => {
     switch (action) {
       case 'created':
-        return <FileText className="h-4 w-4 text-blue-500" />;
+        return <MaterialIcon name="description" size="sm" className="text-blue-500" />;
       case 'technician_assigned':
-        return <User className="h-4 w-4 text-purple-500" />;
+        return <MaterialIcon name="person" size="sm" className="text-purple-500" />;
       case 'sent_to_tech':
-        return <Send className="h-4 w-4 text-blue-500" />;
+        return <MaterialIcon name="send" size="sm" className="text-blue-500" />;
       case 'tech_submitted':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <MaterialIcon name="check_circle" size="sm" className="text-green-500" />;
       case 'tech_declined':
-        return <XCircle className="h-4 w-4 text-red-500" />;
+        return <MaterialIcon name="cancel" size="sm" className="text-red-500" />;
       case 'under_review':
-        return <AlertCircle className="h-4 w-4 text-orange-500" />;
+        return <MaterialIcon name="warning" size="sm" className="text-orange-500" />;
       case 'sent_to_client':
-        return <ExternalLink className="h-4 w-4 text-indigo-500" />;
+        return <MaterialIcon name="open_in_new" size="sm" className="text-indigo-500" />;
       case 'accepted':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <MaterialIcon name="check_circle" size="sm" className="text-green-500" />;
       case 'declined':
-        return <XCircle className="h-4 w-4 text-red-500" />;
+        return <MaterialIcon name="cancel" size="sm" className="text-red-500" />;
       case 'closed':
-        return <X className="h-4 w-4 text-gray-500" />;
+        return <MaterialIcon name="close" size="sm" className="text-gray-500" />;
       default:
-        return <History className="h-4 w-4 text-gray-500" />;
+        return <MaterialIcon name="history" size="sm" className="text-gray-500" />;
     }
   };
 
@@ -239,7 +221,7 @@ export function RepairQuoteDetailDialog({
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="flex items-center gap-2">
-                <Wrench className="h-5 w-5" />
+                <MaterialIcon name="build" size="md" />
                 Repair Quote
               </DialogTitle>
               <DialogDescription>
@@ -271,7 +253,7 @@ export function RepairQuoteDetailDialog({
                   <p className="text-sm text-muted-foreground">Technician</p>
                   {quote.technician ? (
                     <div className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
+                      <MaterialIcon name="person" size="sm" />
                       <span className="font-medium">{quote.technician.name}</span>
                       <span className="text-sm text-muted-foreground">
                         ({quote.technician.markup_percent}% markup)
@@ -296,7 +278,7 @@ export function RepairQuoteDetailDialog({
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Expires</p>
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
+                    <MaterialIcon name="schedule" size="sm" />
                     <span className="font-medium">
                       {quote.expires_at
                         ? format(new Date(quote.expires_at), 'MMM d, yyyy h:mm a')
@@ -367,9 +349,9 @@ export function RepairQuoteDetailDialog({
                     className="text-primary hover:underline flex items-center gap-1"
                     onClick={() => onOpenChange(false)}
                   >
-                    <FileText className="h-4 w-4" />
+                    <MaterialIcon name="description" size="sm" />
                     View Task
-                    <ExternalLink className="h-3 w-3" />
+                    <MaterialIcon name="open_in_new" size="sm" className="text-xs" />
                   </Link>
                 </div>
               )}
@@ -379,27 +361,27 @@ export function RepairQuoteDetailDialog({
               <div className="flex flex-wrap gap-2">
                 {quote.technician && !['sent_to_tech', 'tech_submitted', 'tech_declined'].includes(quote.status || '') && (
                   <Button onClick={handleSendToTech}>
-                    <Send className="mr-2 h-4 w-4" />
+                    <MaterialIcon name="send" size="sm" className="mr-2" />
                     Send to Technician
                   </Button>
                 )}
 
                 {quote.status === 'tech_submitted' && (
                   <Button onClick={handleReview} variant="secondary">
-                    <FileText className="mr-2 h-4 w-4" />
+                    <MaterialIcon name="description" size="sm" className="mr-2" />
                     Mark Under Review
                   </Button>
                 )}
 
                 {['tech_submitted', 'under_review'].includes(quote.status || '') && quote.customer_total && (
                   <Button onClick={handleSendToClient}>
-                    <ExternalLink className="mr-2 h-4 w-4" />
+                    <MaterialIcon name="open_in_new" size="sm" className="mr-2" />
                     Send to Client
                   </Button>
                 )}
 
                 <Button onClick={handleClose} variant="outline" className="text-destructive">
-                  <X className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="close" size="sm" className="mr-2" />
                   Close Quote
                 </Button>
               </div>
@@ -409,11 +391,11 @@ export function RepairQuoteDetailDialog({
             <TabsContent value="items" className="mt-4 space-y-4">
               {loadingItems ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
                 </div>
               ) : quoteItems.length === 0 ? (
                 <div className="text-center py-8">
-                  <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <MaterialIcon name="inventory_2" size="xl" className="mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">No items in this quote</p>
                 </div>
               ) : (
@@ -428,7 +410,7 @@ export function RepairQuoteDetailDialog({
                             onClick={() => onOpenChange(false)}
                           >
                             {item.item?.item_code || item.item_code}
-                            <ExternalLink className="h-3 w-3" />
+                            <MaterialIcon name="open_in_new" size="sm" className="text-xs" />
                           </Link>
                           <p className="text-sm text-muted-foreground">
                             {item.item?.description || item.item_description || 'No description'}
@@ -452,7 +434,7 @@ export function RepairQuoteDetailDialog({
                       {item.damage_photos && item.damage_photos.length > 0 && (
                         <div>
                           <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                            <ImageIcon className="h-3 w-3" />
+                            <MaterialIcon name="image" size="sm" className="text-xs" />
                             Photos ({item.damage_photos.length})
                           </p>
                           <div className="flex gap-2 overflow-x-auto pb-2">
@@ -502,7 +484,7 @@ export function RepairQuoteDetailDialog({
               <div className="space-y-4">
                 {(quote.audit_log || []).length === 0 ? (
                   <div className="text-center py-8">
-                    <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <MaterialIcon name="history" size="xl" className="mx-auto text-muted-foreground mb-4" />
                     <p className="text-muted-foreground">No history recorded</p>
                   </div>
                 ) : (

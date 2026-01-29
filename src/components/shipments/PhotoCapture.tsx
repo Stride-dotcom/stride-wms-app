@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Upload, X, Loader2, Image as ImageIcon, FileText, Download } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface PhotoCaptureProps {
   entityType: 'item' | 'shipment' | 'receiving' | 'inspection' | 'repair';
@@ -171,7 +171,7 @@ export function PhotoCapture({
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <FileText className="h-8 w-8 text-muted-foreground" />
+                  <MaterialIcon name="description" size="lg" className="text-muted-foreground" />
                 </div>
               )}
               <div className="absolute top-1 right-1 flex gap-1">
@@ -180,14 +180,14 @@ export function PhotoCapture({
                   onClick={() => handleDownload(url, index)}
                   className="p-1 bg-blue-500 text-white rounded-full hover:bg-blue-600 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                 >
-                  <Download className="h-3 w-3" />
+                  <MaterialIcon name="download" className="text-xs" />
                 </button>
                 <button
                   type="button"
                   onClick={() => removePhoto(url)}
                   className="p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
                 >
-                  <X className="h-3 w-3" />
+                  <MaterialIcon name="close" className="text-xs" />
                 </button>
               </div>
             </div>
@@ -216,9 +216,9 @@ export function PhotoCapture({
             className="flex-1"
           >
             {uploading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
             ) : (
-              <Camera className="h-4 w-4 mr-2" />
+              <MaterialIcon name="photo_camera" size="sm" className="mr-2" />
             )}
             Take Photo
           </Button>
@@ -241,9 +241,9 @@ export function PhotoCapture({
             className="flex-1"
           >
             {uploading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
             ) : (
-              <Upload className="h-4 w-4 mr-2" />
+              <MaterialIcon name="upload" size="sm" className="mr-2" />
             )}
             Upload {acceptDocuments ? 'Files' : 'Photos'}
           </Button>

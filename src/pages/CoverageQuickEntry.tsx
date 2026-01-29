@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Shield, Package } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -137,7 +137,7 @@ export default function CoverageQuickEntry() {
           <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search items..."
                   className="pl-10"
@@ -177,7 +177,7 @@ export default function CoverageQuickEntry() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
+              <MaterialIcon name="shield" size="md" />
               Items Requiring Coverage
             </CardTitle>
             <CardDescription>
@@ -193,7 +193,7 @@ export default function CoverageQuickEntry() {
               </div>
             ) : filteredItems.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <MaterialIcon name="inventory_2" size="xl" className="mx-auto mb-4 opacity-50" />
                 <p>No items requiring coverage assignment</p>
               </div>
             ) : (

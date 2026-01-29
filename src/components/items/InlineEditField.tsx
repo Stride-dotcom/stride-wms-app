@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, X, Pencil } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 
 interface InlineEditFieldProps {
@@ -100,7 +100,7 @@ export function InlineEditField({
           onClick={handleSave}
           disabled={saving}
         >
-          <Check className="h-3 w-3" />
+          <MaterialIcon name="check" className="text-[12px]" />
         </Button>
         <Button
           size="icon"
@@ -109,7 +109,7 @@ export function InlineEditField({
           onClick={handleCancel}
           disabled={saving}
         >
-          <X className="h-3 w-3" />
+          <MaterialIcon name="close" className="text-[12px]" />
         </Button>
       </div>
     );
@@ -126,7 +126,7 @@ export function InlineEditField({
       <span className={cn('font-medium', !value && 'text-muted-foreground')}>
         {value || placeholder}
       </span>
-      <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+      <MaterialIcon name="edit" className="text-[12px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
     </button>
   );
 }

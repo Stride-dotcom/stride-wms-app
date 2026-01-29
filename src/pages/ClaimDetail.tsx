@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, FileText, Clock, User, Package, Truck, Building, DollarSign, ScanLine, Camera } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
 import { PhotoUploadButton } from '@/components/common/PhotoUploadButton';
 import { PhotoGrid } from '@/components/common/PhotoGrid';
@@ -94,7 +94,7 @@ export default function ClaimDetail() {
         <div className="text-center py-12">
           <h2 className="text-xl font-semibold text-foreground">Claim not found</h2>
           <Button variant="outline" className="mt-4" onClick={() => navigate('/claims')}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Claims
+            <MaterialIcon name="arrow_back" size="sm" className="mr-2" /> Back to Claims
           </Button>
         </div>
       </DashboardLayout>
@@ -108,7 +108,7 @@ export default function ClaimDetail() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-5 w-5" />
+              <MaterialIcon name="arrow_back" size="md" />
             </Button>
             <div>
               <div className="flex items-center gap-3">
@@ -132,7 +132,7 @@ export default function ClaimDetail() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
+                  <MaterialIcon name="description" size="md" />
                   Claim Details
                 </CardTitle>
               </CardHeader>
@@ -148,7 +148,7 @@ export default function ClaimDetail() {
                   <div>
                     <h4 className="text-sm font-medium text-muted-foreground mb-1">Account</h4>
                     <div className="flex items-center gap-2">
-                      <Building className="h-4 w-4 text-muted-foreground" />
+                      <MaterialIcon name="business" size="sm" className="text-muted-foreground" />
                       <span>{claim.account?.account_name || 'N/A'}</span>
                     </div>
                   </div>
@@ -164,7 +164,7 @@ export default function ClaimDetail() {
                   <div>
                     <h4 className="text-sm font-medium text-muted-foreground mb-1">Linked Item</h4>
                     <Link to={`/inventory/${claim.item.id}`} className="flex items-center gap-2 text-primary hover:underline">
-                      <Package className="h-4 w-4" />
+                      <MaterialIcon name="inventory_2" size="sm" />
                       {claim.item.item_code} - {claim.item.description}
                     </Link>
                   </div>
@@ -174,7 +174,7 @@ export default function ClaimDetail() {
                   <div>
                     <h4 className="text-sm font-medium text-muted-foreground mb-1">Linked Shipment</h4>
                     <Link to={`/shipments/${claim.shipment.id}`} className="flex items-center gap-2 text-primary hover:underline">
-                      <Truck className="h-4 w-4" />
+                      <MaterialIcon name="local_shipping" size="sm" />
                       {claim.shipment.shipment_number}
                     </Link>
                   </div>
@@ -202,7 +202,7 @@ export default function ClaimDetail() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
+                    <MaterialIcon name="description" size="md" />
                     Incident Information
                   </CardTitle>
                 </CardHeader>
@@ -228,7 +228,7 @@ export default function ClaimDetail() {
                 <Card>
                   <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Camera className="h-4 w-4" />
+                      <MaterialIcon name="photo_camera" size="sm" />
                       Photos ({claimPhotos.length})
                     </CardTitle>
                     <div className="flex gap-2">
@@ -297,7 +297,7 @@ export default function ClaimDetail() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Clock className="h-5 w-5" />
+                      <MaterialIcon name="schedule" size="md" />
                       Activity History
                     </CardTitle>
                   </CardHeader>
@@ -314,7 +314,7 @@ export default function ClaimDetail() {
                         {auditLog.map(entry => (
                           <div key={entry.id} className="flex items-start gap-3 text-sm">
                             <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                              <User className="h-4 w-4 text-muted-foreground" />
+                              <MaterialIcon name="person" size="sm" className="text-muted-foreground" />
                             </div>
                             <div className="flex-1">
                               <p className="text-foreground">
@@ -342,7 +342,7 @@ export default function ClaimDetail() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
+                  <MaterialIcon name="attach_money" size="md" />
                   Valuation
                 </CardTitle>
               </CardHeader>

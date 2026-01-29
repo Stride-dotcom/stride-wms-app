@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mail, CheckCircle, XCircle, Loader2, Copy, Info, Globe, ShieldCheck, RefreshCw, ExternalLink } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -281,7 +281,7 @@ export function EmailDomainSection() {
     return (
       <Card>
         <CardContent className="flex items-center justify-center h-32">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="md" className="animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -291,7 +291,7 @@ export function EmailDomainSection() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Mail className="h-5 w-5" />
+          <MaterialIcon name="mail" size="md" />
           Email Domain Configuration
         </CardTitle>
         <CardDescription>
@@ -305,17 +305,17 @@ export function EmailDomainSection() {
             <span className="text-sm font-medium">Status:</span>
             {registrationStatus === 'verified' ? (
               <Badge variant="default" className="gap-1 bg-green-600">
-                <ShieldCheck className="h-3 w-3" />
+                <MaterialIcon name="verified_user" size="sm" />
                 Verified & Active
               </Badge>
             ) : registrationStatus === 'pending_dns' ? (
               <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800 border-amber-200">
-                <Globe className="h-3 w-3" />
+                <MaterialIcon name="public" size="sm" />
                 Pending DNS Setup
               </Badge>
             ) : (
               <Badge variant="secondary" className="gap-1">
-                <XCircle className="h-3 w-3" />
+                <MaterialIcon name="cancel" size="sm" />
                 Not Registered
               </Badge>
             )}
@@ -326,17 +326,17 @@ export function EmailDomainSection() {
               <div className="flex items-center gap-1">
                 <span className="text-xs text-muted-foreground">SPF:</span>
                 {settings.spf_verified ? (
-                  <CheckCircle className="h-3 w-3 text-green-500" />
+                  <MaterialIcon name="check_circle" size="sm" className="text-green-500" />
                 ) : (
-                  <XCircle className="h-3 w-3 text-muted-foreground" />
+                  <MaterialIcon name="cancel" size="sm" className="text-muted-foreground" />
                 )}
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-xs text-muted-foreground">DKIM:</span>
                 {settings.dkim_verified ? (
-                  <CheckCircle className="h-3 w-3 text-green-500" />
+                  <MaterialIcon name="check_circle" size="sm" className="text-green-500" />
                 ) : (
-                  <XCircle className="h-3 w-3 text-muted-foreground" />
+                  <MaterialIcon name="cancel" size="sm" className="text-muted-foreground" />
                 )}
               </div>
             </>
@@ -365,7 +365,7 @@ export function EmailDomainSection() {
         {registrationStatus === 'not_registered' && (
           <div className="space-y-4">
             <Alert>
-              <Info className="h-4 w-4" />
+              <MaterialIcon name="info" size="sm" />
               <AlertDescription>
                 <p className="font-medium mb-2">Step 1: Register Your Domain</p>
                 <p className="text-sm text-muted-foreground">
@@ -376,12 +376,12 @@ export function EmailDomainSection() {
             </Alert>
             <div className="flex gap-2">
               <Button onClick={handleSave} disabled={saving || !customEmail} variant="outline">
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
                 Save Email
               </Button>
               <Button onClick={handleRegisterDomain} disabled={registering || !customEmail}>
-                {registering && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <Globe className="mr-2 h-4 w-4" />
+                {registering && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
+                <MaterialIcon name="public" size="sm" className="mr-2" />
                 Register Domain
               </Button>
             </div>
@@ -392,7 +392,7 @@ export function EmailDomainSection() {
         {registrationStatus === 'pending_dns' && dnsRecords.length > 0 && (
           <div className="space-y-4">
             <Alert>
-              <Info className="h-4 w-4" />
+              <MaterialIcon name="info" size="sm" />
               <AlertDescription>
                 <p className="font-medium mb-2">Step 2: Add DNS Records to Your Domain</p>
                 <p className="text-sm text-muted-foreground mb-2">
@@ -430,7 +430,7 @@ export function EmailDomainSection() {
                           className="h-6 px-2"
                           onClick={() => copyToClipboard(record.value)}
                         >
-                          <Copy className="h-3 w-3" />
+                          <MaterialIcon name="content_copy" size="sm" />
                         </Button>
                       </div>
                       <div className="space-y-1">
@@ -466,13 +466,13 @@ export function EmailDomainSection() {
             
             <div className="flex gap-2">
               <Button onClick={handleVerify} disabled={verifying}>
-                {verifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <ShieldCheck className="mr-2 h-4 w-4" />
+                {verifying && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
+                <MaterialIcon name="verified_user" size="sm" className="mr-2" />
                 Verify Domain
               </Button>
               <Button variant="outline" onClick={handleRefreshRecords} disabled={refreshing}>
-                {refreshing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <RefreshCw className="mr-2 h-4 w-4" />
+                {refreshing && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
+                <MaterialIcon name="refresh" size="sm" className="mr-2" />
                 Refresh Status
               </Button>
             </div>
@@ -483,7 +483,7 @@ export function EmailDomainSection() {
         {registrationStatus === 'pending_dns' && dnsRecords.length === 0 && (
           <div className="space-y-4">
             <Alert>
-              <Info className="h-4 w-4" />
+              <MaterialIcon name="info" size="sm" />
               <AlertDescription>
                 <p className="font-medium mb-2">Loading DNS Records...</p>
                 <p className="text-sm text-muted-foreground mb-4">
@@ -494,8 +494,8 @@ export function EmailDomainSection() {
             
             <div className="flex gap-2">
               <Button onClick={handleRefreshRecords} disabled={refreshing}>
-                {refreshing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <RefreshCw className="mr-2 h-4 w-4" />
+                {refreshing && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
+                <MaterialIcon name="refresh" size="sm" className="mr-2" />
                 Load DNS Records
               </Button>
             </div>
@@ -505,7 +505,7 @@ export function EmailDomainSection() {
         {/* Step 3: Verified */}
         {registrationStatus === 'verified' && (
           <Alert className="border-green-200 bg-green-50">
-            <ShieldCheck className="h-4 w-4 text-green-600" />
+            <MaterialIcon name="verified_user" size="sm" className="text-green-600" />
             <AlertDescription className="text-green-800">
               <p className="font-medium">Domain Verified!</p>
               <p className="text-sm">

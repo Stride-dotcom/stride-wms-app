@@ -18,7 +18,7 @@ import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ItemPreviewCard } from '@/components/items/ItemPreviewCard';
-import { ChevronDown, ChevronRight, Loader2, Save, X, Pencil } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 
 interface ItemType {
@@ -182,9 +182,9 @@ export function ShipmentItemRow({
             onClick={() => setIsExpanded(!isExpanded)}
           >
             {isExpanded ? (
-              <ChevronDown className="h-4 w-4" />
+              <MaterialIcon name="expand_more" size="sm" />
             ) : (
-              <ChevronRight className="h-4 w-4" />
+              <MaterialIcon name="chevron_right" size="sm" />
             )}
           </Button>
         </TableCell>
@@ -277,9 +277,9 @@ export function ShipmentItemRow({
                     disabled={saving}
                   >
                     {saving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
                     ) : (
-                      <Save className="h-4 w-4" />
+                      <MaterialIcon name="save" size="sm" />
                     )}
                   </Button>
                   <Button
@@ -289,7 +289,7 @@ export function ShipmentItemRow({
                     onClick={handleCancelEdit}
                     disabled={saving}
                   >
-                    <X className="h-4 w-4" />
+                    <MaterialIcon name="close" size="sm" />
                   </Button>
                 </>
               ) : (
@@ -299,7 +299,7 @@ export function ShipmentItemRow({
                   className="h-7 w-7"
                   onClick={handleStartEdit}
                 >
-                  <Pencil className="h-4 w-4" />
+                  <MaterialIcon name="edit" size="sm" />
                 </Button>
               )}
             </div>

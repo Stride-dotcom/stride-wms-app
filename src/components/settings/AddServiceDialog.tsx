@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Plus, Trash2, Copy, TrendingUp, Eye } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -549,7 +549,7 @@ export function AddServiceDialog({
                     onClick={copyFirstRateToAll}
                     disabled={classRates.length === 0}
                   >
-                    <Copy className="h-3 w-3 mr-1" />
+                    <MaterialIcon name="content_copy" size="sm" className="mr-1" />
                     Copy XS to All
                   </Button>
                   <Button
@@ -559,7 +559,7 @@ export function AddServiceDialog({
                     onClick={scaleRatesBySize}
                     disabled={classRates.length === 0}
                   >
-                    <TrendingUp className="h-3 w-3 mr-1" />
+                    <MaterialIcon name="trending_up" size="sm" className="mr-1" />
                     Scale by Size
                   </Button>
                 </div>
@@ -686,7 +686,7 @@ export function AddServiceDialog({
           {formData.service_code && formData.service_name && (
             <div className="border rounded-lg p-4 bg-muted/30">
               <div className="flex items-center gap-2 mb-3">
-                <Eye className="h-4 w-4 text-muted-foreground" />
+                <MaterialIcon name="visibility" size="sm" className="text-muted-foreground" />
                 <Label className="text-sm font-medium">Preview</Label>
               </div>
               <div className="space-y-2 text-sm">
@@ -753,7 +753,7 @@ export function AddServiceDialog({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
             {duplicateFrom ? 'Create Duplicate' : 'Create Service'}
           </Button>
         </DialogFooter>

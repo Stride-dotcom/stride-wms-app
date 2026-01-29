@@ -4,7 +4,7 @@
  */
 
 import { useRef, useState } from 'react';
-import { Upload, Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { uploadDocument } from '@/lib/scanner/uploadService';
@@ -136,9 +136,9 @@ export function DocumentUploadButton({
         disabled={uploading}
       >
         {uploading ? (
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
         ) : (
-          <Upload className="h-4 w-4 mr-2" />
+          <MaterialIcon name="upload" size="sm" className="mr-2" />
         )}
         {uploading ? 'Uploading...' : label}
       </Button>

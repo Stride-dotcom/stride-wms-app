@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, ArrowRight } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useAccountPricing, AccountServiceSetting } from '@/hooks/useAccountPricing';
 import { cn } from '@/lib/utils';
 
@@ -220,7 +220,7 @@ export function EditAdjustmentDialog({
                   <span className="font-mono text-muted-foreground">
                     ${preview.baseRate.toFixed(2)}
                   </span>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="arrow_forward" size="sm" className="text-muted-foreground" />
                   <span
                     className={cn(
                       'font-mono font-bold text-lg',
@@ -255,7 +255,7 @@ export function EditAdjustmentDialog({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={saving || !adjustmentValue}>
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
             Save Changes
           </Button>
         </DialogFooter>

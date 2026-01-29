@@ -18,14 +18,7 @@ import {
   hapticSuccess,
   hapticError,
 } from '@/lib/haptics';
-import {
-  Loader2,
-  X,
-  ArrowLeft,
-  Plus,
-  ArrowLeftRight,
-  Check,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -771,7 +764,7 @@ export default function ScanHub() {
             onClick={resetState}
             className="flex items-center gap-2 text-muted-foreground mb-4 hover:text-foreground transition-colors"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <MaterialIcon name="arrow_back" size="md" />
             Back
           </button>
 
@@ -844,7 +837,7 @@ export default function ScanHub() {
                               onClick={() => removeServiceItem(item.id)}
                               className="text-destructive hover:bg-destructive/10 p-1 rounded"
                             >
-                              <X className="h-4 w-4" />
+                              <MaterialIcon name="close" size="sm" />
                             </button>
                           </div>
                         );
@@ -890,7 +883,7 @@ export default function ScanHub() {
                     disabled={!serviceToAdd}
                     size="icon"
                   >
-                    <Plus className="h-4 w-4" />
+                    <MaterialIcon name="add" size="sm" />
                   </Button>
                 </div>
 
@@ -924,7 +917,7 @@ export default function ScanHub() {
                             onClick={() => removeServiceEvent(service.service_code)}
                             className="text-destructive hover:bg-destructive/10 p-1 rounded"
                           >
-                            <X className="h-4 w-4" />
+                            <MaterialIcon name="close" size="sm" />
                           </button>
                         </div>
                       ))}
@@ -972,7 +965,7 @@ export default function ScanHub() {
             >
               {processing ? (
                 <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="md" className="mr-2 animate-spin" />
                   Creating Billing Events...
                 </>
               ) : (
@@ -1007,7 +1000,7 @@ export default function ScanHub() {
             onClick={resetState}
             className="flex items-center gap-2 text-muted-foreground mb-6 hover:text-foreground transition-colors"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <MaterialIcon name="arrow_back" size="md" />
             Cancel
           </button>
 
@@ -1105,7 +1098,7 @@ export default function ScanHub() {
           onClick={resetState}
           className="flex items-center gap-2 text-muted-foreground mb-4 hover:text-foreground transition-colors"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <MaterialIcon name="arrow_back" size="md" />
           Back
         </button>
 
@@ -1171,7 +1164,7 @@ export default function ScanHub() {
                       )}
                     </div>
                     {(scannedItem || (mode === 'batch' && batchItems.length > 0)) && (
-                      <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                      <MaterialIcon name="check" size="sm" className="text-primary flex-shrink-0" />
                     )}
                   </button>
 
@@ -1196,7 +1189,7 @@ export default function ScanHub() {
                     disabled={!scannedItem && batchItems.length === 0}
                     title="Swap / Clear"
                   >
-                    <ArrowLeftRight className="h-4 w-4" />
+                    <MaterialIcon name="swap_horiz" size="sm" />
                   </Button>
 
                   {/* Location Field */}
@@ -1233,7 +1226,7 @@ export default function ScanHub() {
                       )}
                     </div>
                     {targetLocation && (
-                      <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                      <MaterialIcon name="check" size="sm" className="text-primary flex-shrink-0" />
                     )}
                   </button>
                 </div>
@@ -1244,7 +1237,7 @@ export default function ScanHub() {
                     className="w-full mt-4"
                     onClick={() => setPhase('confirm')}
                   >
-                    <Check className="h-4 w-4 mr-2" />
+                    <MaterialIcon name="check" size="sm" className="mr-2" />
                     Proceed to Confirm
                   </Button>
                 )}
@@ -1255,7 +1248,7 @@ export default function ScanHub() {
           {/* Processing indicator */}
           {processing && (
             <div className="flex items-center gap-2 text-primary mb-4">
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <MaterialIcon name="progress_activity" size="md" className="animate-spin" />
               <span>Processing...</span>
             </div>
           )}
@@ -1311,7 +1304,7 @@ export default function ScanHub() {
                         onClick={() => setBatchItems(prev => prev.filter(i => i.id !== item.id))}
                         className="ml-1 hover:text-destructive"
                       >
-                        <X className="h-3 w-3" />
+                        <MaterialIcon name="close" size="sm" />
                       </button>
                     </Badge>
                   ))}

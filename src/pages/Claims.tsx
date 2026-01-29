@@ -30,17 +30,7 @@ import {
 import { useClaims, ClaimStatus, ClaimType, CLAIM_TYPE_LABELS, CLAIM_STATUS_LABELS } from '@/hooks/useClaims';
 import { ClaimCreateDialog } from '@/components/claims/ClaimCreateDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { 
-  Plus, 
-  Search, 
-  RefreshCw, 
-  AlertTriangle, 
-  CheckCircle, 
-  XCircle,
-  Clock,
-  FileText,
-  Loader2,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 
 const statusColors: Record<ClaimStatus, string> = {
@@ -109,7 +99,7 @@ export default function Claims() {
           <p className="text-muted-foreground">Track and manage damage, loss, and incident claims</p>
         </div>
         <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
+          <MaterialIcon name="add" size="sm" className="mr-2" />
           New Claim
         </Button>
       </div>
@@ -167,7 +157,7 @@ export default function Claims() {
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search claims..."
                 value={searchQuery}
@@ -198,7 +188,7 @@ export default function Claims() {
               </SelectContent>
             </Select>
             <Button variant="outline" size="icon" onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4" />
+              <MaterialIcon name="refresh" size="sm" />
             </Button>
           </div>
         </CardContent>
@@ -209,7 +199,7 @@ export default function Claims() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
             </div>
           ) : filteredClaims.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">

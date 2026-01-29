@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, Plus, FileText, Send, Eye, XCircle, Download, ArrowUpDown, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useAuth } from "@/contexts/AuthContext";
 
 interface Account {
@@ -121,8 +121,8 @@ export function InvoicesPageTab() {
   };
 
   const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
-    return sortDir === 'asc' ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />;
+    if (sortField !== field) return <MaterialIcon name="swap_vert" style={{ fontSize: '12px' }} className="ml-1 opacity-50" />;
+    return sortDir === 'asc' ? <MaterialIcon name="expand_less" style={{ fontSize: '12px' }} className="ml-1" /> : <MaterialIcon name="expand_more" style={{ fontSize: '12px' }} className="ml-1" />;
   };
 
   const createDraft = async () => {
@@ -187,7 +187,7 @@ export function InvoicesPageTab() {
           <p className="text-muted-foreground text-sm">Create and manage invoices</p>
         </div>
         <Button onClick={load} disabled={loading} variant="outline" size="sm">
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          <MaterialIcon name="refresh" size="sm" className={`mr-2 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
@@ -238,7 +238,7 @@ export function InvoicesPageTab() {
             </div>
             <div className="flex items-end">
               <Button onClick={createDraft} disabled={creating || !accountId} className="w-full">
-                {creating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                {creating ? <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" /> : <MaterialIcon name="add" size="sm" className="mr-2" />}
                 Create Draft
               </Button>
             </div>
@@ -260,7 +260,7 @@ export function InvoicesPageTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+            <MaterialIcon name="description" size="md" />
             Invoices ({invoices.length})
           </CardTitle>
         </CardHeader>
@@ -299,16 +299,16 @@ export function InvoicesPageTab() {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="icon" onClick={() => openLines(inv)} title="View details">
-                        <Eye className="h-4 w-4" />
+                        <MaterialIcon name="visibility" size="sm" />
                       </Button>
                       {inv.status === "draft" && (
                         <Button variant="ghost" size="icon" onClick={() => handleMarkSent(inv.id)} title="Mark as sent">
-                          <Send className="h-4 w-4 text-blue-600" />
+                          <MaterialIcon name="send" size="sm" className="text-blue-600" />
                         </Button>
                       )}
                       {inv.status !== "void" && (
                         <Button variant="ghost" size="icon" onClick={() => handleVoid(inv.id)} title="Void invoice">
-                          <XCircle className="h-4 w-4 text-red-600" />
+                          <MaterialIcon name="cancel" size="sm" className="text-red-600" />
                         </Button>
                       )}
                     </div>
@@ -339,7 +339,7 @@ export function InvoicesPageTab() {
 
           {loadingLines ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <MaterialIcon name="progress_activity" size="lg" className="animate-spin" />
             </div>
           ) : (
             <Table>

@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Claim, useClaims } from '@/hooks/useClaims';
-import { Loader2, Save, MessageSquare, Lock } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface ClaimNotesProps {
   claim: Claim;
@@ -46,7 +46,7 @@ export function ClaimNotes({ claim, isStaff = true, readOnly = false, onUpdate }
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <MessageSquare className="h-4 w-4" />
+            <MaterialIcon name="chat" size="sm" />
             Notes & Resolution Details
             {isStaff && (
               <Badge variant="outline" className="ml-2 text-xs border-yellow-500 text-yellow-500">
@@ -75,7 +75,7 @@ export function ClaimNotes({ claim, isStaff = true, readOnly = false, onUpdate }
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Lock className="h-4 w-4" />
+            <MaterialIcon name="lock" size="sm" />
             Original Description
           </CardTitle>
         </CardHeader>
@@ -91,9 +91,9 @@ export function ClaimNotes({ claim, isStaff = true, readOnly = false, onUpdate }
         <div className="flex justify-end">
           <Button onClick={handleSave} disabled={saving}>
             {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />
             ) : (
-              <Save className="h-4 w-4 mr-2" />
+              <MaterialIcon name="save" size="sm" className="mr-2" />
             )}
             Save Notes
           </Button>

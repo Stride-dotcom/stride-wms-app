@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 
 interface SortableCardProps {
@@ -45,7 +45,7 @@ export function SortableCard({ id, children }: SortableCardProps) {
           isDragging && 'opacity-100'
         )}
       >
-        <GripVertical className="h-5 w-5" />
+        <MaterialIcon name="drag_indicator" size="md" />
       </div>
       
       {/* Card Content with left padding for drag handle */}

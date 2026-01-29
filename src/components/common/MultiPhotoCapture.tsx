@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, X, Loader2, Save, Image as ImageIcon, Trash2, Download } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface PendingPhoto {
   id: string;
@@ -205,14 +205,14 @@ export function MultiPhotoCapture({
                     onClick={() => handleDownload(url, index)}
                     className="p-1 bg-blue-500 text-white rounded-full hover:bg-blue-600 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                   >
-                    <Download className="h-3 w-3" />
+                    <MaterialIcon name="download" className="h-3 w-3" />
                   </button>
                   <button
                     type="button"
                     onClick={() => removeSavedPhoto(url)}
                     className="p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
                   >
-                    <X className="h-3 w-3" />
+                    <MaterialIcon name="close" className="h-3 w-3" />
                   </button>
                 </div>
               </div>
@@ -235,7 +235,7 @@ export function MultiPhotoCapture({
               onClick={clearPending}
               className="text-destructive hover:text-destructive"
             >
-              <Trash2 className="h-3 w-3 mr-1" />
+              <MaterialIcon name="delete" className="h-3 w-3 mr-1" />
               Clear All
             </Button>
           </div>
@@ -255,7 +255,7 @@ export function MultiPhotoCapture({
                   onClick={() => removePendingPhoto(photo.id)}
                   className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
                 >
-                  <X className="h-3 w-3" />
+                  <MaterialIcon name="close" className="h-3 w-3" />
                 </button>
               </div>
             ))}
@@ -284,7 +284,7 @@ export function MultiPhotoCapture({
             disabled={saving}
             className="flex-1"
           >
-            <Camera className="h-4 w-4 mr-2" />
+            <MaterialIcon name="photo_camera" size="sm" className="mr-2" />
             Take Photo
           </Button>
         )}
@@ -297,9 +297,9 @@ export function MultiPhotoCapture({
             className="flex-1"
           >
             {saving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
             ) : (
-              <Save className="h-4 w-4 mr-2" />
+              <MaterialIcon name="save" size="sm" className="mr-2" />
             )}
             Save {pendingPhotos.length} Photo{pendingPhotos.length > 1 ? 's' : ''}
           </Button>

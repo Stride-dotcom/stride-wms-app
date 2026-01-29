@@ -31,23 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Shield,
-  FileText,
-  Package,
-  ArrowLeft,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Upload,
-  Plus,
-  Send,
-  Loader2,
-  AlertCircle,
-  ExternalLink,
-  Image as ImageIcon,
-  MessageSquare,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format, formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -275,7 +259,7 @@ export default function ClientClaims() {
     return (
       <ClientPortalLayout>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
         </div>
       </ClientPortalLayout>
     );
@@ -291,7 +275,7 @@ export default function ClientClaims() {
           {/* Back Button and Header */}
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={handleBackToList}>
-              <ArrowLeft className="h-5 w-5" />
+              <MaterialIcon name="arrow_back" size="md" />
             </Button>
             <div className="flex-1">
               <div className="flex items-center gap-3">
@@ -309,7 +293,7 @@ export default function ClientClaims() {
             {canAccept && (
               <Link to={`/claim/accept/${claimDetail.acceptance_token}`} target="_blank">
                 <Button>
-                  <ExternalLink className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="open_in_new" size="sm" className="mr-2" />
                   Review & Accept Settlement
                 </Button>
               </Link>
@@ -323,7 +307,7 @@ export default function ClientClaims() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
+                    <MaterialIcon name="description" size="md" />
                     Claim Details
                   </CardTitle>
                 </CardHeader>
@@ -354,7 +338,7 @@ export default function ClientClaims() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Package className="h-5 w-5" />
+                      <MaterialIcon name="inventory_2" size="md" />
                       Items ({claimDetail.items.length})
                     </CardTitle>
                   </CardHeader>
@@ -374,7 +358,7 @@ export default function ClientClaims() {
                               />
                             ) : (
                               <div className="h-12 w-12 bg-muted rounded flex items-center justify-center">
-                                <Package className="h-6 w-6 text-muted-foreground" />
+                                <MaterialIcon name="inventory_2" size="lg" className="text-muted-foreground" />
                               </div>
                             )}
                             <div>
@@ -401,7 +385,7 @@ export default function ClientClaims() {
                 <Card className="border-primary/50">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Shield className="h-5 w-5" />
+                      <MaterialIcon name="shield" size="md" />
                       Settlement Determination
                     </CardTitle>
                   </CardHeader>
@@ -429,7 +413,7 @@ export default function ClientClaims() {
                       <div className="pt-4">
                         <Link to={`/claim/accept/${claimDetail.acceptance_token}`} target="_blank">
                           <Button className="w-full" size="lg">
-                            <ExternalLink className="h-4 w-4 mr-2" />
+                            <MaterialIcon name="open_in_new" size="sm" className="mr-2" />
                             Review & Accept Settlement Terms
                           </Button>
                         </Link>
@@ -463,9 +447,9 @@ export default function ClientClaims() {
                         />
                         <Button variant="outline" size="sm" disabled={uploading}>
                           {uploading ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />
                           ) : (
-                            <Upload className="h-4 w-4 mr-2" />
+                            <MaterialIcon name="upload" size="sm" className="mr-2" />
                           )}
                           Upload
                         </Button>
@@ -484,9 +468,9 @@ export default function ClientClaims() {
                               className="flex items-center gap-3 p-3 border rounded-lg"
                             >
                               {att.mime_type?.startsWith('image/') ? (
-                                <ImageIcon className="h-8 w-8 text-blue-500" />
+                                <MaterialIcon name="image" size="xl" className="text-blue-500" />
                               ) : (
-                                <FileText className="h-8 w-8 text-gray-500" />
+                                <MaterialIcon name="description" size="xl" className="text-gray-500" />
                               )}
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium truncate">{att.file_name}</p>
@@ -507,7 +491,7 @@ export default function ClientClaims() {
                     <CardHeader className="flex flex-row items-center justify-between">
                       <CardTitle className="text-base">Notes</CardTitle>
                       <Button variant="outline" size="sm" onClick={() => setShowAddNoteDialog(true)}>
-                        <MessageSquare className="h-4 w-4 mr-2" />
+                        <MaterialIcon name="chat" size="sm" className="mr-2" />
                         Add Note
                       </Button>
                     </CardHeader>
@@ -563,7 +547,7 @@ export default function ClientClaims() {
                 <Card className="border-blue-200 bg-blue-50/50">
                   <CardContent className="pt-4">
                     <div className="flex items-center gap-2 text-blue-700">
-                      <CheckCircle className="h-4 w-4" />
+                      <MaterialIcon name="check_circle" size="sm" />
                       <span className="text-sm font-medium">Client Initiated</span>
                     </div>
                     <p className="text-xs text-blue-600 mt-1">
@@ -598,7 +582,7 @@ export default function ClientClaims() {
                 Cancel
               </Button>
               <Button onClick={handleAddNote} disabled={!newNote.trim() || submitting}>
-                {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {submitting && <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />}
                 Add Note
               </Button>
             </DialogFooter>
@@ -621,7 +605,7 @@ export default function ClientClaims() {
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
               <Button>
-                <Plus className="h-4 w-4 mr-2" />
+                <MaterialIcon name="add" size="sm" className="mr-2" />
                 File New Claim
               </Button>
             </DialogTrigger>
@@ -681,7 +665,7 @@ export default function ClientClaims() {
                   onClick={handleCreateClaim}
                   disabled={!newClaim.claim_type || !newClaim.description || submitting}
                 >
-                  {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  {submitting && <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />}
                   Submit Claim
                 </Button>
               </DialogFooter>
@@ -699,13 +683,13 @@ export default function ClientClaims() {
         ) : claims.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
-              <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <MaterialIcon name="shield" className="mx-auto text-muted-foreground mb-4" style={{ fontSize: '48px' }} />
               <h3 className="text-lg font-medium mb-2">No Claims</h3>
               <p className="text-muted-foreground mb-4">
                 You haven't filed any claims yet.
               </p>
               <Button onClick={() => setShowCreateDialog(true)}>
-                <Plus className="h-4 w-4 mr-2" />
+                <MaterialIcon name="add" size="sm" className="mr-2" />
                 File New Claim
               </Button>
             </CardContent>
@@ -717,7 +701,7 @@ export default function ClientClaims() {
               <Card className="border-amber-200 bg-amber-50">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-amber-800">
-                    <AlertCircle className="h-5 w-5" />
+                    <MaterialIcon name="error" size="md" />
                     Action Required
                   </CardTitle>
                 </CardHeader>
@@ -753,13 +737,13 @@ export default function ClientClaims() {
                         }`}
                       >
                         {claim.status === 'pending_acceptance' ? (
-                          <Clock className="h-5 w-5 text-amber-600" />
+                          <MaterialIcon name="schedule" size="md" className="text-amber-600" />
                         ) : claim.status === 'accepted' || claim.status === 'credited' || claim.status === 'paid' ? (
-                          <CheckCircle className="h-5 w-5 text-green-600" />
+                          <MaterialIcon name="check_circle" size="md" className="text-green-600" />
                         ) : claim.status === 'denied' || claim.status === 'declined' ? (
-                          <XCircle className="h-5 w-5 text-red-600" />
+                          <MaterialIcon name="cancel" size="md" className="text-red-600" />
                         ) : (
-                          <FileText className="h-5 w-5 text-blue-600" />
+                          <MaterialIcon name="description" size="md" className="text-blue-600" />
                         )}
                       </div>
                       <div>

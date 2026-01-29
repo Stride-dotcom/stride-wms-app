@@ -41,24 +41,7 @@ import { CreateStocktakeDialog } from '@/components/stocktakes/CreateStocktakeDi
 import { useStocktakes, StocktakeStatus, CreateStocktakeData } from '@/hooks/useStocktakes';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useIsMobile } from '@/hooks/use-mobile';
-import {
-  Plus,
-  Search,
-  RefreshCw,
-  ClipboardCheck,
-  Play,
-  CheckCircle,
-  XCircle,
-  FileEdit,
-  Loader2,
-  AlertTriangle,
-  Lock,
-  Wrench,
-  DollarSign,
-  ScanLine,
-  FileBarChart,
-  Eye,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 
 const statusColors: Record<StocktakeStatus, string> = {
@@ -146,7 +129,7 @@ export default function Stocktakes() {
     if (variance === null || variance === 0) return null;
     return (
       <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
-        <AlertTriangle className="h-3 w-3 mr-1" />
+        <MaterialIcon name="warning" className="h-3 w-3 mr-1" />
         {variance} variance{variance !== 1 ? 's' : ''}
       </Badge>
     );
@@ -171,11 +154,11 @@ export default function Stocktakes() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/manifests')}>
-            <ClipboardCheck className="h-4 w-4 mr-2" />
+            <MaterialIcon name="assignment_turned_in" size="sm" className="mr-2" />
             Manifests
           </Button>
           <Button onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+            <MaterialIcon name="add" size="sm" className="mr-2" />
             New Stocktake
           </Button>
         </div>
@@ -234,7 +217,7 @@ export default function Stocktakes() {
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search stocktakes..."
                 value={searchQuery}
@@ -272,7 +255,7 @@ export default function Stocktakes() {
               </SelectContent>
             </Select>
             <Button variant="outline" size="icon" onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4" />
+              <MaterialIcon name="refresh" size="sm" />
             </Button>
           </div>
         </CardContent>
@@ -283,11 +266,11 @@ export default function Stocktakes() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
             </div>
           ) : filteredStocktakes.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <ClipboardCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <MaterialIcon name="assignment_turned_in" className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No stocktakes found</p>
               <Button variant="link" onClick={() => setCreateDialogOpen(true)}>
                 Create your first stocktake
@@ -301,13 +284,13 @@ export default function Stocktakes() {
                     <MobileDataCardTitle className="flex items-center gap-2">
                       {st.name || st.stocktake_number}
                       {st.freeze_moves && (
-                        <Lock className="h-4 w-4 text-yellow-500" />
+                        <MaterialIcon name="lock" size="sm" className="text-yellow-500" />
                       )}
                       {st.allow_location_auto_fix && (
-                        <Wrench className="h-4 w-4 text-blue-500" />
+                        <MaterialIcon name="build" size="sm" className="text-blue-500" />
                       )}
                       {st.billable && (
-                        <DollarSign className="h-4 w-4 text-green-500" />
+                        <MaterialIcon name="attach_money" size="sm" className="text-green-500" />
                       )}
                     </MobileDataCardTitle>
                     {getStatusBadge(st.status)}
@@ -349,7 +332,7 @@ export default function Stocktakes() {
                             setConfirmAction({ type: 'start', id: st.id, name: st.stocktake_number })
                           }
                         >
-                          <Play className="h-4 w-4 mr-1" /> Start
+                          <MaterialIcon name="play_arrow" size="sm" className="mr-1" /> Start
                         </Button>
                         <Button
                           size="sm"
@@ -365,7 +348,7 @@ export default function Stocktakes() {
                     {st.status === 'active' && (
                       <>
                         <Button size="sm" onClick={() => navigate(`/stocktakes/${st.id}/scan`)}>
-                          <ScanLine className="h-4 w-4 mr-1" /> Scan
+                          <MaterialIcon name="qr_code_scanner" size="sm" className="mr-1" /> Scan
                         </Button>
                         <Button
                           size="sm"
@@ -374,7 +357,7 @@ export default function Stocktakes() {
                             setConfirmAction({ type: 'close', id: st.id, name: st.stocktake_number })
                           }
                         >
-                          <CheckCircle className="h-4 w-4 mr-1" /> Close
+                          <MaterialIcon name="check_circle" size="sm" className="mr-1" /> Close
                         </Button>
                       </>
                     )}
@@ -384,7 +367,7 @@ export default function Stocktakes() {
                         variant="outline"
                         onClick={() => navigate(`/stocktakes/${st.id}/report`)}
                       >
-                        <FileBarChart className="h-4 w-4 mr-1" /> Report
+                        <MaterialIcon name="insert_chart" size="sm" className="mr-1" /> Report
                       </Button>
                     )}
                   </MobileDataCardActions>
@@ -438,13 +421,13 @@ export default function Stocktakes() {
                     <TableCell>
                       <div className="flex gap-1">
                         {st.freeze_moves && (
-                          <Lock className="h-4 w-4 text-yellow-500" />
+                          <MaterialIcon name="lock" size="sm" className="text-yellow-500" />
                         )}
                         {st.allow_location_auto_fix && (
-                          <Wrench className="h-4 w-4 text-blue-500" />
+                          <MaterialIcon name="build" size="sm" className="text-blue-500" />
                         )}
                         {st.billable && (
-                          <DollarSign className="h-4 w-4 text-green-500" />
+                          <MaterialIcon name="attach_money" size="sm" className="text-green-500" />
                         )}
                       </div>
                     </TableCell>
@@ -464,7 +447,7 @@ export default function Stocktakes() {
                               }
                               title="Start stocktake"
                             >
-                              <Play className="h-4 w-4" />
+                              <MaterialIcon name="play_arrow" size="sm" />
                             </Button>
                             <Button
                               size="sm"
@@ -478,7 +461,7 @@ export default function Stocktakes() {
                               }
                               title="Cancel stocktake"
                             >
-                              <XCircle className="h-4 w-4" />
+                              <MaterialIcon name="cancel" size="sm" />
                             </Button>
                           </>
                         )}
@@ -490,7 +473,7 @@ export default function Stocktakes() {
                               onClick={() => navigate(`/stocktakes/${st.id}/scan`)}
                               title="Scan items"
                             >
-                              <ScanLine className="h-4 w-4" />
+                              <MaterialIcon name="qr_code_scanner" size="sm" />
                             </Button>
                             <Button
                               size="sm"
@@ -504,7 +487,7 @@ export default function Stocktakes() {
                               }
                               title="Close stocktake"
                             >
-                              <CheckCircle className="h-4 w-4" />
+                              <MaterialIcon name="check_circle" size="sm" />
                             </Button>
                           </>
                         )}
@@ -515,7 +498,7 @@ export default function Stocktakes() {
                             onClick={() => navigate(`/stocktakes/${st.id}/report`)}
                             title="View report"
                           >
-                            <FileBarChart className="h-4 w-4" />
+                            <MaterialIcon name="insert_chart" size="sm" />
                           </Button>
                         )}
                         <Button
@@ -524,7 +507,7 @@ export default function Stocktakes() {
                           onClick={() => navigate(`/stocktakes/${st.id}/scan`)}
                           title="View details"
                         >
-                          <Eye className="h-4 w-4" />
+                          <MaterialIcon name="visibility" size="sm" />
                         </Button>
                       </div>
                     </TableCell>

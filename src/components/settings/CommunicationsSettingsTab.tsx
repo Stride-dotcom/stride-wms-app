@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Bell, FileText, Building2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useCommunications } from '@/hooks/useCommunications';
 import { AlertsTab } from './communications/AlertsTab';
 import { TemplatesTab } from './communications/TemplatesTab';
@@ -92,7 +92,7 @@ export function CommunicationsSettingsTab() {
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <Building2 className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              <MaterialIcon name="apartment" size="md" className="text-muted-foreground flex-shrink-0" />
               <div>
                 <CardTitle className="text-base">Template Scope</CardTitle>
                 <CardDescription>
@@ -147,11 +147,11 @@ export function CommunicationsSettingsTab() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2 max-w-full sm:max-w-[400px]">
           <TabsTrigger value="alerts" className="gap-1 sm:gap-2">
-            <Bell className="h-4 w-4" />
+            <MaterialIcon name="notifications" size="sm" />
             <span className="hidden xs:inline sm:inline">Alerts</span>
           </TabsTrigger>
           <TabsTrigger value="editor" className="gap-1 sm:gap-2">
-            <FileText className="h-4 w-4" />
+            <MaterialIcon name="description" size="sm" />
             <span className="hidden xs:inline sm:inline">Template Editor</span>
           </TabsTrigger>
         </TabsList>

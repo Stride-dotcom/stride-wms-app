@@ -23,17 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import {
-  Plug,
-  ExternalLink,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  RefreshCw,
-  History,
-  Building2,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useQuickBooks, SyncLogEntry } from '@/hooks/useQuickBooks';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -128,7 +118,7 @@ export function IntegrationsSettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Plug className="h-5 w-5" />
+            <MaterialIcon name="power" size="md" />
             Integrations
           </CardTitle>
           <CardDescription>Loading integration settings...</CardDescription>
@@ -149,7 +139,7 @@ export function IntegrationsSettingsTab() {
           <div className="flex items-start justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
+                <MaterialIcon name="apartment" size="md" />
                 QuickBooks Online
               </CardTitle>
               <CardDescription>
@@ -157,7 +147,7 @@ export function IntegrationsSettingsTab() {
               </CardDescription>
             </div>
             <Button variant="ghost" size="icon" onClick={handleRefreshStatus}>
-              <RefreshCw className="h-4 w-4" />
+              <MaterialIcon name="refresh" size="sm" />
             </Button>
           </div>
         </CardHeader>
@@ -166,11 +156,11 @@ export function IntegrationsSettingsTab() {
           <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
             <div className="flex items-center gap-3">
               {isConnected ? (
-                <CheckCircle2 className="h-8 w-8 text-green-500" />
+                <MaterialIcon name="check_circle" size="lg" className="text-green-500" />
               ) : connectionStatus?.refreshTokenExpired ? (
-                <AlertTriangle className="h-8 w-8 text-amber-500" />
+                <MaterialIcon name="warning" size="lg" className="text-amber-500" />
               ) : (
-                <XCircle className="h-8 w-8 text-muted-foreground" />
+                <MaterialIcon name="cancel" size="lg" className="text-muted-foreground" />
               )}
               <div>
                 <div className="font-medium">
@@ -202,7 +192,7 @@ export function IntegrationsSettingsTab() {
                       <Button variant="outline" disabled={disconnecting}>
                         {disconnecting ? (
                           <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                             Disconnecting...
                           </>
                         ) : (
@@ -232,12 +222,12 @@ export function IntegrationsSettingsTab() {
                 <Button onClick={handleConnect} disabled={connecting}>
                   {connecting ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                       Connecting...
                     </>
                   ) : (
                     <>
-                      <ExternalLink className="mr-2 h-4 w-4" />
+                      <MaterialIcon name="open_in_new" size="sm" className="mr-2" />
                       Connect to QuickBooks
                     </>
                   )}
@@ -283,7 +273,7 @@ export function IntegrationsSettingsTab() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
+              <MaterialIcon name="history" size="md" />
               Sync History
             </CardTitle>
             <CardDescription>

@@ -30,7 +30,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Pencil, Trash2, UserPlus, DollarSign, Users } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface Employee {
   id: string;
@@ -348,7 +348,7 @@ export function EmployeesSettingsTab() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
+              <MaterialIcon name="group" size="md" />
               Employees
             </CardTitle>
             <CardDescription>
@@ -356,7 +356,7 @@ export function EmployeesSettingsTab() {
             </CardDescription>
           </div>
           <Button onClick={() => setInviteDialogOpen(true)}>
-            <UserPlus className="mr-2 h-4 w-4" />
+            <MaterialIcon name="person_add" size="sm" className="mr-2" />
             Invite Employee
           </Button>
         </div>
@@ -364,7 +364,7 @@ export function EmployeesSettingsTab() {
       <CardContent>
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
           </div>
         ) : employees.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">
@@ -408,7 +408,7 @@ export function EmployeesSettingsTab() {
                   <TableCell>
                     {employee.labor_rate != null ? (
                       <span className="flex items-center gap-1">
-                        <DollarSign className="h-3 w-3" />
+                        <MaterialIcon name="attach_money" size="sm" />
                         {employee.labor_rate.toFixed(2)}/hr
                       </span>
                     ) : (
@@ -421,7 +421,7 @@ export function EmployeesSettingsTab() {
                       size="icon"
                       onClick={() => handleEditEmployee(employee)}
                     >
-                      <Pencil className="h-4 w-4" />
+                      <MaterialIcon name="edit" size="sm" />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -490,7 +490,7 @@ export function EmployeesSettingsTab() {
             <Button onClick={handleSaveEmployee} disabled={saving}>
               {saving ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Saving...
                 </>
               ) : (
@@ -599,7 +599,7 @@ export function EmployeesSettingsTab() {
             >
               {saving ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Saving...
                 </>
               ) : (
@@ -612,7 +612,7 @@ export function EmployeesSettingsTab() {
             >
               {saving ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Sending...
                 </>
               ) : (

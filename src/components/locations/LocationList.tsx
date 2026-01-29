@@ -29,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Loader2, MoreHorizontal, Pencil, Trash2, MapPin, Printer, ChevronRight } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -173,7 +173,7 @@ export function LocationList({
     return (
       <Card>
         <CardContent className="flex items-center justify-center h-48">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -183,7 +183,7 @@ export function LocationList({
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center h-48 text-center">
-          <MapPin className="h-12 w-12 text-muted-foreground mb-4" />
+          <MaterialIcon name="location_on" size="xl" className="text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium">No locations yet</h3>
           <p className="text-muted-foreground text-sm mt-1">
             Get started by adding zones, aisles, or bin locations.
@@ -206,7 +206,7 @@ export function LocationList({
             </div>
             {selectedIds.size > 0 && (
               <Button variant="outline" size="sm" onClick={handlePrintSelected}>
-                <Printer className="mr-2 h-4 w-4" />
+                <MaterialIcon name="print" size="sm" className="mr-2" />
                 Print {selectedIds.size} Label{selectedIds.size !== 1 ? 's' : ''}
               </Button>
             )}
@@ -255,7 +255,7 @@ export function LocationList({
                     <TableCell>
                       {location.parent_location_id && (
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <ChevronRight className="h-3 w-3" />
+                          <MaterialIcon name="chevron_right" size="sm" />
                           {getLocationPath(location)}
                         </span>
                       )}
@@ -265,24 +265,24 @@ export function LocationList({
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
+                            <MaterialIcon name="more_horiz" size="sm" />
                             <span className="sr-only">Open menu</span>
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => onEdit(location.id)}>
-                            <Pencil className="mr-2 h-4 w-4" />
+                            <MaterialIcon name="edit" size="sm" className="mr-2" />
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => onPrintSelected([location])}>
-                            <Printer className="mr-2 h-4 w-4" />
+                            <MaterialIcon name="print" size="sm" className="mr-2" />
                             Print Label
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={() => handleDeleteClick(location)}
                           >
-                            <Trash2 className="mr-2 h-4 w-4" />
+                            <MaterialIcon name="delete" size="sm" className="mr-2" />
                             Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -312,7 +312,7 @@ export function LocationList({
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleting && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

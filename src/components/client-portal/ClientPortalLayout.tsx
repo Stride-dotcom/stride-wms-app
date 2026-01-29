@@ -14,7 +14,6 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { NavAppCard, APP_CARD_COLORS } from '@/components/ui/AppCard';
 
 interface ClientPortalLayoutProps {
   children: ReactNode;
@@ -24,24 +23,9 @@ interface ClientPortalLayoutProps {
 }
 
 const navItems = [
-  {
-    title: 'Dashboard',
-    href: '/client',
-    icon: 'dashboard',
-    colorClass: APP_CARD_COLORS.blue,
-  },
-  {
-    title: 'My Items',
-    href: '/client/items',
-    icon: 'inventory_2',
-    colorClass: APP_CARD_COLORS.teal,
-  },
-  {
-    title: 'Quotes',
-    href: '/client/quotes',
-    icon: 'request_quote',
-    colorClass: APP_CARD_COLORS.amber,
-  },
+  { title: 'Dashboard', href: '/client', icon: 'dashboard' },
+  { title: 'My Items', href: '/client/items', icon: 'inventory_2' },
+  { title: 'Quotes', href: '/client/quotes', icon: 'request_quote' },
 ];
 
 export function ClientPortalLayout({
@@ -73,17 +57,13 @@ export function ClientPortalLayout({
             to={item.href}
             onClick={() => mobile && setMobileOpen(false)}
             className={cn(
-              'flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium transition-colors',
+              'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
               isActive
-                ? 'bg-muted'
+                ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             )}
           >
-            <NavAppCard
-              icon={item.icon}
-              colorClass={item.colorClass}
-              isActive={isActive}
-            />
+            <MaterialIcon name={item.icon} size="md" filled={isActive} />
             {item.title}
           </Link>
         );
@@ -98,8 +78,8 @@ export function ClientPortalLayout({
         <div className="flex h-full flex-col">
           {/* Logo/Brand */}
           <div className="flex h-16 items-center gap-2 border-b px-4">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md">
-              <MaterialIcon name="warehouse" size="sm" className="text-white" filled />
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <MaterialIcon name="warehouse" size="sm" className="text-primary-foreground" filled />
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-semibold">{warehouseName}</span>
@@ -158,8 +138,8 @@ export function ClientPortalLayout({
             <div className="flex h-full flex-col">
               {/* Logo/Brand */}
               <div className="flex h-14 items-center gap-2 border-b px-4">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md">
-                  <MaterialIcon name="warehouse" size="sm" className="text-white" filled />
+                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                  <MaterialIcon name="warehouse" size="sm" className="text-primary-foreground" filled />
                 </div>
                 <span className="text-sm font-semibold">{warehouseName}</span>
               </div>
@@ -191,8 +171,8 @@ export function ClientPortalLayout({
         </Sheet>
 
         <div className="ml-2 flex flex-1 items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-sm">
-            <MaterialIcon name="warehouse" size="sm" className="text-white" filled />
+          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+            <MaterialIcon name="warehouse" size="sm" className="text-primary-foreground" filled />
           </div>
           <span className="text-sm font-semibold">{warehouseName}</span>
         </div>

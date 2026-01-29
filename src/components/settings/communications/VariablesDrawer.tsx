@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Copy, Check, Variable, Palette } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { COMMUNICATION_VARIABLES, CommunicationDesignElement } from '@/hooks/useCommunications';
 import { toast } from 'sonner';
 
@@ -78,17 +78,17 @@ export function VariablesDrawer({
         >
           <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
             <TabsTrigger value="variables" className="gap-2">
-              <Variable className="h-4 w-4" />
+              <MaterialIcon name="data_object" size="sm" />
               Variables
             </TabsTrigger>
             <TabsTrigger value="design" className="gap-2">
-              <Palette className="h-4 w-4" />
+              <MaterialIcon name="palette" size="sm" />
               Design
             </TabsTrigger>
           </TabsList>
 
           <div className="relative mt-4 flex-shrink-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search..."
               value={search}
@@ -130,9 +130,9 @@ export function VariablesDrawer({
                             }}
                           >
                             {copiedVar === variable.key ? (
-                              <Check className="h-4 w-4 text-green-500" />
+                              <MaterialIcon name="check" size="sm" className="text-green-500" />
                             ) : (
-                              <Copy className="h-4 w-4" />
+                              <MaterialIcon name="content_copy" size="sm" />
                             )}
                           </Button>
                         </div>

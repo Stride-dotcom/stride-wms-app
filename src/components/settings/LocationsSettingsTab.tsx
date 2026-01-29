@@ -38,20 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { 
-  Loader2, 
-  MoreHorizontal, 
-  Pencil, 
-  Trash2, 
-  MapPin, 
-  Printer, 
-  Plus,
-  Upload,
-  Download,
-  Search,
-  Archive,
-  RotateCcw
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -397,7 +384,7 @@ export function LocationsSettingsTab({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Plus className="h-4 w-4" />
+              <MaterialIcon name="add" size="sm" />
               Quick Add Bay
             </CardTitle>
             <CardDescription>
@@ -434,7 +421,7 @@ export function LocationsSettingsTab({
                 </Select>
               )}
               <Button onClick={handleFastAdd} disabled={fastAddLoading || !fastAddValue.trim()}>
-                {fastAddLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                {fastAddLoading ? <MaterialIcon name="progress_activity" size="sm" className="animate-spin" /> : <MaterialIcon name="add" size="sm" />}
                 <span className="ml-2">Add</span>
               </Button>
             </div>
@@ -446,7 +433,7 @@ export function LocationsSettingsTab({
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
+                <MaterialIcon name="location_on" size="md" />
                 <div>
                   <CardTitle>Bays</CardTitle>
                   <CardDescription>
@@ -456,15 +443,15 @@ export function LocationsSettingsTab({
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
-                  <Download className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="download" size="sm" className="mr-2" />
                   Template
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleExportLocations}>
-                  <Download className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="download" size="sm" className="mr-2" />
                   Export
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="upload" size="sm" className="mr-2" />
                   Import
                 </Button>
                 <input
@@ -476,12 +463,12 @@ export function LocationsSettingsTab({
                 />
                 {selectedIds.size > 0 && (
                   <Button variant="outline" size="sm" onClick={handlePrintSelected}>
-                    <Printer className="mr-2 h-4 w-4" />
+                    <MaterialIcon name="print" size="sm" className="mr-2" />
                     Print {selectedIds.size}
                   </Button>
                 )}
                 <Button size="sm" onClick={onCreate}>
-                  <Plus className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="add" size="sm" className="mr-2" />
                   Add Bay
                 </Button>
               </div>
@@ -491,7 +478,7 @@ export function LocationsSettingsTab({
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search bays..."
                   value={searchQuery}
@@ -517,18 +504,18 @@ export function LocationsSettingsTab({
                 size="sm"
                 onClick={() => setShowArchived(!showArchived)}
               >
-                <Archive className="mr-2 h-4 w-4" />
+                <MaterialIcon name="archive" size="sm" className="mr-2" />
                 {showArchived ? 'Show Active' : 'Show Archived'}
               </Button>
             </div>
 
             {loading ? (
               <div className="flex items-center justify-center h-32">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
               </div>
             ) : filteredLocations.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 text-center">
-                <MapPin className="h-10 w-10 text-muted-foreground mb-3" />
+                <MaterialIcon name="location_on" size="lg" className="text-muted-foreground mb-3" />
                 <p className="text-muted-foreground">
                   {locations.length === 0 
                     ? 'No locations yet. Use Quick Add above!' 
@@ -581,26 +568,26 @@ export function LocationsSettingsTab({
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
+                                  <MaterialIcon name="more_horiz" size="sm" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => onEdit(location.id)}>
-                                  <Pencil className="mr-2 h-4 w-4" />
+                                  <MaterialIcon name="edit" size="sm" className="mr-2" />
                                   Edit
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => onPrintSelected([location])}>
-                                  <Printer className="mr-2 h-4 w-4" />
+                                  <MaterialIcon name="print" size="sm" className="mr-2" />
                                   Print Label
                                 </DropdownMenuItem>
                                 {isActive ? (
                                   <DropdownMenuItem onClick={() => handleArchive(location)}>
-                                    <Archive className="mr-2 h-4 w-4" />
+                                    <MaterialIcon name="archive" size="sm" className="mr-2" />
                                     Archive
                                   </DropdownMenuItem>
                                 ) : (
                                   <DropdownMenuItem onClick={() => handleRestore(location)}>
-                                    <RotateCcw className="mr-2 h-4 w-4" />
+                                    <MaterialIcon name="refresh" size="sm" className="mr-2" />
                                     Restore
                                   </DropdownMenuItem>
                                 )}
@@ -608,7 +595,7 @@ export function LocationsSettingsTab({
                                   className="text-destructive focus:text-destructive"
                                   onClick={() => handleDeleteClick(location)}
                                 >
-                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  <MaterialIcon name="delete" size="sm" className="mr-2" />
                                   Delete
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
@@ -641,7 +628,7 @@ export function LocationsSettingsTab({
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleting && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

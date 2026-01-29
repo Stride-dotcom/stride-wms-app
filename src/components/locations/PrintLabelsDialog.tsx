@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Printer, Download } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 import { generateLocationLabelsPDF, printLabels, downloadPDF, PrintPopupBlockedError } from '@/lib/labelGenerator';
 
@@ -142,17 +142,17 @@ export function PrintLabelsDialog({
           </Button>
           <Button variant="outline" onClick={handleDownload} disabled={generating || locations.length === 0}>
             {generating ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
             ) : (
-              <Download className="mr-2 h-4 w-4" />
+              <MaterialIcon name="download" size="sm" className="mr-2" />
             )}
             Download PDF
           </Button>
           <Button onClick={handlePrint} disabled={generating || locations.length === 0}>
             {generating ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
             ) : (
-              <Printer className="mr-2 h-4 w-4" />
+              <MaterialIcon name="print" size="sm" className="mr-2" />
             )}
             Print Labels
           </Button>

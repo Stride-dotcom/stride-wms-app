@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Mail, MessageSquare, Send, Loader2, Package, ClipboardList, Box } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useTestAlertPreferences } from '@/hooks/useTestAlertPreferences';
 import { useRecentEntities } from '@/hooks/useRecentEntities';
 import { supabase } from '@/integrations/supabase/client';
@@ -219,11 +219,11 @@ export function SendTestDialog({
           <Tabs value={activeChannel} onValueChange={(v) => setActiveChannel(v as 'email' | 'sms')}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="email" className="gap-2">
-                <Mail className="h-4 w-4" />
+                <MaterialIcon name="mail" size="sm" />
                 Email
               </TabsTrigger>
               <TabsTrigger value="sms" className="gap-2">
-                <MessageSquare className="h-4 w-4" />
+                <MaterialIcon name="chat" size="sm" />
                 SMS
               </TabsTrigger>
             </TabsList>
@@ -294,7 +294,7 @@ export function SendTestDialog({
                 {shipments.length > 0 && (
                   <>
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2">
-                      <Package className="h-3 w-3" />
+                      <MaterialIcon name="package_2" size="sm" />
                       Recent Shipments
                     </div>
                     {shipments.map((s) => (
@@ -308,7 +308,7 @@ export function SendTestDialog({
                 {tasks.length > 0 && (
                   <>
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2">
-                      <ClipboardList className="h-3 w-3" />
+                      <MaterialIcon name="checklist" size="sm" />
                       Recent Tasks
                     </div>
                     {tasks.map((t) => (
@@ -322,7 +322,7 @@ export function SendTestDialog({
                 {items.length > 0 && (
                   <>
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2">
-                      <Box className="h-3 w-3" />
+                      <MaterialIcon name="inventory_2" size="sm" />
                       Recent Items
                     </div>
                     {items.map((i) => (
@@ -352,12 +352,12 @@ export function SendTestDialog({
           <Button onClick={handleSend} disabled={isSending}>
             {isSending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                 Sending...
               </>
             ) : (
               <>
-                <Send className="mr-2 h-4 w-4" />
+                <MaterialIcon name="send" size="sm" className="mr-2" />
                 Send Test {activeChannel === 'email' ? 'Email' : 'SMS'}
               </>
             )}

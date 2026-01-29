@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Printer, Download, ArrowLeft, AlertCircle } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 /**
@@ -95,12 +95,12 @@ export default function PrintPreview() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-md w-full space-y-4">
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <MaterialIcon name="error" size="sm" />
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
           <Button onClick={handleBack} variant="outline" className="w-full">
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <MaterialIcon name="arrow_back" size="sm" className="mr-2" />
             Go Back
           </Button>
         </div>
@@ -113,17 +113,17 @@ export default function PrintPreview() {
       {/* Toolbar - hidden when printing */}
       <div className="no-print border-b bg-card p-4 flex items-center justify-between gap-4 flex-wrap">
         <Button onClick={handleBack} variant="ghost" size="sm">
-          <ArrowLeft className="mr-2 h-4 w-4" />
+          <MaterialIcon name="arrow_back" size="sm" className="mr-2" />
           Back
         </Button>
         
         <div className="flex items-center gap-2">
           <Button onClick={handleDownload} variant="outline" disabled={!pdfUrl}>
-            <Download className="mr-2 h-4 w-4" />
+            <MaterialIcon name="download" size="sm" className="mr-2" />
             Download PDF
           </Button>
           <Button onClick={handlePrint} disabled={!pdfUrl}>
-            <Printer className="mr-2 h-4 w-4" />
+            <MaterialIcon name="print" size="sm" className="mr-2" />
             Print Labels
           </Button>
         </div>
@@ -143,7 +143,7 @@ export default function PrintPreview() {
                 Your browser cannot display the PDF directly. Please use the buttons above to download or print.
               </p>
               <Button onClick={handleDownload}>
-                <Download className="mr-2 h-4 w-4" />
+                <MaterialIcon name="download" size="sm" className="mr-2" />
                 Download PDF
               </Button>
             </div>

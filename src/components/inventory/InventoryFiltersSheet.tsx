@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Filter, X } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -142,7 +142,7 @@ export function InventoryFiltersSheet({
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="outline" className="relative">
-          <Filter className="mr-2 h-4 w-4" />
+          <MaterialIcon name="filter_list" size="sm" className="mr-2" />
           Filters
           {activeFilterCount > 0 && (
             <Badge variant="secondary" className="ml-2">
@@ -319,7 +319,7 @@ export function InventoryFiltersSheet({
 
         <SheetFooter className="flex gap-2">
           <Button variant="outline" onClick={handleClear} className="flex-1">
-            <X className="mr-2 h-4 w-4" />
+            <MaterialIcon name="close" size="sm" className="mr-2" />
             Clear All
           </Button>
           <Button onClick={handleApply} className="flex-1">

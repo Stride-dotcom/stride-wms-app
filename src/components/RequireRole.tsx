@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
-import { Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface RequireRoleProps {
   role: string | string[];
@@ -14,7 +14,7 @@ export function RequireRole({ role, children, fallback = null }: RequireRoleProp
   if (loading) {
     return (
       <div className="flex items-center justify-center p-4">
-        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        <MaterialIcon name="progress_activity" size="sm" className="animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -41,7 +41,7 @@ export function RequirePermission({ permission, children, fallback = null }: Req
   if (loading) {
     return (
       <div className="flex items-center justify-center p-4">
-        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        <MaterialIcon name="progress_activity" size="sm" className="animate-spin text-muted-foreground" />
       </div>
     );
   }

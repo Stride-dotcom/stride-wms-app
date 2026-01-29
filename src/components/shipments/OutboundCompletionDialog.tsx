@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2, Trash2, Check } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface OutboundCompletionDialogProps {
   open: boolean;
@@ -209,7 +209,7 @@ export function OutboundCompletionDialog({
                   onClick={clearSignature}
                   className="h-7 px-2 text-xs"
                 >
-                  <Trash2 className="h-3 w-3 mr-1" />
+                  <MaterialIcon name="delete" className="text-xs mr-1" />
                   Clear
                 </Button>
               )}
@@ -270,12 +270,12 @@ export function OutboundCompletionDialog({
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                 Completing...
               </>
             ) : (
               <>
-                <Check className="h-4 w-4 mr-2" />
+                <MaterialIcon name="check" size="sm" className="mr-2" />
                 Complete Shipment
               </>
             )}

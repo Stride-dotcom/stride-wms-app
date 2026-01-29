@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Wrench, Package, ImageIcon, FileText, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 
 interface TaskData {
@@ -150,11 +150,11 @@ export default function RepairTechAccess() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <MaterialIcon name="check_circle" size="sm" className="text-green-500" />;
       case 'in_progress':
-        return <Clock className="h-4 w-4 text-amber-500" />;
+        return <MaterialIcon name="schedule" size="sm" className="text-amber-500" />;
       default:
-        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+        return <MaterialIcon name="warning" size="sm" className="text-yellow-500" />;
     }
   };
 
@@ -162,7 +162,7 @@ export default function RepairTechAccess() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin mx-auto text-primary" />
           <p className="text-muted-foreground">Loading repair information...</p>
         </div>
       </div>
@@ -175,7 +175,7 @@ export default function RepairTechAccess() {
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-              <AlertTriangle className="h-6 w-6 text-destructive" />
+              <MaterialIcon name="warning" size="lg" className="text-destructive" />
             </div>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>{error}</CardDescription>
@@ -193,7 +193,7 @@ export default function RepairTechAccess() {
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Wrench className="h-5 w-5 text-primary" />
+                <MaterialIcon name="build" size="md" className="text-primary" />
               </div>
               <div>
                 <CardTitle>Repair Task Details</CardTitle>
@@ -220,7 +220,7 @@ export default function RepairTechAccess() {
               </div>
               {taskData?.due_date && (
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="schedule" size="sm" className="text-muted-foreground" />
                   <span>Due: {format(new Date(taskData.due_date), 'MMM d, yyyy')}</span>
                 </div>
               )}
@@ -231,7 +231,7 @@ export default function RepairTechAccess() {
                 <Separator className="my-4" />
                 <div>
                   <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
+                    <MaterialIcon name="description" size="sm" />
                     Task Notes
                   </h4>
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">{taskData.description}</p>
@@ -244,7 +244,7 @@ export default function RepairTechAccess() {
         {/* Items */}
         <div className="space-y-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Package className="h-5 w-5" />
+            <MaterialIcon name="inventory_2" size="md" />
             Items for Repair ({taskData?.items.length || 0})
           </h2>
 
@@ -267,7 +267,7 @@ export default function RepairTechAccess() {
                 {item.photos.length > 0 ? (
                   <div>
                     <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                      <ImageIcon className="h-4 w-4" />
+                      <MaterialIcon name="image" size="sm" />
                       Photos ({item.photos.length})
                     </h4>
                     <ScrollArea className="w-full">
@@ -300,7 +300,7 @@ export default function RepairTechAccess() {
           {(!taskData?.items || taskData.items.length === 0) && (
             <Card>
               <CardContent className="py-12 text-center">
-                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <MaterialIcon name="inventory_2" size="xl" className="mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">No items assigned to this repair task</p>
               </CardContent>
             </Card>

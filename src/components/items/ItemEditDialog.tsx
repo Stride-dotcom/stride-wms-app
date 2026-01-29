@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-import { Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ItemTypeCombobox } from './ItemTypeCombobox';
@@ -507,7 +507,7 @@ export function ItemEditDialog({
             Cancel
           </Button>
           <Button onClick={form.handleSubmit(onSubmit)} disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
             Save Changes
           </Button>
         </DialogFooter>

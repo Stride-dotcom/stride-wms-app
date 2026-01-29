@@ -36,7 +36,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useWarehouses } from '@/hooks/useWarehouses';
-import { Loader2, DollarSign, User, Shield, Building } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 const employeeSchema = z.object({
   email: z.string().email('Valid email required'),
@@ -413,16 +413,16 @@ export function EmployeeDialog({
             <Tabs defaultValue="details">
               <TabsList className={`grid w-full ${isAdmin && employee ? 'grid-cols-4' : isAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <TabsTrigger value="details" className="gap-2">
-                  <User className="h-4 w-4" />
+                  <MaterialIcon name="person" size="sm" />
                   Details
                 </TabsTrigger>
                 <TabsTrigger value="roles" className="gap-2">
-                  <Shield className="h-4 w-4" />
+                  <MaterialIcon name="shield" size="sm" />
                   Roles
                 </TabsTrigger>
                 {isAdmin && (
                   <TabsTrigger value="pay" className="gap-2">
-                    <DollarSign className="h-4 w-4" />
+                    <MaterialIcon name="attach_money" size="sm" />
                     Pay
                   </TabsTrigger>
                 )}
@@ -724,7 +724,7 @@ export function EmployeeDialog({
               <Button type="submit" disabled={loading}>
                 {loading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                     Saving...
                   </>
                 ) : employee ? (

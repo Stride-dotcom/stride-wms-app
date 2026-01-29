@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { ScanLine, FileUp, Camera, Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -70,7 +70,7 @@ export function ScanDocumentButton({
           onClick={() => handleOpenScanner('camera')}
           className={className}
         >
-          <ScanLine className="mr-2 h-4 w-4" />
+          <MaterialIcon name="document_scanner" size="sm" className="mr-2" />
           {label}
         </Button>
 
@@ -97,7 +97,7 @@ export function ScanDocumentButton({
           onClick={() => handleOpenScanner('camera')}
           className={className}
         >
-          <ScanLine className="mr-2 h-4 w-4" />
+          <MaterialIcon name="document_scanner" size="sm" className="mr-2" />
           {label}
         </Button>
 
@@ -121,17 +121,17 @@ export function ScanDocumentButton({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant={variant} size={size} className={className}>
-              <ScanLine className="mr-2 h-4 w-4" />
+              <MaterialIcon name="document_scanner" size="sm" className="mr-2" />
               {label}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleOpenScanner('camera')}>
-              <Camera className="mr-2 h-4 w-4" />
+              <MaterialIcon name="photo_camera" size="sm" className="mr-2" />
               Use Camera
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleOpenScanner('upload')}>
-              <FileUp className="mr-2 h-4 w-4" />
+              <MaterialIcon name="upload" size="sm" className="mr-2" />
               Upload File
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -159,7 +159,7 @@ export function ScanDocumentButton({
         onClick={() => handleOpenScanner('camera')}
         className={className}
       >
-        <ScanLine className="mr-2 h-4 w-4" />
+        <MaterialIcon name="document_scanner" size="sm" className="mr-2" />
         {label}
       </Button>
 

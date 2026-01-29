@@ -20,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Mail, MessageSquare, Trash2, ChevronRight, Send } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { CommunicationAlert, CommunicationTemplate, TRIGGER_EVENTS } from '@/hooks/useCommunications';
 import { format } from 'date-fns';
 import { CreateAlertDialog } from './CreateAlertDialog';
@@ -88,7 +88,7 @@ export function AlertList({
           </p>
         </div>
         <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="mr-2 h-4 w-4" />
+          <MaterialIcon name="add" size="sm" className="mr-2" />
           <span className="hidden sm:inline">Create Alert</span>
           <span className="sm:hidden">New</span>
         </Button>
@@ -121,13 +121,13 @@ export function AlertList({
                   <div className="flex flex-wrap items-center gap-2">
                     {alert.channels.email && (
                       <Badge variant="secondary" className="gap-1">
-                        <Mail className="h-3 w-3" />
+                        <MaterialIcon name="mail" size="sm" />
                         Email
                       </Badge>
                     )}
                     {alert.channels.sms && (
                       <Badge variant="secondary" className="gap-1">
-                        <MessageSquare className="h-3 w-3" />
+                        <MaterialIcon name="chat" size="sm" />
                         SMS
                       </Badge>
                     )}
@@ -148,7 +148,7 @@ export function AlertList({
                       setTestAlert(alert);
                     }}
                   >
-                    <Send className="h-4 w-4" />
+                    <MaterialIcon name="send" size="sm" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -158,9 +158,9 @@ export function AlertList({
                       setAlertToDelete(alert);
                     }}
                   >
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                    <MaterialIcon name="delete" size="sm" className="text-destructive" />
                   </Button>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="chevron_right" size="sm" className="text-muted-foreground" />
                 </MobileDataCardActions>
               </MobileDataCard>
             ))
@@ -210,13 +210,13 @@ export function AlertList({
                       <div className="flex items-center gap-2">
                         {alert.channels.email && (
                           <Badge variant="secondary" className="gap-1">
-                            <Mail className="h-3 w-3" />
+                            <MaterialIcon name="mail" size="sm" />
                             Email
                           </Badge>
                         )}
                         {alert.channels.sms && (
                           <Badge variant="secondary" className="gap-1">
-                            <MessageSquare className="h-3 w-3" />
+                            <MaterialIcon name="chat" size="sm" />
                             SMS
                           </Badge>
                         )}
@@ -241,7 +241,7 @@ export function AlertList({
                           }}
                           title="Send Test"
                         >
-                          <Send className="h-4 w-4" />
+                          <MaterialIcon name="send" size="sm" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -251,9 +251,9 @@ export function AlertList({
                             setAlertToDelete(alert);
                           }}
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <MaterialIcon name="delete" size="sm" className="text-destructive" />
                         </Button>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        <MaterialIcon name="chevron_right" size="sm" className="text-muted-foreground" />
                       </div>
                     </TableCell>
                   </TableRow>

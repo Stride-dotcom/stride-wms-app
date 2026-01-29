@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -113,7 +113,7 @@ export function AccountSelect({
           <span className="truncate">
             {loading ? (
               <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
                 Loading...
               </span>
             ) : (
@@ -122,7 +122,7 @@ export function AccountSelect({
               )
             )}
           </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <MaterialIcon name="unfold_more" size="sm" className="ml-2 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
 
@@ -142,7 +142,7 @@ export function AccountSelect({
           <CommandList className="max-h-[280px] overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
               </div>
             ) : (
               <>
@@ -160,9 +160,11 @@ export function AccountSelect({
                         onSelect={() => handleSelect(opt.value)}
                         className="min-h-[44px]"
                       >
-                        <Check
+                        <MaterialIcon
+                          name="check"
+                          size="sm"
                           className={cn(
-                            'mr-2 h-4 w-4 shrink-0',
+                            'mr-2 shrink-0',
                             value === opt.value ? 'opacity-100' : 'opacity-0'
                           )}
                         />

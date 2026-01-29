@@ -39,18 +39,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfMonth, endOfMonth, subMonths, differenceInDays } from 'date-fns';
-import {
-  Loader2,
-  Download,
-  Filter,
-  CalendarIcon,
-  DollarSign,
-  FileSpreadsheet,
-  Calculator,
-  RefreshCw,
-  ExternalLink,
-  AlertTriangle,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import { PushToQuickBooksButton } from '@/components/billing/PushToQuickBooksButton';
@@ -631,7 +620,7 @@ export default function BillingReports() {
           <Card className={totals.rateErrors > 0 ? "border-amber-500/50 bg-amber-500/5" : ""}>
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-1">
-                {totals.rateErrors > 0 && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+                {totals.rateErrors > 0 && <MaterialIcon name="warning" className="h-3 w-3 text-amber-500" />}
                 Rate Errors
               </CardDescription>
               <CardTitle className={cn("text-2xl", totals.rateErrors > 0 ? "text-amber-500" : "text-muted-foreground")}>
@@ -645,7 +634,7 @@ export default function BillingReports() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
+              <MaterialIcon name="filter_list" size="md" />
               Filters
             </CardTitle>
           </CardHeader>
@@ -657,7 +646,7 @@ export default function BillingReports() {
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      <MaterialIcon name="calendar_today" size="sm" className="mr-2" />
                       {format(dateFrom, 'MMM d, yyyy')}
                     </Button>
                   </PopoverTrigger>
@@ -673,7 +662,7 @@ export default function BillingReports() {
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      <MaterialIcon name="calendar_today" size="sm" className="mr-2" />
                       {format(dateTo, 'MMM d, yyyy')}
                     </Button>
                   </PopoverTrigger>
@@ -750,15 +739,15 @@ export default function BillingReports() {
             {/* Action buttons */}
             <div className="flex flex-wrap gap-2 mt-4">
               <Button variant="outline" onClick={loadEvents} disabled={loading}>
-                <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+                <MaterialIcon name={loading ? "progress_activity" : "refresh"} size="sm" className={cn("mr-2", loading && "animate-spin")} />
                 Refresh
               </Button>
               <Button variant="outline" onClick={() => setStorageDialogOpen(true)}>
-                <Calculator className="mr-2 h-4 w-4" />
+                <MaterialIcon name="calculate" size="sm" className="mr-2" />
                 Storage Calculator
               </Button>
               <Button onClick={handleExport} disabled={filteredEvents.length === 0}>
-                <Download className="mr-2 h-4 w-4" />
+                <MaterialIcon name="download" size="sm" className="mr-2" />
                 Export Excel
               </Button>
               <PushToQuickBooksButton
@@ -784,7 +773,7 @@ export default function BillingReports() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5" />
+              <MaterialIcon name="table_chart" size="md" />
               Billing Events
               <Badge variant="secondary" className="ml-2">{filteredEvents.length}</Badge>
             </CardTitle>
@@ -792,7 +781,7 @@ export default function BillingReports() {
           <CardContent>
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
               </div>
             ) : filteredEvents.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -843,7 +832,7 @@ export default function BillingReports() {
                           <div className="flex items-center justify-end gap-1">
                             {event.has_rate_error && (
                               <span title={event.rate_error_message || 'Rate error'}>
-                                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                                <MaterialIcon name="warning" size="sm" className="text-amber-500" />
                               </span>
                             )}
                             {formatCurrency(event.unit_rate || 0)}
@@ -885,7 +874,7 @@ export default function BillingReports() {
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Calculator className="h-5 w-5" />
+              <MaterialIcon name="calculate" size="md" />
               Storage Charge Calculator
             </DialogTitle>
             <DialogDescription>
@@ -899,7 +888,7 @@ export default function BillingReports() {
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-40 justify-start">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <MaterialIcon name="calendar_today" size="sm" className="mr-2" />
                     {format(storageFrom, 'MMM d, yyyy')}
                   </Button>
                 </PopoverTrigger>
@@ -913,7 +902,7 @@ export default function BillingReports() {
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-40 justify-start">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <MaterialIcon name="calendar_today" size="sm" className="mr-2" />
                     {format(storageTo, 'MMM d, yyyy')}
                   </Button>
                 </PopoverTrigger>
@@ -924,7 +913,7 @@ export default function BillingReports() {
             </div>
             <div className="flex items-end">
               <Button onClick={calculateStorage} disabled={storageLoading}>
-                {storageLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
+                {storageLoading ? <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" /> : <MaterialIcon name="calculate" size="sm" className="mr-2" />}
                 Calculate
               </Button>
             </div>
@@ -975,7 +964,7 @@ export default function BillingReports() {
               onClick={generateStorageEvents}
               disabled={storagePreview.length === 0 || generatingStorage}
             >
-              {generatingStorage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DollarSign className="mr-2 h-4 w-4" />}
+              {generatingStorage ? <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" /> : <MaterialIcon name="attach_money" size="sm" className="mr-2" />}
               Generate Storage Events
             </Button>
           </DialogFooter>

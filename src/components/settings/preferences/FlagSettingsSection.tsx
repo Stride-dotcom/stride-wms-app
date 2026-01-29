@@ -9,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Flag, Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -86,7 +86,7 @@ export function FlagSettingsSection() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Flag className="h-4 w-4" />
+            <MaterialIcon name="flag" size="sm" />
             Item Flags
           </CardTitle>
         </CardHeader>
@@ -106,7 +106,7 @@ export function FlagSettingsSection() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Flag className="h-4 w-4" />
+            <MaterialIcon name="flag" size="sm" />
             Item Flags
           </CardTitle>
         </CardHeader>
@@ -123,7 +123,7 @@ export function FlagSettingsSection() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Flag className="h-4 w-4" />
+          <MaterialIcon name="flag" size="sm" />
           Item Flags
         </CardTitle>
         <CardDescription className="text-xs">
@@ -140,7 +140,7 @@ export function FlagSettingsSection() {
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-2 min-w-0">
                       {isUpdating ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground flex-shrink-0" />
+                        <MaterialIcon name="progress_activity" size="sm" className="animate-spin text-muted-foreground flex-shrink-0" />
                       ) : (
                         <Checkbox
                           id={`flag-${flag.id}`}

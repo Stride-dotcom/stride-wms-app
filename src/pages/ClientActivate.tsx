@@ -3,15 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import {
-  Loader2,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Eye,
-  EyeOff,
-  Building2,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,7 +98,7 @@ export default function ClientActivate() {
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center gap-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-primary" />
               <p className="text-muted-foreground">Validating invitation...</p>
             </div>
           </CardContent>
@@ -122,7 +114,7 @@ export default function ClientActivate() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
-              <XCircle className="h-5 w-5" />
+              <MaterialIcon name="cancel" size="md" />
               Invalid Link
             </CardTitle>
           </CardHeader>
@@ -144,7 +136,7 @@ export default function ClientActivate() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
-              <XCircle className="h-5 w-5" />
+              <MaterialIcon name="cancel" size="md" />
               Invitation Not Found
             </CardTitle>
           </CardHeader>
@@ -166,7 +158,7 @@ export default function ClientActivate() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-amber-600">
-              <AlertCircle className="h-5 w-5" />
+              <MaterialIcon name="error" size="md" />
               Invitation Expired
             </CardTitle>
           </CardHeader>
@@ -176,7 +168,7 @@ export default function ClientActivate() {
               to request a new invitation.
             </p>
             <Alert>
-              <AlertCircle className="h-4 w-4" />
+              <MaterialIcon name="error" size="sm" />
               <AlertTitle>Need help?</AlertTitle>
               <AlertDescription>
                 Reach out to your contact at {invitation.tenants?.name} to have them send
@@ -196,7 +188,7 @@ export default function ClientActivate() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
+              <MaterialIcon name="check_circle" size="md" className="text-green-500" />
               Already Activated
             </CardTitle>
           </CardHeader>
@@ -220,7 +212,7 @@ export default function ClientActivate() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
-              <XCircle className="h-5 w-5" />
+              <MaterialIcon name="cancel" size="md" />
               Invitation Cancelled
             </CardTitle>
           </CardHeader>
@@ -243,7 +235,7 @@ export default function ClientActivate() {
           <CardHeader>
             <div className="flex justify-center mb-4">
               <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+                <MaterialIcon name="check_circle" size="xl" className="text-green-600" />
               </div>
             </div>
             <CardTitle className="text-center">Account Activated!</CardTitle>
@@ -253,7 +245,7 @@ export default function ClientActivate() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Alert className="bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <MaterialIcon name="check_circle" size="sm" className="text-green-600" />
               <AlertTitle className="text-green-800">You're all set!</AlertTitle>
               <AlertDescription className="text-green-700">
                 You can now log in to the client portal to view your items, track shipments,
@@ -287,7 +279,7 @@ export default function ClientActivate() {
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <Building2 className="h-8 w-8 text-primary" />
+              <MaterialIcon name="business" size="xl" className="text-primary" />
             </div>
           </div>
           <CardTitle>Activate Your Account</CardTitle>
@@ -373,9 +365,9 @@ export default function ClientActivate() {
                           onClick={() => setShowPassword(!showPassword)}
                         >
                           {showPassword ? (
-                            <EyeOff className="h-4 w-4" />
+                            <MaterialIcon name="visibility_off" size="sm" />
                           ) : (
-                            <Eye className="h-4 w-4" />
+                            <MaterialIcon name="visibility" size="sm" />
                           )}
                         </Button>
                       </div>
@@ -409,9 +401,9 @@ export default function ClientActivate() {
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                         >
                           {showConfirmPassword ? (
-                            <EyeOff className="h-4 w-4" />
+                            <MaterialIcon name="visibility_off" size="sm" />
                           ) : (
-                            <Eye className="h-4 w-4" />
+                            <MaterialIcon name="visibility" size="sm" />
                           )}
                         </Button>
                       </div>
@@ -423,7 +415,7 @@ export default function ClientActivate() {
 
               {acceptInvitation.error && (
                 <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
+                  <MaterialIcon name="error" size="sm" />
                   <AlertTitle>Activation Failed</AlertTitle>
                   <AlertDescription>
                     {acceptInvitation.error instanceof Error
@@ -440,7 +432,7 @@ export default function ClientActivate() {
               >
                 {acceptInvitation.isPending ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                     Activating...
                   </>
                 ) : (

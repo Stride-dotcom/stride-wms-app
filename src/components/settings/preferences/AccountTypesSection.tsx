@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Building, Plus, X, Pencil, Check } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -119,7 +119,7 @@ export function AccountTypesSection() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Building className="h-4 w-4" />
+              <MaterialIcon name="apartment" size="sm" />
               Account Types
             </CardTitle>
             <CardDescription>
@@ -151,10 +151,10 @@ export function AccountTypesSection() {
                     autoFocus
                   />
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleSaveEdit}>
-                    <Check className="h-3 w-3" />
+                    <MaterialIcon name="check" size="sm" />
                   </Button>
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingIndex(null)}>
-                    <X className="h-3 w-3" />
+                    <MaterialIcon name="close" size="sm" />
                   </Button>
                 </div>
               ) : (
@@ -164,13 +164,13 @@ export function AccountTypesSection() {
                     onClick={() => handleEdit(index)}
                     className="ml-1 p-0.5 rounded hover:bg-muted-foreground/20 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
-                    <Pencil className="h-3 w-3" />
+                    <MaterialIcon name="edit" size="sm" />
                   </button>
                   <button
                     onClick={() => handleRemove(index)}
                     className="p-0.5 rounded hover:bg-destructive/20 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                   >
-                    <X className="h-3 w-3" />
+                    <MaterialIcon name="close" size="sm" />
                   </button>
                 </Badge>
               )}
@@ -190,7 +190,7 @@ export function AccountTypesSection() {
             }}
           />
           <Button onClick={handleAdd} disabled={!newType.trim()}>
-            <Plus className="h-4 w-4 mr-2" />
+            <MaterialIcon name="add" size="sm" className="mr-2" />
             Add
           </Button>
         </div>

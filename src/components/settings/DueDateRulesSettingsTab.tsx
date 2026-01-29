@@ -23,7 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTaskTypes } from '@/hooks/useTasks';
-import { Loader2, Plus, Save, CalendarDays, Trash2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 
 interface DueDateRule {
@@ -202,7 +202,7 @@ export function DueDateRulesSettingsTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -213,7 +213,7 @@ export function DueDateRulesSettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CalendarDays className="h-5 w-5" />
+            <MaterialIcon name="event" size="md" />
             Add Due Date Rule
           </CardTitle>
           <CardDescription>
@@ -275,7 +275,7 @@ export function DueDateRulesSettingsTab() {
 
             <div className="flex items-end">
               <Button onClick={handleAddRule} disabled={saving || !newRule.task_type}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                {saving ? <MaterialIcon name="progress_activity" size="sm" className="animate-spin" /> : <MaterialIcon name="add" size="sm" />}
                 <span className="ml-2">Add</span>
               </Button>
             </div>
@@ -335,7 +335,7 @@ export function DueDateRulesSettingsTab() {
                         size="icon"
                         onClick={() => handleDeleteRule(rule.id)}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <MaterialIcon name="delete" size="sm" className="text-destructive" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -400,7 +400,7 @@ export function DueDateRulesSettingsTab() {
                         size="icon"
                         onClick={() => handleDeleteRule(rule.id)}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <MaterialIcon name="delete" size="sm" className="text-destructive" />
                       </Button>
                     </TableCell>
                   </TableRow>

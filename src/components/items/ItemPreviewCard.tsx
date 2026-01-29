@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Package, MapPin, User, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useItemPreview } from '@/hooks/useItemPreview';
 import { cn } from '@/lib/utils';
 
@@ -77,13 +77,13 @@ export function ItemPreviewCard({ itemId, children }: ItemPreviewCardProps) {
                         onClick={handlePrevPhoto}
                         className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-background/80 flex items-center justify-center hover:bg-background transition-colors"
                       >
-                        <ChevronLeft className="h-4 w-4" />
+                        <MaterialIcon name="chevron_left" size="sm" />
                       </button>
                       <button
                         onClick={handleNextPhoto}
                         className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-background/80 flex items-center justify-center hover:bg-background transition-colors"
                       >
-                        <ChevronRight className="h-4 w-4" />
+                        <MaterialIcon name="chevron_right" size="sm" />
                       </button>
                       {/* Dot indicators */}
                       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
@@ -112,7 +112,7 @@ export function ItemPreviewCard({ itemId, children }: ItemPreviewCardProps) {
                 />
               ) : (
                 <div className="h-full w-full flex items-center justify-center">
-                  <Package className="h-12 w-12 text-muted-foreground/50" />
+                  <MaterialIcon name="inventory_2" className="text-[48px] text-muted-foreground/50" />
                 </div>
               )}
             </div>
@@ -136,13 +136,13 @@ export function ItemPreviewCard({ itemId, children }: ItemPreviewCardProps) {
               <div className="grid gap-1.5 text-xs">
                 {item.vendor && (
                   <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <Tag className="h-3 w-3" />
+                    <MaterialIcon name="label" className="text-[12px]" />
                     <span>{item.vendor}</span>
                   </div>
                 )}
                 {(item as any).location_code && (
                   <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <MapPin className="h-3 w-3" />
+                    <MaterialIcon name="location_on" className="text-[12px]" />
                     <span>{(item as any).location_code}</span>
                     {(item as any).warehouse_name && (
                       <span className="text-muted-foreground/70">• {(item as any).warehouse_name}</span>
@@ -151,7 +151,7 @@ export function ItemPreviewCard({ itemId, children }: ItemPreviewCardProps) {
                 )}
                 {(item as any).client_account && (
                   <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <User className="h-3 w-3" />
+                    <MaterialIcon name="person" className="text-[12px]" />
                     <span>{(item as any).client_account}</span>
                     {item.sidemark && (
                       <span className="text-muted-foreground/70">• {item.sidemark}</span>

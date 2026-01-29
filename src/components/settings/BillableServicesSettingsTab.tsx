@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/table';
 import { useBillableServices, ServiceCategory, ChargeUnit } from '@/hooks/useBillableServices';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Pencil, Trash2, DollarSign, Package } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 const CATEGORY_OPTIONS: { value: ServiceCategory; label: string }[] = [
   { value: 'item_service', label: 'Item Service' },
@@ -193,7 +193,7 @@ export function BillableServicesSettingsTab() {
     return (
       <Card>
         <CardContent className="py-12 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -205,7 +205,7 @@ export function BillableServicesSettingsTab() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <DollarSign className="h-5 w-5 text-muted-foreground" />
+              <MaterialIcon name="attach_money" size="md" className="text-muted-foreground" />
               <div>
                 <CardTitle>Billable Services</CardTitle>
                 <CardDescription>
@@ -214,7 +214,7 @@ export function BillableServicesSettingsTab() {
               </div>
             </div>
             <Button onClick={handleOpenCreate}>
-              <Plus className="h-4 w-4 mr-2" />
+              <MaterialIcon name="add" size="sm" className="mr-2" />
               Add Service
             </Button>
           </div>
@@ -222,7 +222,7 @@ export function BillableServicesSettingsTab() {
         <CardContent>
           {services.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <MaterialIcon name="inventory_2" size="lg" className="mx-auto mb-3 opacity-50" />
               <p>No billable services defined yet.</p>
               <p className="text-sm">Add services to start building your rate cards.</p>
             </div>
@@ -273,7 +273,7 @@ export function BillableServicesSettingsTab() {
                             size="icon"
                             onClick={() => handleOpenEdit(service.id)}
                           >
-                            <Pencil className="h-4 w-4" />
+                            <MaterialIcon name="edit" size="sm" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -282,9 +282,9 @@ export function BillableServicesSettingsTab() {
                             disabled={deletingId === service.id}
                           >
                             {deletingId === service.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
                             ) : (
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <MaterialIcon name="delete" size="sm" className="text-destructive" />
                             )}
                           </Button>
                         </div>
@@ -401,7 +401,7 @@ export function BillableServicesSettingsTab() {
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {submitting && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               {editingId ? 'Save Changes' : 'Create Service'}
             </Button>
           </DialogFooter>

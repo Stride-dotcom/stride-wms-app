@@ -6,18 +6,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useClaims, ClaimAttachment } from '@/hooks/useClaims';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  Upload,
-  Download,
-  Trash2,
-  File,
-  Image,
-  FileVideo,
-  FileText,
-  Loader2,
-  Eye,
-  EyeOff,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 
 interface ClaimAttachmentsProps {
@@ -100,11 +89,11 @@ export function ClaimAttachments({ claimId, isStaff = true, readOnly = false }: 
   };
 
   const getFileIcon = (mimeType: string | null) => {
-    if (!mimeType) return <File className="h-5 w-5" />;
-    if (mimeType.startsWith('image/')) return <Image className="h-5 w-5" />;
-    if (mimeType.startsWith('video/')) return <FileVideo className="h-5 w-5" />;
-    if (mimeType.includes('pdf')) return <FileText className="h-5 w-5" />;
-    return <File className="h-5 w-5" />;
+    if (!mimeType) return <MaterialIcon name="description" size="md" />;
+    if (mimeType.startsWith('image/')) return <MaterialIcon name="image" size="md" />;
+    if (mimeType.startsWith('video/')) return <MaterialIcon name="video_file" size="md" />;
+    if (mimeType.includes('pdf')) return <MaterialIcon name="description" size="md" />;
+    return <MaterialIcon name="description" size="md" />;
   };
 
   const formatFileSize = (bytes: number | null) => {
@@ -117,7 +106,7 @@ export function ClaimAttachments({ claimId, isStaff = true, readOnly = false }: 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -141,9 +130,9 @@ export function ClaimAttachments({ claimId, isStaff = true, readOnly = false }: 
             disabled={uploading}
           >
             {uploading ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />
             ) : (
-              <Upload className="h-4 w-4 mr-2" />
+              <MaterialIcon name="upload" size="sm" className="mr-2" />
             )}
             Upload Files
           </Button>
@@ -185,9 +174,9 @@ export function ClaimAttachments({ claimId, isStaff = true, readOnly = false }: 
                     className={attachment.is_public ? 'border-green-500 text-green-500' : 'border-yellow-500 text-yellow-500'}
                   >
                     {attachment.is_public ? (
-                      <><Eye className="h-3 w-3 mr-1" /> Public</>
+                      <><MaterialIcon name="visibility" className="!text-[12px] mr-1" /> Public</>
                     ) : (
-                      <><EyeOff className="h-3 w-3 mr-1" /> Internal</>
+                      <><MaterialIcon name="visibility_off" className="!text-[12px] mr-1" /> Internal</>
                     )}
                   </Badge>
                 )}
@@ -208,7 +197,7 @@ export function ClaimAttachments({ claimId, isStaff = true, readOnly = false }: 
                   size="icon"
                   onClick={() => handleDownload(attachment)}
                 >
-                  <Download className="h-4 w-4" />
+                  <MaterialIcon name="download" size="sm" />
                 </Button>
 
                 {/* Delete (Staff Only) */}
@@ -218,7 +207,7 @@ export function ClaimAttachments({ claimId, isStaff = true, readOnly = false }: 
                     size="icon"
                     onClick={() => handleDelete(attachment)}
                   >
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                    <MaterialIcon name="delete" size="sm" className="text-destructive" />
                   </Button>
                 )}
               </div>

@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Camera, Image as ImageIcon } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { PhotoScanner } from './PhotoScanner';
 
 interface PhotoScannerButtonProps {
@@ -45,7 +45,7 @@ export function PhotoScannerButton({
         onClick={() => setScannerOpen(true)}
         className={className}
       >
-        <Camera className="h-4 w-4 mr-2" />
+        <MaterialIcon name="photo_camera" size="sm" className="mr-2" />
         {label}
         {showCount && existingPhotos.length > 0 && (
           <span className="ml-1 text-muted-foreground">({existingPhotos.length})</span>

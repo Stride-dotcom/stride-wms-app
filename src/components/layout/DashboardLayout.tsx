@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AvatarWithPresence } from '@/components/ui/online-indicator';
 import { usePresence } from '@/hooks/usePresence';
-import { NavAppCard, APP_CARD_COLORS } from '@/components/ui/AppCard';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
   DropdownMenu,
@@ -43,25 +42,23 @@ interface NavItem {
   href: string;
   /** Material Symbols icon name */
   icon: string;
-  /** Color class from APP_CARD_COLORS */
-  colorClass: string;
   requiredRole?: string[];
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/', icon: 'dashboard', colorClass: APP_CARD_COLORS.blue },
-  { label: 'Shipments', href: '/shipments', icon: 'local_shipping', colorClass: APP_CARD_COLORS.orange },
-  { label: 'Inventory', href: '/inventory', icon: 'inventory_2', colorClass: APP_CARD_COLORS.teal },
-  { label: 'Tasks', href: '/tasks', icon: 'task_alt', colorClass: APP_CARD_COLORS.green },
-  { label: 'Cycle Counts', href: '/stocktakes', icon: 'fact_check', colorClass: APP_CARD_COLORS.purple },
-  { label: 'Scan', href: '/scan', icon: 'qr_code_scanner', colorClass: APP_CARD_COLORS.slate },
+  { label: 'Dashboard', href: '/', icon: 'dashboard' },
+  { label: 'Shipments', href: '/shipments', icon: 'local_shipping' },
+  { label: 'Inventory', href: '/inventory', icon: 'inventory_2' },
+  { label: 'Tasks', href: '/tasks', icon: 'task_alt' },
+  { label: 'Cycle Counts', href: '/stocktakes', icon: 'fact_check' },
+  { label: 'Scan', href: '/scan', icon: 'qr_code_scanner' },
 
-  { label: 'Analytics', href: '/reports', icon: 'analytics', colorClass: APP_CARD_COLORS.indigo, requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Quotes', href: '/quotes', icon: 'request_quote', colorClass: APP_CARD_COLORS.amber, requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Claims', href: '/claims', icon: 'assignment_late', colorClass: APP_CARD_COLORS.red, requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Accounts', href: '/accounts', icon: 'group', colorClass: APP_CARD_COLORS.cyan, requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Settings', href: '/settings', icon: 'settings', colorClass: APP_CARD_COLORS.slate, requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Diagnostics', href: '/diagnostics', icon: 'bug_report', colorClass: APP_CARD_COLORS.pink, requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Analytics', href: '/reports', icon: 'analytics', requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Quotes', href: '/quotes', icon: 'request_quote', requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Claims', href: '/claims', icon: 'assignment_late', requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Accounts', href: '/accounts', icon: 'group', requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Settings', href: '/settings', icon: 'settings', requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Diagnostics', href: '/diagnostics', icon: 'bug_report', requiredRole: ['admin', 'tenant_admin'] },
 ];
 
 interface DashboardLayoutProps {
@@ -103,18 +100,18 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
         onClick={onNavigate}
         title={sidebarCollapsed ? item.label : undefined}
         className={cn(
-          'relative flex items-center gap-3 px-2 py-2 rounded-xl text-sm font-medium transition-all duration-200',
+          'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
           isActive
-            ? 'bg-gray-100 dark:bg-white/10'
-            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/5',
+            ? 'bg-primary text-primary-foreground'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10',
           sidebarCollapsed && 'lg:justify-center lg:px-2'
         )}
       >
-        <NavAppCard
-          icon={item.icon}
-          colorClass={item.colorClass}
-          isActive={isActive}
-          collapsed={sidebarCollapsed}
+        <MaterialIcon
+          name={item.icon}
+          size="md"
+          className="flex-shrink-0"
+          filled={isActive}
         />
         <span className={cn(
           "relative z-10 transition-opacity duration-200 flex-1",
@@ -396,8 +393,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 className="h-8 w-8 object-contain rounded"
               />
             ) : (
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md">
-                <MaterialIcon name="warehouse" size="sm" className="text-white" filled />
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                <MaterialIcon name="warehouse" size="sm" className="text-primary-foreground" filled />
               </div>
             )}
             <span className={cn(

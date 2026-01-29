@@ -1,16 +1,6 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {
-  Search,
-  FileText,
-  Filter,
-  Loader2,
-  CheckCircle,
-  XCircle,
-  Clock,
-  AlertCircle,
-  DollarSign,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -103,28 +93,28 @@ export default function ClientQuotes() {
       case 'sent_to_client':
         return (
           <Badge variant="secondary" className="gap-1">
-            <Clock className="h-3 w-3" />
+            <MaterialIcon name="schedule" size="sm" />
             Pending Review
           </Badge>
         );
       case 'accepted':
         return (
           <Badge className="bg-green-500 gap-1">
-            <CheckCircle className="h-3 w-3" />
+            <MaterialIcon name="check_circle" size="sm" />
             Accepted
           </Badge>
         );
       case 'declined':
         return (
           <Badge variant="destructive" className="gap-1">
-            <XCircle className="h-3 w-3" />
+            <MaterialIcon name="cancel" size="sm" />
             Declined
           </Badge>
         );
       case 'expired':
         return (
           <Badge variant="outline" className="gap-1">
-            <AlertCircle className="h-3 w-3" />
+            <MaterialIcon name="error" size="sm" />
             Expired
           </Badge>
         );
@@ -221,7 +211,7 @@ export default function ClientQuotes() {
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search by quote number or item..."
                   value={searchQuery}
@@ -231,7 +221,7 @@ export default function ClientQuotes() {
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full sm:w-48">
-                  <Filter className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="filter_list" size="sm" className="mr-2" />
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -247,11 +237,11 @@ export default function ClientQuotes() {
             {/* Quotes List */}
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
               </div>
             ) : filteredQuotes.length === 0 ? (
               <div className="text-center py-12">
-                <FileText className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
+                <MaterialIcon name="description" className="mx-auto text-muted-foreground opacity-50" style={{ fontSize: '48px' }} />
                 <h3 className="mt-4 text-lg font-semibold">No quotes found</h3>
                 <p className="text-muted-foreground">
                   {searchQuery || statusFilter !== 'all'
@@ -374,7 +364,7 @@ export default function ClientQuotes() {
               {selectedQuote.status === 'sent_to_client' &&
                 isExpiringSoon(selectedQuote.expires_at) && (
                   <Alert className="border-amber-200 bg-amber-50">
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <MaterialIcon name="error" size="sm" className="text-amber-600" />
                     <AlertTitle className="text-amber-800">Expiring Soon</AlertTitle>
                     <AlertDescription className="text-amber-700">
                       This quote expires{' '}
@@ -412,7 +402,7 @@ export default function ClientQuotes() {
               {/* Total */}
               <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
                 <div className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-green-600" />
+                  <MaterialIcon name="attach_money" size="md" className="text-green-600" />
                   <span className="font-semibold text-green-800">Total</span>
                 </div>
                 <p className="text-2xl font-bold text-green-600">
@@ -440,11 +430,11 @@ export default function ClientQuotes() {
                 onClick={() => setShowDeclineDialog(true)}
                 className="flex-1"
               >
-                <XCircle className="mr-2 h-4 w-4" />
+                <MaterialIcon name="cancel" size="sm" className="mr-2" />
                 Decline
               </Button>
               <Button onClick={() => setShowAcceptDialog(true)} className="flex-1 bg-green-600 hover:bg-green-700">
-                <CheckCircle className="mr-2 h-4 w-4" />
+                <MaterialIcon name="check_circle" size="sm" className="mr-2" />
                 Accept Quote
               </Button>
             </DialogFooter>
@@ -475,7 +465,7 @@ export default function ClientQuotes() {
             >
               {responding ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Processing...
                 </>
               ) : (
@@ -513,7 +503,7 @@ export default function ClientQuotes() {
             >
               {responding ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Processing...
                 </>
               ) : (

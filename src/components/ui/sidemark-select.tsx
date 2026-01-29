@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, ChevronsUpDown, Plus, Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -194,7 +194,7 @@ export function SidemarkSelect({
             <span className="truncate">
               {loading ? (
                 <span className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
                   Loading...
                 </span>
               ) : (
@@ -203,7 +203,7 @@ export function SidemarkSelect({
                 )
               )}
             </span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            <MaterialIcon name="unfold_more" size="sm" className="ml-2 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
 
@@ -223,7 +223,7 @@ export function SidemarkSelect({
             <CommandList className="max-h-[280px] overflow-y-auto">
               {loading ? (
                 <div className="flex items-center justify-center py-6">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
                 </div>
               ) : (
                 <>
@@ -239,7 +239,7 @@ export function SidemarkSelect({
                         onSelect={handleCreateNew}
                         className="min-h-[44px] text-primary"
                       >
-                        <Plus className="mr-2 h-4 w-4" />
+                        <MaterialIcon name="add" size="sm" className="mr-2" />
                         <span>Add new sidemark{search ? `: "${search}"` : ''}</span>
                       </CommandItem>
                     </CommandGroup>
@@ -255,9 +255,11 @@ export function SidemarkSelect({
                           onSelect={() => handleSelect(opt.value)}
                           className="min-h-[44px]"
                         >
-                          <Check
+                          <MaterialIcon
+                            name="check"
+                            size="sm"
                             className={cn(
-                              'mr-2 h-4 w-4 shrink-0',
+                              'mr-2 shrink-0',
                               value === opt.value ? 'opacity-100' : 'opacity-0'
                             )}
                           />
@@ -312,7 +314,7 @@ export function SidemarkSelect({
               Cancel
             </Button>
             <Button onClick={handleCreateSidemark} disabled={creating || !newSidemarkName.trim()}>
-              {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {creating && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               Create
             </Button>
           </DialogFooter>

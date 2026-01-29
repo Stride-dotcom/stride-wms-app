@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, DollarSign, FileText } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { TaskCustomCharge, ChargeTemplate } from '@/hooks/useTaskCustomCharges';
 
 interface TaskCustomChargesSectionProps {
@@ -66,7 +66,7 @@ export function TaskCustomChargesSection({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Label className="flex items-center gap-2">
-          <DollarSign className="h-4 w-4" />
+          <MaterialIcon name="attach_money" size="sm" />
           Custom Charges
         </Label>
         {totalCharges > 0 && (
@@ -86,7 +86,7 @@ export function TaskCustomChargesSection({
             >
               <div className="flex-1 flex items-center gap-2">
                 {charge.template_id && (
-                  <FileText className="h-3 w-3 text-muted-foreground" />
+                  <MaterialIcon name="description" className="h-3 w-3 text-muted-foreground" />
                 )}
                 <span className="truncate">{charge.charge_name}</span>
               </div>
@@ -100,7 +100,7 @@ export function TaskCustomChargesSection({
                   className="h-6 w-6"
                   onClick={() => onDeleteCharge(charge.id)}
                 >
-                  <Trash2 className="h-3 w-3 text-destructive" />
+                  <MaterialIcon name="delete" className="h-3 w-3 text-destructive" />
                 </Button>
               )}
             </div>
@@ -118,7 +118,7 @@ export function TaskCustomChargesSection({
               className="w-full"
               onClick={() => setShowAddForm(true)}
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <MaterialIcon name="add" size="sm" className="mr-2" />
               Add Custom Charge
             </Button>
           ) : (

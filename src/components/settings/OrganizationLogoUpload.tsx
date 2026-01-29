@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Upload, Trash2, Loader2, Building } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,7 +82,7 @@ export function OrganizationLogoUpload({
             <AvatarImage src={logoUrl} alt="Organization logo" className="object-contain" />
           ) : null}
           <AvatarFallback className="rounded-lg bg-muted">
-            <Building className="h-10 w-10 text-muted-foreground" />
+            <MaterialIcon name="apartment" size="lg" className="text-muted-foreground" />
           </AvatarFallback>
         </Avatar>
 
@@ -105,12 +105,12 @@ export function OrganizationLogoUpload({
             >
               {uploading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Uploading...
                 </>
               ) : (
                 <>
-                  <Upload className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="upload" size="sm" className="mr-2" />
                   Upload Logo
                 </>
               )}
@@ -126,9 +126,9 @@ export function OrganizationLogoUpload({
                     disabled={removing}
                   >
                     {removing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
                     ) : (
-                      <Trash2 className="h-4 w-4" />
+                      <MaterialIcon name="delete" size="sm" />
                     )}
                   </Button>
                 </AlertDialogTrigger>

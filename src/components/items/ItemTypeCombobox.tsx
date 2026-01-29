@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -62,7 +62,7 @@ export function ItemTypeCombobox({
           <span className="truncate">
             {selectedType?.name || placeholder}
           </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <MaterialIcon name="unfold_more" size="sm" className="ml-2 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[200px] p-0" align="start">
@@ -85,9 +85,11 @@ export function ItemTypeCombobox({
                     setSearch('');
                   }}
                 >
-                  <Check
+                  <MaterialIcon
+                    name="check"
+                    size="sm"
                     className={cn(
-                      'mr-2 h-4 w-4',
+                      'mr-2',
                       value === type.id ? 'opacity-100' : 'opacity-0'
                     )}
                   />

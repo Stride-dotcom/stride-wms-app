@@ -35,24 +35,7 @@ import { useQuotes } from '@/hooks/useQuotes';
 import { useAccounts } from '@/hooks/useAccounts';
 import { Quote, QuoteStatus, QUOTE_STATUS_CONFIG } from '@/lib/quotes/types';
 import { formatCurrency } from '@/lib/quotes/calculator';
-import {
-  Plus,
-  Search,
-  Filter,
-  MoreVertical,
-  Eye,
-  Copy,
-  Send,
-  FileText,
-  Trash2,
-  Loader2,
-  Calculator,
-  RefreshCw,
-  Building,
-  Calendar,
-  DollarSign,
-  FileSpreadsheet,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 export default function Quotes() {
   const navigate = useNavigate();
@@ -198,7 +181,7 @@ export default function Quotes() {
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
               <div className="flex flex-1 gap-3 flex-wrap">
                 <div className="relative flex-1 min-w-[200px]">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Search quotes..."
                     value={searchTerm}
@@ -236,11 +219,11 @@ export default function Quotes() {
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => fetchQuotes()}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="refresh" size="sm" className="mr-2" />
                   Refresh
                 </Button>
                 <Button onClick={() => navigate('/quotes/new')}>
-                  <Plus className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="add" size="sm" className="mr-2" />
                   New Quote
                 </Button>
               </div>
@@ -252,14 +235,14 @@ export default function Quotes() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5" />
+              <MaterialIcon name="table_chart" size="md" />
               Quotes ({filteredQuotes.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
               </div>
             ) : filteredQuotes.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
@@ -292,7 +275,7 @@ export default function Quotes() {
                           <td className="p-3 font-mono font-medium">{quote.quote_number}</td>
                           <td className="p-3">
                             <div className="flex items-center gap-2">
-                              <Building className="h-4 w-4 text-muted-foreground" />
+                              <MaterialIcon name="business" size="sm" className="text-muted-foreground" />
                               {quote.account?.account_name || '-'}
                             </div>
                           </td>
@@ -303,7 +286,7 @@ export default function Quotes() {
                           <td className="p-3">
                             {quote.expiration_date ? (
                               <div className="flex items-center gap-1 text-muted-foreground">
-                                <Calendar className="h-3 w-3" />
+                                <MaterialIcon name="calendar_today" size="sm" />
                                 {new Date(quote.expiration_date).toLocaleDateString()}
                               </div>
                             ) : (
@@ -317,12 +300,12 @@ export default function Quotes() {
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon">
-                                  <MoreVertical className="h-4 w-4" />
+                                  <MaterialIcon name="more_vert" size="sm" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => navigate(`/quotes/${quote.id}`)}>
-                                  <Eye className="h-4 w-4 mr-2" />
+                                  <MaterialIcon name="visibility" size="sm" className="mr-2" />
                                   View
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
@@ -332,7 +315,7 @@ export default function Quotes() {
                                     setDuplicateDialogOpen(true);
                                   }}
                                 >
-                                  <Copy className="h-4 w-4 mr-2" />
+                                  <MaterialIcon name="content_copy" size="sm" className="mr-2" />
                                   Duplicate
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
@@ -343,7 +326,7 @@ export default function Quotes() {
                                   }}
                                   className="text-destructive"
                                 >
-                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  <MaterialIcon name="delete" size="sm" className="mr-2" />
                                   Void
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
@@ -423,7 +406,7 @@ export default function Quotes() {
               Cancel
             </Button>
             <Button onClick={handleDuplicate}>
-              <Copy className="h-4 w-4 mr-2" />
+              <MaterialIcon name="content_copy" size="sm" className="mr-2" />
               Duplicate
             </Button>
           </DialogFooter>

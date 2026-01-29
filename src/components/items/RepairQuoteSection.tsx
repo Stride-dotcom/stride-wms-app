@@ -24,16 +24,7 @@ import {
 import { useRepairQuotes, RepairQuote } from '@/hooks/useRepairQuotes';
 import { useUsers } from '@/hooks/useUsers';
 import { format } from 'date-fns';
-import {
-  Wrench,
-  Plus,
-  Check,
-  X,
-  Loader2,
-  DollarSign,
-  User,
-  Clock,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface RepairQuoteSectionProps {
   itemId: string;
@@ -90,11 +81,11 @@ export function RepairQuoteSection({ itemId, canApprove = true }: RepairQuoteSec
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
+        return <Badge variant="secondary"><MaterialIcon name="schedule" className="text-[12px] mr-1" />Pending</Badge>;
       case 'approved':
-        return <Badge className="bg-green-100 text-green-800"><Check className="h-3 w-3 mr-1" />Approved</Badge>;
+        return <Badge className="bg-green-100 text-green-800"><MaterialIcon name="check" className="text-[12px] mr-1" />Approved</Badge>;
       case 'declined':
-        return <Badge variant="destructive"><X className="h-3 w-3 mr-1" />Declined</Badge>;
+        return <Badge variant="destructive"><MaterialIcon name="close" className="text-[12px] mr-1" />Declined</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -104,7 +95,7 @@ export function RepairQuoteSection({ itemId, canApprove = true }: RepairQuoteSec
     return (
       <Card>
         <CardContent className="py-8 flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -115,13 +106,13 @@ export function RepairQuoteSection({ itemId, canApprove = true }: RepairQuoteSec
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Wrench className="h-5 w-5" />
+            <MaterialIcon name="handyman" size="md" />
             Repair Quotes ({quotes.length})
           </CardTitle>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
-                <Plus className="h-4 w-4 mr-1" />
+                <MaterialIcon name="add" size="sm" className="mr-1" />
                 New Quote
               </Button>
             </DialogTrigger>
@@ -137,7 +128,7 @@ export function RepairQuoteSection({ itemId, canApprove = true }: RepairQuoteSec
                 <div className="space-y-2">
                   <Label htmlFor="flat_rate">Flat Rate ($) *</Label>
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <MaterialIcon name="attach_money" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="flat_rate"
                       type="number"
@@ -201,7 +192,7 @@ export function RepairQuoteSection({ itemId, canApprove = true }: RepairQuoteSec
                 </Button>
                 <Button onClick={handleSubmit} disabled={submitting || !formData.flat_rate}>
                   {submitting ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   ) : null}
                   Create Quote
                 </Button>
@@ -236,7 +227,7 @@ export function RepairQuoteSection({ itemId, canApprove = true }: RepairQuoteSec
 
                 {(quote.technician || quote.technician_name) && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <User className="h-4 w-4" />
+                    <MaterialIcon name="person" size="sm" />
                     <span>
                       {quote.technician
                         ? `${quote.technician.first_name} ${quote.technician.last_name}`
@@ -257,9 +248,9 @@ export function RepairQuoteSection({ itemId, canApprove = true }: RepairQuoteSec
                       disabled={approvingId === quote.id}
                     >
                       {approvingId === quote.id ? (
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />
                       ) : (
-                        <Check className="h-4 w-4 mr-1" />
+                        <MaterialIcon name="check" size="sm" className="mr-1" />
                       )}
                       Approve
                     </Button>
@@ -269,7 +260,7 @@ export function RepairQuoteSection({ itemId, canApprove = true }: RepairQuoteSec
                       onClick={() => handleDecline(quote.id)}
                       disabled={approvingId === quote.id}
                     >
-                      <X className="h-4 w-4 mr-1" />
+                      <MaterialIcon name="close" size="sm" className="mr-1" />
                       Decline
                     </Button>
                   </div>

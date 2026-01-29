@@ -30,7 +30,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useCustomFields, useItemCustomFieldValues, CustomField } from '@/hooks/useCustomFields';
-import { Settings, Plus, Trash2, Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
@@ -151,7 +151,7 @@ export function ItemAdvancedTab({ itemId }: ItemAdvancedTabProps) {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
+              <MaterialIcon name="settings" size="md" />
               Custom Fields
             </CardTitle>
             <CardDescription>
@@ -159,7 +159,7 @@ export function ItemAdvancedTab({ itemId }: ItemAdvancedTabProps) {
             </CardDescription>
           </div>
           <Button onClick={() => setAddFieldDialogOpen(true)} size="sm">
-            <Plus className="mr-2 h-4 w-4" />
+            <MaterialIcon name="add" size="sm" className="mr-2" />
             Add Field
           </Button>
         </div>
@@ -167,11 +167,11 @@ export function ItemAdvancedTab({ itemId }: ItemAdvancedTabProps) {
       <CardContent>
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
           </div>
         ) : fields.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <Settings className="mx-auto h-12 w-12 mb-4 opacity-50" />
+            <MaterialIcon name="settings" className="mx-auto text-[48px] mb-4 opacity-50" />
             <p>No custom fields defined yet</p>
             <p className="text-sm mt-1">Click "Add Field" to create your first custom field</p>
           </div>
@@ -195,7 +195,7 @@ export function ItemAdvancedTab({ itemId }: ItemAdvancedTabProps) {
                     setDeleteFieldDialogOpen(true);
                   }}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <MaterialIcon name="delete" size="sm" />
                 </Button>
               </div>
             ))}
@@ -242,7 +242,7 @@ export function ItemAdvancedTab({ itemId }: ItemAdvancedTabProps) {
               Cancel
             </Button>
             <Button onClick={handleCreateField} disabled={creating}>
-              {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {creating && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               Create Field
             </Button>
           </DialogFooter>
@@ -265,7 +265,7 @@ export function ItemAdvancedTab({ itemId }: ItemAdvancedTabProps) {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleting}
             >
-              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleting && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

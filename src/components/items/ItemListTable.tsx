@@ -16,7 +16,7 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { Package, ChevronUp, ChevronDown } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
@@ -90,9 +90,9 @@ export function ItemListTable({
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field || !sortDirection) return null;
     return sortDirection === 'asc' ? (
-      <ChevronUp className="h-3 w-3" />
+      <MaterialIcon name="expand_less" className="text-[12px]" />
     ) : (
-      <ChevronDown className="h-3 w-3" />
+      <MaterialIcon name="expand_more" className="text-[12px]" />
     );
   };
 
@@ -114,7 +114,7 @@ export function ItemListTable({
   if (items.length === 0) {
     return (
       <div className="text-center py-12">
-        <Package className="mx-auto h-12 w-12 text-muted-foreground" />
+        <MaterialIcon name="inventory_2" className="mx-auto text-[48px] text-muted-foreground" />
         <h3 className="mt-4 text-lg font-semibold">No items</h3>
         <p className="text-muted-foreground">{emptyMessage}</p>
       </div>
@@ -190,7 +190,7 @@ export function ItemListTable({
                       />
                     ) : (
                       <div className="h-8 w-8 rounded bg-muted flex items-center justify-center">
-                        <Package className="h-4 w-4 text-muted-foreground" />
+                        <MaterialIcon name="inventory_2" size="sm" className="text-muted-foreground" />
                       </div>
                     )}
                   </ItemPreviewCard>

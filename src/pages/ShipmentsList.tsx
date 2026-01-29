@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MobileDataCard } from '@/components/ui/mobile-data-card';
 import { AddShipmentDialog } from '@/components/shipments/AddShipmentDialog';
-import { Loader2, Plus, Search, Package, ArrowDownToLine, ArrowUpFromLine, CheckCircle, ArrowLeft } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 
 // ============================================
@@ -269,7 +269,7 @@ export default function ShipmentsList() {
     if (loading) {
       return (
         <div className="flex items-center justify-center h-48">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
         </div>
       );
     }
@@ -277,7 +277,7 @@ export default function ShipmentsList() {
     if (filteredShipments.length === 0) {
       return (
         <div className="text-center py-12">
-          <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <MaterialIcon name="inventory_2" size="xl" className="mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium mb-2">No shipments found</h3>
           <p className="text-muted-foreground mb-4">
             {searchQuery || statusFilter !== 'all'
@@ -285,7 +285,7 @@ export default function ShipmentsList() {
               : 'Create a new shipment to get started'}
           </p>
           <Button onClick={() => setAddShipmentDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+            <MaterialIcon name="add" size="sm" className="mr-2" />
             Add Shipment
           </Button>
         </div>
@@ -395,7 +395,7 @@ export default function ShipmentsList() {
   const getCreateButton = () => {
     return (
       <Button onClick={() => setAddShipmentDialogOpen(true)}>
-        <Plus className="h-4 w-4 sm:mr-2" />
+        <MaterialIcon name="add" size="sm" className="sm:mr-2" />
         <span className="hidden sm:inline">Add Shipment</span>
         <span className="sm:hidden">Add</span>
       </Button>
@@ -407,7 +407,7 @@ export default function ShipmentsList() {
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-5 w-5" />
+            <MaterialIcon name="arrow_back" size="md" />
           </Button>
           <PageHeader
             primaryText="Shipments"
@@ -421,19 +421,19 @@ export default function ShipmentsList() {
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
           <TabsTrigger value="incoming" className="gap-2">
-            <ArrowDownToLine className="h-4 w-4" />
+            <MaterialIcon name="move_to_inbox" size="sm" />
             <span className="hidden sm:inline">Incoming</span>
           </TabsTrigger>
           <TabsTrigger value="outbound" className="gap-2">
-            <ArrowUpFromLine className="h-4 w-4" />
+            <MaterialIcon name="outbox" size="sm" />
             <span className="hidden sm:inline">Outbound</span>
           </TabsTrigger>
           <TabsTrigger value="received" className="gap-2">
-            <CheckCircle className="h-4 w-4" />
+            <MaterialIcon name="check_circle" size="sm" />
             <span className="hidden sm:inline">Received</span>
           </TabsTrigger>
           <TabsTrigger value="released" className="gap-2">
-            <Package className="h-4 w-4" />
+            <MaterialIcon name="inventory_2" size="sm" />
             <span className="hidden sm:inline">Released</span>
           </TabsTrigger>
         </TabsList>
@@ -441,7 +441,7 @@ export default function ShipmentsList() {
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search shipments..."
               value={searchQuery}

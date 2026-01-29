@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Code, Eye, Save, MessageSquare, AlertCircle, Send } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { 
   CommunicationTemplate, 
   COMMUNICATION_VARIABLES 
@@ -111,7 +111,7 @@ export function SmsTab({
   if (!template) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 text-muted-foreground">
-        <MessageSquare className="h-12 w-12 opacity-50" />
+        <MaterialIcon name="chat" size="lg" className="opacity-50" />
         <p>No SMS template available for this alert.</p>
         {onCreateTemplate && alertId && alertName && (
           <Button onClick={handleCreateTemplate} disabled={isCreating}>
@@ -128,17 +128,17 @@ export function SmsTab({
       <div className="flex items-center justify-between p-4 border-b bg-card flex-shrink-0">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-muted-foreground" />
+            <MaterialIcon name="chat" size="md" className="text-muted-foreground" />
             <span className="font-medium">SMS Template</span>
           </div>
           <Tabs value={editorMode} onValueChange={(v) => setEditorMode(v as 'edit' | 'preview')}>
             <TabsList>
               <TabsTrigger value="edit" className="gap-2">
-                <Code className="h-4 w-4" />
+                <MaterialIcon name="code" size="sm" />
                 Edit
               </TabsTrigger>
               <TabsTrigger value="preview" className="gap-2">
-                <Eye className="h-4 w-4" />
+                <MaterialIcon name="visibility" size="sm" />
                 Preview
               </TabsTrigger>
             </TabsList>
@@ -147,11 +147,11 @@ export function SmsTab({
 
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowTestDialog(true)}>
-            <Send className="h-4 w-4 mr-2" />
+            <MaterialIcon name="send" size="sm" className="mr-2" />
             Send Test
           </Button>
           <Button onClick={handleSave} disabled={isSaving}>
-            <Save className="h-4 w-4 mr-2" />
+            <MaterialIcon name="save" size="sm" className="mr-2" />
             {isSaving ? 'Saving...' : 'Save'}
           </Button>
         </div>
@@ -170,7 +170,7 @@ export function SmsTab({
           </div>
           {charInfo.unicode && (
             <div className="flex items-center gap-1 text-yellow-600 text-sm">
-              <AlertCircle className="h-4 w-4" />
+              <MaterialIcon name="error" size="sm" />
               <span>Unicode detected (shorter segments)</span>
             </div>
           )}

@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Mail, MessageSquare } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { CommunicationAlert, TRIGGER_EVENTS } from '@/hooks/useCommunications';
 
 interface CreateAlertDialogProps {
@@ -144,21 +144,21 @@ export function CreateAlertDialog({
               <label className="flex items-center gap-2 cursor-pointer">
                 <Switch
                   checked={formData.channels.email}
-                  onCheckedChange={(checked) => 
+                  onCheckedChange={(checked) =>
                     setFormData(prev => ({ ...prev, channels: { ...prev.channels, email: checked } }))
                   }
                 />
-                <Mail className="h-4 w-4" />
+                <MaterialIcon name="mail" size="sm" />
                 <span>Email</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <Switch
                   checked={formData.channels.sms}
-                  onCheckedChange={(checked) => 
+                  onCheckedChange={(checked) =>
                     setFormData(prev => ({ ...prev, channels: { ...prev.channels, sms: checked } }))
                   }
                 />
-                <MessageSquare className="h-4 w-4" />
+                <MaterialIcon name="chat" size="sm" />
                 <span>SMS</span>
               </label>
             </div>

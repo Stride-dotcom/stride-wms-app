@@ -34,20 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Loader2,
-  History,
-  Plus,
-  Pencil,
-  Trash2,
-  ChevronDown,
-  ChevronRight,
-  ArrowRight,
-  User,
-  Calendar,
-  Search,
-  Filter,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useAccountPricing, AccountPricingAudit } from '@/hooks/useAccountPricing';
 import { cn } from '@/lib/utils';
@@ -62,13 +49,13 @@ interface AccountPricingHistoryDialogProps {
 function getActionIcon(action: string) {
   switch (action) {
     case 'INSERT':
-      return <Plus className="h-4 w-4 text-green-600" />;
+      return <MaterialIcon name="add" size="sm" className="text-green-600" />;
     case 'UPDATE':
-      return <Pencil className="h-4 w-4 text-blue-600" />;
+      return <MaterialIcon name="edit" size="sm" className="text-blue-600" />;
     case 'DELETE':
-      return <Trash2 className="h-4 w-4 text-red-600" />;
+      return <MaterialIcon name="delete" size="sm" className="text-red-600" />;
     default:
-      return <History className="h-4 w-4" />;
+      return <MaterialIcon name="history" size="sm" />;
   }
 }
 
@@ -139,9 +126,9 @@ function AuditEntry({ audit }: AuditEntryProps) {
         <div className="flex items-center gap-4 px-4 py-3 hover:bg-muted/50 cursor-pointer border-b">
           <div className="flex items-center gap-2">
             {expanded ? (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="expand_more" size="sm" className="text-muted-foreground" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <MaterialIcon name="chevron_right" size="sm" className="text-muted-foreground" />
             )}
             {getActionIcon(audit.action)}
           </div>
@@ -168,11 +155,11 @@ function AuditEntry({ audit }: AuditEntryProps) {
 
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
-              <User className="h-3 w-3" />
+              <MaterialIcon name="person" className="h-3 w-3" />
               <span>{userName}</span>
             </div>
             <div className="flex items-center gap-1" title={fullDate}>
-              <Calendar className="h-3 w-3" />
+              <MaterialIcon name="calendar_today" className="h-3 w-3" />
               <span>{timeAgo}</span>
             </div>
           </div>
@@ -207,7 +194,7 @@ function AuditEntry({ audit }: AuditEntryProps) {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                              <MaterialIcon name="arrow_forward" className="h-3 w-3 text-muted-foreground" />
                               <span className="font-medium font-mono">
                                 {formatValue(audit.new_values?.[field], field)}
                               </span>
@@ -325,7 +312,7 @@ export function AccountPricingHistoryDialog({
       <DialogContent className="max-w-3xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
+            <MaterialIcon name="history" size="md" />
             Pricing History
           </DialogTitle>
           <DialogDescription>
@@ -336,7 +323,7 @@ export function AccountPricingHistoryDialog({
         {/* Filters */}
         <div className="flex gap-4 py-2">
           <div className="flex-1 relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <MaterialIcon name="search" size="sm" className="absolute left-2 top-2.5 text-muted-foreground" />
             <Input
               placeholder="Search by service code..."
               value={searchQuery}
@@ -360,11 +347,11 @@ export function AccountPricingHistoryDialog({
         <div className="flex-1 overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <MaterialIcon name="progress_activity" className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : filteredHistory.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <MaterialIcon name="history" className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p className="font-medium">No history found</p>
               <p className="text-sm">
                 {auditHistory.length > 0

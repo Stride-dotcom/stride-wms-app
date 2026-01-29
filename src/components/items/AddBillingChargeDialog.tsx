@@ -20,7 +20,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface ChargeTemplate {
   id: string;
@@ -249,7 +249,7 @@ export function AddBillingChargeDialog({
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={loading}>
-            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {loading ? <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" /> : null}
             Add Charge
           </Button>
         </DialogFooter>

@@ -56,26 +56,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Save,
-  Send,
-  FileText,
-  Download,
-  Copy,
-  ArrowLeft,
-  Loader2,
-  Calculator,
-  Package,
-  Clock,
-  DollarSign,
-  Percent,
-  Lock,
-  Unlock,
-  AlertCircle,
-  Building,
-  Calendar,
-  FileSpreadsheet,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 export default function QuoteBuilder() {
   const { id } = useParams<{ id: string }>();
@@ -418,7 +399,7 @@ export default function QuoteBuilder() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-96">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
         </div>
       </DashboardLayout>
     );
@@ -431,7 +412,7 @@ export default function QuoteBuilder() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-5 w-5" />
+              <MaterialIcon name="arrow_back" size="md" />
             </Button>
             <div>
               <h1 className="text-2xl font-bold">
@@ -444,7 +425,7 @@ export default function QuoteBuilder() {
                   </Badge>
                   {lockedByOther && lock && (
                     <Badge variant="outline" className="text-amber-600">
-                      <Lock className="h-3 w-3 mr-1" />
+                      <MaterialIcon name="lock" size="sm" className="mr-1" />
                       Locked by {lock.locked_by_name}
                     </Badge>
                   )}
@@ -457,17 +438,17 @@ export default function QuoteBuilder() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline">
-                    <Download className="h-4 w-4 mr-2" />
+                    <MaterialIcon name="download" size="sm" className="mr-2" />
                     Export
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={handleExportPdf}>
-                    <FileText className="h-4 w-4 mr-2" />
+                    <MaterialIcon name="description" size="sm" className="mr-2" />
                     Download PDF
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExportExcel}>
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    <MaterialIcon name="table_chart" size="sm" className="mr-2" />
                     Download Excel
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -475,16 +456,16 @@ export default function QuoteBuilder() {
             )}
             {!isNew && quote && quote.status === 'draft' && (
               <Button variant="outline" onClick={openSendDialog}>
-                <Send className="h-4 w-4 mr-2" />
+                <MaterialIcon name="send" size="sm" className="mr-2" />
                 Send Quote
               </Button>
             )}
             {canEdit && (
               <Button onClick={handleSave} disabled={saving}>
                 {saving ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                 ) : (
-                  <Save className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="save" size="sm" className="mr-2" />
                 )}
                 {isNew ? 'Create Quote' : 'Save Changes'}
               </Button>
@@ -499,7 +480,7 @@ export default function QuoteBuilder() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Building className="h-5 w-5" />
+                  <MaterialIcon name="business" size="md" />
                   Quote Details
                 </CardTitle>
               </CardHeader>
@@ -527,7 +508,7 @@ export default function QuoteBuilder() {
                   <div className="space-y-2">
                     <Label htmlFor="expiration">Expiration Date</Label>
                     <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <MaterialIcon name="calendar_today" size="sm" className="text-muted-foreground shrink-0" />
                       <Input
                         id="expiration"
                         type="date"
@@ -548,7 +529,7 @@ export default function QuoteBuilder() {
                       disabled={!canEdit}
                     />
                     <Label htmlFor="rates-locked" className="flex items-center gap-1">
-                      {formData.rates_locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+                      {formData.rates_locked ? <MaterialIcon name="lock" size="sm" /> : <MaterialIcon name="lock_open" size="sm" />}
                       Lock Rates
                     </Label>
                   </div>
@@ -560,7 +541,7 @@ export default function QuoteBuilder() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
+                  <MaterialIcon name="inventory_2" size="md" />
                   Item Quantities by Class
                 </CardTitle>
                 <CardDescription>
@@ -595,7 +576,7 @@ export default function QuoteBuilder() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
+                  <MaterialIcon name="schedule" size="md" />
                   Storage Duration
                 </CardTitle>
                 <CardDescription>
@@ -647,7 +628,7 @@ export default function QuoteBuilder() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Calculator className="h-5 w-5" />
+                  <MaterialIcon name="calculate" size="md" />
                   Services
                 </CardTitle>
                 <CardDescription>Select the services to include in this quote</CardDescription>
@@ -755,7 +736,7 @@ export default function QuoteBuilder() {
             <Card className="sticky top-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
+                  <MaterialIcon name="attach_money" size="md" />
                   Quote Summary
                 </CardTitle>
               </CardHeader>
@@ -866,7 +847,7 @@ export default function QuoteBuilder() {
                           className="w-full"
                           onClick={() => setShowDiscountDialog(true)}
                         >
-                          <Percent className="h-4 w-4 mr-2" />
+                          <MaterialIcon name="percent" size="sm" className="mr-2" />
                           Add Discount
                         </Button>
                       </div>
@@ -874,7 +855,7 @@ export default function QuoteBuilder() {
                   </>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
-                    <Calculator className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <MaterialIcon name="calculate" size="xl" className="mx-auto mb-2 opacity-50" />
                     <p>Configure your quote to see the summary</p>
                   </div>
                 )}
@@ -886,7 +867,7 @@ export default function QuoteBuilder() {
               <Card className="border-amber-200 bg-amber-50">
                 <CardContent className="pt-4">
                   <div className="flex gap-2 text-amber-800 text-sm">
-                    <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <MaterialIcon name="error" size="sm" className="flex-shrink-0 mt-0.5" />
                     <p>
                       Rates are not locked. Prices shown are valid as of today and are subject to
                       change prior to acceptance.
@@ -975,9 +956,9 @@ export default function QuoteBuilder() {
             </Button>
             <Button onClick={handleSend} disabled={!sendEmail.trim() || sending}>
               {sending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
               ) : (
-                <Send className="h-4 w-4 mr-2" />
+                <MaterialIcon name="send" size="sm" className="mr-2" />
               )}
               Send Quote
             </Button>

@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface UnableToCompleteDialogProps {
   open: boolean;
@@ -53,7 +53,7 @@ export function UnableToCompleteDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <MaterialIcon name="warning" size="md" className="text-destructive" />
             Unable to Complete Task
           </DialogTitle>
           <DialogDescription>
@@ -86,7 +86,7 @@ export function UnableToCompleteDialog({
           >
             {loading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                 Saving...
               </>
             ) : (

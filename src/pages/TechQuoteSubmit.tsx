@@ -22,19 +22,7 @@ import {
   useTechQuoteSubmission,
   TechQuoteSubmission,
 } from '@/hooks/useRepairQuotes';
-import {
-  Loader2,
-  Wrench,
-  Package,
-  ImageIcon,
-  DollarSign,
-  Clock,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Calculator,
-  Send,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 
 export default function TechQuoteSubmit() {
@@ -95,7 +83,7 @@ export default function TechQuoteSubmit() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
+          <MaterialIcon name="progress_activity" size="xl" className="animate-spin mx-auto text-primary" />
           <p className="text-muted-foreground">Loading quote request...</p>
         </div>
       </div>
@@ -109,7 +97,7 @@ export default function TechQuoteSubmit() {
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-              <AlertTriangle className="h-6 w-6 text-destructive" />
+              <MaterialIcon name="warning" size="lg" className="text-destructive" />
             </div>
             <CardTitle>Access Error</CardTitle>
             <CardDescription>{error}</CardDescription>
@@ -131,7 +119,7 @@ export default function TechQuoteSubmit() {
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle className="h-6 w-6 text-green-600" />
+              <MaterialIcon name="check_circle" size="lg" className="text-green-600" />
             </div>
             <CardTitle>Quote Submitted</CardTitle>
             <CardDescription>
@@ -161,7 +149,7 @@ export default function TechQuoteSubmit() {
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
-              <XCircle className="h-6 w-6 text-amber-600" />
+              <MaterialIcon name="cancel" size="lg" className="text-amber-600" />
             </div>
             <CardTitle>Job Declined</CardTitle>
             <CardDescription>
@@ -186,7 +174,7 @@ export default function TechQuoteSubmit() {
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Wrench className="h-5 w-5 text-primary" />
+                <MaterialIcon name="build" size="md" className="text-primary" />
               </div>
               <div className="flex-1">
                 <CardTitle>Repair Quote Request</CardTitle>
@@ -214,7 +202,7 @@ export default function TechQuoteSubmit() {
               )}
               {tokenData?.expires_at && (
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="schedule" size="sm" className="text-muted-foreground" />
                   <span>
                     Expires: {format(new Date(tokenData.expires_at), 'MMM d, yyyy')}
                   </span>
@@ -228,7 +216,7 @@ export default function TechQuoteSubmit() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
+              <MaterialIcon name="inventory_2" size="md" />
               Items for Repair ({quoteItems.length})
             </CardTitle>
             <CardDescription>
@@ -268,7 +256,7 @@ export default function TechQuoteSubmit() {
                 {item.damage_photos && item.damage_photos.length > 0 && (
                   <div>
                     <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                      <ImageIcon className="h-4 w-4" />
+                      <MaterialIcon name="image" size="sm" />
                       Photos ({item.damage_photos.length})
                     </p>
                     <ScrollArea className="w-full">
@@ -297,7 +285,7 @@ export default function TechQuoteSubmit() {
 
             {quoteItems.length === 0 && (
               <div className="text-center py-8">
-                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <MaterialIcon name="inventory_2" size="xl" className="mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">No items specified</p>
               </div>
             )}
@@ -309,7 +297,7 @@ export default function TechQuoteSubmit() {
           <form onSubmit={handleSubmit}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Calculator className="h-5 w-5" />
+                <MaterialIcon name="calculate" size="md" />
                 Your Quote
               </CardTitle>
               <CardDescription>
@@ -444,7 +432,7 @@ export default function TechQuoteSubmit() {
                 disabled={submitting}
                 className="w-full sm:w-auto"
               >
-                <XCircle className="mr-2 h-4 w-4" />
+                <MaterialIcon name="cancel" size="sm" className="mr-2" />
                 Decline Job
               </Button>
               <Button
@@ -453,9 +441,9 @@ export default function TechQuoteSubmit() {
                 className="w-full sm:w-auto sm:ml-auto"
               >
                 {submitting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                 ) : (
-                  <Send className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="send" size="sm" className="mr-2" />
                 )}
                 Submit Quote
               </Button>
@@ -501,7 +489,7 @@ export default function TechQuoteSubmit() {
               disabled={submitting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {submitting && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               Decline Job
             </AlertDialogAction>
           </AlertDialogFooter>

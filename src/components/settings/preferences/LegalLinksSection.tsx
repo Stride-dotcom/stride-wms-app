@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Scale, Loader2, Save } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useTenantPreferences } from '@/hooks/useTenantPreferences';
 
 interface LegalLinksSectionProps {
@@ -65,7 +65,7 @@ export function LegalLinksSection({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Scale className="h-4 w-4" />
+          <MaterialIcon name="balance" size="sm" />
           Legal & Policy Links
         </CardTitle>
         <CardDescription>
@@ -100,12 +100,12 @@ export function LegalLinksSection({
             <Button onClick={handleSave} disabled={saving} size="sm">
               {saving ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                   Saving...
                 </>
               ) : (
                 <>
-                  <Save className="mr-2 h-4 w-4" />
+                  <MaterialIcon name="save" size="sm" className="mr-2" />
                   Save
                 </>
               )}

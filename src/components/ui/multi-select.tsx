@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Check, ChevronsUpDown, X } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -85,12 +85,14 @@ export function MultiSelect({
           </span>
           <div className="flex items-center gap-1">
             {selected.length > 0 && (
-              <X
-                className="h-4 w-4 shrink-0 opacity-50 hover:opacity-100"
+              <MaterialIcon
+                name="close"
+                size="sm"
+                className="shrink-0 opacity-50 hover:opacity-100 cursor-pointer"
                 onClick={handleClear}
               />
             )}
-            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+            <MaterialIcon name="unfold_more" size="sm" className="shrink-0 opacity-50" />
           </div>
         </Button>
       </PopoverTrigger>
@@ -101,9 +103,11 @@ export function MultiSelect({
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
               <CommandItem onSelect={handleSelectAll} className="font-medium">
-                <Check
+                <MaterialIcon
+                  name="check"
+                  size="sm"
                   className={cn(
-                    'mr-2 h-4 w-4',
+                    'mr-2',
                     selected.length === options.length ? 'opacity-100' : 'opacity-0'
                   )}
                 />
@@ -116,9 +120,11 @@ export function MultiSelect({
                   value={option.label}
                   onSelect={() => handleSelect(option.value)}
                 >
-                  <Check
+                  <MaterialIcon
+                    name="check"
+                    size="sm"
                     className={cn(
-                      'mr-2 h-4 w-4',
+                      'mr-2',
                       selected.includes(option.value) ? 'opacity-100' : 'opacity-0'
                     )}
                   />

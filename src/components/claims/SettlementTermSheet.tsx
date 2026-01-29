@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, CheckCircle, FileText, Package, DollarSign, Shield, AlertTriangle } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 
 export interface ClaimItemSummary {
@@ -123,7 +123,7 @@ export function SettlementTermSheet({
           {/* Status Badge */}
           {alreadyAccepted && (
             <div className="flex items-center justify-center gap-2 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg mb-4">
-              <CheckCircle className="h-5 w-5 text-green-600" />
+              <MaterialIcon name="check_circle" size="md" className="text-green-600" />
               <span className="text-green-700 dark:text-green-400 font-medium">
                 Settlement Accepted
               </span>
@@ -131,7 +131,7 @@ export function SettlementTermSheet({
           )}
           {alreadyDeclined && (
             <div className="flex items-center justify-center gap-2 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg mb-4">
-              <AlertCircle className="h-5 w-5 text-red-600" />
+              <MaterialIcon name="warning" size="md" className="text-red-600" />
               <span className="text-red-700 dark:text-red-400 font-medium">
                 Settlement Declined
               </span>
@@ -156,7 +156,7 @@ export function SettlementTermSheet({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Package className="h-5 w-5" />
+            <MaterialIcon name="inventory_2" size="md" />
             Items Involved ({items.length})
           </CardTitle>
         </CardHeader>
@@ -215,7 +215,7 @@ export function SettlementTermSheet({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <DollarSign className="h-5 w-5" />
+            <MaterialIcon name="attach_money" size="md" />
             Payout Determination
           </CardTitle>
         </CardHeader>
@@ -242,7 +242,7 @@ export function SettlementTermSheet({
             </div>
             {hasRepairItems && (
               <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mt-4">
-                <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <MaterialIcon name="info" size="md" className="text-blue-600 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-blue-700 dark:text-blue-400">
                   Some items have been approved for repair. Upon acceptance, a repair task will
                   be created and scheduled.
@@ -257,7 +257,7 @@ export function SettlementTermSheet({
       <Card className="border-amber-200 dark:border-amber-800">
         <CardHeader className="bg-amber-50 dark:bg-amber-900/20 rounded-t-lg">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Shield className="h-5 w-5 text-amber-600" />
+            <MaterialIcon name="shield" size="md" className="text-amber-600" />
             Release of Liability
           </CardTitle>
         </CardHeader>
@@ -334,7 +334,7 @@ export function SettlementTermSheet({
                         </>
                       ) : (
                         <>
-                          <CheckCircle className="mr-2 h-5 w-5" />
+                          <MaterialIcon name="check_circle" size="md" className="mr-2" />
                           Accept Settlement
                         </>
                       )}
@@ -346,7 +346,7 @@ export function SettlementTermSheet({
                       className="flex-1"
                       size="lg"
                     >
-                      <AlertTriangle className="mr-2 h-5 w-5" />
+                      <MaterialIcon name="warning" size="md" className="mr-2" />
                       Decline / Counter Offer
                     </Button>
                   </div>
@@ -356,7 +356,7 @@ export function SettlementTermSheet({
                   {/* Decline Form */}
                   <div className="space-y-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
                     <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
-                      <AlertTriangle className="h-5 w-5" />
+                      <MaterialIcon name="warning" size="md" />
                       <span className="font-medium">Decline Settlement</span>
                     </div>
 

@@ -33,20 +33,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Bug,
-  ChevronDown,
-  ChevronRight,
-  RefreshCw,
-  CheckCircle,
-  XCircle,
-  Eye,
-  AlertTriangle,
-  AlertCircle,
-  Info,
-  MoreHorizontal,
-  Filter,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -91,14 +78,14 @@ export default function Diagnostics() {
 
   const getSeverityBadge = (severity: 'P0' | 'P1' | 'P2') => {
     const config = {
-      P0: { variant: 'destructive' as const, icon: AlertCircle, label: 'P0 Critical' },
-      P1: { variant: 'default' as const, icon: AlertTriangle, label: 'P1 Major' },
-      P2: { variant: 'secondary' as const, icon: Info, label: 'P2 Minor' },
+      P0: { variant: 'destructive' as const, icon: 'error', label: 'P0 Critical' },
+      P1: { variant: 'default' as const, icon: 'warning', label: 'P1 Major' },
+      P2: { variant: 'secondary' as const, icon: 'info', label: 'P2 Minor' },
     };
-    const { variant, icon: Icon, label } = config[severity];
+    const { variant, icon, label } = config[severity];
     return (
       <Badge variant={variant} className="gap-1">
-        <Icon className="h-3 w-3" />
+        <MaterialIcon name={icon} size="sm" />
         {label}
       </Badge>
     );
@@ -189,7 +176,7 @@ export default function Diagnostics() {
           onClick={() => setShowFilters(!showFilters)}
           className="gap-2"
         >
-          <Filter className="h-4 w-4" />
+          <MaterialIcon name="filter_list" size="sm" />
           Filters
           {Object.keys(filters).length > 0 && (
             <Badge variant="secondary" className="ml-1">
@@ -198,7 +185,7 @@ export default function Diagnostics() {
           )}
         </Button>
         <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
-          <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+          <MaterialIcon name="refresh" size="sm" className={cn(loading && 'animate-spin')} />
           Refresh
         </Button>
         {Object.keys(filters).length > 0 && (
@@ -365,14 +352,14 @@ export default function Diagnostics() {
               {loading && groupedIssues.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10} className="text-center py-8">
-                    <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                    <MaterialIcon name="refresh" size="lg" className="animate-spin mx-auto mb-2 text-muted-foreground" />
                     <p className="text-muted-foreground">Loading issues...</p>
                   </TableCell>
                 </TableRow>
               ) : groupedIssues.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10} className="text-center py-8">
-                    <Bug className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                    <MaterialIcon name="bug_report" size="lg" className="mx-auto mb-2 text-muted-foreground" />
                     <p className="text-muted-foreground">No issues found</p>
                     <p className="text-sm text-muted-foreground">
                       Issues will appear here when errors or warnings are captured
@@ -428,9 +415,9 @@ function IssueGroupRow({
             <CollapsibleTrigger asChild>
               <Button variant="ghost" size="icon" className="h-6 w-6">
                 {expanded ? (
-                  <ChevronDown className="h-4 w-4" />
+                  <MaterialIcon name="expand_more" size="sm" />
                 ) : (
-                  <ChevronRight className="h-4 w-4" />
+                  <MaterialIcon name="chevron_right" size="sm" />
                 )}
               </Button>
             </CollapsibleTrigger>
@@ -481,20 +468,20 @@ function IssueGroupRow({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="h-4 w-4" />
+                  <MaterialIcon name="more_horiz" size="sm" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => onStatusChange(group.fingerprint, 'acknowledged')}>
-                  <Eye className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="visibility" size="sm" className="mr-2" />
                   Acknowledge
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onStatusChange(group.fingerprint, 'fixed')}>
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="check_circle" size="sm" className="mr-2" />
                   Mark Fixed
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onStatusChange(group.fingerprint, 'ignored')}>
-                  <XCircle className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="cancel" size="sm" className="mr-2" />
                   Ignore
                 </DropdownMenuItem>
               </DropdownMenuContent>

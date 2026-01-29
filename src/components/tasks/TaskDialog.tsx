@@ -39,7 +39,7 @@ import { useWarehouses } from '@/hooks/useWarehouses';
 import { useUsers } from '@/hooks/useUsers';
 import { useTaskCustomCharges } from '@/hooks/useTaskCustomCharges';
 import { format } from 'date-fns';
-import { Loader2, CalendarIcon, Plus, X, Search, AlertTriangle } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { TaskCustomChargesSection } from './TaskCustomChargesSection';
@@ -502,7 +502,7 @@ export function TaskDialog({
                     placeholder="New task type name"
                   />
                   <Button onClick={handleCreateTaskType} size="sm">
-                    <Plus className="h-4 w-4" />
+                    <MaterialIcon name="add" size="sm" />
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setShowNewTaskType(false)}>
                     Cancel
@@ -521,7 +521,7 @@ export function TaskDialog({
                     ))}
                     <SelectItem value="new">
                       <span className="flex items-center gap-2">
-                        <Plus className="h-4 w-4" />
+                        <MaterialIcon name="add" size="sm" />
                         Add New Type
                       </span>
                     </SelectItem>
@@ -558,7 +558,7 @@ export function TaskDialog({
               <div className="space-y-3">
                 <Label>Select Items</Label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Search by item code, description, vendor, sidemark..."
                     value={itemSearchQuery}
@@ -569,7 +569,7 @@ export function TaskDialog({
                 
                 {loadingItems ? (
                   <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <MaterialIcon name="progress_activity" size="md" className="animate-spin text-muted-foreground" />
                   </div>
                 ) : filteredItems.length > 0 ? (
                   <div className="border rounded-md max-h-48 overflow-y-auto">
@@ -629,7 +629,7 @@ export function TaskDialog({
                       {item.item_code}
                       {!isFromInventory && (
                         <button onClick={() => removeItem(item.id)}>
-                          <X className="h-3 w-3" />
+                          <MaterialIcon name="close" className="h-3 w-3" />
                         </button>
                       )}
                     </Badge>
@@ -754,7 +754,7 @@ export function TaskDialog({
                         !formData.due_date && 'text-muted-foreground'
                       )}
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      <MaterialIcon name="calendar_today" size="sm" className="mr-2" />
                       {formData.due_date ? format(formData.due_date, 'PPP') : 'Pick a date'}
                     </Button>
                   </PopoverTrigger>
@@ -838,7 +838,7 @@ export function TaskDialog({
           >
             {loading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
                 Saving...
               </>
             ) : (
@@ -853,7 +853,7 @@ export function TaskDialog({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <MaterialIcon name="warning" size="md" className="text-destructive" />
               Cannot Create Task
             </AlertDialogTitle>
             <AlertDialogDescription>

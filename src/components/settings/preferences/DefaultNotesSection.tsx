@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { FileText } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface DefaultNotesSectionProps {
   defaultShipmentNotes: string;
@@ -16,7 +16,7 @@ export function DefaultNotesSection({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5" />
+          <MaterialIcon name="description" size="md" />
           Default Shipment Notes
         </CardTitle>
         <CardDescription>

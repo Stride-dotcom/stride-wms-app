@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, CheckCircle, AlertTriangle, Trash2 } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 import { parseFileToRows, canonicalizeHeader, parseNumber } from '@/lib/importUtils';
 
@@ -287,7 +287,7 @@ export function ShipmentItemsImportDialog({
           {parsing && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
                 <span>Parsing file...</span>
               </div>
               <Progress value={50} />
@@ -297,7 +297,7 @@ export function ShipmentItemsImportDialog({
           {!parsing && parseErrors.length > 0 && editableItems.length === 0 && (
             <div className="rounded-md bg-destructive/10 p-4">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
+                <MaterialIcon name="warning" size="md" className="text-destructive mt-0.5" />
                 <div>
                   <p className="font-medium text-destructive">Error parsing file</p>
                   <ul className="mt-2 text-sm text-destructive/80 list-disc list-inside">
@@ -315,7 +315,7 @@ export function ShipmentItemsImportDialog({
               <div className="grid grid-cols-2 gap-4">
                 <div className="rounded-md bg-green-50 dark:bg-green-950/30 p-4 border border-green-200 dark:border-green-800">
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <MaterialIcon name="check_circle" size="md" className="text-green-600" />
                     <div>
                       <p className="font-medium text-green-800 dark:text-green-200">Ready to import</p>
                       <p className="text-sm text-green-600 dark:text-green-400">{validItemCount} items</p>
@@ -326,7 +326,7 @@ export function ShipmentItemsImportDialog({
                 {importResult.failed > 0 && (
                   <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 p-4 border border-amber-200 dark:border-amber-800">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-amber-600" />
+                      <MaterialIcon name="warning" size="md" className="text-amber-600" />
                       <div>
                         <p className="font-medium text-amber-800 dark:text-amber-200">Parse Errors</p>
                         <p className="text-sm text-amber-600 dark:text-amber-400">{importResult.failed} rows had issues</p>
@@ -408,7 +408,7 @@ export function ShipmentItemsImportDialog({
                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
                             onClick={() => removeItem(item._id)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <MaterialIcon name="delete" size="sm" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -428,7 +428,7 @@ export function ShipmentItemsImportDialog({
             onClick={handleImport}
             disabled={parsing || validItemCount === 0}
           >
-            {parsing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {parsing && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
             Import {validItemCount} Items
           </Button>
         </DialogFooter>

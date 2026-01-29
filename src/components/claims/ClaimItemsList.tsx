@@ -33,7 +33,7 @@ import { useClaims, ClaimItem, PayoutMethod } from '@/hooks/useClaims';
 import { useRepairQuoteWorkflow } from '@/hooks/useRepairQuotes';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Package, DollarSign, Wrench, Loader2, Trash2, Edit2, Save, X, AlertCircle, Scale, FileText, ExternalLink, ArrowRightLeft } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useNavigate } from 'react-router-dom';
 
 interface ClaimItemsListProps {
@@ -225,7 +225,7 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
+            <MaterialIcon name="inventory_2" size="md" />
             Claim Items
           </CardTitle>
         </CardHeader>
@@ -244,7 +244,7 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
+            <MaterialIcon name="inventory_2" size="md" />
             Claim Items
           </CardTitle>
         </CardHeader>
@@ -262,7 +262,7 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
+            <MaterialIcon name="inventory_2" size="md" />
             Claim Items
             <Badge variant="secondary">{items.length}</Badge>
           </CardTitle>
@@ -332,12 +332,12 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
                             </div>
                           ) : item.weight_lbs != null ? (
                             <span className="flex items-center gap-1 justify-end">
-                              <Scale className="h-3 w-3 text-muted-foreground" />
+                              <MaterialIcon name="scale" className="!text-[12px] text-muted-foreground" />
                               {item.weight_lbs} lbs
                             </span>
                           ) : (
                             <span className="text-yellow-600 dark:text-yellow-400 flex items-center gap-1 justify-end text-xs">
-                              <AlertCircle className="h-3 w-3" />
+                              <MaterialIcon name="warning" className="!text-[12px]" />
                               Need weight
                             </span>
                           )
@@ -453,7 +453,7 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <Badge variant="outline" className="gap-1">
-                                <Wrench className="h-3 w-3" />
+                                <MaterialIcon name="build" className="!text-[12px]" />
                                 Yes
                               </Badge>
                               {item.repair_quote_id ? (
@@ -463,7 +463,7 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
                                   className="h-6 px-2 text-xs"
                                   onClick={() => navigate('/repair-quotes')}
                                 >
-                                  <ExternalLink className="h-3 w-3 mr-1" />
+                                  <MaterialIcon name="open_in_new" className="!text-[12px] mr-1" />
                                   Quote
                                 </Button>
                               ) : canEdit && item.item_id && accountId && (
@@ -475,10 +475,10 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
                                   onClick={() => handleRequestRepairQuote(item)}
                                 >
                                   {creatingQuote ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                    <MaterialIcon name="progress_activity" className="!text-[12px] animate-spin" />
                                   ) : (
                                     <>
-                                      <FileText className="h-3 w-3 mr-1" />
+                                      <MaterialIcon name="description" className="!text-[12px] mr-1" />
                                       Get Quote
                                     </>
                                   )}
@@ -493,7 +493,7 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
                                 </span>
                                 {item.use_repair_cost && (
                                   <Badge variant="secondary" className="ml-1.5 text-[10px] py-0 px-1">
-                                    <ArrowRightLeft className="h-2.5 w-2.5 mr-0.5" />
+                                    <MaterialIcon name="swap_horiz" className="!text-[10px] mr-0.5" />
                                     Repair
                                   </Badge>
                                 )}
@@ -542,7 +542,7 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
                                 className="h-7 w-7 p-0"
                                 onClick={saveEditing}
                               >
-                                <Save className="h-4 w-4 text-green-600" />
+                                <MaterialIcon name="save" size="sm" className="text-green-600" />
                               </Button>
                               <Button
                                 size="sm"
@@ -550,7 +550,7 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
                                 className="h-7 w-7 p-0"
                                 onClick={cancelEditing}
                               >
-                                <X className="h-4 w-4" />
+                                <MaterialIcon name="close" size="sm" />
                               </Button>
                             </div>
                           ) : (
@@ -561,7 +561,7 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
                                 className="h-7 w-7 p-0"
                                 onClick={() => startEditing(item)}
                               >
-                                <Edit2 className="h-4 w-4" />
+                                <MaterialIcon name="edit" size="sm" />
                               </Button>
                               <Button
                                 size="sm"
@@ -572,7 +572,7 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
                                   setDeleteDialogOpen(true);
                                 }}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <MaterialIcon name="delete" size="sm" />
                               </Button>
                             </div>
                           )}
@@ -597,7 +597,7 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
                 <div className="space-y-3">
                   {hasStandardWithoutWeight && (
                     <div className="flex items-start gap-2 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md">
-                      <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <MaterialIcon name="warning" size="sm" className="mt-0.5 flex-shrink-0" />
                       <div>
                         <p className="font-medium">Weight required for accurate payout</p>
                         <p className="text-xs mt-1 text-yellow-600/80 dark:text-yellow-400/80">

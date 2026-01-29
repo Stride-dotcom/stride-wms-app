@@ -4,19 +4,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import {
-  Loader2,
-  Plus,
-  Trash2,
-  Pencil,
-  DollarSign,
-  Percent,
-  ArrowRight,
-  Info,
-  History,
-  CheckSquare,
-  Square,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -138,7 +126,7 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
     if (adj.custom_percent_adjust !== null && adj.custom_percent_adjust !== 0) {
       return (
         <Badge variant="outline" className="gap-1">
-          <Percent className="h-3 w-3" />
+          <MaterialIcon name="percent" className="h-3 w-3" />
           Percentage
         </Badge>
       );
@@ -147,14 +135,14 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
     if (Math.abs(diff) < 0.01) {
       return (
         <Badge variant="outline" className="gap-1">
-          <DollarSign className="h-3 w-3" />
+          <MaterialIcon name="attach_money" className="h-3 w-3" />
           Override
         </Badge>
       );
     }
     return (
       <Badge variant="outline" className="gap-1">
-        <DollarSign className="h-3 w-3" />
+        <MaterialIcon name="attach_money" className="h-3 w-3" />
         Fixed
       </Badge>
     );
@@ -163,7 +151,7 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <MaterialIcon name="progress_activity" className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -180,11 +168,11 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setHistoryDialogOpen(true)}>
-            <History className="h-4 w-4 mr-1" />
+            <MaterialIcon name="history" size="sm" className="mr-1" />
             History
           </Button>
           <Button onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" />
+            <MaterialIcon name="add" size="sm" className="mr-1" />
             Create Adjustment
           </Button>
         </div>
@@ -208,7 +196,7 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
             size="sm"
             onClick={() => setBulkDeleteConfirm(true)}
           >
-            <Trash2 className="h-4 w-4 mr-1" />
+            <MaterialIcon name="delete" size="sm" className="mr-1" />
             Delete Selected
           </Button>
         </div>
@@ -283,7 +271,7 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                      <MaterialIcon name="arrow_forward" className="h-3 w-3 text-muted-foreground" />
                       <span className="font-mono font-medium">
                         ${(adj.effective_rate || 0).toFixed(2)}
                       </span>
@@ -300,7 +288,7 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
                               className="h-8 w-8"
                               onClick={() => handleEdit(adj)}
                             >
-                              <Pencil className="h-4 w-4" />
+                              <MaterialIcon name="edit" size="sm" />
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>Edit</TooltipContent>
@@ -320,7 +308,7 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
                                 })
                               }
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <MaterialIcon name="delete" size="sm" />
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>Delete</TooltipContent>
@@ -335,13 +323,13 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
         </div>
       ) : (
         <div className="text-center py-12 border rounded-lg bg-muted/20">
-          <Info className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <MaterialIcon name="info" className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium mb-2">No Adjustments Configured</h3>
           <p className="text-muted-foreground mb-4">
             This account uses the default price list. Create an adjustment to override specific service rates.
           </p>
           <Button onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" />
+            <MaterialIcon name="add" size="sm" className="mr-1" />
             Create First Adjustment
           </Button>
         </div>

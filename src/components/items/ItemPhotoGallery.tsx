@@ -13,17 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { useItemPhotos, ItemPhoto } from '@/hooks/useItemPhotos';
 import { PhotoScanner } from '@/components/common/PhotoScanner';
-import {
-  Camera,
-  Upload,
-  Star,
-  AlertTriangle,
-  X,
-  Loader2,
-  ZoomIn,
-  Filter,
-  Download,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 
 interface ItemPhotoGalleryProps {
@@ -148,13 +138,13 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
           <div className="absolute top-1 left-1 flex gap-1 flex-wrap">
             {photo.is_primary && (
               <Badge className="h-6 text-xs bg-amber-500 text-white px-2 shadow-md border border-amber-600">
-                <Star className="h-3 w-3 mr-1 fill-current" />
+                <MaterialIcon name="star" className="text-[12px] mr-1" />
                 Primary
               </Badge>
             )}
             {photo.needs_attention && (
               <Badge className="h-6 text-xs bg-red-600 text-white px-2 shadow-md border border-red-700">
-                <AlertTriangle className="h-3 w-3 mr-1 fill-current" />
+                <MaterialIcon name="warning" className="text-[12px] mr-1" />
                 Attention
               </Badge>
             )}
@@ -188,7 +178,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                   handleDownload(photo);
                 }}
               >
-                <Download className="h-5 w-5" />
+                <MaterialIcon name="download" size="md" />
               </Button>
               {!isClientUser && (
                 <>
@@ -202,7 +192,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                         handleSetPrimary(photo.id);
                       }}
                     >
-                      <Star className="h-5 w-5" />
+                      <MaterialIcon name="star" size="md" />
                     </Button>
                   )}
                   <Button
@@ -214,7 +204,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                       handleToggleAttention(photo.id, photo.needs_attention);
                     }}
                   >
-                    <AlertTriangle className="h-5 w-5" />
+                    <MaterialIcon name="warning" size="md" />
                   </Button>
                   <Button
                     size="icon"
@@ -225,7 +215,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                       handleDelete(photo.id);
                     }}
                   >
-                    <X className="h-5 w-5" />
+                    <MaterialIcon name="close" size="md" />
                   </Button>
                 </>
               )}
@@ -234,7 +224,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
 
           {/* Zoom icon - hidden on mobile for cleaner UI */}
           <div className="absolute inset-0 hidden sm:flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            <ZoomIn className="h-8 w-8 text-white drop-shadow-lg" />
+            <MaterialIcon name="zoom_in" className="text-[32px] text-white drop-shadow-lg" />
           </div>
         </div>
       ))}
@@ -245,7 +235,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
     return (
       <Card>
         <CardContent className="py-8 flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -257,7 +247,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Camera className="h-5 w-5" />
+              <MaterialIcon name="photo_camera" size="md" />
               Photos ({photos.length})
               {needsAttentionPhotos.length > 0 && (
                 <Badge variant="destructive">
@@ -275,7 +265,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                   onClick={() => setFilterNeedsAttention(!filterNeedsAttention)}
                   className="text-xs sm:text-sm"
                 >
-                  <Filter className="h-4 w-4 sm:mr-1" />
+                  <MaterialIcon name="filter_list" size="sm" className="sm:mr-1" />
                   <span className="hidden sm:inline">Needs Attention</span>
                 </Button>
 
@@ -287,7 +277,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                   disabled={uploading}
                   className="text-xs sm:text-sm"
                 >
-                  <Camera className="h-4 w-4 sm:mr-1" />
+                  <MaterialIcon name="photo_camera" size="sm" className="sm:mr-1" />
                   <span className="hidden sm:inline">Camera</span>
                 </Button>
 
@@ -307,9 +297,9 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                   className="text-xs sm:text-sm"
                 >
                   {uploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
                   ) : (
-                    <Upload className="h-4 w-4 sm:mr-1" />
+                    <MaterialIcon name="upload" size="sm" className="sm:mr-1" />
                   )}
                   <span className="hidden sm:inline">Upload</span>
                 </Button>
@@ -320,7 +310,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
         <CardContent className="pb-6">
           {photos.length === 0 ? (
             <div className="text-center py-8">
-              <Camera className="mx-auto h-12 w-12 text-muted-foreground" />
+              <MaterialIcon name="photo_camera" className="mx-auto text-[48px] text-muted-foreground" />
               <p className="mt-2 text-sm text-muted-foreground">
                 {isClientUser
                   ? 'No photos available for this item.'
@@ -370,11 +360,11 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
             <DialogTitle className="flex items-center gap-2">
               {lightboxPhoto?.file_name}
               {lightboxPhoto?.is_primary && (
-                <Badge className="bg-amber-500 text-white"><Star className="h-3 w-3 mr-1 fill-current" />Primary</Badge>
+                <Badge className="bg-amber-500 text-white"><MaterialIcon name="star" className="text-[12px] mr-1" />Primary</Badge>
               )}
               {lightboxPhoto?.needs_attention && (
                 <Badge className="bg-red-600 text-white">
-                  <AlertTriangle className="h-3 w-3 mr-1" />Needs Attention
+                  <MaterialIcon name="warning" className="text-[12px] mr-1" />Needs Attention
                 </Badge>
               )}
             </DialogTitle>
@@ -391,7 +381,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                   variant="outline"
                   onClick={() => handleDownload(lightboxPhoto)}
                 >
-                  <Download className="h-4 w-4 mr-2" />
+                  <MaterialIcon name="download" size="sm" className="mr-2" />
                   Download
                 </Button>
                 {!isClientUser && (
@@ -404,7 +394,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                           setLightboxPhoto(null);
                         }}
                       >
-                        <Star className="h-4 w-4 mr-2" />
+                        <MaterialIcon name="star" size="sm" className="mr-2" />
                         Set as Primary
                       </Button>
                     )}
@@ -415,7 +405,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                         setLightboxPhoto(null);
                       }}
                     >
-                      <AlertTriangle className="h-4 w-4 mr-2" />
+                      <MaterialIcon name="warning" size="sm" className="mr-2" />
                       {lightboxPhoto.needs_attention ? 'Remove Attention Flag' : 'Mark Needs Attention'}
                     </Button>
                     <Button
@@ -425,7 +415,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                         setLightboxPhoto(null);
                       }}
                     >
-                      <X className="h-4 w-4 mr-2" />
+                      <MaterialIcon name="close" size="sm" className="mr-2" />
                       Delete
                     </Button>
                   </>

@@ -39,17 +39,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClaims, ClaimType, CLAIM_TYPE_LABELS } from '@/hooks/useClaims';
-import {
-  Loader2,
-  Package,
-  Truck,
-  MapPin,
-  Search,
-  X,
-  ChevronsUpDown,
-  Check,
-  AlertCircle,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 
 interface ClaimCreateDialogProps {
@@ -373,15 +363,15 @@ export function ClaimCreateDialog({
               <Tabs value={context} onValueChange={(v) => setContext(v as ClaimContext)}>
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="items" className="flex items-center gap-1">
-                    <Package className="h-4 w-4" />
+                    <MaterialIcon name="inventory_2" size="sm" />
                     Items
                   </TabsTrigger>
                   <TabsTrigger value="shipment" className="flex items-center gap-1">
-                    <Truck className="h-4 w-4" />
+                    <MaterialIcon name="local_shipping" size="sm" />
                     Shipment
                   </TabsTrigger>
                   <TabsTrigger value="property" className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
+                    <MaterialIcon name="location_on" size="sm" />
                     Property
                   </TabsTrigger>
                 </TabsList>
@@ -436,7 +426,7 @@ export function ClaimCreateDialog({
 
                     {!selectedAccountId ? (
                       <div className="text-sm text-muted-foreground border rounded-md p-4 text-center">
-                        <AlertCircle className="h-5 w-5 mx-auto mb-2 text-muted-foreground" />
+                        <MaterialIcon name="warning" size="md" className="mx-auto mb-2 text-muted-foreground" />
                         Select an account first to see available items
                       </div>
                     ) : (
@@ -453,7 +443,7 @@ export function ClaimCreateDialog({
                                 ? `${selectedItems.length} item${selectedItems.length > 1 ? 's' : ''} selected`
                                 : 'Search and select items...'}
                             </span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            <MaterialIcon name="unfold_more" size="sm" className="ml-2 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[500px] p-0" align="start">
@@ -466,7 +456,7 @@ export function ClaimCreateDialog({
                             <CommandList>
                               {loadingItems ? (
                                 <div className="flex items-center justify-center py-6">
-                                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                  <MaterialIcon name="progress_activity" size="md" className="animate-spin text-muted-foreground" />
                                 </div>
                               ) : filteredAvailableItems.length === 0 ? (
                                 <CommandEmpty>No items found.</CommandEmpty>
@@ -535,7 +525,7 @@ export function ClaimCreateDialog({
                                 )}
                                 {needsWeight && (
                                   <span className="text-yellow-600 dark:text-yellow-400 text-xs flex items-center gap-1 whitespace-nowrap">
-                                    <AlertCircle className="h-3 w-3" />
+                                    <MaterialIcon name="warning" className="!text-[12px]" />
                                     Weight required
                                   </span>
                                 )}
@@ -552,7 +542,7 @@ export function ClaimCreateDialog({
                                 onClick={() => removeSelectedItem(item.id)}
                                 className="h-6 w-6 p-0 flex-shrink-0"
                               >
-                                <X className="h-3 w-3" />
+                                <MaterialIcon name="close" className="!text-[12px]" />
                               </Button>
                             </div>
                           );
@@ -563,7 +553,7 @@ export function ClaimCreateDialog({
                     {/* Weight Warning */}
                     {selectedItems.some(i => i.coverage_type === 'standard' && !i.weight_lbs) && (
                       <div className="flex items-start gap-2 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-md">
-                        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        <MaterialIcon name="warning" size="sm" className="mt-0.5 flex-shrink-0" />
                         <div>
                           <p className="font-medium">Weight required for standard coverage</p>
                           <p className="text-xs mt-1 text-yellow-600/80 dark:text-yellow-400/80">
@@ -712,7 +702,7 @@ export function ClaimCreateDialog({
               (context !== 'property' && !selectedAccountId)
             }
           >
-            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            {isSubmitting && <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />}
             File Claim
             {selectedItems.length > 1 && ` (${selectedItems.length} items)`}
           </Button>

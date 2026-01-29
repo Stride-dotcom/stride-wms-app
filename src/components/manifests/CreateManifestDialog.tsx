@@ -45,15 +45,7 @@ import { useWarehouses } from '@/hooks/useWarehouses';
 import { useLocations } from '@/hooks/useLocations';
 import { useAccounts } from '@/hooks/useAccounts';
 import { CreateManifestData } from '@/hooks/useManifests';
-import {
-  MapPin,
-  Loader2,
-  DollarSign,
-  X,
-  CheckCircle,
-  ChevronsUpDown,
-  Search,
-} from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 
 interface CreateManifestDialogProps {
@@ -237,7 +229,7 @@ export function CreateManifestDialog({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
+                    <MaterialIcon name="location_on" size="sm" />
                     Zone (Locations)
                     {selectedLocationCount > 0 && (
                       <Badge variant="secondary" className="ml-2">
@@ -308,7 +300,7 @@ export function CreateManifestDialog({
               <AccordionItem value="billing" className="border-0">
                 <AccordionTrigger className="px-4 hover:no-underline">
                   <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4" />
+                    <MaterialIcon name="attach_money" size="sm" />
                     Billing Options
                     {formData.billable && (
                       <Badge variant="secondary" className="bg-green-500/20 text-green-400">
@@ -351,7 +343,8 @@ export function CreateManifestDialog({
                                 className="flex items-center gap-1"
                               >
                                 {account.account_name}
-                                <X
+                                <MaterialIcon
+                                  name="close"
                                   className="h-3 w-3 cursor-pointer hover:text-destructive"
                                   onClick={() => removeAccount(account.id)}
                                 />
@@ -370,10 +363,10 @@ export function CreateManifestDialog({
                               className="w-full justify-between"
                             >
                               <span className="flex items-center gap-2">
-                                <Search className="h-4 w-4" />
+                                <MaterialIcon name="search" size="sm" />
                                 Search and select accounts...
                               </span>
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              <MaterialIcon name="unfold_more" size="sm" className="ml-2 shrink-0 opacity-50" />
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-[400px] p-0" align="start">
@@ -408,7 +401,7 @@ export function CreateManifestDialog({
                                         </div>
                                       </div>
                                       {formData.include_accounts?.includes(account.id) && (
-                                        <CheckCircle className="h-4 w-4 text-primary" />
+                                        <MaterialIcon name="check_circle" size="sm" className="text-primary" />
                                       )}
                                     </CommandItem>
                                   ))}
@@ -458,7 +451,7 @@ export function CreateManifestDialog({
             onClick={handleSubmit}
             disabled={!formData.warehouse_id || !formData.name || isSubmitting}
           >
-            {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {isSubmitting && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
             Create Manifest
           </Button>
         </DialogFooter>

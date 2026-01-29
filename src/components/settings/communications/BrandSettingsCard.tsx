@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Save, Palette } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { CommunicationBrandSettings } from '@/hooks/useCommunications';
 
 interface BrandSettingsCardProps {
@@ -55,7 +55,7 @@ export function BrandSettingsCard({ brandSettings, onUpdate }: BrandSettingsCard
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Palette className="h-5 w-5 text-primary flex-shrink-0" />
+          <MaterialIcon name="palette" size="md" className="text-primary flex-shrink-0" />
           <div>
             <CardTitle>Brand Settings</CardTitle>
             <CardDescription>
@@ -183,7 +183,7 @@ export function BrandSettingsCard({ brandSettings, onUpdate }: BrandSettingsCard
         {/* Save Button - Full width on mobile */}
         <div className="flex flex-col-reverse sm:flex-row sm:justify-end pt-4 border-t gap-2">
           <Button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto">
-            <Save className="mr-2 h-4 w-4" />
+            <MaterialIcon name="save" size="sm" className="mr-2" />
             {isSaving ? 'Saving...' : 'Save Brand Settings'}
           </Button>
         </div>

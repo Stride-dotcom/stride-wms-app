@@ -27,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Loader2, MoreHorizontal, Pencil, Trash2, Building2, MapPin } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -103,7 +103,7 @@ export function WarehouseList({ warehouses, loading, onEdit, onRefresh }: Wareho
     return (
       <Card>
         <CardContent className="flex items-center justify-center h-48">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <MaterialIcon name="progress_activity" className="animate-spin text-muted-foreground" style={{ fontSize: '32px' }} />
         </CardContent>
       </Card>
     );
@@ -113,7 +113,7 @@ export function WarehouseList({ warehouses, loading, onEdit, onRefresh }: Wareho
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center h-48 text-center">
-          <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
+          <MaterialIcon name="apartment" className="text-muted-foreground mb-4" style={{ fontSize: '48px' }} />
           <h3 className="text-lg font-medium">No warehouses yet</h3>
           <p className="text-muted-foreground text-sm mt-1">
             Get started by adding your first warehouse.
@@ -159,7 +159,7 @@ export function WarehouseList({ warehouses, loading, onEdit, onRefresh }: Wareho
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <MapPin className="h-3.5 w-3.5" />
+                      <MaterialIcon name="location_on" size="sm" />
                       {formatAddress(warehouse)}
                     </div>
                   </TableCell>
@@ -171,20 +171,20 @@ export function WarehouseList({ warehouses, loading, onEdit, onRefresh }: Wareho
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
+                          <MaterialIcon name="more_horiz" size="sm" />
                           <span className="sr-only">Open menu</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => onEdit(warehouse.id)}>
-                          <Pencil className="mr-2 h-4 w-4" />
+                          <MaterialIcon name="edit" size="sm" className="mr-2" />
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive"
                           onClick={() => handleDeleteClick(warehouse)}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" />
+                          <MaterialIcon name="delete" size="sm" className="mr-2" />
                           Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -214,7 +214,7 @@ export function WarehouseList({ warehouses, loading, onEdit, onRefresh }: Wareho
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleting && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

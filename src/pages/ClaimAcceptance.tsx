@@ -5,7 +5,7 @@ import { SettlementTermSheet, ClaimItemSummary } from '@/components/claims/Settl
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 
 interface ClaimData {
@@ -213,7 +213,7 @@ export default function ClaimAcceptance() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
-            <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <MaterialIcon name="error" size="xl" className="text-red-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Unable to Load Claim</h2>
             <p className="text-muted-foreground mb-6">
               {error || 'The claim could not be found. Please check your link and try again.'}
@@ -235,7 +235,7 @@ export default function ClaimAcceptance() {
           <CardContent className="pt-6 text-center">
             {actionComplete === 'accepted' ? (
               <>
-                <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                <MaterialIcon name="check_circle" size="xl" className="text-green-500 mx-auto mb-4" />
                 <h2 className="text-xl font-semibold mb-2">Settlement Accepted</h2>
                 <p className="text-muted-foreground mb-6">
                   Thank you for accepting the settlement for Claim #{claim.claim_number}.
@@ -244,7 +244,7 @@ export default function ClaimAcceptance() {
               </>
             ) : (
               <>
-                <XCircle className="h-16 w-16 text-amber-500 mx-auto mb-4" />
+                <MaterialIcon name="cancel" size="xl" className="text-amber-500 mx-auto mb-4" />
                 <h2 className="text-xl font-semibold mb-2">Response Submitted</h2>
                 <p className="text-muted-foreground mb-6">
                   Your response for Claim #{claim.claim_number} has been recorded.

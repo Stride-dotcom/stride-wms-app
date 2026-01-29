@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, X, ZoomIn } from 'lucide-react';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -97,7 +97,7 @@ export function PhotoGrid({
 
             {/* Hover overlay with actions */}
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <ZoomIn className="h-6 w-6 text-white" />
+              <MaterialIcon name="zoom_in" size="lg" className="text-white" />
             </div>
 
             {/* Action buttons - always visible on touch, hover on desktop */}
@@ -110,7 +110,7 @@ export function PhotoGrid({
                 }}
                 className="p-1.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 shadow-sm"
               >
-                <Download className="h-3 w-3" />
+                <MaterialIcon name="download" className="h-3 w-3" />
               </button>
               {!readonly && onPhotosChange && (
                 <button
@@ -121,7 +121,7 @@ export function PhotoGrid({
                   }}
                   className="p-1.5 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 shadow-sm"
                 >
-                  <X className="h-3 w-3" />
+                  <MaterialIcon name="close" className="h-3 w-3" />
                 </button>
               )}
             </div>
@@ -148,7 +148,7 @@ export function PhotoGrid({
                     handleDownload(lightboxUrl, index >= 0 ? index : 0);
                   }}
                 >
-                  <Download className="h-4 w-4 mr-1" />
+                  <MaterialIcon name="download" size="sm" className="mr-1" />
                   Download
                 </Button>
                 {!readonly && onPhotosChange && (
@@ -160,7 +160,7 @@ export function PhotoGrid({
                       setLightboxUrl(null);
                     }}
                   >
-                    <X className="h-4 w-4 mr-1" />
+                    <MaterialIcon name="close" size="sm" className="mr-1" />
                     Delete
                   </Button>
                 )}
