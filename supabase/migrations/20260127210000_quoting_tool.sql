@@ -1,5 +1,5 @@
 -- Quoting Tool Database Schema
--- Complete implementation for quote creation, management, and acceptance workflow
+-- Uses existing classes and service_events tables for dynamic pricing
 
 -- ============================================================================
 -- SECTION 1: Extend accounts table with billing/tax fields
@@ -74,85 +74,13 @@ BEGIN
 END $$;
 
 -- ============================================================================
--- SECTION 3: Quote Classes (master list for quoting)
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS public.quote_classes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  description TEXT,
-  display_order INTEGER DEFAULT 0,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_quote_classes_tenant ON public.quote_classes(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_quote_classes_active ON public.quote_classes(is_active) WHERE is_active = true;
-
--- ============================================================================
--- SECTION 4: Quote Services (master service catalog)
--- ============================================================================
-
--- Billing unit enum
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'quote_billing_unit') THEN
-    CREATE TYPE quote_billing_unit AS ENUM ('flat', 'per_piece', 'per_line_item', 'per_class', 'per_hour', 'per_day');
-  END IF;
-END $$;
-
-CREATE TABLE IF NOT EXISTS public.quote_services (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-  category TEXT NOT NULL,
-  name TEXT NOT NULL,
-  description TEXT,
-  billing_unit quote_billing_unit NOT NULL DEFAULT 'flat',
-  trigger_label TEXT, -- UI label for grouping
-  is_storage_service BOOLEAN DEFAULT false,
-  is_taxable_default BOOLEAN DEFAULT true,
-  display_order INTEGER DEFAULT 0,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_quote_services_tenant ON public.quote_services(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_quote_services_category ON public.quote_services(category);
-CREATE INDEX IF NOT EXISTS idx_quote_services_active ON public.quote_services(is_active) WHERE is_active = true;
-
--- ============================================================================
--- SECTION 5: Service Rates (billing rates for services)
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS public.quote_service_rates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-  service_id UUID NOT NULL REFERENCES public.quote_services(id) ON DELETE CASCADE,
-  class_id UUID REFERENCES public.quote_classes(id) ON DELETE SET NULL, -- Optional: class-specific rate
-  rate_amount NUMERIC(12,2) NOT NULL,
-  currency TEXT DEFAULT 'USD',
-  effective_date DATE DEFAULT CURRENT_DATE,
-  is_current BOOLEAN DEFAULT true,
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_quote_service_rates_tenant ON public.quote_service_rates(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_quote_service_rates_service ON public.quote_service_rates(service_id);
-CREATE INDEX IF NOT EXISTS idx_quote_service_rates_current ON public.quote_service_rates(is_current) WHERE is_current = true;
-
--- ============================================================================
--- SECTION 6: Quote Number Sequence
+-- SECTION 3: Quote Number Sequence
 -- ============================================================================
 
 CREATE SEQUENCE IF NOT EXISTS quote_number_seq START WITH 1 INCREMENT BY 1;
 
 -- ============================================================================
--- SECTION 7: Quotes (main quote table)
+-- SECTION 4: Quotes (main quote table)
 -- ============================================================================
 
 -- Quote status enum
@@ -237,13 +165,14 @@ CREATE INDEX IF NOT EXISTS idx_quotes_magic_link ON public.quotes(magic_link_tok
 CREATE INDEX IF NOT EXISTS idx_quotes_expiration ON public.quotes(expiration_date);
 
 -- ============================================================================
--- SECTION 8: Quote Class Lines (quantities per class)
+-- SECTION 5: Quote Class Lines (quantities per class)
+-- References existing classes table
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS public.quote_class_lines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   quote_id UUID NOT NULL REFERENCES public.quotes(id) ON DELETE CASCADE,
-  class_id UUID NOT NULL REFERENCES public.quote_classes(id) ON DELETE RESTRICT,
+  class_id UUID NOT NULL REFERENCES public.classes(id) ON DELETE RESTRICT,
   qty INTEGER DEFAULT 0,
 
   -- Per-line discount/markup
@@ -263,13 +192,14 @@ CREATE TABLE IF NOT EXISTS public.quote_class_lines (
 CREATE INDEX IF NOT EXISTS idx_quote_class_lines_quote ON public.quote_class_lines(quote_id);
 
 -- ============================================================================
--- SECTION 9: Quote Selected Services
+-- SECTION 6: Quote Selected Services
+-- References existing service_events table (Price List)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS public.quote_selected_services (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   quote_id UUID NOT NULL REFERENCES public.quotes(id) ON DELETE CASCADE,
-  service_id UUID NOT NULL REFERENCES public.quote_services(id) ON DELETE RESTRICT,
+  service_id UUID NOT NULL REFERENCES public.service_events(id) ON DELETE RESTRICT,
   is_selected BOOLEAN DEFAULT true,
 
   -- Hours input (for per_hour services)
@@ -289,14 +219,15 @@ CREATE TABLE IF NOT EXISTS public.quote_selected_services (
 CREATE INDEX IF NOT EXISTS idx_quote_selected_services_quote ON public.quote_selected_services(quote_id);
 
 -- ============================================================================
--- SECTION 10: Quote Rate Overrides
+-- SECTION 7: Quote Rate Overrides
+-- References existing service_events and classes tables
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS public.quote_rate_overrides (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   quote_id UUID NOT NULL REFERENCES public.quotes(id) ON DELETE CASCADE,
-  service_id UUID NOT NULL REFERENCES public.quote_services(id) ON DELETE CASCADE,
-  class_id UUID REFERENCES public.quote_classes(id) ON DELETE SET NULL, -- Optional class-specific override
+  service_id UUID NOT NULL REFERENCES public.service_events(id) ON DELETE CASCADE,
+  class_id UUID REFERENCES public.classes(id) ON DELETE SET NULL, -- Optional class-specific override
   override_rate_amount NUMERIC(12,2) NOT NULL,
   reason TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -307,7 +238,28 @@ CREATE TABLE IF NOT EXISTS public.quote_rate_overrides (
 CREATE INDEX IF NOT EXISTS idx_quote_rate_overrides_quote ON public.quote_rate_overrides(quote_id);
 
 -- ============================================================================
--- SECTION 11: Quote Events (audit log)
+-- SECTION 8: Quote Class Service Selections
+-- Stores per-class service selections and qty overrides
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.quote_class_service_selections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  quote_id UUID NOT NULL REFERENCES public.quotes(id) ON DELETE CASCADE,
+  class_id UUID NOT NULL REFERENCES public.classes(id) ON DELETE RESTRICT,
+  service_id UUID NOT NULL REFERENCES public.service_events(id) ON DELETE RESTRICT,
+  is_selected BOOLEAN DEFAULT true,
+  qty_override NUMERIC(10,2), -- Optional override for service qty per class
+
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+
+  UNIQUE(quote_id, class_id, service_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_quote_class_service_selections_quote ON public.quote_class_service_selections(quote_id);
+
+-- ============================================================================
+-- SECTION 9: Quote Events (audit log)
 -- ============================================================================
 
 -- Quote event type enum
@@ -337,7 +289,7 @@ CREATE INDEX IF NOT EXISTS idx_quote_events_type ON public.quote_events(event_ty
 CREATE INDEX IF NOT EXISTS idx_quote_events_created ON public.quote_events(created_at);
 
 -- ============================================================================
--- SECTION 12: Global Edit Locks (concurrency control)
+-- SECTION 10: Global Edit Locks (concurrency control)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS public.edit_locks (
@@ -357,61 +309,17 @@ CREATE INDEX IF NOT EXISTS idx_edit_locks_resource ON public.edit_locks(resource
 CREATE INDEX IF NOT EXISTS idx_edit_locks_user ON public.edit_locks(locked_by);
 
 -- ============================================================================
--- SECTION 13: RLS Policies
+-- SECTION 11: RLS Policies
 -- ============================================================================
 
 -- Enable RLS
-ALTER TABLE public.quote_classes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.quote_services ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.quote_service_rates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quotes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quote_class_lines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quote_selected_services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quote_rate_overrides ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quote_class_service_selections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quote_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.edit_locks ENABLE ROW LEVEL SECURITY;
-
--- Quote Classes RLS
-DROP POLICY IF EXISTS "Users can view quote classes in their tenant" ON public.quote_classes;
-CREATE POLICY "Users can view quote classes in their tenant"
-  ON public.quote_classes FOR SELECT
-  TO authenticated
-  USING (tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid()));
-
-DROP POLICY IF EXISTS "Admins can manage quote classes" ON public.quote_classes;
-CREATE POLICY "Admins can manage quote classes"
-  ON public.quote_classes FOR ALL
-  TO authenticated
-  USING (tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid()))
-  WITH CHECK (tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid()));
-
--- Quote Services RLS
-DROP POLICY IF EXISTS "Users can view quote services in their tenant" ON public.quote_services;
-CREATE POLICY "Users can view quote services in their tenant"
-  ON public.quote_services FOR SELECT
-  TO authenticated
-  USING (tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid()));
-
-DROP POLICY IF EXISTS "Admins can manage quote services" ON public.quote_services;
-CREATE POLICY "Admins can manage quote services"
-  ON public.quote_services FOR ALL
-  TO authenticated
-  USING (tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid()))
-  WITH CHECK (tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid()));
-
--- Quote Service Rates RLS
-DROP POLICY IF EXISTS "Users can view quote service rates in their tenant" ON public.quote_service_rates;
-CREATE POLICY "Users can view quote service rates in their tenant"
-  ON public.quote_service_rates FOR SELECT
-  TO authenticated
-  USING (tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid()));
-
-DROP POLICY IF EXISTS "Admins can manage quote service rates" ON public.quote_service_rates;
-CREATE POLICY "Admins can manage quote service rates"
-  ON public.quote_service_rates FOR ALL
-  TO authenticated
-  USING (tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid()))
-  WITH CHECK (tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid()));
 
 -- Quotes RLS
 DROP POLICY IF EXISTS "Users can view quotes in their tenant" ON public.quotes;
@@ -458,6 +366,14 @@ CREATE POLICY "Users can manage quote rate overrides"
   USING (quote_id IN (SELECT id FROM public.quotes WHERE tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())))
   WITH CHECK (quote_id IN (SELECT id FROM public.quotes WHERE tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())));
 
+-- Quote Class Service Selections RLS
+DROP POLICY IF EXISTS "Users can manage quote class service selections" ON public.quote_class_service_selections;
+CREATE POLICY "Users can manage quote class service selections"
+  ON public.quote_class_service_selections FOR ALL
+  TO authenticated
+  USING (quote_id IN (SELECT id FROM public.quotes WHERE tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())))
+  WITH CHECK (quote_id IN (SELECT id FROM public.quotes WHERE tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())));
+
 -- Quote Events RLS
 DROP POLICY IF EXISTS "Users can view quote events in their tenant" ON public.quote_events;
 CREATE POLICY "Users can view quote events in their tenant"
@@ -493,7 +409,7 @@ CREATE POLICY "Users can manage edit locks in their tenant"
   WITH CHECK (tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid()));
 
 -- ============================================================================
--- SECTION 14: Helper Functions
+-- SECTION 12: Helper Functions
 -- ============================================================================
 
 -- Function to generate next quote number
@@ -530,24 +446,6 @@ CREATE TRIGGER set_quotes_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION set_quote_updated_at();
 
-DROP TRIGGER IF EXISTS set_quote_classes_updated_at ON public.quote_classes;
-CREATE TRIGGER set_quote_classes_updated_at
-  BEFORE UPDATE ON public.quote_classes
-  FOR EACH ROW
-  EXECUTE FUNCTION set_quote_updated_at();
-
-DROP TRIGGER IF EXISTS set_quote_services_updated_at ON public.quote_services;
-CREATE TRIGGER set_quote_services_updated_at
-  BEFORE UPDATE ON public.quote_services
-  FOR EACH ROW
-  EXECUTE FUNCTION set_quote_updated_at();
-
-DROP TRIGGER IF EXISTS set_quote_service_rates_updated_at ON public.quote_service_rates;
-CREATE TRIGGER set_quote_service_rates_updated_at
-  BEFORE UPDATE ON public.quote_service_rates
-  FOR EACH ROW
-  EXECUTE FUNCTION set_quote_updated_at();
-
 DROP TRIGGER IF EXISTS set_quote_class_lines_updated_at ON public.quote_class_lines;
 CREATE TRIGGER set_quote_class_lines_updated_at
   BEFORE UPDATE ON public.quote_class_lines
@@ -560,17 +458,21 @@ CREATE TRIGGER set_quote_selected_services_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION set_quote_updated_at();
 
+DROP TRIGGER IF EXISTS set_quote_class_service_selections_updated_at ON public.quote_class_service_selections;
+CREATE TRIGGER set_quote_class_service_selections_updated_at
+  BEFORE UPDATE ON public.quote_class_service_selections
+  FOR EACH ROW
+  EXECUTE FUNCTION set_quote_updated_at();
+
 -- ============================================================================
--- SECTION 15: Comments
+-- SECTION 13: Comments
 -- ============================================================================
 
-COMMENT ON TABLE public.quote_classes IS 'Master list of item classes/categories for quoting';
-COMMENT ON TABLE public.quote_services IS 'Master catalog of services available for quotes';
-COMMENT ON TABLE public.quote_service_rates IS 'Billing rates for quote services, optionally class-specific';
 COMMENT ON TABLE public.quotes IS 'Quote records with status tracking and magic link acceptance';
-COMMENT ON TABLE public.quote_class_lines IS 'Quantities per class in a quote';
-COMMENT ON TABLE public.quote_selected_services IS 'Services selected for a quote with computed totals';
+COMMENT ON TABLE public.quote_class_lines IS 'Quantities per class in a quote - references classes table';
+COMMENT ON TABLE public.quote_selected_services IS 'Services selected for a quote - references service_events (Price List)';
 COMMENT ON TABLE public.quote_rate_overrides IS 'Per-quote rate overrides for services';
+COMMENT ON TABLE public.quote_class_service_selections IS 'Per-class service selections with optional qty overrides';
 COMMENT ON TABLE public.quote_events IS 'Audit log of all quote-related events';
 COMMENT ON TABLE public.edit_locks IS 'Global concurrency locking for edit operations';
 COMMENT ON FUNCTION generate_quote_number() IS 'Generates sequential quote numbers in format EST-00001';
