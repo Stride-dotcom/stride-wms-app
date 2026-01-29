@@ -24,6 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
 import { useClasses } from '@/hooks/useClasses';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useWarehouses } from '@/hooks/useWarehouses';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
@@ -43,6 +44,7 @@ export function AddItemDialog({
   const { profile } = useAuth();
   const { classes } = useClasses();
   const { accounts } = useAccounts();
+  const { warehouses } = useWarehouses();
   const [saving, setSaving] = useState(false);
 
   // Form state
@@ -85,8 +87,15 @@ export function AddItemDialog({
       const random = Math.random().toString(36).substring(2, 5).toUpperCase();
       const itemCode = `${prefix}-${timestamp}-${random}`;
 
-      const { error } = await (supabase as any).from('items').insert({
+      // Get default warehouse
+      const defaultWarehouseId = warehouses?.[0]?.id;
+      if (!defaultWarehouseId) {
+        throw new Error('No warehouse configured. Please add a warehouse first.');
+      }
+
+      const { data: newItem, error } = await supabase.from('items').insert([{
         tenant_id: profile.tenant_id,
+        warehouse_id: defaultWarehouseId,
         item_code: itemCode,
         description: description || null,
         vendor: vendor || null,
@@ -95,11 +104,20 @@ export function AddItemDialog({
         item_type_id: itemTypeId || null,
         quantity: parseInt(quantity, 10) || 1,
         room: room || null,
-        notes: notes || null,
         status: 'in_storage',
-      });
+      }]).select('id').single();
 
       if (error) throw error;
+
+      // Add notes to item_notes table if provided
+      if (notes && newItem?.id) {
+        await supabase.from('item_notes').insert([{
+          item_id: newItem.id,
+          note: notes,
+          visibility: 'internal',
+          created_by: profile.id,
+        }]);
+      }
 
       // Add suggestions for autocomplete
       if (vendor) addVendorSuggestion(vendor);
