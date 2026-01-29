@@ -234,7 +234,7 @@ export default function Shipments() {
       description: 'Track pending deliveries and manage receiving',
       count: counts.incoming,
       emoji: '📦',
-      countColor: 'text-emerald-600 dark:text-emerald-400',
+      countColor: 'text-orange-500 dark:text-orange-400',
       href: '/shipments/incoming',
     },
     {

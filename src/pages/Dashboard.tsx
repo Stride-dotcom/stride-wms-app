@@ -98,7 +98,7 @@ export default function Dashboard() {
         urgent: stats.incomingShipmentsUrgentCount,
         description: 'Expected / not received',
         bgColor: 'bg-card border border-border shadow-sm',
-        countColor: 'text-emerald-600 dark:text-emerald-400',
+        countColor: 'text-orange-500 dark:text-orange-400',
         onClick: () => navigate('/shipments/incoming'),
       },
       {
