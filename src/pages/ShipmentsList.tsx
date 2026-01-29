@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MobileDataCard } from '@/components/ui/mobile-data-card';
+import { AddShipmentDialog } from '@/components/shipments/AddShipmentDialog';
 import { Loader2, Plus, Search, Package, ArrowDownToLine, ArrowUpFromLine, CheckCircle, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -65,6 +66,7 @@ export default function ShipmentsList() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [accountFilter, setAccountFilter] = useState<string>('all');
   const [carrierFilter, setCarrierFilter] = useState<string>('all');
+  const [addShipmentDialogOpen, setAddShipmentDialogOpen] = useState(false);
 
   const deriveTabFromRoute = (): TabValue => {
     const last = location.pathname.split('/').pop();
@@ -117,7 +119,7 @@ export default function ShipmentsList() {
           case 'incoming':
             query = query
               .eq('shipment_type', 'inbound')
-              .in('status', ['expected', 'in_progress']);
+              .in('status', ['expected', 'in_progress', 'receiving']);
             break;
           case 'outbound':
             query = query
@@ -239,6 +241,7 @@ export default function ShipmentsList() {
       expected: 'secondary',
       pending: 'secondary',
       in_progress: 'default',
+      receiving: 'default',
       received: 'default',
       released: 'default',
       shipped: 'default',
@@ -250,6 +253,7 @@ export default function ShipmentsList() {
       shipped: 'Shipped',
       expected: 'Expected',
       in_progress: 'In Progress',
+      receiving: 'In Progress',
       received: 'Received',
       released: 'Released',
       completed: 'Completed',
@@ -280,19 +284,10 @@ export default function ShipmentsList() {
               ? 'Try adjusting your filters'
               : 'Create a new shipment to get started'}
           </p>
-          {activeTab === 'incoming' && (
-            <Button onClick={() => navigate('/shipments/create')}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Shipment
-            </Button>
-          )}
-          {activeTab === 'outbound' && (
-            <Button onClick={() => navigate('/shipments/outbound/new')}>
-              <Plus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Create Outbound</span>
-              <span className="sm:hidden">Outbound</span>
-            </Button>
-          )}
+          <Button onClick={() => setAddShipmentDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Shipment
+          </Button>
         </div>
       );
     }
@@ -398,20 +393,11 @@ export default function ShipmentsList() {
   // Render
   // ------------------------------------------
   const getCreateButton = () => {
-    if (activeTab === 'outbound') {
-      return (
-        <Button onClick={() => navigate('/shipments/outbound/new')}>
-          <Plus className="h-4 w-4 sm:mr-2" />
-          <span className="hidden sm:inline">Create Outbound</span>
-          <span className="sm:hidden">Outbound</span>
-        </Button>
-      );
-    }
     return (
-      <Button onClick={() => navigate('/shipments/create')}>
+      <Button onClick={() => setAddShipmentDialogOpen(true)}>
         <Plus className="h-4 w-4 sm:mr-2" />
-        <span className="hidden sm:inline">New Shipment</span>
-        <span className="sm:hidden">Shipment</span>
+        <span className="hidden sm:inline">Add Shipment</span>
+        <span className="sm:hidden">Add</span>
       </Button>
     );
   };
@@ -507,6 +493,12 @@ export default function ShipmentsList() {
           </CardContent>
         </Card>
       </Tabs>
+
+      {/* Add Shipment Dialog */}
+      <AddShipmentDialog
+        open={addShipmentDialogOpen}
+        onOpenChange={setAddShipmentDialogOpen}
+      />
     </DashboardLayout>
   );
 }
