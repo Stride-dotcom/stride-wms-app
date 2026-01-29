@@ -109,29 +109,57 @@ export default function QuoteBuilder() {
   const [sendName, setSendName] = useState('');
   const [sending, setSending] = useState(false);
 
-  // Main row services: Daily storage services (per-day billing) shown as columns in the class table
-  // These are dynamically identified by billing_unit === 'per_day'
+  // Define the order and pattern matching for main row services
+  // These are the services that appear as columns in the class table (in order)
+  const MAIN_ROW_SERVICE_PATTERNS = [
+    { pattern: /receiv/i, label: 'Receiving' },
+    { pattern: /inspect/i, label: 'Inspection' },
+    { pattern: /pull.?prep/i, label: 'Pull Prep' },
+    { pattern: /will.?call/i, label: 'Will Call' },
+    { pattern: /disposal/i, label: 'Disposal' },
+    { pattern: /return/i, label: 'Returns' },
+    { pattern: /sit.?test/i, label: 'Sit Test' },
+  ];
+
+  // Main row services: Specific services shown as columns (no storage services)
+  // Matched by name pattern and ordered as specified
   const mainRowServices = useMemo(() => {
-    return classBasedServices
-      .filter(s => s.billing_unit === 'per_day')
-      .map(service => ({
-        code: service.service_code,
-        label: service.name,
-        service,
-      }));
+    const result: { code: string; label: string; service: typeof classBasedServices[0] }[] = [];
+
+    for (const { pattern, label } of MAIN_ROW_SERVICE_PATTERNS) {
+      const service = classBasedServices.find(s =>
+        pattern.test(s.name) || pattern.test(s.service_code || '')
+      );
+      if (service) {
+        result.push({
+          code: service.service_code || service.id,
+          label: label,
+          service,
+        });
+      }
+    }
+
+    return result;
   }, [classBasedServices]);
 
-  // Expanded services: All other class-based services (shown when row is expanded)
-  // This includes short-term storage and other services not billed per-day
+  // Storage services: Services billed per-day (for the Storage Duration section)
+  const storageServiceList = useMemo(() => {
+    return classBasedServices.filter(s => s.billing_unit === 'per_day');
+  }, [classBasedServices]);
+
+  // Expanded services: All other class-based services not in main row or storage
   const expandedServices = useMemo(() => {
+    const mainRowIds = new Set(mainRowServices.map(s => s.service.id));
+    const storageIds = new Set(storageServiceList.map(s => s.id));
+
     return classBasedServices
-      .filter(s => s.billing_unit !== 'per_day')
+      .filter(s => !mainRowIds.has(s.id) && !storageIds.has(s.id))
       .map(service => ({
-        code: service.service_code,
+        code: service.service_code || service.id,
         label: service.name,
         service,
       }));
-  }, [classBasedServices]);
+  }, [classBasedServices, mainRowServices, storageServiceList]);
 
   // All non-class-based services from Price List (dynamically fetched)
   // These are flat-rate services that don't vary by class
@@ -956,18 +984,19 @@ export default function QuoteBuilder() {
               </Card>
             )}
 
-            {/* Storage Duration */}
+            {/* Storage Duration & Rates */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <MaterialIcon name="schedule" size="md" />
-                  Storage Duration
+                  <MaterialIcon name="warehouse" size="md" />
+                  Storage
                 </CardTitle>
                 <CardDescription>
-                  Enter the storage period. This multiplies with any storage services (per-day billing) selected above.
+                  Enter storage duration and select storage rates per class. Rates are pulled from your Price List.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {/* Duration inputs */}
                 <div className="flex items-center gap-4">
                   <div className="flex-1 space-y-2">
                     <Label>Days</Label>
@@ -1007,6 +1036,77 @@ export default function QuoteBuilder() {
                     </div>
                   </div>
                 </div>
+
+                {/* Storage services per class */}
+                {storageServiceList.length > 0 && classes.length > 0 && (
+                  <div className="border-t pt-4 mt-4">
+                    <div className="text-sm font-medium mb-3">Storage Rates by Class</div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="px-2 py-2 text-left font-medium">Class</th>
+                            {storageServiceList.map((service) => (
+                              <th key={service.id} className="px-2 py-2 text-center font-medium min-w-[120px]">
+                                {service.name}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {classes.map((cls) => {
+                            const line = formData.class_lines.find((l) => l.class_id === cls.id);
+                            const classQty = line?.qty || 0;
+
+                            return (
+                              <tr key={cls.id} className={`border-b ${classQty > 0 ? 'bg-primary/5' : ''}`}>
+                                <td className="px-2 py-2 font-medium">{cls.name}</td>
+                                {storageServiceList.map((service) => {
+                                  const selection = getClassServiceSelection(cls.id, service.id);
+                                  const isSelected = selection?.is_selected || false;
+                                  const qty = selection?.qty_override;
+
+                                  return (
+                                    <td key={service.id} className="px-2 py-2">
+                                      <div className="flex items-center gap-1 justify-center">
+                                        <Checkbox
+                                          checked={isSelected}
+                                          onCheckedChange={() => toggleClassServiceCheckbox(cls.id, service.id, classQty)}
+                                          disabled={!canEdit}
+                                          className="mr-1"
+                                        />
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          step="0.1"
+                                          value={qty ?? ''}
+                                          onChange={(e) => updateClassServiceQty(cls.id, service.id, e.target.value ? parseFloat(e.target.value) : null)}
+                                          disabled={!canEdit}
+                                          className="w-14 h-7 text-center text-sm"
+                                          placeholder="0"
+                                        />
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Storage is calculated as: Qty × {computeStorageDays(formData.storage_months_input, formData.storage_days_input)} days × rate per day
+                    </p>
+                  </div>
+                )}
+
+                {storageServiceList.length === 0 && (
+                  <div className="text-center py-4 text-muted-foreground text-sm border-t pt-4 mt-4">
+                    <MaterialIcon name="info" size="sm" className="mr-1" />
+                    No storage services found in your Price List. Add services with "Day" billing unit.
+                  </div>
+                )}
               </CardContent>
             </Card>
 
