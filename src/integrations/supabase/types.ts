@@ -201,6 +201,48 @@ export type Database = {
           },
         ]
       }
+      account_promo_codes: {
+        Row: {
+          account_id: string
+          assigned_at: string
+          assigned_by: string | null
+          id: string
+          notes: string | null
+          promo_code_id: string
+        }
+        Insert: {
+          account_id: string
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          notes?: string | null
+          promo_code_id: string
+        }
+        Update: {
+          account_id?: string
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          notes?: string | null
+          promo_code_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_promo_codes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_promo_codes_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_rate_overrides: {
         Row: {
           account_id: string
@@ -5550,6 +5592,65 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_code_usages: {
+        Row: {
+          billing_event_id: string | null
+          id: string
+          promo_code_id: string
+          root_account_id: string
+          used_at: string
+          used_by: string | null
+          used_by_account_id: string
+        }
+        Insert: {
+          billing_event_id?: string | null
+          id?: string
+          promo_code_id: string
+          root_account_id: string
+          used_at?: string
+          used_by?: string | null
+          used_by_account_id: string
+        }
+        Update: {
+          billing_event_id?: string | null
+          id?: string
+          promo_code_id?: string
+          root_account_id?: string
+          used_at?: string
+          used_by?: string | null
+          used_by_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_code_usages_billing_event_id_fkey"
+            columns: ["billing_event_id"]
+            isOneToOne: true
+            referencedRelation: "billing_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_code_usages_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_code_usages_root_account_id_fkey"
+            columns: ["root_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_code_usages_used_by_account_id_fkey"
+            columns: ["used_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
         ]

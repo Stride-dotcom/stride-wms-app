@@ -408,7 +408,9 @@ Located at `/billing/reports`, provides:
 | Receiving Billing | `src/hooks/useReceivingSession.ts` |
 | Outbound Billing | `src/hooks/useOutbound.ts` |
 | Billing Event Creator | `src/lib/billing/createBillingEvent.ts` |
-| Rate Lookup | `src/hooks/useServiceEvents.ts` |
+| Rate Lookup (shared) | `src/lib/billing/billingCalculation.ts` |
+| Billing Calculator | `src/components/billing/BillingCalculator.tsx` |
+| Promo Code Utils | `src/lib/billing/promoCodeUtils.ts` |
 
 ---
 
@@ -430,5 +432,5 @@ All billing events reference:
 
 ---
 
-*Document generated: January 29, 2026*
+*Document updated: January 30, 2026*
 *Stride WMS Version: Current*
