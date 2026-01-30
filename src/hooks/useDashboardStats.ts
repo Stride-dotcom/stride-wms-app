@@ -21,6 +21,7 @@ export interface DashboardStats {
   assemblyTimeEstimate: number;
   repairTimeEstimate: number;
   putAwayTimeEstimate: number;
+  incomingShipmentsTimeEstimate: number;
 }
 
 export interface TaskItem {
@@ -77,6 +78,7 @@ export function useDashboardStats() {
     assemblyTimeEstimate: 0,
     repairTimeEstimate: 0,
     putAwayTimeEstimate: 0,
+    incomingShipmentsTimeEstimate: 0,
   });
   const [inspectionTasks, setInspectionTasks] = useState<TaskItem[]>([]);
   const [assemblyTasks, setAssemblyTasks] = useState<TaskItem[]>([]);
@@ -254,7 +256,7 @@ export function useDashboardStats() {
         .select('service_code, class_code, service_time_minutes')
         .eq('tenant_id', profile.tenant_id)
         .eq('is_active', true)
-        .in('service_code', ['INSP', 'Assembly', '5MA', '15MA', '30MA', '45MA', '60MA', '90MA', '120MA', 'Repair', 'PUT_AWAY', 'PUTAWAY']);
+        .in('service_code', ['INSP', 'Assembly', '5MA', '15MA', '30MA', '45MA', '60MA', '90MA', '120MA', 'Repair', 'PUT_AWAY', 'PUTAWAY', 'RECEIVING', '1HRO']);
 
       // Create lookup for service times (use average if multiple class variants)
       const serviceTimeLookup: Record<string, number> = {};
@@ -288,13 +290,17 @@ export function useDashboardStats() {
         : 30; // default 30 min
       const assemblyTimeEstimate = (assemblyCount || 0) * assemblyAvgTime;
 
-      // For repair
-      const repairAvgTime = serviceTimeLookup['Repair'] || 45; // default 45 min
+      // For repair - use 1HRO (1 Hour Response) service time
+      const repairAvgTime = serviceTimeLookup['1HRO'] || 60; // default 60 min (1 hour)
       const repairTimeEstimate = (repairCount || 0) * repairAvgTime;
 
       // For put away - look for PUT_AWAY or PUTAWAY service code
       const putAwayAvgTime = serviceTimeLookup['PUT_AWAY'] || serviceTimeLookup['PUTAWAY'] || 2; // default 2 min per item
       const putAwayTimeEstimate = putAwayCount * putAwayAvgTime;
+
+      // For incoming shipments - use RECEIVING service time
+      const receivingAvgTime = serviceTimeLookup['RECEIVING'] || 5; // default 5 min per shipment
+      const incomingShipmentsTimeEstimate = (shipmentCount || 0) * receivingAvgTime;
 
       setStats({
         needToInspect: inspectCount || 0,
@@ -313,6 +319,7 @@ export function useDashboardStats() {
         assemblyTimeEstimate,
         repairTimeEstimate,
         putAwayTimeEstimate,
+        incomingShipmentsTimeEstimate,
       });
 
       setInspectionTasks(inspections || []);
