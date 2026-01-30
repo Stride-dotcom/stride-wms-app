@@ -290,6 +290,30 @@ export function ShipmentItemRow({
     }, 200);
   }, [item.item_id, saveField, saveReceivedItemField]);
 
+  // Handle class change - save immediately for live pricing update
+  const handleClassChange = useCallback((value: string) => {
+    setSelectedClass(value);
+    selectedClassRef.current = value;
+
+    // Clear any pending blur timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Save immediately when a valid class is selected (not when clearing/typing)
+    const matchedClass = classes.find(c => c.code === value);
+    if (matchedClass) {
+      // Debounce slightly to avoid rapid saves while typing
+      saveTimeoutRef.current = setTimeout(() => {
+        if (item.item_id) {
+          saveReceivedItemField('class', value);
+        } else {
+          saveField('class', value);
+        }
+      }, 100);
+    }
+  }, [classes, item.item_id, saveField, saveReceivedItemField]);
+
   const handleFlagToggle = async (service: ServiceEvent, currentlyEnabled: boolean) => {
     if (!item.item_id || !profile?.tenant_id) return;
     setUpdatingFlag(service.service_code);
@@ -472,8 +496,7 @@ export function ShipmentItemRow({
           {(canEditPending || canEditReceived) ? (
             <AutocompleteInput
               value={selectedClass}
-              onChange={(value) => setSelectedClass(value)}
-              onBlur={() => handleBlur('class', selectedClass)}
+              onChange={handleClassChange}
               suggestions={classes.map(c => ({ value: c.code, label: `${c.code} - ${c.name}` }))}
               placeholder="Class"
               className="h-7 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
