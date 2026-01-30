@@ -2479,6 +2479,7 @@ export type Database = {
           spf_verified: boolean | null
           tenant_id: string
           updated_at: string
+          use_default_email: boolean | null
         }
         Insert: {
           brand_logo_url?: string | null
@@ -2501,6 +2502,7 @@ export type Database = {
           spf_verified?: boolean | null
           tenant_id: string
           updated_at?: string
+          use_default_email?: boolean | null
         }
         Update: {
           brand_logo_url?: string | null
@@ -2523,6 +2525,7 @@ export type Database = {
           spf_verified?: boolean | null
           tenant_id?: string
           updated_at?: string
+          use_default_email?: boolean | null
         }
         Relationships: [
           {
