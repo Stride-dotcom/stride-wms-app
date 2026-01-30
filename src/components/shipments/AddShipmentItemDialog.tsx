@@ -73,6 +73,11 @@ export function AddShipmentItemDialog({
       return;
     }
 
+    if (!selectedClass.trim()) {
+      toast({ title: 'Class required', variant: 'destructive' });
+      return;
+    }
+
     setSaving(true);
     try {
       // Find the class ID from the selected code
@@ -163,7 +168,7 @@ export function AddShipmentItemDialog({
             <AutocompleteInput
               value={description}
               onChange={setDescription}
-              suggestions={descriptionSuggestions}
+              suggestions={descriptionSuggestions.map(s => ({ value: s.value, label: s.value }))}
               placeholder="e.g., Leather Sofa, 3-Seater"
             />
           </div>
@@ -192,7 +197,7 @@ export function AddShipmentItemDialog({
 
           <div className="grid gap-4 grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="class">Class</Label>
+              <Label htmlFor="class">Class *</Label>
               <AutocompleteInput
                 value={selectedClass}
                 onChange={setSelectedClass}
