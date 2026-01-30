@@ -209,6 +209,14 @@ export function BillingChargesSection({
 
       // For tasks, get task_items with their class codes
       if (taskId && serviceCode) {
+        // First fetch all classes to map class_id to code
+        const { data: allClasses } = await (supabase
+          .from('classes') as any)
+          .select('id, code')
+          .eq('tenant_id', profile.tenant_id);
+
+        const classMap = new Map((allClasses || []).map((c: any) => [c.id, c.code]));
+
         const { data: taskItems, error } = await (supabase
           .from('task_items') as any)
           .select(`
@@ -217,8 +225,7 @@ export function BillingChargesSection({
             item:items!task_items_item_id_fkey(
               id,
               item_code,
-              class_id,
-              class:classes(code)
+              class_id
             )
           `)
           .eq('task_id', taskId);
@@ -241,7 +248,7 @@ export function BillingChargesSection({
 
         // Look up rate for each unique item based on its class
         for (const taskItem of uniqueTaskItems) {
-          const classCode = taskItem.item?.class?.code || null;
+          const classCode = taskItem.item?.class_id ? classMap.get(taskItem.item.class_id) : null;
           const quantity = taskItem.quantity || 1;
 
           // Get rate from service_events using class-based lookup
@@ -273,17 +280,25 @@ export function BillingChargesSection({
           return;
         }
 
+        // Fetch all classes to map class_id to code
+        const { data: allClasses } = await (supabase
+          .from('classes') as any)
+          .select('id, code')
+          .eq('tenant_id', profile.tenant_id);
+
+        const classMap = new Map((allClasses || []).map((c: any) => [c.id, c.code]));
+
         const { data: shipmentItems, error } = await (supabase
           .from('shipment_items') as any)
           .select(`
             id,
             expected_quantity,
             actual_quantity,
+            expected_class_id,
             item:items!shipment_items_item_id_fkey(
               id,
               item_code,
-              class_id,
-              class:classes(code)
+              class_id
             )
           `)
           .eq('shipment_id', shipmentId);
@@ -295,7 +310,9 @@ export function BillingChargesSection({
 
         // Look up rate for each item based on its class
         for (const shipmentItem of shipmentItems || []) {
-          const classCode = shipmentItem.item?.class?.code || null;
+          // Use item's class_id if received, otherwise use expected_class_id
+          const classId = shipmentItem.item?.class_id || shipmentItem.expected_class_id;
+          const classCode = classId ? classMap.get(classId) : null;
           const quantity = shipmentItem.actual_quantity || shipmentItem.expected_quantity || 1;
 
           // Get rate from service_events using class-based lookup

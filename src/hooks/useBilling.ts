@@ -286,6 +286,13 @@ export function useBillableCharges(
             'returns': 'Returns',
           };
 
+          // Fetch all classes for mapping class_id to code
+          const { data: allClasses } = await supabase
+            .from('classes')
+            .select('id, code')
+            .eq('tenant_id', profile.tenant_id);
+          const classMap = new Map((allClasses || []).map((c: any) => [c.id, c.code]));
+
           // Get task items with their class codes for rate lookup from Price List
           for (const task of tasks) {
             const { data: taskItems } = await supabase
@@ -296,15 +303,15 @@ export function useBillableCharges(
                 item_id,
                 items:item_id (
                   item_code,
-                  class_id,
-                  class:classes(code)
+                  class_id
                 )
               `)
               .eq('task_id', task.id);
 
             if (taskItems && taskItems.length > 0) {
               for (const taskItem of taskItems) {
-                const classCode = (taskItem.items as any)?.class?.code || null;
+                const classId = (taskItem.items as any)?.class_id || null;
+                const classCode = classId ? classMap.get(classId) : null;
                 const serviceCode = taskTypeToServiceCode[task.task_type.toLowerCase()] || null;
                 let rate = 0;
 
@@ -375,6 +382,13 @@ export function useBillableCharges(
 
         const freeStorageDays = preferences?.free_storage_days || 0;
 
+        // Fetch all classes for mapping class_id to code (for storage rate lookup)
+        const { data: storageClasses } = await supabase
+          .from('classes')
+          .select('id, code')
+          .eq('tenant_id', profile.tenant_id);
+        const storageClassMap = new Map((storageClasses || []).map((c: any) => [c.id, c.code]));
+
         // Get items that were in active stock during the billing period
         // Active = received_at <= periodEnd AND (released_at IS NULL OR released_at >= periodStart)
         // Use class for storage rate lookup from Price List
@@ -388,8 +402,7 @@ export function useBillableCharges(
             released_at,
             account_id,
             accounts:account_id (account_name),
-            class_id,
-            class:classes(code)
+            class_id
           `)
           .eq('tenant_id', profile.tenant_id)
           .in('account_id', accountIds)
@@ -401,7 +414,7 @@ export function useBillableCharges(
           const periodEndDate = new Date(periodEnd);
 
           for (const item of items) {
-            const classCode = (item as any).class?.code || null;
+            const classCode = item.class_id ? storageClassMap.get(item.class_id) : null;
 
             // Look up storage rate from service_events (Price List)
             let dailyRate = 0;

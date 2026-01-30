@@ -60,13 +60,9 @@ interface ShipmentItem {
     vendor: string | null;
     sidemark: string | null;
     room: string | null;
+    class_id: string | null;
     current_location?: { code: string } | null;
     account?: { account_name: string } | null;
-    class?: {
-      id: string;
-      code: string;
-      name: string;
-    } | null;
   } | null;
 }
 
@@ -875,6 +871,8 @@ export default function ShipmentDetail() {
                 <TableHead className="w-32">Vendor</TableHead>
                 <TableHead className="min-w-[140px]">Description</TableHead>
                 <TableHead className="w-24">Class</TableHead>
+                <TableHead className="w-28">Sidemark</TableHead>
+                <TableHead className="w-24">Room</TableHead>
                 <TableHead className="w-24">Status</TableHead>
                 <TableHead className="w-20"></TableHead>
               </TableRow>
@@ -882,7 +880,7 @@ export default function ShipmentDetail() {
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                     No items in this shipment
                   </TableCell>
                 </TableRow>
