@@ -2,9 +2,12 @@
 
 ## Overview
 
-The **Billing Calculator** is a reusable component that provides real-time billing charge previews for shipments, tasks, and any future order types (delivery, transfers, etc.). It uses the **same calculation logic** as actual billing event creation, guaranteeing the preview shows exactly what will appear in Billing Reports once triggered.
+The **Billing Calculator** is a real-time, read-only view component that displays billing charges for shipments and tasks. It combines:
 
-**Key Principle**: The Calculator previews non-triggered billing events using the same mappings and rate lookup functions that create actual billing events. This ensures what the user sees is exactly what they'll be billed.
+1. **Recorded Charges**: Actual `billing_events` from the database that have already been created
+2. **Preview Charges**: What WILL be created when a shipment is received or task is completed (for pending items)
+
+**Key Principle**: The Calculator is a **read-only view**. To add charges, use the page-level "Add Charge" button (which creates billing events via `AddAddonDialog`). The Calculator then displays those charges in real-time.
 
 ---
 
@@ -28,27 +31,29 @@ The **Billing Calculator** is a reusable component that provides real-time billi
 
 ### The Problem We Solved
 
-Previously, the billing calculator had:
-- Hardcoded service codes that broke when services were renamed
-- Pattern matching that tried to guess which service to use
-- Separate logic from actual billing, causing mismatches
+Previously, the billing calculator:
+- Had its own "Add Charge" button that only saved to local state (not the database)
+- Was separate from the actual billing events table, causing mismatches
+- Created confusion about which charges were "real" and which were just previews
 
 ### The Solution
 
-The billing system already knows:
-- **Task Type → Service Code**: Inspection → INSP, Assembly → 15MA, etc.
-- **Shipment Direction → Service Code**: Inbound → RCVG, Outbound → Shipping
-- **Rate Lookup**: Service Code + Class Code → Rate from Price List
+The Calculator now serves as a **real-time view** that:
+1. **Fetches existing billing events** from the database for the shipment/task
+2. **Shows a preview** of charges that WILL be created (for pending shipments/tasks)
+3. **Does NOT create charges itself** - charges are created via:
+   - Receiving session completion (automatic)
+   - Task completion (automatic)
+   - Page-level "Add Charge" button (manual add-ons)
 
-We extracted this logic into a **shared module** that both the Calculator and billing event creation use.
+### Display Logic
 
-### Same Logic, Different Output
-
-| Billing Event Creation | Billing Calculator |
-|------------------------|-------------------|
-| Calculate → **INSERT** into `billing_events` | Calculate → **RETURN** for display |
-| Runs when task/shipment completes | Runs anytime (real-time preview) |
-| Creates database records | Just shows the numbers |
+| Scenario | Calculator Shows |
+|----------|-----------------|
+| **Shipment NOT yet received** | Preview: "Pending Charges" + Any manual add-ons already created |
+| **Shipment already received** | Recorded: Actual receiving charges + Any manual add-ons |
+| **Task NOT yet completed** | Preview: What will be billed when task completes |
+| **Task completed** | Recorded: Actual charges from task completion |
 
 ---
 
@@ -92,19 +97,53 @@ We extracted this logic into a **shared module** that both the Calculator and bi
               │                         │                         │
               ▼                         ▼                         ▼
 ┌─────────────────────────┐ ┌─────────────────────────┐ ┌─────────────────────────┐
-│ BillingCalculator.tsx   │ │ useTasks.ts             │ │ useOutbound.ts          │
-│ (Preview Component)     │ │ (Task Completion)       │ │ (Shipment Completion)   │
+│ BillingCalculator.tsx   │ │ useReceivingSession.ts  │ │ useTasks.ts             │
+│ (Real-Time View)        │ │ (Receiving Completion)  │ │ (Task Completion)       │
 │                         │ │                         │ │                         │
-│ Shows billing preview   │ │ Creates billing events  │ │ Creates billing events  │
-│ BEFORE task completes   │ │ WHEN task completes     │ │ WHEN shipment completes │
-│                         │ │                         │ │                         │
-│ Uses:                   │ │ Uses:                   │ │ Uses:                   │
-│ • calculateTask...()    │ │ • TASK_TYPE_TO_SERVICE  │ │ • SHIPMENT_DIRECTION... │
-│ • calculateShipment...()│ │ • getRateFromPriceList  │ │ • getRateFromPriceList  │
+│ DISPLAYS:               │ │ CREATES billing events  │ │ CREATES billing events  │
+│ • Existing events (DB)  │ │ when shipment received  │ │ when task completed     │
+│ • Preview (pending)     │ │                         │ │                         │
+│                         │ │ Uses:                   │ │ Uses:                   │
+│ Uses:                   │ │ • getRateFromPriceList  │ │ • TASK_TYPE_TO_SERVICE  │
+│ • Fetch billing_events  │ │ • class → rate lookup   │ │ • getRateFromPriceList  │
+│ • calculatePreview()    │ │                         │ │                         │
 └─────────────────────────┘ └─────────────────────────┘ └─────────────────────────┘
               │                         │                         │
               ▼                         ▼                         ▼
       [Display to User]         [billing_events table]    [billing_events table]
+                                        │                         │
+                                        └────────────┬────────────┘
+                                                     │
+                                                     ▼
+                                        ┌─────────────────────────┐
+                                        │ Calculator FETCHES and  │
+                                        │ displays these records  │
+                                        └─────────────────────────┘
+```
+
+### Adding Manual Charges
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        MANUAL CHARGE FLOW                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+User clicks "Add Charge"          AddAddonDialog             Calculator
+(page-level button)               ┌─────────────────┐       ┌────────────────┐
+       │                          │                 │       │                │
+       └─────────────────────────→│ User enters:    │       │                │
+                                  │ • Charge name   │       │                │
+                                  │ • Amount        │       │                │
+                                  │ • Notes         │       │                │
+                                  │                 │       │                │
+                                  │ INSERT INTO     │       │                │
+                                  │ billing_events  │───────│ onSuccess:     │
+                                  │ (event_type:    │       │ refreshKey++   │
+                                  │  'addon')       │       │                │
+                                  └─────────────────┘       │ fetchEvents()  │
+                                                            │ → Displays new │
+                                                            │   charge!      │
+                                                            └────────────────┘
 ```
 
 ---
@@ -344,6 +383,15 @@ interface BillingLineItem {
 
 `src/components/billing/BillingCalculator.tsx`
 
+### Component Behavior Overview
+
+The BillingCalculator is a **read-only display component**. It does NOT create charges itself.
+
+| Display Section | Source | When Shown |
+|-----------------|--------|------------|
+| **"Pending Charges (Preview)"** | `calculateShipmentBillingPreview()` or `calculateTaskBillingPreview()` | Only when shipment not yet received, or task not yet completed |
+| **"Recorded Charges"** | `billing_events` table (fetched from DB) | Always - shows all existing charges for this shipment/task |
+
 ### Props
 
 ```typescript
@@ -351,8 +399,8 @@ interface BillingCalculatorProps {
   // ══════════════════════════════════════════════════════════
   // CONTEXT - Provide ONE of these
   // ══════════════════════════════════════════════════════════
-  taskId?: string;              // For task billing preview
-  shipmentId?: string;          // For shipment billing preview
+  taskId?: string;              // For task billing view
+  shipmentId?: string;          // For shipment billing view
 
   // ══════════════════════════════════════════════════════════
   // CONTEXT DETAILS
@@ -361,7 +409,7 @@ interface BillingCalculatorProps {
   shipmentDirection?: 'inbound' | 'outbound' | 'return';
 
   // ══════════════════════════════════════════════════════════
-  // FOR ASSEMBLY/REPAIR - Manual inputs
+  // FOR ASSEMBLY/REPAIR - Manual inputs (for preview calculation)
   // ══════════════════════════════════════════════════════════
   selectedServiceCode?: string; // Selected assembly tier (5MA, 15MA, etc.)
   billingQuantity?: number;     // Quantity or hours
@@ -376,19 +424,56 @@ interface BillingCalculatorProps {
   onTotalChange?: (total: number) => void;
 
   // ══════════════════════════════════════════════════════════
-  // EXISTING CHARGES (add-ons from billing_events)
-  // ══════════════════════════════════════════════════════════
-  existingCharges?: Array<{
-    id: string;
-    charge_type: string;
-    description: string | null;
-    quantity: number;
-    unit_rate: number;
-    total_amount: number;
-  }>;
-
-  // ══════════════════════════════════════════════════════════
   // DISPLAY OPTIONS
+  // ══════════════════════════════════════════════════════════
+  title?: string;               // Card title (default: "Billing Charges")
+  compact?: boolean;            // Compact mode (default: true)
+  readOnly?: boolean;           // Disable rate editing for Assembly/Repair
+  refreshKey?: number;          // Increment to force refresh (after adding charges)
+}
+```
+
+### Internal Data Fetching
+
+The component internally fetches:
+
+1. **Existing billing events** from `billing_events` table:
+```typescript
+supabase
+  .from('billing_events')
+  .select('id, charge_type, description, quantity, unit_rate, total_amount, event_type, status')
+  .eq('tenant_id', tenantId)
+  .eq('shipment_id', shipmentId)  // or task_id
+  .in('status', ['unbilled', 'flagged', 'billed'])
+```
+
+2. **Preview calculation** via `calculateShipmentBillingPreview()` or `calculateTaskBillingPreview()`
+
+### Preview vs Recorded Logic
+
+For **Shipments**:
+- If receiving charges already exist in DB (event_type = 'receiving' or 'returns_processing'), **hide preview**
+- Only show preview for shipments that haven't been received yet
+
+For **Tasks**:
+- Always show preview (task charges are created on completion)
+
+### Refreshing After Adding Charges
+
+When the page-level "Add Charge" button creates a new billing event, the parent component should:
+```typescript
+<AddAddonDialog
+  onSuccess={() => {
+    fetchShipment();               // Refresh shipment data
+    setBillingRefreshKey(prev => prev + 1);  // Trigger calculator refresh
+  }}
+/>
+
+<BillingCalculator
+  shipmentId={shipment.id}
+  refreshKey={billingRefreshKey}  // Calculator re-fetches when this changes
+/>
+```
   // ══════════════════════════════════════════════════════════
   title?: string;               // Card title (default: "Billing Charges")
   compact?: boolean;            // Compact mode (default: true)
@@ -648,33 +733,46 @@ async function completeDelivery(deliveryId: string, deliveryType: string) {
 
 ## Usage Examples
 
-### Shipment (Inbound)
+### Shipment Detail Page
 
 ```tsx
+// State for refreshing the calculator when charges are added
+const [billingRefreshKey, setBillingRefreshKey] = useState(0);
+
+// ... in the component ...
+
+{/* Page-level Add Charge Button */}
+<Button onClick={() => setAddAddonDialogOpen(true)}>
+  Add Charge
+</Button>
+
+{/* Billing Calculator - displays real-time charges */}
 <BillingCalculator
   shipmentId={shipment.id}
   shipmentDirection="inbound"
-  onTotalChange={(total) => setEstimatedBilling(total)}
+  refreshKey={billingRefreshKey}
 />
-```
 
-### Shipment (Outbound)
-
-```tsx
-<BillingCalculator
+{/* Add Charge Dialog - creates billing events */}
+<AddAddonDialog
+  open={addAddonDialogOpen}
+  onOpenChange={setAddAddonDialogOpen}
+  accountId={shipment.account_id}
   shipmentId={shipment.id}
-  shipmentDirection="outbound"
-  onTotalChange={(total) => setEstimatedBilling(total)}
+  onSuccess={() => {
+    fetchShipment();
+    setBillingRefreshKey(prev => prev + 1);  // Refresh calculator
+  }}
 />
 ```
 
-### Task (Inspection)
+### Task Detail Page
 
 ```tsx
 <BillingCalculator
   taskId={task.id}
   taskType="Inspection"
-  onTotalChange={(total) => setEstimatedBilling(total)}
+  refreshKey={refreshKey}
 />
 ```
 
@@ -715,20 +813,6 @@ const [rateOverride, setRateOverride] = useState<number | null>(null);
 />
 ```
 
-### With Existing Add-on Charges
-
-```tsx
-// Fetch existing billing events for this task
-const existingCharges = billingEvents.filter(e => e.task_id === task.id);
-
-<BillingCalculator
-  taskId={task.id}
-  taskType="Inspection"
-  existingCharges={existingCharges}
-  onTotalChange={(total) => setTotalWithAddons(total)}
-/>
-```
-
 ---
 
 ## Troubleshooting
@@ -758,14 +842,25 @@ const existingCharges = billingEvents.filter(e => e.task_id === task.id);
 2. Verify item has correct class assigned
 3. Check Price List for correct rates
 
-### Preview Doesn't Match Billing Report
+### Charges Added but Not Showing
 
-**This should never happen** if using the shared logic correctly.
+**Possible causes:**
+1. `refreshKey` not incremented after adding charge
+2. Charge added to wrong shipment_id or task_id
+3. Charge status not in ['unbilled', 'flagged', 'billed']
 
-**If it does:**
-1. Ensure billing event creation uses same mappings from `billingCalculation.ts`
-2. Check that both use `getRateFromPriceList()`
-3. Verify no hardcoded service codes in the completion hook
+**How to fix:**
+1. Ensure `onSuccess` callback increments `refreshKey`
+2. Verify the charge was created with correct foreign keys
+3. Check `billing_events` table directly
+
+### Preview Still Showing After Receiving
+
+**Expected behavior**: Once a shipment is received, the preview section hides and only "Recorded Charges" are shown.
+
+**If preview still shows:**
+1. Check that receiving events have `event_type` = 'receiving' or 'returns_processing'
+2. Verify events exist in database with correct `shipment_id`
 
 ---
 
@@ -774,33 +869,44 @@ const existingCharges = billingEvents.filter(e => e.task_id === task.id);
 | File | Purpose |
 |------|---------|
 | `src/lib/billing/billingCalculation.ts` | **THE source of truth** - all mappings and rate lookup |
-| `src/components/billing/BillingCalculator.tsx` | UI component for previews |
+| `src/components/billing/BillingCalculator.tsx` | Real-time view component (read-only) |
+| `src/components/billing/AddAddonDialog.tsx` | Creates manual add-on charges |
 | `src/lib/billing/createBillingEvent.ts` | Creates actual billing events |
+| `src/hooks/useReceivingSession.ts` | Receiving completion → billing events |
 | `src/hooks/useTasks.ts` | Task completion → billing events |
-| `src/hooks/useOutbound.ts` | Shipment completion → billing events |
+| `src/hooks/useOutbound.ts` | Outbound shipment completion → billing events |
 | `docs/BILLING_CALCULATOR_DOCUMENTATION.md` | This documentation |
 | `docs/BILLING_SYSTEM_DOCUMENTATION.md` | Overall billing system docs |
-| `docs/QUOTE_TOOL_DOCUMENTATION.md` | Quote tool reference |
 
 ---
 
 ## Summary
 
-The Billing Calculator works by:
+The Billing Calculator is a **real-time, read-only view** that:
 
-1. **Using shared mappings** - `TASK_TYPE_TO_SERVICE_CODE`, `SHIPMENT_DIRECTION_TO_SERVICE_CODE`
-2. **Using shared rate lookup** - `getRateFromPriceList()`
-3. **Previewing without creating** - Shows what billing events will be
-4. **Matching actual billing** - Same logic used when events are created
+1. **Fetches existing billing events** from the database for the shipment/task
+2. **Shows preview of pending charges** for shipments not yet received or tasks not yet completed
+3. **Does NOT create charges** - use the page-level "Add Charge" button or wait for task/receiving completion
+4. **Refreshes automatically** when `refreshKey` prop changes (after adding charges)
 
-To add new order types:
-1. Add services to Price List
-2. Add mapping constant
-3. Create preview function
-4. Update component
-5. Use same logic in completion hook
+### Key Design Decisions
 
-This ensures the Calculator always shows exactly what will be billed.
+| Decision | Rationale |
+|----------|-----------|
+| Calculator is read-only | Avoids confusion about which charges are "real" |
+| Charges created via AddAddonDialog | Single source of truth for manual charges |
+| Automatic charges on completion | Receiving/task completion creates events via hooks |
+| Preview hides after receiving | Once events exist in DB, show those instead of preview |
+
+### How Charges Get Into billing_events
+
+| Trigger | Source | Event Type |
+|---------|--------|------------|
+| Finish Receiving | `useReceivingSession.ts` | `receiving` or `returns_processing` |
+| Complete Task | `useTasks.ts` | `task_completion` |
+| Complete Outbound | `useOutbound.ts` | `will_call` or `outbound_shipment` |
+| Manual Add Charge | `AddAddonDialog.tsx` | `addon` |
+| Storage Calculation | Billing Reports | `storage` |
 
 ---
 
