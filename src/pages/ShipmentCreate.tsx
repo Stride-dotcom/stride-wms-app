@@ -399,7 +399,6 @@ export default function ShipmentCreate() {
           sidemark_id: sidemarkId || null,
           receiving_shipment_id: shipment.id,
           status: "pending_receipt",
-          created_by: profile.id,
         };
 
         const { data: newItem, error: itemError } = await (supabase.from("items") as any)
