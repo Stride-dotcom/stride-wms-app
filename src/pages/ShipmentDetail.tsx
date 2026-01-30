@@ -1160,7 +1160,11 @@ export default function ShipmentDetail() {
           accountId={shipment.account_id}
           accountName={shipment.accounts?.name}
           shipmentId={shipment.id}
-          onSuccess={fetchShipment}
+          onSuccess={() => {
+            // Refresh both shipment data and billing calculator
+            fetchShipment();
+            setBillingRefreshKey(prev => prev + 1);
+          }}
         />
       )}
 

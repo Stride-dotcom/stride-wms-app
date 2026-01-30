@@ -1,9 +1,11 @@
 /**
  * BillingCalculator Component
  *
- * Displays real-time billing preview using the SAME calculation logic
- * that creates actual billing events. This guarantees the Calculator
- * shows exactly what will appear in Billing Reports once triggered.
+ * Displays real-time billing view combining:
+ * 1. Preview of charges that WILL be created (based on current items/rates)
+ * 2. Actual billing_events that already EXIST in the database
+ *
+ * This is a READ-ONLY view - use the page-level "Add Charge" button to add charges.
  *
  * Uses shared logic from: src/lib/billing/billingCalculation.ts
  */
@@ -21,17 +23,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { supabase } from '@/integrations/supabase/client';
 import {
   calculateTaskBillingPreview,
   calculateShipmentBillingPreview,
@@ -45,10 +40,15 @@ import {
 // TYPES
 // ============================================================================
 
-interface CustomCharge {
+interface ExistingBillingEvent {
   id: string;
-  description: string;
-  amount: number;
+  charge_type: string;
+  description: string | null;
+  quantity: number;
+  unit_rate: number;
+  total_amount: number;
+  event_type: string;
+  status: string;
 }
 
 interface BillingCalculatorProps {
@@ -70,16 +70,6 @@ interface BillingCalculatorProps {
   onQuantityChange?: (quantity: number) => void;
   onRateChange?: (rate: number | null) => void;
   onTotalChange?: (total: number) => void;
-
-  // Existing billing events (add-ons already created)
-  existingCharges?: Array<{
-    id: string;
-    charge_type: string;
-    description: string | null;
-    quantity: number;
-    unit_rate: number;
-    total_amount: number;
-  }>;
 
   // Refresh trigger
   refreshKey?: number;
@@ -106,7 +96,6 @@ export function BillingCalculator({
   onQuantityChange,
   onRateChange,
   onTotalChange,
-  existingCharges = [],
   refreshKey = 0,
   title = 'Billing Charges',
   compact = true,
@@ -119,6 +108,7 @@ export function BillingCalculator({
   // State
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<BillingPreview | null>(null);
+  const [existingEvents, setExistingEvents] = useState<ExistingBillingEvent[]>([]);
   const [assemblyServices, setAssemblyServices] = useState<Array<{
     serviceCode: string;
     serviceName: string;
@@ -129,12 +119,6 @@ export function BillingCalculator({
     serviceName: string;
     rate: number;
   } | null>(null);
-
-  // Custom charges (for add charge dialog)
-  const [customCharges, setCustomCharges] = useState<CustomCharge[]>([]);
-  const [showAddChargeDialog, setShowAddChargeDialog] = useState(false);
-  const [newChargeDescription, setNewChargeDescription] = useState('');
-  const [newChargeAmount, setNewChargeAmount] = useState('');
 
   // Local state for inputs
   const [localQuantity, setLocalQuantity] = useState('0');
@@ -165,7 +149,42 @@ export function BillingCalculator({
     loadServices();
   }, [profile?.tenant_id, isAssembly, isRepair]);
 
-  // Calculate billing preview
+  // Fetch existing billing events from database
+  const fetchExistingEvents = useCallback(async () => {
+    if (!profile?.tenant_id) return;
+
+    try {
+      let query = (supabase.from('billing_events') as any)
+        .select('id, charge_type, description, quantity, unit_rate, total_amount, event_type, status')
+        .eq('tenant_id', profile.tenant_id)
+        .in('status', ['unbilled', 'flagged', 'billed']);
+
+      // Filter by shipment or task
+      if (shipmentId) {
+        query = query.eq('shipment_id', shipmentId);
+      } else if (taskId) {
+        query = query.eq('task_id', taskId);
+      } else {
+        setExistingEvents([]);
+        return;
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('[BillingCalculator] Error fetching existing events:', error);
+        setExistingEvents([]);
+        return;
+      }
+
+      setExistingEvents(data || []);
+    } catch (error) {
+      console.error('[BillingCalculator] Unexpected error:', error);
+      setExistingEvents([]);
+    }
+  }, [profile?.tenant_id, shipmentId, taskId]);
+
+  // Calculate billing preview (what WILL be created)
   const calculatePreview = useCallback(async () => {
     if (!profile?.tenant_id) {
       setLoading(false);
@@ -174,6 +193,9 @@ export function BillingCalculator({
 
     setLoading(true);
     try {
+      // Fetch existing events first
+      await fetchExistingEvents();
+
       let result: BillingPreview;
 
       if (isTask && taskId && taskType) {
@@ -225,6 +247,7 @@ export function BillingCalculator({
     selectedServiceCode,
     billingQuantity,
     billingRate,
+    fetchExistingEvents,
   ]);
 
   // Recalculate when dependencies change
@@ -260,11 +283,17 @@ export function BillingCalculator({
   const effectiveRate = billingRate !== null && billingRate !== undefined ? billingRate : defaultRate;
   const effectiveQuantity = billingQuantity ?? 0;
 
-  // Calculate totals
-  const baseTotal = preview?.subtotal || 0;
-  const existingChargesTotal = existingCharges.reduce((sum, c) => sum + (c.total_amount || 0), 0);
-  const customChargesTotal = customCharges.reduce((sum, c) => sum + c.amount, 0);
-  const grandTotal = baseTotal + existingChargesTotal + customChargesTotal;
+  // Calculate totals - existing events from DB + preview
+  const existingEventsTotal = existingEvents.reduce((sum, e) => sum + (e.total_amount || e.unit_rate * e.quantity), 0);
+  const previewTotal = preview?.subtotal || 0;
+  
+  // For shipments that are already received, don't show preview (events already exist)
+  // For pending shipments, show preview of what will be created
+  const showPreview = isTask || (isShipment && existingEvents.filter(e => 
+    e.event_type === 'receiving' || e.event_type === 'returns_processing'
+  ).length === 0);
+  
+  const grandTotal = existingEventsTotal + (showPreview ? previewTotal : 0);
 
   // Notify parent of total changes
   useEffect(() => {
@@ -292,29 +321,6 @@ export function BillingCalculator({
     const rate = localRate === '' ? null : parseFloat(localRate);
     if (localRate !== '' && (isNaN(rate!) || rate! < 0)) return;
     onRateChange?.(rate);
-  };
-
-  // Custom charge handlers
-  const handleAddCharge = () => {
-    const amount = parseFloat(newChargeAmount);
-    if (!newChargeDescription.trim() || isNaN(amount) || amount <= 0) return;
-
-    setCustomCharges(prev => [
-      ...prev,
-      {
-        id: `custom_${Date.now()}`,
-        description: newChargeDescription.trim(),
-        amount,
-      },
-    ]);
-
-    setShowAddChargeDialog(false);
-    setNewChargeDescription('');
-    setNewChargeAmount('');
-  };
-
-  const handleRemoveCustomCharge = (id: string) => {
-    setCustomCharges(prev => prev.filter(c => c.id !== id));
   };
 
   // Format currency
@@ -431,7 +437,7 @@ export function BillingCalculator({
                 <div className="text-muted-foreground">=</div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Subtotal</label>
-                  <div className="text-sm font-semibold">{formatCurrency(baseTotal)}</div>
+                  <div className="text-sm font-semibold">{formatCurrency(previewTotal)}</div>
                 </div>
               </div>
 
@@ -501,7 +507,7 @@ export function BillingCalculator({
                 <div className="text-muted-foreground">=</div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Subtotal</label>
-                  <div className="text-sm font-semibold">{formatCurrency(baseTotal)}</div>
+                  <div className="text-sm font-semibold">{formatCurrency(previewTotal)}</div>
                 </div>
               </div>
 
@@ -514,105 +520,91 @@ export function BillingCalculator({
             </div>
           )}
 
-          {/* Per-Item Billing (Shipments, Inspection, etc.) */}
-          {!isPerTaskBilling && preview && (
+          {/* Per-Item Billing Preview (Shipments, Inspection, etc.) */}
+          {!isPerTaskBilling && showPreview && preview && preview.lineItems.length > 0 && (
             <div className="space-y-2">
-              {/* Show line items grouped by class */}
-              {preview.lineItems.length > 0 ? (
-                <>
-                  {/* Group by class for cleaner display */}
-                  {(() => {
-                    const byClass = new Map<string | null, { qty: number; rate: number; total: number; hasError: boolean }>();
-                    preview.lineItems.forEach(item => {
-                      const key = item.classCode;
-                      const existing = byClass.get(key) || { qty: 0, rate: item.unitRate, total: 0, hasError: false };
-                      existing.qty += item.quantity;
-                      existing.total += item.totalAmount;
-                      if (item.hasRateError) existing.hasError = true;
-                      byClass.set(key, existing);
-                    });
+              <p className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                <MaterialIcon name="schedule" size="sm" />
+                Pending Charges (Preview)
+              </p>
+              {/* Group by class for cleaner display */}
+              {(() => {
+                const byClass = new Map<string | null, { qty: number; rate: number; total: number; hasError: boolean }>();
+                preview.lineItems.forEach(item => {
+                  const key = item.classCode;
+                  const existing = byClass.get(key) || { qty: 0, rate: item.unitRate, total: 0, hasError: false };
+                  existing.qty += item.quantity;
+                  existing.total += item.totalAmount;
+                  if (item.hasRateError) existing.hasError = true;
+                  byClass.set(key, existing);
+                });
 
-                    return Array.from(byClass.entries()).map(([classCode, data]) => (
-                      <div key={classCode || 'default'} className="flex items-center justify-between py-1.5 text-sm">
-                        <div className="flex items-center gap-2">
-                          <span>{preview.serviceName}</span>
-                          {classCode && (
-                            <Badge variant="outline" className="text-xs">{classCode}</Badge>
-                          )}
-                          <span className="text-muted-foreground">×{data.qty}</span>
-                          {data.hasError && (
-                            <MaterialIcon name="warning" size="sm" className="text-amber-500" />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-muted-foreground">{formatCurrency(data.rate)}</span>
-                          <span className="font-medium min-w-[70px] text-right">{formatCurrency(data.total)}</span>
-                        </div>
-                      </div>
-                    ));
-                  })()}
+                return Array.from(byClass.entries()).map(([classCode, data]) => (
+                  <div key={classCode || 'default'} className="flex items-center justify-between py-1.5 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span>{preview.serviceName}</span>
+                      {classCode && (
+                        <Badge variant="outline" className="text-xs">{classCode}</Badge>
+                      )}
+                      <span className="text-muted-foreground">×{data.qty}</span>
+                      {data.hasError && (
+                        <MaterialIcon name="warning" size="sm" className="text-amber-500" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-muted-foreground">{formatCurrency(data.rate)}</span>
+                      <span className="font-medium min-w-[70px] text-right">{formatCurrency(data.total)}</span>
+                    </div>
+                  </div>
+                ));
+              })()}
 
-                  {preview.hasErrors && (
-                    <p className="text-xs text-amber-600 flex items-center gap-1 mt-2">
-                      <MaterialIcon name="info" size="sm" />
-                      Some items have no rate defined in Price List
-                    </p>
-                  )}
-                </>
-              ) : (
-                <div className="flex items-center justify-between py-2 border-b">
-                  <span className="text-sm font-medium">
-                    {taskType ? `${taskType} Rate` : 'Base Rate'}
-                  </span>
-                  <span className="text-sm font-medium">{formatCurrency(0)}</span>
-                </div>
+              {preview.hasErrors && (
+                <p className="text-xs text-amber-600 flex items-center gap-1 mt-2">
+                  <MaterialIcon name="info" size="sm" />
+                  Some items have no rate defined in Price List
+                </p>
               )}
             </div>
           )}
 
-          {/* Existing Charges (from billing_events) */}
-          {existingCharges.length > 0 && (
-            <div className="space-y-1 pt-2">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                Add-on Charges
+          {/* Existing Billing Events from Database */}
+          {existingEvents.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                <MaterialIcon name="receipt_long" size="sm" />
+                Recorded Charges ({existingEvents.length})
               </p>
-              {existingCharges.map((charge) => (
-                <div key={charge.id} className="flex items-center justify-between py-1.5 text-sm">
+              {existingEvents.map((event) => (
+                <div key={event.id} className="flex items-center justify-between py-1.5 text-sm">
                   <div className="min-w-0 flex-1">
-                    <span className="truncate block">{charge.charge_type}</span>
-                    {charge.description && (
+                    <div className="flex items-center gap-2">
+                      <span className="truncate">{event.charge_type}</span>
+                      <Badge 
+                        variant={event.status === 'billed' ? 'default' : 'secondary'} 
+                        className="text-[10px] px-1"
+                      >
+                        {event.status}
+                      </Badge>
+                    </div>
+                    {event.description && (
                       <span className="text-xs text-muted-foreground truncate block">
-                        {charge.description}
+                        {event.description}
                       </span>
                     )}
                   </div>
-                  <span className="font-medium ml-2">{formatCurrency(charge.total_amount)}</span>
+                  <span className="font-medium ml-2">
+                    {formatCurrency(event.total_amount || event.unit_rate * event.quantity)}
+                  </span>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Custom Charges (local state) */}
-          {customCharges.length > 0 && (
-            <div className="space-y-1">
-              {customCharges.map((charge) => (
-                <div key={charge.id} className="flex items-center justify-between py-1.5 text-sm">
-                  <span className="text-muted-foreground">{charge.description}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{formatCurrency(charge.amount)}</span>
-                    {canEdit && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={() => handleRemoveCustomCharge(charge.id)}
-                      >
-                        <MaterialIcon name="close" size="sm" className="text-destructive" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
+          {/* Empty State */}
+          {existingEvents.length === 0 && (!showPreview || !preview || preview.lineItems.length === 0) && !isPerTaskBilling && (
+            <div className="text-center py-4 text-sm text-muted-foreground">
+              No billing charges yet
             </div>
           )}
 
@@ -625,70 +617,14 @@ export function BillingCalculator({
           </div>
 
           {/* Breakdown */}
-          {(baseTotal > 0 || existingCharges.length > 0 || customCharges.length > 0) && (
+          {(existingEventsTotal > 0 || (showPreview && previewTotal > 0)) && (
             <div className="text-xs text-muted-foreground text-right space-x-2">
-              {baseTotal > 0 && <span>Base: {formatCurrency(baseTotal)}</span>}
-              {existingChargesTotal > 0 && <span>Add-ons: {formatCurrency(existingChargesTotal)}</span>}
-              {customChargesTotal > 0 && <span>Custom: {formatCurrency(customChargesTotal)}</span>}
+              {showPreview && previewTotal > 0 && <span>Preview: {formatCurrency(previewTotal)}</span>}
+              {existingEventsTotal > 0 && <span>Recorded: {formatCurrency(existingEventsTotal)}</span>}
             </div>
-          )}
-
-          {/* Add Charge Button */}
-          {canEdit && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full mt-2"
-              onClick={() => setShowAddChargeDialog(true)}
-            >
-              <MaterialIcon name="add" size="sm" className="mr-1" />
-              Add Charge
-            </Button>
           )}
         </CardContent>
       </Card>
-
-      {/* Add Charge Dialog */}
-      <Dialog open={showAddChargeDialog} onOpenChange={setShowAddChargeDialog}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Add Custom Charge</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="charge-description">Description</Label>
-              <Input
-                id="charge-description"
-                value={newChargeDescription}
-                onChange={(e) => setNewChargeDescription(e.target.value)}
-                placeholder="e.g., Rush Processing"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="charge-amount">Amount</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                <Input
-                  id="charge-amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={newChargeAmount}
-                  onChange={(e) => setNewChargeAmount(e.target.value)}
-                  className="pl-7"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddChargeDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddCharge}>Add Charge</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
