@@ -1089,6 +1089,63 @@ export function useTasks(filters?: {
     }
   };
 
+  // Generate billing events for a task (can be used for already-completed tasks)
+  const generateBillingEventsForTask = async (taskId: string) => {
+    if (!profile?.tenant_id) return false;
+
+    try {
+      // Get task info
+      const { data: taskData, error: taskError } = await (supabase
+        .from('tasks') as any)
+        .select('task_type, account_id')
+        .eq('id', taskId)
+        .single();
+
+      if (taskError || !taskData) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to fetch task data',
+        });
+        return false;
+      }
+
+      // Check if billing events already exist for this task
+      const { data: existingEvents } = await (supabase
+        .from('billing_events') as any)
+        .select('id')
+        .eq('task_id', taskId)
+        .eq('event_type', 'task_completion')
+        .limit(1);
+
+      if (existingEvents && existingEvents.length > 0) {
+        toast({
+          title: 'Already Generated',
+          description: 'Billing events already exist for this task.',
+        });
+        return true;
+      }
+
+      // Create billing events
+      await createTaskBillingEvents(taskId, taskData.task_type, taskData.account_id);
+
+      toast({
+        title: 'Billing Generated',
+        description: 'Billing events have been created for this task.',
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error generating billing events:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to generate billing events',
+      });
+      return false;
+    }
+  };
+
   return {
     tasks,
     loading,
@@ -1103,6 +1160,7 @@ export function useTasks(filters?: {
     updateTaskStatus,
     deleteTask,
     getTaskItems,
+    generateBillingEventsForTask,
   };
 }
 
