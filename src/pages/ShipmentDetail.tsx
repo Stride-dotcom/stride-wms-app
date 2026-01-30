@@ -880,7 +880,7 @@ export default function ShipmentDetail() {
                 <TableHead className="min-w-[140px]">Description</TableHead>
                 <TableHead className="w-24">Class</TableHead>
                 <TableHead className="w-24">Status</TableHead>
-                <TableHead className="w-16"></TableHead>
+                <TableHead className="w-20"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

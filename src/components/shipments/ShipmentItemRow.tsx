@@ -379,9 +379,21 @@ export function ShipmentItemRow({
           )}
         </TableCell>
 
-        {/* Flags indicator */}
-        <TableCell className="w-16" onClick={(e) => e.stopPropagation()}>
+        {/* Actions */}
+        <TableCell className="w-20" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1">
+            {/* Duplicate button for pending items */}
+            {!item.item_id && onDuplicate && !isCompleted && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => onDuplicate(item)}
+                title="Duplicate item"
+              >
+                <MaterialIcon name="content_copy" size="sm" className="text-muted-foreground" />
+              </Button>
+            )}
             {/* Show flags indicator if item has flags */}
             {item.item_id && enabledFlags.size > 0 && (
               <Badge variant="outline" className="bg-amber-100 text-amber-700 text-[10px] px-1">
@@ -451,27 +463,11 @@ export function ShipmentItemRow({
                 <p className="text-sm text-muted-foreground">No flags configured in Price List</p>
               )
             ) : (
-              // Item not yet received - show duplicate button
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  <MaterialIcon name="schedule" size="sm" className="inline mr-1 align-text-bottom" />
-                  Flags available after item is received
-                </p>
-                {onDuplicate && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDuplicate(item);
-                    }}
-                    className="gap-1"
-                  >
-                    <MaterialIcon name="content_copy" size="sm" />
-                    Duplicate
-                  </Button>
-                )}
-              </div>
+              // Item not yet received - no flags available
+              <p className="text-sm text-muted-foreground">
+                <MaterialIcon name="schedule" size="sm" className="inline mr-1 align-text-bottom" />
+                Flags available after item is received
+              </p>
             )}
           </TableCell>
         </TableRow>
