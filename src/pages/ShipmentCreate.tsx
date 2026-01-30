@@ -103,9 +103,14 @@ export default function ShipmentCreate() {
 
   // Field suggestions hooks
   const { suggestions: vendorSuggestions, addOrUpdateSuggestion: recordVendor } = useFieldSuggestions("vendor");
+  const { suggestions: descriptionSuggestions, addOrUpdateSuggestion: recordDescription } = useFieldSuggestions("description");
 
   // Convert to string arrays for the card
   const vendorValues = useMemo(() => vendorSuggestions.map((s) => s.value), [vendorSuggestions]);
+  const descriptionSuggestionOptions = useMemo(
+    () => descriptionSuggestions.map((s) => ({ value: s.value, label: s.value })),
+    [descriptionSuggestions]
+  );
 
   // Convert to SelectOption arrays
   const accountOptions: SelectOption[] = useMemo(
@@ -322,6 +327,10 @@ export default function ShipmentCreate() {
         errs.description = "Description is required";
         hasItemErrors = true;
       }
+      if (!item.classCode?.trim()) {
+        errs.classCode = "Class is required";
+        hasItemErrors = true;
+      }
       if (item.quantity < 1) {
         errs.quantity = "Quantity must be at least 1";
         hasItemErrors = true;
@@ -435,6 +444,7 @@ export default function ShipmentCreate() {
       // Record field suggestions for future use
       expectedItems.forEach((item) => {
         if (item.vendor) recordVendor(item.vendor);
+        if (item.description) recordDescription(item.description);
       });
 
       toast({ title: "Success", description: "Shipment created successfully" });
@@ -624,6 +634,7 @@ export default function ShipmentCreate() {
                   item={item}
                   index={index}
                   vendorSuggestions={vendorValues}
+                  descriptionSuggestions={descriptionSuggestionOptions}
                   classes={classes}
                   errors={errors.items?.[item.id]}
                   canDelete={expectedItems.length > 1}

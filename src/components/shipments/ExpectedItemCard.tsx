@@ -32,6 +32,7 @@ export interface ExpectedItemData {
 
 export interface ExpectedItemErrors {
   description?: string;
+  classCode?: string;
   quantity?: string;
 }
 
@@ -39,6 +40,7 @@ export interface ExpectedItemCardProps {
   item: ExpectedItemData;
   index: number;
   vendorSuggestions: string[];
+  descriptionSuggestions?: { value: string; label: string }[];
   classes?: ClassOption[];
   errors?: ExpectedItemErrors;
   canDelete: boolean;
@@ -52,6 +54,7 @@ export function ExpectedItemCard({
   item,
   index,
   vendorSuggestions,
+  descriptionSuggestions = [],
   classes = [],
   errors,
   canDelete,
@@ -134,14 +137,17 @@ export function ExpectedItemCard({
             error={errors?.quantity}
           />
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Class</label>
+            <label className="text-sm font-medium">Class *</label>
             <AutocompleteInput
               suggestions={classSuggestionOptions}
               value={item.classCode || ""}
               onChange={handleClassChange}
               placeholder="Size"
-              className="min-h-[44px] text-base"
+              className={cn("min-h-[44px] text-base", errors?.classCode && "border-destructive")}
             />
+            {errors?.classCode && (
+              <span className="text-xs text-destructive">{errors.classCode}</span>
+            )}
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Vendor</label>
@@ -158,19 +164,20 @@ export function ExpectedItemCard({
           </div>
         </div>
 
-        {/* Description - textarea with auto-grow */}
-        <FormField
-          label="Description"
-          name={`item-${item.id}-description`}
-          type="textarea"
-          value={item.description}
-          onChange={(v) => onUpdate(item.id, "description", v)}
-          placeholder="Enter item description..."
-          required
-          error={errors?.description}
-          minRows={2}
-          maxRows={4}
-        />
+        {/* Description - autocomplete search */}
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Description *</label>
+          <AutocompleteInput
+            suggestions={descriptionSuggestions}
+            value={item.description}
+            onChange={(v) => onUpdate(item.id, "description", v)}
+            placeholder="Enter item description..."
+            className={cn("min-h-[44px] text-base", errors?.description && "border-destructive")}
+          />
+          {errors?.description && (
+            <span className="text-xs text-destructive">{errors.description}</span>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
