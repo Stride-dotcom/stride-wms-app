@@ -723,37 +723,35 @@ export default function ScanHub() {
               </div>
             </button>
 
-            {/* Service Event Scan Card - Manager/Admin Only */}
-            {canSeeBilling && (
-              <button
-                onClick={() => selectMode('service')}
-                className={cn(
-                  "group relative overflow-hidden flex items-center gap-6 p-6",
-                  "rounded-3xl bg-card border-2 border-transparent",
-                  "transition-all duration-300 text-left",
-                  "hover:border-success hover:shadow-xl hover:shadow-success/10"
-                )}
-              >
-                {/* Background watermark emoji */}
-                <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300 text-[10rem]">
-                  ⚡
-                </div>
+            {/* Service Event Scan Card */}
+            <button
+              onClick={() => selectMode('service')}
+              className={cn(
+                "group relative overflow-hidden flex items-center gap-6 p-6",
+                "rounded-3xl bg-card border-2 border-transparent",
+                "transition-all duration-300 text-left",
+                "hover:border-success hover:shadow-xl hover:shadow-success/10"
+              )}
+            >
+              {/* Background watermark emoji */}
+              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300 text-[10rem]">
+                ⚡
+              </div>
 
-                {/* Large emoji container */}
-                <div className="w-24 h-28 rounded-3xl bg-success flex items-center justify-center flex-shrink-0 text-5xl group-hover:scale-110 transition-transform duration-200">
-                  ⚡
-                </div>
+              {/* Large emoji container */}
+              <div className="w-24 h-28 rounded-3xl bg-success flex items-center justify-center flex-shrink-0 text-5xl group-hover:scale-110 transition-transform duration-200">
+                ⚡
+              </div>
 
-                {/* Text on right */}
-                <div className="flex flex-col items-start flex-1">
-                  <span className="text-2xl font-bold text-foreground">Service Event</span>
-                  <span className="text-sm text-muted-foreground mt-1">Scan items, select services, create billing</span>
-                  <span className="flex items-center gap-2 text-success text-xs font-semibold uppercase tracking-wide mt-3">
-                    LAUNCH SCANNER ➡️
-                  </span>
-                </div>
-              </button>
-            )}
+              {/* Text on right */}
+              <div className="flex flex-col items-start flex-1">
+                <span className="text-2xl font-bold text-foreground">Service Event</span>
+                <span className="text-sm text-muted-foreground mt-1">Scan items, select services, create billing</span>
+                <span className="flex items-center gap-2 text-success text-xs font-semibold uppercase tracking-wide mt-3">
+                  LAUNCH SCANNER ➡️
+                </span>
+              </div>
+            </button>
           </div>
         </div>
       </DashboardLayout>
@@ -973,7 +971,8 @@ export default function ScanHub() {
                   </span>
                 </p>
               </div>
-              {billingPreviewTotal > 0 && (
+              {/* Billing Preview - Manager/Admin Only */}
+              {canSeeBilling && billingPreviewTotal > 0 && (
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">Estimated Total</p>
                   <p className="text-2xl font-bold text-primary">
