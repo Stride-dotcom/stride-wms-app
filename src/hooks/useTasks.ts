@@ -309,11 +309,11 @@ export function useTasks(filters?: {
       // First, fetch the task to check for manual rate override
       const { data: taskData } = await (supabase
         .from('tasks') as any)
-        .select('billing_rate, billing_rate_overridden, title')
+        .select('billing_rate, billing_rate_locked, title')
         .eq('id', taskId)
         .single();
 
-      const hasManualRate = taskData?.billing_rate_overridden && taskData?.billing_rate !== null;
+      const hasManualRate = taskData?.billing_rate_locked && taskData?.billing_rate !== null;
       const manualRate = taskData?.billing_rate;
 
       // Get service code for this task type from Price List mapping
