@@ -120,6 +120,7 @@ export function useServiceEvents() {
   const getServiceRate = useCallback((serviceCode: string, classCode?: string | null): {
     rate: number;
     serviceName: string;
+    billingUnit: 'Day' | 'Item' | 'Task';
     alertRule: string;
     hasError: boolean;
     errorMessage: string | null;
@@ -133,6 +134,7 @@ export function useServiceEvents() {
         return {
           rate: classSpecific.rate,
           serviceName: classSpecific.service_name,
+          billingUnit: classSpecific.billing_unit,
           alertRule: classSpecific.alert_rule || 'none',
           hasError: false,
           errorMessage: null,
@@ -151,6 +153,7 @@ export function useServiceEvents() {
         return {
           rate: general.rate,
           serviceName: general.service_name,
+          billingUnit: general.billing_unit,
           alertRule: general.alert_rule || 'none',
           hasError: true,
           errorMessage: 'Item has no class assigned - using default rate',
@@ -159,6 +162,7 @@ export function useServiceEvents() {
       return {
         rate: general.rate,
         serviceName: general.service_name,
+        billingUnit: general.billing_unit,
         alertRule: general.alert_rule || 'none',
         hasError: false,
         errorMessage: null,
@@ -169,6 +173,7 @@ export function useServiceEvents() {
     return {
       rate: 0,
       serviceName: serviceCode,
+      billingUnit: 'Item',
       alertRule: 'none',
       hasError: true,
       errorMessage: `Service not found: ${serviceCode}`,

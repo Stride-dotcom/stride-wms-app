@@ -65,8 +65,9 @@ interface TaskDetail {
   updated_at: string;
   // Billing rate fields
   billing_rate: number | null;
-  billing_rate_overridden: boolean | null;
-  billing_rate_override_by: string | null;
+  billing_rate_locked: boolean | null;
+  billing_rate_set_by: string | null;
+  billing_rate_set_at: string | null;
   assigned_user?: { id: string; first_name: string | null; last_name: string | null };
   warehouse?: { id: string; name: string };
   account?: { id: string; account_name: string };
@@ -948,13 +949,15 @@ export default function TaskDetailPage() {
                     const { error } = await (supabase.from('tasks') as any)
                       .update({
                         billing_rate: rate,
-                        billing_rate_overridden: rate !== null,
-                        billing_rate_override_by: rate !== null ? profile.id : null,
+                        billing_rate_locked: rate !== null,
+                        billing_rate_set_by: rate !== null ? profile.id : null,
+                        billing_rate_set_at: rate !== null ? new Date().toISOString() : null,
                       })
                       .eq('id', task.id);
                     if (error) throw error;
                     fetchTask();
                   } catch (error) {
+                    console.error('Error saving billing rate:', error);
                     toast({ variant: 'destructive', title: 'Error', description: 'Failed to save billing rate' });
                   }
                 }}

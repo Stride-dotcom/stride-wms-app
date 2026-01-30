@@ -145,53 +145,62 @@ export function BillingChargesSection({
     try {
       let totalRate = 0;
 
-      // For tasks, get task_items with their class codes
+      // For tasks, check billing unit first
       if (taskId && serviceCode) {
-        // First fetch all classes to map class_id to code
-        const { data: allClasses } = await (supabase
-          .from('classes') as any)
-          .select('id, code')
-          .eq('tenant_id', profile.tenant_id);
+        // Check if this service is billed per task (like Assembly) or per item
+        const serviceInfo = getServiceRate(serviceCode, null);
 
-        const classMap = new Map((allClasses || []).map((c: any) => [c.id, c.code]));
+        if (serviceInfo.billingUnit === 'Task') {
+          // Task-level billing: single rate for the whole task
+          totalRate = serviceInfo.rate;
+        } else {
+          // Item-level billing: rate per item based on class
+          // First fetch all classes to map class_id to code
+          const { data: allClasses } = await (supabase
+            .from('classes') as any)
+            .select('id, code')
+            .eq('tenant_id', profile.tenant_id);
 
-        const { data: taskItems, error } = await (supabase
-          .from('task_items') as any)
-          .select(`
-            id,
-            quantity,
-            item:items!task_items_item_id_fkey(
+          const classMap = new Map((allClasses || []).map((c: any) => [c.id, c.code]));
+
+          const { data: taskItems, error } = await (supabase
+            .from('task_items') as any)
+            .select(`
               id,
-              item_code,
-              class_id
-            )
-          `)
-          .eq('task_id', taskId);
+              quantity,
+              item:items!task_items_item_id_fkey(
+                id,
+                item_code,
+                class_id
+              )
+            `)
+            .eq('task_id', taskId);
 
-        if (error) {
-          console.error('[BillingChargesSection] Error fetching task items:', error);
-          return;
-        }
-
-        // Deduplicate task_items by item_id (keep the first occurrence)
-        const seenItemIds = new Set<string>();
-        const uniqueTaskItems = (taskItems || []).filter((ti: any) => {
-          const itemId = ti.item?.id;
-          if (!itemId || seenItemIds.has(itemId)) {
-            return false;
+          if (error) {
+            console.error('[BillingChargesSection] Error fetching task items:', error);
+            return;
           }
-          seenItemIds.add(itemId);
-          return true;
-        });
 
-        // Look up rate for each unique item based on its class
-        for (const taskItem of uniqueTaskItems) {
-          const classCode = taskItem.item?.class_id ? classMap.get(taskItem.item.class_id) : null;
-          const quantity = taskItem.quantity || 1;
+          // Deduplicate task_items by item_id (keep the first occurrence)
+          const seenItemIds = new Set<string>();
+          const uniqueTaskItems = (taskItems || []).filter((ti: any) => {
+            const itemId = ti.item?.id;
+            if (!itemId || seenItemIds.has(itemId)) {
+              return false;
+            }
+            seenItemIds.add(itemId);
+            return true;
+          });
 
-          // Get rate from service_events using pre-fetched data (same as QuoteBuilder)
-          const rateInfo = getServiceRate(serviceCode, classCode);
-          totalRate += rateInfo.rate * quantity;
+          // Look up rate for each unique item based on its class
+          for (const taskItem of uniqueTaskItems) {
+            const classCode = taskItem.item?.class_id ? classMap.get(taskItem.item.class_id) : null;
+            const quantity = taskItem.quantity || 1;
+
+            // Get rate from service_events using pre-fetched data (same as QuoteBuilder)
+            const rateInfo = getServiceRate(serviceCode, classCode);
+            totalRate += rateInfo.rate * quantity;
+          }
         }
       }
 
