@@ -335,13 +335,144 @@ export function useInvoices() {
     }
   }, [toast]);
 
-  return { 
-    createInvoiceDraft, 
-    markInvoiceSent, 
+  // Create batch invoices - one per account from a list of billing event IDs
+  const createBatchInvoices = useCallback(async (
+    eventIds: string[],
+    periodStart: string,
+    periodEnd: string
+  ): Promise<{ success: number; failed: number; invoices: Invoice[] }> => {
+    const result = { success: 0, failed: 0, invoices: [] as Invoice[] };
+
+    try {
+      if (!profile?.tenant_id) {
+        throw new Error("No tenant context");
+      }
+
+      if (eventIds.length === 0) {
+        toast({ title: "No events selected", description: "Please select billing events to invoice." });
+        return result;
+      }
+
+      // Fetch all selected billing events
+      const { data: events, error: eventsErr } = await supabase
+        .from("billing_events")
+        .select("*, accounts:account_id(account_name)")
+        .in("id", eventIds)
+        .eq("status", "unbilled");
+
+      if (eventsErr) throw eventsErr;
+
+      if (!events || events.length === 0) {
+        toast({ title: "No unbilled events", description: "All selected events are already invoiced or void." });
+        return result;
+      }
+
+      // Group events by account_id
+      const eventsByAccount = events.reduce((acc, event) => {
+        const accountId = event.account_id;
+        if (!accountId) return acc;
+        if (!acc[accountId]) {
+          acc[accountId] = {
+            accountName: (event.accounts as any)?.account_name || 'Unknown',
+            events: []
+          };
+        }
+        acc[accountId].events.push(event);
+        return acc;
+      }, {} as Record<string, { accountName: string; events: any[] }>);
+
+      // Create invoice for each account
+      for (const [accountId, { accountName, events: accountEvents }] of Object.entries(eventsByAccount)) {
+        try {
+          // Get invoice number
+          const { data: invNum, error: invNumErr } = await supabase.rpc("next_invoice_number");
+          if (invNumErr) throw invNumErr;
+          const invoice_number = invNum as string;
+
+          const subtotal = accountEvents.reduce((sum, e) => sum + Number(e.total_amount || 0), 0);
+
+          // Create invoice
+          const { data: invoice, error: invErr } = await (supabase
+            .from("invoices") as any)
+            .insert({
+              tenant_id: profile.tenant_id,
+              account_id: accountId,
+              invoice_number,
+              period_start: periodStart,
+              period_end: periodEnd,
+              status: "draft",
+              subtotal,
+              tax_amount: 0,
+              total_amount: subtotal,
+              created_by: profile.id,
+              notes: `Batch invoice for ${accountName}`,
+            })
+            .select("*")
+            .single();
+
+          if (invErr) throw invErr;
+
+          // Create invoice lines
+          const lines = accountEvents.map((e) => ({
+            tenant_id: profile.tenant_id,
+            invoice_id: invoice.id,
+            billing_event_id: e.id,
+            item_id: e.item_id || null,
+            description: e.description || e.charge_type || e.event_type,
+            quantity: e.quantity ?? 1,
+            unit_rate: e.unit_rate ?? e.total_amount ?? 0,
+            total_amount: e.total_amount ?? 0,
+          }));
+
+          const { error: linesErr } = await supabase.from("invoice_lines").insert(lines);
+          if (linesErr) throw linesErr;
+
+          // Mark billing events as invoiced
+          const { error: updErr } = await supabase
+            .from("billing_events")
+            .update({ status: "invoiced", invoice_id: invoice.id, invoiced_at: new Date().toISOString() })
+            .in("id", accountEvents.map((e) => e.id));
+
+          if (updErr) throw updErr;
+
+          result.invoices.push(invoice as unknown as Invoice);
+          result.success++;
+        } catch (err) {
+          console.error(`Failed to create invoice for account ${accountId}:`, err);
+          result.failed++;
+        }
+      }
+
+      if (result.success > 0) {
+        toast({
+          title: "Batch invoices created",
+          description: `Created ${result.success} invoice(s)${result.failed > 0 ? `, ${result.failed} failed` : ''}`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Invoice creation failed",
+          description: "Could not create any invoices.",
+        });
+      }
+
+      return result;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("createBatchInvoices error", err);
+      toast({ title: "Batch invoice creation failed", description: message, variant: "destructive" });
+      return result;
+    }
+  }, [profile, toast]);
+
+  return {
+    createInvoiceDraft,
+    markInvoiceSent,
     voidInvoice,
-    fetchInvoices, 
+    fetchInvoices,
     fetchInvoiceLines,
     generateStorageForDate,
     updateInvoiceNotes,
+    createBatchInvoices,
   };
 }

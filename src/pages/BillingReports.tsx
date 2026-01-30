@@ -52,6 +52,7 @@ import * as XLSX from 'xlsx';
 import { PushToQuickBooksButton } from '@/components/billing/PushToQuickBooksButton';
 import { ApplyPromoDialog } from '@/components/billing/ApplyPromoDialog';
 import { BillingEventForSync } from '@/hooks/useQuickBooks';
+import { useInvoices } from '@/hooks/useInvoices';
 
 interface BillingEvent {
   id: string;
@@ -156,6 +157,10 @@ export default function BillingReports() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showTimeColumns, setShowTimeColumns] = useState(false);
 
+  // Sorting
+  const [sortColumn, setSortColumn] = useState<string>('occurred_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   // Storage calculator
   const [storageDialogOpen, setStorageDialogOpen] = useState(false);
   const [storageLoading, setStorageLoading] = useState(false);
@@ -167,6 +172,14 @@ export default function BillingReports() {
   // Promo code dialog
   const [promoDialogOpen, setPromoDialogOpen] = useState(false);
   const [selectedEventForPromo, setSelectedEventForPromo] = useState<BillingEvent | null>(null);
+
+  // Status change
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+
+  // Batch invoice creation
+  const { createBatchInvoices } = useInvoices();
+  const [creatingInvoices, setCreatingInvoices] = useState(false);
+  const [invoiceConfirmOpen, setInvoiceConfirmOpen] = useState(false);
 
   // Load reference data
   useEffect(() => {
@@ -274,9 +287,19 @@ export default function BillingReports() {
     }
   };
 
-  // Filtered events
+  // Handle column sort
+  const handleSort = useCallback((column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  }, [sortColumn]);
+
+  // Filtered and sorted events
   const filteredEvents = useMemo(() => {
-    return events.filter((event) => {
+    const filtered = events.filter((event) => {
       // Account filter
       if (selectedAccounts.length > 0 && event.account_id && !selectedAccounts.includes(event.account_id)) {
         return false;
@@ -310,7 +333,63 @@ export default function BillingReports() {
       }
       return true;
     });
-  }, [events, selectedAccounts, selectedSidemarks, selectedServices, selectedClasses, searchQuery, services]);
+
+    // Sort the filtered events
+    return filtered.sort((a, b) => {
+      let aVal: any;
+      let bVal: any;
+
+      switch (sortColumn) {
+        case 'occurred_at':
+          aVal = new Date(a.occurred_at).getTime();
+          bVal = new Date(b.occurred_at).getTime();
+          break;
+        case 'account_name':
+          aVal = a.account_name?.toLowerCase() || '';
+          bVal = b.account_name?.toLowerCase() || '';
+          break;
+        case 'sidemark_name':
+          aVal = a.sidemark_name?.toLowerCase() || '';
+          bVal = b.sidemark_name?.toLowerCase() || '';
+          break;
+        case 'item_code':
+          aVal = a.item_code?.toLowerCase() || '';
+          bVal = b.item_code?.toLowerCase() || '';
+          break;
+        case 'service_name':
+          aVal = a.service_name?.toLowerCase() || '';
+          bVal = b.service_name?.toLowerCase() || '';
+          break;
+        case 'class_name':
+          aVal = a.class_name?.toLowerCase() || '';
+          bVal = b.class_name?.toLowerCase() || '';
+          break;
+        case 'quantity':
+          aVal = a.quantity || 0;
+          bVal = b.quantity || 0;
+          break;
+        case 'unit_rate':
+          aVal = a.unit_rate || 0;
+          bVal = b.unit_rate || 0;
+          break;
+        case 'total_amount':
+          aVal = a.total_amount || 0;
+          bVal = b.total_amount || 0;
+          break;
+        case 'status':
+          aVal = a.status?.toLowerCase() || '';
+          bVal = b.status?.toLowerCase() || '';
+          break;
+        default:
+          aVal = a.occurred_at;
+          bVal = b.occurred_at;
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [events, selectedAccounts, selectedSidemarks, selectedServices, selectedClasses, searchQuery, services, sortColumn, sortDirection]);
 
   // Totals
   const totals = useMemo(() => {
@@ -365,7 +444,7 @@ export default function BillingReports() {
       'Date': format(new Date(event.occurred_at), 'yyyy-MM-dd'),
       'Account': event.account_name || '',
       'Sidemark': event.sidemark_name || '',
-      'Item Code': event.item_code || '',
+      'Item Code': event.item_code || (event.metadata?.task_item_codes?.join(', ') || ''),
       'Service': event.service_name || event.charge_type,
       'Class': event.class_name || '',
       'Description': event.description || '',
@@ -615,6 +694,110 @@ export default function BillingReports() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
 
+  // Update billing event status
+  const updateBillingEventStatus = async (eventId: string, newStatus: string) => {
+    setUpdatingStatus(eventId);
+    try {
+      const { error } = await supabase
+        .from('billing_events')
+        .update({ status: newStatus })
+        .eq('id', eventId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Status Updated',
+        description: `Billing event marked as ${newStatus}`,
+      });
+
+      loadEvents();
+    } catch (error) {
+      console.error('Error updating billing event status:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update billing status',
+      });
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  // Get unbilled events for batch invoicing
+  const unbilledEvents = useMemo(() => {
+    return filteredEvents.filter((e) => e.status === 'unbilled' && e.account_id);
+  }, [filteredEvents]);
+
+  // Group unbilled events by account for preview
+  const unbilledByAccount = useMemo(() => {
+    const groups: Record<string, { accountName: string; count: number; total: number }> = {};
+    unbilledEvents.forEach((e) => {
+      if (!e.account_id) return;
+      if (!groups[e.account_id]) {
+        groups[e.account_id] = { accountName: e.account_name || 'Unknown', count: 0, total: 0 };
+      }
+      groups[e.account_id].count++;
+      groups[e.account_id].total += e.total_amount || 0;
+    });
+    return groups;
+  }, [unbilledEvents]);
+
+  // Handle batch invoice creation
+  const handleCreateBatchInvoices = async () => {
+    setCreatingInvoices(true);
+    try {
+      const eventIds = unbilledEvents.map((e) => e.id);
+      const result = await createBatchInvoices(
+        eventIds,
+        format(dateFrom, 'yyyy-MM-dd'),
+        format(dateTo, 'yyyy-MM-dd')
+      );
+      setInvoiceConfirmOpen(false);
+      loadEvents();
+
+      // If invoices were created, offer to navigate to Invoices page
+      if (result.success > 0) {
+        toast({
+          title: 'Invoices Created',
+          description: (
+            <div className="flex flex-col gap-2">
+              <span>{result.success} invoice(s) created as drafts</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                onClick={() => navigate('/invoices')}
+              >
+                View Invoices
+              </Button>
+            </div>
+          ),
+        });
+      }
+    } finally {
+      setCreatingInvoices(false);
+    }
+  };
+
+  // Sortable header component
+  const SortableHeader = ({ column, children, className }: { column: string; children: React.ReactNode; className?: string }) => (
+    <TableHead
+      className={cn("cursor-pointer hover:bg-muted/50 select-none", className)}
+      onClick={() => handleSort(column)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortColumn === column && (
+          <MaterialIcon
+            name={sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+            size="sm"
+            className="text-muted-foreground"
+          />
+        )}
+      </div>
+    </TableHead>
+  );
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -794,6 +977,14 @@ export default function BillingReports() {
                 <MaterialIcon name="download" size="sm" className="mr-2" />
                 Export Excel
               </Button>
+              <Button
+                variant="default"
+                onClick={() => setInvoiceConfirmOpen(true)}
+                disabled={unbilledEvents.length === 0}
+              >
+                <MaterialIcon name="receipt_long" size="sm" className="mr-2" />
+                Create Invoices ({Object.keys(unbilledByAccount).length})
+              </Button>
               <PushToQuickBooksButton
                 billingEvents={unbilledEventsForSync}
                 periodStart={format(dateFrom, 'yyyy-MM-dd')}
@@ -836,16 +1027,16 @@ export default function BillingReports() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Account</TableHead>
-                      <TableHead>Sidemark</TableHead>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Service</TableHead>
-                      <TableHead>Class</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Rate</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Status</TableHead>
+                      <SortableHeader column="occurred_at">Date</SortableHeader>
+                      <SortableHeader column="account_name">Account</SortableHeader>
+                      <SortableHeader column="sidemark_name">Sidemark</SortableHeader>
+                      <SortableHeader column="item_code">Item</SortableHeader>
+                      <SortableHeader column="service_name">Service</SortableHeader>
+                      <SortableHeader column="class_name">Class</SortableHeader>
+                      <SortableHeader column="quantity" className="text-right">Qty</SortableHeader>
+                      <SortableHeader column="unit_rate" className="text-right">Rate</SortableHeader>
+                      <SortableHeader column="total_amount" className="text-right">Amount</SortableHeader>
+                      <SortableHeader column="status">Status</SortableHeader>
                       {showTimeColumns && (
                         <>
                           <TableHead className="text-right">Time</TableHead>
@@ -868,6 +1059,11 @@ export default function BillingReports() {
                         <TableCell>
                           {event.item_code ? (
                             <span className="font-mono text-sm">{event.item_code}</span>
+                          ) : event.metadata?.task_item_codes?.length > 0 ? (
+                            <span className="font-mono text-sm text-muted-foreground">
+                              {event.metadata.task_item_codes.slice(0, 3).join(', ')}
+                              {event.metadata.task_item_codes.length > 3 && ` +${event.metadata.task_item_codes.length - 3}`}
+                            </span>
                           ) : '-'}
                         </TableCell>
                         <TableCell>{event.service_name}</TableCell>
@@ -910,26 +1106,77 @@ export default function BillingReports() {
                           </>
                         )}
                         <TableCell onClick={(e) => e.stopPropagation()}>
-                          {event.status === 'unbilled' && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                disabled={updatingStatus === event.id}
+                              >
+                                {updatingStatus === event.id ? (
+                                  <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
+                                ) : (
                                   <MaterialIcon name="more_vert" size="sm" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
+                                )}
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {event.status === 'unbilled' && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => updateBillingEventStatus(event.id, 'invoiced')}
+                                  >
+                                    <MaterialIcon name="check_circle" size="sm" className="mr-2 text-green-500" />
+                                    Mark as Invoiced
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedEventForPromo(event);
+                                      setPromoDialogOpen(true);
+                                    }}
+                                  >
+                                    <MaterialIcon name="confirmation_number" size="sm" className="mr-2" />
+                                    {event.metadata?.promo_discount ? 'Manage Promo Code' : 'Apply Promo Code'}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => updateBillingEventStatus(event.id, 'void')}
+                                    className="text-red-500"
+                                  >
+                                    <MaterialIcon name="cancel" size="sm" className="mr-2" />
+                                    Mark as Void
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {event.status === 'invoiced' && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => updateBillingEventStatus(event.id, 'unbilled')}
+                                  >
+                                    <MaterialIcon name="undo" size="sm" className="mr-2" />
+                                    Revert to Unbilled
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => updateBillingEventStatus(event.id, 'void')}
+                                    className="text-red-500"
+                                  >
+                                    <MaterialIcon name="cancel" size="sm" className="mr-2" />
+                                    Mark as Void
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {event.status === 'void' && (
                                 <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedEventForPromo(event);
-                                    setPromoDialogOpen(true);
-                                  }}
+                                  onClick={() => updateBillingEventStatus(event.id, 'unbilled')}
                                 >
-                                  <MaterialIcon name="confirmation_number" size="sm" className="mr-2" />
-                                  {event.metadata?.promo_discount ? 'Manage Promo Code' : 'Apply Promo Code'}
+                                  <MaterialIcon name="undo" size="sm" className="mr-2" />
+                                  Restore to Unbilled
                                 </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1060,6 +1307,76 @@ export default function BillingReports() {
           loadEvents();
         }}
       />
+
+      {/* Batch Invoice Creation Dialog */}
+      <Dialog open={invoiceConfirmOpen} onOpenChange={setInvoiceConfirmOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MaterialIcon name="receipt_long" size="md" />
+              Create Batch Invoices
+            </DialogTitle>
+            <DialogDescription>
+              Create invoices for unbilled charges from {format(dateFrom, 'MMM d, yyyy')} to {format(dateTo, 'MMM d, yyyy')}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="text-sm text-muted-foreground">
+              This will create one invoice per customer with all their unbilled charges.
+            </div>
+
+            <div className="border rounded-lg max-h-64 overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Account</TableHead>
+                    <TableHead className="text-right">Charges</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(unbilledByAccount).map(([accountId, data]) => (
+                    <TableRow key={accountId}>
+                      <TableCell className="font-medium">{data.accountName}</TableCell>
+                      <TableCell className="text-right">{data.count}</TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(data.total)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="flex justify-between items-center pt-2 border-t">
+              <div className="text-sm font-medium">
+                {Object.keys(unbilledByAccount).length} invoice(s) to create
+              </div>
+              <div className="text-lg font-bold">
+                Total: {formatCurrency(unbilledEvents.reduce((sum, e) => sum + (e.total_amount || 0), 0))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInvoiceConfirmOpen(false)} disabled={creatingInvoices}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateBatchInvoices} disabled={creatingInvoices || unbilledEvents.length === 0}>
+              {creatingInvoices ? (
+                <>
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <MaterialIcon name="receipt_long" size="sm" className="mr-2" />
+                  Create {Object.keys(unbilledByAccount).length} Invoice(s)
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
