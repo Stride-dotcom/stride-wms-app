@@ -946,19 +946,31 @@ export default function TaskDetailPage() {
                 onBaseRateChange={async (rate) => {
                   if (!profile?.id) return;
                   try {
-                    const { error } = await (supabase.from('tasks') as any)
-                      .update({
-                        billing_rate: rate,
-                        billing_rate_locked: rate !== null,
-                        billing_rate_set_by: rate !== null ? profile.id : null,
-                        billing_rate_set_at: rate !== null ? new Date().toISOString() : null,
-                      })
-                      .eq('id', task.id);
-                    if (error) throw error;
+                    const updateData: Record<string, any> = {
+                      billing_rate: rate,
+                      billing_rate_locked: rate !== null,
+                    };
+                    // Only set these if rate is not null
+                    if (rate !== null) {
+                      updateData.billing_rate_set_by = profile.id;
+                      updateData.billing_rate_set_at = new Date().toISOString();
+                    }
+                    const { error, data } = await (supabase.from('tasks') as any)
+                      .update(updateData)
+                      .eq('id', task.id)
+                      .select();
+                    if (error) {
+                      console.error('Supabase error:', error);
+                      throw error;
+                    }
                     fetchTask();
-                  } catch (error) {
+                  } catch (error: any) {
                     console.error('Error saving billing rate:', error);
-                    toast({ variant: 'destructive', title: 'Error', description: 'Failed to save billing rate' });
+                    toast({
+                      variant: 'destructive',
+                      title: 'Error',
+                      description: error?.message || 'Failed to save billing rate'
+                    });
                   }
                 }}
               />
