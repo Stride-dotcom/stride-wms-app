@@ -376,7 +376,7 @@ export default function ShipmentCreate() {
           expected_quantity: item.quantity,
           expected_vendor: item.vendor || null,
           expected_sidemark: null,
-          status: "pending",
+          status: "expected",
         }));
 
       if (itemsToInsert.length > 0) {

@@ -7,7 +7,7 @@ export interface InputProps extends React.ComponentProps<"input"> {
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, uppercase, onChange, ...props }, ref) => {
+  ({ className, type, uppercase, onChange, autoCapitalize = "sentences", ...props }, ref) => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (uppercase) {
         e.target.value = e.target.value.toUpperCase();
@@ -25,6 +25,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         )}
         ref={ref}
         onChange={handleChange}
+        autoCapitalize={autoCapitalize}
         {...props}
       />
     );

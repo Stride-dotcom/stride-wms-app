@@ -79,7 +79,7 @@ export function AddShipmentItemDialog({
         expected_sidemark: sidemark.trim() || null,
         expected_class_id: matchedClass?.id || null,
         expected_quantity: parseInt(quantity) || 1,
-        status: 'pending',
+        status: 'expected',
       });
 
       if (error) throw error;
