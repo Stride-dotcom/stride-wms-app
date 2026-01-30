@@ -12,6 +12,7 @@ interface InlineEditableCellProps {
   type?: 'text' | 'number';
   className?: string;
   align?: 'left' | 'right';
+  showEditIcon?: boolean;
 }
 
 export function InlineEditableCell({
@@ -22,6 +23,7 @@ export function InlineEditableCell({
   type = 'text',
   className,
   align = 'left',
+  showEditIcon = true,
 }: InlineEditableCellProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(String(value ?? ''));
@@ -100,7 +102,9 @@ export function InlineEditableCell({
           )}>
             {displayValue}
           </span>
-          <MaterialIcon name="edit" className="text-[12px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          {showEditIcon && (
+            <MaterialIcon name="edit" className="text-[12px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          )}
         </div>
       </PopoverTrigger>
       <PopoverContent
