@@ -21,13 +21,13 @@ async function getRateFromPriceList(
   tenantId: string,
   serviceCode: string,
   classCode: string | null
-): Promise<{ rate: number; serviceName: string; alertRule: string; hasError: boolean; errorMessage?: string }> {
+): Promise<{ rate: number; serviceName: string; billingUnit: 'Day' | 'Item' | 'Task'; alertRule: string; hasError: boolean; errorMessage?: string }> {
   try {
     // Try class-specific rate first
     if (classCode) {
       const { data: classRate } = await (supabase
         .from('service_events') as any)
-        .select('rate, service_name, alert_rule')
+        .select('rate, service_name, billing_unit, alert_rule')
         .eq('tenant_id', tenantId)
         .eq('service_code', serviceCode)
         .eq('class_code', classCode)
@@ -38,6 +38,7 @@ async function getRateFromPriceList(
         return {
           rate: classRate.rate,
           serviceName: classRate.service_name || serviceCode,
+          billingUnit: classRate.billing_unit || 'Item',
           alertRule: classRate.alert_rule || 'none',
           hasError: false
         };
@@ -47,7 +48,7 @@ async function getRateFromPriceList(
     // Fall back to general rate (no class_code)
     const { data: generalRate } = await (supabase
       .from('service_events') as any)
-      .select('rate, service_name, alert_rule')
+      .select('rate, service_name, billing_unit, alert_rule')
       .eq('tenant_id', tenantId)
       .eq('service_code', serviceCode)
       .is('class_code', null)
@@ -58,6 +59,7 @@ async function getRateFromPriceList(
       return {
         rate: generalRate.rate,
         serviceName: generalRate.service_name || serviceCode,
+        billingUnit: generalRate.billing_unit || 'Item',
         alertRule: generalRate.alert_rule || 'none',
         hasError: false
       };
@@ -67,6 +69,7 @@ async function getRateFromPriceList(
     return {
       rate: 0,
       serviceName: serviceCode,
+      billingUnit: 'Item',
       alertRule: 'none',
       hasError: true,
       errorMessage: `No rate found in Price List for service: ${serviceCode}`,
@@ -76,6 +79,7 @@ async function getRateFromPriceList(
     return {
       rate: 0,
       serviceName: serviceCode,
+      billingUnit: 'Item',
       alertRule: 'none',
       hasError: true,
       errorMessage: 'Error looking up rate from Price List',
@@ -302,6 +306,23 @@ export function useTasks(filters?: {
     if (!profile?.tenant_id || !profile?.id) return;
 
     try {
+      // First, fetch the task to check for manual rate override
+      const { data: taskData } = await (supabase
+        .from('tasks') as any)
+        .select('billing_rate, billing_rate_overridden, title')
+        .eq('id', taskId)
+        .single();
+
+      const hasManualRate = taskData?.billing_rate_overridden && taskData?.billing_rate !== null;
+      const manualRate = taskData?.billing_rate;
+
+      // Get service code for this task type from Price List mapping
+      const serviceCode = TASK_TYPE_TO_SERVICE_CODE[taskType] || taskType;
+
+      // Check if this service uses task-level billing (e.g., Assembly)
+      const serviceInfo = await getRateFromPriceList(profile.tenant_id, serviceCode, null);
+      const isTaskLevelBilling = serviceInfo.billingUnit === 'Task';
+
       // Fetch all classes to map class_id to code
       const { data: allClasses } = await supabase
         .from('classes')
@@ -321,10 +342,7 @@ export function useTasks(filters?: {
 
       if (!taskItems || taskItems.length === 0) return;
 
-      // Get service code for this task type from Price List mapping
-      const serviceCode = TASK_TYPE_TO_SERVICE_CODE[taskType] || taskType;
-
-      // Build billing events for each item, tracking alert rules
+      // Build billing events
       const billingEvents: CreateBillingEventParams[] = [];
       const alertsToQueue: Array<{
         serviceName: string;
@@ -334,61 +352,109 @@ export function useTasks(filters?: {
         description: string;
       }> = [];
 
-      for (const taskItem of taskItems) {
-        const item = taskItem.items;
-        if (!item) continue;
+      // For task-level billing (like Assembly) with manual rate, create single billing event
+      if (isTaskLevelBilling && hasManualRate) {
+        // Get first item for account info
+        const firstItem = taskItems[0]?.items;
+        const taskAccountId = accountId || firstItem?.account_id;
 
-        const itemAccountId = accountId || item.account_id;
-        if (!itemAccountId) continue;
+        if (taskAccountId) {
+          const itemCodes = taskItems
+            .map((ti: any) => ti.items?.item_code)
+            .filter(Boolean)
+            .join(', ');
+          const description = `${taskType}: ${taskData?.title || itemCodes}`;
 
-        // Get the item's class code for rate lookup
-        const classCode = item.class_id ? classMap.get(item.class_id) : null;
-
-        // Get the rate from the Price List (includes alert_rule)
-        const rateResult = await getRateFromPriceList(
-          profile.tenant_id,
-          serviceCode,
-          classCode
-        );
-
-        const quantity = taskItem.quantity || 1;
-        const unitRate = rateResult.rate;
-        const totalAmount = quantity * unitRate;
-        const description = `${taskType}: ${item.item_code}`;
-
-        billingEvents.push({
-          tenant_id: profile.tenant_id,
-          account_id: itemAccountId,
-          sidemark_id: item.sidemark_id || null,
-          class_id: item.class_id || null,
-          item_id: item.id,
-          task_id: taskId,
-          event_type: 'task_completion',
-          charge_type: serviceCode,
-          description,
-          quantity,
-          unit_rate: unitRate,
-          total_amount: totalAmount,
-          status: 'unbilled',
-          occurred_at: new Date().toISOString(),
-          metadata: {
-            task_type: taskType,
-            class_code: classCode,
-            has_rate_error: rateResult.hasError,
-            rate_error_message: rateResult.errorMessage,
-          },
-          created_by: profile.id,
-        });
-
-        // Track alerts to queue for services with email_office alert rule
-        if (rateResult.alertRule === 'email_office') {
-          alertsToQueue.push({
-            serviceName: rateResult.serviceName,
-            itemCode: item.item_code,
-            accountName: item.account?.account_name || 'Unknown Account',
-            amount: totalAmount,
+          billingEvents.push({
+            tenant_id: profile.tenant_id,
+            account_id: taskAccountId,
+            sidemark_id: firstItem?.sidemark_id || null,
+            class_id: null,
+            item_id: null, // Task-level, not item-specific
+            task_id: taskId,
+            event_type: 'task_completion',
+            charge_type: serviceCode,
             description,
+            quantity: 1,
+            unit_rate: manualRate,
+            total_amount: manualRate,
+            status: 'unbilled',
+            occurred_at: new Date().toISOString(),
+            metadata: {
+              task_type: taskType,
+              billing_unit: 'Task',
+              manual_rate: true,
+            },
+            created_by: profile.id,
           });
+        }
+      } else {
+        // Item-level billing: create event per item
+        for (const taskItem of taskItems) {
+          const item = taskItem.items;
+          if (!item) continue;
+
+          const itemAccountId = accountId || item.account_id;
+          if (!itemAccountId) continue;
+
+          // Get the item's class code for rate lookup
+          const classCode = item.class_id ? classMap.get(item.class_id) : null;
+
+          // Use manual rate if set, otherwise lookup from Price List
+          let unitRate: number;
+          let rateResult: any;
+
+          if (hasManualRate) {
+            unitRate = manualRate;
+            rateResult = { serviceName: serviceCode, alertRule: 'none', hasError: false };
+          } else {
+            rateResult = await getRateFromPriceList(
+              profile.tenant_id,
+              serviceCode,
+              classCode
+            );
+            unitRate = rateResult.rate;
+          }
+
+          const quantity = taskItem.quantity || 1;
+          const totalAmount = quantity * unitRate;
+          const description = `${taskType}: ${item.item_code}`;
+
+          billingEvents.push({
+            tenant_id: profile.tenant_id,
+            account_id: itemAccountId,
+            sidemark_id: item.sidemark_id || null,
+            class_id: item.class_id || null,
+            item_id: item.id,
+            task_id: taskId,
+            event_type: 'task_completion',
+            charge_type: serviceCode,
+            description,
+            quantity,
+            unit_rate: unitRate,
+            total_amount: totalAmount,
+            status: 'unbilled',
+            occurred_at: new Date().toISOString(),
+            metadata: {
+              task_type: taskType,
+              class_code: classCode,
+              has_rate_error: hasManualRate ? false : rateResult.hasError,
+              rate_error_message: hasManualRate ? null : rateResult.errorMessage,
+              manual_rate: hasManualRate,
+            },
+            created_by: profile.id,
+          });
+
+          // Track alerts to queue for services with email_office alert rule
+          if (rateResult.alertRule === 'email_office') {
+            alertsToQueue.push({
+              serviceName: rateResult.serviceName,
+              itemCode: item.item_code,
+              accountName: item.account?.account_name || 'Unknown Account',
+              amount: totalAmount,
+              description,
+            });
+          }
         }
       }
 
