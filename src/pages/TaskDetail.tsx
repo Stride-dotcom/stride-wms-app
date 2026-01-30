@@ -37,6 +37,7 @@ import { BillingChargesSection } from '@/components/billing/BillingChargesSectio
 import { useTechnicians } from '@/hooks/useTechnicians';
 import { useRepairQuoteWorkflow } from '@/hooks/useRepairQuotes';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useTasks } from '@/hooks/useTasks';
 import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
@@ -147,6 +148,7 @@ export default function TaskDetailPage() {
   const { activeTechnicians } = useTechnicians();
   const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
   const { hasRole } = usePermissions();
+  const { completeTask, startTask: startTaskHook } = useTasks();
 
   // Only managers and admins can see billing
   const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
@@ -272,16 +274,12 @@ export default function TaskDetailPage() {
     if (!id || !profile?.id) return;
     setActionLoading(true);
     try {
-      const { error } = await (supabase.from('tasks') as any)
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          completed_by: profile.id,
-        })
-        .eq('id', id);
-      if (error) throw error;
-      toast({ title: 'Task Completed' });
-      fetchTask();
+      // Use completeTask from useTasks which creates billing events
+      const success = await completeTask(id);
+      if (success) {
+        fetchTask();
+        fetchTaskItems();
+      }
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to complete task' });
     } finally {
