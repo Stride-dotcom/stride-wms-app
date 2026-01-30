@@ -523,7 +523,7 @@ export default function ShipmentDetail() {
     );
   }
 
-  const isInbound = shipment.shipment_type === 'inbound';
+  const isInbound = shipment.shipment_type === 'inbound' || shipment.shipment_type === 'return';
   const canReceive = isInbound && ['expected', 'receiving'].includes(shipment.status);
   const isReceiving = session !== null;
   const isReceived = shipment.status === 'received' || shipment.status === 'partial';
@@ -822,8 +822,9 @@ export default function ShipmentDetail() {
               <CardDescription>Expected and received items for this shipment</CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {/* Add Items button for inbound shipments that are not completed */}
-              {shipment.shipment_type === 'inbound' && shipment.status !== 'completed' && (
+              {/* Add Items button for inbound/return shipments that are not completed */}
+              {(shipment.shipment_type === 'inbound' || shipment.shipment_type === 'return') &&
+               shipment.status !== 'completed' && shipment.status !== 'cancelled' && (
                 <Button variant="outline" size="sm" onClick={() => setAddItemDialogOpen(true)}>
                   <MaterialIcon name="add" size="sm" className="mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Add Items</span>
