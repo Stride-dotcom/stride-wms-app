@@ -258,6 +258,20 @@ export default function ShipmentCreate() {
     }
   };
 
+  const duplicateItem = (itemToDuplicate: ExpectedItemData) => {
+    const newItem: ExpectedItemData = {
+      id: crypto.randomUUID(),
+      description: itemToDuplicate.description,
+      vendor: itemToDuplicate.vendor,
+      quantity: itemToDuplicate.quantity,
+    };
+    // Insert the duplicate right after the original item
+    const index = expectedItems.findIndex((item) => item.id === itemToDuplicate.id);
+    const newItems = [...expectedItems];
+    newItems.splice(index + 1, 0, newItem);
+    setExpectedItems(newItems);
+  };
+
   const updateItem = (id: string, field: keyof ExpectedItemData, value: string | number) => {
     setExpectedItems(expectedItems.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
     // Clear field error on change
@@ -575,6 +589,7 @@ export default function ShipmentCreate() {
                   canDelete={expectedItems.length > 1}
                   onUpdate={updateItem}
                   onDelete={removeItem}
+                  onDuplicate={duplicateItem}
                   onVendorUsed={recordVendor}
                 />
               ))}
