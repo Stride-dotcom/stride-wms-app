@@ -156,6 +156,7 @@ export default function ShipmentDetail() {
   const [cancelling, setCancelling] = useState(false);
   const [showReassignDialog, setShowReassignDialog] = useState(false);
   const [classes, setClasses] = useState<{ id: string; code: string; name: string }[]>([]);
+  const [billingRefreshKey, setBillingRefreshKey] = useState(0);
 
   // Receiving session hook
   const {
@@ -232,6 +233,7 @@ export default function ShipmentDetail() {
 
       setShipment(shipmentData as unknown as Shipment);
       setItems((itemsData || []) as unknown as ShipmentItem[]);
+      setBillingRefreshKey(prev => prev + 1); // Trigger billing recalculation
 
       // Fetch classes for autocomplete
       const { data: classesData } = await supabase
@@ -303,6 +305,23 @@ export default function ShipmentDetail() {
   // ------------------------------------------
   const handleFinishReceiving = async () => {
     if (!shipment) return;
+
+    // Validate all items have a class assigned for billing
+    const itemsWithoutClass = items.filter(item => {
+      // For received items, check item.class_id; for pending items, check expected_class_id
+      const hasClass = item.item?.class_id || item.expected_class_id;
+      return !hasClass;
+    });
+
+    if (itemsWithoutClass.length > 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Class Required',
+        description: `${itemsWithoutClass.length} item(s) need a class assigned for billing. Please update them before finishing.`,
+      });
+      setShowFinishDialog(false);
+      return;
+    }
 
     // Convert local ReceivedItemData to VerificationData format expected by hook
     const verificationData = {
@@ -801,6 +820,7 @@ export default function ShipmentDetail() {
             accountId={shipment.account_id}
             taskType={shipment.shipment_type === 'inbound' ? 'Receiving' : 'Shipping'}
             itemCount={items.length}
+            refreshKey={billingRefreshKey}
           />
         )}
       </div>
@@ -904,10 +924,12 @@ export default function ShipmentDetail() {
                       }
                     }}
                     onUpdate={fetchShipment}
+                    onDelete={() => fetchShipment()}
                     onDuplicate={handleDuplicateItem}
                     isInbound={isInbound}
                     isCompleted={shipment.status === 'completed' || shipment.status === 'cancelled'}
                     classes={classes}
+                    accountId={shipment.account_id || undefined}
                   />
                 ))
               )}

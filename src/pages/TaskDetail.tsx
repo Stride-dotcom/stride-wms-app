@@ -141,6 +141,7 @@ export default function TaskDetailPage() {
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>('');
   const [creatingQuote, setCreatingQuote] = useState(false);
+  const [billingRefreshKey, setBillingRefreshKey] = useState(0);
 
   const { activeTechnicians } = useTechnicians();
   const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
@@ -237,6 +238,8 @@ export default function TaskDetailPage() {
         ...ti,
         item: itemMap[ti.item_id] || null,
       })));
+      // Trigger billing recalculation
+      setBillingRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error fetching task items:', error);
     }
@@ -938,6 +941,7 @@ export default function TaskDetailPage() {
                 taskType={task.task_type}
                 itemCount={taskItems.length}
                 baseRate={task.billing_rate}
+                refreshKey={billingRefreshKey}
                 onBaseRateChange={async (rate) => {
                   if (!profile?.id) return;
                   try {

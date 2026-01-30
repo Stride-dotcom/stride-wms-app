@@ -61,12 +61,12 @@ export function AddShipmentItemDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!description.trim()) {
       toast({ title: 'Description required', variant: 'destructive' });
       return;
     }
-    
+
     setSaving(true);
     try {
       // Find the class ID from the selected code
