@@ -222,13 +222,9 @@ export default function ShipmentDetail() {
             vendor,
             sidemark,
             room,
+            class_id,
             current_location:locations!items_current_location_id_fkey(code),
-            account:accounts!items_account_id_fkey(account_name),
-            class:classes(
-              id,
-              code,
-              name
-            )
+            account:accounts!items_account_id_fkey(account_name)
           )
         `)
         .eq('shipment_id', id)
@@ -428,7 +424,7 @@ export default function ShipmentDetail() {
           expected_vendor: itemToDuplicate.expected_vendor,
           expected_sidemark: itemToDuplicate.expected_sidemark,
           expected_quantity: itemToDuplicate.expected_quantity,
-          status: 'expected',
+          status: 'pending',
         });
 
       if (error) throw error;
