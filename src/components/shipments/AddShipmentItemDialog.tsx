@@ -67,11 +67,6 @@ export function AddShipmentItemDialog({
       return;
     }
 
-    if (!selectedClass) {
-      toast({ title: 'Class required', description: 'Please select a size class for billing', variant: 'destructive' });
-      return;
-    }
-    
     setSaving(true);
     try {
       // Find the class ID from the selected code
@@ -158,7 +153,7 @@ export function AddShipmentItemDialog({
 
           <div className="grid gap-4 grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="class">Class *</Label>
+              <Label htmlFor="class">Class</Label>
               <AutocompleteInput
                 value={selectedClass}
                 onChange={setSelectedClass}

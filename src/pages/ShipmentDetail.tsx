@@ -306,6 +306,23 @@ export default function ShipmentDetail() {
   const handleFinishReceiving = async () => {
     if (!shipment) return;
 
+    // Validate all items have a class assigned for billing
+    const itemsWithoutClass = items.filter(item => {
+      // For received items, check item.class_id; for pending items, check expected_class_id
+      const hasClass = item.item?.class_id || item.expected_class_id;
+      return !hasClass;
+    });
+
+    if (itemsWithoutClass.length > 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Class Required',
+        description: `${itemsWithoutClass.length} item(s) need a class assigned for billing. Please update them before finishing.`,
+      });
+      setShowFinishDialog(false);
+      return;
+    }
+
     // Convert local ReceivedItemData to VerificationData format expected by hook
     const verificationData = {
       expected_items: items.map(item => ({
