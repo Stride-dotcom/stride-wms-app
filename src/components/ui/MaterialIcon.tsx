@@ -1,13 +1,11 @@
+import { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 
-interface MaterialIconProps {
+interface MaterialIconProps extends React.HTMLAttributes<HTMLSpanElement> {
   name: string;
-  className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   filled?: boolean;
   weight?: 100 | 200 | 300 | 400 | 500 | 600 | 700;
-  style?: React.CSSProperties;
-  onClick?: React.MouseEventHandler<HTMLSpanElement>;
 }
 
 const sizeMap = {
@@ -17,30 +15,28 @@ const sizeMap = {
   xl: 'text-4xl',  // 36px
 };
 
-export function MaterialIcon({
-  name,
-  className,
-  size = 'md',
-  filled = false,
-  weight = 300,
-  style,
-  onClick,
-}: MaterialIconProps) {
-  return (
-    <span
-      className={cn(
-        'material-symbols-outlined select-none',
-        sizeMap[size],
-        onClick && 'cursor-pointer',
-        className
-      )}
-      style={{
-        fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' ${weight}, 'GRAD' 0, 'opsz' 24`,
-        ...style,
-      }}
-      onClick={onClick}
-    >
-      {name}
-    </span>
-  );
-}
+export const MaterialIcon = forwardRef<HTMLSpanElement, MaterialIconProps>(
+  ({ name, className, size = 'md', filled = false, weight = 300, style, onClick, ...props }, ref) => {
+    return (
+      <span
+        ref={ref}
+        className={cn(
+          'material-symbols-outlined select-none',
+          sizeMap[size],
+          onClick && 'cursor-pointer',
+          className
+        )}
+        style={{
+          fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' ${weight}, 'GRAD' 0, 'opsz' 24`,
+          ...style,
+        }}
+        onClick={onClick}
+        {...props}
+      >
+        {name}
+      </span>
+    );
+  }
+);
+
+MaterialIcon.displayName = 'MaterialIcon';
