@@ -396,6 +396,7 @@ export default function Inventory() {
                           onSave={(val) => handleInlineUpdate(item.id, 'quantity', val)}
                           placeholder="0"
                           align="right"
+                          showEditIcon={false}
                         />
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -404,6 +405,7 @@ export default function Inventory() {
                           suggestions={vendorSuggestions}
                           onSave={(val) => handleInlineUpdate(item.id, 'vendor', val)}
                           placeholder="-"
+                          showEditIcon={false}
                         />
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -413,6 +415,7 @@ export default function Inventory() {
                           onSave={(val) => handleInlineUpdate(item.id, 'description', val)}
                           placeholder="-"
                           className="max-w-[200px]"
+                          showEditIcon={false}
                         />
                       </TableCell>
                       <TableCell>{item.location_code ? <span className="text-sm">{item.location_code}{showWarehouseInLocation && item.warehouse_name && <span className="text-muted-foreground ml-1">({item.warehouse_name})</span>}</span> : '-'}</TableCell>
@@ -423,6 +426,7 @@ export default function Inventory() {
                           suggestions={sidemarkSuggestions}
                           onSave={(val) => handleInlineUpdate(item.id, 'sidemark', val)}
                           placeholder="-"
+                          showEditIcon={false}
                         />
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -431,6 +435,7 @@ export default function Inventory() {
                           suggestions={roomSuggestions}
                           onSave={(val) => handleInlineUpdate(item.id, 'room', val)}
                           placeholder="-"
+                          showEditIcon={false}
                         />
                       </TableCell>
                     </TableRow>
