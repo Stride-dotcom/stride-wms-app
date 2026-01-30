@@ -229,6 +229,35 @@ export function BillingChargesSection({
             totalRate += rateInfo.rate * qty;
           }
         }
+      } else if (shipmentId) {
+        // Get shipment items with class info for per-item calculation
+        const { data: shipmentItems } = await (supabase
+          .from('shipment_items') as any)
+          .select(`
+            item_id,
+            quantity_expected,
+            quantity_received,
+            items:item_id(class_id)
+          `)
+          .eq('shipment_id', shipmentId);
+
+        if (shipmentItems && shipmentItems.length > 0) {
+          // Get all classes
+          const { data: classes } = await supabase
+            .from('classes')
+            .select('id, code')
+            .eq('tenant_id', profile.tenant_id);
+          const classMap = new Map((classes || []).map((c: any) => [c.id, c.code]));
+
+          // Calculate rate per item based on class
+          for (const si of shipmentItems) {
+            const classCode = si.items?.class_id ? classMap.get(si.items.class_id) : null;
+            const rateInfo = getServiceRate(serviceCode, classCode);
+            // Use received quantity if available, otherwise expected
+            const qty = si.quantity_received || si.quantity_expected || 1;
+            totalRate += rateInfo.rate * qty;
+          }
+        }
       }
 
       setCalculatedBaseRate(totalRate);
@@ -236,7 +265,7 @@ export function BillingChargesSection({
       console.error('[BillingChargesSection] Error calculating rate:', error);
       setCalculatedBaseRate(0);
     }
-  }, [profile?.tenant_id, taskId, taskType, serviceEventsLoading, getServiceRate, isPerTaskBilling]);
+  }, [profile?.tenant_id, taskId, shipmentId, taskType, serviceEventsLoading, getServiceRate, isPerTaskBilling]);
 
   useEffect(() => {
     if (!isPerTaskBilling) {
