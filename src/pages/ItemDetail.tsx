@@ -241,13 +241,25 @@ export default function ItemDetail() {
           locations(id, code, name),
           warehouses(id, name),
           item_types(id, name),
-          class:classes!items_class_id_fkey(id, code, name),
           accounts:account_id(id, account_name, account_code)
         `)
         .eq('id', id)
         .single();
 
       if (error) throw error;
+
+      // Fetch class separately (FK may not be in PostgREST schema cache)
+      let itemClass: { id: string; code: string; name: string } | null = null;
+      if (data.class_id) {
+        const { data: classData } = await (supabase.from('classes') as any)
+          .select('id, code, name')
+          .eq('id', data.class_id)
+          .single();
+
+        if (classData) {
+          itemClass = classData;
+        }
+      }
 
       // If item has a receiving_shipment_id, fetch the shipment details
       let receivingShipment: ReceivingShipment | null = null;
@@ -256,7 +268,7 @@ export default function ItemDetail() {
           .select('id, shipment_number, shipment_type, status, received_at')
           .eq('id', data.receiving_shipment_id)
           .single();
-        
+
         if (shipmentData) {
           receivingShipment = shipmentData;
         }
@@ -267,7 +279,7 @@ export default function ItemDetail() {
         location: data.locations,
         warehouse: data.warehouses,
         item_type: data.item_types,
-        class: data.class,
+        class: itemClass,
         account: data.accounts,
         receiving_shipment: receivingShipment,
         room: data.room || null,
