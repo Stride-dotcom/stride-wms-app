@@ -285,6 +285,9 @@ export async function calculateTaskBillingPreview(
 /**
  * Calculate billing preview for a SHIPMENT
  * Returns what billing events WOULD be created when shipment completes
+ *
+ * Items are now created with class_id during shipment creation,
+ * so we can directly use item.class_id for rate lookups.
  */
 export async function calculateShipmentBillingPreview(
   tenantId: string,
@@ -294,7 +297,8 @@ export async function calculateShipmentBillingPreview(
   // Determine service code based on direction
   const serviceCode = SHIPMENT_DIRECTION_TO_SERVICE_CODE[direction] || 'RCVG';
 
-  // Get shipment items with class info
+  // Get shipment items with linked item's class info
+  // Items are created during shipment creation with class_id set
   const { data: shipmentItems, error: shipmentItemsError } = await supabase
     .from('shipment_items')
     .select(`
@@ -331,9 +335,12 @@ export async function calculateShipmentBillingPreview(
   // Calculate for each item based on class
   for (const si of shipmentItems || []) {
     const item = si.items as any;
+
+    // Get class info from the linked item
     const itemCode = item?.item_code || null;
     const classCode = item?.classes?.code || null;
     const className = item?.classes?.name || null;
+
     // Use received quantity if available, otherwise expected
     const quantity = si.quantity_received || si.quantity_expected || 1;
 

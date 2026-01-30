@@ -819,7 +819,7 @@ export default function ShipmentDetail() {
             shipmentId={shipment.id}
             shipmentDirection={shipment.shipment_type as 'inbound' | 'outbound' | 'return'}
             refreshKey={billingRefreshKey}
-            title={`${shipment.shipment_type === 'inbound' ? 'Receiving' : shipment.shipment_type === 'outbound' ? 'Shipping' : 'Returns'} Charges`}
+            title="Billing Calculator"
           />
         )}
       </div>
@@ -1168,6 +1168,9 @@ export default function ShipmentDetail() {
         onOpenChange={setAddItemDialogOpen}
         shipmentId={shipment.id}
         accountId={shipment.account_id || undefined}
+        warehouseId={shipment.warehouse_id || undefined}
+        sidemarkId={shipment.sidemark_id || undefined}
+        tenantId={profile?.tenant_id}
         classes={classes}
         onSuccess={() => {
           fetchShipment();

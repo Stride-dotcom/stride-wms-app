@@ -985,7 +985,7 @@ export default function TaskDetailPage() {
                 taskId={task.id}
                 taskType={task.task_type}
                 refreshKey={billingRefreshKey}
-                title={`${task.task_type} Charges`}
+                title="Billing Calculator"
                 // Assembly/Repair billing props
                 selectedServiceCode={task.metadata?.billing_service_code || '60MA'}
                 billingQuantity={task.metadata?.billing_quantity ?? 0}
