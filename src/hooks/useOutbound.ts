@@ -406,14 +406,14 @@ export function useOutboundShipments(filters?: {
 
       if (shipmentError) throw shipmentError;
 
-      // Get shipment items with class_code for billing
+      // Get shipment items with class_id for billing
       const { data: shipmentItems } = await (supabase
         .from('shipment_items') as any)
         .select(`
           id,
           item_id,
           expected_quantity,
-          items:item_id(id, item_code, class_id, sidemark_id, account_id, class:classes(code), account:accounts(account_name))
+          items:item_id(id, item_code, class_id, sidemark_id, account_id, account:accounts(account_name))
         `)
         .eq('shipment_id', params.shipment_id);
 
@@ -490,6 +490,13 @@ export function useOutboundShipments(filters?: {
     if (!profile?.tenant_id || !profile?.id) return;
 
     try {
+      // Fetch all classes to map class_id to code
+      const { data: allClasses } = await supabase
+        .from('classes')
+        .select('id, code')
+        .eq('tenant_id', profile.tenant_id);
+      const classMap = new Map((allClasses || []).map((c: any) => [c.id, c.code]));
+
       const billingEvents: CreateBillingEventParams[] = [];
       const alertsToQueue: Array<{
         serviceName: string;
@@ -508,7 +515,7 @@ export function useOutboundShipments(filters?: {
         if (!accountId) continue;
 
         // Get item's class code for rate lookup
-        const classCode = item.class?.code || null;
+        const classCode = item.class_id ? classMap.get(item.class_id) : null;
 
         // Get will call rate from Price List (includes alert_rule)
         const rateResult = await getRateFromPriceList(

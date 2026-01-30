@@ -302,13 +302,20 @@ export function useTasks(filters?: {
     if (!profile?.tenant_id || !profile?.id) return;
 
     try {
-      // Get task items with item details including class_code and account info
+      // Fetch all classes to map class_id to code
+      const { data: allClasses } = await supabase
+        .from('classes')
+        .select('id, code')
+        .eq('tenant_id', profile.tenant_id);
+      const classMap = new Map((allClasses || []).map((c: any) => [c.id, c.code]));
+
+      // Get task items with item details including class_id and account info
       const { data: taskItems } = await (supabase
         .from('task_items') as any)
         .select(`
           item_id,
           quantity,
-          items:item_id(id, class_id, sidemark_id, account_id, item_code, class:classes(code), account:accounts(account_name))
+          items:item_id(id, class_id, sidemark_id, account_id, item_code, account:accounts(account_name))
         `)
         .eq('task_id', taskId);
 
@@ -335,7 +342,7 @@ export function useTasks(filters?: {
         if (!itemAccountId) continue;
 
         // Get the item's class code for rate lookup
-        const classCode = item.class?.code || null;
+        const classCode = item.class_id ? classMap.get(item.class_id) : null;
 
         // Get the rate from the Price List (includes alert_rule)
         const rateResult = await getRateFromPriceList(

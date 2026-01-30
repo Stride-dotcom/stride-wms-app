@@ -37,6 +37,9 @@ interface ShipmentItem {
     item_code: string;
     description: string | null;
     vendor: string | null;
+    sidemark: string | null;
+    room: string | null;
+    class_id: string | null;
     class?: {
       id: string;
       code: string;
@@ -371,6 +374,20 @@ export function ShipmentItemRow({
           )}
         </TableCell>
 
+        {/* Sidemark - shows expected for pending, actual for received */}
+        <TableCell className="w-28">
+          <span className="text-sm">
+            {item.item?.sidemark || item.expected_sidemark || '-'}
+          </span>
+        </TableCell>
+
+        {/* Room - only for received items */}
+        <TableCell className="w-24">
+          <span className="text-sm">
+            {item.item?.room || '-'}
+          </span>
+        </TableCell>
+
         {/* Status */}
         <TableCell className="w-24">
           <Badge variant="outline" className="text-xs">{item.status}</Badge>
@@ -411,7 +428,7 @@ export function ShipmentItemRow({
       {/* Expanded Row - ONLY shows flags */}
       {isExpanded && (
         <TableRow className="bg-amber-50/50 dark:bg-amber-950/20">
-          <TableCell colSpan={9} className="py-2 px-4">
+          <TableCell colSpan={11} className="py-2 px-4">
             {item.item_id ? (
               // Item has been received - show flags
               loadingFlags || serviceEventsLoading ? (
