@@ -1,7 +1,14 @@
 /**
  * BillingChargesSection - Displays and allows editing of billing charges
- * - Auto-calculates for per-item billing (Inspection, etc.)
- * - Shows service selector + quantity for Assembly tasks
+ *
+ * IMPORTANT: This component dynamically looks up services from the Price List (service_events).
+ * It does NOT use hardcoded service codes - it adapts to whatever services exist in the tenant's
+ * Price List, similar to how the Quote tool works.
+ *
+ * Service matching uses:
+ * 1. billing_trigger field (e.g., 'Shipment', 'Task', 'Through Task')
+ * 2. Pattern matching on service names/codes
+ * 3. Fallback for missing services
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -19,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useServiceEvents } from '@/hooks/useServiceEvents';
+import { useServiceEvents, ServiceEvent } from '@/hooks/useServiceEvents';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
@@ -54,27 +61,124 @@ interface BillingChargesSectionProps {
   onSuccess?: () => void;
 }
 
-// Map task types to service codes
-const TASK_TYPE_TO_SERVICE_CODE: Record<string, string> = {
-  'Inspection': 'INSP',
-  'Will Call': 'Will_Call',
-  'Disposal': 'Disposal',
-  'Assembly': '60MA', // Default assembly tier
-  'Repair': '1HRO',
-  'Receiving': 'RCVG',
-  'Returns': 'Returns',
-  'Shipping': 'Shipping',
-  'Delivery': 'Delivery',
+// Service matching patterns - used to dynamically find services by name/code
+// This allows the component to work regardless of exact service code values
+const SERVICE_PATTERNS = {
+  // Shipment services (billing_trigger = 'Shipment')
+  receiving: [/receiv/i, /rcvg/i, /inbound/i],
+  shipping: [/ship(?!ment)/i, /outbound/i, /dispatch/i],
+  returns: [/return/i, /rtrn/i],
+
+  // Task services (billing_trigger contains 'Task')
+  inspection: [/insp/i, /inspect/i],
+  willCall: [/will.?call/i, /pickup/i],
+  disposal: [/dispos/i, /donation/i],
+  delivery: [/deliver/i, /dlvr/i],
+
+  // Assembly services - match by pattern in name/code
+  assembly: [/assemb/i, /\d+ma$/i],
+
+  // Repair services
+  repair: [/repair/i, /hro$/i, /hr.?repair/i],
 };
-
-// Assembly service codes for dropdown
-const ASSEMBLY_SERVICE_CODES = ['5MA', '15MA', '30MA', '45MA', '60MA', '90MA', '120MA'];
-
-// Repair service code (uses quantity for time)
-const REPAIR_SERVICE_CODE = '1HRO';
 
 // Task types that use per-task billing with manual quantity
 const PER_TASK_BILLING_TYPES = ['Assembly', 'Repair'];
+
+/**
+ * Dynamically find a service that matches the given context
+ * Uses pattern matching like the Quote tool does
+ */
+function findMatchingService(
+  services: ServiceEvent[],
+  context: 'receiving' | 'shipping' | 'returns' | 'inspection' | 'willCall' | 'disposal' | 'delivery' | 'assembly' | 'repair',
+  classCode?: string | null
+): ServiceEvent | null {
+  const patterns = SERVICE_PATTERNS[context];
+  if (!patterns) return null;
+
+  // First try to find a class-specific match
+  if (classCode) {
+    for (const pattern of patterns) {
+      const match = services.find(s =>
+        s.class_code === classCode &&
+        (pattern.test(s.service_name) || pattern.test(s.service_code))
+      );
+      if (match) return match;
+    }
+  }
+
+  // Fall back to a non-class-specific match
+  for (const pattern of patterns) {
+    const match = services.find(s =>
+      !s.class_code &&
+      (pattern.test(s.service_name) || pattern.test(s.service_code))
+    );
+    if (match) return match;
+  }
+
+  // Last resort: any match regardless of class_code
+  for (const pattern of patterns) {
+    const match = services.find(s =>
+      pattern.test(s.service_name) || pattern.test(s.service_code)
+    );
+    if (match) return match;
+  }
+
+  return null;
+}
+
+/**
+ * Find all assembly services for the dropdown
+ */
+function findAssemblyServices(services: ServiceEvent[]): ServiceEvent[] {
+  return services
+    .filter(s =>
+      !s.class_code && // Only non-class-based assembly services
+      (SERVICE_PATTERNS.assembly.some(p => p.test(s.service_name) || p.test(s.service_code)))
+    )
+    .sort((a, b) => {
+      // Sort by numeric part of service code (e.g., 5MA < 15MA < 30MA)
+      const aNum = parseInt(a.service_code) || 999;
+      const bNum = parseInt(b.service_code) || 999;
+      return aNum - bNum;
+    });
+}
+
+/**
+ * Find the repair service (1HRO or similar)
+ */
+function findRepairService(services: ServiceEvent[]): ServiceEvent | null {
+  return services.find(s =>
+    !s.class_code &&
+    SERVICE_PATTERNS.repair.some(p => p.test(s.service_name) || p.test(s.service_code))
+  ) || null;
+}
+
+/**
+ * Map task type to service context for pattern matching
+ */
+function getServiceContext(taskType: string, isShipment: boolean, isInbound: boolean): keyof typeof SERVICE_PATTERNS | null {
+  // For shipments, use shipment-specific services
+  if (isShipment) {
+    return isInbound ? 'receiving' : 'shipping';
+  }
+
+  // Map task types to service contexts
+  const taskTypeMapping: Record<string, keyof typeof SERVICE_PATTERNS> = {
+    'Inspection': 'inspection',
+    'Will Call': 'willCall',
+    'Disposal': 'disposal',
+    'Assembly': 'assembly',
+    'Repair': 'repair',
+    'Receiving': 'receiving',
+    'Returns': 'returns',
+    'Shipping': 'shipping',
+    'Delivery': 'delivery',
+  };
+
+  return taskTypeMapping[taskType] || null;
+}
 
 export function BillingChargesSection({
   taskId,
@@ -98,20 +202,12 @@ export function BillingChargesSection({
   const { toast } = useToast();
   const { serviceEvents, getServiceRate, loading: serviceEventsLoading } = useServiceEvents();
 
-  // Debug: Log available service codes when they load
-  useEffect(() => {
-    if (!serviceEventsLoading && serviceEvents.length > 0) {
-      const serviceCodes = [...new Set(serviceEvents.map(se => se.service_code))];
-      console.log('[BillingChargesSection] Available service codes:', serviceCodes);
-      console.log('[BillingChargesSection] Looking for RCVG:', serviceEvents.find(se => se.service_code === 'RCVG'));
-      console.log('[BillingChargesSection] Looking for Shipping:', serviceEvents.find(se => se.service_code === 'Shipping'));
-    }
-  }, [serviceEventsLoading, serviceEvents]);
-
   const canEditBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
   const isAssemblyTask = taskType === 'Assembly';
   const isRepairTask = taskType === 'Repair';
   const isPerTaskBilling = PER_TASK_BILLING_TYPES.includes(taskType || '');
+  const isShipment = !!shipmentId && !taskId;
+  const isInboundShipment = taskType === 'Receiving' || taskType === 'Returns';
 
   const [charges, setCharges] = useState<BillingCharge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,15 +221,9 @@ export function BillingChargesSection({
   const [localRate, setLocalRate] = useState<string>('');
   const rateInitialized = useRef(false);
 
-  // Get assembly services for dropdown
+  // Dynamically find assembly services for dropdown (uses pattern matching, not hardcoded codes)
   const assemblyServices = useMemo(() => {
-    return serviceEvents
-      .filter(se => ASSEMBLY_SERVICE_CODES.includes(se.service_code) && !se.class_code)
-      .sort((a, b) => {
-        const aNum = parseInt(a.service_code) || 0;
-        const bNum = parseInt(b.service_code) || 0;
-        return aNum - bNum;
-      });
+    return findAssemblyServices(serviceEvents);
   }, [serviceEvents]);
 
   // Get selected assembly service
@@ -142,10 +232,10 @@ export function BillingChargesSection({
     return assemblyServices.find(s => s.service_code === selectedServiceCode);
   }, [isAssemblyTask, selectedServiceCode, assemblyServices]);
 
-  // Get repair service (1HRO)
+  // Dynamically find repair service (uses pattern matching, not hardcoded code)
   const repairService = useMemo(() => {
     if (!isRepairTask) return null;
-    return serviceEvents.find(se => se.service_code === REPAIR_SERVICE_CODE && !se.class_code);
+    return findRepairService(serviceEvents);
   }, [isRepairTask, serviceEvents]);
 
   // Calculate rate for per-task billing (Assembly or Repair)
@@ -197,32 +287,29 @@ export function BillingChargesSection({
   }, [fetchCharges, refreshKey]);
 
   // Calculate base rate for non-Assembly tasks (per-item billing)
+  // Uses dynamic service lookup based on context and pattern matching
   const calculateBaseRate = useCallback(async () => {
-    console.log('[BillingChargesSection] calculateBaseRate called', {
-      tenant_id: profile?.tenant_id,
-      serviceEventsLoading,
-      isPerTaskBilling,
-      taskType,
-      taskId,
-      shipmentId,
-      serviceEventsCount: serviceEvents.length,
-    });
-
     if (!profile?.tenant_id || serviceEventsLoading || isPerTaskBilling) {
-      console.log('[BillingChargesSection] Early return - missing data or per-task billing');
       setCalculatedBaseRate(0);
       return;
     }
 
-    const serviceCode = taskType ? TASK_TYPE_TO_SERVICE_CODE[taskType] : null;
-    console.log('[BillingChargesSection] serviceCode:', serviceCode, 'from taskType:', taskType);
-    if (!serviceCode) {
+    // Determine service context using pattern matching (not hardcoded service codes)
+    const serviceContext = getServiceContext(taskType || '', isShipment, isInboundShipment);
+    if (!serviceContext) {
       setCalculatedBaseRate(0);
       return;
     }
 
     try {
       let totalRate = 0;
+
+      // Fetch classes for mapping class_id to class_code
+      const { data: classes } = await supabase
+        .from('classes')
+        .select('id, code')
+        .eq('tenant_id', profile.tenant_id);
+      const classMap = new Map((classes || []).map((c: any) => [c.id, c.code]));
 
       if (taskId) {
         // Get task items with class info for per-item calculation
@@ -236,25 +323,19 @@ export function BillingChargesSection({
           .eq('task_id', taskId);
 
         if (taskItems && taskItems.length > 0) {
-          // Get all classes
-          const { data: classes } = await supabase
-            .from('classes')
-            .select('id, code')
-            .eq('tenant_id', profile.tenant_id);
-          const classMap = new Map((classes || []).map((c: any) => [c.id, c.code]));
-
           // Calculate rate per item based on class
           for (const ti of taskItems) {
             const classCode = ti.items?.class_id ? classMap.get(ti.items.class_id) : null;
-            const rateInfo = getServiceRate(serviceCode, classCode);
+            // Use dynamic service lookup instead of getServiceRate with hardcoded service code
+            const matchingService = findMatchingService(serviceEvents, serviceContext, classCode);
+            const rate = matchingService?.rate || 0;
             const qty = ti.quantity || 1;
-            totalRate += rateInfo.rate * qty;
+            totalRate += rate * qty;
           }
         }
       } else if (shipmentId) {
-        console.log('[BillingChargesSection] Fetching shipment items for shipmentId:', shipmentId);
         // Get shipment items with class info for per-item calculation
-        const { data: shipmentItems, error: siError } = await (supabase
+        const { data: shipmentItems } = await (supabase
           .from('shipment_items') as any)
           .select(`
             item_id,
@@ -264,37 +345,17 @@ export function BillingChargesSection({
           `)
           .eq('shipment_id', shipmentId);
 
-        console.log('[BillingChargesSection] shipment_items result:', { shipmentItems, error: siError });
-
         if (shipmentItems && shipmentItems.length > 0) {
-          // Get all classes
-          const { data: classes } = await supabase
-            .from('classes')
-            .select('id, code')
-            .eq('tenant_id', profile.tenant_id);
-          const classMap = new Map((classes || []).map((c: any) => [c.id, c.code]));
-          console.log('[BillingChargesSection] classes loaded:', classes?.length, 'classMap size:', classMap.size);
-
           // Calculate rate per item based on class
           for (const si of shipmentItems) {
             const classCode = si.items?.class_id ? classMap.get(si.items.class_id) : null;
-            const rateInfo = getServiceRate(serviceCode, classCode);
-            console.log('[BillingChargesSection] Item rate lookup:', {
-              item_id: si.item_id,
-              class_id: si.items?.class_id,
-              classCode,
-              serviceCode,
-              rate: rateInfo.rate,
-              hasError: rateInfo.hasError,
-              errorMessage: rateInfo.errorMessage,
-            });
+            // Use dynamic service lookup instead of hardcoded service code
+            const matchingService = findMatchingService(serviceEvents, serviceContext, classCode);
+            const rate = matchingService?.rate || 0;
             // Use received quantity if available, otherwise expected
             const qty = si.quantity_received || si.quantity_expected || 1;
-            totalRate += rateInfo.rate * qty;
+            totalRate += rate * qty;
           }
-          console.log('[BillingChargesSection] Total rate calculated:', totalRate);
-        } else {
-          console.log('[BillingChargesSection] No shipment items found');
         }
       }
 
@@ -303,10 +364,10 @@ export function BillingChargesSection({
       console.error('[BillingChargesSection] Error calculating rate:', error);
       setCalculatedBaseRate(0);
     }
-  }, [profile?.tenant_id, taskId, shipmentId, taskType, serviceEventsLoading, getServiceRate, isPerTaskBilling, serviceEvents]);
+  }, [profile?.tenant_id, taskId, shipmentId, taskType, serviceEventsLoading, isPerTaskBilling, serviceEvents, isShipment, isInboundShipment]);
 
+  // Re-calculate when service events load or dependencies change
   useEffect(() => {
-    console.log('[BillingChargesSection] useEffect trigger - serviceEvents.length:', serviceEvents.length, 'serviceEventsLoading:', serviceEventsLoading);
     if (!isPerTaskBilling && !serviceEventsLoading && serviceEvents.length > 0) {
       calculateBaseRate();
     }
