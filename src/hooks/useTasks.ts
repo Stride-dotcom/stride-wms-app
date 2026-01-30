@@ -376,9 +376,9 @@ export function useTasks(filters?: {
         if (taskAccountId && billingQuantity > 0) {
           const itemCodes = taskItems
             .map((ti: any) => ti.items?.item_code)
-            .filter(Boolean)
-            .join(', ');
-          const description = `${serviceInfo.serviceName}: ${taskData?.title || itemCodes}`;
+            .filter(Boolean);
+          const itemCodesStr = itemCodes.join(', ');
+          const description = `${serviceInfo.serviceName}: ${taskData?.title || itemCodesStr}`;
 
           // Use manual rate if set, otherwise use service rate
           const unitRate = hasManualRate ? manualRate : serviceInfo.rate;
@@ -404,6 +404,7 @@ export function useTasks(filters?: {
               billing_unit: 'Task',
               service_code: serviceCode,
               manual_rate: hasManualRate,
+              task_item_codes: itemCodes, // Store item codes for display in reports
             },
             created_by: profile.id,
           });
@@ -416,9 +417,9 @@ export function useTasks(filters?: {
         if (taskAccountId) {
           const itemCodes = taskItems
             .map((ti: any) => ti.items?.item_code)
-            .filter(Boolean)
-            .join(', ');
-          const description = `${taskType}: ${taskData?.title || itemCodes}`;
+            .filter(Boolean);
+          const itemCodesStr = itemCodes.join(', ');
+          const description = `${taskType}: ${taskData?.title || itemCodesStr}`;
 
           billingEvents.push({
             tenant_id: profile.tenant_id,
@@ -439,6 +440,7 @@ export function useTasks(filters?: {
               task_type: taskType,
               billing_unit: 'Task',
               manual_rate: true,
+              task_item_codes: itemCodes, // Store item codes for display in reports
             },
             created_by: profile.id,
           });
