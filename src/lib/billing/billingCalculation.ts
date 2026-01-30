@@ -47,7 +47,7 @@ export interface RateLookupResult {
   rate: number;
   serviceName: string;
   serviceCode: string;
-  billingUnit: string;
+  billingUnit: string;  // Flexible to handle all database values
   alertRule: string;
   hasError: boolean;
   errorMessage?: string;
@@ -294,24 +294,33 @@ export async function calculateShipmentBillingPreview(
   shipmentId: string,
   direction: 'inbound' | 'outbound' | 'return'
 ): Promise<BillingPreview> {
+  console.log('[calculateShipmentBillingPreview] Starting calculation', { tenantId, shipmentId, direction });
+
   // Determine service code based on direction
   const serviceCode = SHIPMENT_DIRECTION_TO_SERVICE_CODE[direction] || 'RCVG';
+  console.log('[calculateShipmentBillingPreview] Service code:', serviceCode);
 
-  // Get shipment items with linked item info
-  // Use correct column names: expected_quantity, actual_quantity
-  const { data: shipmentItems, error: shipmentItemsError } = await (supabase as any)
+  // Get shipment items - no nested PostgREST joins (no FK constraints defined)
+  const { data: shipmentItems, error: shipmentItemsError } = await supabase
     .from('shipment_items')
     .select(`
       item_id,
       expected_quantity,
       actual_quantity,
-      expected_class_id,
-      items:item_id (
-        item_code,
-        class_id
-      )
+      expected_class_id
     `)
     .eq('shipment_id', shipmentId);
+
+  console.log('[calculateShipmentBillingPreview] Shipment items query result:', {
+    error: shipmentItemsError,
+    itemCount: shipmentItems?.length || 0,
+    items: shipmentItems?.map(si => ({
+      item_id: si.item_id,
+      expected_quantity: si.expected_quantity,
+      actual_quantity: si.actual_quantity,
+      expected_class_id: si.expected_class_id
+    }))
+  });
 
   if (shipmentItemsError) {
     console.error('[calculateShipmentBillingPreview] Error fetching shipment items:', shipmentItemsError);
@@ -324,6 +333,35 @@ export async function calculateShipmentBillingPreview(
     };
   }
 
+  // Fetch classes separately (no FK defined for PostgREST)
+  const classIds = [...new Set((shipmentItems || []).map(si => si.expected_class_id).filter(Boolean))];
+  const { data: classes } = classIds.length > 0
+    ? await supabase.from('classes').select('id, code, name').in('id', classIds)
+    : { data: [] };
+  const classMap = new Map((classes || []).map(c => [c.id, c]));
+
+  // Fetch items separately
+  const itemIds = [...new Set((shipmentItems || []).map(si => si.item_id).filter(Boolean))];
+  const { data: items } = itemIds.length > 0
+    ? await supabase.from('items').select('id, item_code, class_id').in('id', itemIds)
+    : { data: [] };
+  const itemMap = new Map((items || []).map(i => [i.id, i]));
+
+  // Also fetch classes for items that have class_id set
+  const itemClassIds = [...new Set((items || []).map(i => i.class_id).filter(Boolean))];
+  const additionalClassIds = itemClassIds.filter(id => !classMap.has(id));
+  if (additionalClassIds.length > 0) {
+    const { data: additionalClasses } = await supabase.from('classes').select('id, code, name').in('id', additionalClassIds);
+    (additionalClasses || []).forEach(c => classMap.set(c.id, c));
+  }
+
+  console.log('[calculateShipmentBillingPreview] Separate lookups:', {
+    classIds,
+    itemIds,
+    classMapSize: classMap.size,
+    itemMapSize: itemMap.size
+  });
+
   const lineItems: BillingLineItem[] = [];
   let subtotal = 0;
   let hasErrors = false;
@@ -331,29 +369,37 @@ export async function calculateShipmentBillingPreview(
 
   // Calculate for each item based on class
   for (const si of shipmentItems || []) {
-    const item = si.items as any;
+    const item = itemMap.get(si.item_id);
+    const expectedClass = classMap.get(si.expected_class_id);
+    const itemClass = item?.class_id ? classMap.get(item.class_id) : null;
 
-    // Get class info - try item's class_id first, fall back to expected_class_id
-    const classId = item?.class_id || si.expected_class_id;
-    let classCode: string | null = null;
-    let className: string | null = null;
-
-    if (classId) {
-      const { data: classData } = await (supabase as any)
-        .from('classes')
-        .select('code, name')
-        .eq('id', classId)
-        .maybeSingle();
-      classCode = classData?.code || null;
-      className = classData?.name || null;
-    }
-
+    // Get class info from linked item, or fall back to expected_class for old shipments
     const itemCode = item?.item_code || null;
+    const classCode = itemClass?.code || expectedClass?.code || null;
+    const className = itemClass?.name || expectedClass?.name || null;
+
+    console.log('[calculateShipmentBillingPreview] Processing item:', {
+      item_id: si.item_id,
+      itemCode,
+      classCode,
+      className,
+      hasItemData: !!item,
+      hasExpectedClass: !!expectedClass,
+      expectedClassCode: expectedClass?.code
+    });
 
     // Use actual quantity if available, otherwise expected
     const quantity = si.actual_quantity || si.expected_quantity || 1;
 
     const rateResult = await getRateFromPriceList(tenantId, serviceCode, classCode);
+    console.log('[calculateShipmentBillingPreview] Rate lookup result:', {
+      serviceCode,
+      classCode,
+      rate: rateResult.rate,
+      hasError: rateResult.hasError,
+      errorMessage: rateResult.errorMessage
+    });
+
     serviceName = rateResult.serviceName;
 
     const totalAmount = quantity * rateResult.rate;
@@ -375,6 +421,12 @@ export async function calculateShipmentBillingPreview(
     subtotal += totalAmount;
     if (rateResult.hasError) hasErrors = true;
   }
+
+  console.log('[calculateShipmentBillingPreview] Final result:', {
+    lineItemCount: lineItems.length,
+    subtotal,
+    hasErrors
+  });
 
   return {
     lineItems,
