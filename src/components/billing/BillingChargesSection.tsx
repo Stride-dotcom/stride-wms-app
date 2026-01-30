@@ -1,14 +1,22 @@
 /**
  * BillingChargesSection - Displays and allows editing of billing charges
- * Shows auto-calculated base rate + add-on charges with editable breakdown
+ * - Auto-calculates for per-item billing (Inspection, etc.)
+ * - Shows service selector + quantity for Assembly tasks
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useServiceEvents } from '@/hooks/useServiceEvents';
@@ -25,30 +33,33 @@ interface BillingCharge {
   total_amount: number | null;
   status: string;
   event_type: string;
-  is_calculated?: boolean; // True for auto-calculated charges
 }
 
 interface BillingChargesSectionProps {
-  // Either taskId or shipmentId must be provided
   taskId?: string;
   shipmentId?: string;
   accountId?: string;
   accountName?: string;
-  taskType?: string; // For calculating base rate
-  itemCount?: number; // Number of items for calculating base rate
-  refreshKey?: number; // Increment to trigger rate recalculation
-  baseRate?: number | null; // Override billing rate from task/shipment
+  taskType?: string;
+  itemCount?: number;
+  refreshKey?: number;
+  // For Assembly tasks - service selection
+  selectedServiceCode?: string | null;
+  billingQuantity?: number | null;
+  billingRate?: number | null;
+  onServiceChange?: (serviceCode: string | null) => void;
+  onQuantityChange?: (quantity: number) => void;
+  onRateChange?: (rate: number | null) => void;
   onTotalChange?: (total: number) => void;
-  onBaseRateChange?: (rate: number | null) => void;
-  onSuccess?: () => void; // Callback when billing events are generated
+  onSuccess?: () => void;
 }
 
-// Map task types to service codes in the Price List
+// Map task types to service codes
 const TASK_TYPE_TO_SERVICE_CODE: Record<string, string> = {
   'Inspection': 'INSP',
   'Will Call': 'Will_Call',
   'Disposal': 'Disposal',
-  'Assembly': '15MA',
+  'Assembly': '60MA', // Default assembly tier
   'Repair': '1HRO',
   'Receiving': 'RCVG',
   'Returns': 'Returns',
@@ -56,12 +67,14 @@ const TASK_TYPE_TO_SERVICE_CODE: Record<string, string> = {
   'Delivery': 'Delivery',
 };
 
-// Map shipment types to service codes
-const SHIPMENT_TYPE_TO_SERVICE_CODE: Record<string, string> = {
-  'inbound': 'RCVG',
-  'return': 'Returns',
-  'outbound': 'Shipping',
-};
+// Assembly service codes for dropdown
+const ASSEMBLY_SERVICE_CODES = ['5MA', '15MA', '30MA', '45MA', '60MA', '90MA', '120MA'];
+
+// Repair service code (uses quantity for time)
+const REPAIR_SERVICE_CODE = '1HRO';
+
+// Task types that use per-task billing with manual quantity
+const PER_TASK_BILLING_TYPES = ['Assembly', 'Repair'];
 
 export function BillingChargesSection({
   taskId,
@@ -71,17 +84,24 @@ export function BillingChargesSection({
   taskType,
   itemCount = 1,
   refreshKey = 0,
-  baseRate,
+  selectedServiceCode,
+  billingQuantity,
+  billingRate,
+  onServiceChange,
+  onQuantityChange,
+  onRateChange,
   onTotalChange,
-  onBaseRateChange,
   onSuccess,
 }: BillingChargesSectionProps) {
   const { profile } = useAuth();
   const { hasRole } = usePermissions();
   const { toast } = useToast();
-  const { getServiceRate, loading: serviceEventsLoading } = useServiceEvents();
+  const { serviceEvents, getServiceRate, loading: serviceEventsLoading } = useServiceEvents();
 
   const canEditBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
+  const isAssemblyTask = taskType === 'Assembly';
+  const isRepairTask = taskType === 'Repair';
+  const isPerTaskBilling = PER_TASK_BILLING_TYPES.includes(taskType || '');
 
   const [charges, setCharges] = useState<BillingCharge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,10 +109,47 @@ export function BillingChargesSection({
   const [editAmount, setEditAmount] = useState<string>('');
   const [savingId, setSavingId] = useState<string | null>(null);
   const [calculatedBaseRate, setCalculatedBaseRate] = useState<number>(0);
-  const [localBaseRate, setLocalBaseRate] = useState<string>('');
-  const baseRateInitialized = useRef(false);
 
-  // Fetch billing events for this task/shipment
+  // Local state for Assembly inputs
+  const [localQuantity, setLocalQuantity] = useState<string>('0');
+  const [localRate, setLocalRate] = useState<string>('');
+  const rateInitialized = useRef(false);
+
+  // Get assembly services for dropdown
+  const assemblyServices = useMemo(() => {
+    return serviceEvents
+      .filter(se => ASSEMBLY_SERVICE_CODES.includes(se.service_code) && !se.class_code)
+      .sort((a, b) => {
+        const aNum = parseInt(a.service_code) || 0;
+        const bNum = parseInt(b.service_code) || 0;
+        return aNum - bNum;
+      });
+  }, [serviceEvents]);
+
+  // Get selected assembly service
+  const selectedAssemblyService = useMemo(() => {
+    if (!isAssemblyTask || !selectedServiceCode) return null;
+    return assemblyServices.find(s => s.service_code === selectedServiceCode);
+  }, [isAssemblyTask, selectedServiceCode, assemblyServices]);
+
+  // Get repair service (1HRO)
+  const repairService = useMemo(() => {
+    if (!isRepairTask) return null;
+    return serviceEvents.find(se => se.service_code === REPAIR_SERVICE_CODE && !se.class_code);
+  }, [isRepairTask, serviceEvents]);
+
+  // Calculate rate for per-task billing (Assembly or Repair)
+  const getServiceRateForTask = () => {
+    if (isAssemblyTask) return selectedAssemblyService?.rate || 0;
+    if (isRepairTask) return repairService?.rate || 0;
+    return 0;
+  };
+  const taskServiceRate = getServiceRateForTask();
+  const effectiveTaskRate = billingRate !== null && billingRate !== undefined ? billingRate : taskServiceRate;
+  const effectiveQuantity = billingQuantity ?? 0;
+  const taskBillingTotal = effectiveTaskRate * effectiveQuantity;
+
+  // Fetch billing events
   const fetchCharges = useCallback(async () => {
     if (!profile?.tenant_id || (!taskId && !shipmentId)) {
       setLoading(false);
@@ -100,13 +157,11 @@ export function BillingChargesSection({
     }
 
     try {
-      // Build query for billing_events
       let query = (supabase.from('billing_events') as any)
         .select('id, charge_type, description, quantity, unit_rate, total_amount, status, event_type')
         .eq('tenant_id', profile.tenant_id)
         .in('status', ['unbilled', 'flagged']);
 
-      // Filter by task or shipment using direct columns
       if (taskId) {
         query = query.eq('task_id', taskId);
       } else if (shipmentId) {
@@ -119,10 +174,7 @@ export function BillingChargesSection({
         console.error('[BillingChargesSection] Error fetching charges:', error);
       }
 
-      setCharges((data || []).map((c: any) => ({
-        ...c,
-        is_calculated: false,
-      })));
+      setCharges(data || []);
     } catch (error) {
       console.error('[BillingChargesSection] Unexpected error:', error);
     } finally {
@@ -130,16 +182,19 @@ export function BillingChargesSection({
     }
   }, [profile?.tenant_id, taskId, shipmentId]);
 
-  // Calculate base rate from service_events pricing (using class-based rate lookup)
+  useEffect(() => {
+    fetchCharges();
+  }, [fetchCharges, refreshKey]);
+
+  // Calculate base rate for non-Assembly tasks (per-item billing)
   const calculateBaseRate = useCallback(async () => {
-    if (!profile?.tenant_id || serviceEventsLoading) {
+    if (!profile?.tenant_id || serviceEventsLoading || isPerTaskBilling) {
       setCalculatedBaseRate(0);
       return;
     }
 
-    // Determine service code from task type
     const serviceCode = taskType ? TASK_TYPE_TO_SERVICE_CODE[taskType] : null;
-    if (!serviceCode && !shipmentId) {
+    if (!serviceCode) {
       setCalculatedBaseRate(0);
       return;
     }
@@ -147,148 +202,118 @@ export function BillingChargesSection({
     try {
       let totalRate = 0;
 
-      // For tasks, check billing unit first
-      if (taskId && serviceCode) {
-        // Check if this service is billed per task (like Assembly) or per item
-        const serviceInfo = getServiceRate(serviceCode, null);
+      if (taskId) {
+        // Get task items with class info for per-item calculation
+        const { data: taskItems } = await (supabase
+          .from('task_items') as any)
+          .select(`
+            item_id,
+            quantity,
+            items:item_id(class_id)
+          `)
+          .eq('task_id', taskId);
 
-        if (serviceInfo.billingUnit === 'Task') {
-          // Task-level billing: single rate for the whole task
-          totalRate = serviceInfo.rate;
-        } else {
-          // Item-level billing: rate per item based on class
-          // First fetch all classes to map class_id to code
-          const { data: allClasses } = await (supabase
-            .from('classes') as any)
+        if (taskItems && taskItems.length > 0) {
+          // Get all classes
+          const { data: classes } = await supabase
+            .from('classes')
             .select('id, code')
             .eq('tenant_id', profile.tenant_id);
+          const classMap = new Map((classes || []).map((c: any) => [c.id, c.code]));
 
-          const classMap = new Map((allClasses || []).map((c: any) => [c.id, c.code]));
-
-          const { data: taskItems, error } = await (supabase
-            .from('task_items') as any)
-            .select(`
-              id,
-              quantity,
-              item:items!task_items_item_id_fkey(
-                id,
-                item_code,
-                class_id
-              )
-            `)
-            .eq('task_id', taskId);
-
-          if (error) {
-            console.error('[BillingChargesSection] Error fetching task items:', error);
-            return;
-          }
-
-          // Deduplicate task_items by item_id (keep the first occurrence)
-          const seenItemIds = new Set<string>();
-          const uniqueTaskItems = (taskItems || []).filter((ti: any) => {
-            const itemId = ti.item?.id;
-            if (!itemId || seenItemIds.has(itemId)) {
-              return false;
-            }
-            seenItemIds.add(itemId);
-            return true;
-          });
-
-          // Look up rate for each unique item based on its class
-          for (const taskItem of uniqueTaskItems) {
-            const classCode = taskItem.item?.class_id ? classMap.get(taskItem.item.class_id) : null;
-            const quantity = taskItem.quantity || 1;
-
-            // Get rate from service_events using pre-fetched data (same as QuoteBuilder)
+          // Calculate rate per item based on class
+          for (const ti of taskItems) {
+            const classCode = ti.items?.class_id ? classMap.get(ti.items.class_id) : null;
             const rateInfo = getServiceRate(serviceCode, classCode);
-            totalRate += rateInfo.rate * quantity;
+            const qty = ti.quantity || 1;
+            totalRate += rateInfo.rate * qty;
           }
-        }
-      }
-
-      // For shipments, get shipment_items with their class codes
-      if (shipmentId) {
-        // First get shipment type to determine service code
-        const { data: shipment } = await (supabase
-          .from('shipments') as any)
-          .select('shipment_type')
-          .eq('id', shipmentId)
-          .single();
-
-        const shipmentServiceCode = shipment?.shipment_type
-          ? SHIPMENT_TYPE_TO_SERVICE_CODE[shipment.shipment_type] || serviceCode
-          : serviceCode;
-
-        if (!shipmentServiceCode) {
-          setCalculatedBaseRate(0);
-          return;
-        }
-
-        // Fetch all classes to map class_id to code
-        const { data: allClasses } = await (supabase
-          .from('classes') as any)
-          .select('id, code')
-          .eq('tenant_id', profile.tenant_id);
-
-        const classMap = new Map((allClasses || []).map((c: any) => [c.id, c.code]));
-
-        const { data: shipmentItems, error } = await (supabase
-          .from('shipment_items') as any)
-          .select(`
-            id,
-            expected_quantity,
-            actual_quantity,
-            expected_class_id,
-            item:items!shipment_items_item_id_fkey(
-              id,
-              item_code,
-              class_id
-            )
-          `)
-          .eq('shipment_id', shipmentId);
-
-        if (error) {
-          console.error('[BillingChargesSection] Error fetching shipment items:', error);
-          return;
-        }
-
-        // Look up rate for each item based on its class
-        for (const shipmentItem of shipmentItems || []) {
-          // Use item's class_id if received, otherwise use expected_class_id
-          const classId = shipmentItem.item?.class_id || shipmentItem.expected_class_id;
-          const classCode = classId ? classMap.get(classId) : null;
-          const quantity = shipmentItem.actual_quantity || shipmentItem.expected_quantity || 1;
-
-          // Get rate from service_events using pre-fetched data (same as QuoteBuilder)
-          const rateInfo = getServiceRate(shipmentServiceCode, classCode);
-          totalRate += rateInfo.rate * quantity;
         }
       }
 
       setCalculatedBaseRate(totalRate);
     } catch (error) {
-      console.error('[BillingChargesSection] Error calculating base rate:', error);
+      console.error('[BillingChargesSection] Error calculating rate:', error);
+      setCalculatedBaseRate(0);
     }
-  }, [taskId, shipmentId, taskType, itemCount, refreshKey, profile?.tenant_id, getServiceRate, serviceEventsLoading]);
+  }, [profile?.tenant_id, taskId, taskType, serviceEventsLoading, getServiceRate, isPerTaskBilling]);
 
   useEffect(() => {
-    fetchCharges();
-    calculateBaseRate();
-  }, [fetchCharges, calculateBaseRate]);
+    if (!isPerTaskBilling) {
+      calculateBaseRate();
+    }
+  }, [calculateBaseRate, refreshKey, isPerTaskBilling]);
+
+  // Initialize local state from props (Assembly)
+  useEffect(() => {
+    if (billingQuantity !== null && billingQuantity !== undefined) {
+      setLocalQuantity(billingQuantity.toString());
+    }
+  }, [billingQuantity]);
+
+  useEffect(() => {
+    if (billingRate !== null && billingRate !== undefined) {
+      setLocalRate(billingRate.toString());
+      rateInitialized.current = true;
+    } else if (taskServiceRate > 0 && !rateInitialized.current) {
+      setLocalRate('');
+    }
+  }, [billingRate, taskServiceRate]);
 
   // Calculate totals
-  const effectiveBaseRate = baseRate !== null && baseRate !== undefined ? baseRate : calculatedBaseRate;
-  const addOnTotal = charges.reduce((sum, c) => sum + (c.total_amount || c.unit_rate * c.quantity), 0);
-  const grandTotal = effectiveBaseRate + addOnTotal;
+  const addOnTotal = charges.reduce((sum, charge) => {
+    return sum + (charge.total_amount || charge.unit_rate * charge.quantity);
+  }, 0);
 
+  const baseTotal = isPerTaskBilling ? taskBillingTotal : calculatedBaseRate;
+  const grandTotal = baseTotal + addOnTotal;
+
+  // Notify parent of total changes
   useEffect(() => {
     onTotalChange?.(grandTotal);
   }, [grandTotal, onTotalChange]);
 
-  // Handle editing a charge
+  // Assembly service change handler
+  const handleAssemblyServiceChange = (serviceCode: string) => {
+    onServiceChange?.(serviceCode);
+    // Reset rate override when service changes
+    if (billingRate !== null) {
+      onRateChange?.(null);
+    }
+    rateInitialized.current = false;
+    setLocalRate('');
+  };
+
+  // Quantity handlers (Assembly)
+  const handleQuantityChange = (value: string) => {
+    setLocalQuantity(value);
+  };
+
+  const handleQuantityBlur = () => {
+    const qty = parseFloat(localQuantity) || 0;
+    if (qty !== billingQuantity) {
+      onQuantityChange?.(qty);
+    }
+  };
+
+  // Rate override handlers (Assembly)
+  const handleRateChange = (value: string) => {
+    setLocalRate(value);
+  };
+
+  const handleRateBlur = () => {
+    const rate = localRate === '' ? null : parseFloat(localRate);
+    if (localRate !== '' && (isNaN(rate!) || rate! < 0)) return;
+    const currentRate = billingRate !== null && billingRate !== undefined ? billingRate : null;
+    if (rate !== currentRate) {
+      onRateChange?.(rate);
+    }
+  };
+
+  // Edit handlers for add-on charges
   const handleStartEdit = (charge: BillingCharge) => {
     setEditingId(charge.id);
-    setEditAmount(String(charge.unit_rate));
+    setEditAmount((charge.total_amount || charge.unit_rate * charge.quantity).toFixed(2));
   };
 
   const handleCancelEdit = () => {
@@ -305,24 +330,26 @@ export function BillingChargesSection({
 
     setSavingId(chargeId);
     try {
-      const charge = charges.find(c => c.id === chargeId);
-      const totalAmount = amount * (charge?.quantity || 1);
-
       const { error } = await (supabase.from('billing_events') as any)
-        .update({ unit_rate: amount, total_amount: totalAmount })
+        .update({
+          unit_rate: amount,
+          quantity: 1,
+          total_amount: amount,
+        })
         .eq('id', chargeId);
 
       if (error) throw error;
 
       setCharges(prev => prev.map(c =>
-        c.id === chargeId ? { ...c, unit_rate: amount, total_amount: totalAmount } : c
+        c.id === chargeId
+          ? { ...c, unit_rate: amount, quantity: 1, total_amount: amount }
+          : c
       ));
       setEditingId(null);
-      setEditAmount('');
-      toast({ title: 'Charge Updated' });
+      toast({ title: 'Charge updated' });
     } catch (error) {
-      console.error('Error updating charge:', error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update charge' });
+      console.error('[BillingChargesSection] Save failed:', error);
+      toast({ variant: 'destructive', title: 'Failed to save' });
     } finally {
       setSavingId(null);
     }
@@ -332,49 +359,23 @@ export function BillingChargesSection({
     setSavingId(chargeId);
     try {
       const { error } = await (supabase.from('billing_events') as any)
-        .delete()
+        .update({ status: 'void' })
         .eq('id', chargeId);
 
       if (error) throw error;
 
       setCharges(prev => prev.filter(c => c.id !== chargeId));
-      toast({ title: 'Charge Removed' });
+      toast({ title: 'Charge removed' });
     } catch (error) {
-      console.error('Error deleting charge:', error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to remove charge' });
+      console.error('[BillingChargesSection] Delete failed:', error);
+      toast({ variant: 'destructive', title: 'Failed to remove charge' });
     } finally {
       setSavingId(null);
     }
   };
 
-  // Initialize local base rate from prop
-  useEffect(() => {
-    if (baseRate !== null && baseRate !== undefined) {
-      setLocalBaseRate(baseRate.toString());
-      baseRateInitialized.current = true;
-    } else if (calculatedBaseRate > 0 && !baseRateInitialized.current) {
-      setLocalBaseRate('');
-    }
-  }, [baseRate, calculatedBaseRate]);
-
-  const handleBaseRateChange = (value: string) => {
-    // Just update local state - don't save to DB yet
-    setLocalBaseRate(value);
-  };
-
-  const handleBaseRateBlur = () => {
-    // Save on blur
-    const rate = localBaseRate === '' ? null : parseFloat(localBaseRate);
-    if (localBaseRate !== '' && (isNaN(rate!) || rate! < 0)) return;
-    // Only save if value actually changed
-    const currentRate = baseRate !== null && baseRate !== undefined ? baseRate : null;
-    if (rate !== currentRate) {
-      onBaseRateChange?.(rate);
-    }
-  };
-
   // Loading state
-  if (loading) {
+  if (loading || serviceEventsLoading) {
     return (
       <Card>
         <CardHeader className="pb-3">
@@ -403,141 +404,280 @@ export function BillingChargesSection({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Charge Breakdown */}
-        <div className="space-y-2">
-          {/* Base Rate Row */}
+        {/* Assembly Task - Service Selector + Quantity */}
+        {isAssemblyTask && (
+          <div className="space-y-3">
+            {/* Assembly Service Dropdown */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Assembly Service</label>
+              {canEditBilling ? (
+                <Select
+                  value={selectedServiceCode || '60MA'}
+                  onValueChange={handleAssemblyServiceChange}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select assembly time..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {assemblyServices.map((service) => (
+                      <SelectItem key={service.service_code} value={service.service_code}>
+                        <div className="flex items-center justify-between gap-4 w-full">
+                          <span>{service.service_name}</span>
+                          <span className="text-muted-foreground text-xs">
+                            ${service.rate.toFixed(2)}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="text-sm font-medium">
+                  {selectedAssemblyService?.service_name || 'Assembly 60m'}
+                </div>
+              )}
+            </div>
+
+            {/* Quantity and Rate Row */}
+            <div className="flex items-center gap-3 py-2 border-y">
+              <div className="flex-1 space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Qty</label>
+                {canEditBilling ? (
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={localQuantity}
+                    onChange={(e) => handleQuantityChange(e.target.value)}
+                    onBlur={handleQuantityBlur}
+                    className="h-8 w-20"
+                  />
+                ) : (
+                  <div className="text-sm font-medium">{effectiveQuantity}</div>
+                )}
+              </div>
+              <div className="text-muted-foreground">×</div>
+              <div className="flex-1 space-y-1">
+                <div className="flex items-center gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">Rate</label>
+                  {billingRate !== null && billingRate !== undefined && (
+                    <Badge variant="secondary" className="text-[10px] px-1">Override</Badge>
+                  )}
+                </div>
+                {canEditBilling ? (
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={localRate}
+                    onChange={(e) => handleRateChange(e.target.value)}
+                    onBlur={handleRateBlur}
+                    placeholder={taskServiceRate > 0 ? taskServiceRate.toFixed(2) : '0.00'}
+                    className="h-8 w-24"
+                  />
+                ) : (
+                  <div className="text-sm font-medium">${effectiveTaskRate.toFixed(2)}</div>
+                )}
+              </div>
+              <div className="text-muted-foreground">=</div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Subtotal</label>
+                <div className="text-sm font-semibold">${taskBillingTotal.toFixed(2)}</div>
+              </div>
+            </div>
+
+            {/* Warning if quantity is 0 */}
+            {effectiveQuantity === 0 && (
+              <p className="text-xs text-amber-600 flex items-center gap-1">
+                <MaterialIcon name="warning" size="sm" />
+                Set quantity to complete task
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Repair Task - Quantity + Rate (uses 1HRO service) */}
+        {isRepairTask && (
+          <div className="space-y-3">
+            {/* Service Info */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Repair Service</label>
+              <div className="text-sm font-medium flex items-center gap-2">
+                {repairService?.service_name || '1 Hr Repair'}
+                <span className="text-muted-foreground text-xs">
+                  (${repairService?.rate?.toFixed(2) || '0.00'}/hr)
+                </span>
+              </div>
+            </div>
+
+            {/* Quantity and Rate Row */}
+            <div className="flex items-center gap-3 py-2 border-y">
+              <div className="flex-1 space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Hours</label>
+                {canEditBilling ? (
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.25"
+                    value={localQuantity}
+                    onChange={(e) => handleQuantityChange(e.target.value)}
+                    onBlur={handleQuantityBlur}
+                    className="h-8 w-20"
+                    placeholder="0"
+                  />
+                ) : (
+                  <div className="text-sm font-medium">{effectiveQuantity}</div>
+                )}
+              </div>
+              <div className="text-muted-foreground">×</div>
+              <div className="flex-1 space-y-1">
+                <div className="flex items-center gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">Rate</label>
+                  {billingRate !== null && billingRate !== undefined && (
+                    <Badge variant="secondary" className="text-[10px] px-1">Override</Badge>
+                  )}
+                </div>
+                {canEditBilling ? (
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={localRate}
+                    onChange={(e) => handleRateChange(e.target.value)}
+                    onBlur={handleRateBlur}
+                    placeholder={taskServiceRate > 0 ? taskServiceRate.toFixed(2) : '0.00'}
+                    className="h-8 w-24"
+                  />
+                ) : (
+                  <div className="text-sm font-medium">${effectiveTaskRate.toFixed(2)}</div>
+                )}
+              </div>
+              <div className="text-muted-foreground">=</div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Subtotal</label>
+                <div className="text-sm font-semibold">${taskBillingTotal.toFixed(2)}</div>
+              </div>
+            </div>
+
+            {/* Warning if quantity is 0 */}
+            {effectiveQuantity === 0 && (
+              <p className="text-xs text-amber-600 flex items-center gap-1">
+                <MaterialIcon name="warning" size="sm" />
+                Set hours to complete task
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Non-Assembly/Repair Tasks - Auto-calculated Rate */}
+        {!isPerTaskBilling && (
           <div className="flex items-center justify-between py-2 border-b">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">
                 {taskType ? `${taskType} Rate` : 'Base Rate'}
               </span>
-              {calculatedBaseRate > 0 && baseRate === null && (
+              {calculatedBaseRate > 0 && (
                 <Badge variant="outline" className="text-xs">Auto</Badge>
               )}
-              {baseRate !== null && baseRate !== undefined && (
-                <Badge variant="secondary" className="text-xs">Override</Badge>
-              )}
             </div>
-            <div className="flex items-center gap-2">
-              {canEditBilling ? (
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={localBaseRate}
-                  onChange={(e) => handleBaseRateChange(e.target.value)}
-                  onBlur={handleBaseRateBlur}
-                  placeholder={calculatedBaseRate > 0 ? calculatedBaseRate.toFixed(2) : '0.00'}
-                  className="w-24 h-8 text-right"
-                />
-              ) : (
-                <span className="text-sm font-medium">
-                  ${effectiveBaseRate.toFixed(2)}
-                </span>
-              )}
-            </div>
+            <span className="text-sm font-medium">
+              ${calculatedBaseRate.toFixed(2)}
+            </span>
           </div>
+        )}
 
-          {/* Add-on Charges */}
-          {charges.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide pt-2">
-                Add-on Charges
-              </p>
-              {charges.map((charge) => (
-                <div
-                  key={charge.id}
-                  className="flex items-center justify-between py-2 border-b last:border-b-0"
-                >
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm truncate block">
-                      {charge.charge_type}
-                    </span>
-                    {charge.description && (
-                      <span className="text-xs text-muted-foreground truncate block">
-                        {charge.description}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 ml-2">
-                    {editingId === charge.id ? (
-                      <>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={editAmount}
-                          onChange={(e) => setEditAmount(e.target.value)}
-                          className="w-20 h-7 text-right text-sm"
-                          autoFocus
-                        />
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
-                          onClick={() => handleSaveEdit(charge.id)}
-                          disabled={savingId === charge.id}
-                        >
-                          {savingId === charge.id ? (
-                            <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
-                          ) : (
-                            <MaterialIcon name="save" size="sm" />
-                          )}
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
-                          onClick={handleCancelEdit}
-                        >
-                          <MaterialIcon name="close" size="sm" />
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-sm font-medium min-w-[60px] text-right">
-                          ${(charge.total_amount || charge.unit_rate * charge.quantity).toFixed(2)}
-                        </span>
-                        {canEditBilling && (
-                          <>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7"
-                              onClick={() => handleStartEdit(charge)}
-                            >
-                              <MaterialIcon name="edit" size="sm" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7 text-destructive"
-                              onClick={() => handleDeleteCharge(charge.id)}
-                              disabled={savingId === charge.id}
-                            >
-                              {savingId === charge.id ? (
-                                <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
-                              ) : (
-                                <MaterialIcon name="delete" size="sm" />
-                              )}
-                            </Button>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* No charges message */}
-          {charges.length === 0 && effectiveBaseRate === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No billing charges yet
+        {/* Add-on Charges */}
+        {charges.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide pt-2">
+              Add-on Charges
             </p>
-          )}
-        </div>
+            {charges.map((charge) => (
+              <div
+                key={charge.id}
+                className="flex items-center justify-between py-2 border-b last:border-b-0"
+              >
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm truncate block">
+                    {charge.charge_type}
+                  </span>
+                  {charge.description && (
+                    <span className="text-xs text-muted-foreground truncate block">
+                      {charge.description}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 ml-2">
+                  {editingId === charge.id ? (
+                    <>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editAmount}
+                        onChange={(e) => setEditAmount(e.target.value)}
+                        className="w-20 h-7 text-right text-sm"
+                        autoFocus
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => handleSaveEdit(charge.id)}
+                        disabled={savingId === charge.id}
+                      >
+                        {savingId === charge.id ? (
+                          <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
+                        ) : (
+                          <MaterialIcon name="save" size="sm" />
+                        )}
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={handleCancelEdit}
+                      >
+                        <MaterialIcon name="close" size="sm" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm font-medium min-w-[60px] text-right">
+                        ${(charge.total_amount || charge.unit_rate * charge.quantity).toFixed(2)}
+                      </span>
+                      {canEditBilling && (
+                        <>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => handleStartEdit(charge)}
+                          >
+                            <MaterialIcon name="edit" size="sm" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => handleDeleteCharge(charge.id)}
+                            disabled={savingId === charge.id}
+                          >
+                            {savingId === charge.id ? (
+                              <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
+                            ) : (
+                              <MaterialIcon name="delete" size="sm" />
+                            )}
+                          </Button>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Total */}
         <div className="flex items-center justify-between pt-3 border-t">
@@ -548,12 +688,12 @@ export function BillingChargesSection({
         </div>
 
         {/* Breakdown summary */}
-        {(effectiveBaseRate > 0 || charges.length > 0) && (
+        {(baseTotal > 0 || charges.length > 0) && (
           <div className="text-xs text-muted-foreground text-right">
-            {effectiveBaseRate > 0 && (
-              <span>Base: ${effectiveBaseRate.toFixed(2)}</span>
+            {baseTotal > 0 && (
+              <span>Base: ${baseTotal.toFixed(2)}</span>
             )}
-            {effectiveBaseRate > 0 && charges.length > 0 && ' + '}
+            {baseTotal > 0 && charges.length > 0 && ' + '}
             {charges.length > 0 && (
               <span>Add-ons: ${addOnTotal.toFixed(2)}</span>
             )}
