@@ -69,8 +69,8 @@ export function TestSendDialog({
       const { data, error } = await supabase.functions.invoke('send-test-email', {
         body: {
           to_email: testEmail,
-          subject: emailTemplate.subject || `Test: ${alertName}`,
-          body_html: emailTemplate.body_html || '<p>This is a test email. Your template content will appear here.</p>',
+          subject: emailTemplate.subject_template || `Test: ${alertName}`,
+          body_html: emailTemplate.body_template || '<p>This is a test email. Your template content will appear here.</p>',
           tenant_id: profile.tenant_id,
         },
       });
@@ -122,7 +122,7 @@ export function TestSendDialog({
       const { data, error } = await supabase.functions.invoke('send-test-sms', {
         body: {
           to_phone: testPhone,
-          body: smsTemplate.body_text || `Test message for ${alertName}. Your SMS content will appear here.`,
+          body: smsTemplate.body_template || `Test message for ${alertName}. Your SMS content will appear here.`,
           tenant_id: profile.tenant_id,
         },
       });
