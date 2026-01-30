@@ -101,6 +101,7 @@ export default function Dashboard() {
         bgColor: 'bg-card border border-border shadow-sm',
         countColor: 'text-orange-500 dark:text-orange-400',
         onClick: () => navigate('/shipments/incoming'),
+        timeEstimate: stats.incomingShipmentsTimeEstimate,
       },
       {
         key: 'repairs' as ExpandedCard,
