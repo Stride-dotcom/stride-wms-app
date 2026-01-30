@@ -32,7 +32,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { isValidUuid, cn } from '@/lib/utils';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { ItemFlagsSection } from '@/components/items/ItemFlagsSection';
+import { ItemBillingEventsSection } from '@/components/items/ItemBillingEventsSection';
 import { ItemNotesSection } from '@/components/items/ItemNotesSection';
+import { usePermissions } from '@/hooks/usePermissions';
 import { RepairQuoteSection } from '@/components/items/RepairQuoteSection';
 import { ItemPhotoGallery } from '@/components/items/ItemPhotoGallery';
 import { ItemHistoryTab } from '@/components/items/ItemHistoryTab';
@@ -182,6 +184,10 @@ export default function ItemDetail() {
 
   // Check if user is a client (simplified check)
   const isClientUser = false; // Will be determined by role system
+
+  // Permission checks
+  const { hasRole } = usePermissions();
+  const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
 
   // Get counts for tab indicators
   const { allPhotos: photoList } = useItemPhotos(id);
@@ -860,6 +866,11 @@ export default function ItemDetail() {
                 onFlagsChange={() => fetchItem()}
                 isClientUser={isClientUser}
               />
+
+              {/* Billing Events - Manager/Admin Only */}
+              {canSeeBilling && (
+                <ItemBillingEventsSection itemId={item.id} />
+              )}
             </div>
 
             {/* Account Default Notes */}

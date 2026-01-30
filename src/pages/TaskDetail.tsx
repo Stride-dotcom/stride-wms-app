@@ -33,7 +33,7 @@ import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
 import { PhotoUploadButton } from '@/components/common/PhotoUploadButton';
 import { TaggablePhotoGrid, TaggablePhoto, getPhotoUrls } from '@/components/common/TaggablePhotoGrid';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
-import { BillingChargesSection } from '@/components/billing/BillingChargesSection';
+import { BillingCalculator } from '@/components/billing/BillingCalculator';
 import { useTechnicians } from '@/hooks/useTechnicians';
 import { useRepairQuoteWorkflow } from '@/hooks/useRepairQuotes';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -981,14 +981,12 @@ export default function TaskDetailPage() {
 
             {/* Billing Charges - Manager/Admin Only */}
             {canSeeBilling && task.account_id && (
-              <BillingChargesSection
+              <BillingCalculator
                 taskId={task.id}
-                accountId={task.account_id}
-                accountName={task.account?.account_name}
                 taskType={task.task_type}
-                itemCount={taskItems.length}
                 refreshKey={billingRefreshKey}
-                // Assembly billing props
+                title={`${task.task_type} Charges`}
+                // Assembly/Repair billing props
                 selectedServiceCode={task.metadata?.billing_service_code || '60MA'}
                 billingQuantity={task.metadata?.billing_quantity ?? 0}
                 billingRate={task.billing_rate}

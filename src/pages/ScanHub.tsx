@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocations } from '@/hooks/useLocations';
 import { useStocktakeFreezeCheck } from '@/hooks/useStocktakes';
 import { useServiceEvents, ServiceEventForScan } from '@/hooks/useServiceEvents';
+import { usePermissions } from '@/hooks/usePermissions';
 import { QRScanner } from '@/components/scan/QRScanner';
 import { ItemSearchOverlay, LocationSearchOverlay } from '@/components/scan/SearchOverlays';
 import {
@@ -61,6 +62,10 @@ export default function ScanHub() {
   const { checkFreeze } = useStocktakeFreezeCheck();
   const { scanServiceEvents, getServiceRate, createBillingEvents, loading: serviceEventsLoading } = useServiceEvents();
   const { collapseSidebar } = useSidebar();
+  const { hasRole } = usePermissions();
+
+  // Role-based visibility for billing features (managers and above)
+  const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
 
   const [mode, setMode] = useState<ScanMode>(null);
   const [phase, setPhase] = useState<ScanPhase>('idle');
@@ -718,35 +723,37 @@ export default function ScanHub() {
               </div>
             </button>
 
-            {/* Service Event Scan Card */}
-            <button
-              onClick={() => selectMode('service')}
-              className={cn(
-                "group relative overflow-hidden flex items-center gap-6 p-6",
-                "rounded-3xl bg-card border-2 border-transparent",
-                "transition-all duration-300 text-left",
-                "hover:border-success hover:shadow-xl hover:shadow-success/10"
-              )}
-            >
-              {/* Background watermark emoji */}
-              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300 text-[10rem]">
-                ⚡
-              </div>
+            {/* Service Event Scan Card - Manager/Admin Only */}
+            {canSeeBilling && (
+              <button
+                onClick={() => selectMode('service')}
+                className={cn(
+                  "group relative overflow-hidden flex items-center gap-6 p-6",
+                  "rounded-3xl bg-card border-2 border-transparent",
+                  "transition-all duration-300 text-left",
+                  "hover:border-success hover:shadow-xl hover:shadow-success/10"
+                )}
+              >
+                {/* Background watermark emoji */}
+                <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300 text-[10rem]">
+                  ⚡
+                </div>
 
-              {/* Large emoji container */}
-              <div className="w-24 h-28 rounded-3xl bg-success flex items-center justify-center flex-shrink-0 text-5xl group-hover:scale-110 transition-transform duration-200">
-                ⚡
-              </div>
+                {/* Large emoji container */}
+                <div className="w-24 h-28 rounded-3xl bg-success flex items-center justify-center flex-shrink-0 text-5xl group-hover:scale-110 transition-transform duration-200">
+                  ⚡
+                </div>
 
-              {/* Text on right */}
-              <div className="flex flex-col items-start flex-1">
-                <span className="text-2xl font-bold text-foreground">Service Event</span>
-                <span className="text-sm text-muted-foreground mt-1">Scan items, select services, create billing</span>
-                <span className="flex items-center gap-2 text-success text-xs font-semibold uppercase tracking-wide mt-3">
-                  LAUNCH SCANNER ➡️
-                </span>
-              </div>
-            </button>
+                {/* Text on right */}
+                <div className="flex flex-col items-start flex-1">
+                  <span className="text-2xl font-bold text-foreground">Service Event</span>
+                  <span className="text-sm text-muted-foreground mt-1">Scan items, select services, create billing</span>
+                  <span className="flex items-center gap-2 text-success text-xs font-semibold uppercase tracking-wide mt-3">
+                    LAUNCH SCANNER ➡️
+                  </span>
+                </div>
+              </button>
+            )}
           </div>
         </div>
       </DashboardLayout>
@@ -756,6 +763,17 @@ export default function ScanHub() {
   // Service Event Scan Screen
   if (mode === 'service') {
     const totalBillingEvents = serviceItems.length * selectedServices.length;
+
+    // Calculate billing preview total
+    let billingPreviewTotal = 0;
+    let hasRateErrors = false;
+    for (const item of serviceItems) {
+      for (const service of selectedServices) {
+        const rateInfo = getServiceRate(service.service_code, item.class_code);
+        if (rateInfo.hasError) hasRateErrors = true;
+        billingPreviewTotal += rateInfo.rate;
+      }
+    }
 
     return (
       <DashboardLayout>
@@ -955,6 +973,19 @@ export default function ScanHub() {
                   </span>
                 </p>
               </div>
+              {billingPreviewTotal > 0 && (
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Estimated Total</p>
+                  <p className="text-2xl font-bold text-primary">
+                    ${billingPreviewTotal.toFixed(2)}
+                  </p>
+                  {hasRateErrors && (
+                    <p className="text-xs text-warning flex items-center gap-1 justify-end">
+                      <span>⚠️</span> Some items missing class
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <Button

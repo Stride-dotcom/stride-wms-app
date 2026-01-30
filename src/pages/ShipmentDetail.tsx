@@ -19,7 +19,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
-import { BillingChargesSection } from '@/components/billing/BillingChargesSection';
+import { BillingCalculator } from '@/components/billing/BillingCalculator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -815,12 +815,11 @@ export default function ShipmentDetail() {
 
         {/* Billing Charges - Manager/Admin Only */}
         {canSeeBilling && shipment.account_id && (
-          <BillingChargesSection
+          <BillingCalculator
             shipmentId={shipment.id}
-            accountId={shipment.account_id}
-            taskType={shipment.shipment_type === 'inbound' ? 'Receiving' : 'Shipping'}
-            itemCount={items.length}
+            shipmentDirection={shipment.shipment_type as 'inbound' | 'outbound' | 'return'}
             refreshKey={billingRefreshKey}
+            title={`${shipment.shipment_type === 'inbound' ? 'Receiving' : shipment.shipment_type === 'outbound' ? 'Shipping' : 'Returns'} Charges`}
           />
         )}
       </div>
