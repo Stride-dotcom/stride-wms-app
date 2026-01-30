@@ -924,10 +924,12 @@ export default function ShipmentDetail() {
                       }
                     }}
                     onUpdate={fetchShipment}
+                    onDelete={() => fetchShipment()}
                     onDuplicate={handleDuplicateItem}
                     isInbound={isInbound}
                     isCompleted={shipment.status === 'completed' || shipment.status === 'cancelled'}
                     classes={classes}
+                    accountId={shipment.account_id || undefined}
                   />
                 ))
               )}

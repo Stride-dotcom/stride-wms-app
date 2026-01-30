@@ -64,10 +64,12 @@ interface ShipmentItemRowProps {
   isSelected: boolean;
   onSelect: (checked: boolean) => void;
   onUpdate: () => void;
+  onDelete?: (item: ShipmentItem) => void;
   onDuplicate?: (item: ShipmentItem) => void;
   isInbound: boolean;
   isCompleted: boolean;
   classes?: ClassOption[];
+  accountId?: string;
 }
 
 export function ShipmentItemRow({
@@ -75,10 +77,12 @@ export function ShipmentItemRow({
   isSelected,
   onSelect,
   onUpdate,
+  onDelete,
   onDuplicate,
   isInbound,
   isCompleted,
   classes = [],
+  accountId,
 }: ShipmentItemRowProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -92,9 +96,11 @@ export function ShipmentItemRow({
   const [selectedClass, setSelectedClass] = useState(
     item.expected_class?.code || item.item?.class?.code || ''
   );
+  const [sidemark, setSidemark] = useState(item.item?.sidemark || item.expected_sidemark || '');
 
   // Track if we're currently saving
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Flags state (only for received items)
@@ -111,7 +117,8 @@ export function ShipmentItemRow({
     setDescription(item.expected_description || '');
     setQuantity(item.expected_quantity?.toString() || '1');
     setSelectedClass(item.expected_class?.code || item.item?.class?.code || '');
-  }, [item.expected_vendor, item.expected_description, item.expected_quantity, item.expected_class, item.item?.class]);
+    setSidemark(item.item?.sidemark || item.expected_sidemark || '');
+  }, [item.expected_vendor, item.expected_description, item.expected_quantity, item.expected_class, item.item?.class, item.item?.sidemark, item.expected_sidemark]);
 
   // Fetch enabled flags when expanded and item has been received
   useEffect(() => {
@@ -141,14 +148,15 @@ export function ShipmentItemRow({
     }
   };
 
-  // Auto-save function with debounce
+  // Auto-save function for pending (expected) items - updates shipment_items table
   const saveField = useCallback(async (field: string, value: string) => {
-    if (item.item_id) return; // Don't edit received items
+    if (item.item_id) return; // For received items, use saveReceivedItemField instead
 
     const updateData: Record<string, any> = {};
     if (field === 'vendor') updateData.expected_vendor = value || null;
     if (field === 'description') updateData.expected_description = value || null;
     if (field === 'quantity') updateData.expected_quantity = parseInt(value) || 1;
+    if (field === 'sidemark') updateData.expected_sidemark = value || null;
     if (field === 'class') {
       // Find the class ID from the code
       const matchedClass = classes.find(c => c.code === value);
@@ -171,7 +179,79 @@ export function ShipmentItemRow({
     }
   }, [item.id, item.item_id, classes, onUpdate, toast]);
 
-  // Handle blur - save the field
+  // Save function for received items - updates items table (for class and sidemark)
+  const saveReceivedItemField = useCallback(async (field: string, value: string) => {
+    if (!item.item_id) return; // Only for received items
+
+    const updateData: Record<string, any> = {};
+    if (field === 'class') {
+      const matchedClass = classes.find(c => c.code === value);
+      updateData.class_id = matchedClass?.id || null;
+    }
+    if (field === 'sidemark') {
+      updateData.sidemark = value || null;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await (supabase.from('items') as any)
+        .update(updateData)
+        .eq('id', item.item_id);
+
+      if (error) throw error;
+      onUpdate();
+      toast({ title: 'Item Updated' });
+    } catch (error) {
+      console.error('Error updating received item:', error);
+      toast({ title: 'Error', description: 'Failed to save', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  }, [item.item_id, classes, onUpdate, toast]);
+
+  // Delete shipment item with audit logging
+  const handleDelete = useCallback(async () => {
+    if (!profile?.tenant_id) return;
+
+    setDeleting(true);
+    try {
+      // Log to audit before deletion
+      await (supabase.from('admin_audit_log') as any).insert({
+        tenant_id: profile.tenant_id,
+        actor_id: profile.id,
+        entity_type: 'shipment_item',
+        entity_id: item.id,
+        action: 'delete',
+        changes: {
+          deleted_item: {
+            expected_description: item.expected_description,
+            expected_vendor: item.expected_vendor,
+            expected_quantity: item.expected_quantity,
+            expected_class_id: item.expected_class_id,
+            status: item.status,
+          }
+        }
+      });
+
+      // Delete the shipment item
+      const { error } = await (supabase.from('shipment_items') as any)
+        .delete()
+        .eq('id', item.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Item Removed', description: 'Item has been removed from shipment' });
+      onDelete?.(item);
+      onUpdate();
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      toast({ title: 'Error', description: 'Failed to remove item', variant: 'destructive' });
+    } finally {
+      setDeleting(false);
+    }
+  }, [item, profile, onDelete, onUpdate, toast]);
+
+  // Handle blur - save the field (routes to correct save function based on item state)
   const handleBlur = useCallback((field: string, value: string) => {
     // Clear any pending timeout
     if (saveTimeoutRef.current) {
@@ -179,9 +259,15 @@ export function ShipmentItemRow({
     }
     // Save after a short delay to allow for tab navigation
     saveTimeoutRef.current = setTimeout(() => {
-      saveField(field, value);
+      if (item.item_id && (field === 'class' || field === 'sidemark')) {
+        // For received items, update the items table
+        saveReceivedItemField(field, value);
+      } else {
+        // For pending items, update shipment_items table
+        saveField(field, value);
+      }
     }, 200);
-  }, [saveField]);
+  }, [item.item_id, saveField, saveReceivedItemField]);
 
   const handleFlagToggle = async (service: ServiceEvent, currentlyEnabled: boolean) => {
     if (!item.item_id || !profile?.tenant_id) return;
@@ -254,8 +340,12 @@ export function ShipmentItemRow({
     }
   }, [item.item_id, navigate]);
 
-  // Can edit if inbound, not completed, and item not yet received
-  const canEdit = isInbound && !isCompleted && !item.item_id;
+  // Can edit pending item fields if inbound, not completed, and item not yet received
+  const canEditPending = isInbound && !isCompleted && !item.item_id;
+  // Can edit class/sidemark on received items if not completed
+  const canEditReceived = isInbound && !isCompleted && !!item.item_id;
+  // Can delete pending items (not yet received)
+  const canDelete = isInbound && !isCompleted && !item.item_id;
 
   return (
     <>
@@ -309,8 +399,8 @@ export function ShipmentItemRow({
         </TableCell>
 
         {/* Qty - shows expected for pending, received for received items */}
-        <TableCell className="w-20 text-right" onClick={(e) => canEdit && e.stopPropagation()}>
-          {canEdit ? (
+        <TableCell className="w-20 text-right" onClick={(e) => canEditPending && e.stopPropagation()}>
+          {canEditPending ? (
             <Input
               type="number"
               value={quantity}
@@ -327,8 +417,8 @@ export function ShipmentItemRow({
         </TableCell>
 
         {/* Vendor - editable for pending items */}
-        <TableCell className="w-32" onClick={(e) => canEdit && e.stopPropagation()}>
-          {canEdit ? (
+        <TableCell className="w-32" onClick={(e) => canEditPending && e.stopPropagation()}>
+          {canEditPending ? (
             <Input
               value={vendor}
               onChange={(e) => setVendor(e.target.value)}
@@ -342,8 +432,8 @@ export function ShipmentItemRow({
         </TableCell>
 
         {/* Description - editable for pending items */}
-        <TableCell className="min-w-[140px]" onClick={(e) => canEdit && e.stopPropagation()}>
-          {canEdit ? (
+        <TableCell className="min-w-[140px]" onClick={(e) => canEditPending && e.stopPropagation()}>
+          {canEditPending ? (
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -356,9 +446,9 @@ export function ShipmentItemRow({
           )}
         </TableCell>
 
-        {/* Class - editable for pending items with autocomplete */}
-        <TableCell className="w-24" onClick={(e) => canEdit && e.stopPropagation()}>
-          {canEdit ? (
+        {/* Class - editable for pending AND received items with autocomplete */}
+        <TableCell className="w-24" onClick={(e) => (canEditPending || canEditReceived) && e.stopPropagation()}>
+          {(canEditPending || canEditReceived) ? (
             <AutocompleteInput
               value={selectedClass}
               onChange={(value) => setSelectedClass(value)}
@@ -374,11 +464,21 @@ export function ShipmentItemRow({
           )}
         </TableCell>
 
-        {/* Sidemark - shows expected for pending, actual for received */}
-        <TableCell className="w-28">
-          <span className="text-sm">
-            {item.item?.sidemark || item.expected_sidemark || '-'}
-          </span>
+        {/* Sidemark - editable for pending AND received items */}
+        <TableCell className="w-28" onClick={(e) => (canEditPending || canEditReceived) && e.stopPropagation()}>
+          {(canEditPending || canEditReceived) ? (
+            <Input
+              value={sidemark}
+              onChange={(e) => setSidemark(e.target.value)}
+              onBlur={() => handleBlur('sidemark', sidemark)}
+              placeholder="Sidemark"
+              className="h-7 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
+            />
+          ) : (
+            <span className="text-sm">
+              {item.item?.sidemark || item.expected_sidemark || '-'}
+            </span>
+          )}
         </TableCell>
 
         {/* Room - only for received items */}
@@ -397,10 +497,10 @@ export function ShipmentItemRow({
         </TableCell>
 
         {/* Actions */}
-        <TableCell className="w-20" onClick={(e) => e.stopPropagation()}>
+        <TableCell className="w-24" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1">
             {/* Duplicate button for pending items */}
-            {canEdit && onDuplicate && (
+            {canEditPending && onDuplicate && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -412,6 +512,26 @@ export function ShipmentItemRow({
                 title="Duplicate item"
               >
                 <MaterialIcon name="content_copy" size="sm" className="text-muted-foreground" />
+              </Button>
+            )}
+            {/* Delete button for pending items */}
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-destructive hover:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete();
+                }}
+                disabled={deleting}
+                title="Remove item"
+              >
+                {deleting ? (
+                  <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
+                ) : (
+                  <MaterialIcon name="delete" size="sm" />
+                )}
               </Button>
             )}
             {/* Show flags indicator if item has flags */}
