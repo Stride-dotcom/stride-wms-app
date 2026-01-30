@@ -306,22 +306,29 @@ export function useTasks(filters?: {
     if (!profile?.tenant_id || !profile?.id) return;
 
     try {
-      // First, fetch the task to check for manual rate override
+      // First, fetch the task to check for billing config
       const { data: taskData } = await (supabase
         .from('tasks') as any)
-        .select('billing_rate, billing_rate_locked, title')
+        .select('billing_rate, billing_rate_locked, title, metadata')
         .eq('id', taskId)
         .single();
 
       const hasManualRate = taskData?.billing_rate_locked && taskData?.billing_rate !== null;
       const manualRate = taskData?.billing_rate;
 
+      // For Assembly tasks, use service code and quantity from metadata
+      const isAssemblyTask = taskType === 'Assembly';
+      const assemblyServiceCode = taskData?.metadata?.billing_service_code || '60MA';
+      const assemblyQuantity = taskData?.metadata?.billing_quantity || 0;
+
       // Get service code for this task type from Price List mapping
-      const serviceCode = TASK_TYPE_TO_SERVICE_CODE[taskType] || taskType;
+      const serviceCode = isAssemblyTask
+        ? assemblyServiceCode
+        : (TASK_TYPE_TO_SERVICE_CODE[taskType] || taskType);
 
       // Check if this service uses task-level billing (e.g., Assembly)
       const serviceInfo = await getRateFromPriceList(profile.tenant_id, serviceCode, null);
-      const isTaskLevelBilling = serviceInfo.billingUnit === 'Task';
+      const isTaskLevelBilling = serviceInfo.billingUnit === 'Task' || isAssemblyTask;
 
       // Fetch all classes to map class_id to code
       const { data: allClasses } = await supabase
@@ -352,9 +359,48 @@ export function useTasks(filters?: {
         description: string;
       }> = [];
 
-      // For task-level billing (like Assembly) with manual rate, create single billing event
-      if (isTaskLevelBilling && hasManualRate) {
-        // Get first item for account info
+      // For Assembly tasks, create single billing event with selected service and quantity
+      if (isAssemblyTask) {
+        const firstItem = taskItems[0]?.items;
+        const taskAccountId = accountId || firstItem?.account_id;
+
+        if (taskAccountId && assemblyQuantity > 0) {
+          const itemCodes = taskItems
+            .map((ti: any) => ti.items?.item_code)
+            .filter(Boolean)
+            .join(', ');
+          const description = `${serviceInfo.serviceName}: ${taskData?.title || itemCodes}`;
+
+          // Use manual rate if set, otherwise use service rate
+          const unitRate = hasManualRate ? manualRate : serviceInfo.rate;
+          const totalAmount = unitRate * assemblyQuantity;
+
+          billingEvents.push({
+            tenant_id: profile.tenant_id,
+            account_id: taskAccountId,
+            sidemark_id: firstItem?.sidemark_id || null,
+            class_id: null,
+            item_id: null, // Task-level, not item-specific
+            task_id: taskId,
+            event_type: 'task_completion',
+            charge_type: serviceCode,
+            description,
+            quantity: assemblyQuantity,
+            unit_rate: unitRate,
+            total_amount: totalAmount,
+            status: 'unbilled',
+            occurred_at: new Date().toISOString(),
+            metadata: {
+              task_type: taskType,
+              billing_unit: 'Task',
+              assembly_service: serviceCode,
+              manual_rate: hasManualRate,
+            },
+            created_by: profile.id,
+          });
+        }
+      } else if (isTaskLevelBilling && hasManualRate) {
+        // For other task-level billing with manual rate
         const firstItem = taskItems[0]?.items;
         const taskAccountId = accountId || firstItem?.account_id;
 
@@ -370,7 +416,7 @@ export function useTasks(filters?: {
             account_id: taskAccountId,
             sidemark_id: firstItem?.sidemark_id || null,
             class_id: null,
-            item_id: null, // Task-level, not item-specific
+            item_id: null,
             task_id: taskId,
             event_type: 'task_completion',
             charge_type: serviceCode,

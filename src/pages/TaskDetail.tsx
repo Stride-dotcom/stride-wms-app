@@ -61,7 +61,11 @@ interface TaskDetail {
   unable_to_complete_note: string | null;
   task_notes: string | null;
   inspection_status: string | null;
-  metadata: { photos?: (string | TaggablePhoto)[] } | null;
+  metadata: {
+    photos?: (string | TaggablePhoto)[];
+    billing_service_code?: string;
+    billing_quantity?: number;
+  } | null;
   created_at: string;
   updated_at: string;
   // Billing rate fields
@@ -272,7 +276,21 @@ export default function TaskDetailPage() {
   };
 
   const handleCompleteTask = async () => {
-    if (!id || !profile?.id) return;
+    if (!id || !profile?.id || !task) return;
+
+    // Validate Assembly tasks require billing quantity > 0
+    if (task.task_type === 'Assembly') {
+      const billingQty = task.metadata?.billing_quantity ?? 0;
+      if (billingQty <= 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Billing Required',
+          description: 'Set assembly billing quantity before completing task',
+        });
+        return;
+      }
+    }
+
     setActionLoading(true);
     try {
       // Use completeTask from useTasks which creates billing events
@@ -968,36 +986,64 @@ export default function TaskDetailPage() {
                 accountName={task.account?.account_name}
                 taskType={task.task_type}
                 itemCount={taskItems.length}
-                baseRate={task.billing_rate}
                 refreshKey={billingRefreshKey}
-                onBaseRateChange={async (rate) => {
+                // Assembly billing props
+                selectedServiceCode={task.metadata?.billing_service_code || '60MA'}
+                billingQuantity={task.metadata?.billing_quantity ?? 0}
+                billingRate={task.billing_rate}
+                onServiceChange={async (serviceCode) => {
+                  if (!profile?.id) return;
+                  try {
+                    const updatedMetadata = {
+                      ...(task.metadata || {}),
+                      billing_service_code: serviceCode,
+                    };
+                    const { error } = await (supabase.from('tasks') as any)
+                      .update({ metadata: updatedMetadata })
+                      .eq('id', task.id);
+                    if (error) throw error;
+                    setTask(prev => prev ? { ...prev, metadata: updatedMetadata } : prev);
+                  } catch (error: any) {
+                    console.error('Error saving service code:', error);
+                    toast({ variant: 'destructive', title: 'Error', description: 'Failed to save' });
+                  }
+                }}
+                onQuantityChange={async (quantity) => {
+                  if (!profile?.id) return;
+                  try {
+                    const updatedMetadata = {
+                      ...(task.metadata || {}),
+                      billing_quantity: quantity,
+                    };
+                    const { error } = await (supabase.from('tasks') as any)
+                      .update({ metadata: updatedMetadata })
+                      .eq('id', task.id);
+                    if (error) throw error;
+                    setTask(prev => prev ? { ...prev, metadata: updatedMetadata } : prev);
+                  } catch (error: any) {
+                    console.error('Error saving quantity:', error);
+                    toast({ variant: 'destructive', title: 'Error', description: 'Failed to save' });
+                  }
+                }}
+                onRateChange={async (rate) => {
                   if (!profile?.id) return;
                   try {
                     const updateData: Record<string, any> = {
                       billing_rate: rate,
                       billing_rate_locked: rate !== null,
                     };
-                    // Only set these if rate is not null
                     if (rate !== null) {
                       updateData.billing_rate_set_by = profile.id;
                       updateData.billing_rate_set_at = new Date().toISOString();
                     }
-                    const { error, data } = await (supabase.from('tasks') as any)
+                    const { error } = await (supabase.from('tasks') as any)
                       .update(updateData)
-                      .eq('id', task.id)
-                      .select();
-                    if (error) {
-                      console.error('Supabase error:', error);
-                      throw error;
-                    }
+                      .eq('id', task.id);
+                    if (error) throw error;
                     fetchTask();
                   } catch (error: any) {
                     console.error('Error saving billing rate:', error);
-                    toast({
-                      variant: 'destructive',
-                      title: 'Error',
-                      description: error?.message || 'Failed to save billing rate'
-                    });
+                    toast({ variant: 'destructive', title: 'Error', description: 'Failed to save' });
                   }
                 }}
               />
