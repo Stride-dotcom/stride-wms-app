@@ -688,6 +688,27 @@ export default function ItemDetail() {
           </TabsList>
 
           <TabsContent value="details" className="space-y-6 mt-6">
+            {/* Account Default Notes - Full width above details */}
+            {accountSettings?.default_item_notes && (
+              <Card className={cn(
+                accountSettings.highlight_item_notes
+                  ? "bg-orange-50 dark:bg-orange-900/20 border-4 border-orange-500 dark:border-orange-400"
+                  : "bg-card"
+              )}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    {accountSettings.highlight_item_notes && (
+                      <span className="text-orange-600 dark:text-orange-400">⚠️</span>
+                    )}
+                    Account Notes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm whitespace-pre-wrap">{accountSettings.default_item_notes}</p>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="grid gap-6 md:grid-cols-2">
               {/* Details Card */}
               <Card>
@@ -872,27 +893,6 @@ export default function ItemDetail() {
                 <ItemBillingEventsSection itemId={item.id} />
               )}
             </div>
-
-            {/* Account Default Notes */}
-            {accountSettings?.default_item_notes && (
-              <Card className={cn(
-                accountSettings.highlight_item_notes
-                  ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700"
-                  : "bg-card"
-              )}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    {accountSettings.highlight_item_notes && (
-                      <span className="text-amber-600 dark:text-amber-400">⚠️</span>
-                    )}
-                    Account Notes
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm whitespace-pre-wrap">{accountSettings.default_item_notes}</p>
-                </CardContent>
-              </Card>
-            )}
 
             {/* Inbound History - Original inbound shipment */}
             {item.receiving_shipment && (
