@@ -819,7 +819,7 @@ export default function ShipmentDetail() {
             shipmentId={shipment.id}
             shipmentDirection={shipment.shipment_type as 'inbound' | 'outbound' | 'return'}
             refreshKey={billingRefreshKey}
-            title={`${shipment.shipment_type === 'inbound' ? 'Receiving' : shipment.shipment_type === 'outbound' ? 'Shipping' : 'Returns'} Charges`}
+            title="Billing Calculator"
           />
         )}
       </div>

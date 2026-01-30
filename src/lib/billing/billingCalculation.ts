@@ -294,13 +294,19 @@ export async function calculateShipmentBillingPreview(
   // Determine service code based on direction
   const serviceCode = SHIPMENT_DIRECTION_TO_SERVICE_CODE[direction] || 'RCVG';
 
-  // Get shipment items with class info
+  // Get shipment items with class info from BOTH expected_class_id AND item's class
+  // This handles both pre-receiving (expected_class_id) and post-receiving (item.class_id)
   const { data: shipmentItems, error: shipmentItemsError } = await supabase
     .from('shipment_items')
     .select(`
       item_id,
       quantity_expected,
       quantity_received,
+      expected_class_id,
+      expected_class:expected_class_id (
+        code,
+        name
+      ),
       items:item_id (
         item_code,
         class_id,
@@ -331,9 +337,13 @@ export async function calculateShipmentBillingPreview(
   // Calculate for each item based on class
   for (const si of shipmentItems || []) {
     const item = si.items as any;
+    const expectedClass = si.expected_class as any;
+
+    // Use item's class if received, otherwise use expected_class
     const itemCode = item?.item_code || null;
-    const classCode = item?.classes?.code || null;
-    const className = item?.classes?.name || null;
+    const classCode = item?.classes?.code || expectedClass?.code || null;
+    const className = item?.classes?.name || expectedClass?.name || null;
+
     // Use received quantity if available, otherwise expected
     const quantity = si.quantity_received || si.quantity_expected || 1;
 
