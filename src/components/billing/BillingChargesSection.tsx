@@ -218,7 +218,7 @@ export function BillingChargesSection({
               id,
               item_code,
               class_id,
-              classes:class_id(code)
+              class:classes(code)
             )
           `)
           .eq('task_id', taskId);
@@ -241,7 +241,7 @@ export function BillingChargesSection({
 
         // Look up rate for each unique item based on its class
         for (const taskItem of uniqueTaskItems) {
-          const classCode = taskItem.item?.classes?.code || null;
+          const classCode = taskItem.item?.class?.code || null;
           const quantity = taskItem.quantity || 1;
 
           // Get rate from service_events using class-based lookup
@@ -283,7 +283,7 @@ export function BillingChargesSection({
               id,
               item_code,
               class_id,
-              classes:class_id(code)
+              class:classes(code)
             )
           `)
           .eq('shipment_id', shipmentId);
@@ -295,7 +295,7 @@ export function BillingChargesSection({
 
         // Look up rate for each item based on its class
         for (const shipmentItem of shipmentItems || []) {
-          const classCode = shipmentItem.item?.classes?.code || null;
+          const classCode = shipmentItem.item?.class?.code || null;
           const quantity = shipmentItem.actual_quantity || shipmentItem.expected_quantity || 1;
 
           // Get rate from service_events using class-based lookup

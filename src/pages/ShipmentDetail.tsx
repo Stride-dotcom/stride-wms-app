@@ -224,7 +224,7 @@ export default function ShipmentDetail() {
             room,
             current_location:locations!items_current_location_id_fkey(code),
             account:accounts!items_account_id_fkey(account_name),
-            class:classes!items_item_type_id_fkey(
+            class:classes(
               id,
               code,
               name
@@ -822,8 +822,9 @@ export default function ShipmentDetail() {
               <CardDescription>Expected and received items for this shipment</CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {/* Add Items button for inbound shipments that are not completed */}
-              {shipment.shipment_type === 'inbound' && shipment.status !== 'completed' && (
+              {/* Add Items button for inbound/return shipments that are not completed */}
+              {(shipment.shipment_type === 'inbound' || shipment.shipment_type === 'return') &&
+               shipment.status !== 'completed' && shipment.status !== 'cancelled' && (
                 <Button variant="outline" size="sm" onClick={() => setAddItemDialogOpen(true)}>
                   <MaterialIcon name="add" size="sm" className="mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Add Items</span>

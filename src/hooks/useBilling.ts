@@ -273,7 +273,20 @@ export function useBillableCharges(
           .lte('completed_at', periodEnd);
 
         if (!tasksError && tasks) {
-          // Get task items with their item type rates
+          // Map task types to service codes in the Price List
+          const taskTypeToServiceCode: Record<string, string> = {
+            'receiving': 'RCVG',
+            'shipping': 'Shipping',
+            'delivery': 'Delivery',
+            'assembly': '15MA',
+            'inspection': 'INSP',
+            'repair': '1HRO',
+            'will call': 'Will_Call',
+            'disposal': 'Disposal',
+            'returns': 'Returns',
+          };
+
+          // Get task items with their class codes for rate lookup from Price List
           for (const task of tasks) {
             const { data: taskItems } = await supabase
               .from('task_items')
@@ -283,50 +296,56 @@ export function useBillableCharges(
                 item_id,
                 items:item_id (
                   item_code,
-                  item_type_id,
-                  item_types:item_type_id (
-                    receiving_rate,
-                    shipping_rate,
-                    assembly_rate,
-                    inspection_fee,
-                    minor_touchup_rate
-                  )
+                  class_id,
+                  class:classes(code)
                 )
               `)
               .eq('task_id', task.id);
 
             if (taskItems && taskItems.length > 0) {
               for (const taskItem of taskItems) {
-                const itemTypes = taskItem.items?.item_types;
+                const classCode = (taskItem.items as any)?.class?.code || null;
+                const serviceCode = taskTypeToServiceCode[task.task_type.toLowerCase()] || null;
                 let rate = 0;
 
-                // Get rate based on task type
-                switch (task.task_type.toLowerCase()) {
-                  case 'receiving':
-                    rate = itemTypes?.receiving_rate || 0;
-                    break;
-                  case 'shipping':
-                  case 'delivery':
-                    rate = itemTypes?.shipping_rate || 0;
-                    break;
-                  case 'assembly':
-                    rate = itemTypes?.assembly_rate || 0;
-                    break;
-                  case 'inspection':
-                    rate = itemTypes?.inspection_fee || 0;
-                    break;
-                  case 'repair':
-                    rate = itemTypes?.minor_touchup_rate || 0;
-                    break;
-                  default:
-                    rate = 0;
+                // Look up rate from service_events (Price List) based on service code and class
+                if (serviceCode) {
+                  // Try class-specific rate first
+                  if (classCode) {
+                    const { data: classRate } = await supabase
+                      .from('service_events')
+                      .select('rate')
+                      .eq('tenant_id', profile.tenant_id)
+                      .eq('service_code', serviceCode)
+                      .eq('class_code', classCode)
+                      .eq('is_active', true)
+                      .maybeSingle();
+                    if (classRate) {
+                      rate = classRate.rate || 0;
+                    }
+                  }
+
+                  // Fall back to general rate if no class-specific rate
+                  if (rate === 0) {
+                    const { data: generalRate } = await supabase
+                      .from('service_events')
+                      .select('rate')
+                      .eq('tenant_id', profile.tenant_id)
+                      .eq('service_code', serviceCode)
+                      .is('class_code', null)
+                      .eq('is_active', true)
+                      .maybeSingle();
+                    if (generalRate) {
+                      rate = generalRate.rate || 0;
+                    }
+                  }
                 }
 
                 if (rate > 0) {
                   allCharges.push({
                     id: `task-${task.id}-${taskItem.id}`,
                     charge_type: 'task',
-                    description: `${task.task_type} - ${taskItem.items?.item_code || 'Item'}`,
+                    description: `${task.task_type} - ${(taskItem.items as any)?.item_code || 'Item'}`,
                     service_type: task.task_type,
                     service_date: task.completed_at || periodEnd,
                     quantity: taskItem.quantity || 1,
@@ -335,7 +354,7 @@ export function useBillableCharges(
                     account_id: task.account_id,
                     account_name: task.accounts?.account_name || '',
                     item_id: taskItem.item_id || undefined,
-                    item_code: taskItem.items?.item_code || undefined,
+                    item_code: (taskItem.items as any)?.item_code || undefined,
                     task_id: task.id,
                   });
                 }
@@ -347,18 +366,18 @@ export function useBillableCharges(
 
       // Fetch storage charges for items in active inventory during the period
       if (chargeTypes.includes('storage')) {
-        // Get tenant preferences for daily storage rate
+        // Get tenant preferences for free storage days
         const { data: preferences } = await supabase
           .from('tenant_preferences')
-          .select('daily_storage_rate_per_cuft, free_storage_days')
+          .select('free_storage_days')
           .eq('tenant_id', profile.tenant_id)
           .maybeSingle();
 
-        const dailyRate = preferences?.daily_storage_rate_per_cuft || 0.04;
         const freeStorageDays = preferences?.free_storage_days || 0;
 
         // Get items that were in active stock during the billing period
         // Active = received_at <= periodEnd AND (released_at IS NULL OR released_at >= periodStart)
+        // Use class for storage rate lookup from Price List
         const { data: items, error: itemsError } = await (supabase
           .from('items') as any)
           .select(`
@@ -369,8 +388,8 @@ export function useBillableCharges(
             released_at,
             account_id,
             accounts:account_id (account_name),
-            item_type_id,
-            item_types:item_type_id (cubic_feet)
+            class_id,
+            class:classes(code)
           `)
           .eq('tenant_id', profile.tenant_id)
           .in('account_id', accountIds)
@@ -382,8 +401,40 @@ export function useBillableCharges(
           const periodEndDate = new Date(periodEnd);
 
           for (const item of items) {
-            const cubicFeet = item.item_types?.cubic_feet || 0;
-            if (cubicFeet <= 0) continue;
+            const classCode = (item as any).class?.code || null;
+
+            // Look up storage rate from service_events (Price List)
+            let dailyRate = 0;
+            if (classCode) {
+              const { data: classRate } = await supabase
+                .from('service_events')
+                .select('rate')
+                .eq('tenant_id', profile.tenant_id)
+                .eq('service_code', 'STORAGE')
+                .eq('class_code', classCode)
+                .eq('is_active', true)
+                .maybeSingle();
+              if (classRate) {
+                dailyRate = classRate.rate || 0;
+              }
+            }
+
+            // Fall back to general storage rate if no class-specific rate
+            if (dailyRate === 0) {
+              const { data: generalRate } = await supabase
+                .from('service_events')
+                .select('rate')
+                .eq('tenant_id', profile.tenant_id)
+                .eq('service_code', 'STORAGE')
+                .is('class_code', null)
+                .eq('is_active', true)
+                .maybeSingle();
+              if (generalRate) {
+                dailyRate = generalRate.rate || 0;
+              }
+            }
+
+            if (dailyRate <= 0) continue;
 
             const receivedAt = new Date(item.received_at);
             const releasedAt = item.released_at ? new Date(item.released_at) : null;
@@ -408,16 +459,16 @@ export function useBillableCharges(
 
             if (daysInPeriod <= 0) continue;
 
-            const storageCharge = cubicFeet * dailyRate * daysInPeriod;
+            const storageCharge = dailyRate * daysInPeriod;
 
             allCharges.push({
               id: `storage-${item.id}-${periodStart}`,
               charge_type: 'storage',
-              description: `Storage: ${item.item_code || item.description || 'Item'} (${cubicFeet} cu ft × ${daysInPeriod} days)`,
+              description: `Storage: ${item.item_code || item.description || 'Item'} (${classCode || 'No Class'} × ${daysInPeriod} days)`,
               service_type: 'Storage',
               service_date: periodEnd,
               quantity: daysInPeriod,
-              unit_price: cubicFeet * dailyRate,
+              unit_price: dailyRate,
               total: storageCharge,
               account_id: item.account_id,
               account_name: item.accounts?.account_name || '',
