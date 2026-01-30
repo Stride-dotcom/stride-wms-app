@@ -16,7 +16,7 @@ const itemsColumns: ColumnDefinition[] = [
   },
   { id: 'account_name', label: 'Account', dbColumn: 'account_id', format: 'text', sortable: true, filterable: true, aggregatable: false, joinTable: 'accounts', joinColumn: 'account_name' },
   { id: 'sidemark_name', label: 'Sidemark', dbColumn: 'sidemark_id', format: 'text', sortable: true, filterable: true, aggregatable: false, joinTable: 'sidemarks', joinColumn: 'sidemark_name' },
-  { id: 'class_name', label: 'Class', dbColumn: 'item_type_id', format: 'text', sortable: true, filterable: true, aggregatable: false, joinTable: 'item_types', joinColumn: 'name' },
+  { id: 'class_name', label: 'Class', dbColumn: 'class_id', format: 'text', sortable: true, filterable: true, aggregatable: false, joinTable: 'classes', joinColumn: 'name' },
   { id: 'vendor', label: 'Vendor', dbColumn: 'vendor', format: 'text', sortable: true, filterable: true, aggregatable: false },
   { id: 'location_name', label: 'Location', dbColumn: 'current_location_id', format: 'text', sortable: true, filterable: true, aggregatable: false, joinTable: 'locations', joinColumn: 'name' },
   { id: 'declared_value', label: 'Declared Value', dbColumn: 'declared_value', format: 'currency', sortable: true, filterable: true, aggregatable: true },
