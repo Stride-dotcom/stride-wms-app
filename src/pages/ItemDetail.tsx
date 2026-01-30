@@ -241,7 +241,7 @@ export default function ItemDetail() {
           locations(id, code, name),
           warehouses(id, name),
           item_types(id, name),
-          classes(id, code, name),
+          classes:class_id(id, code, name),
           accounts:account_id(id, account_name, account_code)
         `)
         .eq('id', id)
