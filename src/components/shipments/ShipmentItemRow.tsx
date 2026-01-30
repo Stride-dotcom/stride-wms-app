@@ -98,6 +98,10 @@ export function ShipmentItemRow({
   );
   const [sidemark, setSidemark] = useState(item.item?.sidemark || item.expected_sidemark || '');
 
+  // Refs to track latest values for blur handlers (avoids stale closure issues)
+  const selectedClassRef = useRef(selectedClass);
+  const sidemarkRef = useRef(sidemark);
+
   // Track if we're currently saving
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -116,9 +120,22 @@ export function ShipmentItemRow({
     setVendor(item.expected_vendor || '');
     setDescription(item.expected_description || '');
     setQuantity(item.expected_quantity?.toString() || '1');
-    setSelectedClass(item.expected_class?.code || item.item?.class?.code || '');
-    setSidemark(item.item?.sidemark || item.expected_sidemark || '');
+    const classValue = item.expected_class?.code || item.item?.class?.code || '';
+    const sidemarkValue = item.item?.sidemark || item.expected_sidemark || '';
+    setSelectedClass(classValue);
+    setSidemark(sidemarkValue);
+    selectedClassRef.current = classValue;
+    sidemarkRef.current = sidemarkValue;
   }, [item.expected_vendor, item.expected_description, item.expected_quantity, item.expected_class, item.item?.class, item.item?.sidemark, item.expected_sidemark]);
+
+  // Keep refs in sync with state changes
+  useEffect(() => {
+    selectedClassRef.current = selectedClass;
+  }, [selectedClass]);
+
+  useEffect(() => {
+    sidemarkRef.current = sidemark;
+  }, [sidemark]);
 
   // Fetch enabled flags when expanded and item has been received
   useEffect(() => {
@@ -257,14 +274,18 @@ export function ShipmentItemRow({
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
+    // For class and sidemark, use refs to get the latest value (avoids stale closure)
+    const actualValue = field === 'class' ? selectedClassRef.current :
+                        field === 'sidemark' ? sidemarkRef.current : value;
+
     // Save after a short delay to allow for tab navigation
     saveTimeoutRef.current = setTimeout(() => {
       if (item.item_id && (field === 'class' || field === 'sidemark')) {
         // For received items, update the items table
-        saveReceivedItemField(field, value);
+        saveReceivedItemField(field, actualValue);
       } else {
         // For pending items, update shipment_items table
-        saveField(field, value);
+        saveField(field, actualValue);
       }
     }, 200);
   }, [item.item_id, saveField, saveReceivedItemField]);
