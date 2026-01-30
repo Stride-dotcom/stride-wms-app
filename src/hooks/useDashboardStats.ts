@@ -20,6 +20,7 @@ export interface DashboardStats {
   inspectionTimeEstimate: number;
   assemblyTimeEstimate: number;
   repairTimeEstimate: number;
+  putAwayTimeEstimate: number;
 }
 
 export interface TaskItem {
@@ -75,6 +76,7 @@ export function useDashboardStats() {
     inspectionTimeEstimate: 0,
     assemblyTimeEstimate: 0,
     repairTimeEstimate: 0,
+    putAwayTimeEstimate: 0,
   });
   const [inspectionTasks, setInspectionTasks] = useState<TaskItem[]>([]);
   const [assemblyTasks, setAssemblyTasks] = useState<TaskItem[]>([]);
@@ -252,7 +254,7 @@ export function useDashboardStats() {
         .select('service_code, class_code, service_time_minutes')
         .eq('tenant_id', profile.tenant_id)
         .eq('is_active', true)
-        .in('service_code', ['INSP', 'Assembly', '5MA', '15MA', '30MA', '45MA', '60MA', '90MA', '120MA', 'Repair']);
+        .in('service_code', ['INSP', 'Assembly', '5MA', '15MA', '30MA', '45MA', '60MA', '90MA', '120MA', 'Repair', 'PUT_AWAY', 'PUTAWAY']);
 
       // Create lookup for service times (use average if multiple class variants)
       const serviceTimeLookup: Record<string, number> = {};
@@ -290,6 +292,10 @@ export function useDashboardStats() {
       const repairAvgTime = serviceTimeLookup['Repair'] || 45; // default 45 min
       const repairTimeEstimate = (repairCount || 0) * repairAvgTime;
 
+      // For put away - look for PUT_AWAY or PUTAWAY service code
+      const putAwayAvgTime = serviceTimeLookup['PUT_AWAY'] || serviceTimeLookup['PUTAWAY'] || 2; // default 2 min per item
+      const putAwayTimeEstimate = putAwayCount * putAwayAvgTime;
+
       setStats({
         needToInspect: inspectCount || 0,
         needToAssemble: assemblyCount || 0,
@@ -306,6 +312,7 @@ export function useDashboardStats() {
         inspectionTimeEstimate,
         assemblyTimeEstimate,
         repairTimeEstimate,
+        putAwayTimeEstimate,
       });
 
       setInspectionTasks(inspections || []);
