@@ -101,6 +101,8 @@ interface Shipment {
   receiving_photos: (string | TaggablePhoto)[] | null;
   receiving_documents: string[] | null;
   release_type: string | null;
+  sidemark_id: string | null;
+  sidemark: string | null;
   created_at: string;
   accounts?: { id: string; name: string } | null;
   warehouses?: { id: string; name: string } | null;

@@ -261,13 +261,15 @@ export function useReceivingSession(shipmentId: string | undefined) {
 
           for (const item of verificationData.received_items) {
             let currentItemId: string | null = null;
+            let itemClassId: string | null = null; // Track class_id for billing
 
             // Check if this item already exists (created during shipment creation)
             // by looking up the shipment_item to see if it has an item_id
+            let existingItemClassId: string | null = null;
             if (item.shipment_item_id) {
               const { data: shipmentItem } = await (supabase
                 .from('shipment_items') as any)
-                .select('item_id')
+                .select('item_id, expected_class_id')
                 .eq('id', item.shipment_item_id)
                 .single();
 
@@ -298,6 +300,15 @@ export function useReceivingSession(shipmentId: string | undefined) {
 
                 currentItemId = shipmentItem.item_id;
                 createdItemIds.push(currentItemId);
+
+                // Get the item's class_id for billing lookups
+                const { data: existingItem } = await (supabase
+                  .from('items') as any)
+                  .select('class_id')
+                  .eq('id', shipmentItem.item_id)
+                  .single();
+                existingItemClassId = existingItem?.class_id || shipmentItem.expected_class_id || null;
+                itemClassId = existingItemClassId;
 
                 // Update shipment_item status
                 await (supabase.from('shipment_items') as any)
@@ -333,10 +344,10 @@ export function useReceivingSession(shipmentId: string | undefined) {
                 itemData.received_without_id = true;
               }
 
-              const { data: newItem, error: itemError } = await (supabase
+              const { data: newItemData, error: itemError } = await (supabase
                 .from('items') as any)
                 .insert(itemData)
-                .select('id, item_type_id')
+                .select('id, item_type_id, class_id')
                 .single();
 
               if (itemError) {
@@ -344,16 +355,17 @@ export function useReceivingSession(shipmentId: string | undefined) {
                 continue;
               }
 
-              // Track created item ID for label printing and link to shipment_item
-              if (newItem) {
-                currentItemId = newItem.id;
-                createdItemIds.push(newItem.id);
+              // Track created item ID and class_id for label printing and link to shipment_item
+              if (newItemData) {
+                currentItemId = newItemData.id;
+                itemClassId = newItemData.class_id || null;
+                createdItemIds.push(newItemData.id);
 
                 // Link the created item back to the shipment_item
                 if (item.shipment_item_id) {
                   await (supabase.from('shipment_items') as any)
                     .update({
-                      item_id: newItem.id,
+                      item_id: newItemData.id,
                       status: 'received',
                       actual_quantity: item.quantity,
                     })
@@ -363,7 +375,8 @@ export function useReceivingSession(shipmentId: string | undefined) {
             }
 
             // Use currentItemId for the rest of the logic (tasks, billing, etc.)
-            const newItem = currentItemId ? { id: currentItemId } : null;
+            // Also track class_id for billing lookups
+            const newItem = currentItemId ? { id: currentItemId, class_id: itemClassId } : null;
 
             // Create inspection task if tenant preference or account setting is enabled
             if (shouldCreateInspections && newItem) {

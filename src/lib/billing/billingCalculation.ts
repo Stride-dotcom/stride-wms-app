@@ -47,7 +47,7 @@ export interface RateLookupResult {
   rate: number;
   serviceName: string;
   serviceCode: string;
-  billingUnit: 'Day' | 'Item' | 'Task';
+  billingUnit: string;
   alertRule: string;
   hasError: boolean;
   errorMessage?: string;
@@ -297,21 +297,18 @@ export async function calculateShipmentBillingPreview(
   // Determine service code based on direction
   const serviceCode = SHIPMENT_DIRECTION_TO_SERVICE_CODE[direction] || 'RCVG';
 
-  // Get shipment items with linked item's class info
-  // Items are created during shipment creation with class_id set
-  const { data: shipmentItems, error: shipmentItemsError } = await supabase
+  // Get shipment items with linked item info
+  // Use correct column names: expected_quantity, actual_quantity
+  const { data: shipmentItems, error: shipmentItemsError } = await (supabase as any)
     .from('shipment_items')
     .select(`
       item_id,
-      quantity_expected,
-      quantity_received,
+      expected_quantity,
+      actual_quantity,
+      expected_class_id,
       items:item_id (
         item_code,
-        class_id,
-        classes:class_id (
-          code,
-          name
-        )
+        class_id
       )
     `)
     .eq('shipment_id', shipmentId);
@@ -336,13 +333,25 @@ export async function calculateShipmentBillingPreview(
   for (const si of shipmentItems || []) {
     const item = si.items as any;
 
-    // Get class info from the linked item
-    const itemCode = item?.item_code || null;
-    const classCode = item?.classes?.code || null;
-    const className = item?.classes?.name || null;
+    // Get class info - try item's class_id first, fall back to expected_class_id
+    const classId = item?.class_id || si.expected_class_id;
+    let classCode: string | null = null;
+    let className: string | null = null;
 
-    // Use received quantity if available, otherwise expected
-    const quantity = si.quantity_received || si.quantity_expected || 1;
+    if (classId) {
+      const { data: classData } = await (supabase as any)
+        .from('classes')
+        .select('code, name')
+        .eq('id', classId)
+        .maybeSingle();
+      classCode = classData?.code || null;
+      className = classData?.name || null;
+    }
+
+    const itemCode = item?.item_code || null;
+
+    // Use actual quantity if available, otherwise expected
+    const quantity = si.actual_quantity || si.expected_quantity || 1;
 
     const rateResult = await getRateFromPriceList(tenantId, serviceCode, classCode);
     serviceName = rateResult.serviceName;
