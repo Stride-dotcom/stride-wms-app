@@ -3,7 +3,7 @@
  * Shows auto-calculated base rate + add-on charges with editable breakdown
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -89,6 +89,8 @@ export function BillingChargesSection({
   const [editAmount, setEditAmount] = useState<string>('');
   const [savingId, setSavingId] = useState<string | null>(null);
   const [calculatedBaseRate, setCalculatedBaseRate] = useState<number>(0);
+  const [localBaseRate, setLocalBaseRate] = useState<string>('');
+  const baseRateInitialized = useRef(false);
 
   // Fetch billing events for this task/shipment
   const fetchCharges = useCallback(async () => {
@@ -345,10 +347,30 @@ export function BillingChargesSection({
     }
   };
 
+  // Initialize local base rate from prop
+  useEffect(() => {
+    if (baseRate !== null && baseRate !== undefined) {
+      setLocalBaseRate(baseRate.toString());
+      baseRateInitialized.current = true;
+    } else if (calculatedBaseRate > 0 && !baseRateInitialized.current) {
+      setLocalBaseRate('');
+    }
+  }, [baseRate, calculatedBaseRate]);
+
   const handleBaseRateChange = (value: string) => {
-    const rate = value === '' ? null : parseFloat(value);
-    if (value !== '' && (isNaN(rate!) || rate! < 0)) return;
-    onBaseRateChange?.(rate);
+    // Just update local state - don't save to DB yet
+    setLocalBaseRate(value);
+  };
+
+  const handleBaseRateBlur = () => {
+    // Save on blur
+    const rate = localBaseRate === '' ? null : parseFloat(localBaseRate);
+    if (localBaseRate !== '' && (isNaN(rate!) || rate! < 0)) return;
+    // Only save if value actually changed
+    const currentRate = baseRate !== null && baseRate !== undefined ? baseRate : null;
+    if (rate !== currentRate) {
+      onBaseRateChange?.(rate);
+    }
   };
 
   // Loading state
@@ -402,8 +424,9 @@ export function BillingChargesSection({
                   type="number"
                   step="0.01"
                   min="0"
-                  value={baseRate !== null && baseRate !== undefined ? baseRate : (calculatedBaseRate || '')}
+                  value={localBaseRate}
                   onChange={(e) => handleBaseRateChange(e.target.value)}
+                  onBlur={handleBaseRateBlur}
                   placeholder={calculatedBaseRate > 0 ? calculatedBaseRate.toFixed(2) : '0.00'}
                   className="w-24 h-8 text-right"
                 />
