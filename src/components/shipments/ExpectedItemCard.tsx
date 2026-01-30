@@ -35,6 +35,7 @@ export interface ExpectedItemCardProps {
   canDelete: boolean;
   onUpdate: (id: string, field: keyof ExpectedItemData, value: string | number) => void;
   onDelete: (id: string) => void;
+  onDuplicate?: (item: ExpectedItemData) => void;
   onVendorUsed?: (value: string) => void;
 }
 
@@ -46,6 +47,7 @@ export function ExpectedItemCard({
   canDelete,
   onUpdate,
   onDelete,
+  onDuplicate,
   onVendorUsed,
 }: ExpectedItemCardProps) {
   // Convert suggestions to format for AutocompleteInput
@@ -60,23 +62,38 @@ export function ExpectedItemCard({
   return (
     <Card className="relative">
       <CardContent className="pt-4 pb-4 space-y-4">
-        {/* Item header with number and delete */}
+        {/* Item header with number, duplicate, and delete */}
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-muted-foreground">
             Item {index + 1}
           </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => onDelete(item.id)}
-            disabled={!canDelete}
-            className="h-8 w-8"
-          >
-            <MaterialIcon name="delete" size="sm" className={cn(
-              canDelete ? "text-destructive" : "text-muted-foreground"
-            )} />
-          </Button>
+          <div className="flex items-center gap-1">
+            {onDuplicate && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => onDuplicate(item)}
+                className="h-8 w-8"
+                title="Duplicate item"
+              >
+                <MaterialIcon name="content_copy" size="sm" className="text-muted-foreground" />
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => onDelete(item.id)}
+              disabled={!canDelete}
+              className="h-8 w-8"
+              title="Delete item"
+            >
+              <MaterialIcon name="delete" size="sm" className={cn(
+                canDelete ? "text-destructive" : "text-muted-foreground"
+              )} />
+            </Button>
+          </div>
         </div>
 
         {/* Field order: Qty, Vendor, Description, Item Type, Sidemark */}
