@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocations } from '@/hooks/useLocations';
 import { useStocktakeFreezeCheck } from '@/hooks/useStocktakes';
 import { useServiceEvents, ServiceEventForScan } from '@/hooks/useServiceEvents';
+import { usePermissions } from '@/hooks/usePermissions';
 import { QRScanner } from '@/components/scan/QRScanner';
 import { ItemSearchOverlay, LocationSearchOverlay } from '@/components/scan/SearchOverlays';
 import {
@@ -61,6 +62,10 @@ export default function ScanHub() {
   const { checkFreeze } = useStocktakeFreezeCheck();
   const { scanServiceEvents, getServiceRate, createBillingEvents, loading: serviceEventsLoading } = useServiceEvents();
   const { collapseSidebar } = useSidebar();
+  const { hasRole } = usePermissions();
+
+  // Role-based visibility for billing features (managers and above)
+  const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
 
   const [mode, setMode] = useState<ScanMode>(null);
   const [phase, setPhase] = useState<ScanPhase>('idle');
@@ -757,6 +762,17 @@ export default function ScanHub() {
   if (mode === 'service') {
     const totalBillingEvents = serviceItems.length * selectedServices.length;
 
+    // Calculate billing preview total
+    let billingPreviewTotal = 0;
+    let hasRateErrors = false;
+    for (const item of serviceItems) {
+      for (const service of selectedServices) {
+        const rateInfo = getServiceRate(service.service_code, item.class_code);
+        if (rateInfo.hasError) hasRateErrors = true;
+        billingPreviewTotal += rateInfo.rate;
+      }
+    }
+
     return (
       <DashboardLayout>
         <div className="flex flex-col min-h-[70vh] px-4 pb-4">
@@ -955,6 +971,20 @@ export default function ScanHub() {
                   </span>
                 </p>
               </div>
+              {/* Billing Preview - Manager/Admin Only */}
+              {canSeeBilling && billingPreviewTotal > 0 && (
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Estimated Total</p>
+                  <p className="text-2xl font-bold text-primary">
+                    ${billingPreviewTotal.toFixed(2)}
+                  </p>
+                  {hasRateErrors && (
+                    <p className="text-xs text-warning flex items-center gap-1 justify-end">
+                      <span>⚠️</span> Some items missing class
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <Button
