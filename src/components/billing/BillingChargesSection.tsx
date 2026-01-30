@@ -107,27 +107,7 @@ async function getRateFromPriceList(
       };
     }
 
-    // Final fallback: For services with only class-specific rates (like RCVG),
-    // get the lowest rate as a default when no class is specified
-    const { data: lowestRate } = await (supabase
-      .from('service_events') as any)
-      .select('rate, service_name')
-      .eq('tenant_id', tenantId)
-      .eq('service_code', serviceCode)
-      .eq('is_active', true)
-      .order('rate', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (lowestRate) {
-      return {
-        rate: lowestRate.rate,
-        serviceName: lowestRate.service_name || serviceCode,
-        hasError: false
-      };
-    }
-
-    // No rate found
+    // No rate found - item must have a class assigned for billing
     return {
       rate: 0,
       serviceName: serviceCode,

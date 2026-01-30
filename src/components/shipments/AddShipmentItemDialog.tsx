@@ -61,9 +61,14 @@ export function AddShipmentItemDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!description.trim()) {
       toast({ title: 'Description required', variant: 'destructive' });
+      return;
+    }
+
+    if (!selectedClass) {
+      toast({ title: 'Class required', description: 'Please select a size class for billing', variant: 'destructive' });
       return;
     }
     
@@ -153,7 +158,7 @@ export function AddShipmentItemDialog({
 
           <div className="grid gap-4 grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="class">Class</Label>
+              <Label htmlFor="class">Class *</Label>
               <AutocompleteInput
                 value={selectedClass}
                 onChange={setSelectedClass}
