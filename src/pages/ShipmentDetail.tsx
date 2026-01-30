@@ -224,7 +224,7 @@ export default function ShipmentDetail() {
             room,
             current_location:locations!items_current_location_id_fkey(code),
             account:accounts!items_account_id_fkey(account_name),
-            class:classes!items_item_type_id_fkey(
+            class:classes(
               id,
               code,
               name
