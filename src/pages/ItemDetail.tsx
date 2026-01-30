@@ -1018,7 +1018,7 @@ export default function ItemDetail() {
                 itemId={item.id}
                 accountId={item.account_id}
                 sidemarkId={item.sidemark_id}
-                classId={item.item_type_id}
+                classId={item.class_id}
                 currentCoverage={item.coverage_type as any}
                 currentDeclaredValue={item.declared_value}
                 currentWeight={item.weight_lbs}
@@ -1104,7 +1104,7 @@ export default function ItemDetail() {
         itemCode={item?.item_code || ''}
         accountId={item?.account_id || null}
         sidemarkId={item?.sidemark_id || null}
-        classId={item?.item_type_id || null}
+        classId={item?.class_id || null}
         onSuccess={() => {
           setBillingChargeDialogOpen(false);
         }}
