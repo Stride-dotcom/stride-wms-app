@@ -165,14 +165,11 @@ export function BillingChargesSection({
         .eq('tenant_id', profile.tenant_id)
         .in('status', ['unbilled', 'flagged']);
 
-      // Filter by task or shipment
-      // Note: For tasks, we check metadata.task_id
-      // For shipments, we check both the shipment_id column AND metadata.shipment_id for compatibility
+      // Filter by task or shipment using direct columns
       if (taskId) {
-        query = query.contains('metadata', { task_id: taskId });
+        query = query.eq('task_id', taskId);
       } else if (shipmentId) {
-        // Query billing events where shipment_id column matches OR metadata.shipment_id matches
-        query = query.or(`shipment_id.eq.${shipmentId},metadata->shipment_id.eq.${shipmentId}`);
+        query = query.eq('shipment_id', shipmentId);
       }
 
       const { data, error } = await query.order('created_at', { ascending: true });
