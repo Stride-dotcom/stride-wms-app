@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { CommunicationAlert, TRIGGER_EVENTS } from '@/hooks/useCommunications';
+import { CommunicationAlert, CommunicationTemplate, TRIGGER_EVENTS } from '@/hooks/useCommunications';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,9 +15,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { TestSendDialog } from './TestSendDialog';
 
 interface AlertEditorHeaderProps {
   alert: CommunicationAlert;
+  emailTemplate: CommunicationTemplate | null;
+  smsTemplate: CommunicationTemplate | null;
   onBack: () => void;
   onUpdateAlert: (id: string, updates: Partial<CommunicationAlert>) => Promise<boolean>;
   onDeleteAlert: (id: string) => Promise<boolean>;
@@ -24,10 +28,13 @@ interface AlertEditorHeaderProps {
 
 export function AlertEditorHeader({
   alert,
+  emailTemplate,
+  smsTemplate,
   onBack,
   onUpdateAlert,
   onDeleteAlert,
 }: AlertEditorHeaderProps) {
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
   const toggleEnabled = async () => {
     await onUpdateAlert(alert.id, { is_enabled: !alert.is_enabled });
   };
@@ -97,6 +104,16 @@ export function AlertEditorHeader({
 
           <div className="h-6 w-px bg-border" />
 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTestDialogOpen(true)}
+            className="gap-2"
+          >
+            <MaterialIcon name="send" size="sm" />
+            <span className="hidden sm:inline">Test Send</span>
+          </Button>
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
@@ -120,6 +137,16 @@ export function AlertEditorHeader({
           </AlertDialog>
         </div>
       </div>
+
+      <TestSendDialog
+        open={testDialogOpen}
+        onOpenChange={setTestDialogOpen}
+        alertName={alert.name}
+        emailEnabled={alert.channels.email}
+        smsEnabled={alert.channels.sms}
+        emailTemplate={emailTemplate}
+        smsTemplate={smsTemplate}
+      />
     </div>
   );
 }

@@ -116,6 +116,8 @@ export function AlertsSettingsTab() {
     <div className="flex flex-col -m-6 min-h-0">
       <AlertEditorHeader
         alert={selectedAlert}
+        emailTemplate={emailTemplate}
+        smsTemplate={smsTemplate}
         onBack={handleBack}
         onUpdateAlert={updateAlert}
         onDeleteAlert={deleteAlert}
