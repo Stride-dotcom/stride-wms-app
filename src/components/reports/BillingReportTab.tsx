@@ -62,11 +62,10 @@ interface Sidemark {
   account_id: string;
 }
 
-interface BillableService {
+interface ServiceEvent {
   id: string;
-  code: string;
-  name: string;
-  category: string;
+  service_code: string;
+  service_name: string;
 }
 
 interface EditingRow {
@@ -116,7 +115,7 @@ export function BillingReportTab() {
   const [serviceFilter, setServiceFilter] = useState<string>("");
   const [rows, setRows] = useState<BillingEventRow[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [services, setServices] = useState<BillableService[]>([]);
+  const [services, setServices] = useState<ServiceEvent[]>([]);
   const [sidemarks, setSidemarks] = useState<Sidemark[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -159,12 +158,13 @@ export function BillingReportTab() {
     async function loadServices() {
       if (!profile?.tenant_id) return;
       const { data } = await supabase
-        .from("billable_services")
-        .select("id, code, name, category")
+        .from("service_events")
+        .select("id, service_code, service_name")
         .eq("tenant_id", profile.tenant_id)
         .eq("is_active", true)
-        .order("name");
-      setServices((data as BillableService[]) || []);
+        .is("class_code", null)
+        .order("service_name");
+      setServices((data as ServiceEvent[]) || []);
     }
     loadServices();
   }, [profile?.tenant_id]);
@@ -438,7 +438,7 @@ export function BillingReportTab() {
       if (r.charge_type) types.add(r.charge_type);
     });
     // Also add from services
-    services.forEach(s => types.add(s.code));
+    services.forEach(s => types.add(s.service_code));
     return Array.from(types).sort();
   }, [rows, services]);
 
@@ -640,8 +640,8 @@ export function BillingReportTab() {
               <label className="text-sm font-medium">Service Type</label>
               <MultiSelect
                 options={services.map((s) => ({
-                  value: s.code,
-                  label: s.name || s.code,
+                  value: s.service_code,
+                  label: s.service_name || s.service_code,
                 }))}
                 selected={selectedServices}
                 onChange={setSelectedServices}

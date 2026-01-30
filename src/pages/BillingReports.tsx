@@ -97,8 +97,8 @@ interface Sidemark {
 
 interface Service {
   id: string;
-  code: string;
-  name: string;
+  service_code: string;
+  service_name: string;
 }
 
 interface ItemClass {
@@ -200,11 +200,12 @@ export default function BillingReports() {
           .is('deleted_at', null)
           .order('sidemark_name'),
         supabase
-          .from('billable_services')
-          .select('id, code, name')
+          .from('service_events')
+          .select('id, service_code, service_name')
           .eq('tenant_id', profile.tenant_id)
           .eq('is_active', true)
-          .order('name'),
+          .is('class_code', null)
+          .order('service_name'),
         supabase
           .from('classes')
           .select('id, name')
@@ -234,7 +235,6 @@ export default function BillingReports() {
           accounts:account_id(account_name),
           sidemarks:sidemark_id(sidemark_name),
           classes:class_id(name),
-          billable_services:service_id(name),
           items:item_id(item_code)
         `)
         .eq('tenant_id', profile.tenant_id)
@@ -257,7 +257,7 @@ export default function BillingReports() {
         account_name: event.accounts?.account_name || 'Unknown',
         sidemark_name: event.sidemarks?.sidemark_name || null,
         class_name: event.classes?.name || null,
-        service_name: event.billable_services?.name || event.charge_type,
+        service_name: event.charge_type, // charge_type is the service_code from Price List
         item_code: event.items?.item_code || null,
       }));
 
@@ -285,9 +285,14 @@ export default function BillingReports() {
       if (selectedSidemarks.length > 0 && event.sidemark_id && !selectedSidemarks.includes(event.sidemark_id)) {
         return false;
       }
-      // Service filter
-      if (selectedServices.length > 0 && event.service_id && !selectedServices.includes(event.service_id)) {
-        return false;
+      // Service filter (match by charge_type which is the service_code)
+      if (selectedServices.length > 0 && event.charge_type) {
+        const selectedCodes = services
+          .filter(s => selectedServices.includes(s.id))
+          .map(s => s.service_code);
+        if (!selectedCodes.includes(event.charge_type)) {
+          return false;
+        }
       }
       // Class filter
       if (selectedClasses.length > 0 && event.class_id && !selectedClasses.includes(event.class_id)) {
@@ -305,7 +310,7 @@ export default function BillingReports() {
       }
       return true;
     });
-  }, [events, selectedAccounts, selectedSidemarks, selectedServices, selectedClasses, searchQuery]);
+  }, [events, selectedAccounts, selectedSidemarks, selectedServices, selectedClasses, searchQuery, services]);
 
   // Totals
   const totals = useMemo(() => {
@@ -436,16 +441,31 @@ export default function BillingReports() {
 
       if (error) throw error;
 
-      // Get storage daily rate from services
-      const { data: storageService } = await supabase
-        .from('billable_services')
-        .select('id')
+      // Get storage rates from service_events (Price List) - keyed by class_code
+      const { data: storageRates } = await supabase
+        .from('service_events')
+        .select('class_code, rate')
         .eq('tenant_id', profile.tenant_id)
-        .eq('code', 'STORAGE')
-        .single();
+        .eq('service_code', 'STORAGE')
+        .eq('is_active', true);
 
-      // Get default rate (simplified - would need rate card lookup in production)
-      let dailyRate = 0.05; // Default fallback
+      // Build map of class_code -> daily rate
+      const rateByClass = new Map<string | null, number>();
+      let baseRate = 0.05; // Default fallback
+      (storageRates || []).forEach((sr: any) => {
+        if (sr.class_code === null) {
+          baseRate = sr.rate || 0.05;
+        } else {
+          rateByClass.set(sr.class_code, sr.rate);
+        }
+      });
+
+      // Get all classes to map class_id -> class_code
+      const { data: allClasses } = await supabase
+        .from('classes')
+        .select('id, code')
+        .eq('tenant_id', profile.tenant_id);
+      const classCodeMap = new Map((allClasses || []).map((c: any) => [c.id, c.code]));
 
       // Calculate for each item
       const preview: StoragePreviewItem[] = (items || [])
@@ -458,7 +478,7 @@ export default function BillingReports() {
         .map((item: any) => {
           const receivedAt = new Date(item.received_at);
           const releasedAt = item.released_at ? new Date(item.released_at) : null;
-          
+
           // Calculate cubic feet
           const l = item.length || 0;
           const w = item.width || 0;
@@ -467,20 +487,26 @@ export default function BillingReports() {
 
           // Get free days from account or default
           const freeDays = item.accounts?.free_storage_days || 0;
-          
+
           // Calculate billable period
           const billStart = new Date(Math.max(storageFrom.getTime(), receivedAt.getTime()));
-          const billEnd = releasedAt 
+          const billEnd = releasedAt
             ? new Date(Math.min(storageTo.getTime(), releasedAt.getTime()))
             : storageTo;
-          
+
           // Subtract free days from start
           const freeEndDate = new Date(receivedAt);
           freeEndDate.setDate(freeEndDate.getDate() + freeDays);
-          
+
           const actualBillStart = new Date(Math.max(billStart.getTime(), freeEndDate.getTime()));
           const billableDays = Math.max(0, differenceInDays(billEnd, actualBillStart) + 1);
-          
+
+          // Get rate based on item's class from Price List
+          const classCode = item.class_id ? classCodeMap.get(item.class_id) : null;
+          const dailyRate = classCode && rateByClass.has(classCode)
+            ? rateByClass.get(classCode)!
+            : baseRate;
+
           const totalAmount = billableDays * dailyRate * Math.max(1, cubicFeet);
 
           return {
@@ -522,23 +548,14 @@ export default function BillingReports() {
 
     setGeneratingStorage(true);
     try {
-      // Get storage service ID
-      const { data: storageService } = await supabase
-        .from('billable_services')
-        .select('id')
-        .eq('tenant_id', profile.tenant_id)
-        .eq('code', 'STORAGE')
-        .single();
-
       const eventsToInsert = storagePreview.map((item) => ({
         tenant_id: profile.tenant_id,
         account_id: item.account_id,
         sidemark_id: item.sidemark_id,
         class_id: item.class_id,
-        service_id: storageService?.id || null,
         item_id: item.item_id,
         event_type: 'storage',
-        charge_type: 'storage',
+        charge_type: 'STORAGE', // service_code from Price List
         description: `Storage: ${item.item_code} (${item.billable_days} days)`,
         quantity: item.billable_days,
         unit_rate: item.daily_rate * Math.max(1, item.cubic_feet),
@@ -746,7 +763,7 @@ export default function BillingReports() {
                   <SelectContent>
                     <SelectItem value="all">All Services</SelectItem>
                     {services.map((svc) => (
-                      <SelectItem key={svc.id} value={svc.id}>{svc.name}</SelectItem>
+                      <SelectItem key={svc.id} value={svc.id}>{svc.service_name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
