@@ -98,6 +98,16 @@ export function BillingChargesSection({
   const { toast } = useToast();
   const { serviceEvents, getServiceRate, loading: serviceEventsLoading } = useServiceEvents();
 
+  // Debug: Log available service codes when they load
+  useEffect(() => {
+    if (!serviceEventsLoading && serviceEvents.length > 0) {
+      const serviceCodes = [...new Set(serviceEvents.map(se => se.service_code))];
+      console.log('[BillingChargesSection] Available service codes:', serviceCodes);
+      console.log('[BillingChargesSection] Looking for RCVG:', serviceEvents.find(se => se.service_code === 'RCVG'));
+      console.log('[BillingChargesSection] Looking for Shipping:', serviceEvents.find(se => se.service_code === 'Shipping'));
+    }
+  }, [serviceEventsLoading, serviceEvents]);
+
   const canEditBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
   const isAssemblyTask = taskType === 'Assembly';
   const isRepairTask = taskType === 'Repair';
@@ -188,12 +198,24 @@ export function BillingChargesSection({
 
   // Calculate base rate for non-Assembly tasks (per-item billing)
   const calculateBaseRate = useCallback(async () => {
+    console.log('[BillingChargesSection] calculateBaseRate called', {
+      tenant_id: profile?.tenant_id,
+      serviceEventsLoading,
+      isPerTaskBilling,
+      taskType,
+      taskId,
+      shipmentId,
+      serviceEventsCount: serviceEvents.length,
+    });
+
     if (!profile?.tenant_id || serviceEventsLoading || isPerTaskBilling) {
+      console.log('[BillingChargesSection] Early return - missing data or per-task billing');
       setCalculatedBaseRate(0);
       return;
     }
 
     const serviceCode = taskType ? TASK_TYPE_TO_SERVICE_CODE[taskType] : null;
+    console.log('[BillingChargesSection] serviceCode:', serviceCode, 'from taskType:', taskType);
     if (!serviceCode) {
       setCalculatedBaseRate(0);
       return;
@@ -230,8 +252,9 @@ export function BillingChargesSection({
           }
         }
       } else if (shipmentId) {
+        console.log('[BillingChargesSection] Fetching shipment items for shipmentId:', shipmentId);
         // Get shipment items with class info for per-item calculation
-        const { data: shipmentItems } = await (supabase
+        const { data: shipmentItems, error: siError } = await (supabase
           .from('shipment_items') as any)
           .select(`
             item_id,
@@ -241,6 +264,8 @@ export function BillingChargesSection({
           `)
           .eq('shipment_id', shipmentId);
 
+        console.log('[BillingChargesSection] shipment_items result:', { shipmentItems, error: siError });
+
         if (shipmentItems && shipmentItems.length > 0) {
           // Get all classes
           const { data: classes } = await supabase
@@ -248,15 +273,28 @@ export function BillingChargesSection({
             .select('id, code')
             .eq('tenant_id', profile.tenant_id);
           const classMap = new Map((classes || []).map((c: any) => [c.id, c.code]));
+          console.log('[BillingChargesSection] classes loaded:', classes?.length, 'classMap size:', classMap.size);
 
           // Calculate rate per item based on class
           for (const si of shipmentItems) {
             const classCode = si.items?.class_id ? classMap.get(si.items.class_id) : null;
             const rateInfo = getServiceRate(serviceCode, classCode);
+            console.log('[BillingChargesSection] Item rate lookup:', {
+              item_id: si.item_id,
+              class_id: si.items?.class_id,
+              classCode,
+              serviceCode,
+              rate: rateInfo.rate,
+              hasError: rateInfo.hasError,
+              errorMessage: rateInfo.errorMessage,
+            });
             // Use received quantity if available, otherwise expected
             const qty = si.quantity_received || si.quantity_expected || 1;
             totalRate += rateInfo.rate * qty;
           }
+          console.log('[BillingChargesSection] Total rate calculated:', totalRate);
+        } else {
+          console.log('[BillingChargesSection] No shipment items found');
         }
       }
 
@@ -265,13 +303,14 @@ export function BillingChargesSection({
       console.error('[BillingChargesSection] Error calculating rate:', error);
       setCalculatedBaseRate(0);
     }
-  }, [profile?.tenant_id, taskId, shipmentId, taskType, serviceEventsLoading, getServiceRate, isPerTaskBilling]);
+  }, [profile?.tenant_id, taskId, shipmentId, taskType, serviceEventsLoading, getServiceRate, isPerTaskBilling, serviceEvents]);
 
   useEffect(() => {
-    if (!isPerTaskBilling) {
+    console.log('[BillingChargesSection] useEffect trigger - serviceEvents.length:', serviceEvents.length, 'serviceEventsLoading:', serviceEventsLoading);
+    if (!isPerTaskBilling && !serviceEventsLoading && serviceEvents.length > 0) {
       calculateBaseRate();
     }
-  }, [calculateBaseRate, refreshKey, isPerTaskBilling]);
+  }, [calculateBaseRate, refreshKey, isPerTaskBilling, serviceEventsLoading, serviceEvents.length]);
 
   // Initialize local state from props (Assembly)
   useEffect(() => {
