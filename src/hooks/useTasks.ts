@@ -769,7 +769,6 @@ export function useTasks(filters?: {
             status: 'completed',
             completed_at: new Date().toISOString(),
             completed_by: profile.id,
-            billing_status: 'pending',
             billing_charge_date: new Date().toISOString(),
             pickup_name: pickupName,
             pickup_completed_at: new Date().toISOString(),
@@ -813,7 +812,6 @@ export function useTasks(filters?: {
             status: 'completed',
             completed_at: new Date().toISOString(),
             completed_by: profile.id,
-            billing_status: 'pending',
             billing_charge_date: new Date().toISOString(),
           })
           .eq('id', taskId);
@@ -856,7 +854,6 @@ export function useTasks(filters?: {
           status: 'completed',
           completed_at: new Date().toISOString(),
           completed_by: profile.id,
-          billing_status: 'pending',
           billing_charge_date: new Date().toISOString(),
         })
         .eq('id', taskId);
@@ -1047,11 +1044,10 @@ export function useTasks(filters?: {
       }
 
       const updates: any = { status };
-      
+
       if (status === 'completed') {
         updates.completed_at = new Date().toISOString();
         updates.completed_by = profile?.id;
-        updates.billing_status = 'pending';
         updates.billing_charge_date = new Date().toISOString();
       }
 
