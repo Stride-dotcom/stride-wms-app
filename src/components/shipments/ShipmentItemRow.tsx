@@ -451,11 +451,27 @@ export function ShipmentItemRow({
                 <p className="text-sm text-muted-foreground">No flags configured in Price List</p>
               )
             ) : (
-              // Item not yet received
-              <p className="text-sm text-muted-foreground">
-                <MaterialIcon name="schedule" size="sm" className="inline mr-1 align-text-bottom" />
-                Flags available after item is received
-              </p>
+              // Item not yet received - show duplicate button
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  <MaterialIcon name="schedule" size="sm" className="inline mr-1 align-text-bottom" />
+                  Flags available after item is received
+                </p>
+                {onDuplicate && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDuplicate(item);
+                    }}
+                    className="gap-1"
+                  >
+                    <MaterialIcon name="content_copy" size="sm" />
+                    Duplicate
+                  </Button>
+                )}
+              </div>
             )}
           </TableCell>
         </TableRow>
