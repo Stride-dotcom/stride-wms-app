@@ -316,19 +316,28 @@ export function useTasks(filters?: {
       const hasManualRate = taskData?.billing_rate_locked && taskData?.billing_rate !== null;
       const manualRate = taskData?.billing_rate;
 
-      // For Assembly tasks, use service code and quantity from metadata
+      // For Assembly and Repair tasks, use service code and quantity from metadata
       const isAssemblyTask = taskType === 'Assembly';
+      const isRepairTask = taskType === 'Repair';
+      const isPerTaskBilling = isAssemblyTask || isRepairTask;
+
+      // Get service code and quantity from metadata
       const assemblyServiceCode = taskData?.metadata?.billing_service_code || '60MA';
-      const assemblyQuantity = taskData?.metadata?.billing_quantity || 0;
+      const billingQuantity = taskData?.metadata?.billing_quantity || 0;
 
       // Get service code for this task type from Price List mapping
-      const serviceCode = isAssemblyTask
-        ? assemblyServiceCode
-        : (TASK_TYPE_TO_SERVICE_CODE[taskType] || taskType);
+      let serviceCode: string;
+      if (isAssemblyTask) {
+        serviceCode = assemblyServiceCode;
+      } else if (isRepairTask) {
+        serviceCode = '1HRO'; // Repair uses 1 Hr Repair service
+      } else {
+        serviceCode = TASK_TYPE_TO_SERVICE_CODE[taskType] || taskType;
+      }
 
-      // Check if this service uses task-level billing (e.g., Assembly)
+      // Check if this service uses task-level billing (e.g., Assembly, Repair)
       const serviceInfo = await getRateFromPriceList(profile.tenant_id, serviceCode, null);
-      const isTaskLevelBilling = serviceInfo.billingUnit === 'Task' || isAssemblyTask;
+      const isTaskLevelBilling = serviceInfo.billingUnit === 'Task' || isPerTaskBilling;
 
       // Fetch all classes to map class_id to code
       const { data: allClasses } = await supabase
@@ -359,12 +368,12 @@ export function useTasks(filters?: {
         description: string;
       }> = [];
 
-      // For Assembly tasks, create single billing event with selected service and quantity
-      if (isAssemblyTask) {
+      // For Assembly and Repair tasks, create single billing event with selected service and quantity
+      if (isPerTaskBilling) {
         const firstItem = taskItems[0]?.items;
         const taskAccountId = accountId || firstItem?.account_id;
 
-        if (taskAccountId && assemblyQuantity > 0) {
+        if (taskAccountId && billingQuantity > 0) {
           const itemCodes = taskItems
             .map((ti: any) => ti.items?.item_code)
             .filter(Boolean)
@@ -373,7 +382,7 @@ export function useTasks(filters?: {
 
           // Use manual rate if set, otherwise use service rate
           const unitRate = hasManualRate ? manualRate : serviceInfo.rate;
-          const totalAmount = unitRate * assemblyQuantity;
+          const totalAmount = unitRate * billingQuantity;
 
           billingEvents.push({
             tenant_id: profile.tenant_id,
@@ -385,7 +394,7 @@ export function useTasks(filters?: {
             event_type: 'task_completion',
             charge_type: serviceCode,
             description,
-            quantity: assemblyQuantity,
+            quantity: billingQuantity,
             unit_rate: unitRate,
             total_amount: totalAmount,
             status: 'unbilled',
@@ -393,7 +402,7 @@ export function useTasks(filters?: {
             metadata: {
               task_type: taskType,
               billing_unit: 'Task',
-              assembly_service: serviceCode,
+              service_code: serviceCode,
               manual_rate: hasManualRate,
             },
             created_by: profile.id,

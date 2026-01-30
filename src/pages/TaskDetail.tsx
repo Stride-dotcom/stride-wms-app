@@ -278,14 +278,15 @@ export default function TaskDetailPage() {
   const handleCompleteTask = async () => {
     if (!id || !profile?.id || !task) return;
 
-    // Validate Assembly tasks require billing quantity > 0
-    if (task.task_type === 'Assembly') {
+    // Validate Assembly and Repair tasks require billing quantity > 0
+    if (task.task_type === 'Assembly' || task.task_type === 'Repair') {
       const billingQty = task.metadata?.billing_quantity ?? 0;
       if (billingQty <= 0) {
+        const taskLabel = task.task_type === 'Assembly' ? 'assembly quantity' : 'repair hours';
         toast({
           variant: 'destructive',
           title: 'Billing Required',
-          description: 'Set assembly billing quantity before completing task',
+          description: `Set ${taskLabel} before completing task`,
         });
         return;
       }

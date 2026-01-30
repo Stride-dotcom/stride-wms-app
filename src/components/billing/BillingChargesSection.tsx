@@ -70,8 +70,11 @@ const TASK_TYPE_TO_SERVICE_CODE: Record<string, string> = {
 // Assembly service codes for dropdown
 const ASSEMBLY_SERVICE_CODES = ['5MA', '15MA', '30MA', '45MA', '60MA', '90MA', '120MA'];
 
+// Repair service code (uses quantity for time)
+const REPAIR_SERVICE_CODE = '1HRO';
+
 // Task types that use per-task billing with manual quantity
-const PER_TASK_BILLING_TYPES = ['Assembly'];
+const PER_TASK_BILLING_TYPES = ['Assembly', 'Repair'];
 
 export function BillingChargesSection({
   taskId,
@@ -97,6 +100,7 @@ export function BillingChargesSection({
 
   const canEditBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
   const isAssemblyTask = taskType === 'Assembly';
+  const isRepairTask = taskType === 'Repair';
   const isPerTaskBilling = PER_TASK_BILLING_TYPES.includes(taskType || '');
 
   const [charges, setCharges] = useState<BillingCharge[]>([]);
@@ -128,11 +132,22 @@ export function BillingChargesSection({
     return assemblyServices.find(s => s.service_code === selectedServiceCode);
   }, [isAssemblyTask, selectedServiceCode, assemblyServices]);
 
-  // Calculate rate for assembly
-  const assemblyServiceRate = selectedAssemblyService?.rate || 0;
-  const effectiveAssemblyRate = billingRate !== null && billingRate !== undefined ? billingRate : assemblyServiceRate;
+  // Get repair service (1HRO)
+  const repairService = useMemo(() => {
+    if (!isRepairTask) return null;
+    return serviceEvents.find(se => se.service_code === REPAIR_SERVICE_CODE && !se.class_code);
+  }, [isRepairTask, serviceEvents]);
+
+  // Calculate rate for per-task billing (Assembly or Repair)
+  const getServiceRateForTask = () => {
+    if (isAssemblyTask) return selectedAssemblyService?.rate || 0;
+    if (isRepairTask) return repairService?.rate || 0;
+    return 0;
+  };
+  const taskServiceRate = getServiceRateForTask();
+  const effectiveTaskRate = billingRate !== null && billingRate !== undefined ? billingRate : taskServiceRate;
   const effectiveQuantity = billingQuantity ?? 0;
-  const assemblyTotal = effectiveAssemblyRate * effectiveQuantity;
+  const taskBillingTotal = effectiveTaskRate * effectiveQuantity;
 
   // Fetch billing events
   const fetchCharges = useCallback(async () => {
@@ -240,17 +255,17 @@ export function BillingChargesSection({
     if (billingRate !== null && billingRate !== undefined) {
       setLocalRate(billingRate.toString());
       rateInitialized.current = true;
-    } else if (assemblyServiceRate > 0 && !rateInitialized.current) {
+    } else if (taskServiceRate > 0 && !rateInitialized.current) {
       setLocalRate('');
     }
-  }, [billingRate, assemblyServiceRate]);
+  }, [billingRate, taskServiceRate]);
 
   // Calculate totals
   const addOnTotal = charges.reduce((sum, charge) => {
     return sum + (charge.total_amount || charge.unit_rate * charge.quantity);
   }, 0);
 
-  const baseTotal = isPerTaskBilling ? assemblyTotal : calculatedBaseRate;
+  const baseTotal = isPerTaskBilling ? taskBillingTotal : calculatedBaseRate;
   const grandTotal = baseTotal + addOnTotal;
 
   // Notify parent of total changes
@@ -457,17 +472,17 @@ export function BillingChargesSection({
                     value={localRate}
                     onChange={(e) => handleRateChange(e.target.value)}
                     onBlur={handleRateBlur}
-                    placeholder={assemblyServiceRate > 0 ? assemblyServiceRate.toFixed(2) : '0.00'}
+                    placeholder={taskServiceRate > 0 ? taskServiceRate.toFixed(2) : '0.00'}
                     className="h-8 w-24"
                   />
                 ) : (
-                  <div className="text-sm font-medium">${effectiveAssemblyRate.toFixed(2)}</div>
+                  <div className="text-sm font-medium">${effectiveTaskRate.toFixed(2)}</div>
                 )}
               </div>
               <div className="text-muted-foreground">=</div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Subtotal</label>
-                <div className="text-sm font-semibold">${assemblyTotal.toFixed(2)}</div>
+                <div className="text-sm font-semibold">${taskBillingTotal.toFixed(2)}</div>
               </div>
             </div>
 
@@ -481,8 +496,81 @@ export function BillingChargesSection({
           </div>
         )}
 
-        {/* Non-Assembly Tasks - Auto-calculated Rate */}
-        {!isAssemblyTask && (
+        {/* Repair Task - Quantity + Rate (uses 1HRO service) */}
+        {isRepairTask && (
+          <div className="space-y-3">
+            {/* Service Info */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Repair Service</label>
+              <div className="text-sm font-medium flex items-center gap-2">
+                {repairService?.service_name || '1 Hr Repair'}
+                <span className="text-muted-foreground text-xs">
+                  (${repairService?.rate?.toFixed(2) || '0.00'}/hr)
+                </span>
+              </div>
+            </div>
+
+            {/* Quantity and Rate Row */}
+            <div className="flex items-center gap-3 py-2 border-y">
+              <div className="flex-1 space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Hours</label>
+                {canEditBilling ? (
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.25"
+                    value={localQuantity}
+                    onChange={(e) => handleQuantityChange(e.target.value)}
+                    onBlur={handleQuantityBlur}
+                    className="h-8 w-20"
+                    placeholder="0"
+                  />
+                ) : (
+                  <div className="text-sm font-medium">{effectiveQuantity}</div>
+                )}
+              </div>
+              <div className="text-muted-foreground">×</div>
+              <div className="flex-1 space-y-1">
+                <div className="flex items-center gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">Rate</label>
+                  {billingRate !== null && billingRate !== undefined && (
+                    <Badge variant="secondary" className="text-[10px] px-1">Override</Badge>
+                  )}
+                </div>
+                {canEditBilling ? (
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={localRate}
+                    onChange={(e) => handleRateChange(e.target.value)}
+                    onBlur={handleRateBlur}
+                    placeholder={taskServiceRate > 0 ? taskServiceRate.toFixed(2) : '0.00'}
+                    className="h-8 w-24"
+                  />
+                ) : (
+                  <div className="text-sm font-medium">${effectiveTaskRate.toFixed(2)}</div>
+                )}
+              </div>
+              <div className="text-muted-foreground">=</div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Subtotal</label>
+                <div className="text-sm font-semibold">${taskBillingTotal.toFixed(2)}</div>
+              </div>
+            </div>
+
+            {/* Warning if quantity is 0 */}
+            {effectiveQuantity === 0 && (
+              <p className="text-xs text-amber-600 flex items-center gap-1">
+                <MaterialIcon name="warning" size="sm" />
+                Set hours to complete task
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Non-Assembly/Repair Tasks - Auto-calculated Rate */}
+        {!isPerTaskBilling && (
           <div className="flex items-center justify-between py-2 border-b">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">
