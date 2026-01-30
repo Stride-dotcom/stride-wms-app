@@ -35,6 +35,7 @@ interface BillingChargesSectionProps {
   accountName?: string;
   taskType?: string; // For calculating base rate
   itemCount?: number; // Number of items for calculating base rate
+  refreshKey?: number; // Increment to trigger rate recalculation
   baseRate?: number | null; // Override billing rate from task/shipment
   onTotalChange?: (total: number) => void;
   onBaseRateChange?: (rate: number | null) => void;
@@ -131,6 +132,7 @@ export function BillingChargesSection({
   accountName,
   taskType,
   itemCount = 1,
+  refreshKey = 0,
   baseRate,
   onTotalChange,
   onBaseRateChange,
@@ -330,7 +332,7 @@ export function BillingChargesSection({
     } catch (error) {
       console.error('[BillingChargesSection] Error calculating base rate:', error);
     }
-  }, [taskId, shipmentId, taskType, profile?.tenant_id]);
+  }, [taskId, shipmentId, taskType, itemCount, refreshKey, profile?.tenant_id]);
 
   useEffect(() => {
     fetchCharges();

@@ -156,6 +156,7 @@ export default function ShipmentDetail() {
   const [cancelling, setCancelling] = useState(false);
   const [showReassignDialog, setShowReassignDialog] = useState(false);
   const [classes, setClasses] = useState<{ id: string; code: string; name: string }[]>([]);
+  const [billingRefreshKey, setBillingRefreshKey] = useState(0);
 
   // Receiving session hook
   const {
@@ -232,6 +233,7 @@ export default function ShipmentDetail() {
 
       setShipment(shipmentData as unknown as Shipment);
       setItems((itemsData || []) as unknown as ShipmentItem[]);
+      setBillingRefreshKey(prev => prev + 1); // Trigger billing recalculation
 
       // Fetch classes for autocomplete
       const { data: classesData } = await supabase
@@ -801,6 +803,7 @@ export default function ShipmentDetail() {
             accountId={shipment.account_id}
             taskType={shipment.shipment_type === 'inbound' ? 'Receiving' : 'Shipping'}
             itemCount={items.length}
+            refreshKey={billingRefreshKey}
           />
         )}
       </div>
