@@ -184,7 +184,7 @@ const handler = async (req: Request): Promise<Response> => {
     const resend = new Resend(resendApiKey);
 
     const { error: sendError } = await resend.emails.send({
-      from: `${branding.companyName || 'Warehouse System'} <onboarding@resend.dev>`,
+      from: `${branding.companyName || 'Warehouse System'} <noreply@stridenw.com>`,
       to: [user.email],
       subject: subject,
       html: html,
