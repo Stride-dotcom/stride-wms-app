@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useServiceEvents } from '@/hooks/useServiceEvents';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
@@ -62,69 +63,6 @@ const SHIPMENT_TYPE_TO_SERVICE_CODE: Record<string, string> = {
   'outbound': 'Shipping',
 };
 
-// Helper to get rate from Price List (service_events table)
-async function getRateFromPriceList(
-  tenantId: string,
-  serviceCode: string,
-  classCode: string | null
-): Promise<{ rate: number; serviceName: string; hasError: boolean; errorMessage?: string }> {
-  try {
-    // Try class-specific rate first
-    if (classCode) {
-      const { data: classRate } = await (supabase
-        .from('service_events') as any)
-        .select('rate, service_name')
-        .eq('tenant_id', tenantId)
-        .eq('service_code', serviceCode)
-        .eq('class_code', classCode)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (classRate) {
-        return {
-          rate: classRate.rate,
-          serviceName: classRate.service_name || serviceCode,
-          hasError: false
-        };
-      }
-    }
-
-    // Fall back to general rate (no class_code)
-    const { data: generalRate } = await (supabase
-      .from('service_events') as any)
-      .select('rate, service_name')
-      .eq('tenant_id', tenantId)
-      .eq('service_code', serviceCode)
-      .is('class_code', null)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    if (generalRate) {
-      return {
-        rate: generalRate.rate,
-        serviceName: generalRate.service_name || serviceCode,
-        hasError: false
-      };
-    }
-
-    // No rate found - item must have a class assigned for billing
-    return {
-      rate: 0,
-      serviceName: serviceCode,
-      hasError: true,
-      errorMessage: `No rate found in Price List for service: ${serviceCode}`,
-    };
-  } catch (error) {
-    console.error('[getRateFromPriceList] Error:', error);
-    return {
-      rate: 0,
-      serviceName: serviceCode,
-      hasError: true,
-      errorMessage: 'Error looking up rate from Price List',
-    };
-  }
-}
-
 export function BillingChargesSection({
   taskId,
   shipmentId,
@@ -141,6 +79,7 @@ export function BillingChargesSection({
   const { profile } = useAuth();
   const { hasRole } = usePermissions();
   const { toast } = useToast();
+  const { getServiceRate, loading: serviceEventsLoading } = useServiceEvents();
 
   const canEditBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
 
@@ -191,7 +130,7 @@ export function BillingChargesSection({
 
   // Calculate base rate from service_events pricing (using class-based rate lookup)
   const calculateBaseRate = useCallback(async () => {
-    if (!profile?.tenant_id) {
+    if (!profile?.tenant_id || serviceEventsLoading) {
       setCalculatedBaseRate(0);
       return;
     }
@@ -250,13 +189,8 @@ export function BillingChargesSection({
           const classCode = taskItem.item?.class_id ? classMap.get(taskItem.item.class_id) : null;
           const quantity = taskItem.quantity || 1;
 
-          // Get rate from service_events using class-based lookup
-          const rateInfo = await getRateFromPriceList(
-            profile.tenant_id,
-            serviceCode,
-            classCode
-          );
-
+          // Get rate from service_events using pre-fetched data (same as QuoteBuilder)
+          const rateInfo = getServiceRate(serviceCode, classCode);
           totalRate += rateInfo.rate * quantity;
         }
       }
@@ -314,13 +248,8 @@ export function BillingChargesSection({
           const classCode = classId ? classMap.get(classId) : null;
           const quantity = shipmentItem.actual_quantity || shipmentItem.expected_quantity || 1;
 
-          // Get rate from service_events using class-based lookup
-          const rateInfo = await getRateFromPriceList(
-            profile.tenant_id,
-            shipmentServiceCode,
-            classCode
-          );
-
+          // Get rate from service_events using pre-fetched data (same as QuoteBuilder)
+          const rateInfo = getServiceRate(shipmentServiceCode, classCode);
           totalRate += rateInfo.rate * quantity;
         }
       }
@@ -329,7 +258,7 @@ export function BillingChargesSection({
     } catch (error) {
       console.error('[BillingChargesSection] Error calculating base rate:', error);
     }
-  }, [taskId, shipmentId, taskType, itemCount, refreshKey, profile?.tenant_id]);
+  }, [taskId, shipmentId, taskType, itemCount, refreshKey, profile?.tenant_id, getServiceRate, serviceEventsLoading]);
 
   useEffect(() => {
     fetchCharges();
