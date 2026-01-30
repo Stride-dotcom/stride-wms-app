@@ -379,9 +379,24 @@ export function ShipmentItemRow({
           )}
         </TableCell>
 
-        {/* Flags indicator */}
-        <TableCell className="w-16" onClick={(e) => e.stopPropagation()}>
+        {/* Actions */}
+        <TableCell className="w-20" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1">
+            {/* Duplicate button for pending items */}
+            {canEdit && onDuplicate && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDuplicate(item);
+                }}
+                title="Duplicate item"
+              >
+                <MaterialIcon name="content_copy" size="sm" className="text-muted-foreground" />
+              </Button>
+            )}
             {/* Show flags indicator if item has flags */}
             {item.item_id && enabledFlags.size > 0 && (
               <Badge variant="outline" className="bg-amber-100 text-amber-700 text-[10px] px-1">
@@ -389,12 +404,6 @@ export function ShipmentItemRow({
                 {enabledFlags.size}
               </Badge>
             )}
-            {/* Expand indicator */}
-            <MaterialIcon
-              name={isExpanded ? "expand_less" : "expand_more"}
-              size="sm"
-              className="text-muted-foreground"
-            />
           </div>
         </TableCell>
       </TableRow>
