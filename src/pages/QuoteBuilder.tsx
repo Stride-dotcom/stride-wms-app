@@ -431,7 +431,7 @@ export default function QuoteBuilder() {
 
     // Prepare calculated totals for saving
     const calculatedTotals = {
-      subtotal: calculation.subtotal,
+      subtotal: calculation.subtotal_after_discounts,
       tax: calculation.tax_amount,
       grand_total: calculation.grand_total,
     };

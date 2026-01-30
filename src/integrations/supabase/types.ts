@@ -518,11 +518,14 @@ export type Database = {
           auto_quarantine_damaged_items: boolean | null
           auto_repair_on_damage: boolean | null
           billing_address: string | null
+          billing_address_line1: string | null
+          billing_address_line2: string | null
           billing_city: string | null
           billing_contact_email: string | null
           billing_contact_name: string | null
           billing_contact_phone: string | null
           billing_country: string | null
+          billing_email: string | null
           billing_frequency: string | null
           billing_method: string | null
           billing_net_terms: number | null
@@ -548,6 +551,7 @@ export type Database = {
           default_receiving_status: string | null
           default_shipment_notes: string | null
           default_sidemark_id: string | null
+          default_tax_rate_percent: number | null
           deleted_at: string | null
           disable_email_communications: boolean | null
           email_html_body_override: string | null
@@ -562,6 +566,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_master_account: boolean | null
+          is_wholesale: boolean | null
           metadata: Json | null
           net_terms: number | null
           notes: string | null
@@ -598,11 +603,14 @@ export type Database = {
           auto_quarantine_damaged_items?: boolean | null
           auto_repair_on_damage?: boolean | null
           billing_address?: string | null
+          billing_address_line1?: string | null
+          billing_address_line2?: string | null
           billing_city?: string | null
           billing_contact_email?: string | null
           billing_contact_name?: string | null
           billing_contact_phone?: string | null
           billing_country?: string | null
+          billing_email?: string | null
           billing_frequency?: string | null
           billing_method?: string | null
           billing_net_terms?: number | null
@@ -628,6 +636,7 @@ export type Database = {
           default_receiving_status?: string | null
           default_shipment_notes?: string | null
           default_sidemark_id?: string | null
+          default_tax_rate_percent?: number | null
           deleted_at?: string | null
           disable_email_communications?: boolean | null
           email_html_body_override?: string | null
@@ -642,6 +651,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_master_account?: boolean | null
+          is_wholesale?: boolean | null
           metadata?: Json | null
           net_terms?: number | null
           notes?: string | null
@@ -678,11 +688,14 @@ export type Database = {
           auto_quarantine_damaged_items?: boolean | null
           auto_repair_on_damage?: boolean | null
           billing_address?: string | null
+          billing_address_line1?: string | null
+          billing_address_line2?: string | null
           billing_city?: string | null
           billing_contact_email?: string | null
           billing_contact_name?: string | null
           billing_contact_phone?: string | null
           billing_country?: string | null
+          billing_email?: string | null
           billing_frequency?: string | null
           billing_method?: string | null
           billing_net_terms?: number | null
@@ -708,6 +721,7 @@ export type Database = {
           default_receiving_status?: string | null
           default_shipment_notes?: string | null
           default_sidemark_id?: string | null
+          default_tax_rate_percent?: number | null
           deleted_at?: string | null
           disable_email_communications?: boolean | null
           email_html_body_override?: string | null
@@ -722,6 +736,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_master_account?: boolean | null
+          is_wholesale?: boolean | null
           metadata?: Json | null
           net_terms?: number | null
           notes?: string | null
@@ -3347,6 +3362,47 @@ export type Database = {
           },
         ]
       }
+      edit_locks: {
+        Row: {
+          expires_at: string | null
+          id: string
+          locked_at: string | null
+          locked_by: string
+          locked_by_name: string
+          resource_id: string
+          resource_type: string
+          tenant_id: string
+        }
+        Insert: {
+          expires_at?: string | null
+          id?: string
+          locked_at?: string | null
+          locked_by: string
+          locked_by_name: string
+          resource_id: string
+          resource_type: string
+          tenant_id: string
+        }
+        Update: {
+          expires_at?: string | null
+          id?: string
+          locked_at?: string | null
+          locked_by?: string
+          locked_by_name?: string
+          resource_id?: string
+          resource_type?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edit_locks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_logs: {
         Row: {
           created_at: string | null
@@ -5822,6 +5878,401 @@ export type Database = {
           },
         ]
       }
+      quote_class_lines: {
+        Row: {
+          class_id: string
+          created_at: string | null
+          id: string
+          line_discount_type:
+            | Database["public"]["Enums"]["discount_type"]
+            | null
+          line_discount_value: number | null
+          line_subtotal_after_discounts: number | null
+          line_subtotal_before_discounts: number | null
+          qty: number | null
+          quote_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          class_id: string
+          created_at?: string | null
+          id?: string
+          line_discount_type?:
+            | Database["public"]["Enums"]["discount_type"]
+            | null
+          line_discount_value?: number | null
+          line_subtotal_after_discounts?: number | null
+          line_subtotal_before_discounts?: number | null
+          qty?: number | null
+          quote_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          class_id?: string
+          created_at?: string | null
+          id?: string
+          line_discount_type?:
+            | Database["public"]["Enums"]["discount_type"]
+            | null
+          line_discount_value?: number | null
+          line_subtotal_after_discounts?: number | null
+          line_subtotal_before_discounts?: number | null
+          qty?: number | null
+          quote_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_class_lines_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_class_lines_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_class_service_selections: {
+        Row: {
+          class_id: string
+          created_at: string | null
+          id: string
+          is_selected: boolean | null
+          qty_override: number | null
+          quote_id: string
+          service_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          class_id: string
+          created_at?: string | null
+          id?: string
+          is_selected?: boolean | null
+          qty_override?: number | null
+          quote_id: string
+          service_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          class_id?: string
+          created_at?: string | null
+          id?: string
+          is_selected?: boolean | null
+          qty_override?: number | null
+          quote_id?: string
+          service_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_class_service_selections_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_class_service_selections_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_class_service_selections_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "service_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_events: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          event_type: Database["public"]["Enums"]["quote_event_type"]
+          id: string
+          payload_json: Json | null
+          quote_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          event_type: Database["public"]["Enums"]["quote_event_type"]
+          id?: string
+          payload_json?: Json | null
+          quote_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          event_type?: Database["public"]["Enums"]["quote_event_type"]
+          id?: string
+          payload_json?: Json | null
+          quote_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_events_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_rate_overrides: {
+        Row: {
+          class_id: string | null
+          created_at: string | null
+          id: string
+          override_rate_amount: number
+          quote_id: string
+          reason: string | null
+          service_id: string
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string | null
+          id?: string
+          override_rate_amount: number
+          quote_id: string
+          reason?: string | null
+          service_id: string
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string | null
+          id?: string
+          override_rate_amount?: number
+          quote_id?: string
+          reason?: string | null
+          service_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_rate_overrides_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_rate_overrides_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_rate_overrides_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "service_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_selected_services: {
+        Row: {
+          applied_rate_amount: number | null
+          computed_billable_qty: number | null
+          created_at: string | null
+          hours_input: number | null
+          id: string
+          is_selected: boolean | null
+          line_total: number | null
+          quote_id: string
+          service_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          applied_rate_amount?: number | null
+          computed_billable_qty?: number | null
+          created_at?: string | null
+          hours_input?: number | null
+          id?: string
+          is_selected?: boolean | null
+          line_total?: number | null
+          quote_id: string
+          service_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          applied_rate_amount?: number | null
+          computed_billable_qty?: number | null
+          created_at?: string | null
+          hours_input?: number | null
+          id?: string
+          is_selected?: boolean | null
+          line_total?: number | null
+          quote_id?: string
+          service_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_selected_services_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_selected_services_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "service_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotes: {
+        Row: {
+          accepted_at: string | null
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          decline_reason: string | null
+          declined_at: string | null
+          expiration_date: string | null
+          grand_total: number | null
+          id: string
+          internal_notes: string | null
+          magic_link_token: string | null
+          notes: string | null
+          quote_discount_type:
+            | Database["public"]["Enums"]["discount_type"]
+            | null
+          quote_discount_value: number | null
+          quote_number: string
+          rates_locked: boolean | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["quote_status"] | null
+          storage_days: number | null
+          storage_days_input: number | null
+          storage_months_input: number | null
+          subtotal_after_discounts: number | null
+          subtotal_before_discounts: number | null
+          tax_amount: number | null
+          tax_enabled: boolean | null
+          tax_rate_percent: number | null
+          tax_rate_source: string | null
+          tenant_id: string
+          updated_at: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          decline_reason?: string | null
+          declined_at?: string | null
+          expiration_date?: string | null
+          grand_total?: number | null
+          id?: string
+          internal_notes?: string | null
+          magic_link_token?: string | null
+          notes?: string | null
+          quote_discount_type?:
+            | Database["public"]["Enums"]["discount_type"]
+            | null
+          quote_discount_value?: number | null
+          quote_number: string
+          rates_locked?: boolean | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["quote_status"] | null
+          storage_days?: number | null
+          storage_days_input?: number | null
+          storage_months_input?: number | null
+          subtotal_after_discounts?: number | null
+          subtotal_before_discounts?: number | null
+          tax_amount?: number | null
+          tax_enabled?: boolean | null
+          tax_rate_percent?: number | null
+          tax_rate_source?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          decline_reason?: string | null
+          declined_at?: string | null
+          expiration_date?: string | null
+          grand_total?: number | null
+          id?: string
+          internal_notes?: string | null
+          magic_link_token?: string | null
+          notes?: string | null
+          quote_discount_type?:
+            | Database["public"]["Enums"]["discount_type"]
+            | null
+          quote_discount_value?: number | null
+          quote_number?: string
+          rates_locked?: boolean | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["quote_status"] | null
+          storage_days?: number | null
+          storage_days_input?: number | null
+          storage_months_input?: number | null
+          subtotal_after_discounts?: number | null
+          subtotal_before_discounts?: number | null
+          tax_amount?: number | null
+          tax_enabled?: boolean | null
+          tax_rate_percent?: number | null
+          tax_rate_source?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       receiving_batches: {
         Row: {
           batch_number: string
@@ -6720,6 +7171,7 @@ export type Database = {
         Row: {
           actual_quantity: number | null
           created_at: string
+          expected_class_id: string | null
           expected_description: string | null
           expected_item_type_id: string | null
           expected_quantity: number
@@ -6739,6 +7191,7 @@ export type Database = {
         Insert: {
           actual_quantity?: number | null
           created_at?: string
+          expected_class_id?: string | null
           expected_description?: string | null
           expected_item_type_id?: string | null
           expected_quantity?: number
@@ -6758,6 +7211,7 @@ export type Database = {
         Update: {
           actual_quantity?: number | null
           created_at?: string
+          expected_class_id?: string | null
           expected_description?: string | null
           expected_item_type_id?: string | null
           expected_quantity?: number
@@ -6775,6 +7229,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "shipment_items_expected_class_id_fkey"
+            columns: ["expected_class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shipment_items_expected_item_type_id_fkey"
             columns: ["expected_item_type_id"]
@@ -8985,8 +9446,12 @@ export type Database = {
       }
       tenant_settings: {
         Row: {
+          default_currency: string | null
+          default_tax_rate_percent: number | null
           free_storage_days: number | null
           id: string
+          quote_terms_and_conditions: string | null
+          quote_validity_days: number | null
           setting_key: string
           setting_value: Json | null
           tenant_id: string
@@ -8994,8 +9459,12 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          default_currency?: string | null
+          default_tax_rate_percent?: number | null
           free_storage_days?: number | null
           id?: string
+          quote_terms_and_conditions?: string | null
+          quote_validity_days?: number | null
           setting_key: string
           setting_value?: Json | null
           tenant_id: string
@@ -9003,8 +9472,12 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          default_currency?: string | null
+          default_tax_rate_percent?: number | null
           free_storage_days?: number | null
           id?: string
+          quote_terms_and_conditions?: string | null
+          quote_validity_days?: number | null
           setting_key?: string
           setting_value?: Json | null
           tenant_id?: string
@@ -10064,6 +10537,10 @@ export type Database = {
           unscanned_items: number
         }[]
       }
+      compute_storage_days: {
+        Args: { days_input: number; months_input: number }
+        Returns: number
+      }
       create_service_billing_event: {
         Args: {
           p_created_by: string
@@ -10091,6 +10568,7 @@ export type Database = {
         | { Args: never; Returns: string }
         | { Args: { p_tenant_id: string }; Returns: string }
       generate_ninv_number: { Args: never; Returns: string }
+      generate_quote_number: { Args: never; Returns: string }
       generate_shipment_number: { Args: never; Returns: string }
       generate_stocktake_number: { Args: never; Returns: string }
       generate_storage_for_date: {
@@ -10325,6 +10803,32 @@ export type Database = {
         | "stocktake_correction"
         | "reactivation"
       payout_method_enum: "credit" | "check" | "repair_vendor_pay"
+      quote_billing_unit:
+        | "flat"
+        | "per_piece"
+        | "per_line_item"
+        | "per_class"
+        | "per_hour"
+        | "per_day"
+      quote_event_type:
+        | "created"
+        | "updated"
+        | "emailed"
+        | "email_failed"
+        | "exported_pdf"
+        | "exported_excel"
+        | "viewed"
+        | "accepted"
+        | "declined"
+        | "expired"
+        | "voided"
+      quote_status:
+        | "draft"
+        | "sent"
+        | "accepted"
+        | "declined"
+        | "expired"
+        | "void"
       repair_quote_status:
         | "pending"
         | "submitted"
@@ -10515,6 +11019,35 @@ export const Constants = {
         "reactivation",
       ],
       payout_method_enum: ["credit", "check", "repair_vendor_pay"],
+      quote_billing_unit: [
+        "flat",
+        "per_piece",
+        "per_line_item",
+        "per_class",
+        "per_hour",
+        "per_day",
+      ],
+      quote_event_type: [
+        "created",
+        "updated",
+        "emailed",
+        "email_failed",
+        "exported_pdf",
+        "exported_excel",
+        "viewed",
+        "accepted",
+        "declined",
+        "expired",
+        "voided",
+      ],
+      quote_status: [
+        "draft",
+        "sent",
+        "accepted",
+        "declined",
+        "expired",
+        "void",
+      ],
       repair_quote_status: [
         "pending",
         "submitted",
