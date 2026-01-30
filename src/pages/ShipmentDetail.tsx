@@ -523,7 +523,7 @@ export default function ShipmentDetail() {
     );
   }
 
-  const isInbound = shipment.shipment_type === 'inbound';
+  const isInbound = shipment.shipment_type === 'inbound' || shipment.shipment_type === 'return';
   const canReceive = isInbound && ['expected', 'receiving'].includes(shipment.status);
   const isReceiving = session !== null;
   const isReceived = shipment.status === 'received' || shipment.status === 'partial';
@@ -879,7 +879,7 @@ export default function ShipmentDetail() {
                 <TableHead className="min-w-[140px]">Description</TableHead>
                 <TableHead className="w-24">Class</TableHead>
                 <TableHead className="w-24">Status</TableHead>
-                <TableHead className="w-16"></TableHead>
+                <TableHead className="w-20"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
