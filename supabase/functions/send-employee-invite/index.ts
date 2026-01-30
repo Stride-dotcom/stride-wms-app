@@ -193,7 +193,16 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (sendError) {
       console.error("Resend error:", sendError);
-      throw sendError;
+      const errorMessage = typeof sendError === 'object' && sendError !== null && 'message' in sendError
+        ? (sendError as { message: string }).message
+        : 'Failed to send email';
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     // Update user's invited_at timestamp

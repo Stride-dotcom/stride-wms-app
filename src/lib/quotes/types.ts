@@ -136,6 +136,7 @@ export interface QuoteSelectedService {
   service_id: string;
   is_selected: boolean;
   hours_input: number | null;
+  qty_input: number | null;
   computed_billable_qty: number;
   applied_rate_amount: number;
   line_total: number;

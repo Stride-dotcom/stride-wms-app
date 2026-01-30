@@ -822,10 +822,17 @@ export function useQuotes() {
             line_discount_type: line.line_discount_type,
             line_discount_value: line.line_discount_value,
           })),
+          class_service_selections: original.class_service_selections.map((css) => ({
+            class_id: css.class_id,
+            service_id: css.service_id,
+            is_selected: css.is_selected,
+            qty_override: css.qty_override,
+          })),
           selected_services: original.selected_services.map((ss) => ({
             service_id: ss.service_id,
             is_selected: ss.is_selected,
             hours_input: ss.hours_input,
+            qty_input: ss.qty_input ?? null,
           })),
           rate_overrides: original.rate_overrides.map((override) => ({
             service_id: override.service_id,
