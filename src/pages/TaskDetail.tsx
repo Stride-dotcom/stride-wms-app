@@ -148,12 +148,12 @@ export default function TaskDetailPage() {
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>('');
   const [creatingQuote, setCreatingQuote] = useState(false);
   const [billingRefreshKey, setBillingRefreshKey] = useState(0);
-  const [generatingBilling, setGeneratingBilling] = useState(false);
+  
 
   const { activeTechnicians } = useTechnicians();
   const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
   const { hasRole } = usePermissions();
-  const { completeTask, startTask: startTaskHook, generateBillingEventsForTask } = useTasks();
+  const { completeTask, startTask: startTaskHook } = useTasks();
 
   // Only managers and admins can see billing
   const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
@@ -307,18 +307,6 @@ export default function TaskDetailPage() {
     }
   };
 
-  const handleGenerateBilling = async () => {
-    if (!id) return;
-    setGeneratingBilling(true);
-    try {
-      const success = await generateBillingEventsForTask(id);
-      if (success) {
-        setBillingRefreshKey(prev => prev + 1);
-      }
-    } finally {
-      setGeneratingBilling(false);
-    }
-  };
 
   const handleUnableToComplete = async (note: string) => {
     if (!id || !profile?.id) return false;
@@ -645,21 +633,6 @@ export default function TaskDetailPage() {
               >
                 <MaterialIcon name="attach_money" size="sm" className="mr-2" />
                 Add Charge
-              </Button>
-            )}
-            {/* Generate Billing Button - For completed tasks without billing events */}
-            {task.status === 'completed' && task.account_id && canSeeBilling && (
-              <Button
-                variant="outline"
-                onClick={handleGenerateBilling}
-                disabled={generatingBilling}
-              >
-                {generatingBilling ? (
-                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
-                ) : (
-                  <MaterialIcon name="receipt_long" size="sm" className="mr-2" />
-                )}
-                Generate Billing
               </Button>
             )}
           </div>
