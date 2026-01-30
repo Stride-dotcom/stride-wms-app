@@ -77,6 +77,7 @@ interface ItemDetail {
   room: string | null;
   link: string | null;
   item_type_id: string | null;
+  class_id: string | null;
   received_at: string | null;
   created_at: string;
   assembly_status: string | null;
@@ -107,6 +108,7 @@ interface ItemDetail {
   location?: { id: string; code: string; name: string | null } | null;
   warehouse?: { id: string; name: string } | null;
   item_type?: { id: string; name: string } | null;
+  class?: { id: string; code: string; name: string } | null;
   account?: { id: string; account_name: string; account_code: string } | null;
 }
 
@@ -239,6 +241,7 @@ export default function ItemDetail() {
           locations(id, code, name),
           warehouses(id, name),
           item_types(id, name),
+          classes(id, code, name),
           accounts:account_id(id, account_name, account_code)
         `)
         .eq('id', id)
@@ -264,6 +267,7 @@ export default function ItemDetail() {
         location: data.locations,
         warehouse: data.warehouses,
         item_type: data.item_types,
+        class: data.classes,
         account: data.accounts,
         receiving_shipment: receivingShipment,
         room: data.room || null,
@@ -687,7 +691,9 @@ export default function ItemDetail() {
                     {/* Class */}
                     <div>
                       <span className="text-muted-foreground">Class</span>
-                      <p className="font-medium">{item.item_type?.name || '-'}</p>
+                      <p className="font-medium">
+                        {item.class ? `${item.class.code} - ${item.class.name}` : '-'}
+                      </p>
                     </div>
                     {/* Quantity */}
                     <div>

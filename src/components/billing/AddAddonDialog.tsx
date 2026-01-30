@@ -157,6 +157,8 @@ export function AddAddonDialog({
         tenant_id: profile.tenant_id,
         account_id: accountId,
         item_id: itemId || null,
+        task_id: taskId || null,
+        shipment_id: shipmentId || null,
         sidemark_id: sidemarkId || null,
         class_id: classId || null,
 
