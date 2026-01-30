@@ -241,7 +241,7 @@ export default function ItemDetail() {
           locations(id, code, name),
           warehouses(id, name),
           item_types(id, name),
-          classes:class_id(id, code, name),
+          class:classes!items_class_id_fkey(id, code, name),
           accounts:account_id(id, account_name, account_code)
         `)
         .eq('id', id)
@@ -267,7 +267,7 @@ export default function ItemDetail() {
         location: data.locations,
         warehouse: data.warehouses,
         item_type: data.item_types,
-        class: data.classes,
+        class: data.class,
         account: data.accounts,
         receiving_shipment: receivingShipment,
         room: data.room || null,
