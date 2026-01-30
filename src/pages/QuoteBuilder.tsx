@@ -203,7 +203,12 @@ export default function QuoteBuilder() {
               line_discount_type: line.line_discount_type,
               line_discount_value: line.line_discount_value,
             })),
-            class_service_selections: [],
+            class_service_selections: (data.class_service_selections || []).map((css) => ({
+              class_id: css.class_id,
+              service_id: css.service_id,
+              is_selected: css.is_selected,
+              qty_override: css.qty_override,
+            })),
             selected_services: data.selected_services.map((ss) => ({
               service_id: ss.service_id,
               is_selected: ss.is_selected,
@@ -424,15 +429,22 @@ export default function QuoteBuilder() {
       return;
     }
 
+    // Prepare calculated totals for saving
+    const calculatedTotals = {
+      subtotal: calculation.subtotal,
+      tax: calculation.tax_amount,
+      grand_total: calculation.grand_total,
+    };
+
     setSaving(true);
     try {
       if (isNew) {
-        const newQuote = await createQuote(formData);
+        const newQuote = await createQuote(formData, calculatedTotals);
         if (newQuote) {
           navigate(`/quotes/${newQuote.id}`, { replace: true });
         }
       } else if (id) {
-        await updateQuote(id, formData);
+        await updateQuote(id, formData, calculatedTotals);
       }
     } finally {
       setSaving(false);
@@ -823,7 +835,7 @@ export default function QuoteBuilder() {
                                         <Input
                                           type="number"
                                           min="0"
-                                          step="0.1"
+                                          step="1"
                                           value={qty ?? ''}
                                           onChange={(e) => updateClassServiceQty(cls.id, service.id, e.target.value ? parseFloat(e.target.value) : null)}
                                           disabled={!canEdit}
@@ -878,7 +890,7 @@ export default function QuoteBuilder() {
                                                 <Input
                                                   type="number"
                                                   min="0"
-                                                  step="0.1"
+                                                  step="1"
                                                   value={qty ?? ''}
                                                   onChange={(e) => updateClassServiceQty(cls.id, service.id, e.target.value ? parseFloat(e.target.value) : null)}
                                                   disabled={!canEdit}
@@ -954,7 +966,7 @@ export default function QuoteBuilder() {
                               </div>
                               {isSelected && (
                                 <div className="flex items-center gap-4">
-                                  {service.billing_unit === 'per_hour' && (
+                                  {service.billing_unit === 'per_hour' && !(/assembl/i.test(service.name)) && (
                                     <div className="flex items-center gap-2">
                                       <Label className="text-xs">Hours:</Label>
                                       <Input
@@ -974,13 +986,13 @@ export default function QuoteBuilder() {
                                       />
                                     </div>
                                   )}
-                                  {service.billing_unit === 'per_piece' && (
+                                  {(service.billing_unit === 'per_piece' || /assembl/i.test(service.name)) && (
                                     <div className="flex items-center gap-2">
                                       <Label className="text-xs">Qty:</Label>
                                       <Input
                                         type="number"
-                                        min="0.1"
-                                        step="0.1"
+                                        min="1"
+                                        step="1"
                                         value={selected?.qty_input || 1}
                                         onChange={(e) =>
                                           updateNonClassServiceInput(
@@ -1100,7 +1112,7 @@ export default function QuoteBuilder() {
                                         <Input
                                           type="number"
                                           min="0"
-                                          step="0.1"
+                                          step="1"
                                           value={qty ?? ''}
                                           onChange={(e) => updateClassServiceQty(cls.id, service.id, e.target.value ? parseFloat(e.target.value) : null)}
                                           disabled={!canEdit}

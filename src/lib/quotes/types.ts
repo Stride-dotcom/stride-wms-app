@@ -183,6 +183,7 @@ export interface EditLock {
 export interface QuoteWithDetails extends Quote {
   class_lines: QuoteClassLine[];
   selected_services: QuoteSelectedService[];
+  class_service_selections: ClassServiceSelection[];
   rate_overrides: QuoteRateOverride[];
   events: QuoteEvent[];
 }
