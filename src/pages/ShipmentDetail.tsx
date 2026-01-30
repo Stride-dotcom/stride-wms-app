@@ -1168,6 +1168,9 @@ export default function ShipmentDetail() {
         onOpenChange={setAddItemDialogOpen}
         shipmentId={shipment.id}
         accountId={shipment.account_id || undefined}
+        warehouseId={shipment.warehouse_id || undefined}
+        sidemarkId={shipment.sidemark_id || undefined}
+        tenantId={profile?.tenant_id}
         classes={classes}
         onSuccess={() => {
           fetchShipment();

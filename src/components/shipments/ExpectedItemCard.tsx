@@ -11,15 +11,23 @@ import { Card, CardContent } from "@/components/ui/card";
  * - Stacked layout on mobile
  * - Uses FormField for all inputs
  * - Uses AutocompleteInput for vendor (free typing + suggestions)
- * - Uses SearchableSelect for item type (select only)
+ * - Includes class selection for billing calculation
  * - Supports field suggestions for vendor/sidemark
  */
+
+export interface ClassOption {
+  id: string;
+  code: string;
+  name: string;
+}
 
 export interface ExpectedItemData {
   id: string;
   description: string;
   vendor: string;
   quantity: number;
+  classId?: string;
+  classCode?: string;
 }
 
 export interface ExpectedItemErrors {
@@ -31,6 +39,7 @@ export interface ExpectedItemCardProps {
   item: ExpectedItemData;
   index: number;
   vendorSuggestions: string[];
+  classes?: ClassOption[];
   errors?: ExpectedItemErrors;
   canDelete: boolean;
   onUpdate: (id: string, field: keyof ExpectedItemData, value: string | number) => void;
@@ -43,6 +52,7 @@ export function ExpectedItemCard({
   item,
   index,
   vendorSuggestions,
+  classes = [],
   errors,
   canDelete,
   onUpdate,
@@ -55,6 +65,18 @@ export function ExpectedItemCard({
     () => vendorSuggestions.map((v) => ({ value: v, label: v })),
     [vendorSuggestions]
   );
+
+  const classSuggestionOptions = React.useMemo(
+    () => classes.map((c) => ({ value: c.code, label: `${c.code} - ${c.name}` })),
+    [classes]
+  );
+
+  // Handle class change - update both classCode and classId
+  const handleClassChange = (code: string) => {
+    const matchedClass = classes.find(c => c.code === code);
+    onUpdate(item.id, "classCode", code);
+    onUpdate(item.id, "classId", matchedClass?.id || "");
+  };
 
   // NOTE: We intentionally do NOT collect per-item sidemark during shipment
   // creation. Shipment-level sidemark/project will be applied during receiving.
@@ -96,10 +118,10 @@ export function ExpectedItemCard({
           </div>
         </div>
 
-        {/* Field order: Qty, Vendor, Description, Item Type, Sidemark */}
-        
-        {/* Row 1: Quantity and Vendor side by side */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Field order: Qty, Class, Vendor, Description */}
+
+        {/* Row 1: Quantity, Class, and Vendor */}
+        <div className="grid grid-cols-3 gap-3">
           <FormField
             label="Qty"
             name={`item-${item.id}-quantity`}
@@ -112,6 +134,16 @@ export function ExpectedItemCard({
             error={errors?.quantity}
           />
           <div className="space-y-1.5">
+            <label className="text-sm font-medium">Class</label>
+            <AutocompleteInput
+              suggestions={classSuggestionOptions}
+              value={item.classCode || ""}
+              onChange={handleClassChange}
+              placeholder="Size"
+              className="min-h-[44px] text-base"
+            />
+          </div>
+          <div className="space-y-1.5">
             <label className="text-sm font-medium">Vendor</label>
             <AutocompleteInput
               suggestions={vendorSuggestionOptions}
@@ -120,7 +152,7 @@ export function ExpectedItemCard({
                 onUpdate(item.id, "vendor", v);
                 if (v && onVendorUsed) onVendorUsed(v);
               }}
-              placeholder="Type vendor name..."
+              placeholder="Vendor"
               className="min-h-[44px] text-base"
             />
           </div>
