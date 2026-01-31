@@ -15,7 +15,7 @@ export interface ServiceEvent {
   service_name: string;
   class_code: string | null;
   rate: number;
-  billing_unit: 'Day' | 'Item' | 'Task';
+  billing_unit: string;  // Flexible to handle all database values
   billing_trigger: string;
   is_active: boolean;
 }
