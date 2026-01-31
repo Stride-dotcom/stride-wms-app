@@ -80,7 +80,7 @@ export function useInvoiceBuilder() {
         const { data: accts } = await supabase
           .from('accounts')
           .select('id, account_name, account_code')
-          .in('id', accountIds);
+          .in('id', accountIds as string[]);
         if (accts) {
           accountMap = Object.fromEntries(
             accts.map((a: any) => [a.id, { name: a.account_name, code: a.account_code }])
@@ -92,7 +92,7 @@ export function useInvoiceBuilder() {
         const { data: sms } = await supabase
           .from('sidemarks')
           .select('id, sidemark_name')
-          .in('id', sidemarkIds);
+          .in('id', sidemarkIds as string[]);
         if (sms) {
           sidemarkMap = Object.fromEntries(sms.map((s: any) => [s.id, s.sidemark_name]));
         }
@@ -102,7 +102,7 @@ export function useInvoiceBuilder() {
         const { data: items } = await supabase
           .from('items')
           .select('id, item_code')
-          .in('id', itemIds);
+          .in('id', itemIds as string[]);
         if (items) {
           itemMap = Object.fromEntries(items.map((i: any) => [i.id, i.item_code]));
         }
@@ -285,20 +285,20 @@ export function useInvoiceBuilder() {
         (accountsData || []).map((a: any) => [a.id, a.billing_net_terms])
       );
 
-      // Get org default net terms
-      const { data: prefData } = await supabase
+      // Get org default net terms (using 'as any' since column may not be in typed schema)
+      const { data: prefData } = await (supabase as any)
         .from('tenant_preferences')
         .select('default_net_terms')
         .eq('tenant_id', profile.tenant_id)
         .maybeSingle();
 
-      const defaultNetTerms = prefData?.default_net_terms || 30;
+      const defaultNetTerms = (prefData as any)?.default_net_terms || 30;
 
       // Create each invoice
       for (const preview of selectedPreviewList) {
         try {
-          // Get next invoice number using RPC function
-          const { data: invNumData, error: invNumError } = await supabase
+          // Get next invoice number using RPC function (using 'as any' since RPC may not be in typed schema)
+          const { data: invNumData, error: invNumError } = await (supabase as any)
             .rpc('next_global_invoice_number');
 
           if (invNumError) throw invNumError;
