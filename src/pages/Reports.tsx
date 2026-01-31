@@ -164,9 +164,9 @@ export default function Reports() {
               </TabsTrigger>
             )}
             {isAdmin && (
-              <TabsTrigger value="revenue-ledger" className="gap-2">
-                <MaterialIcon name="receipt" size="sm" />
-                Revenue Ledger
+              <TabsTrigger value="invoice-builder" className="gap-2">
+                <MaterialIcon name="build" size="sm" />
+                Invoice Builder
               </TabsTrigger>
             )}
             {isAdmin && (
@@ -337,7 +337,7 @@ export default function Reports() {
           )}
 
           {isAdmin && (
-            <TabsContent value="revenue-ledger" className="mt-6">
+            <TabsContent value="invoice-builder" className="mt-6">
               <RevenueLedgerTab />
             </TabsContent>
           )}
