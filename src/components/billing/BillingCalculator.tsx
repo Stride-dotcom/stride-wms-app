@@ -28,7 +28,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePermissions } from '@/hooks/usePermissions';
+import { PERMISSIONS, usePermissions } from '@/hooks/usePermissions';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -100,7 +100,7 @@ export function BillingCalculator({
   compact = true,
 }: BillingCalculatorProps) {
   const { profile } = useAuth();
-  const { hasRole } = usePermissions();
+  const { hasRole, hasPermission, isAdmin } = usePermissions();
   const { toast } = useToast();
 
   // State
@@ -113,8 +113,15 @@ export function BillingCalculator({
   const [voidConfirmOpen, setVoidConfirmOpen] = useState(false);
   const [isVoiding, setIsVoiding] = useState(false);
 
-  // Role check - only managers+ can void charges
-  const canVoidCharges = hasRole('manager') || hasRole('admin') || hasRole('owner');
+  // Permission check - only billing managers/admins can void manual (addon) charges
+  // Use capabilities first (more reliable than role names), but keep role-name fallback.
+  const canVoidCharges =
+    isAdmin ||
+    hasPermission(PERMISSIONS.BILLING_INVOICE) ||
+    hasPermission(PERMISSIONS.BILLING_CREATE) ||
+    hasRole('manager') ||
+    hasRole('admin') ||
+    hasRole('owner');
 
   // Determine context
   const isTask = !!taskId;
