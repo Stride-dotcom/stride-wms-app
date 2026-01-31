@@ -3932,6 +3932,7 @@ export type Database = {
       invoice_lines: {
         Row: {
           billing_event_id: string | null
+          charge_type: string | null
           created_at: string | null
           description: string
           id: string
@@ -3939,8 +3940,10 @@ export type Database = {
           is_taxable: boolean | null
           item_id: string | null
           line_order: number | null
+          occurred_at: string | null
           quantity: number | null
           service_id: string | null
+          sidemark_name: string | null
           subtotal: number | null
           task_id: string | null
           tax_amount: number | null
@@ -3951,6 +3954,7 @@ export type Database = {
         }
         Insert: {
           billing_event_id?: string | null
+          charge_type?: string | null
           created_at?: string | null
           description: string
           id?: string
@@ -3958,8 +3962,10 @@ export type Database = {
           is_taxable?: boolean | null
           item_id?: string | null
           line_order?: number | null
+          occurred_at?: string | null
           quantity?: number | null
           service_id?: string | null
+          sidemark_name?: string | null
           subtotal?: number | null
           task_id?: string | null
           tax_amount?: number | null
@@ -3970,6 +3976,7 @@ export type Database = {
         }
         Update: {
           billing_event_id?: string | null
+          charge_type?: string | null
           created_at?: string | null
           description?: string
           id?: string
@@ -3977,8 +3984,10 @@ export type Database = {
           is_taxable?: boolean | null
           item_id?: string | null
           line_order?: number | null
+          occurred_at?: string | null
           quantity?: number | null
           service_id?: string | null
+          sidemark_name?: string | null
           subtotal?: number | null
           task_id?: string | null
           tax_amount?: number | null
@@ -4101,6 +4110,7 @@ export type Database = {
       invoices: {
         Row: {
           account_id: string
+          batch_id: string | null
           created_at: string | null
           created_by: string | null
           credits_applied: number | null
@@ -4139,6 +4149,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          batch_id?: string | null
           created_at?: string | null
           created_by?: string | null
           credits_applied?: number | null
@@ -4177,6 +4188,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          batch_id?: string | null
           created_at?: string | null
           created_by?: string | null
           credits_applied?: number | null
@@ -9389,6 +9401,7 @@ export type Database = {
           custom_field_1_label: string | null
           custom_field_1_required: boolean | null
           daily_storage_rate_per_cuft: number
+          default_net_terms: number | null
           default_order_bill_to: string | null
           default_shipment_notes: string | null
           exchange_order_addition: number | null
@@ -9398,6 +9411,7 @@ export type Database = {
           high_rise_additional_piece_fee: number | null
           hourly_rate: number | null
           id: string
+          invoice_payment_tracking_mode: string | null
           items_to_switch_to_hourly: number | null
           late_cancellation_fee: number | null
           max_assemblies_in_base_rate: number | null
@@ -9439,6 +9453,7 @@ export type Database = {
           custom_field_1_label?: string | null
           custom_field_1_required?: boolean | null
           daily_storage_rate_per_cuft?: number
+          default_net_terms?: number | null
           default_order_bill_to?: string | null
           default_shipment_notes?: string | null
           exchange_order_addition?: number | null
@@ -9448,6 +9463,7 @@ export type Database = {
           high_rise_additional_piece_fee?: number | null
           hourly_rate?: number | null
           id?: string
+          invoice_payment_tracking_mode?: string | null
           items_to_switch_to_hourly?: number | null
           late_cancellation_fee?: number | null
           max_assemblies_in_base_rate?: number | null
@@ -9489,6 +9505,7 @@ export type Database = {
           custom_field_1_label?: string | null
           custom_field_1_required?: boolean | null
           daily_storage_rate_per_cuft?: number
+          default_net_terms?: number | null
           default_order_bill_to?: string | null
           default_shipment_notes?: string | null
           exchange_order_addition?: number | null
@@ -9498,6 +9515,7 @@ export type Database = {
           high_rise_additional_piece_fee?: number | null
           hourly_rate?: number | null
           id?: string
+          invoice_payment_tracking_mode?: string | null
           items_to_switch_to_hourly?: number | null
           late_cancellation_fee?: number | null
           max_assemblies_in_base_rate?: number | null
@@ -10787,6 +10805,7 @@ export type Database = {
         Args: { p_item_id: string; p_new_sidemark_id: string }
         Returns: Json
       }
+      next_global_invoice_number: { Args: never; Returns: string }
       next_invoice_number: { Args: never; Returns: string }
       record_manifest_scan: {
         Args: {
