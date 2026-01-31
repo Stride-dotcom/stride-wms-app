@@ -21,7 +21,7 @@ import {
 } from 'recharts';
 import { LaborCostsTab } from '@/components/reports/LaborCostsTab';
 import { BillingReportTab } from '@/components/reports/BillingReportTab';
-import { InvoicesPageTab } from '@/components/reports/InvoicesPageTab';
+import { RevenueLedgerTab } from '@/components/reports/RevenueLedgerTab';
 import { ReportBuilderTab } from '@/components/reports/ReportBuilderTab';
 
 interface ReportStats {
@@ -156,9 +156,9 @@ export default function Reports() {
               </TabsTrigger>
             )}
             {isAdmin && (
-              <TabsTrigger value="invoices" className="gap-2">
-                <MaterialIcon name="receipt" size="sm" />
-                Invoices
+              <TabsTrigger value="revenue-ledger" className="gap-2">
+                <MaterialIcon name="receipt_long" size="sm" />
+                Revenue Ledger
               </TabsTrigger>
             )}
             {isAdmin && (
@@ -317,8 +317,8 @@ export default function Reports() {
           )}
 
           {isAdmin && (
-            <TabsContent value="invoices" className="mt-6">
-              <InvoicesPageTab />
+            <TabsContent value="revenue-ledger" className="mt-6">
+              <RevenueLedgerTab />
             </TabsContent>
           )}
 

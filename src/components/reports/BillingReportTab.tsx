@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -103,6 +104,7 @@ function toCSV(rows: BillingEventRow[]) {
 export function BillingReportTab() {
   const { toast } = useToast();
   const { profile } = useAuth();
+  const navigate = useNavigate();
 
   const [start, setStart] = useState<string>(() => {
     const d = new Date();
@@ -431,6 +433,26 @@ export function BillingReportTab() {
     setSelectedRows(new Set(unbilledIds));
   };
 
+  // Navigate to Invoice Builder with selected unbilled events
+  const handleCreateInvoice = () => {
+    const unbilledEventIds = Array.from(selectedRows).filter(id => {
+      const row = rows.find(r => r.id === id);
+      return row?.status === 'unbilled';
+    });
+
+    if (unbilledEventIds.length === 0) {
+      toast({
+        title: 'No unbilled charges selected',
+        description: 'Please select unbilled charges to create an invoice.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const eventParams = unbilledEventIds.join(',');
+    navigate(`/reports?tab=revenue-ledger&subtab=builder&events=${eventParams}`);
+  };
+
   // Get unique charge types for service filter
   const uniqueChargeTypes = useMemo(() => {
     const types = new Set<string>();
@@ -539,7 +561,13 @@ export function BillingReportTab() {
           <p className="text-muted-foreground text-sm">View, edit, and manage billing events</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setAddChargeOpen(true)} size="sm">
+          {selectedRows.size > 0 && (
+            <Button onClick={handleCreateInvoice} size="sm" variant="default">
+              <MaterialIcon name="receipt" size="sm" className="mr-2" />
+              Create Invoice ({selectedRows.size})
+            </Button>
+          )}
+          <Button onClick={() => setAddChargeOpen(true)} size="sm" variant="outline">
             <MaterialIcon name="add" size="sm" className="mr-2" />
             Add Charge
           </Button>

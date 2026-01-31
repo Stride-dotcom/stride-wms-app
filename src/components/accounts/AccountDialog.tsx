@@ -40,6 +40,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ClientPortalSection } from './ClientPortalSection';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
 import { AccountPricingTab } from './AccountPricingTab';
+import { AccountInvoicesTab } from './AccountInvoicesTab';
 import { useAccountTypes } from '@/components/settings/preferences/AccountTypesSection';
 
 const accountSchema = z.object({
@@ -600,13 +601,19 @@ export function AccountDialog({
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <Tabs defaultValue="basic" className="w-full">
-                <TabsList className={`grid w-full mb-4 gap-1 h-auto ${isEditing ? 'grid-cols-4 sm:grid-cols-7' : 'grid-cols-4 sm:grid-cols-6'}`}>
+                <TabsList className={`grid w-full mb-4 gap-1 h-auto ${isEditing ? 'grid-cols-4 sm:grid-cols-8' : 'grid-cols-4 sm:grid-cols-6'}`}>
                   <TabsTrigger value="basic" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Basic</TabsTrigger>
                   <TabsTrigger value="contacts" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Contacts</TabsTrigger>
                   <TabsTrigger value="pricing" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Pricing</TabsTrigger>
                   <TabsTrigger value="billing" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Billing</TabsTrigger>
                   <TabsTrigger value="preferences" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Preferences</TabsTrigger>
                   <TabsTrigger value="permissions" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Permissions</TabsTrigger>
+                  {isEditing && (
+                    <TabsTrigger value="invoices" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0 gap-1">
+                      <MaterialIcon name="receipt" className="h-3 w-3 hidden sm:inline" />
+                      Invoices
+                    </TabsTrigger>
+                  )}
                   {isEditing && (
                     <TabsTrigger value="portal" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0 gap-1">
                       <MaterialIcon name="group" className="h-3 w-3 hidden sm:inline" />
@@ -1550,6 +1557,16 @@ export function AccountDialog({
                       )}
                     />
                   </TabsContent>
+
+                  {/* Invoices Tab - Only shown when editing */}
+                  {isEditing && accountId && (
+                    <TabsContent value="invoices" className="mt-0">
+                      <AccountInvoicesTab
+                        accountId={accountId}
+                        accountName={form.watch('account_name') || 'this account'}
+                      />
+                    </TabsContent>
+                  )}
 
                   {/* Portal Tab - Only shown when editing */}
                   {isEditing && accountId && (
