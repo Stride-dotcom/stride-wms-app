@@ -33,7 +33,7 @@ import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
 import { PhotoUploadButton } from '@/components/common/PhotoUploadButton';
 import { TaggablePhotoGrid, TaggablePhoto, getPhotoUrls } from '@/components/common/TaggablePhotoGrid';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
-import { BillingChargesSection } from '@/components/billing/BillingChargesSection';
+import { BillingCalculator } from '@/components/billing/BillingCalculator';
 import { useTechnicians } from '@/hooks/useTechnicians';
 import { useRepairQuoteWorkflow } from '@/hooks/useRepairQuotes';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -43,6 +43,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
 import { DocumentUploadButton } from '@/components/scanner/DocumentUploadButton';
 import { DocumentList } from '@/components/scanner/DocumentList';
+import { TaskHistoryTab } from '@/components/tasks/TaskHistoryTab';
 
 interface TaskDetail {
   id: string;
@@ -148,12 +149,12 @@ export default function TaskDetailPage() {
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>('');
   const [creatingQuote, setCreatingQuote] = useState(false);
   const [billingRefreshKey, setBillingRefreshKey] = useState(0);
-  const [generatingBilling, setGeneratingBilling] = useState(false);
+  
 
   const { activeTechnicians } = useTechnicians();
   const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
   const { hasRole } = usePermissions();
-  const { completeTask, startTask: startTaskHook, generateBillingEventsForTask } = useTasks();
+  const { completeTask, startTask: startTaskHook } = useTasks();
 
   // Only managers and admins can see billing
   const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
@@ -307,18 +308,6 @@ export default function TaskDetailPage() {
     }
   };
 
-  const handleGenerateBilling = async () => {
-    if (!id) return;
-    setGeneratingBilling(true);
-    try {
-      const success = await generateBillingEventsForTask(id);
-      if (success) {
-        setBillingRefreshKey(prev => prev + 1);
-      }
-    } finally {
-      setGeneratingBilling(false);
-    }
-  };
 
   const handleUnableToComplete = async (note: string) => {
     if (!id || !profile?.id) return false;
@@ -647,21 +636,6 @@ export default function TaskDetailPage() {
                 Add Charge
               </Button>
             )}
-            {/* Generate Billing Button - For completed tasks without billing events */}
-            {task.status === 'completed' && task.account_id && canSeeBilling && (
-              <Button
-                variant="outline"
-                onClick={handleGenerateBilling}
-                disabled={generatingBilling}
-              >
-                {generatingBilling ? (
-                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
-                ) : (
-                  <MaterialIcon name="receipt_long" size="sm" className="mr-2" />
-                )}
-                Generate Billing
-              </Button>
-            )}
           </div>
         )}
 
@@ -915,6 +889,9 @@ export default function TaskDetailPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Task History */}
+            <TaskHistoryTab taskId={task.id} />
           </div>
 
           {/* Right Column - Metadata */}
@@ -981,72 +958,14 @@ export default function TaskDetailPage() {
 
             {/* Billing Charges - Manager/Admin Only */}
             {canSeeBilling && task.account_id && (
-              <BillingChargesSection
+              <BillingCalculator
                 taskId={task.id}
-                accountId={task.account_id}
-                accountName={task.account?.account_name}
                 taskType={task.task_type}
-                itemCount={taskItems.length}
                 refreshKey={billingRefreshKey}
-                // Assembly billing props
+                title="Billing Calculator"
                 selectedServiceCode={task.metadata?.billing_service_code || '60MA'}
                 billingQuantity={task.metadata?.billing_quantity ?? 0}
                 billingRate={task.billing_rate}
-                onServiceChange={async (serviceCode) => {
-                  if (!profile?.id) return;
-                  try {
-                    const updatedMetadata = {
-                      ...(task.metadata || {}),
-                      billing_service_code: serviceCode,
-                    };
-                    const { error } = await (supabase.from('tasks') as any)
-                      .update({ metadata: updatedMetadata })
-                      .eq('id', task.id);
-                    if (error) throw error;
-                    setTask(prev => prev ? { ...prev, metadata: updatedMetadata } : prev);
-                  } catch (error: any) {
-                    console.error('Error saving service code:', error);
-                    toast({ variant: 'destructive', title: 'Error', description: 'Failed to save' });
-                  }
-                }}
-                onQuantityChange={async (quantity) => {
-                  if (!profile?.id) return;
-                  try {
-                    const updatedMetadata = {
-                      ...(task.metadata || {}),
-                      billing_quantity: quantity,
-                    };
-                    const { error } = await (supabase.from('tasks') as any)
-                      .update({ metadata: updatedMetadata })
-                      .eq('id', task.id);
-                    if (error) throw error;
-                    setTask(prev => prev ? { ...prev, metadata: updatedMetadata } : prev);
-                  } catch (error: any) {
-                    console.error('Error saving quantity:', error);
-                    toast({ variant: 'destructive', title: 'Error', description: 'Failed to save' });
-                  }
-                }}
-                onRateChange={async (rate) => {
-                  if (!profile?.id) return;
-                  try {
-                    const updateData: Record<string, any> = {
-                      billing_rate: rate,
-                      billing_rate_locked: rate !== null,
-                    };
-                    if (rate !== null) {
-                      updateData.billing_rate_set_by = profile.id;
-                      updateData.billing_rate_set_at = new Date().toISOString();
-                    }
-                    const { error } = await (supabase.from('tasks') as any)
-                      .update(updateData)
-                      .eq('id', task.id);
-                    if (error) throw error;
-                    fetchTask();
-                  } catch (error: any) {
-                    console.error('Error saving billing rate:', error);
-                    toast({ variant: 'destructive', title: 'Error', description: 'Failed to save' });
-                  }
-                }}
               />
             )}
           </div>

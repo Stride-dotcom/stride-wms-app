@@ -106,6 +106,7 @@ export function ShipmentItemRow({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const skipNextSyncRef = useRef(false); // Track if we should skip next prop sync
 
   // Flags state (only for received items)
   const [enabledFlags, setEnabledFlags] = useState<Set<string>>(new Set());
@@ -115,8 +116,12 @@ export function ShipmentItemRow({
   // Get flag services from price list
   const { flagServiceEvents, getServiceRate, loading: serviceEventsLoading } = useServiceEvents();
 
-  // Sync local state when item prop changes
+  // Sync local state when item prop changes, but NOT during a save
   useEffect(() => {
+    if (skipNextSyncRef.current) {
+      skipNextSyncRef.current = false;
+      return; // Skip this sync - we just saved and don't want to revert
+    }
     setVendor(item.expected_vendor || '');
     setDescription(item.expected_description || '');
     setQuantity(item.expected_quantity?.toString() || '1');
@@ -181,6 +186,7 @@ export function ShipmentItemRow({
     }
 
     setSaving(true);
+    skipNextSyncRef.current = true; // Prevent useEffect from reverting value
     try {
       const { error } = await (supabase.from('shipment_items') as any)
         .update(updateData)
@@ -191,6 +197,7 @@ export function ShipmentItemRow({
     } catch (error) {
       console.error('Error updating item:', error);
       toast({ title: 'Error', description: 'Failed to save', variant: 'destructive' });
+      skipNextSyncRef.current = false; // Re-enable sync on error
     } finally {
       setSaving(false);
     }
@@ -210,6 +217,7 @@ export function ShipmentItemRow({
     }
 
     setSaving(true);
+    skipNextSyncRef.current = true; // Prevent useEffect from reverting value
     try {
       const { error } = await (supabase.from('items') as any)
         .update(updateData)
@@ -221,6 +229,7 @@ export function ShipmentItemRow({
     } catch (error) {
       console.error('Error updating received item:', error);
       toast({ title: 'Error', description: 'Failed to save', variant: 'destructive' });
+      skipNextSyncRef.current = false; // Re-enable sync on error
     } finally {
       setSaving(false);
     }

@@ -47,6 +47,18 @@ export interface CreateInvoiceArgs {
   includeUnbilledBeforePeriod?: boolean;
 }
 
+export type InvoiceGrouping =
+  | 'by_account'           // One invoice per account
+  | 'by_sidemark'          // Separate invoices for each sidemark
+  | 'by_account_sidemark'  // Separate by both account AND sidemark
+  | 'include_subaccounts'; // Include sub-account charges on parent account invoice
+
+export interface CreateInvoicesFromEventsArgs {
+  billingEventIds: string[];
+  grouping: InvoiceGrouping;
+  invoiceType: InvoiceType;
+}
+
 export function useInvoices() {
   const { toast } = useToast();
   const { profile } = useAuth();
@@ -503,6 +515,216 @@ export function useInvoices() {
     }
   }, [profile, toast]);
 
+  // Enhanced invoice creation from selected billing events with flexible grouping
+  const createInvoicesFromEvents = useCallback(async (
+    args: CreateInvoicesFromEventsArgs
+  ): Promise<{ success: number; failed: number; invoices: Invoice[] }> => {
+    const result = { success: 0, failed: 0, invoices: [] as Invoice[] };
+
+    try {
+      if (!profile?.tenant_id) {
+        throw new Error("No tenant context");
+      }
+
+      if (args.billingEventIds.length === 0) {
+        toast({ title: "No events selected", description: "Please select billing events to invoice." });
+        return result;
+      }
+
+      // Fetch all selected billing events with related data
+      const { data: events, error: eventsErr } = await supabase
+        .from("billing_events")
+        .select(`
+          *,
+          accounts:account_id(id, account_code, account_name, parent_account_id)
+        `)
+        .in("id", args.billingEventIds)
+        .eq("status", "unbilled");
+
+      if (eventsErr) throw eventsErr;
+
+      if (!events || events.length === 0) {
+        toast({ title: "No unbilled events", description: "All selected events are already invoiced or void." });
+        return result;
+      }
+
+      // Get sidemark info separately
+      const sidemarkIds = [...new Set(events.map(e => e.sidemark_id).filter(Boolean))];
+      let sidemarkMap: Record<string, string> = {};
+      if (sidemarkIds.length > 0) {
+        const { data: sidemarks } = await supabase
+          .from("sidemarks")
+          .select("id, sidemark_name")
+          .in("id", sidemarkIds);
+        if (sidemarks) {
+          sidemarkMap = Object.fromEntries(sidemarks.map(s => [s.id, s.sidemark_name]));
+        }
+      }
+
+      // Determine date range from events
+      const dates = events.map(e => e.occurred_at?.slice(0, 10)).filter(Boolean).sort();
+      const periodStart = dates[0] || new Date().toISOString().slice(0, 10);
+      const periodEnd = dates[dates.length - 1] || periodStart;
+
+      // Group events based on grouping strategy
+      type GroupKey = string;
+      type EventGroup = {
+        accountId: string;
+        accountCode: string;
+        accountName: string;
+        sidemarkId: string | null;
+        sidemarkName: string | null;
+        events: any[];
+      };
+      const groups: Record<GroupKey, EventGroup> = {};
+
+      for (const event of events) {
+        const account = event.accounts as any;
+        let groupKey: string;
+        let targetAccountId = event.account_id;
+
+        // Handle sub-account grouping
+        if (args.grouping === 'include_subaccounts' && account?.parent_account_id) {
+          // Use parent account instead
+          targetAccountId = account.parent_account_id;
+          groupKey = targetAccountId;
+        } else if (args.grouping === 'by_account_sidemark') {
+          groupKey = `${event.account_id}-${event.sidemark_id || 'none'}`;
+        } else if (args.grouping === 'by_sidemark') {
+          groupKey = event.sidemark_id || `account-${event.account_id}`;
+        } else {
+          // by_account
+          groupKey = event.account_id;
+        }
+
+        if (!groups[groupKey]) {
+          groups[groupKey] = {
+            accountId: targetAccountId,
+            accountCode: account?.account_code || 'UNKNOWN',
+            accountName: account?.account_name || 'Unknown Account',
+            sidemarkId: args.grouping === 'by_sidemark' || args.grouping === 'by_account_sidemark'
+              ? event.sidemark_id : null,
+            sidemarkName: event.sidemark_id ? (sidemarkMap[event.sidemark_id] || null) : null,
+            events: [],
+          };
+        }
+        groups[groupKey].events.push(event);
+      }
+
+      // Fetch parent account info if needed for sub-account grouping
+      if (args.grouping === 'include_subaccounts') {
+        const parentIds = [...new Set(Object.values(groups).map(g => g.accountId))];
+        const { data: parentAccounts } = await supabase
+          .from("accounts")
+          .select("id, account_code, account_name")
+          .in("id", parentIds);
+        if (parentAccounts) {
+          const parentMap = Object.fromEntries(parentAccounts.map(a => [a.id, a]));
+          for (const group of Object.values(groups)) {
+            const parent = parentMap[group.accountId];
+            if (parent) {
+              group.accountCode = parent.account_code;
+              group.accountName = parent.account_name;
+            }
+          }
+        }
+      }
+
+      // Create invoice for each group
+      for (const group of Object.values(groups)) {
+        try {
+          // Get next invoice number with account code format: INV-{account_code}-XXXXX
+          const { data: invNum, error: invNumErr } = await supabase.rpc("next_invoice_number");
+          if (invNumErr) throw invNumErr;
+
+          // Format: INV-{account_code}-00001
+          const baseNumber = invNum as string;
+          const numericPart = baseNumber.replace(/\D/g, '') || '00001';
+          const invoice_number = `INV-${group.accountCode}-${numericPart.padStart(5, '0')}`;
+
+          const subtotal = group.events.reduce((sum, e) => sum + Number(e.total_amount || 0), 0);
+
+          // Build notes
+          let notes = `Type: ${args.invoiceType}`;
+          if (group.sidemarkName) {
+            notes += ` | Sidemark: ${group.sidemarkName}`;
+          }
+
+          // Create invoice
+          const { data: invoice, error: invErr } = await (supabase
+            .from("invoices") as any)
+            .insert({
+              tenant_id: profile.tenant_id,
+              account_id: group.accountId,
+              sidemark_id: group.sidemarkId,
+              invoice_number,
+              period_start: periodStart,
+              period_end: periodEnd,
+              status: "draft",
+              subtotal,
+              tax_amount: 0,
+              total_amount: subtotal,
+              created_by: profile.id,
+              notes,
+            })
+            .select("*")
+            .single();
+
+          if (invErr) throw invErr;
+
+          // Create invoice lines
+          const lines = group.events.map((e) => ({
+            tenant_id: profile.tenant_id,
+            invoice_id: invoice.id,
+            billing_event_id: e.id,
+            item_id: e.item_id || null,
+            description: e.description || e.charge_type || e.event_type,
+            quantity: e.quantity ?? 1,
+            unit_rate: e.unit_rate ?? e.total_amount ?? 0,
+            total_amount: e.total_amount ?? 0,
+          }));
+
+          const { error: linesErr } = await supabase.from("invoice_lines").insert(lines);
+          if (linesErr) throw linesErr;
+
+          // Mark billing events as invoiced
+          const { error: updErr } = await supabase
+            .from("billing_events")
+            .update({ status: "invoiced", invoice_id: invoice.id, invoiced_at: new Date().toISOString() })
+            .in("id", group.events.map((e) => e.id));
+
+          if (updErr) throw updErr;
+
+          result.invoices.push(invoice as unknown as Invoice);
+          result.success++;
+        } catch (err) {
+          console.error(`Failed to create invoice for group:`, err);
+          result.failed++;
+        }
+      }
+
+      if (result.success > 0) {
+        toast({
+          title: "Invoices created",
+          description: `Created ${result.success} invoice(s)${result.failed > 0 ? `, ${result.failed} failed` : ''} with ${events.length} line items`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Invoice creation failed",
+          description: "Could not create any invoices.",
+        });
+      }
+
+      return result;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("createInvoicesFromEvents error", err);
+      toast({ title: "Invoice creation failed", description: message, variant: "destructive" });
+      return result;
+    }
+  }, [profile, toast]);
+
   return {
     createInvoiceDraft,
     markInvoiceSent,
@@ -513,5 +735,6 @@ export function useInvoices() {
     generateStorageForDate,
     updateInvoiceNotes,
     createBatchInvoices,
+    createInvoicesFromEvents,
   };
 }

@@ -361,8 +361,10 @@ Unique constraint: One promo per billing event.
 | Table | Migration File |
 |-------|----------------|
 | `promo_codes` | (created in base schema) |
-| `account_promo_codes` | `20260129210000_account_promo_codes.sql` |
-| `promo_code_usages` | `20260129220000_promo_code_usages.sql` |
+| `account_promo_codes` | `20260130_promo_code_tables.sql` |
+| `promo_code_usages` | `20260130_promo_code_tables.sql` |
+
+*Note: Both tables were created in a single migration file.*
 
 ---
 
@@ -383,5 +385,5 @@ All discounts are stored in billing event metadata, making them visible in repor
 
 ---
 
-*Document generated: January 29, 2026*
+*Document updated: January 30, 2026*
 *Stride WMS Version: Current*

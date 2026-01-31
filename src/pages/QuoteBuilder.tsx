@@ -401,12 +401,74 @@ export default function QuoteBuilder() {
           ...prev,
           selected_services: [
             ...prev.selected_services,
-            { service_id: serviceId, is_selected: true, hours_input: null, qty_input: 1 },
+            { service_id: serviceId, is_selected: true, hours_input: null, qty_input: null },
           ],
         };
       }
     });
   }, []);
+
+  // Select all for a specific main row service across all classes
+  const selectAllForService = useCallback((serviceId: string) => {
+    setFormData((prev) => {
+      const newSelections = [...prev.class_service_selections];
+
+      // Check if all classes already have this service selected
+      const allSelected = classes.every((cls) => {
+        const selection = newSelections.find(
+          (css) => css.class_id === cls.id && css.service_id === serviceId
+        );
+        return selection?.is_selected;
+      });
+
+      // Toggle: if all selected, deselect all; otherwise select all
+      classes.forEach((cls) => {
+        const classLine = prev.class_lines.find((l) => l.class_id === cls.id);
+        const classQty = classLine?.qty || 0;
+        const existingIndex = newSelections.findIndex(
+          (css) => css.class_id === cls.id && css.service_id === serviceId
+        );
+
+        if (existingIndex >= 0) {
+          newSelections[existingIndex] = {
+            ...newSelections[existingIndex],
+            is_selected: !allSelected,
+            qty_override: !allSelected ? classQty : null,
+          };
+        } else if (!allSelected) {
+          newSelections.push({
+            class_id: cls.id,
+            service_id: serviceId,
+            is_selected: true,
+            qty_override: classQty,
+          });
+        }
+      });
+
+      return { ...prev, class_service_selections: newSelections };
+    });
+  }, [classes]);
+
+  // Check if all classes have a service selected
+  const isAllSelectedForService = useCallback((serviceId: string) => {
+    return classes.every((cls) => {
+      const selection = formData.class_service_selections.find(
+        (css) => css.class_id === cls.id && css.service_id === serviceId
+      );
+      return selection?.is_selected;
+    });
+  }, [classes, formData.class_service_selections]);
+
+  // Check if some (but not all) classes have a service selected
+  const isSomeSelectedForService = useCallback((serviceId: string) => {
+    const selectedCount = classes.filter((cls) => {
+      const selection = formData.class_service_selections.find(
+        (css) => css.class_id === cls.id && css.service_id === serviceId
+      );
+      return selection?.is_selected;
+    }).length;
+    return selectedCount > 0 && selectedCount < classes.length;
+  }, [classes, formData.class_service_selections]);
 
   // Update non-class service hours/qty
   const updateNonClassServiceInput = useCallback((serviceId: string, field: 'hours_input' | 'qty_input', value: number | null) => {
@@ -769,11 +831,20 @@ export default function QuoteBuilder() {
                       <tr className="border-b bg-muted/50">
                         <th className="w-8 px-2 py-2"></th>
                         <th className="px-2 py-2 text-left font-medium">Class</th>
-                        <th className="px-2 py-2 text-center font-medium w-20">Qty</th>
-                        {/* Dynamic columns for daily rate services (per-day billing) */}
-                        {mainRowServices.map(({ code, label }) => (
+                        <th className="px-2 py-2 text-center font-medium w-24">Qty</th>
+                        {/* Dynamic columns for daily rate services (per-day billing) with Select All */}
+                        {mainRowServices.map(({ code, label, service }) => (
                           <th key={code} className="px-2 py-2 text-center font-medium min-w-[90px]">
-                            {label}
+                            <div className="flex flex-col items-center gap-1">
+                              <span>{label}</span>
+                              <Checkbox
+                                checked={isAllSelectedForService(service.id)}
+                                onCheckedChange={() => selectAllForService(service.id)}
+                                disabled={!canEdit}
+                                className={`h-3 w-3 ${isSomeSelectedForService(service.id) ? 'opacity-50' : ''}`}
+                                title="Select all"
+                              />
+                            </div>
                           </th>
                         ))}
                         <th className="px-2 py-2 text-left font-medium">More Services</th>
@@ -807,15 +878,37 @@ export default function QuoteBuilder() {
                                 </td>
                                 <td className="px-2 py-2 font-medium">{cls.name}</td>
                                 <td className="px-2 py-2">
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    value={classQty > 0 ? classQty : ''}
-                                    onChange={(e) => updateClassQty(cls.id, parseInt(e.target.value) || 0)}
-                                    disabled={!canEdit}
-                                    className="w-16 h-7 text-center text-sm"
-                                    placeholder="0"
-                                  />
+                                  <div className="flex items-center justify-center gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 w-7 p-0"
+                                      onClick={() => updateClassQty(cls.id, Math.max(0, classQty - 1))}
+                                      disabled={!canEdit || classQty <= 0}
+                                    >
+                                      <MaterialIcon name="remove" size="sm" />
+                                    </Button>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      value={classQty > 0 ? classQty : ''}
+                                      onChange={(e) => updateClassQty(cls.id, parseInt(e.target.value) || 0)}
+                                      disabled={!canEdit}
+                                      className="w-14 h-7 text-center text-sm"
+                                      placeholder="0"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 w-7 p-0"
+                                      onClick={() => updateClassQty(cls.id, classQty + 1)}
+                                      disabled={!canEdit}
+                                    >
+                                      <MaterialIcon name="add" size="sm" />
+                                    </Button>
+                                  </div>
                                 </td>
                                 {/* Dynamic service cells for main row services */}
                                 {mainRowServices.map(({ code, service }) => {
@@ -991,18 +1084,19 @@ export default function QuoteBuilder() {
                                       <Label className="text-xs">Qty:</Label>
                                       <Input
                                         type="number"
-                                        min="1"
+                                        min="0"
                                         step="1"
-                                        value={selected?.qty_input || 1}
+                                        value={selected?.qty_input ?? ''}
                                         onChange={(e) =>
                                           updateNonClassServiceInput(
                                             service.id,
                                             'qty_input',
-                                            e.target.value ? parseFloat(e.target.value) : 1
+                                            e.target.value ? parseFloat(e.target.value) : null
                                           )
                                         }
                                         disabled={!canEdit}
                                         className="w-20 h-8"
+                                        placeholder="0"
                                       />
                                     </div>
                                   )}
@@ -1080,11 +1174,26 @@ export default function QuoteBuilder() {
                         <thead>
                           <tr className="border-b bg-muted/50">
                             <th className="px-2 py-2 text-left font-medium">Class</th>
-                            {storageServiceList.map((service) => (
-                              <th key={service.id} className="px-2 py-2 text-center font-medium min-w-[120px]">
-                                {service.name}
-                              </th>
-                            ))}
+                            {storageServiceList.map((service) => {
+                              // Rename "Storage Charge" to "Std Storage Charge"
+                              const displayName = /storage.?charge/i.test(service.name)
+                                ? 'Std Storage Charge'
+                                : service.name;
+                              return (
+                                <th key={service.id} className="px-2 py-2 text-center font-medium min-w-[120px]">
+                                  <div className="flex flex-col items-center gap-1">
+                                    <span>{displayName}</span>
+                                    <Checkbox
+                                      checked={isAllSelectedForService(service.id)}
+                                      onCheckedChange={() => selectAllForService(service.id)}
+                                      disabled={!canEdit}
+                                      className={`h-3 w-3 ${isSomeSelectedForService(service.id) ? 'opacity-50' : ''}`}
+                                      title="Select all"
+                                    />
+                                  </div>
+                                </th>
+                              );
+                            })}
                           </tr>
                         </thead>
                         <tbody>

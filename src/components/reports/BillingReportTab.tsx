@@ -28,6 +28,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -69,12 +79,16 @@ interface ServiceEvent {
   service_name: string;
 }
 
-interface EditingRow {
-  id: string;
-  unit_rate: string;
+// Track edits per row
+interface RowEdit {
   description: string;
   quantity: string;
+  unit_rate: string;
+  sidemark_id: string;
 }
+
+type SortField = 'occurred_at' | 'account_name' | 'sidemark_name' | 'item_code' | 'event_type' | 'charge_type' | 'description' | 'quantity' | 'unit_rate' | 'total_amount' | 'status';
+type SortDirection = 'asc' | 'desc';
 
 function formatDateMMDDYY(dateStr: string | null): string {
   if (!dateStr) return '';
@@ -121,12 +135,21 @@ export function BillingReportTab() {
   const [sidemarks, setSidemarks] = useState<Sidemark[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Editing state
-  const [editingRow, setEditingRow] = useState<EditingRow | null>(null);
-  const [savingEdit, setSavingEdit] = useState(false);
+  // Sorting state
+  const [sortField, setSortField] = useState<SortField>('occurred_at');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Inline editing state - track edits per row
+  const [rowEdits, setRowEdits] = useState<Record<string, RowEdit>>({});
+  const [editingCell, setEditingCell] = useState<{ rowId: string; field: 'description' | 'quantity' | 'unit_rate' | 'sidemark_id' } | null>(null);
+  const [savingRows, setSavingRows] = useState(false);
 
   // Selection state for bulk actions
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+
+  // Unsaved changes dialog
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
   // Add custom charge dialog
   const [addChargeOpen, setAddChargeOpen] = useState(false);
@@ -140,6 +163,24 @@ export function BillingReportTab() {
     unit_rate: '',
     occurred_at: new Date().toISOString().slice(0, 10),
   });
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    return Object.keys(rowEdits).length > 0;
+  }, [rowEdits]);
+
+  // Warn before leaving page with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   useEffect(() => {
     async function loadAccounts() {
@@ -190,11 +231,18 @@ export function BillingReportTab() {
     return sidemarks.filter(s => s.account_id === newCharge.account_id);
   }, [sidemarks, newCharge.account_id]);
 
-  const fetchRows = async () => {
+  // Get sidemarks for a specific row's account
+  const getSidemarksForRow = useCallback((accountId: string) => {
+    return sidemarks.filter(s => s.account_id === accountId);
+  }, [sidemarks]);
+
+  const fetchRows = useCallback(async () => {
     if (!profile?.tenant_id) return;
 
     setLoading(true);
     setSelectedRows(new Set());
+    setRowEdits({}); // Clear any pending edits
+    setEditingCell(null);
     try {
       let query = (supabase
         .from("billing_events") as any)
@@ -228,11 +276,11 @@ export function BillingReportTab() {
       const accountIds = [...new Set((data || []).map((r: any) => r.account_id).filter(Boolean))] as string[];
       const sidemarkIds = [...new Set((data || []).map((r: any) => r.sidemark_id).filter(Boolean))] as string[];
       const itemIds = [...new Set((data || []).map((r: any) => r.item_id).filter(Boolean))] as string[];
-      
+
       let accountMap: Record<string, string> = {};
       let sidemarkMap: Record<string, string> = {};
       let itemMap: Record<string, string> = {};
-      
+
       if (accountIds.length > 0) {
         const { data: accts } = await supabase
           .from("accounts")
@@ -242,7 +290,7 @@ export function BillingReportTab() {
           accountMap = Object.fromEntries(accts.map((a: any) => [a.id, a.account_name]));
         }
       }
-      
+
       if (sidemarkIds.length > 0) {
         const { data: sms } = await supabase
           .from("sidemarks")
@@ -252,7 +300,7 @@ export function BillingReportTab() {
           sidemarkMap = Object.fromEntries(sms.map((s: any) => [s.id, s.sidemark_name]));
         }
       }
-      
+
       if (itemIds.length > 0) {
         const { data: items } = await supabase
           .from("items")
@@ -278,73 +326,215 @@ export function BillingReportTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [profile?.tenant_id, start, end, selectedAccounts, selectedStatuses, selectedServices, serviceFilter, toast]);
 
-  // Start editing a row
-  const startEditing = (row: BillingEventRow) => {
-    if (row.status !== 'unbilled') {
-      toast({ title: "Cannot edit", description: "Only unbilled charges can be edited.", variant: "destructive" });
-      return;
-    }
-    setEditingRow({
-      id: row.id,
-      unit_rate: row.unit_rate.toString(),
-      description: row.description || '',
-      quantity: row.quantity.toString(),
+  // Sort rows
+  const sortedRows = useMemo(() => {
+    const sorted = [...rows].sort((a, b) => {
+      let aVal: any = a[sortField];
+      let bVal: any = b[sortField];
+
+      // Handle null/undefined
+      if (aVal == null) aVal = '';
+      if (bVal == null) bVal = '';
+
+      // Handle numeric fields
+      if (sortField === 'quantity' || sortField === 'unit_rate' || sortField === 'total_amount') {
+        aVal = Number(aVal) || 0;
+        bVal = Number(bVal) || 0;
+      }
+
+      // Handle dates
+      if (sortField === 'occurred_at') {
+        aVal = new Date(aVal).getTime();
+        bVal = new Date(bVal).getTime();
+      }
+
+      // Compare
+      if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = (bVal as string).toLowerCase();
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
     });
+    return sorted;
+  }, [rows, sortField, sortDirection]);
+
+  // Handle column header click for sorting
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
   };
 
-  // Cancel editing
-  const cancelEditing = () => {
-    setEditingRow(null);
+  // Get sort icon for column header
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <MaterialIcon name="unfold_more" size="sm" className="ml-1 opacity-30" />;
+    }
+    return sortDirection === 'asc'
+      ? <MaterialIcon name="arrow_upward" size="sm" className="ml-1" />
+      : <MaterialIcon name="arrow_downward" size="sm" className="ml-1" />;
   };
 
-  // Save edited row
-  const saveEditedRow = async () => {
-    if (!editingRow) return;
+  // Handle inline edit - start editing a cell
+  const startCellEdit = (row: BillingEventRow, field: 'description' | 'quantity' | 'unit_rate' | 'sidemark_id') => {
+    if (row.status !== 'unbilled') return;
 
-    const unitRate = parseFloat(editingRow.unit_rate);
-    const quantity = parseFloat(editingRow.quantity);
-
-    if (isNaN(unitRate) || unitRate < 0) {
-      toast({ title: "Invalid rate", description: "Please enter a valid rate.", variant: "destructive" });
-      return;
+    // Initialize edit state for this row if not exists
+    if (!rowEdits[row.id]) {
+      setRowEdits(prev => ({
+        ...prev,
+        [row.id]: {
+          description: row.description || '',
+          quantity: row.quantity.toString(),
+          unit_rate: row.unit_rate.toString(),
+          sidemark_id: row.sidemark_id || '',
+        }
+      }));
     }
-    if (isNaN(quantity) || quantity <= 0) {
-      toast({ title: "Invalid quantity", description: "Please enter a valid quantity.", variant: "destructive" });
-      return;
-    }
+    setEditingCell({ rowId: row.id, field });
+  };
 
-    setSavingEdit(true);
+  // Handle inline edit value change
+  const handleEditChange = (rowId: string, field: keyof RowEdit, value: string) => {
+    setRowEdits(prev => ({
+      ...prev,
+      [rowId]: {
+        ...prev[rowId],
+        [field]: value
+      }
+    }));
+  };
+
+  // Handle blur - finish editing cell
+  const handleCellBlur = () => {
+    setEditingCell(null);
+  };
+
+  // Handle key press in edit field
+  const handleEditKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      setEditingCell(null);
+    } else if (e.key === 'Escape') {
+      // Revert changes for this row
+      if (editingCell) {
+        const row = rows.find(r => r.id === editingCell.rowId);
+        if (row) {
+          setRowEdits(prev => {
+            const { [editingCell.rowId]: _, ...rest } = prev;
+            return rest;
+          });
+        }
+      }
+      setEditingCell(null);
+    }
+  };
+
+  // Get display value for a row (edited or original)
+  const getRowValue = (row: BillingEventRow, field: 'description' | 'quantity' | 'unit_rate' | 'sidemark_id') => {
+    if (rowEdits[row.id]) {
+      return rowEdits[row.id][field];
+    }
+    if (field === 'description') return row.description || '';
+    if (field === 'quantity') return row.quantity.toString();
+    if (field === 'unit_rate') return row.unit_rate.toString();
+    if (field === 'sidemark_id') return row.sidemark_id || '';
+    return '';
+  };
+
+  // Calculate total for a row (uses edited values if available)
+  const getRowTotal = (row: BillingEventRow) => {
+    if (rowEdits[row.id]) {
+      const qty = parseFloat(rowEdits[row.id].quantity) || 0;
+      const rate = parseFloat(rowEdits[row.id].unit_rate) || 0;
+      return qty * rate;
+    }
+    return row.total_amount;
+  };
+
+  // Get sidemark name for display
+  const getSidemarkName = (row: BillingEventRow) => {
+    if (rowEdits[row.id] && rowEdits[row.id].sidemark_id) {
+      const sidemark = sidemarks.find(s => s.id === rowEdits[row.id].sidemark_id);
+      return sidemark?.sidemark_name || '-';
+    }
+    return row.sidemark_name || '-';
+  };
+
+  // Save all edited rows
+  const saveAllEdits = async () => {
+    const editedRowIds = Object.keys(rowEdits);
+    if (editedRowIds.length === 0) return;
+
+    setSavingRows(true);
     try {
-      const totalAmount = unitRate * quantity;
-      const { error } = await supabase
-        .from("billing_events")
-        .update({
-          unit_rate: unitRate,
-          quantity: quantity,
-          total_amount: totalAmount,
-          description: editingRow.description || null,
-        })
-        .eq("id", editingRow.id);
+      for (const rowId of editedRowIds) {
+        const edit = rowEdits[rowId];
+        const unitRate = parseFloat(edit.unit_rate);
+        const quantity = parseFloat(edit.quantity);
 
-      if (error) throw error;
+        if (isNaN(unitRate) || unitRate < 0) {
+          toast({ title: "Invalid rate", description: `Please enter a valid rate for row.`, variant: "destructive" });
+          continue;
+        }
+        if (isNaN(quantity) || quantity <= 0) {
+          toast({ title: "Invalid quantity", description: `Please enter a valid quantity for row.`, variant: "destructive" });
+          continue;
+        }
 
-      // Update local state
-      setRows(prev => prev.map(r =>
-        r.id === editingRow.id
-          ? { ...r, unit_rate: unitRate, quantity: quantity, total_amount: totalAmount, description: editingRow.description || null }
-          : r
-      ));
+        const totalAmount = unitRate * quantity;
+        const { error } = await supabase
+          .from("billing_events")
+          .update({
+            unit_rate: unitRate,
+            quantity: quantity,
+            total_amount: totalAmount,
+            description: edit.description || null,
+            sidemark_id: edit.sidemark_id || null,
+          })
+          .eq("id", rowId);
 
-      toast({ title: "Saved", description: "Billing charge updated successfully." });
-      setEditingRow(null);
+        if (error) throw error;
+
+        // Update local state
+        setRows(prev => prev.map(r =>
+          r.id === rowId
+            ? {
+                ...r,
+                unit_rate: unitRate,
+                quantity: quantity,
+                total_amount: totalAmount,
+                description: edit.description || null,
+                sidemark_id: edit.sidemark_id || null,
+                sidemark_name: edit.sidemark_id ? (sidemarks.find(s => s.id === edit.sidemark_id)?.sidemark_name || '-') : '-',
+              }
+            : r
+        ));
+      }
+
+      // Clear all edits
+      setRowEdits({});
+      toast({ title: "Saved", description: `${editedRowIds.length} row(s) updated successfully.` });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Unknown error";
       toast({ title: "Failed to save", description: message, variant: "destructive" });
     } finally {
-      setSavingEdit(false);
+      setSavingRows(false);
     }
+  };
+
+  // Discard all changes
+  const discardChanges = () => {
+    setRowEdits({});
+    setEditingCell(null);
+    toast({ title: "Changes discarded" });
   };
 
   // Add custom charge
@@ -427,10 +617,72 @@ export function BillingReportTab() {
     });
   };
 
-  // Select all unbilled rows
-  const selectAllUnbilled = () => {
-    const unbilledIds = rows.filter(r => r.status === 'unbilled').map(r => r.id);
-    setSelectedRows(new Set(unbilledIds));
+  // Select/deselect all unbilled rows
+  const toggleSelectAll = () => {
+    const unbilledRows = rows.filter(r => r.status === 'unbilled');
+    if (selectedRows.size === unbilledRows.length && unbilledRows.length > 0) {
+      // Deselect all
+      setSelectedRows(new Set());
+    } else {
+      // Select all unbilled
+      setSelectedRows(new Set(unbilledRows.map(r => r.id)));
+    }
+  };
+
+  // Check if all unbilled are selected
+  const allUnbilledSelected = useMemo(() => {
+    const unbilledRows = rows.filter(r => r.status === 'unbilled');
+    return unbilledRows.length > 0 && unbilledRows.every(r => selectedRows.has(r.id));
+  }, [rows, selectedRows]);
+
+  // Check if some unbilled are selected
+  const someUnbilledSelected = useMemo(() => {
+    const unbilledRows = rows.filter(r => r.status === 'unbilled');
+    return unbilledRows.some(r => selectedRows.has(r.id)) && !allUnbilledSelected;
+  }, [rows, selectedRows, allUnbilledSelected]);
+
+  // Navigate to create invoice with selected items
+  const handleCreateInvoice = () => {
+    if (selectedRows.size === 0) {
+      toast({ title: "No rows selected", description: "Please select billing events to include in the invoice.", variant: "destructive" });
+      return;
+    }
+
+    // Check for unsaved changes
+    if (hasUnsavedChanges) {
+      setPendingNavigation('create-invoice');
+      setShowUnsavedDialog(true);
+      return;
+    }
+
+    // Store selected billing event IDs in sessionStorage
+    const selectedBillingEventIds = Array.from(selectedRows);
+    sessionStorage.setItem('invoiceSelectedBillingEvents', JSON.stringify(selectedBillingEventIds));
+
+    // Navigate to invoices page / create invoice tab
+    navigate('/invoices?tab=create&source=billing-report');
+  };
+
+  // Handle navigation after unsaved changes dialog
+  const handleProceedWithNavigation = () => {
+    setShowUnsavedDialog(false);
+    if (pendingNavigation === 'create-invoice') {
+      const selectedBillingEventIds = Array.from(selectedRows);
+      sessionStorage.setItem('invoiceSelectedBillingEvents', JSON.stringify(selectedBillingEventIds));
+      navigate('/invoices?tab=create&source=billing-report');
+    }
+    setPendingNavigation(null);
+  };
+
+  const handleSaveAndProceed = async () => {
+    await saveAllEdits();
+    setShowUnsavedDialog(false);
+    if (pendingNavigation === 'create-invoice') {
+      const selectedBillingEventIds = Array.from(selectedRows);
+      sessionStorage.setItem('invoiceSelectedBillingEvents', JSON.stringify(selectedBillingEventIds));
+      navigate('/invoices?tab=create&source=billing-report');
+    }
+    setPendingNavigation(null);
   };
 
   // Navigate to Invoice Builder with selected unbilled events
@@ -551,6 +803,19 @@ export function BillingReportTab() {
         return <Badge variant="outline">{status}</Badge>;
     }
   };
+
+  // Sortable column header component
+  const SortableHeader = ({ field, children, className = '' }: { field: SortField; children: React.ReactNode; className?: string }) => (
+    <th
+      className={`p-3 border-b font-medium cursor-pointer hover:bg-muted/80 select-none ${className}`}
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center">
+        {children}
+        {getSortIcon(field)}
+      </div>
+    </th>
+  );
 
   return (
     <div className="space-y-6">
@@ -691,15 +956,35 @@ export function BillingReportTab() {
             </div>
           </div>
           <div className="mt-4 flex justify-between items-center">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground flex items-center gap-4">
               {selectedRows.size > 0 && (
                 <span>{selectedRows.size} row(s) selected</span>
               )}
+              {hasUnsavedChanges && (
+                <span className="text-amber-600 flex items-center gap-1">
+                  <MaterialIcon name="edit" size="sm" />
+                  {Object.keys(rowEdits).length} unsaved change(s)
+                </span>
+              )}
             </div>
             <div className="flex gap-2">
-              {rows.some(r => r.status === 'unbilled') && (
-                <Button variant="outline" size="sm" onClick={selectAllUnbilled}>
-                  Select All Unbilled
+              {/* Save/Discard buttons when there are unsaved changes */}
+              {hasUnsavedChanges && (
+                <>
+                  <Button variant="outline" size="sm" onClick={discardChanges}>
+                    Discard Changes
+                  </Button>
+                  <Button size="sm" onClick={saveAllEdits} disabled={savingRows}>
+                    {savingRows && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
+                    Save Changes
+                  </Button>
+                </>
+              )}
+              {/* Create Invoice button */}
+              {selectedRows.size > 0 && (
+                <Button onClick={handleCreateInvoice} size="sm" variant="default">
+                  <MaterialIcon name="receipt" size="sm" className="mr-2" />
+                  Create Invoice ({selectedRows.size})
                 </Button>
               )}
               <Button onClick={fetchRows} disabled={loading}>
@@ -719,7 +1004,7 @@ export function BillingReportTab() {
             Billing Events ({rows.length})
           </CardTitle>
           <CardDescription>
-            Click the edit icon on unbilled charges to modify rates, quantities, or descriptions
+            Click on Description, Qty, Sidemark, or Rate fields to edit unbilled charges. Click column headers to sort.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -727,28 +1012,34 @@ export function BillingReportTab() {
             <table className="min-w-full text-sm">
               <thead className="bg-muted">
                 <tr>
-                  <th className="w-10 p-3 border-b"></th>
-                  <th className="text-left p-3 border-b font-medium">Date</th>
-                  <th className="text-left p-3 border-b font-medium">Account</th>
-                  <th className="text-left p-3 border-b font-medium">Sidemark</th>
-                  <th className="text-left p-3 border-b font-medium">Item</th>
-                  <th className="text-left p-3 border-b font-medium">Type</th>
-                  <th className="text-left p-3 border-b font-medium">Charge</th>
-                  <th className="text-left p-3 border-b font-medium min-w-[150px]">Description</th>
-                  <th className="text-right p-3 border-b font-medium w-20">Qty</th>
-                  <th className="text-right p-3 border-b font-medium w-24">Rate</th>
-                  <th className="text-right p-3 border-b font-medium">Total</th>
-                  <th className="text-center p-3 border-b font-medium">Status</th>
-                  <th className="w-20 p-3 border-b font-medium">Actions</th>
+                  <th className="w-10 p-3 border-b">
+                    <Checkbox
+                      checked={allUnbilledSelected}
+                      onCheckedChange={toggleSelectAll}
+                      className={someUnbilledSelected ? "data-[state=checked]:bg-primary/50" : ""}
+                    />
+                  </th>
+                  <SortableHeader field="occurred_at" className="text-left">Date</SortableHeader>
+                  <SortableHeader field="account_name" className="text-left">Account</SortableHeader>
+                  <SortableHeader field="sidemark_name" className="text-left">Sidemark</SortableHeader>
+                  <SortableHeader field="item_code" className="text-left">Item</SortableHeader>
+                  <SortableHeader field="event_type" className="text-left">Type</SortableHeader>
+                  <SortableHeader field="charge_type" className="text-left">Charge</SortableHeader>
+                  <SortableHeader field="description" className="text-left min-w-[150px]">Description</SortableHeader>
+                  <SortableHeader field="quantity" className="text-right w-20">Qty</SortableHeader>
+                  <SortableHeader field="unit_rate" className="text-right w-24">Rate</SortableHeader>
+                  <SortableHeader field="total_amount" className="text-right">Total</SortableHeader>
+                  <SortableHeader field="status" className="text-center">Status</SortableHeader>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => {
-                  const isEditing = editingRow?.id === r.id;
+                {sortedRows.map((r) => {
                   const canEdit = r.status === 'unbilled';
+                  const hasEdits = !!rowEdits[r.id];
+                  const rowSidemarks = getSidemarksForRow(r.account_id);
 
                   return (
-                    <tr key={r.id} className={`border-b hover:bg-muted/50 ${isEditing ? 'bg-blue-50' : ''}`}>
+                    <tr key={r.id} className={`border-b hover:bg-muted/50 ${hasEdits ? 'bg-amber-50' : ''}`}>
                       <td className="p-3">
                         {canEdit && (
                           <Checkbox
@@ -759,102 +1050,115 @@ export function BillingReportTab() {
                       </td>
                       <td className="p-3">{r.occurred_at?.slice(0, 10)}</td>
                       <td className="p-3">{r.account_name}</td>
-                      <td className="p-3 text-xs">{r.sidemark_name}</td>
+                      {/* Sidemark - Editable */}
+                      <td className="p-3 text-xs">
+                        {canEdit && editingCell?.rowId === r.id && editingCell?.field === 'sidemark_id' ? (
+                          <Select
+                            value={getRowValue(r, 'sidemark_id') || '__none__'}
+                            onValueChange={(v) => handleEditChange(r.id, 'sidemark_id', v === '__none__' ? '' : v)}
+                          >
+                            <SelectTrigger className="h-8 text-xs w-32" onBlur={handleCellBlur}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">None</SelectItem>
+                              {rowSidemarks.map((s) => (
+                                <SelectItem key={s.id} value={s.id}>{s.sidemark_name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span
+                            className={canEdit ? 'cursor-text hover:bg-muted p-1 rounded' : ''}
+                            onClick={() => canEdit && startCellEdit(r, 'sidemark_id')}
+                          >
+                            {getSidemarkName(r)}
+                          </span>
+                        )}
+                      </td>
                       <td className="p-3 font-mono text-xs">{r.item_code}</td>
                       <td className="p-3">{r.event_type}</td>
                       <td className="p-3">{r.charge_type}</td>
+                      {/* Description - Editable */}
                       <td className="p-3 max-w-[200px]">
-                        {isEditing ? (
+                        {canEdit && editingCell?.rowId === r.id && editingCell?.field === 'description' ? (
                           <Input
-                            value={editingRow.description}
-                            onChange={(e) => setEditingRow({ ...editingRow, description: e.target.value })}
+                            autoFocus
+                            value={getRowValue(r, 'description')}
+                            onChange={(e) => handleEditChange(r.id, 'description', e.target.value)}
+                            onBlur={handleCellBlur}
+                            onKeyDown={handleEditKeyDown}
                             className="h-8 text-sm"
                             placeholder="Description"
                           />
                         ) : (
-                          <span className="truncate block">{r.description || "-"}</span>
+                          <span
+                            className={`truncate block ${canEdit ? 'cursor-text hover:bg-muted p-1 rounded' : ''}`}
+                            onClick={() => canEdit && startCellEdit(r, 'description')}
+                          >
+                            {getRowValue(r, 'description') || "-"}
+                          </span>
                         )}
                       </td>
+                      {/* Quantity - Editable */}
                       <td className="p-3 text-right">
-                        {isEditing ? (
+                        {canEdit && editingCell?.rowId === r.id && editingCell?.field === 'quantity' ? (
                           <Input
+                            autoFocus
                             type="number"
-                            value={editingRow.quantity}
-                            onChange={(e) => setEditingRow({ ...editingRow, quantity: e.target.value })}
+                            value={getRowValue(r, 'quantity')}
+                            onChange={(e) => handleEditChange(r.id, 'quantity', e.target.value)}
+                            onBlur={handleCellBlur}
+                            onKeyDown={handleEditKeyDown}
                             className="h-8 text-sm w-20 text-right"
                             step="1"
                             min="1"
                           />
                         ) : (
-                          r.quantity
+                          <span
+                            className={canEdit ? 'cursor-text hover:bg-muted p-1 rounded' : ''}
+                            onClick={() => canEdit && startCellEdit(r, 'quantity')}
+                          >
+                            {getRowValue(r, 'quantity')}
+                          </span>
                         )}
                       </td>
+                      {/* Rate - Editable */}
                       <td className="p-3 text-right">
-                        {isEditing ? (
+                        {canEdit && editingCell?.rowId === r.id && editingCell?.field === 'unit_rate' ? (
                           <Input
+                            autoFocus
                             type="number"
-                            value={editingRow.unit_rate}
-                            onChange={(e) => setEditingRow({ ...editingRow, unit_rate: e.target.value })}
+                            value={getRowValue(r, 'unit_rate')}
+                            onChange={(e) => handleEditChange(r.id, 'unit_rate', e.target.value)}
+                            onBlur={handleCellBlur}
+                            onKeyDown={handleEditKeyDown}
                             className="h-8 text-sm w-24 text-right"
                             step="0.01"
                             min="0"
                           />
                         ) : (
-                          `$${Number(r.unit_rate || 0).toFixed(2)}`
+                          <span
+                            className={canEdit ? 'cursor-text hover:bg-muted p-1 rounded' : ''}
+                            onClick={() => canEdit && startCellEdit(r, 'unit_rate')}
+                          >
+                            ${Number(getRowValue(r, 'unit_rate') || 0).toFixed(2)}
+                          </span>
                         )}
                       </td>
+                      {/* Total - Auto-calculated */}
                       <td className="p-3 text-right font-semibold">
-                        {isEditing ? (
-                          <span className="text-blue-600">
-                            ${(parseFloat(editingRow.unit_rate || '0') * parseFloat(editingRow.quantity || '0')).toFixed(2)}
-                          </span>
-                        ) : (
-                          `$${Number(r.total_amount || 0).toFixed(2)}`
-                        )}
+                        <span className={hasEdits ? 'text-amber-600' : ''}>
+                          ${getRowTotal(r).toFixed(2)}
+                        </span>
                       </td>
                       <td className="p-3 text-center">{getStatusBadge(r.status)}</td>
-                      <td className="p-3">
-                        <div className="flex justify-center gap-1">
-                          {isEditing ? (
-                            <>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                onClick={saveEditedRow}
-                                disabled={savingEdit}
-                              >
-                                {savingEdit ? <MaterialIcon name="progress_activity" size="sm" className="animate-spin" /> : <MaterialIcon name="check" size="sm" />}
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={cancelEditing}
-                                disabled={savingEdit}
-                              >
-                                <MaterialIcon name="close" size="sm" />
-                              </Button>
-                            </>
-                          ) : canEdit ? (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8"
-                              onClick={() => startEditing(r)}
-                              title="Edit charge"
-                            >
-                              <MaterialIcon name="edit" size="sm" />
-                            </Button>
-                          ) : null}
-                        </div>
-                      </td>
                     </tr>
                   );
                 })}
                 {!rows.length && (
                   <tr>
-                    <td className="p-8 text-center text-muted-foreground" colSpan={13}>
+                    <td className="p-8 text-center text-muted-foreground" colSpan={12}>
                       No billing events found for the selected filters
                     </td>
                   </tr>
@@ -1002,6 +1306,27 @@ export function BillingReportTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Unsaved Changes Dialog */}
+      <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have {Object.keys(rowEdits).length} unsaved change(s). Would you like to save them before proceeding?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingNavigation(null)}>Cancel</AlertDialogCancel>
+            <Button variant="outline" onClick={handleProceedWithNavigation}>
+              Discard & Continue
+            </Button>
+            <AlertDialogAction onClick={handleSaveAndProceed}>
+              Save & Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

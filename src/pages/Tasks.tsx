@@ -31,6 +31,7 @@ import {
 import { useTasks, useTaskTypes, Task } from '@/hooks/useTasks';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { UnableToCompleteDialog } from '@/components/tasks/UnableToCompleteDialog';
 import { WillCallCompletionDialog } from '@/components/tasks/WillCallCompletionDialog';
@@ -87,9 +88,13 @@ const priorityColors: Record<string, string> = {
 export default function Tasks() {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { hasRole, isAdmin } = usePermissions();
   const { warehouses } = useWarehouses();
   const { taskTypes } = useTaskTypes();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Check if user is a technician (repair tech with limited access)
+  const isTechnician = hasRole('technician') && !hasRole('tenant_admin') && !hasRole('warehouse_user') && !isAdmin;
 
   const [filters, setFilters] = useState(() => ({
     status: searchParams.get('status') || 'all',
@@ -133,8 +138,11 @@ export default function Tasks() {
   const [willCallTask, setWillCallTask] = useState<Task | null>(null);
   const [willCallItems, setWillCallItems] = useState<Array<{ id: string; item_code: string; description: string | null }>>([]);
 
-  // Fetch ALL tasks for stable tile counts (no filters)
-  const { tasks: allTasks } = useTasks({});
+  // Fetch ALL tasks for stable tile counts (no filters, but respect technician filter)
+  const { tasks: allTasks } = useTasks({
+    // Technicians only see their assigned tasks
+    assignedTo: isTechnician ? profile?.id : undefined,
+  });
 
   // Fetch filtered tasks for the table
   const {
@@ -153,6 +161,8 @@ export default function Tasks() {
     status: filters.status === 'all' ? undefined : filters.status,
     taskType: filters.taskType === 'all' ? undefined : filters.taskType,
     warehouseId: filters.warehouseId === 'all' ? undefined : filters.warehouseId,
+    // Technicians only see their assigned tasks
+    assignedTo: isTechnician ? profile?.id : undefined,
   });
 
   // Filter tasks locally for search (avoid refetch on search)
@@ -323,20 +333,22 @@ export default function Tasks() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <PageHeader
-            primaryText="Operations"
-            accentText="Queue"
-            description="Manage inspections, assemblies, repairs, and other tasks"
+            primaryText={isTechnician ? "My" : "Operations"}
+            accentText={isTechnician ? "Tasks" : "Queue"}
+            description={isTechnician ? "View and complete your assigned tasks" : "Manage inspections, assemblies, repairs, and other tasks"}
           />
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate('/billing')}>
-              <span className="mr-2">💲</span>
-              Add Charge
-            </Button>
-            <Button onClick={() => handleCreate()} className="w-full sm:w-auto">
-              <span className="mr-2">➕</span>
-              Create Task
-            </Button>
-          </div>
+          {!isTechnician && (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => navigate('/billing')}>
+                <span className="mr-2">💲</span>
+                Add Charge
+              </Button>
+              <Button onClick={() => handleCreate()} className="w-full sm:w-auto">
+                <span className="mr-2">➕</span>
+                Create Task
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Stats Cards */}

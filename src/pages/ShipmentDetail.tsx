@@ -19,7 +19,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
-import { BillingChargesSection } from '@/components/billing/BillingChargesSection';
+import { BillingCalculator } from '@/components/billing/BillingCalculator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,6 +33,7 @@ import { ItemLabelData } from '@/lib/labelGenerator';
 import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDialog';
 import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
+import { ShipmentHistoryTab } from '@/components/shipments/ShipmentHistoryTab';
 
 // ============================================
 // TYPES
@@ -101,6 +102,8 @@ interface Shipment {
   receiving_photos: (string | TaggablePhoto)[] | null;
   receiving_documents: string[] | null;
   release_type: string | null;
+  sidemark_id: string | null;
+  sidemark: string | null;
   created_at: string;
   accounts?: { id: string; name: string } | null;
   warehouses?: { id: string; name: string } | null;
@@ -155,6 +158,8 @@ export default function ShipmentDetail() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [showReassignDialog, setShowReassignDialog] = useState(false);
+  const [showOutboundCompleteDialog, setShowOutboundCompleteDialog] = useState(false);
+  const [completingOutbound, setCompletingOutbound] = useState(false);
   const [classes, setClasses] = useState<{ id: string; code: string; name: string }[]>([]);
   const [billingRefreshKey, setBillingRefreshKey] = useState(0);
 
@@ -305,6 +310,17 @@ export default function ShipmentDetail() {
   // ------------------------------------------
   const handleFinishReceiving = async () => {
     if (!shipment) return;
+
+    // Validate photos are required
+    if (receivingPhotos.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Photos Required',
+        description: 'Please add at least one photo before completing the receiving process.',
+      });
+      setShowFinishDialog(false);
+      return;
+    }
 
     // Validate all items have a class assigned for billing
     const itemsWithoutClass = items.filter(item => {
@@ -478,6 +494,69 @@ export default function ShipmentDetail() {
   };
 
   // ------------------------------------------
+  // Handle complete outbound shipment
+  // ------------------------------------------
+  const handleCompleteOutbound = async () => {
+    if (!shipment) return;
+
+    // Validate photos are required
+    if (receivingPhotos.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Photos Required',
+        description: 'Please add at least one photo before completing the shipment.',
+      });
+      setShowOutboundCompleteDialog(false);
+      return;
+    }
+
+    setCompletingOutbound(true);
+    try {
+      // Update shipment status to completed
+      const { error: shipmentError } = await supabase
+        .from('shipments')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', shipment.id);
+
+      if (shipmentError) throw shipmentError;
+
+      // Update all items in the shipment to released status
+      const itemIds = items.filter(i => i.item_id).map(i => i.item_id);
+      if (itemIds.length > 0) {
+        const { error: itemsError } = await supabase
+          .from('items')
+          .update({
+            status: 'released',
+            released_at: new Date().toISOString(),
+          })
+          .in('id', itemIds);
+
+        if (itemsError) throw itemsError;
+      }
+
+      // Update shipment_items status
+      const { error: shipmentItemsError } = await supabase
+        .from('shipment_items')
+        .update({ status: 'completed' })
+        .eq('shipment_id', shipment.id);
+
+      if (shipmentItemsError) throw shipmentItemsError;
+
+      toast({ title: 'Shipment Completed', description: 'Items have been released.' });
+      setShowOutboundCompleteDialog(false);
+      fetchShipment();
+    } catch (error) {
+      console.error('Error completing outbound shipment:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to complete shipment' });
+    } finally {
+      setCompletingOutbound(false);
+    }
+  };
+
+  // ------------------------------------------
   // Status badge helper
   // ------------------------------------------
   const getStatusBadge = (status: string) => {
@@ -582,6 +661,14 @@ export default function ShipmentDetail() {
               <MaterialIcon name="play_arrow" size="sm" className="mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Start Receiving</span>
               <span className="sm:hidden">Receive</span>
+            </Button>
+          )}
+          {/* Complete Shipment button for outbound shipments */}
+          {!isInbound && ['expected', 'in_progress'].includes(shipment.status) && (
+            <Button size="sm" onClick={() => setShowOutboundCompleteDialog(true)}>
+              <MaterialIcon name="check_circle" size="sm" className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Complete Shipment</span>
+              <span className="sm:hidden">Complete</span>
             </Button>
           )}
           {shipment.account_id && canSeeBilling && (
@@ -815,12 +902,11 @@ export default function ShipmentDetail() {
 
         {/* Billing Charges - Manager/Admin Only */}
         {canSeeBilling && shipment.account_id && (
-          <BillingChargesSection
+          <BillingCalculator
             shipmentId={shipment.id}
-            accountId={shipment.account_id}
-            taskType={shipment.shipment_type === 'inbound' ? 'Receiving' : 'Shipping'}
-            itemCount={items.length}
+            shipmentDirection={shipment.shipment_type as 'inbound' | 'outbound' | 'return'}
             refreshKey={billingRefreshKey}
+            title="Billing Calculator"
           />
         )}
       </div>
@@ -1075,6 +1161,11 @@ export default function ShipmentDetail() {
         </Card>
       )}
 
+      {/* Shipment History */}
+      <div className="mt-6">
+        <ShipmentHistoryTab shipmentId={shipment.id} />
+      </div>
+
       {/* Finish Receiving Dialog */}
       <AlertDialog open={showFinishDialog} onOpenChange={setShowFinishDialog}>
         <AlertDialogContent className="max-w-2xl">
@@ -1159,7 +1250,11 @@ export default function ShipmentDetail() {
           accountId={shipment.account_id}
           accountName={shipment.accounts?.name}
           shipmentId={shipment.id}
-          onSuccess={fetchShipment}
+          onSuccess={() => {
+            // Refresh both shipment data and billing calculator
+            fetchShipment();
+            setBillingRefreshKey(prev => prev + 1);
+          }}
         />
       )}
 
@@ -1169,6 +1264,9 @@ export default function ShipmentDetail() {
         onOpenChange={setAddItemDialogOpen}
         shipmentId={shipment.id}
         accountId={shipment.account_id || undefined}
+        warehouseId={shipment.warehouse_id || undefined}
+        sidemarkId={shipment.sidemark_id || undefined}
+        tenantId={profile?.tenant_id}
         classes={classes}
         onSuccess={() => {
           fetchShipment();
@@ -1198,6 +1296,39 @@ export default function ShipmentDetail() {
                 </>
               ) : (
                 'Cancel Shipment'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Outbound Completion Dialog */}
+      <AlertDialog open={showOutboundCompleteDialog} onOpenChange={setShowOutboundCompleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Complete Shipment</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will release {items.length} item(s) and mark the shipment as completed.
+              {receivingPhotos.length === 0 && (
+                <span className="block mt-2 text-destructive font-medium">
+                  Note: At least one photo is required to complete this shipment.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCompleteOutbound}
+              disabled={completingOutbound || receivingPhotos.length === 0}
+            >
+              {completingOutbound ? (
+                <>
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                  Completing...
+                </>
+              ) : (
+                'Complete Shipment'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

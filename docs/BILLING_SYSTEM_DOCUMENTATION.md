@@ -116,15 +116,51 @@ Each billing event has an `event_type` that categorizes the charge:
 
 | Event Type | Description | Triggered By |
 |------------|-------------|--------------|
-| `receiving` | Item received into warehouse | Receiving session completion |
-| `returns_processing` | Return shipment received | Return shipment completion |
-| `task_completion` | Task service performed | Task marked complete |
+| `receiving` | Item received into warehouse | Receiving session completion (`useReceivingSession.ts`) |
+| `returns_processing` | Return shipment received | Return shipment completion (`useReceivingSession.ts`) |
+| `task_completion` | Task service performed | Task marked complete (`useTasks.ts`) |
 | `storage` | Daily/monthly storage | Storage calculator in Billing Reports |
-| `will_call` | Customer pickup/delivery | Outbound shipment completion |
+| `will_call` | Customer pickup/delivery | Outbound shipment completion (`useOutbound.ts`) |
 | `disposal` | Item disposed | Disposal task completion |
 | `flag` | Flag-based charge | Flag set on item (e.g., "Received Without ID") |
-| `addon` | Manual add-on charge | Manual entry or task custom charge |
+| `addon` | Manual add-on charge | `AddAddonDialog` via page-level "Add Charge" button |
 | `outbound_shipment` | Outbound shipping | Shipment release |
+
+### How Billing Events Are Created
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     BILLING EVENT CREATION SOURCES                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+1. RECEIVING SESSION COMPLETION (useReceivingSession.ts)
+   └─ When: User clicks "Finish Receiving"
+   └─ Creates: One billing event per item received
+   └─ Event Type: 'receiving' or 'returns_processing'
+   └─ Rate: Looked up from Price List based on item class
+
+2. TASK COMPLETION (useTasks.ts)
+   └─ When: Task status set to 'completed'
+   └─ Creates: Billing events based on task type and items
+   └─ Event Type: 'task_completion'
+   └─ Rate: From TASK_TYPE_TO_SERVICE_CODE mapping
+
+3. OUTBOUND COMPLETION (useOutbound.ts)
+   └─ When: Outbound shipment marked as shipped
+   └─ Creates: Billing events for shipping/delivery
+   └─ Event Type: 'will_call' or 'outbound_shipment'
+
+4. MANUAL ADD-ON (AddAddonDialog.tsx)
+   └─ When: User clicks "Add Charge" button on shipment/task page
+   └─ Creates: Single billing event with user-specified amount
+   └─ Event Type: 'addon'
+   └─ Rate: User enters manually
+
+5. STORAGE CALCULATION (Billing Reports)
+   └─ When: Storage calculator run for date range
+   └─ Creates: Storage charges based on item days in warehouse
+   └─ Event Type: 'storage'
+```
 
 ---
 
@@ -401,6 +437,9 @@ Located at `/billing/reports`, provides:
 
 | Purpose | File Path |
 |---------|-----------|
+| **Shared Billing Logic** | `src/lib/billing/billingCalculation.ts` |
+| Billing Calculator | `src/components/billing/BillingCalculator.tsx` |
+| Add Charge Dialog | `src/components/billing/AddAddonDialog.tsx` |
 | Price List Settings | `src/components/settings/ServiceEventsPricingTab.tsx` |
 | Classes Settings | `src/components/settings/ClassesSettingsTab.tsx` |
 | Billing Reports | `src/pages/BillingReports.tsx` |
@@ -408,7 +447,45 @@ Located at `/billing/reports`, provides:
 | Receiving Billing | `src/hooks/useReceivingSession.ts` |
 | Outbound Billing | `src/hooks/useOutbound.ts` |
 | Billing Event Creator | `src/lib/billing/createBillingEvent.ts` |
-| Rate Lookup | `src/hooks/useServiceEvents.ts` |
+| Promo Code Utils | `src/lib/billing/promoCodeUtils.ts` |
+
+---
+
+## Billing Calculator
+
+The Billing Calculator (`src/components/billing/BillingCalculator.tsx`) is a **read-only, real-time view** that displays:
+
+1. **Recorded Charges**: Actual `billing_events` from the database
+2. **Pending Charges (Preview)**: What WILL be created when receiving/task completes
+
+### Key Points
+
+- **Does NOT create charges** - it only displays them
+- **Fetches existing billing events** from the database for the shipment/task
+- **Shows preview** only for pending shipments/tasks (hides after completion)
+- **Refreshes** when `refreshKey` prop is incremented
+
+### Adding Charges
+
+To add manual charges, use the page-level "Add Charge" button which opens `AddAddonDialog`:
+
+```tsx
+// In ShipmentDetail.tsx or TaskDetail.tsx
+<Button onClick={() => setAddAddonDialogOpen(true)}>
+  Add Charge
+</Button>
+
+<AddAddonDialog
+  accountId={shipment.account_id}
+  shipmentId={shipment.id}
+  onSuccess={() => {
+    fetchShipment();
+    setBillingRefreshKey(prev => prev + 1);  // Refresh calculator
+  }}
+/>
+```
+
+See `docs/BILLING_CALCULATOR_DOCUMENTATION.md` for detailed calculator documentation.
 
 ---
 
@@ -421,6 +498,7 @@ The Stride WMS billing system:
 3. **Automatically generates billing events** when services are performed
 4. **Tracks all charges** with full audit trail
 5. **Integrates with invoicing** via QuickBooks or Excel export
+6. **Provides real-time visibility** via the Billing Calculator
 
 All billing events reference:
 - The **item's class** for rate calculation
@@ -430,5 +508,5 @@ All billing events reference:
 
 ---
 
-*Document generated: January 29, 2026*
+*Document updated: January 30, 2026*
 *Stride WMS Version: Current*

@@ -65,6 +65,7 @@ export default function Dashboard() {
         bgColor: 'bg-card border border-border shadow-sm',
         countColor: 'text-purple-600 dark:text-purple-400',
         onClick: () => navigate('/inventory?location=receiving'),
+        timeEstimate: stats.putAwayTimeEstimate,
       },
       {
         key: 'inspection' as ExpandedCard,
@@ -100,6 +101,7 @@ export default function Dashboard() {
         bgColor: 'bg-card border border-border shadow-sm',
         countColor: 'text-orange-500 dark:text-orange-400',
         onClick: () => navigate('/shipments/incoming'),
+        timeEstimate: stats.incomingShipmentsTimeEstimate,
       },
       {
         key: 'repairs' as ExpandedCard,

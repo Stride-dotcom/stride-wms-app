@@ -45,8 +45,8 @@ export function RepairQuoteSection({ itemId, canApprove = true }: RepairQuoteSec
     notes: '',
   });
 
-  // Filter users who could be technicians (warehouse role)
-  const technicians = users.filter(u => u.roles?.some(r => r.name === 'warehouse' || r.name === 'admin'));
+  // All users can be assigned as technicians
+  const technicians = users;
 
   const handleSubmit = async () => {
     if (!formData.flat_rate) return;

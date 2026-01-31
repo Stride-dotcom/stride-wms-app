@@ -32,6 +32,9 @@ interface AddShipmentItemDialogProps {
   onOpenChange: (open: boolean) => void;
   shipmentId: string;
   accountId?: string;
+  warehouseId?: string;
+  sidemarkId?: string;
+  tenantId?: string;
   onSuccess: () => void;
   classes?: ClassOption[];
 }
@@ -41,6 +44,9 @@ export function AddShipmentItemDialog({
   onOpenChange,
   shipmentId,
   accountId,
+  warehouseId,
+  sidemarkId,
+  tenantId,
   onSuccess,
   classes = [],
 }: AddShipmentItemDialogProps) {
@@ -67,18 +73,56 @@ export function AddShipmentItemDialog({
       return;
     }
 
+    if (!selectedClass.trim()) {
+      toast({ title: 'Class required', variant: 'destructive' });
+      return;
+    }
+
     setSaving(true);
     try {
       // Find the class ID from the selected code
       const matchedClass = classes.find(c => c.code === selectedClass);
+      const itemQuantity = parseInt(quantity) || 1;
 
+      let itemId: string | null = null;
+
+      // Create actual item record if we have the required data
+      if (tenantId && accountId && warehouseId) {
+        const itemPayload = {
+          tenant_id: tenantId,
+          account_id: accountId,
+          warehouse_id: warehouseId,
+          description: description.trim(),
+          vendor: vendor.trim() || null,
+          quantity: itemQuantity,
+          class_id: matchedClass?.id || null,
+          sidemark_id: sidemarkId || null,
+          receiving_shipment_id: shipmentId,
+          status: 'pending_receipt',
+        };
+
+        const { data: newItem, error: itemError } = await (supabase.from('items') as any)
+          .insert(itemPayload)
+          .select('id')
+          .single();
+
+        if (itemError) {
+          console.error('Error creating item:', itemError);
+          throw itemError;
+        }
+
+        itemId = newItem?.id || null;
+      }
+
+      // Create shipment_item linking to the item
       const { error } = await (supabase.from('shipment_items') as any).insert({
         shipment_id: shipmentId,
+        item_id: itemId,
         expected_description: description.trim(),
         expected_vendor: vendor.trim() || null,
         expected_sidemark: sidemark.trim() || null,
         expected_class_id: matchedClass?.id || null,
-        expected_quantity: parseInt(quantity) || 1,
+        expected_quantity: itemQuantity,
         status: 'pending',
       });
 
@@ -97,7 +141,7 @@ export function AddShipmentItemDialog({
       setSidemark('');
       setQuantity('1');
       setSelectedClass('');
-      
+
       onOpenChange(false);
       onSuccess();
     } catch (error) {
@@ -124,7 +168,7 @@ export function AddShipmentItemDialog({
             <AutocompleteInput
               value={description}
               onChange={setDescription}
-              suggestions={descriptionSuggestions}
+              suggestions={descriptionSuggestions.map(s => ({ value: s.value, label: s.value }))}
               placeholder="e.g., Leather Sofa, 3-Seater"
             />
           </div>
@@ -153,7 +197,7 @@ export function AddShipmentItemDialog({
 
           <div className="grid gap-4 grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="class">Class</Label>
+              <Label htmlFor="class">Class *</Label>
               <AutocompleteInput
                 value={selectedClass}
                 onChange={setSelectedClass}
