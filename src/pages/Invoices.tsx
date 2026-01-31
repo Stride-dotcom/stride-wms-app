@@ -13,9 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, Plus, FileText, Send, Eye, XCircle, Calendar, Download, ArrowUpDown, Save, ChevronUp, ChevronDown, Printer, Settings2, Mail, FileSpreadsheet } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RefreshCw, Plus, FileText, Send, Eye, XCircle, Calendar, Download, ArrowUpDown, Save, ChevronUp, ChevronDown, Printer, Settings2, Mail, FileSpreadsheet, Palette } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { useAuth } from "@/contexts/AuthContext";
+import { InvoiceTemplateTab } from "@/components/invoices/InvoiceTemplateTab";
 import { sendEmail, buildInvoiceSentEmail } from "@/lib/email";
 import { queueInvoiceSentAlert } from "@/lib/alertQueue";
 import { downloadInvoicePdf, printInvoicePdf, InvoicePdfData } from "@/lib/invoicePdf";
@@ -338,21 +340,22 @@ export default function Invoices() {
         }
 
         // Send email with invoice (uses existing sendEmail function)
-        const emailHtml = buildInvoiceSentEmail({
+        const emailData = buildInvoiceSentEmail({
           invoiceNumber: invoice.invoice_number,
           accountName: account.account_name,
-          invoiceTotal: Number(invoice.total || 0),
           periodStart: invoice.period_start || '',
           periodEnd: invoice.period_end || '',
+          total: Number(invoice.total || 0),
+          lineCount: lines.length,
         });
 
-        const emailResult = await sendEmail({
-          to: account.billing_contact_email,
-          subject: `Invoice ${invoice.invoice_number} from ${tenantSettings?.company_name || 'Stride WMS'}`,
-          html: emailHtml,
-        });
+        const emailResult = await sendEmail(
+          account.billing_contact_email,
+          `Invoice ${invoice.invoice_number} from ${tenantSettings?.company_name || 'Stride WMS'}`,
+          emailData.html,
+        );
 
-        if (emailResult) {
+        if (emailResult.ok) {
           // Mark as sent
           await markInvoiceSent(invoiceId);
           successCount++;
@@ -890,20 +893,42 @@ export default function Invoices() {
     }
   };
 
+  // Main page tab state
+  const [mainTab, setMainTab] = useState<'invoices' | 'template'>('invoices');
+
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Invoices</h1>
-            <p className="text-muted-foreground">Create and manage invoice drafts</p>
+            <h1 className="text-2xl font-semibold">Revenue Ledger</h1>
+            <p className="text-muted-foreground">Create, manage, and customize invoices</p>
           </div>
-          <Button variant="outline" onClick={load} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            {loading ? "Loading..." : "Refresh"}
-          </Button>
+          <div className="flex items-center gap-2">
+            {mainTab === 'invoices' && (
+              <Button variant="outline" onClick={load} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                {loading ? "Loading..." : "Refresh"}
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* Main Tabs */}
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'invoices' | 'template')}>
+          <TabsList>
+            <TabsTrigger value="invoices" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Invoices
+            </TabsTrigger>
+            <TabsTrigger value="template" className="flex items-center gap-2">
+              <Palette className="h-4 w-4" />
+              Template
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="invoices" className="space-y-6 mt-4">
 
         {/* Create from Billing Report Card - appears when coming from billing report */}
         {fromBillingReport && selectedBillingEvents.length > 0 && (
@@ -1604,6 +1629,13 @@ export default function Invoices() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+          </TabsContent>
+
+          {/* Template Tab */}
+          <TabsContent value="template" className="mt-4">
+            <InvoiceTemplateTab />
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
