@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,7 @@ import { SendTestDialog } from '@/components/settings/communications/SendTestDia
 import { useAuth } from '@/contexts/AuthContext';
 import { TemplateEditor } from '@/components/templateEditor';
 import { EMAIL_TOKENS } from '@/lib/templateEditor/tokens';
+import { getEmailTemplate } from '@/lib/emailTemplates/templates';
 
 interface EmailHtmlTabProps {
   template: CommunicationTemplate | null;
@@ -57,12 +58,43 @@ export function EmailHtmlTab({
   const [showTestDialog, setShowTestDialog] = useState(false);
   const { profile } = useAuth();
 
+  // Get the default template for this trigger event
+  const defaultTemplate = useMemo(() => {
+    if (!triggerEvent) return null;
+    return getEmailTemplate(triggerEvent);
+  }, [triggerEvent]);
+
+  // Check if body content is essentially empty
+  const isBodyEmpty = (content: string) => {
+    if (!content) return true;
+    // Strip HTML tags and whitespace to check if there's actual content
+    const stripped = content.replace(/<[^>]*>/g, '').trim();
+    return stripped.length < 20; // Consider it empty if less than 20 chars of text
+  };
+
   useEffect(() => {
     if (template) {
-      setSubject(template.subject_template || '');
-      setBody(template.body_template || '');
+      // Use default template subject/body if the current one is empty
+      const templateSubject = template.subject_template || '';
+      const templateBody = template.body_template || '';
+
+      if (defaultTemplate && isBodyEmpty(templateBody)) {
+        // Load the default branded template
+        setSubject(templateSubject || defaultTemplate.subject);
+        setBody(defaultTemplate.html);
+      } else {
+        setSubject(templateSubject);
+        setBody(templateBody);
+      }
     }
-  }, [template]);
+  }, [template, defaultTemplate]);
+
+  const handleLoadDefaultTemplate = () => {
+    if (defaultTemplate) {
+      setSubject(defaultTemplate.subject);
+      setBody(defaultTemplate.html);
+    }
+  };
 
   const loadVersions = async () => {
     if (!template) return;
@@ -125,6 +157,12 @@ export function EmailHtmlTab({
         </div>
 
         <div className="flex items-center gap-2">
+          {defaultTemplate && (
+            <Button variant="outline" size="sm" onClick={handleLoadDefaultTemplate}>
+              <MaterialIcon name="refresh" size="sm" className="mr-2" />
+              Load Default
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setShowTestDialog(true)}>
             <MaterialIcon name="send" size="sm" className="mr-2" />
             Send Test
