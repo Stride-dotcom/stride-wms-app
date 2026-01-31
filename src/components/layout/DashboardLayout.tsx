@@ -51,7 +51,7 @@ const navItems: NavItem[] = [
   { label: 'Inventory', href: '/inventory', icon: 'inventory_2' },
   { label: 'Tasks', href: '/tasks', icon: 'task_alt' },
   { label: 'Cycle Counts', href: '/stocktakes', icon: 'fact_check' },
-  { label: 'Scan', href: '/scan', icon: 'qr_code_scanner' },
+  { label: 'Scan', href: '/scan', icon: 'qr_code_scanner', requiredRole: ['admin', 'tenant_admin', 'warehouse_user', 'technician'] },
 
   { label: 'Analytics', href: '/reports', icon: 'analytics', requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Quotes', href: '/quotes', icon: 'request_quote', requiredRole: ['admin', 'tenant_admin'] },
