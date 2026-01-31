@@ -388,7 +388,7 @@ export function BillingCalculator({
                 Recorded Charges ({existingEvents.length})
               </p>
               {existingEvents.map((event) => (
-                <div key={event.id} className="flex items-center justify-between py-1.5 text-sm group">
+                <div key={event.id} className="flex items-center justify-between py-1.5 text-sm">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate">{event.charge_type}</span>
@@ -414,12 +414,12 @@ export function BillingCalculator({
                     <span className="font-medium">
                       {formatCurrency(event.total_amount || event.unit_rate * event.quantity)}
                     </span>
-                    {/* Void button - only for unbilled addon charges, visible on hover */}
+                    {/* Void button - only for unbilled addon charges */}
                     {canVoidEvent(event) && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                        className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => {
                           setVoidingEventId(event.id);
                           setVoidConfirmOpen(true);
