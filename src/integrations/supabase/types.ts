@@ -4107,6 +4107,62 @@ export type Database = {
           },
         ]
       }
+      invoice_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          css_content: string | null
+          description: string | null
+          html_content: string
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          name: string
+          settings: Json
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          css_content?: string | null
+          description?: string | null
+          html_content: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name: string
+          settings?: Json
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          css_content?: string | null
+          description?: string | null
+          html_content?: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          settings?: Json
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           account_id: string
@@ -9610,6 +9666,7 @@ export type Database = {
       }
       tenants: {
         Row: {
+          brand_settings: Json | null
           created_at: string
           deleted_at: string | null
           id: string
@@ -9620,6 +9677,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          brand_settings?: Json | null
           created_at?: string
           deleted_at?: string | null
           id?: string
@@ -9630,6 +9688,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          brand_settings?: Json | null
           created_at?: string
           deleted_at?: string | null
           id?: string
