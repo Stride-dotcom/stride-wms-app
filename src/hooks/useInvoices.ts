@@ -180,87 +180,78 @@ export function useInvoices() {
   }, [toast]);
 
   const voidInvoice = useCallback(async (invoiceId: string): Promise<boolean> => {
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      "Are you sure you want to void this invoice?\n\n" +
+      "The billing events will be returned to unbilled status and can be re-invoiced."
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
     try {
       if (!profile?.tenant_id) {
         throw new Error("No tenant context");
       }
 
-      // 1) Get invoice details
-      const { data: invoice, error: invErr } = await supabase
+      // 1) Get invoice details for the success message
+      const { data: invoice, error: fetchErr } = await supabase
         .from("invoices")
-        .select("*")
+        .select("invoice_number")
         .eq("id", invoiceId)
         .single();
 
-      if (invErr) throw invErr;
-
-      // 2) Get all billing events linked to this invoice
-      const { data: originalEvents, error: eventsErr } = await supabase
-        .from("billing_events")
-        .select("*")
-        .eq("invoice_id", invoiceId);
-
-      if (eventsErr) throw eventsErr;
-
-      // 3) Void the invoice
-      const { error: voidErr } = await supabase
-        .from("invoices")
-        .update({ status: "void" })
-        .eq("id", invoiceId);
-
-      if (voidErr) throw voidErr;
-
-      // 4) Create reversal billing_events (negative amounts) for each original event
-      // This maintains audit trail - billing_events are never deleted per Section 5
-      if (originalEvents && originalEvents.length > 0) {
-        const reversalEvents = originalEvents.map((event: any) => ({
-          tenant_id: event.tenant_id,
-          account_id: event.account_id,
-          item_id: event.item_id,
-          task_id: event.task_id,
-          sidemark_id: event.sidemark_id,
-          class_id: event.class_id,
-          shipment_id: event.shipment_id,
-          service_id: event.service_id,
-          event_type: event.event_type,
-          charge_type: event.charge_type,
-          description: `REVERSAL: ${event.description || event.charge_type}`,
-          quantity: -(event.quantity || 1),
-          unit_rate: event.unit_rate,
-          total_amount: -(event.total_amount || 0),
-          status: 'void' as const,
-          occurred_at: new Date().toISOString(),
-          metadata: {
-            reversal_of: event.id,
-            voided_invoice_id: invoiceId,
-            original_occurred_at: event.occurred_at,
-          },
-          created_by: profile.id || null,
-          needs_review: false,
-        }));
-
-        const { error: reversalErr } = await supabase
-          .from("billing_events")
-          .insert(reversalEvents);
-
-        if (reversalErr) throw reversalErr;
-
-        // 5) Mark original events as void (not deleted)
-        const eventIds = originalEvents.map((e: any) => e.id);
-        const { error: voidEventsErr } = await supabase
-          .from("billing_events")
-          .update({ status: "void" })
-          .in("id", eventIds);
-
-        if (voidEventsErr) throw voidEventsErr;
+      if (fetchErr) {
+        console.error("Error fetching invoice:", fetchErr);
+        throw new Error("Failed to fetch invoice details");
       }
 
-      toast({ title: "Invoice voided", description: "Invoice has been voided with reversal entries created." });
+      // 2) Update invoice status to 'void'
+      const { error: invoiceErr } = await supabase
+        .from("invoices")
+        .update({
+          status: "void",
+          voided_at: new Date().toISOString(),
+        })
+        .eq("id", invoiceId);
+
+      if (invoiceErr) {
+        console.error("Error voiding invoice:", invoiceErr);
+        throw new Error("Failed to void invoice");
+      }
+
+      // 3) Return billing events to 'unbilled' status
+      // CRITICAL: This sets status to 'unbilled', NOT 'void'
+      // CRITICAL: This clears the invoice_id and invoiced_at fields
+      // CRITICAL: This does NOT create any reversal entries
+      const { error: eventsErr } = await supabase
+        .from("billing_events")
+        .update({
+          status: "unbilled",
+          invoice_id: null,
+          invoiced_at: null,
+        })
+        .eq("invoice_id", invoiceId);
+
+      if (eventsErr) {
+        console.error("Error updating billing events:", eventsErr);
+        throw new Error("Failed to update billing events");
+      }
+
+      toast({
+        title: "Invoice Voided",
+        description: `Invoice ${invoice.invoice_number} has been voided. Billing events returned to unbilled status.`,
+      });
       return true;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      console.error("voidInvoice error", err);
-      toast({ title: "Failed to void invoice", description: message, variant: "destructive" });
+      console.error("voidInvoice error:", err);
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
       return false;
     }
   }, [profile, toast]);
