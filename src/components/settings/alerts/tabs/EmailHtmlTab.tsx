@@ -1,11 +1,10 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
   CommunicationTemplate,
@@ -21,14 +20,8 @@ import {
 } from '@/components/ui/sheet';
 import { SendTestDialog } from '@/components/settings/communications/SendTestDialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { TReaderDocument } from '@usewaypoint/email-builder';
-
-// Lazy load the WYSIWYG editor to reduce initial bundle size
-const EmailWysiwygEditor = lazy(() =>
-  import('@/components/settings/communications/EmailWysiwygEditor').then((mod) => ({
-    default: mod.EmailWysiwygEditor,
-  }))
-);
+import { TemplateEditor } from '@/components/templateEditor';
+import { EMAIL_TOKENS } from '@/lib/templateEditor/tokens';
 
 interface EmailHtmlTabProps {
   template: CommunicationTemplate | null;
@@ -57,7 +50,6 @@ export function EmailHtmlTab({
 }: EmailHtmlTabProps) {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
-  const [editorJson, setEditorJson] = useState<TReaderDocument | null>(null);
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<CommunicationTemplateVersion[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -69,16 +61,6 @@ export function EmailHtmlTab({
     if (template) {
       setSubject(template.subject_template || '');
       setBody(template.body_template || '');
-      // Parse stored editor JSON if available
-      if ((template as any).editor_json) {
-        try {
-          setEditorJson((template as any).editor_json as TReaderDocument);
-        } catch {
-          setEditorJson(null);
-        }
-      } else {
-        setEditorJson(null);
-      }
     }
   }, [template]);
 
@@ -101,16 +83,11 @@ export function EmailHtmlTab({
     await onUpdateTemplate(template.id, {
       subject_template: subject,
       body_template: body,
-      editor_json: editorJson,
     } as Partial<CommunicationTemplate>);
     setIsSaving(false);
   };
 
-  const handleJsonChange = (json: TReaderDocument) => {
-    setEditorJson(json);
-  };
-
-  const handleHtmlChange = (html: string) => {
+  const handleBodyChange = (html: string) => {
     setBody(html);
   };
 
@@ -187,24 +164,15 @@ export function EmailHtmlTab({
         </div>
       </div>
 
-      {/* WYSIWYG Editor */}
+      {/* TipTap Template Editor */}
       <div className="flex-1 overflow-hidden min-h-0">
-        <Suspense
-          fallback={
-            <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
-              <MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" />
-              <p className="text-muted-foreground">Loading editor...</p>
-            </div>
-          }
-        >
-          <EmailWysiwygEditor
-            initialJson={editorJson}
-            initialHtml={body}
-            brandSettings={brandSettings}
-            onJsonChange={handleJsonChange}
-            onHtmlChange={handleHtmlChange}
-          />
-        </Suspense>
+        <TemplateEditor
+          initialContent={body}
+          onChange={handleBodyChange}
+          tokens={EMAIL_TOKENS}
+          mode="email"
+          showSettings={false}
+        />
       </div>
 
       {/* Version History Sheet */}
