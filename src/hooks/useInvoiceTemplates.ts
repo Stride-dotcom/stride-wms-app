@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import type { Json } from '@/integrations/supabase/types';
 
 export interface InvoiceTemplate {
   id: string;
@@ -54,7 +55,7 @@ export function useInvoiceTemplates() {
       setIsLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await (supabase as any)
         .from('invoice_templates')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
@@ -83,7 +84,7 @@ export function useInvoiceTemplates() {
     if (!profile?.tenant_id) return null;
 
     try {
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await (supabase as any)
         .from('invoice_templates')
         .select('*')
         .eq('id', templateId)
@@ -117,7 +118,7 @@ export function useInvoiceTemplates() {
     }
 
     try {
-      const { data, error: createError } = await supabase
+      const { data, error: createError } = await (supabase as any)
         .from('invoice_templates')
         .insert({
           tenant_id: profile.tenant_id,
@@ -166,10 +167,11 @@ export function useInvoiceTemplates() {
     }
 
     try {
-      const { data, error: updateError } = await supabase
+      const { data, error: updateError } = await (supabase as any)
         .from('invoice_templates')
         .update({
           ...input,
+          settings: input.settings as Json,
           updated_by: profile.id,
           updated_at: new Date().toISOString(),
         })
@@ -215,7 +217,7 @@ export function useInvoiceTemplates() {
     }
 
     try {
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await (supabase as any)
         .from('invoice_templates')
         .update({ is_active: false })
         .eq('id', templateId)
@@ -259,7 +261,7 @@ export function useInvoiceTemplates() {
 
     try {
       // The database trigger will handle unsetting the previous default
-      const { error: updateError } = await supabase
+      const { error: updateError } = await (supabase as any)
         .from('invoice_templates')
         .update({ is_default: true })
         .eq('id', templateId)
@@ -292,7 +294,7 @@ export function useInvoiceTemplates() {
     if (!profile?.tenant_id) return null;
 
     try {
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await (supabase as any)
         .from('invoice_templates')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
@@ -302,7 +304,7 @@ export function useInvoiceTemplates() {
 
       if (fetchError) {
         // No default template found, return first active template
-        const { data: firstTemplate } = await supabase
+        const { data: firstTemplate } = await (supabase as any)
           .from('invoice_templates')
           .select('*')
           .eq('tenant_id', profile.tenant_id)
