@@ -243,7 +243,7 @@ export function RevenueLedgerTab() {
     }
 
     // Convert checkbox states to grouping value
-    let grouping: InvoiceGrouping = 'by_account';
+    let grouping: InvoiceGrouping = 'single';
     if (groupByAccount && groupBySidemark) {
       grouping = 'by_account_sidemark';
     } else if (groupByAccount && !groupBySidemark) {
@@ -251,7 +251,7 @@ export function RevenueLedgerTab() {
     } else if (!groupByAccount && groupBySidemark) {
       grouping = 'by_sidemark';
     }
-    // Note: groupByServiceType requires additional hook changes for full support
+    // When no checkboxes are selected, 'single' creates one invoice for all events
 
     setCreatingFromReport(true);
     const result = await createInvoicesFromEvents({
@@ -899,14 +899,14 @@ export function RevenueLedgerTab() {
                       By Sidemark <span className="text-muted-foreground">(separate invoice per sidemark)</span>
                     </label>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 opacity-50">
                     <Checkbox
                       id="groupByServiceType"
-                      checked={groupByServiceType}
-                      onCheckedChange={(checked) => setGroupByServiceType(!!checked)}
+                      checked={false}
+                      disabled
                     />
-                    <label htmlFor="groupByServiceType" className="text-sm font-normal cursor-pointer">
-                      By Service Type <span className="text-muted-foreground">(separate invoice per service type)</span>
+                    <label htmlFor="groupByServiceType" className="text-sm font-normal">
+                      By Service Type <span className="text-muted-foreground">(coming soon)</span>
                     </label>
                   </div>
                 </div>
@@ -979,29 +979,17 @@ export function RevenueLedgerTab() {
 
             {/* Grouping explanation */}
             <div className="text-sm text-muted-foreground bg-white p-3 rounded-lg border">
-              {!groupByAccount && !groupBySidemark && !groupByServiceType && (
+              {!groupByAccount && !groupBySidemark && (
                 <p>One single invoice will be created with all selected billing events.</p>
               )}
-              {groupByAccount && !groupBySidemark && !groupByServiceType && (
+              {groupByAccount && !groupBySidemark && (
                 <p>One invoice will be created for each unique account in the selection.</p>
               )}
-              {groupByAccount && groupBySidemark && !groupByServiceType && (
+              {groupByAccount && groupBySidemark && (
                 <p>Separate invoices will be created for each unique account + sidemark combination.</p>
               )}
-              {groupByAccount && !groupBySidemark && groupByServiceType && (
-                <p>Separate invoices will be created for each unique account + service type combination.</p>
-              )}
-              {groupByAccount && groupBySidemark && groupByServiceType && (
-                <p>Separate invoices will be created for each unique account + sidemark + service type combination.</p>
-              )}
-              {!groupByAccount && groupBySidemark && !groupByServiceType && (
+              {!groupByAccount && groupBySidemark && (
                 <p>One invoice will be created for each unique sidemark (regardless of account).</p>
-              )}
-              {!groupByAccount && !groupBySidemark && groupByServiceType && (
-                <p>One invoice will be created for each unique service type (all accounts combined).</p>
-              )}
-              {!groupByAccount && groupBySidemark && groupByServiceType && (
-                <p>Separate invoices will be created for each unique sidemark + service type combination.</p>
               )}
             </div>
           </CardContent>
