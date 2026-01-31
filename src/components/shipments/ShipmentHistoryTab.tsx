@@ -44,7 +44,6 @@ export function ShipmentHistoryTab({ shipmentId }: ShipmentHistoryTabProps) {
           created_at,
           received_at,
           completed_at,
-          cancelled_at,
           creator:created_by(first_name, last_name)
         `)
         .eq('id', shipmentId)
@@ -56,39 +55,40 @@ export function ShipmentHistoryTab({ shipmentId }: ShipmentHistoryTabProps) {
           id: 'created',
           type: 'created',
           title: 'Shipment Created',
-          description: `${shipment.shipment_type?.replace('_', ' ')} shipment ${shipment.shipment_number} created`,
-          timestamp: shipment.created_at,
-          user: shipment.creator ? `${shipment.creator.first_name} ${shipment.creator.last_name}` : undefined,
+          description: `${(shipment as any).shipment_type?.replace('_', ' ')} shipment ${(shipment as any).shipment_number} created`,
+          timestamp: (shipment as any).created_at,
+          user: (shipment as any).creator ? `${(shipment as any).creator.first_name} ${(shipment as any).creator.last_name}` : undefined,
         });
 
         // Status change events
-        if (shipment.received_at) {
+        if ((shipment as any).received_at) {
           allEvents.push({
             id: 'received',
             type: 'status',
             title: 'Receiving Completed',
             description: 'Shipment marked as received',
-            timestamp: shipment.received_at,
+            timestamp: (shipment as any).received_at,
           });
         }
 
-        if (shipment.completed_at) {
+        if ((shipment as any).completed_at) {
           allEvents.push({
             id: 'completed',
             type: 'status',
             title: 'Shipment Completed',
             description: 'Shipment marked as completed',
-            timestamp: shipment.completed_at,
+            timestamp: (shipment as any).completed_at,
           });
         }
 
-        if (shipment.cancelled_at) {
+        // Check status for cancelled (no cancelled_at column exists)
+        if ((shipment as any).status === 'cancelled') {
           allEvents.push({
             id: 'cancelled',
             type: 'status',
             title: 'Shipment Cancelled',
             description: 'Shipment was cancelled',
-            timestamp: shipment.cancelled_at,
+            timestamp: (shipment as any).created_at, // Use created_at as fallback
           });
         }
       }
@@ -182,8 +182,8 @@ export function ShipmentHistoryTab({ shipmentId }: ShipmentHistoryTabProps) {
         });
       }
 
-      // 5. Fetch photos
-      const { data: photos } = await supabase
+      // 5. Fetch photos (using 'as any' because 'photos' table may not be in typed schema)
+      const { data: photos } = await (supabase as any)
         .from('photos')
         .select(`
           id,

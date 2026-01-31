@@ -45,7 +45,6 @@ export function TaskHistoryTab({ taskId }: TaskHistoryTabProps) {
           created_at,
           started_at,
           completed_at,
-          cancelled_at,
           creator:created_by(first_name, last_name),
           assignee:assigned_to(first_name, last_name)
         `)
@@ -53,57 +52,59 @@ export function TaskHistoryTab({ taskId }: TaskHistoryTabProps) {
         .single();
 
       if (task) {
+        const t = task as any;
         // Task created event
         allEvents.push({
           id: 'created',
           type: 'created',
           title: 'Task Created',
-          description: `${task.task_type} task "${task.title}" created`,
-          timestamp: task.created_at,
-          user: task.creator ? `${task.creator.first_name} ${task.creator.last_name}` : undefined,
-          metadata: { priority: task.priority },
+          description: `${t.task_type} task "${t.title}" created`,
+          timestamp: t.created_at,
+          user: t.creator ? `${t.creator.first_name} ${t.creator.last_name}` : undefined,
+          metadata: { priority: t.priority },
         });
 
         // Assignment event (if assigned)
-        if (task.assignee) {
+        if (t.assignee) {
           allEvents.push({
             id: 'assigned',
             type: 'assignment',
             title: 'Task Assigned',
-            description: `Assigned to ${task.assignee.first_name} ${task.assignee.last_name}`,
-            timestamp: task.created_at, // Using created_at as we don't track assignment time separately
-            metadata: { assignee: `${task.assignee.first_name} ${task.assignee.last_name}` },
+            description: `Assigned to ${t.assignee.first_name} ${t.assignee.last_name}`,
+            timestamp: t.created_at, // Using created_at as we don't track assignment time separately
+            metadata: { assignee: `${t.assignee.first_name} ${t.assignee.last_name}` },
           });
         }
 
         // Status change events
-        if (task.started_at) {
+        if (t.started_at) {
           allEvents.push({
             id: 'started',
             type: 'status',
             title: 'Task Started',
             description: 'Task work has begun',
-            timestamp: task.started_at,
+            timestamp: t.started_at,
           });
         }
 
-        if (task.completed_at) {
+        if (t.completed_at) {
           allEvents.push({
             id: 'completed',
             type: 'status',
             title: 'Task Completed',
             description: 'Task marked as completed',
-            timestamp: task.completed_at,
+            timestamp: t.completed_at,
           });
         }
 
-        if (task.cancelled_at) {
+        // Check status for cancelled (no cancelled_at column exists)
+        if (t.status === 'cancelled') {
           allEvents.push({
             id: 'cancelled',
             type: 'status',
             title: 'Task Cancelled',
             description: 'Task was cancelled',
-            timestamp: task.cancelled_at,
+            timestamp: t.created_at, // Use created_at as fallback
           });
         }
       }
@@ -183,8 +184,8 @@ export function TaskHistoryTab({ taskId }: TaskHistoryTabProps) {
         });
       }
 
-      // 5. Fetch photos
-      const { data: photos } = await supabase
+      // 5. Fetch photos (using 'as any' because 'photos' table may not be in typed schema)
+      const { data: photos } = await (supabase as any)
         .from('photos')
         .select(`
           id,
