@@ -347,6 +347,44 @@ export function useInvoices() {
     }
   }, [toast]);
 
+  const markInvoicePaid = useCallback(async (
+    invoiceId: string,
+    paidAmount: number,
+    paymentDate?: string,
+    paymentMethod?: string,
+    paymentReference?: string
+  ): Promise<boolean> => {
+    try {
+      const updatePayload: Record<string, unknown> = {
+        status: 'paid',
+        paid_amount: paidAmount,
+        paid_at: paymentDate || new Date().toISOString(),
+      };
+
+      if (paymentMethod) {
+        updatePayload.payment_method = paymentMethod;
+      }
+      if (paymentReference) {
+        updatePayload.payment_reference = paymentReference;
+      }
+
+      const { error } = await supabase
+        .from("invoices")
+        .update(updatePayload)
+        .eq("id", invoiceId);
+
+      if (error) throw error;
+
+      toast({ title: "Invoice marked paid", description: `Payment of $${paidAmount.toFixed(2)} recorded.` });
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("markInvoicePaid error", err);
+      toast({ title: "Failed to mark paid", description: message, variant: "destructive" });
+      return false;
+    }
+  }, [toast]);
+
   // Create batch invoices - one per account from a list of billing event IDs
   const createBatchInvoices = useCallback(async (
     eventIds: string[],
@@ -690,6 +728,7 @@ export function useInvoices() {
   return {
     createInvoiceDraft,
     markInvoiceSent,
+    markInvoicePaid,
     voidInvoice,
     fetchInvoices,
     fetchInvoiceLines,
