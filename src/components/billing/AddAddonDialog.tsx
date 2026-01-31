@@ -366,7 +366,7 @@ function ServiceEventForm({
           <SelectTrigger>
             <SelectValue placeholder={loadingServices ? 'Loading...' : 'Select a service...'} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-64 overflow-y-auto">
             {scanServiceEvents.map((service) => (
               <SelectItem key={service.service_code} value={service.service_code}>
                 <div className="flex items-center justify-between gap-4 w-full">
