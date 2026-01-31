@@ -128,7 +128,7 @@ export function BillingReportTab() {
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [serviceFilter, setServiceFilter] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [rows, setRows] = useState<BillingEventRow[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [services, setServices] = useState<ServiceEvent[]>([]);
@@ -150,6 +150,16 @@ export function BillingReportTab() {
   // Unsaved changes dialog
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+
+  // Inactive service type handling
+  const [inactiveServiceDialogOpen, setInactiveServiceDialogOpen] = useState(false);
+  const [inactiveServiceEvents, setInactiveServiceEvents] = useState<{
+    serviceName: string;
+    count: number;
+    total: number;
+    eventIds: string[];
+  }[]>([]);
+  const [pendingBillingEvents, setPendingBillingEvents] = useState<BillingEventRow[]>([]);
 
   // Add custom charge dialog
   const [addChargeOpen, setAddChargeOpen] = useState(false);
@@ -265,9 +275,6 @@ export function BillingReportTab() {
       if (selectedServices.length > 0) {
         query = query.in("charge_type", selectedServices);
       }
-      if (serviceFilter.trim()) {
-        query = query.ilike("charge_type", `%${serviceFilter.trim()}%`);
-      }
 
       const { data, error } = await query;
       if (error) throw error;
@@ -318,6 +325,59 @@ export function BillingReportTab() {
         sidemark_name: row.sidemark_id ? (sidemarkMap[row.sidemark_id] || "-") : "-",
       }));
 
+      // Check for inactive service types
+      const chargeTypes = [...new Set(transformed.map((r: BillingEventRow) => r.charge_type).filter(Boolean))] as string[];
+
+      if (chargeTypes.length > 0) {
+        // Fetch service status for all charge types
+        const { data: serviceData } = await supabase
+          .from('service_events')
+          .select('service_code, service_name, is_active')
+          .eq('tenant_id', profile.tenant_id)
+          .in('service_code', chargeTypes);
+
+        // Create map of service code -> { name, isActive }
+        const serviceMap = new Map(
+          serviceData?.map(s => [s.service_code, { name: s.service_name, isActive: s.is_active }]) || []
+        );
+
+        // Find events with inactive service types
+        const eventsWithInactive = transformed.filter((event: BillingEventRow) => {
+          const serviceInfo = serviceMap.get(event.charge_type);
+          return serviceInfo && !serviceInfo.isActive;
+        });
+
+        if (eventsWithInactive.length > 0) {
+          // Group by service type for display
+          const groupedByService = new Map<string, { name: string; events: BillingEventRow[] }>();
+
+          eventsWithInactive.forEach((event: BillingEventRow) => {
+            const serviceInfo = serviceMap.get(event.charge_type);
+            if (!groupedByService.has(event.charge_type)) {
+              groupedByService.set(event.charge_type, {
+                name: serviceInfo?.name || event.charge_type,
+                events: [],
+              });
+            }
+            groupedByService.get(event.charge_type)!.events.push(event);
+          });
+
+          const inactiveGroups = Array.from(groupedByService.values()).map(group => ({
+            serviceName: group.name,
+            count: group.events.length,
+            total: group.events.reduce((sum, e) => sum + Number(e.total_amount || 0), 0),
+            eventIds: group.events.map(e => e.id),
+          }));
+
+          // Store state and show dialog
+          setInactiveServiceEvents(inactiveGroups);
+          setPendingBillingEvents(transformed);
+          setInactiveServiceDialogOpen(true);
+          setLoading(false);
+          return;
+        }
+      }
+
       setRows(transformed);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Unknown error";
@@ -326,7 +386,49 @@ export function BillingReportTab() {
     } finally {
       setLoading(false);
     }
-  }, [profile?.tenant_id, start, end, selectedAccounts, selectedStatuses, selectedServices, serviceFilter, toast]);
+  }, [profile?.tenant_id, start, end, selectedAccounts, selectedStatuses, selectedServices, toast]);
+
+  // Inactive service type handlers
+  const handleIncludeInactiveServices = () => {
+    setRows(pendingBillingEvents);
+    setInactiveServiceDialogOpen(false);
+    setPendingBillingEvents([]);
+    setInactiveServiceEvents([]);
+  };
+
+  const handleVoidInactiveServices = async () => {
+    const eventIdsToVoid = inactiveServiceEvents.flatMap(g => g.eventIds);
+
+    // Void the events
+    const { error } = await supabase
+      .from('billing_events')
+      .update({ status: 'void' })
+      .in('id', eventIdsToVoid);
+
+    if (error) {
+      toast({ title: 'Error voiding events', variant: 'destructive' });
+      return;
+    }
+
+    // Show remaining events (excluding voided ones)
+    const remainingEvents = pendingBillingEvents.filter(e => !eventIdsToVoid.includes(e.id));
+    setRows(remainingEvents);
+
+    toast({
+      title: 'Events Voided',
+      description: `Voided ${eventIdsToVoid.length} billing event(s) with inactive service types.`,
+    });
+
+    setInactiveServiceDialogOpen(false);
+    setPendingBillingEvents([]);
+    setInactiveServiceEvents([]);
+  };
+
+  const handleCancelInactiveDialog = () => {
+    setInactiveServiceDialogOpen(false);
+    setPendingBillingEvents([]);
+    setInactiveServiceEvents([]);
+  };
 
   // Sort rows
   const sortedRows = useMemo(() => {
@@ -362,6 +464,37 @@ export function BillingReportTab() {
     });
     return sorted;
   }, [rows, sortField, sortDirection]);
+
+  // Universal search - filter across all fields
+  const filteredRows = useMemo(() => {
+    if (!searchQuery.trim()) return sortedRows;
+
+    const query = searchQuery.toLowerCase().trim();
+
+    return sortedRows.filter(row => {
+      // Create array of all searchable field values
+      const searchableValues = [
+        row.item_code,                    // Item code
+        row.description,                  // Description
+        row.account_name,                 // Account name
+        row.sidemark_name,                // Sidemark name
+        row.charge_type,                  // Charge type / service code
+        row.event_type,                   // Event type
+        row.occurred_at,                  // Date
+        formatDateMMDDYY(row.occurred_at), // Formatted date
+        row.total_amount?.toString(),     // Amount as string
+        row.unit_rate?.toString(),        // Rate as string
+        row.quantity?.toString(),         // Quantity as string
+        row.status,                       // Status
+        row.invoice_id,                   // Invoice ID
+      ];
+
+      // Return true if any field contains the search query
+      return searchableValues.some(value =>
+        value?.toLowerCase?.()?.includes(query)
+      );
+    });
+  }, [sortedRows, searchQuery]);
 
   // Handle column header click for sorting
   const handleSort = (field: SortField) => {
@@ -922,13 +1055,13 @@ export function BillingReportTab() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium">Service (search)</label>
+              <label className="text-sm font-medium">Search</label>
               <div className="relative">
                 <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  value={serviceFilter}
-                  onChange={(e) => setServiceFilter(e.target.value)}
-                  placeholder="e.g. INSPECTION"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by item, description, account, date, sidemark..."
                   className="pl-9"
                 />
               </div>
@@ -980,7 +1113,7 @@ export function BillingReportTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MaterialIcon name="description" size="md" />
-            Billing Events ({rows.length})
+            Billing Events ({filteredRows.length}{searchQuery.trim() && filteredRows.length !== rows.length ? ` of ${rows.length}` : ''})
           </CardTitle>
           <CardDescription>
             Click on Description, Qty, Sidemark, or Rate fields to edit unbilled charges. Click column headers to sort.
@@ -1012,7 +1145,7 @@ export function BillingReportTab() {
                 </tr>
               </thead>
               <tbody>
-                {sortedRows.map((r) => {
+                {filteredRows.map((r) => {
                   const canEdit = r.status === 'unbilled';
                   const hasEdits = !!rowEdits[r.id];
                   const rowSidemarks = getSidemarksForRow(r.account_id);
@@ -1135,10 +1268,12 @@ export function BillingReportTab() {
                     </tr>
                   );
                 })}
-                {!rows.length && (
+                {filteredRows.length === 0 && (
                   <tr>
                     <td className="p-8 text-center text-muted-foreground" colSpan={12}>
-                      No billing events found for the selected filters
+                      {rows.length === 0
+                        ? 'No billing events found for the selected filters'
+                        : `No results match "${searchQuery}"`}
                     </td>
                   </tr>
                 )}
@@ -1306,6 +1441,47 @@ export function BillingReportTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Inactive Service Types Dialog */}
+      <Dialog open={inactiveServiceDialogOpen} onOpenChange={setInactiveServiceDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MaterialIcon name="warning" size="md" className="text-yellow-500" />
+              Inactive Service Types Found
+            </DialogTitle>
+            <DialogDescription>
+              The following billing events use service types that are now inactive:
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <div className="bg-muted rounded-lg p-3 space-y-2 max-h-[200px] overflow-y-auto">
+              {inactiveServiceEvents.map((group, i) => (
+                <div key={i} className="flex justify-between text-sm">
+                  <span>{group.count}x "{group.serviceName}"</span>
+                  <span className="font-medium">${group.total.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-muted-foreground mt-3">
+              Total: {inactiveServiceEvents.reduce((sum, g) => sum + g.count, 0)} event(s) worth ${inactiveServiceEvents.reduce((sum, g) => sum + g.total, 0).toFixed(2)}
+            </p>
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={handleCancelInactiveDialog}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleVoidInactiveServices}>
+              Void Events
+            </Button>
+            <Button onClick={handleIncludeInactiveServices}>
+              Include Anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

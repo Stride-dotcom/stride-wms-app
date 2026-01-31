@@ -110,6 +110,14 @@ export function RevenueLedgerTab() {
   const [billingReportInvoiceType, setBillingReportInvoiceType] = useState<InvoiceType>('manual');
   const [creatingFromReport, setCreatingFromReport] = useState(false);
 
+  // Grouping checkboxes for billing report flow
+  const [groupByAccount, setGroupByAccount] = useState(true);
+  const [groupBySidemark, setGroupBySidemark] = useState(false);
+  const [groupByServiceType, setGroupByServiceType] = useState(false);
+
+  // Sort direction for invoice lines
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
   // Tenant company settings for PDF
   const [tenantSettings, setTenantSettings] = useState<TenantCompanySettings | null>(null);
 
@@ -234,10 +242,21 @@ export function RevenueLedgerTab() {
       return;
     }
 
+    // Convert checkbox states to grouping value
+    let grouping: InvoiceGrouping = 'by_account';
+    if (groupByAccount && groupBySidemark) {
+      grouping = 'by_account_sidemark';
+    } else if (groupByAccount && !groupBySidemark) {
+      grouping = 'by_account';
+    } else if (!groupByAccount && groupBySidemark) {
+      grouping = 'by_sidemark';
+    }
+    // Note: groupByServiceType requires additional hook changes for full support
+
     setCreatingFromReport(true);
     const result = await createInvoicesFromEvents({
       billingEventIds: selectedBillingEvents.map(e => e.id),
-      grouping: billingReportGrouping,
+      grouping,
       invoiceType: billingReportInvoiceType,
     });
 
@@ -855,67 +874,134 @@ export function RevenueLedgerTab() {
             </div>
 
             {/* Invoice creation options */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Invoice Grouping</label>
-                <Select value={billingReportGrouping} onValueChange={(v) => setBillingReportGrouping(v as InvoiceGrouping)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="by_account">Separate invoice per Account</SelectItem>
-                    <SelectItem value="by_sidemark">Separate invoice per Sidemark</SelectItem>
-                    <SelectItem value="by_account_sidemark">Separate by Account + Sidemark</SelectItem>
-                    <SelectItem value="include_subaccounts">Include sub-accounts on parent invoice</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Grouping Options */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium">Grouping Options</label>
+                <div className="space-y-2 p-4 border rounded-lg bg-white">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="groupByAccount"
+                      checked={groupByAccount}
+                      onCheckedChange={(checked) => setGroupByAccount(!!checked)}
+                    />
+                    <label htmlFor="groupByAccount" className="text-sm font-normal cursor-pointer">
+                      By Account <span className="text-muted-foreground">(one invoice per account)</span>
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="groupBySidemark"
+                      checked={groupBySidemark}
+                      onCheckedChange={(checked) => setGroupBySidemark(!!checked)}
+                    />
+                    <label htmlFor="groupBySidemark" className="text-sm font-normal cursor-pointer">
+                      By Sidemark <span className="text-muted-foreground">(separate invoice per sidemark)</span>
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="groupByServiceType"
+                      checked={groupByServiceType}
+                      onCheckedChange={(checked) => setGroupByServiceType(!!checked)}
+                    />
+                    <label htmlFor="groupByServiceType" className="text-sm font-normal cursor-pointer">
+                      By Service Type <span className="text-muted-foreground">(separate invoice per service type)</span>
+                    </label>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Invoice Type</label>
-                <Select value={billingReportInvoiceType} onValueChange={(v) => setBillingReportInvoiceType(v as InvoiceType)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="weekly_services">Weekly Services</SelectItem>
-                    <SelectItem value="monthly_storage">Monthly Storage</SelectItem>
-                    <SelectItem value="closeout">Closeout</SelectItem>
-                    <SelectItem value="manual">Manual</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              {/* Invoice Type and Line Sorting */}
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Invoice Type</label>
+                  <Select value={billingReportInvoiceType} onValueChange={(v) => setBillingReportInvoiceType(v as InvoiceType)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly_services">Weekly Services</SelectItem>
+                      <SelectItem value="monthly_storage">Monthly Storage</SelectItem>
+                      <SelectItem value="closeout">Closeout</SelectItem>
+                      <SelectItem value="manual">Manual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Line Sorting</label>
+                    <Select value={lineSortOption} onValueChange={(v) => setLineSortOption(v as LineSortOption)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="date">By Date</SelectItem>
+                        <SelectItem value="service">By Service Type</SelectItem>
+                        <SelectItem value="item">By Item</SelectItem>
+                        <SelectItem value="amount">By Amount</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Sort Direction</label>
+                    <Select value={sortDirection} onValueChange={(v) => setSortDirection(v as 'asc' | 'desc')}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="asc">Ascending</SelectItem>
+                        <SelectItem value="desc">Descending</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-end gap-2">
-                <Button
-                  onClick={handleCreateFromBillingReport}
-                  disabled={creatingFromReport}
-                  className="flex-1"
-                >
-                  <MaterialIcon name="add" size="sm" className="mr-2" />
-                  {creatingFromReport ? "Creating..." : "Create Invoices"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleCancelBillingReportFlow}
-                  disabled={creatingFromReport}
-                >
-                  Cancel
-                </Button>
-              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 pt-2">
+              <Button
+                onClick={handleCreateFromBillingReport}
+                disabled={creatingFromReport}
+              >
+                <MaterialIcon name="add" size="sm" className="mr-2" />
+                {creatingFromReport ? "Creating..." : "Create Invoices"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleCancelBillingReportFlow}
+                disabled={creatingFromReport}
+              >
+                Cancel
+              </Button>
             </div>
 
             {/* Grouping explanation */}
             <div className="text-sm text-muted-foreground bg-white p-3 rounded-lg border">
-              {billingReportGrouping === 'by_account' && (
+              {!groupByAccount && !groupBySidemark && !groupByServiceType && (
+                <p>One single invoice will be created with all selected billing events.</p>
+              )}
+              {groupByAccount && !groupBySidemark && !groupByServiceType && (
                 <p>One invoice will be created for each unique account in the selection.</p>
               )}
-              {billingReportGrouping === 'by_sidemark' && (
-                <p>Separate invoices will be created for each sidemark. Events without a sidemark will be grouped by account.</p>
-              )}
-              {billingReportGrouping === 'by_account_sidemark' && (
+              {groupByAccount && groupBySidemark && !groupByServiceType && (
                 <p>Separate invoices will be created for each unique account + sidemark combination.</p>
               )}
-              {billingReportGrouping === 'include_subaccounts' && (
-                <p>Sub-account charges will be included on their parent account's invoice. Parent accounts get all charges from their sub-accounts.</p>
+              {groupByAccount && !groupBySidemark && groupByServiceType && (
+                <p>Separate invoices will be created for each unique account + service type combination.</p>
+              )}
+              {groupByAccount && groupBySidemark && groupByServiceType && (
+                <p>Separate invoices will be created for each unique account + sidemark + service type combination.</p>
+              )}
+              {!groupByAccount && groupBySidemark && !groupByServiceType && (
+                <p>One invoice will be created for each unique sidemark (regardless of account).</p>
+              )}
+              {!groupByAccount && !groupBySidemark && groupByServiceType && (
+                <p>One invoice will be created for each unique service type (all accounts combined).</p>
+              )}
+              {!groupByAccount && groupBySidemark && groupByServiceType && (
+                <p>Separate invoices will be created for each unique sidemark + service type combination.</p>
               )}
             </div>
           </CardContent>
