@@ -33,6 +33,7 @@ import { ItemLabelData } from '@/lib/labelGenerator';
 import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDialog';
 import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
+import { ShipmentHistoryTab } from '@/components/shipments/ShipmentHistoryTab';
 
 // ============================================
 // TYPES
@@ -1159,6 +1160,11 @@ export default function ShipmentDetail() {
           </CardContent>
         </Card>
       )}
+
+      {/* Shipment History */}
+      <div className="mt-6">
+        <ShipmentHistoryTab shipmentId={shipment.id} />
+      </div>
 
       {/* Finish Receiving Dialog */}
       <AlertDialog open={showFinishDialog} onOpenChange={setShowFinishDialog}>
