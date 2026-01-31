@@ -719,6 +719,32 @@ export default function ShipmentDetail() {
         </Card>
       )}
 
+      {/* Outbound Status Banner */}
+      {!isInbound && ['expected', 'in_progress'].includes(shipment.status) && (
+        <Card className="mb-6 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20">
+          <CardContent className="py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-3 w-3 bg-blue-500 rounded-full animate-pulse" />
+                <span className="font-medium">
+                  {shipment.status === 'expected' ? 'Outbound shipment pending' : 'Outbound release in progress'}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowCancelDialog(true)}>
+                  <MaterialIcon name="cancel" size="sm" className="mr-2" />
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={() => setShowOutboundCompleteDialog(true)}>
+                  <MaterialIcon name="check_circle" size="sm" className="mr-2" />
+                  Complete Release
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Edit Mode */}
       {isEditing && (
         <Card className="mb-6 border-primary/50">

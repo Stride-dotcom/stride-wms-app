@@ -582,6 +582,30 @@ export default function TaskDetailPage() {
           </Button>
         </div>
 
+        {/* Task Pending Banner */}
+        {task.status === 'pending' && (
+          <Card className="border-orange-500 dark:border-orange-400 bg-orange-50/50 dark:bg-orange-950/20">
+            <CardContent className="py-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-3 w-3 bg-orange-500 rounded-full" />
+                  <span className="font-medium">Task pending</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setUnableDialogOpen(true)} disabled={actionLoading}>
+                    <MaterialIcon name="cancel" size="sm" className="mr-2" />
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={handleStartTask} disabled={actionLoading}>
+                    <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
+                    Start {task.task_type}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Task In Progress Banner - similar to Shipment receiving banner */}
         {task.status === 'in_progress' && (
           <Card className="border-primary bg-primary/5">
@@ -589,7 +613,7 @@ export default function TaskDetailPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="h-3 w-3 bg-primary rounded-full animate-pulse" />
-                  <span className="font-medium">Task in progress</span>
+                  <span className="font-medium">{task.task_type} in progress</span>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => setUnableDialogOpen(true)} disabled={actionLoading}>
@@ -606,15 +630,36 @@ export default function TaskDetailPage() {
           </Card>
         )}
 
-        {/* Action Buttons - show only when not in progress */}
-        {task.status !== 'in_progress' && (
+        {/* Additional Action Buttons (when not pending or in_progress) */}
+        {!['pending', 'in_progress'].includes(task.status) && (
           <div className="flex flex-wrap gap-2">
-            {task.status === 'pending' && (
-              <Button onClick={handleStartTask} disabled={actionLoading}>
-                <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
-                Start Task
+            {/* Request Quote Button */}
+            {canRequestQuote && (
+              <Button
+                variant="secondary"
+                onClick={() => setQuoteDialogOpen(true)}
+                disabled={actionLoading}
+              >
+                <MaterialIcon name="build" size="sm" className="mr-2" />
+                Request Repair Quote
               </Button>
             )}
+            {/* Add Charge Button - Manager/Admin Only */}
+            {task.account_id && canSeeBilling && (
+              <Button
+                variant="secondary"
+                onClick={() => setAddAddonDialogOpen(true)}
+              >
+                <MaterialIcon name="attach_money" size="sm" className="mr-2" />
+                Add Charge
+              </Button>
+            )}
+          </div>
+        )}
+        
+        {/* Additional buttons for pending/in_progress tasks */}
+        {['pending', 'in_progress'].includes(task.status) && (
+          <div className="flex flex-wrap gap-2">
             {/* Request Quote Button */}
             {canRequestQuote && (
               <Button
