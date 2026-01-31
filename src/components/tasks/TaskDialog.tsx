@@ -37,12 +37,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTaskTypes, useDueDateRules, Task } from '@/hooks/useTasks';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useUsers } from '@/hooks/useUsers';
-import { useTaskCustomCharges } from '@/hooks/useTaskCustomCharges';
 import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { TaskCustomChargesSection } from './TaskCustomChargesSection';
 
 interface TaskDialogProps {
   open: boolean;
@@ -83,17 +81,6 @@ export function TaskDialog({
   const { getDueDateForTaskType } = useDueDateRules();
   const { warehouses } = useWarehouses();
   const { users } = useUsers();
-  
-  // Custom charges for editing existing tasks
-  const {
-    charges,
-    templates,
-    loading: chargesLoading,
-    addCharge,
-    updateCharge,
-    deleteCharge,
-    totalCharges,
-  } = useTaskCustomCharges(task?.id || null);
 
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -701,19 +688,6 @@ export function TaskDialog({
                 rows={3}
               />
             </div>
-
-            {/* Custom Charges - only show when editing existing task */}
-            {task && (
-              <TaskCustomChargesSection
-                charges={charges}
-                templates={templates}
-                onAddCharge={addCharge}
-                onUpdateCharge={updateCharge}
-                onDeleteCharge={deleteCharge}
-                totalCharges={totalCharges}
-                disabled={chargesLoading}
-              />
-            )}
 
             {/* Bill To */}
             <div className="space-y-2">
