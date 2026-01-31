@@ -48,6 +48,7 @@ export interface CreateInvoiceArgs {
 }
 
 export type InvoiceGrouping =
+  | 'single'               // All events in one invoice (no grouping)
   | 'by_account'           // One invoice per account
   | 'by_sidemark'          // Separate invoices for each sidemark
   | 'by_account_sidemark'  // Separate by both account AND sidemark
@@ -574,8 +575,11 @@ export function useInvoices() {
         let groupKey: string;
         let targetAccountId = event.account_id;
 
-        // Handle sub-account grouping
-        if (args.grouping === 'include_subaccounts' && account?.parent_account_id) {
+        // Handle grouping based on strategy
+        if (args.grouping === 'single') {
+          // All events in one invoice - use first account as the invoice account
+          groupKey = 'single';
+        } else if (args.grouping === 'include_subaccounts' && account?.parent_account_id) {
           // Use parent account instead
           targetAccountId = account.parent_account_id;
           groupKey = targetAccountId;
