@@ -546,10 +546,10 @@ export function useOutboundShipments(filters?: {
           occurred_at: new Date().toISOString(),
           metadata: {
             class_code: classCode,
-            has_rate_error: rateResult.hasError,
-            rate_error_message: rateResult.errorMessage,
           },
           created_by: profile.id,
+          has_rate_error: rateResult.hasError,
+          rate_error_message: rateResult.errorMessage,
         });
 
         // Track alerts to queue for services with email_office alert rule
