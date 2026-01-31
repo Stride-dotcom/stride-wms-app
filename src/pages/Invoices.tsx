@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useInvoices, Invoice, InvoiceLine, InvoiceType } from "@/hooks/useInvoices";
+import { useInvoices, Invoice, InvoiceLine, InvoiceType, InvoiceGrouping } from "@/hooks/useInvoices";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -12,7 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, Plus, FileText, Send, Eye, XCircle, Calendar, Download, ArrowUpDown, Save, ChevronUp, ChevronDown, Printer, Settings2, Mail } from "lucide-react";
+import { RefreshCw, Plus, FileText, Send, Eye, XCircle, Calendar, Download, ArrowUpDown, Save, ChevronUp, ChevronDown, Printer, Settings2, Mail, FileSpreadsheet } from "lucide-react";
+import * as XLSX from 'xlsx';
 import { useAuth } from "@/contexts/AuthContext";
 import { sendEmail, buildInvoiceSentEmail } from "@/lib/email";
 import { queueInvoiceSentAlert } from "@/lib/alertQueue";
@@ -48,13 +50,27 @@ interface Sidemark {
 
 type SortField = 'invoice_number' | 'created_at' | 'total' | 'status' | 'account';
 type SortDir = 'asc' | 'desc';
-type InvoiceGrouping = 'by_sidemark' | 'by_account';
+type LocalInvoiceGrouping = 'by_sidemark' | 'by_account';
 type LineSortOption = 'date' | 'service' | 'item' | 'amount';
+
+interface SelectedBillingEvent {
+  id: string;
+  account_id: string;
+  account_name: string;
+  sidemark_name: string | null;
+  charge_type: string;
+  description: string | null;
+  quantity: number;
+  total_amount: number;
+  occurred_at: string;
+}
 
 export default function Invoices() {
   const { toast } = useToast();
   const { profile } = useAuth();
-  const { createInvoiceDraft, markInvoiceSent, voidInvoice, fetchInvoices, fetchInvoiceLines, generateStorageForDate, updateInvoiceNotes } = useInvoices();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { createInvoiceDraft, markInvoiceSent, voidInvoice, fetchInvoices, fetchInvoiceLines, generateStorageForDate, updateInvoiceNotes, createInvoicesFromEvents } = useInvoices();
   
   const [accountId, setAccountId] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -113,8 +129,20 @@ export default function Invoices() {
   const [batchCreating, setBatchCreating] = useState(false);
   const [selectedAccountsForBatch, setSelectedAccountsForBatch] = useState<string[]>([]);
 
+  // Billing report flow - selected events from billing report
+  const [fromBillingReport, setFromBillingReport] = useState(false);
+  const [selectedBillingEvents, setSelectedBillingEvents] = useState<SelectedBillingEvent[]>([]);
+  const [billingReportGrouping, setBillingReportGrouping] = useState<InvoiceGrouping>('by_account');
+  const [billingReportInvoiceType, setBillingReportInvoiceType] = useState<InvoiceType>('manual');
+  const [creatingFromReport, setCreatingFromReport] = useState(false);
+
   // Tenant company settings for PDF
   const [tenantSettings, setTenantSettings] = useState<TenantCompanySettings | null>(null);
+
+  // Invoice selection for bulk actions
+  const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(new Set());
+  const [bulkSending, setBulkSending] = useState(false);
+  const [bulkDownloading, setBulkDownloading] = useState(false);
 
   // Load accounts
   useEffect(() => {
@@ -145,6 +173,277 @@ export default function Invoices() {
     }
     loadTenantSettings();
   }, [profile?.tenant_id]);
+
+  // Check if coming from billing report and load selected events
+  useEffect(() => {
+    const source = searchParams.get('source');
+    const tab = searchParams.get('tab');
+
+    if (source === 'billing-report' && tab === 'create') {
+      setFromBillingReport(true);
+
+      // Load selected billing event IDs from sessionStorage
+      const storedIds = sessionStorage.getItem('invoiceSelectedBillingEvents');
+      if (storedIds) {
+        const eventIds = JSON.parse(storedIds) as string[];
+        if (eventIds.length > 0) {
+          // Fetch the billing event details
+          loadSelectedBillingEvents(eventIds);
+        }
+      }
+
+      // Clean up URL params
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  // Load billing events by IDs
+  const loadSelectedBillingEvents = async (eventIds: string[]) => {
+    if (!profile?.tenant_id) return;
+
+    const { data: events, error } = await supabase
+      .from("billing_events")
+      .select(`
+        id, account_id, sidemark_id, charge_type, description, quantity, total_amount, occurred_at,
+        accounts:account_id(account_name)
+      `)
+      .in("id", eventIds)
+      .eq("status", "unbilled");
+
+    if (error) {
+      console.error("Failed to load billing events:", error);
+      toast({ title: "Error", description: "Failed to load selected billing events.", variant: "destructive" });
+      return;
+    }
+
+    if (!events || events.length === 0) {
+      toast({ title: "No events", description: "No unbilled events found. They may have already been invoiced.", variant: "destructive" });
+      setFromBillingReport(false);
+      return;
+    }
+
+    // Get sidemark names
+    const sidemarkIds = [...new Set(events.map(e => e.sidemark_id).filter(Boolean))];
+    let sidemarkMap: Record<string, string> = {};
+    if (sidemarkIds.length > 0) {
+      const { data: sidemarks } = await supabase
+        .from("sidemarks")
+        .select("id, sidemark_name")
+        .in("id", sidemarkIds);
+      if (sidemarks) {
+        sidemarkMap = Object.fromEntries(sidemarks.map(s => [s.id, s.sidemark_name]));
+      }
+    }
+
+    const selectedEvents: SelectedBillingEvent[] = events.map((e: any) => ({
+      id: e.id,
+      account_id: e.account_id,
+      account_name: e.accounts?.account_name || 'Unknown',
+      sidemark_name: e.sidemark_id ? (sidemarkMap[e.sidemark_id] || null) : null,
+      charge_type: e.charge_type,
+      description: e.description,
+      quantity: e.quantity || 1,
+      total_amount: e.total_amount || 0,
+      occurred_at: e.occurred_at,
+    }));
+
+    setSelectedBillingEvents(selectedEvents);
+
+    // Clear sessionStorage
+    sessionStorage.removeItem('invoiceSelectedBillingEvents');
+  };
+
+  // Create invoices from selected billing events
+  const handleCreateFromBillingReport = async () => {
+    if (selectedBillingEvents.length === 0) {
+      toast({ title: "No events", description: "No billing events selected.", variant: "destructive" });
+      return;
+    }
+
+    setCreatingFromReport(true);
+    const result = await createInvoicesFromEvents({
+      billingEventIds: selectedBillingEvents.map(e => e.id),
+      grouping: billingReportGrouping,
+      invoiceType: billingReportInvoiceType,
+    });
+
+    if (result.success > 0) {
+      setSelectedBillingEvents([]);
+      setFromBillingReport(false);
+      await load();
+    }
+    setCreatingFromReport(false);
+  };
+
+  // Cancel billing report flow
+  const handleCancelBillingReportFlow = () => {
+    setSelectedBillingEvents([]);
+    setFromBillingReport(false);
+    sessionStorage.removeItem('invoiceSelectedBillingEvents');
+  };
+
+  // Invoice selection helpers
+  const toggleInvoiceSelection = (id: string) => {
+    setSelectedInvoices(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAllInvoices = () => {
+    if (selectedInvoices.size === invoices.length && invoices.length > 0) {
+      setSelectedInvoices(new Set());
+    } else {
+      setSelectedInvoices(new Set(invoices.map(inv => inv.id)));
+    }
+  };
+
+  const allInvoicesSelected = invoices.length > 0 && selectedInvoices.size === invoices.length;
+  const someInvoicesSelected = selectedInvoices.size > 0 && !allInvoicesSelected;
+
+  // Bulk send emails for selected invoices
+  const handleBulkSendEmails = async () => {
+    if (selectedInvoices.size === 0) {
+      toast({ title: "No invoices selected", description: "Please select at least one invoice.", variant: "destructive" });
+      return;
+    }
+
+    setBulkSending(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const invoiceId of selectedInvoices) {
+      const invoice = invoices.find(inv => inv.id === invoiceId);
+      if (!invoice || invoice.status === 'void') continue;
+
+      try {
+        // Get invoice lines
+        const lines = await fetchInvoiceLines(invoiceId);
+        if (lines.length === 0) continue;
+
+        // Build PDF data
+        const pdfData = buildPdfData(invoice, lines);
+        if (!pdfData) continue;
+
+        // Get account email
+        const account = accounts.find(a => a.id === invoice.account_id);
+        if (!account?.billing_contact_email) {
+          failCount++;
+          continue;
+        }
+
+        // Send email with invoice (uses existing sendEmail function)
+        const emailHtml = buildInvoiceSentEmail({
+          invoiceNumber: invoice.invoice_number,
+          accountName: account.account_name,
+          invoiceTotal: Number(invoice.total || 0),
+          periodStart: invoice.period_start || '',
+          periodEnd: invoice.period_end || '',
+        });
+
+        const emailResult = await sendEmail({
+          to: account.billing_contact_email,
+          subject: `Invoice ${invoice.invoice_number} from ${tenantSettings?.company_name || 'Stride WMS'}`,
+          html: emailHtml,
+        });
+
+        if (emailResult) {
+          // Mark as sent
+          await markInvoiceSent(invoiceId);
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        console.error(`Failed to send invoice ${invoiceId}:`, err);
+        failCount++;
+      }
+    }
+
+    await load();
+    setSelectedInvoices(new Set());
+    setBulkSending(false);
+
+    if (successCount > 0) {
+      toast({
+        title: "Emails sent",
+        description: `Sent ${successCount} invoice(s)${failCount > 0 ? `, ${failCount} failed` : ''}`,
+      });
+    } else {
+      toast({
+        title: "Failed to send",
+        description: "Could not send any invoices. Check billing contact emails.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Bulk download selected invoices as Excel
+  const handleBulkDownloadExcel = async () => {
+    if (selectedInvoices.size === 0) {
+      toast({ title: "No invoices selected", description: "Please select at least one invoice.", variant: "destructive" });
+      return;
+    }
+
+    setBulkDownloading(true);
+
+    // Get selected invoice data
+    const selectedInvoiceData = invoices.filter(inv => selectedInvoices.has(inv.id));
+
+    // Build Excel data
+    const excelData = selectedInvoiceData.map(inv => {
+      const account = accounts.find(a => a.id === inv.account_id);
+      return {
+        'Invoice #': inv.invoice_number,
+        'Account': account?.account_name || '-',
+        'Account Code': account?.account_code || '-',
+        'Type': inv.invoice_type || '-',
+        'Period Start': inv.period_start || '-',
+        'Period End': inv.period_end || '-',
+        'Status': inv.status,
+        'Subtotal': Number(inv.subtotal || 0),
+        'Tax': Number(inv.tax_total || 0),
+        'Total': Number(inv.total || 0),
+        'Created': inv.created_at?.slice(0, 10) || '-',
+        'Sent': inv.sent_at?.slice(0, 10) || '-',
+        'Notes': inv.notes || '',
+      };
+    });
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 18 }, // Invoice #
+      { wch: 25 }, // Account
+      { wch: 12 }, // Account Code
+      { wch: 15 }, // Type
+      { wch: 12 }, // Period Start
+      { wch: 12 }, // Period End
+      { wch: 10 }, // Status
+      { wch: 12 }, // Subtotal
+      { wch: 10 }, // Tax
+      { wch: 12 }, // Total
+      { wch: 12 }, // Created
+      { wch: 12 }, // Sent
+      { wch: 30 }, // Notes
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Invoices');
+
+    // Generate and download
+    XLSX.writeFile(wb, `invoices_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+    setBulkDownloading(false);
+    toast({ title: "Downloaded", description: `Exported ${selectedInvoiceData.length} invoice(s) to Excel.` });
+  };
 
   // Load sidemarks when account changes
   useEffect(() => {
@@ -606,6 +905,120 @@ export default function Invoices() {
           </Button>
         </div>
 
+        {/* Create from Billing Report Card - appears when coming from billing report */}
+        {fromBillingReport && selectedBillingEvents.length > 0 && (
+          <Card className="border-blue-200 bg-blue-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-700">
+                <FileText className="h-5 w-5" />
+                Create Invoices from Selected Billing Events
+              </CardTitle>
+              <CardDescription>
+                {selectedBillingEvents.length} billing event(s) selected totaling ${selectedBillingEvents.reduce((sum, e) => sum + Number(e.total_amount || 0), 0).toFixed(2)}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Summary of selected events */}
+              <div className="border rounded-lg overflow-auto max-h-48 bg-white">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Account</TableHead>
+                      <TableHead>Sidemark</TableHead>
+                      <TableHead>Charge</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedBillingEvents.slice(0, 10).map((event) => (
+                      <TableRow key={event.id}>
+                        <TableCell>{event.occurred_at?.slice(0, 10)}</TableCell>
+                        <TableCell>{event.account_name}</TableCell>
+                        <TableCell>{event.sidemark_name || '-'}</TableCell>
+                        <TableCell>{event.charge_type}</TableCell>
+                        <TableCell className="text-right">${Number(event.total_amount || 0).toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                    {selectedBillingEvents.length > 10 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                          ... and {selectedBillingEvents.length - 10} more events
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Invoice creation options */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Invoice Grouping</label>
+                  <Select value={billingReportGrouping} onValueChange={(v) => setBillingReportGrouping(v as InvoiceGrouping)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="by_account">Separate invoice per Account</SelectItem>
+                      <SelectItem value="by_sidemark">Separate invoice per Sidemark</SelectItem>
+                      <SelectItem value="by_account_sidemark">Separate by Account + Sidemark</SelectItem>
+                      <SelectItem value="include_subaccounts">Include sub-accounts on parent invoice</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Invoice Type</label>
+                  <Select value={billingReportInvoiceType} onValueChange={(v) => setBillingReportInvoiceType(v as InvoiceType)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly_services">Weekly Services</SelectItem>
+                      <SelectItem value="monthly_storage">Monthly Storage</SelectItem>
+                      <SelectItem value="closeout">Closeout</SelectItem>
+                      <SelectItem value="manual">Manual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end gap-2">
+                  <Button
+                    onClick={handleCreateFromBillingReport}
+                    disabled={creatingFromReport}
+                    className="flex-1"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {creatingFromReport ? "Creating..." : "Create Invoices"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleCancelBillingReportFlow}
+                    disabled={creatingFromReport}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+
+              {/* Grouping explanation */}
+              <div className="text-sm text-muted-foreground bg-white p-3 rounded-lg border">
+                {billingReportGrouping === 'by_account' && (
+                  <p>One invoice will be created for each unique account in the selection.</p>
+                )}
+                {billingReportGrouping === 'by_sidemark' && (
+                  <p>Separate invoices will be created for each sidemark. Events without a sidemark will be grouped by account.</p>
+                )}
+                {billingReportGrouping === 'by_account_sidemark' && (
+                  <p>Separate invoices will be created for each unique account + sidemark combination.</p>
+                )}
+                {billingReportGrouping === 'include_subaccounts' && (
+                  <p>Sub-account charges will be included on their parent account's invoice. Parent accounts get all charges from their sub-accounts.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Storage Generation Card */}
         <Card>
           <CardHeader>
@@ -926,23 +1339,62 @@ export default function Invoices() {
 
         {/* Invoices Table */}
         <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Recent Invoices ({invoices.length})
-            </CardTitle>
-            <Button variant="outline" size="sm" onClick={exportInvoicesCSV} disabled={!invoices.length}>
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
+          <CardHeader className="flex-row items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Recent Invoices ({invoices.length})
+              </CardTitle>
+              {selectedInvoices.size > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  {selectedInvoices.size} selected
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Bulk action buttons */}
+              {selectedInvoices.size > 0 && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBulkSendEmails}
+                    disabled={bulkSending}
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    {bulkSending ? "Sending..." : `Email (${selectedInvoices.size})`}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBulkDownloadExcel}
+                    disabled={bulkDownloading}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    {bulkDownloading ? "Exporting..." : "Export Excel"}
+                  </Button>
+                </>
+              )}
+              <Button variant="outline" size="sm" onClick={exportInvoicesCSV} disabled={!invoices.length}>
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="border rounded-lg overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead 
-                      className="cursor-pointer select-none" 
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={allInvoicesSelected}
+                        onCheckedChange={toggleSelectAllInvoices}
+                        className={someInvoicesSelected ? "data-[state=checked]:bg-primary/50" : ""}
+                      />
+                    </TableHead>
+                    <TableHead
+                      className="cursor-pointer select-none"
                       onClick={() => toggleSort('invoice_number')}
                     >
                       <span className="flex items-center">Invoice # <SortIcon field="invoice_number" /></span>
@@ -950,21 +1402,21 @@ export default function Invoices() {
                     <TableHead>Account</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Period</TableHead>
-                    <TableHead 
-                      className="cursor-pointer select-none" 
+                    <TableHead
+                      className="cursor-pointer select-none"
                       onClick={() => toggleSort('status')}
                     >
                       <span className="flex items-center">Status <SortIcon field="status" /></span>
                     </TableHead>
                     <TableHead className="text-right">Subtotal</TableHead>
-                    <TableHead 
-                      className="text-right cursor-pointer select-none" 
+                    <TableHead
+                      className="text-right cursor-pointer select-none"
                       onClick={() => toggleSort('total')}
                     >
                       <span className="flex items-center justify-end">Total <SortIcon field="total" /></span>
                     </TableHead>
-                    <TableHead 
-                      className="cursor-pointer select-none" 
+                    <TableHead
+                      className="cursor-pointer select-none"
                       onClick={() => toggleSort('created_at')}
                     >
                       <span className="flex items-center">Created <SortIcon field="created_at" /></span>
@@ -977,7 +1429,13 @@ export default function Invoices() {
                   {sortedInvoices.map((inv) => {
                     const account = accounts.find(a => a.id === inv.account_id);
                     return (
-                      <TableRow key={inv.id}>
+                      <TableRow key={inv.id} className={selectedInvoices.has(inv.id) ? 'bg-blue-50' : ''}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedInvoices.has(inv.id)}
+                            onCheckedChange={() => toggleInvoiceSelection(inv.id)}
+                          />
+                        </TableCell>
                         <TableCell className="font-semibold">{inv.invoice_number}</TableCell>
                         <TableCell>{account?.account_name || inv.account_id.slice(0, 8)}</TableCell>
                         <TableCell>{getTypeBadge(inv.invoice_type)}</TableCell>
@@ -992,18 +1450,18 @@ export default function Invoices() {
                             <Button size="sm" variant="ghost" onClick={() => openLines(inv)}>
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => handleSendInvoice(inv)} 
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleSendInvoice(inv)}
                               disabled={inv.status !== "draft"}
                             >
                               <Send className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => handleVoidInvoice(inv.id)} 
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleVoidInvoice(inv.id)}
                               disabled={inv.status === "void"}
                             >
                               <XCircle className="h-4 w-4 text-red-500" />
@@ -1015,7 +1473,7 @@ export default function Invoices() {
                   })}
                   {!invoices.length && (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                         No invoices yet
                       </TableCell>
                     </TableRow>
