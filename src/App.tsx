@@ -77,25 +77,25 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
-            <Route path="/inventory/:id" element={<ProtectedRoute><ItemDetail /></ProtectedRoute>} />
-            <Route path="/shipments" element={<ProtectedRoute><Shipments /></ProtectedRoute>} />
-            <Route path="/shipments/list" element={<ProtectedRoute><ShipmentsList /></ProtectedRoute>} />
-            <Route path="/shipments/incoming" element={<ProtectedRoute><ShipmentsList /></ProtectedRoute>} />
-            <Route path="/shipments/outbound" element={<ProtectedRoute><ShipmentsList /></ProtectedRoute>} />
-            <Route path="/shipments/received" element={<ProtectedRoute><ShipmentsList /></ProtectedRoute>} />
-            <Route path="/shipments/released" element={<ProtectedRoute><ShipmentsList /></ProtectedRoute>} />
-            <Route path="/shipments/new" element={<ProtectedRoute><ShipmentCreate /></ProtectedRoute>} />
-            <Route path="/shipments/create" element={<ProtectedRoute><ShipmentCreate /></ProtectedRoute>} />
-            <Route path="/shipments/return/new" element={<ProtectedRoute><ShipmentCreate /></ProtectedRoute>} />
-            <Route path="/shipments/outbound/new" element={<ProtectedRoute><OutboundCreate /></ProtectedRoute>} />
-            <Route path="/shipments/:id" element={<ProtectedRoute><ShipmentDetail /></ProtectedRoute>} />
+            <Route path="/" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Dashboard /></RequireRole></ProtectedRoute>} />
+            <Route path="/inventory" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Inventory /></RequireRole></ProtectedRoute>} />
+            <Route path="/inventory/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ItemDetail /></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Shipments /></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments/list" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentsList /></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments/incoming" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentsList /></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments/outbound" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentsList /></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments/received" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentsList /></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments/released" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentsList /></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments/new" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentCreate /></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments/create" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentCreate /></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments/return/new" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentCreate /></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments/outbound/new" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><OutboundCreate /></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
             <Route path="/tasks/:id" element={<ProtectedRoute><TaskDetail /></ProtectedRoute>} />
-            <Route path="/scan" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user', 'technician']}><ScanHub /></RequireRole></ProtectedRoute>} />
-            <Route path="/scan/item/:codeOrId" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user', 'technician']}><ScanItemRedirect /></RequireRole></ProtectedRoute>} />
-            <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+            <Route path="/scan" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ScanHub /></RequireRole></ProtectedRoute>} />
+            <Route path="/scan/item/:codeOrId" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ScanItemRedirect /></RequireRole></ProtectedRoute>} />
+            <Route path="/messages" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Messages /></RequireRole></ProtectedRoute>} />
             <Route path="/billing" element={<ProtectedRoute><RequireRole role="tenant_admin"><Billing /></RequireRole></ProtectedRoute>} />
             <Route path="/billing/reports" element={<ProtectedRoute><RequireRole role="tenant_admin"><BillingReports /></RequireRole></ProtectedRoute>} />
             <Route path="/billing/report" element={<ProtectedRoute><RequireRole role="tenant_admin"><BillingReport /></RequireRole></ProtectedRoute>} />
@@ -104,15 +104,15 @@ const App = () => (
             <Route path="/claims" element={<ProtectedRoute><RequireRole role="tenant_admin"><Claims /></RequireRole></ProtectedRoute>} />
             <Route path="/claims/:id" element={<ProtectedRoute><RequireRole role="tenant_admin"><ClaimDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/coverage" element={<ProtectedRoute><RequireRole role="tenant_admin"><CoverageQuickEntry /></RequireRole></ProtectedRoute>} />
-            <Route path="/stocktakes" element={<ProtectedRoute><Stocktakes /></ProtectedRoute>} />
-            <Route path="/stocktakes/:id/scan" element={<ProtectedRoute><StocktakeScanView /></ProtectedRoute>} />
-            <Route path="/stocktakes/:id/report" element={<ProtectedRoute><StocktakeReport /></ProtectedRoute>} />
-            <Route path="/manifests" element={<ProtectedRoute><Manifests /></ProtectedRoute>} />
-            <Route path="/manifests/:id" element={<ProtectedRoute><ManifestDetail /></ProtectedRoute>} />
-            <Route path="/manifests/:id/scan" element={<ProtectedRoute><ManifestScan /></ProtectedRoute>} />
-            <Route path="/manifests/:id/history" element={<ProtectedRoute><ManifestDetail /></ProtectedRoute>} />
-            
-            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+            <Route path="/stocktakes" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Stocktakes /></RequireRole></ProtectedRoute>} />
+            <Route path="/stocktakes/:id/scan" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><StocktakeScanView /></RequireRole></ProtectedRoute>} />
+            <Route path="/stocktakes/:id/report" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><StocktakeReport /></RequireRole></ProtectedRoute>} />
+            <Route path="/manifests" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Manifests /></RequireRole></ProtectedRoute>} />
+            <Route path="/manifests/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ManifestDetail /></RequireRole></ProtectedRoute>} />
+            <Route path="/manifests/:id/scan" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ManifestScan /></RequireRole></ProtectedRoute>} />
+            <Route path="/manifests/:id/history" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ManifestDetail /></RequireRole></ProtectedRoute>} />
+
+            <Route path="/reports" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Reports /></RequireRole></ProtectedRoute>} />
             <Route path="/accounts" element={<ProtectedRoute><RequireRole role="tenant_admin"><Accounts /></RequireRole></ProtectedRoute>} />
             <Route path="/employees" element={<ProtectedRoute><RequireRole role="tenant_admin"><Employees /></RequireRole></ProtectedRoute>} />
             <Route path="/technicians" element={<ProtectedRoute><RequireRole role="tenant_admin"><Technicians /></RequireRole></ProtectedRoute>} />

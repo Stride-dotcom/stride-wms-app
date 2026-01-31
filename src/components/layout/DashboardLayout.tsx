@@ -336,10 +336,22 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return 'U';
   };
 
-  const filteredNavItems = navItems.filter((item) => {
-    if (!item.requiredRole) return true;
-    return item.requiredRole.some((role) => hasRole(role)) || isAdmin;
-  });
+  // Check if user is a technician (repair tech with limited access)
+  const isTechnician = hasRole('technician') && !hasRole('tenant_admin') && !hasRole('warehouse_user') && !isAdmin;
+
+  // Filter and customize nav items based on role
+  const filteredNavItems = useMemo(() => {
+    // Technicians only see "My Tasks"
+    if (isTechnician) {
+      return [{ label: 'My Tasks', href: '/tasks', icon: 'task_alt' }];
+    }
+
+    // Normal role-based filtering for other users
+    return navItems.filter((item) => {
+      if (!item.requiredRole) return true;
+      return item.requiredRole.some((role) => hasRole(role)) || isAdmin;
+    });
+  }, [isTechnician, hasRole, isAdmin]);
 
   // Sort nav items based on saved order
   const sortedNavItems = useMemo(() => {
