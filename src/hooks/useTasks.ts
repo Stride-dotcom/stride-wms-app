@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { queueTaskCreatedAlert, queueTaskAssignedAlert, queueTaskCompletedAlert, queueInspectionCompletedAlert, queueBillingEventAlert } from '@/lib/alertQueue';
 import { createBillingEventsBatch, CreateBillingEventParams } from '@/lib/billing/createBillingEvent';
 import { TASK_TYPE_TO_SERVICE_CODE, getRateFromPriceList } from '@/lib/billing/billingCalculation';
+import { getTaskTypeServiceCode } from '@/lib/billing/taskServiceLookup';
 
 export interface Task {
   id: string;
@@ -244,14 +245,16 @@ export function useTasks(filters?: {
       const assemblyServiceCode = taskData?.metadata?.billing_service_code || '60MA';
       const billingQuantity = taskData?.metadata?.billing_quantity || 0;
 
-      // Get service code for this task type from Price List mapping
+      // Get service code for this task type
+      // Priority: 1) Assembly service from metadata, 2) Repair default, 3) DB lookup, 4) Hardcoded defaults
       let serviceCode: string;
       if (isAssemblyTask) {
         serviceCode = assemblyServiceCode;
       } else if (isRepairTask) {
         serviceCode = '1HRO'; // Repair uses 1 Hr Repair service
       } else {
-        serviceCode = TASK_TYPE_TO_SERVICE_CODE[taskType] || taskType;
+        // Dynamic lookup from task_types table, falls back to hardcoded defaults
+        serviceCode = await getTaskTypeServiceCode(profile.tenant_id, taskType);
       }
 
       // Check if this service uses task-level billing (e.g., Assembly, Repair)

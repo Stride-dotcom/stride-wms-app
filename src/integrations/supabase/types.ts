@@ -8904,6 +8904,7 @@ export type Database = {
       }
       task_types: {
         Row: {
+          billing_service_code: string | null
           color: string | null
           created_at: string | null
           description: string | null
@@ -8917,6 +8918,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          billing_service_code?: string | null
           color?: string | null
           created_at?: string | null
           description?: string | null
@@ -8930,6 +8932,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          billing_service_code?: string | null
           color?: string | null
           created_at?: string | null
           description?: string | null
