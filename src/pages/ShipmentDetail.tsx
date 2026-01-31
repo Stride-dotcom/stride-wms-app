@@ -664,7 +664,7 @@ export default function ShipmentDetail() {
             </Button>
           )}
           {/* Complete Shipment button for outbound shipments */}
-          {!isInbound && ['expected', 'in_progress'].includes(shipment.status) && (
+          {!isInbound && ['pending', 'expected', 'in_progress'].includes(shipment.status) && (
             <Button size="sm" onClick={() => setShowOutboundCompleteDialog(true)}>
               <MaterialIcon name="check_circle" size="sm" className="mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Complete Shipment</span>
@@ -685,8 +685,8 @@ export default function ShipmentDetail() {
               <span className="hidden sm:inline">Reassign</span>
             </Button>
           )}
-          {/* Cancel Shipment - only for expected or receiving shipments */}
-          {['expected', 'receiving', 'in_progress'].includes(shipment.status) && (
+          {/* Cancel Shipment - only for expected, pending, or receiving shipments */}
+          {['expected', 'pending', 'receiving', 'in_progress'].includes(shipment.status) && (
             <Button variant="outline" size="sm" onClick={() => setShowCancelDialog(true)}>
               <MaterialIcon name="block" size="sm" className="mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Cancel</span>

@@ -702,7 +702,7 @@ export function useAccountItems(accountId: string | undefined) {
         `)
         .eq('tenant_id', profile.tenant_id)
         .eq('account_id', accountId)
-        .in('status', ['in_storage', 'available']) // Only items that can be shipped
+        .in('status', ['in_storage', 'available', 'active']) // Only items that can be shipped (active is the main storage status)
         .is('deleted_at', null)
         .order('item_code');
 

@@ -32,6 +32,10 @@ interface TenantCompanySettings {
 }
 
 interface InvoiceWithDetails extends Invoice {
+  // Explicit types for fields used in this component (overrides unknown from index signature)
+  invoice_date?: string;
+  due_date?: string | null;
+  tax_amount?: number;
   accounts?: {
     account_name: string;
     account_code: string;
@@ -156,7 +160,7 @@ export function SavedInvoicesTab() {
       ];
 
       return searchableValues.some(field =>
-        field?.toLowerCase?.()?.includes(query)
+        typeof field === 'string' && field.toLowerCase().includes(query)
       );
     });
   }, [invoices, searchQuery]);
@@ -345,6 +349,7 @@ export function SavedInvoicesTab() {
       dueDate: invoice.due_date || '',
       periodStart: invoice.period_start || '',
       periodEnd: invoice.period_end || '',
+      invoiceType: (invoice.invoice_type as string) || 'manual',
       accountName: account.account_name,
       accountCode: account.account_code,
       billingAddress: '',
@@ -352,12 +357,14 @@ export function SavedInvoicesTab() {
       companyAddress: tenantSettings?.company_address || '',
       companyPhone: tenantSettings?.company_phone || '',
       companyEmail: tenantSettings?.company_email || '',
-      logoUrl: tenantSettings?.logo_url || undefined,
+      companyLogo: tenantSettings?.logo_url || undefined,
       lines: lines.map(l => ({
-        date: l.occurred_at?.slice(0, 10) || '',
-        description: l.description || l.charge_type || '',
-        sidemark: l.sidemark_name || '',
+        date: (l.occurred_at as string)?.slice(0, 10) || '',
+        description: (l.description as string) || (l.charge_type as string) || '',
+        sidemark: (l.sidemark_name as string) || '',
         quantity: l.quantity,
+        unitRate: l.unit_rate,
+        lineTotal: l.total_amount,
         rate: l.unit_rate,
         total: l.total_amount,
       })),
@@ -759,11 +766,11 @@ export function SavedInvoicesTab() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
                   <div className="text-muted-foreground">Invoice Date</div>
-                  <div className="font-medium">{selectedInvoice?.invoice_date}</div>
+                  <div className="font-medium">{selectedInvoice?.invoice_date || '-'}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Due Date</div>
-                  <div className="font-medium">{selectedInvoice?.due_date || '-'}</div>
+                  <div className="font-medium">{selectedInvoice?.due_date ?? '-'}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Period</div>
@@ -792,9 +799,9 @@ export function SavedInvoicesTab() {
                   <TableBody>
                     {invoiceLines.map(line => (
                       <TableRow key={line.id}>
-                        <TableCell>{line.occurred_at?.slice(0, 10)}</TableCell>
-                        <TableCell>{line.description || line.charge_type}</TableCell>
-                        <TableCell>{line.sidemark_name || '-'}</TableCell>
+                        <TableCell>{(line.occurred_at as string)?.slice(0, 10) || '-'}</TableCell>
+                        <TableCell>{(line.description as string) || (line.charge_type as string) || '-'}</TableCell>
+                        <TableCell>{(line.sidemark_name as string) || '-'}</TableCell>
                         <TableCell className="text-right">{line.quantity}</TableCell>
                         <TableCell className="text-right">${Number(line.unit_rate || 0).toFixed(2)}</TableCell>
                         <TableCell className="text-right">${Number(line.total_amount || 0).toFixed(2)}</TableCell>

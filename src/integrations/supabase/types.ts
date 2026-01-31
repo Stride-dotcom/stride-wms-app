@@ -1563,6 +1563,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "billing_events_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "billing_events_sidemark_id_fkey"
             columns: ["sidemark_id"]
             isOneToOne: false
@@ -2183,6 +2190,13 @@ export type Database = {
             columns: ["shipment_id"]
             isOneToOne: false
             referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
             referencedColumns: ["id"]
           },
           {
@@ -2981,6 +2995,13 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_billing_charges_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "v_tasks_canonical"
             referencedColumns: ["id"]
           },
           {
@@ -3921,6 +3942,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "invoice_line_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "v_tasks_canonical"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "invoice_line_items_task_item_id_fkey"
             columns: ["task_item_id"]
             isOneToOne: false
@@ -4037,6 +4065,13 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_lines_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "v_tasks_canonical"
             referencedColumns: ["id"]
           },
           {
@@ -5096,6 +5131,13 @@ export type Database = {
             columns: ["receiving_shipment_id"]
             isOneToOne: false
             referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_receiving_shipment_id_fkey"
+            columns: ["receiving_shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
             referencedColumns: ["id"]
           },
           {
@@ -6552,6 +6594,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "receiving_sessions_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "receiving_sessions_started_by_fkey"
             columns: ["started_by"]
             isOneToOne: false
@@ -6566,6 +6615,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      release_type_map: {
+        Row: {
+          canonical_release_type: Database["public"]["Enums"]["canonical_release_type"]
+          legacy_release_type: string
+        }
+        Insert: {
+          canonical_release_type: Database["public"]["Enums"]["canonical_release_type"]
+          legacy_release_type: string
+        }
+        Update: {
+          canonical_release_type?: Database["public"]["Enums"]["canonical_release_type"]
+          legacy_release_type?: string
+        }
+        Relationships: []
       }
       repair_client_offers: {
         Row: {
@@ -6931,6 +6995,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "repair_quotes_source_task_id_fkey"
+            columns: ["source_task_id"]
+            isOneToOne: false
+            referencedRelation: "v_tasks_canonical"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "repair_quotes_technician_id_fkey"
             columns: ["technician_id"]
             isOneToOne: false
@@ -7062,6 +7133,13 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_tech_tokens_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "v_tasks_canonical"
             referencedColumns: ["id"]
           },
         ]
@@ -7428,6 +7506,13 @@ export type Database = {
             referencedRelation: "shipments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "shipment_items_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
+            referencedColumns: ["id"]
+          },
         ]
       }
       shipment_media: {
@@ -7476,6 +7561,13 @@ export type Database = {
             columns: ["shipment_id"]
             isOneToOne: false
             referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_media_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
             referencedColumns: ["id"]
           },
           {
@@ -8417,6 +8509,13 @@ export type Database = {
             referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "subtasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "v_tasks_canonical"
+            referencedColumns: ["id"]
+          },
         ]
       }
       task_additional_charges: {
@@ -8469,6 +8568,13 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_additional_charges_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "v_tasks_canonical"
             referencedColumns: ["id"]
           },
         ]
@@ -8529,6 +8635,13 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_addon_lines_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "v_tasks_canonical"
             referencedColumns: ["id"]
           },
           {
@@ -8593,6 +8706,13 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_custom_charges_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "v_tasks_canonical"
             referencedColumns: ["id"]
           },
           {
@@ -8692,6 +8812,13 @@ export type Database = {
             referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "task_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "v_tasks_canonical"
+            referencedColumns: ["id"]
+          },
         ]
       }
       task_notes: {
@@ -8736,7 +8863,44 @@ export type Database = {
             referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "task_notes_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "v_tasks_canonical"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      task_status_map: {
+        Row: {
+          canonical_status: Database["public"]["Enums"]["canonical_task_status"]
+          legacy_status: string
+        }
+        Insert: {
+          canonical_status: Database["public"]["Enums"]["canonical_task_status"]
+          legacy_status: string
+        }
+        Update: {
+          canonical_status?: Database["public"]["Enums"]["canonical_task_status"]
+          legacy_status?: string
+        }
+        Relationships: []
+      }
+      task_type_map: {
+        Row: {
+          canonical_type: Database["public"]["Enums"]["canonical_task_type"]
+          legacy_type: string
+        }
+        Insert: {
+          canonical_type: Database["public"]["Enums"]["canonical_task_type"]
+          legacy_type: string
+        }
+        Update: {
+          canonical_type?: Database["public"]["Enums"]["canonical_task_type"]
+          legacy_type?: string
+        }
+        Relationships: []
       }
       task_types: {
         Row: {
@@ -8987,6 +9151,13 @@ export type Database = {
             columns: ["parent_task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "v_tasks_canonical"
             referencedColumns: ["id"]
           },
           {
@@ -10414,6 +10585,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "claims_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "claims_sidemark_id_fkey"
             columns: ["sidemark_id"]
             isOneToOne: false
@@ -10588,6 +10766,461 @@ export type Database = {
           },
         ]
       }
+      v_shipments_canonical: {
+        Row: {
+          account_id: string | null
+          bill_to: string | null
+          carrier: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string | null
+          created_by: string | null
+          deleted_at: string | null
+          driver_name: string | null
+          expected_arrival_date: string | null
+          highlight_notes: boolean | null
+          id: string | null
+          liability_accepted: boolean | null
+          metadata: Json | null
+          notes: string | null
+          outbound_type_id: string | null
+          payment_amount: number | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string | null
+          po_number: string | null
+          received_at: string | null
+          receiving_documents: Json | null
+          receiving_notes: string | null
+          receiving_photos: Json | null
+          release_to_email: string | null
+          release_to_name: string | null
+          release_to_phone: string | null
+          release_type: string | null
+          release_type_canonical:
+            | Database["public"]["Enums"]["canonical_release_type"]
+            | null
+          return_type: string | null
+          shipment_number: string | null
+          shipment_type: string | null
+          shipped_at: string | null
+          sidemark: string | null
+          sidemark_id: string | null
+          signature_data: string | null
+          signature_name: string | null
+          signature_timestamp: string | null
+          status: string | null
+          tenant_id: string | null
+          tracking_number: string | null
+          updated_at: string | null
+          warehouse_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          bill_to?: string | null
+          carrier?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deleted_at?: string | null
+          driver_name?: string | null
+          expected_arrival_date?: string | null
+          highlight_notes?: boolean | null
+          id?: string | null
+          liability_accepted?: boolean | null
+          metadata?: Json | null
+          notes?: string | null
+          outbound_type_id?: string | null
+          payment_amount?: number | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
+          po_number?: string | null
+          received_at?: string | null
+          receiving_documents?: Json | null
+          receiving_notes?: string | null
+          receiving_photos?: Json | null
+          release_to_email?: string | null
+          release_to_name?: string | null
+          release_to_phone?: string | null
+          release_type?: string | null
+          release_type_canonical?: never
+          return_type?: string | null
+          shipment_number?: string | null
+          shipment_type?: string | null
+          shipped_at?: string | null
+          sidemark?: string | null
+          sidemark_id?: string | null
+          signature_data?: string | null
+          signature_name?: string | null
+          signature_timestamp?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          tracking_number?: string | null
+          updated_at?: string | null
+          warehouse_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          bill_to?: string | null
+          carrier?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deleted_at?: string | null
+          driver_name?: string | null
+          expected_arrival_date?: string | null
+          highlight_notes?: boolean | null
+          id?: string | null
+          liability_accepted?: boolean | null
+          metadata?: Json | null
+          notes?: string | null
+          outbound_type_id?: string | null
+          payment_amount?: number | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
+          po_number?: string | null
+          received_at?: string | null
+          receiving_documents?: Json | null
+          receiving_notes?: string | null
+          receiving_photos?: Json | null
+          release_to_email?: string | null
+          release_to_name?: string | null
+          release_to_phone?: string | null
+          release_type?: string | null
+          release_type_canonical?: never
+          return_type?: string | null
+          shipment_number?: string | null
+          shipment_type?: string | null
+          shipped_at?: string | null
+          sidemark?: string | null
+          sidemark_id?: string | null
+          signature_data?: string | null
+          signature_name?: string | null
+          signature_timestamp?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          tracking_number?: string | null
+          updated_at?: string | null
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_outbound_type_id_fkey"
+            columns: ["outbound_type_id"]
+            isOneToOne: false
+            referencedRelation: "outbound_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_sidemark_id_fkey"
+            columns: ["sidemark_id"]
+            isOneToOne: false
+            referencedRelation: "sidemarks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_tasks_canonical: {
+        Row: {
+          account_id: string | null
+          assigned_department: string | null
+          assigned_to: string | null
+          bill_to: string | null
+          bill_to_customer_email: string | null
+          bill_to_customer_name: string | null
+          billing_charge_date: string | null
+          billing_date: string | null
+          billing_rate: number | null
+          billing_rate_locked: boolean | null
+          billing_rate_set_at: string | null
+          billing_rate_set_by: string | null
+          billing_status: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string | null
+          custom_packaging_applied: boolean | null
+          deleted_at: string | null
+          description: string | null
+          due_date: string | null
+          duration_minutes: number | null
+          ended_at: string | null
+          ended_by: string | null
+          id: string | null
+          invoice_id: string | null
+          metadata: Json | null
+          minor_touchup_applied: boolean | null
+          overdue_alert_sent_at: string | null
+          pallet_sale_applied: boolean | null
+          parent_task_id: string | null
+          priority: string | null
+          related_item_id: string | null
+          service_date: string | null
+          sidemark: string | null
+          started_at: string | null
+          started_by: string | null
+          status: string | null
+          status_canonical:
+            | Database["public"]["Enums"]["canonical_task_status"]
+            | null
+          task_type: string | null
+          task_type_canonical:
+            | Database["public"]["Enums"]["canonical_task_type"]
+            | null
+          task_type_id: string | null
+          tenant_id: string | null
+          title: string | null
+          unable_to_complete: boolean | null
+          unable_to_complete_at: string | null
+          unable_to_complete_by: string | null
+          unable_to_complete_note: string | null
+          unable_to_complete_reason: string | null
+          updated_at: string | null
+          warehouse_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          assigned_department?: string | null
+          assigned_to?: string | null
+          bill_to?: string | null
+          bill_to_customer_email?: string | null
+          bill_to_customer_name?: string | null
+          billing_charge_date?: string | null
+          billing_date?: string | null
+          billing_rate?: number | null
+          billing_rate_locked?: boolean | null
+          billing_rate_set_at?: string | null
+          billing_rate_set_by?: string | null
+          billing_status?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          custom_packaging_applied?: boolean | null
+          deleted_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          duration_minutes?: number | null
+          ended_at?: string | null
+          ended_by?: string | null
+          id?: string | null
+          invoice_id?: string | null
+          metadata?: Json | null
+          minor_touchup_applied?: boolean | null
+          overdue_alert_sent_at?: string | null
+          pallet_sale_applied?: boolean | null
+          parent_task_id?: string | null
+          priority?: string | null
+          related_item_id?: string | null
+          service_date?: string | null
+          sidemark?: string | null
+          started_at?: string | null
+          started_by?: string | null
+          status?: string | null
+          status_canonical?: never
+          task_type?: string | null
+          task_type_canonical?: never
+          task_type_id?: string | null
+          tenant_id?: string | null
+          title?: string | null
+          unable_to_complete?: boolean | null
+          unable_to_complete_at?: string | null
+          unable_to_complete_by?: string | null
+          unable_to_complete_note?: string | null
+          unable_to_complete_reason?: string | null
+          updated_at?: string | null
+          warehouse_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          assigned_department?: string | null
+          assigned_to?: string | null
+          bill_to?: string | null
+          bill_to_customer_email?: string | null
+          bill_to_customer_name?: string | null
+          billing_charge_date?: string | null
+          billing_date?: string | null
+          billing_rate?: number | null
+          billing_rate_locked?: boolean | null
+          billing_rate_set_at?: string | null
+          billing_rate_set_by?: string | null
+          billing_status?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          custom_packaging_applied?: boolean | null
+          deleted_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          duration_minutes?: number | null
+          ended_at?: string | null
+          ended_by?: string | null
+          id?: string | null
+          invoice_id?: string | null
+          metadata?: Json | null
+          minor_touchup_applied?: boolean | null
+          overdue_alert_sent_at?: string | null
+          pallet_sale_applied?: boolean | null
+          parent_task_id?: string | null
+          priority?: string | null
+          related_item_id?: string | null
+          service_date?: string | null
+          sidemark?: string | null
+          started_at?: string | null
+          started_by?: string | null
+          status?: string | null
+          status_canonical?: never
+          task_type?: string | null
+          task_type_canonical?: never
+          task_type_id?: string | null
+          tenant_id?: string | null
+          title?: string | null
+          unable_to_complete?: boolean | null
+          unable_to_complete_at?: string | null
+          unable_to_complete_by?: string | null
+          unable_to_complete_note?: string | null
+          unable_to_complete_reason?: string | null
+          updated_at?: string | null
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_tasks_invoice"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_billing_rate_set_by_fkey"
+            columns: ["billing_rate_set_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_ended_by_fkey"
+            columns: ["ended_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "v_tasks_canonical"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_related_item_id_fkey"
+            columns: ["related_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_related_item_id_fkey"
+            columns: ["related_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_started_by_fkey"
+            columns: ["started_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_task_type_id_fkey"
+            columns: ["task_type_id"]
+            isOneToOne: false
+            referencedRelation: "task_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       accept_claim_settlement: {
@@ -10690,6 +11323,18 @@ export type Database = {
           message: string
           success: boolean
         }[]
+      }
+      canonicalize_release_type: {
+        Args: { p_legacy: string }
+        Returns: Database["public"]["Enums"]["canonical_release_type"]
+      }
+      canonicalize_task_status: {
+        Args: { p_legacy: string }
+        Returns: Database["public"]["Enums"]["canonical_task_status"]
+      }
+      canonicalize_task_type: {
+        Args: { p_legacy: string }
+        Returns: Database["public"]["Enums"]["canonical_task_type"]
       }
       check_past_due_tasks: { Args: never; Returns: undefined }
       complete_manifest: {
@@ -10946,6 +11591,24 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "warehouse" | "client_user"
+      canonical_release_type:
+        | "will_call_customer"
+        | "will_call_third_party_carrier"
+        | "will_call_stride_delivery"
+      canonical_task_status:
+        | "open"
+        | "in_progress"
+        | "blocked"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      canonical_task_type:
+        | "inspection"
+        | "assembly"
+        | "repair"
+        | "outbound"
+        | "disposal"
+        | "other"
       coverage_type: "standard" | "enhanced" | "full" | "pending"
       discount_type: "percentage" | "flat_rate"
       expiration_type: "none" | "date"
@@ -11160,6 +11823,27 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager", "warehouse", "client_user"],
+      canonical_release_type: [
+        "will_call_customer",
+        "will_call_third_party_carrier",
+        "will_call_stride_delivery",
+      ],
+      canonical_task_status: [
+        "open",
+        "in_progress",
+        "blocked",
+        "completed",
+        "failed",
+        "cancelled",
+      ],
+      canonical_task_type: [
+        "inspection",
+        "assembly",
+        "repair",
+        "outbound",
+        "disposal",
+        "other",
+      ],
       coverage_type: ["standard", "enhanced", "full", "pending"],
       discount_type: ["percentage", "flat_rate"],
       expiration_type: ["none", "date"],

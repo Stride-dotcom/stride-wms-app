@@ -117,6 +117,8 @@ export function AccountInvoicesTab({ accountId, accountName }: AccountInvoicesTa
           description: l.description || l.charge_type || '',
           sidemark: l.sidemark_name || '',
           quantity: l.quantity,
+          unitRate: l.unit_rate,
+          lineTotal: l.total_amount,
           rate: l.unit_rate,
           total: l.total_amount,
         })),
