@@ -46,11 +46,16 @@ export interface InvoicePdfData {
 }
 
 export interface InvoiceLineItem {
-  serviceCode: string;
+  serviceCode?: string;
   description?: string;
   quantity: number;
   unitRate: number;
   lineTotal: number;
+  // Legacy fields for backwards compatibility
+  date?: string;
+  sidemark?: string;
+  rate?: number;
+  total?: number;
 }
 
 /**
