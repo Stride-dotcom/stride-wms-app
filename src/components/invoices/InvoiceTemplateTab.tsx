@@ -1,148 +1,165 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { ArrowLeft, Save, RotateCcw, Plus, Trash2, Star, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
-import { Badge } from '@/components/ui/badge';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-
-interface TemplateSettings {
-  primaryColor: string;
-  secondaryColor: string;
-  fontFamily: string;
-  invoiceTitle: string;
-  footerText: string;
-  termsAndConditions: string;
-  showLogo: boolean;
-  showRemitAddress: boolean;
-  showPaymentTerms: boolean;
-  notesTemplate: string;
-}
-
-interface CompanySettings {
-  company_name: string | null;
-  company_address: string | null;
-  company_phone: string | null;
-  company_email: string | null;
-  company_website: string | null;
-  logo_url: string | null;
-  remit_address_line1: string | null;
-  remit_address_line2: string | null;
-  remit_city: string | null;
-  remit_state: string | null;
-  remit_zip: string | null;
-}
-
-const DEFAULT_TEMPLATE: TemplateSettings = {
-  primaryColor: '#1e40af',
-  secondaryColor: '#64748b',
-  fontFamily: 'Inter, sans-serif',
-  invoiceTitle: 'INVOICE',
-  footerText: 'Thank you for your business!',
-  termsAndConditions: 'Payment is due within the terms specified above. Late payments may be subject to interest charges.',
-  showLogo: true,
-  showRemitAddress: true,
-  showPaymentTerms: true,
-  notesTemplate: '',
-};
-
-const STORAGE_KEY = 'invoice_template_settings';
-
-// Available tokens for invoice templates
-const AVAILABLE_TOKENS = [
-  { token: '{{account_name}}', description: 'Customer account name' },
-  { token: '{{account_code}}', description: 'Customer account code' },
-  { token: '{{billing_contact_name}}', description: 'Billing contact name' },
-  { token: '{{billing_contact_email}}', description: 'Billing contact email' },
-  { token: '{{billing_address}}', description: 'Full billing address' },
-  { token: '{{invoice_number}}', description: 'Invoice number' },
-  { token: '{{invoice_date}}', description: 'Invoice date' },
-  { token: '{{due_date}}', description: 'Payment due date' },
-  { token: '{{period_start}}', description: 'Billing period start date' },
-  { token: '{{period_end}}', description: 'Billing period end date' },
-  { token: '{{subtotal}}', description: 'Invoice subtotal' },
-  { token: '{{tax_amount}}', description: 'Tax amount' },
-  { token: '{{total}}', description: 'Invoice total' },
-  { token: '{{payment_terms}}', description: 'Account payment terms (Net 30, etc.)' },
-  { token: '{{company_name}}', description: 'Your company name' },
-  { token: '{{company_address}}', description: 'Your company address' },
-  { token: '{{company_phone}}', description: 'Your company phone' },
-  { token: '{{company_email}}', description: 'Your company email' },
-  { token: '{{remit_address}}', description: 'Remit-to payment address' },
-];
+import { TemplateEditor, TemplateSettings } from '@/components/templateEditor';
+import { useInvoiceTemplates } from '@/hooks/useInvoiceTemplates';
+import { INVOICE_TOKENS } from '@/lib/templateEditor/tokens';
+import { DEFAULT_INVOICE_TEMPLATE, DEFAULT_INVOICE_TEMPLATE_SETTINGS } from '@/lib/templateEditor/defaultInvoiceTemplate';
 
 export function InvoiceTemplateTab() {
   const { toast } = useToast();
-  const { profile } = useAuth();
-  const [settings, setSettings] = useState<TemplateSettings>(DEFAULT_TEMPLATE);
-  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+  const {
+    templates,
+    currentTemplate,
+    isLoading,
+    createTemplate,
+    updateTemplate,
+    deleteTemplate,
+    setDefaultTemplate,
+    loadTemplate,
+    duplicateTemplate,
+  } = useInvoiceTemplates();
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [htmlContent, setHtmlContent] = useState(DEFAULT_INVOICE_TEMPLATE);
+  const [settings, setSettings] = useState<TemplateSettings>(DEFAULT_INVOICE_TEMPLATE_SETTINGS);
+  const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [showNewDialog, setShowNewDialog] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
 
-  // Load settings
+  // Load default or first template on mount
   useEffect(() => {
-    async function loadSettings() {
-      setLoading(true);
-
-      // Load template settings from localStorage
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        try {
-          setSettings({ ...DEFAULT_TEMPLATE, ...JSON.parse(stored) });
-        } catch (e) {
-          console.error('Failed to parse template settings:', e);
-        }
-      }
-
-      // Load company settings from database
-      if (profile?.tenant_id) {
-        const { data } = await supabase
-          .from('tenant_company_settings')
-          .select('company_name, company_address, company_phone, company_email, company_website, logo_url, remit_address_line1, remit_address_line2, remit_city, remit_state, remit_zip')
-          .eq('tenant_id', profile.tenant_id)
-          .maybeSingle();
-
-        setCompanySettings(data);
-      }
-
-      setLoading(false);
+    if (templates.length > 0 && !selectedTemplateId) {
+      const defaultTemplate = templates.find(t => t.is_default) || templates[0];
+      setSelectedTemplateId(defaultTemplate.id);
     }
+  }, [templates, selectedTemplateId]);
 
-    loadSettings();
-  }, [profile?.tenant_id]);
+  // Load template content when selection changes
+  useEffect(() => {
+    if (selectedTemplateId) {
+      loadTemplate(selectedTemplateId);
+    }
+  }, [selectedTemplateId, loadTemplate]);
 
-  // Save template settings
-  const handleSave = () => {
+  // Update local state when template loads
+  useEffect(() => {
+    if (currentTemplate) {
+      setHtmlContent(currentTemplate.html_content);
+      setSettings(currentTemplate.settings as TemplateSettings || DEFAULT_INVOICE_TEMPLATE_SETTINGS);
+      setHasChanges(false);
+    }
+  }, [currentTemplate]);
+
+  const handleContentChange = (html: string) => {
+    setHtmlContent(html);
+    setHasChanges(true);
+  };
+
+  const handleSettingsChange = (newSettings: TemplateSettings) => {
+    setSettings(newSettings);
+    setHasChanges(true);
+  };
+
+  const handleSave = async () => {
     setSaving(true);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-      toast({ title: 'Template saved', description: 'Invoice template settings have been saved.' });
-    } catch (e) {
-      console.error('Failed to save template settings:', e);
-      toast({ title: 'Save failed', description: 'Could not save template settings.', variant: 'destructive' });
+      if (selectedTemplateId) {
+        await updateTemplate(selectedTemplateId, {
+          html_content: htmlContent,
+          settings: settings as Record<string, unknown>,
+        });
+        setHasChanges(false);
+      }
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
-  // Reset to defaults
   const handleReset = () => {
-    setSettings(DEFAULT_TEMPLATE);
-    localStorage.removeItem(STORAGE_KEY);
-    toast({ title: 'Template reset', description: 'Invoice template reset to defaults.' });
+    setHtmlContent(DEFAULT_INVOICE_TEMPLATE);
+    setSettings(DEFAULT_INVOICE_TEMPLATE_SETTINGS);
+    setHasChanges(true);
   };
 
-  // Copy token to clipboard
-  const copyToken = (token: string) => {
-    navigator.clipboard.writeText(token);
-    toast({ title: 'Copied', description: `Token ${token} copied to clipboard.` });
+  const handleCreateNew = async () => {
+    if (!newTemplateName.trim()) {
+      toast({
+        title: 'Name required',
+        description: 'Please enter a name for the new template',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const newTemplate = await createTemplate({
+      name: newTemplateName.trim(),
+      html_content: DEFAULT_INVOICE_TEMPLATE,
+      settings: DEFAULT_INVOICE_TEMPLATE_SETTINGS as Record<string, unknown>,
+    });
+
+    if (newTemplate) {
+      setSelectedTemplateId(newTemplate.id);
+      setShowNewDialog(false);
+      setNewTemplateName('');
+    }
   };
 
-  if (loading) {
+  const handleDelete = async () => {
+    if (selectedTemplateId) {
+      await deleteTemplate(selectedTemplateId);
+      const remaining = templates.filter(t => t.id !== selectedTemplateId);
+      setSelectedTemplateId(remaining[0]?.id || null);
+    }
+  };
+
+  const handleSetDefault = async () => {
+    if (selectedTemplateId) {
+      await setDefaultTemplate(selectedTemplateId);
+    }
+  };
+
+  const handleDuplicate = async () => {
+    if (selectedTemplateId) {
+      const newTemplate = await duplicateTemplate(selectedTemplateId);
+      if (newTemplate) {
+        setSelectedTemplateId(newTemplate.id);
+      }
+    }
+  };
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <MaterialIcon name="progress_activity" className="animate-spin h-8 w-8 text-muted-foreground" />
@@ -150,320 +167,220 @@ export function InvoiceTemplateTab() {
     );
   }
 
-  const remitAddress = companySettings
-    ? [
-        companySettings.remit_address_line1,
-        companySettings.remit_address_line2,
-        [companySettings.remit_city, companySettings.remit_state, companySettings.remit_zip].filter(Boolean).join(', '),
-      ].filter(Boolean).join('\n')
-    : '';
+  // If no templates exist, show create button
+  if (templates.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <MaterialIcon name="description" size="xl" className="text-muted-foreground" />
+        <div className="text-center">
+          <h3 className="text-lg font-semibold">No Invoice Templates</h3>
+          <p className="text-muted-foreground text-sm">Create your first invoice template to get started</p>
+        </div>
+        <Button onClick={() => setShowNewDialog(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create Template
+        </Button>
+
+        <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Template</DialogTitle>
+              <DialogDescription>
+                Give your new invoice template a name
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Label htmlFor="template-name">Template Name</Label>
+              <Input
+                id="template-name"
+                value={newTemplateName}
+                onChange={(e) => setNewTemplateName(e.target.value)}
+                placeholder="e.g., Standard Invoice"
+                className="mt-2"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowNewDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreateNew}>
+                Create Template
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">Invoice Template</h2>
-          <p className="text-muted-foreground text-sm">Customize how your invoices look</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleReset}>
-            Reset to Defaults
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? (
-              <>
-                <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <MaterialIcon name="save" size="sm" className="mr-2" />
-                Save Template
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
+    <div className="h-[calc(100vh-200px)] flex flex-col -mx-6 -mt-6">
+      {/* Header */}
+      <div className="bg-background border-b px-6 py-3">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="text-lg font-semibold">
+              Invoice Template Editor
+            </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Template Settings */}
-        <div className="space-y-6">
-          {/* Colors & Style */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Colors & Style</CardTitle>
-              <CardDescription>Customize the appearance of your invoices</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="primaryColor">Primary Color</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="primaryColor"
-                      type="color"
-                      value={settings.primaryColor}
-                      onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                      className="w-12 h-10 p-1 cursor-pointer"
-                    />
-                    <Input
-                      value={settings.primaryColor}
-                      onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="secondaryColor">Secondary Color</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="secondaryColor"
-                      type="color"
-                      value={settings.secondaryColor}
-                      onChange={(e) => setSettings({ ...settings, secondaryColor: e.target.value })}
-                      className="w-12 h-10 p-1 cursor-pointer"
-                    />
-                    <Input
-                      value={settings.secondaryColor}
-                      onChange={(e) => setSettings({ ...settings, secondaryColor: e.target.value })}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="fontFamily">Font Family</Label>
-                <Input
-                  id="fontFamily"
-                  value={settings.fontFamily}
-                  onChange={(e) => setSettings({ ...settings, fontFamily: e.target.value })}
-                  placeholder="Inter, sans-serif"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="invoiceTitle">Invoice Title</Label>
-                <Input
-                  id="invoiceTitle"
-                  value={settings.invoiceTitle}
-                  onChange={(e) => setSettings({ ...settings, invoiceTitle: e.target.value })}
-                  placeholder="INVOICE"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Content Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Content Settings</CardTitle>
-              <CardDescription>Configure what appears on your invoices</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.showLogo}
-                    onChange={(e) => setSettings({ ...settings, showLogo: e.target.checked })}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm">Show company logo</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.showRemitAddress}
-                    onChange={(e) => setSettings({ ...settings, showRemitAddress: e.target.checked })}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm">Show remit-to address</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.showPaymentTerms}
-                    onChange={(e) => setSettings({ ...settings, showPaymentTerms: e.target.checked })}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm">Show payment terms</span>
-                </label>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="footerText">Footer Text</Label>
-                <Input
-                  id="footerText"
-                  value={settings.footerText}
-                  onChange={(e) => setSettings({ ...settings, footerText: e.target.value })}
-                  placeholder="Thank you for your business!"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="termsAndConditions">Terms & Conditions</Label>
-                <Textarea
-                  id="termsAndConditions"
-                  value={settings.termsAndConditions}
-                  onChange={(e) => setSettings({ ...settings, termsAndConditions: e.target.value })}
-                  rows={3}
-                  placeholder="Payment terms and conditions..."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notesTemplate">Default Notes Template</Label>
-                <Textarea
-                  id="notesTemplate"
-                  value={settings.notesTemplate}
-                  onChange={(e) => setSettings({ ...settings, notesTemplate: e.target.value })}
-                  rows={3}
-                  placeholder="Default notes to include on invoices. You can use tokens like {{account_name}}."
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Preview & Tokens */}
-        <div className="space-y-6">
-          {/* Available Tokens */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Available Tokens</CardTitle>
-              <CardDescription>Click to copy. Use these in notes and templates.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 gap-2 max-h-80 overflow-y-auto">
-                {AVAILABLE_TOKENS.map((item) => (
-                  <div
-                    key={item.token}
-                    className="flex items-center justify-between p-2 rounded-lg border hover:bg-muted cursor-pointer"
-                    onClick={() => copyToken(item.token)}
-                  >
-                    <div>
-                      <code className="text-sm bg-muted px-2 py-0.5 rounded">{item.token}</code>
-                      <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
+            {/* Template Selector */}
+            <Select
+              value={selectedTemplateId || ''}
+              onValueChange={setSelectedTemplateId}
+            >
+              <SelectTrigger className="w-64">
+                <SelectValue placeholder="Select template..." />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map(template => (
+                  <SelectItem key={template.id} value={template.id}>
+                    <div className="flex items-center gap-2">
+                      {template.name}
+                      {template.is_default && (
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                      )}
                     </div>
-                    <MaterialIcon name="content_copy" size="sm" className="text-muted-foreground" />
-                  </div>
+                  </SelectItem>
                 ))}
-              </div>
-            </CardContent>
-          </Card>
+              </SelectContent>
+            </Select>
+          </div>
 
-          {/* Company Info Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Company Information</CardTitle>
-              <CardDescription>This information is used on invoices. Edit in Settings &gt; Organization.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {companySettings ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowNewDialog(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDuplicate}
+              disabled={!selectedTemplateId}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Duplicate
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSetDefault}
+              disabled={!selectedTemplateId || currentTemplate?.is_default}
+            >
+              <Star className="h-4 w-4 mr-2" />
+              Set Default
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reset
+            </Button>
+
+            {selectedTemplateId && templates.length > 1 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Template?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete this invoice template. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+
+            <Button
+              onClick={handleSave}
+              disabled={!hasChanges || saving}
+              className="bg-primary hover:bg-primary/90"
+            >
+              {saving ? (
                 <>
-                  <div className="flex items-start gap-4">
-                    {companySettings.logo_url && settings.showLogo && (
-                      <img
-                        src={companySettings.logo_url}
-                        alt="Company Logo"
-                        className="w-16 h-16 object-contain"
-                      />
-                    )}
-                    <div>
-                      <p className="font-semibold">{companySettings.company_name || 'Company Name'}</p>
-                      <p className="text-sm text-muted-foreground">{companySettings.company_address}</p>
-                      <p className="text-sm text-muted-foreground">{companySettings.company_phone}</p>
-                      <p className="text-sm text-muted-foreground">{companySettings.company_email}</p>
-                    </div>
-                  </div>
-
-                  {settings.showRemitAddress && remitAddress && (
-                    <>
-                      <Separator />
-                      <div>
-                        <p className="text-sm font-medium mb-1">Remit Payment To:</p>
-                        <p className="text-sm text-muted-foreground whitespace-pre-line">{remitAddress}</p>
-                      </div>
-                    </>
-                  )}
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                  Saving...
                 </>
               ) : (
-                <p className="text-muted-foreground text-sm">No company settings found. Configure in Settings &gt; Organization.</p>
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Template
+                </>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Invoice Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Invoice Preview</CardTitle>
-              <CardDescription>A simplified preview of your invoice style</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div
-                className="border rounded-lg p-4 text-sm"
-                style={{ fontFamily: settings.fontFamily }}
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    {settings.showLogo && companySettings?.logo_url && (
-                      <img
-                        src={companySettings.logo_url}
-                        alt="Logo"
-                        className="w-12 h-12 object-contain mb-2"
-                      />
-                    )}
-                    <p className="font-semibold">{companySettings?.company_name || 'Your Company'}</p>
-                  </div>
-                  <h1
-                    className="text-2xl font-bold"
-                    style={{ color: settings.primaryColor }}
-                  >
-                    {settings.invoiceTitle}
-                  </h1>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-xs" style={{ color: settings.secondaryColor }}>Bill To:</p>
-                    <p>Sample Customer</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs" style={{ color: settings.secondaryColor }}>Invoice #:</p>
-                    <p>INV-ACME-00001</p>
-                  </div>
-                </div>
-
-                <div
-                  className="border-t border-b py-2 mb-4 text-xs"
-                  style={{ borderColor: settings.primaryColor }}
-                >
-                  <div className="flex justify-between font-medium" style={{ color: settings.primaryColor }}>
-                    <span>Description</span>
-                    <span>Amount</span>
-                  </div>
-                  <div className="flex justify-between mt-2">
-                    <span>Sample Service</span>
-                    <span>$100.00</span>
-                  </div>
-                </div>
-
-                <div className="text-right mb-4">
-                  <p style={{ color: settings.secondaryColor }}>Total:</p>
-                  <p className="text-lg font-bold" style={{ color: settings.primaryColor }}>$100.00</p>
-                </div>
-
-                {settings.footerText && (
-                  <p className="text-xs text-center" style={{ color: settings.secondaryColor }}>
-                    {settings.footerText}
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Editor */}
+      <div className="flex-1 overflow-hidden">
+        <TemplateEditor
+          initialContent={htmlContent}
+          onChange={handleContentChange}
+          tokens={INVOICE_TOKENS}
+          settings={settings}
+          onSettingsChange={handleSettingsChange}
+          mode="invoice"
+          showSettings={true}
+        />
+      </div>
+
+      {/* New Template Dialog */}
+      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Template</DialogTitle>
+            <DialogDescription>
+              Give your new invoice template a name
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="template-name">Template Name</Label>
+            <Input
+              id="template-name"
+              value={newTemplateName}
+              onChange={(e) => setNewTemplateName(e.target.value)}
+              placeholder="e.g., Standard Invoice"
+              className="mt-2"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleCreateNew();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateNew}>
+              Create Template
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
