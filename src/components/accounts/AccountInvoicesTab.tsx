@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,19 +27,31 @@ interface Invoice {
   paid_amount: number | null;
 }
 
+interface InvoiceLine {
+  id: string;
+  description: string;
+  charge_type: string;
+  quantity: number;
+  unit_rate: number;
+  total_amount: number;
+  occurred_at: string | null;
+  sidemark_name: string | null;
+}
+
 export function AccountInvoicesTab({ accountId, accountName }: AccountInvoicesTabProps) {
   const { profile } = useAuth();
+  const { toast } = useToast();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadInvoices();
-  }, [accountId]);
-
-  const loadInvoices = async () => {
-    if (!profile?.tenant_id) return;
+  const loadInvoices = useCallback(async () => {
+    if (!profile?.tenant_id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     const { data, error } = await (supabase
@@ -52,7 +65,11 @@ export function AccountInvoicesTab({ accountId, accountName }: AccountInvoicesTa
       setInvoices(data || []);
     }
     setLoading(false);
-  };
+  }, [profile?.tenant_id, accountId]);
+
+  useEffect(() => {
+    loadInvoices();
+  }, [loadInvoices]);
 
   const filteredInvoices = useMemo(() => {
     if (statusFilter === 'all') return invoices;
@@ -61,28 +78,58 @@ export function AccountInvoicesTab({ accountId, accountName }: AccountInvoicesTa
 
   const summary = useMemo(() => {
     const total = invoices.reduce((s, i) => s + Number(i.total_amount || 0), 0);
+    // Calculate outstanding: total_amount - paid_amount for draft/sent invoices
     const outstanding = invoices
       .filter(i => i.status === 'draft' || i.status === 'sent')
-      .reduce((s, i) => s + Number(i.total_amount || 0), 0);
+      .reduce((s, i) => {
+        const invoiceTotal = Number(i.total_amount || 0);
+        const paidAmount = Number(i.paid_amount || 0);
+        return s + Math.max(0, invoiceTotal - paidAmount);
+      }, 0);
     return { total, outstanding, count: invoices.length };
   }, [invoices]);
 
   const handleDownload = async (invoice: Invoice) => {
-    const pdfData: InvoicePdfData = {
-      invoiceNumber: invoice.invoice_number,
-      invoiceDate: invoice.invoice_date,
-      dueDate: invoice.due_date || undefined,
-      periodStart: invoice.period_start || '',
-      periodEnd: invoice.period_end || '',
-      invoiceType: 'manual',
-      companyName: 'Stride Warehouse',
-      accountName: accountName,
-      accountCode: '',
-      lines: [],
-      subtotal: invoice.total_amount || 0,
-      total: invoice.total_amount || 0,
-    };
-    downloadInvoicePdf(pdfData);
+    setDownloadingId(invoice.id);
+
+    try {
+      // Fetch invoice lines
+      const { data: lines, error } = await supabase
+        .from('invoice_lines')
+        .select('*')
+        .eq('invoice_id', invoice.id)
+        .order('occurred_at', { ascending: true });
+
+      if (error) throw error;
+
+      const pdfData: InvoicePdfData = {
+        invoiceNumber: invoice.invoice_number,
+        invoiceDate: invoice.invoice_date,
+        dueDate: invoice.due_date || undefined,
+        periodStart: invoice.period_start || '',
+        periodEnd: invoice.period_end || '',
+        invoiceType: 'manual',
+        companyName: 'Stride Warehouse',
+        accountName: accountName,
+        accountCode: '',
+        lines: (lines || []).map((l: InvoiceLine) => ({
+          date: l.occurred_at?.slice(0, 10) || '',
+          description: l.description || l.charge_type || '',
+          sidemark: l.sidemark_name || '',
+          quantity: l.quantity,
+          rate: l.unit_rate,
+          total: l.total_amount,
+        })),
+        subtotal: invoice.total_amount || 0,
+        total: invoice.total_amount || 0,
+      };
+      downloadInvoicePdf(pdfData);
+    } catch (err) {
+      console.error('Error downloading invoice:', err);
+      toast({ title: 'Error downloading invoice', variant: 'destructive' });
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -164,8 +211,17 @@ export function AccountInvoicesTab({ accountId, accountName }: AccountInvoicesTa
                   <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                   <TableCell>
                     <div className="flex justify-end">
-                      <Button variant="ghost" size="sm" onClick={() => handleDownload(invoice)}>
-                        <MaterialIcon name="download" size="sm" className="mr-1" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownload(invoice)}
+                        disabled={downloadingId === invoice.id}
+                      >
+                        <MaterialIcon
+                          name={downloadingId === invoice.id ? "progress_activity" : "download"}
+                          size="sm"
+                          className={`mr-1 ${downloadingId === invoice.id ? "animate-spin" : ""}`}
+                        />
                         PDF
                       </Button>
                     </div>
