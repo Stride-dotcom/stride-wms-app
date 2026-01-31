@@ -537,10 +537,10 @@ export default function ShipmentDetail() {
         if (itemsError) throw itemsError;
       }
 
-      // Update shipment_items status
+      // Update shipment_items status to released (valid values: pending, received, released, cancelled)
       const { error: shipmentItemsError } = await supabase
         .from('shipment_items')
-        .update({ status: 'completed' })
+        .update({ status: 'released' })
         .eq('shipment_id', shipment.id);
 
       if (shipmentItemsError) throw shipmentItemsError;
