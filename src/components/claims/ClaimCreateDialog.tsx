@@ -227,16 +227,23 @@ export function ClaimCreateDialog({
   };
 
   const searchShipments = async (query: string) => {
-    if (!query || query.length < 2) {
+    if (!query || query.length < 2 || !profile?.tenant_id) {
       setSearchedShipments([]);
       return;
     }
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('shipments')
       .select('id, shipment_number, account_id, sidemark_id')
-      .eq('tenant_id', profile?.tenant_id)
+      .eq('tenant_id', profile.tenant_id)
       .ilike('shipment_number', `%${query}%`)
+      .order('created_at', { ascending: false })
       .limit(20);
+
+    if (error) {
+      console.error('Error searching shipments:', error);
+      setSearchedShipments([]);
+      return;
+    }
     setSearchedShipments(data || []);
   };
 
@@ -567,21 +574,27 @@ export function ClaimCreateDialog({
 
                 <TabsContent value="shipment" className="space-y-4 mt-4">
                   <div className="space-y-2">
-                    <Label>Search Shipment</Label>
+                    <Label>Search Shipment *</Label>
                     <Input
-                      placeholder="Search by shipment number..."
+                      placeholder="Enter shipment number (e.g., SHP-000123)..."
                       value={shipmentSearch}
                       onChange={(e) => {
                         setShipmentSearch(e.target.value);
                         searchShipments(e.target.value);
                       }}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Type at least 2 characters to search
+                    </p>
                     {searchedShipments.length > 0 && (
                       <div className="border rounded-md max-h-40 overflow-y-auto">
                         {searchedShipments.map((shipment) => (
                           <div
                             key={shipment.id}
-                            className="p-2 hover:bg-muted cursor-pointer text-sm font-mono"
+                            className={cn(
+                              "p-2 hover:bg-muted cursor-pointer text-sm font-mono",
+                              selectedShipmentId === shipment.id && "bg-primary/10"
+                            )}
                             onClick={() => handleShipmentSelect(shipment)}
                           >
                             {shipment.shipment_number}
@@ -589,7 +602,37 @@ export function ClaimCreateDialog({
                         ))}
                       </div>
                     )}
+                    {shipmentSearch.length >= 2 && searchedShipments.length === 0 && (
+                      <div className="text-sm text-muted-foreground border rounded-md p-4 text-center">
+                        No shipments found matching "{shipmentSearch}"
+                      </div>
+                    )}
                   </div>
+
+                  {/* Selected Shipment Display */}
+                  {selectedShipmentId && (
+                    <div className="p-3 bg-primary/5 border border-primary/20 rounded-md">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <MaterialIcon name="local_shipping" size="sm" className="text-primary" />
+                          <span className="font-mono font-medium">{shipmentSearch}</span>
+                          <Badge variant="secondary">Selected</Badge>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedShipmentId('');
+                            setShipmentSearch('');
+                            setSearchedShipments([]);
+                          }}
+                        >
+                          <MaterialIcon name="close" size="sm" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="property" className="space-y-4 mt-4">
