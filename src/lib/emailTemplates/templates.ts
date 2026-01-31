@@ -672,7 +672,7 @@ export const RELEASE_CREATED: EmailTemplate = {
           </tr>
           <tr>
             <td align="center" style="padding-top:28px;">
-              ${primaryButton('View Release', '{{shipment_link}}')}
+              ${primaryButton('View Release', '{{release_link}}')}
             </td>
           </tr>
         </table>
@@ -688,7 +688,7 @@ A release order has been created for items in your inventory.
 
 Release Number: {{release_number}}
 
-View Release: {{shipment_link}}
+View Release: {{release_link}}
 
 Thank you,
 {{tenant_name}}`

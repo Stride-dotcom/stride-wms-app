@@ -545,6 +545,13 @@ export const EMAIL_TOKENS: Token[] = [
     description: 'Release order number',
     category: 'Release'
   },
+  {
+    id: 'release_link',
+    label: 'Release Link',
+    token: 'release_link',
+    description: 'Direct link to release details',
+    category: 'Release'
+  },
 
   // Employee Tokens
   {
@@ -690,6 +697,7 @@ export const SAMPLE_DATA: Record<string, string> = {
 
   // Release
   release_number: 'REL-2026-001',
+  release_link: 'https://portal.example.com/releases/123',
 
   // Employee
   employee_name: 'Sarah Williams',
