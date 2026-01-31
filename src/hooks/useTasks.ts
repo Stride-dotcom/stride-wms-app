@@ -326,6 +326,8 @@ export function useTasks(filters?: {
               task_item_codes: itemCodes, // Store item codes for display in reports
             },
             created_by: profile.id,
+            has_rate_error: hasManualRate ? false : serviceInfo.hasError,
+            rate_error_message: hasManualRate ? null : serviceInfo.errorMessage,
           });
         }
       } else if (isTaskLevelBilling && hasManualRate) {
@@ -362,6 +364,8 @@ export function useTasks(filters?: {
               task_item_codes: itemCodes, // Store item codes for display in reports
             },
             created_by: profile.id,
+            has_rate_error: false,
+            rate_error_message: null,
           });
         }
       } else {
@@ -414,11 +418,11 @@ export function useTasks(filters?: {
             metadata: {
               task_type: taskType,
               class_code: classCode,
-              has_rate_error: hasManualRate ? false : rateResult.hasError,
-              rate_error_message: hasManualRate ? null : rateResult.errorMessage,
               manual_rate: hasManualRate,
             },
             created_by: profile.id,
+            has_rate_error: hasManualRate ? false : rateResult.hasError,
+            rate_error_message: hasManualRate ? null : rateResult.errorMessage,
           });
 
           // Track alerts to queue for services with email_office alert rule
