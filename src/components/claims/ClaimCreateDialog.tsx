@@ -14,7 +14,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -199,7 +198,7 @@ export function ClaimCreateDialog({
       .eq('tenant_id', profile?.tenant_id)
       .eq('account_id', selectedAccountId)
       .is('deleted_at', null)
-      .in('status', ['in_storage', 'received'])
+      .in('status', ['active', 'in_storage', 'received', 'pending_receipt'])
       .order('item_code')
       .limit(200);
 
@@ -347,7 +346,7 @@ export function ClaimCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>File New Claim</DialogTitle>
           <DialogDescription>
@@ -355,7 +354,7 @@ export function ClaimCreateDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4 -mr-4">
+        <div className="pr-1">
           <div className="space-y-6 py-2">
             {/* Context Selector */}
             <div className="space-y-2">
@@ -687,7 +686,7 @@ export function ClaimCreateDialog({
               />
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
