@@ -641,27 +641,6 @@ export function BillingReportTab() {
     return unbilledRows.some(r => selectedRows.has(r.id)) && !allUnbilledSelected;
   }, [rows, selectedRows, allUnbilledSelected]);
 
-  // Navigate to create invoice with selected items
-  const handleCreateInvoice = () => {
-    if (selectedRows.size === 0) {
-      toast({ title: "No rows selected", description: "Please select billing events to include in the invoice.", variant: "destructive" });
-      return;
-    }
-
-    // Check for unsaved changes
-    if (hasUnsavedChanges) {
-      setPendingNavigation('create-invoice');
-      setShowUnsavedDialog(true);
-      return;
-    }
-
-    // Store selected billing event IDs in sessionStorage
-    const selectedBillingEventIds = Array.from(selectedRows);
-    sessionStorage.setItem('invoiceSelectedBillingEvents', JSON.stringify(selectedBillingEventIds));
-
-    // Navigate to invoices page / create invoice tab
-    navigate('/invoices?tab=create&source=billing-report');
-  };
 
   // Handle navigation after unsaved changes dialog
   const handleProceedWithNavigation = () => {
