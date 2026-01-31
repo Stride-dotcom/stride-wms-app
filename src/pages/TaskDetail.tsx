@@ -43,6 +43,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
 import { DocumentUploadButton } from '@/components/scanner/DocumentUploadButton';
 import { DocumentList } from '@/components/scanner/DocumentList';
+import { TaskHistoryTab } from '@/components/tasks/TaskHistoryTab';
 
 interface TaskDetail {
   id: string;
@@ -888,6 +889,9 @@ export default function TaskDetailPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Task History */}
+            <TaskHistoryTab taskId={task.id} />
           </div>
 
           {/* Right Column - Metadata */}

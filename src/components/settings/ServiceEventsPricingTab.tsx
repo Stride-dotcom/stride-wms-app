@@ -149,9 +149,15 @@ export function ServiceEventsPricingTab() {
   const [duplicateService, setDuplicateService] = useState<ServiceEvent | null>(null);
   const [seeding, setSeeding] = useState(false);
 
-  // Sorting
-  const [sortField, setSortField] = useState<SortField | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  // Sorting - load from localStorage
+  const [sortField, setSortField] = useState<SortField | null>(() => {
+    const saved = localStorage.getItem('priceListSortField');
+    return saved ? (saved as SortField) : null;
+  });
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
+    const saved = localStorage.getItem('priceListSortDirection');
+    return saved === 'desc' ? 'desc' : 'asc';
+  });
 
   // Expanded rows
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -176,6 +182,35 @@ export function ServiceEventsPricingTab() {
   useEffect(() => {
     localStorage.setItem('priceListVisibleColumns', JSON.stringify(Array.from(visibleColumns)));
   }, [visibleColumns]);
+
+  // Save sorting state to localStorage
+  useEffect(() => {
+    if (sortField) {
+      localStorage.setItem('priceListSortField', sortField);
+    } else {
+      localStorage.removeItem('priceListSortField');
+    }
+    localStorage.setItem('priceListSortDirection', sortDirection);
+  }, [sortField, sortDirection]);
+
+  // Load hide inactive filter from localStorage on mount
+  useEffect(() => {
+    const savedActiveFilter = localStorage.getItem('priceListActiveFilter');
+    if (savedActiveFilter !== null) {
+      setFilters(prev => ({ ...prev, is_active: savedActiveFilter === 'active' ? true : savedActiveFilter === 'inactive' ? false : undefined }));
+    }
+  }, []);
+
+  // Save active filter to localStorage
+  useEffect(() => {
+    if (filters.is_active === true) {
+      localStorage.setItem('priceListActiveFilter', 'active');
+    } else if (filters.is_active === false) {
+      localStorage.setItem('priceListActiveFilter', 'inactive');
+    } else {
+      localStorage.removeItem('priceListActiveFilter');
+    }
+  }, [filters.is_active]);
 
   // Handle seed default pricing
   const handleSeedPricing = async () => {
