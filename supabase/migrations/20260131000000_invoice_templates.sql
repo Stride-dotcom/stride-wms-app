@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS invoice_templates (
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  created_by UUID REFERENCES profiles(id),
-  updated_by UUID REFERENCES profiles(id)
+  created_by UUID REFERENCES auth.users(id),
+  updated_by UUID REFERENCES auth.users(id)
 );
 
 -- Create indexes for fast lookups
