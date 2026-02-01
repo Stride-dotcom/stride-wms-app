@@ -93,17 +93,23 @@ export function ShipmentItemRow({
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Inline edit state - tracks local values
-  const [vendor, setVendor] = useState(item.expected_vendor || '');
-  const [description, setDescription] = useState(item.expected_description || '');
-  const [quantity, setQuantity] = useState(item.expected_quantity?.toString() || '1');
+  const [vendor, setVendor] = useState(item.item?.vendor || item.expected_vendor || '');
+  const [description, setDescription] = useState(item.item?.description || item.expected_description || '');
+  const [quantity, setQuantity] = useState(
+    item.item_id 
+      ? (item.actual_quantity?.toString() || '1')
+      : (item.expected_quantity?.toString() || '1')
+  );
   const [selectedClass, setSelectedClass] = useState(
-    item.expected_class?.code || item.item?.class?.code || ''
+    item.item?.class?.code || item.expected_class?.code || ''
   );
   const [sidemark, setSidemark] = useState(item.item?.sidemark || item.expected_sidemark || '');
+  const [room, setRoom] = useState(item.item?.room || '');
 
   // Refs to track latest values for blur handlers (avoids stale closure issues)
   const selectedClassRef = useRef(selectedClass);
   const sidemarkRef = useRef(sidemark);
+  const roomRef = useRef(room);
 
   // Track if we're currently saving
   const [saving, setSaving] = useState(false);
@@ -125,16 +131,23 @@ export function ShipmentItemRow({
       skipNextSyncRef.current = false;
       return; // Skip this sync - we just saved and don't want to revert
     }
-    setVendor(item.expected_vendor || '');
-    setDescription(item.expected_description || '');
-    setQuantity(item.expected_quantity?.toString() || '1');
-    const classValue = item.expected_class?.code || item.item?.class?.code || '';
+    setVendor(item.item?.vendor || item.expected_vendor || '');
+    setDescription(item.item?.description || item.expected_description || '');
+    setQuantity(
+      item.item_id 
+        ? (item.actual_quantity?.toString() || '1')
+        : (item.expected_quantity?.toString() || '1')
+    );
+    const classValue = item.item?.class?.code || item.expected_class?.code || '';
     const sidemarkValue = item.item?.sidemark || item.expected_sidemark || '';
+    const roomValue = item.item?.room || '';
     setSelectedClass(classValue);
     setSidemark(sidemarkValue);
+    setRoom(roomValue);
     selectedClassRef.current = classValue;
     sidemarkRef.current = sidemarkValue;
-  }, [item.expected_vendor, item.expected_description, item.expected_quantity, item.expected_class, item.item?.class, item.item?.sidemark, item.expected_sidemark]);
+    roomRef.current = roomValue;
+  }, [item.expected_vendor, item.expected_description, item.expected_quantity, item.actual_quantity, item.expected_class, item.item?.class, item.item?.sidemark, item.expected_sidemark, item.item?.vendor, item.item?.description, item.item?.room, item.item_id]);
 
   // Keep refs in sync with state changes
   useEffect(() => {
@@ -144,6 +157,10 @@ export function ShipmentItemRow({
   useEffect(() => {
     sidemarkRef.current = sidemark;
   }, [sidemark]);
+
+  useEffect(() => {
+    roomRef.current = room;
+  }, [room]);
 
   // Fetch enabled flags when expanded and item has been received
   useEffect(() => {
@@ -206,7 +223,7 @@ export function ShipmentItemRow({
     }
   }, [item.id, item.item_id, classes, onUpdate, toast]);
 
-  // Save function for received items - updates items table (for class and sidemark)
+  // Save function for received items - updates items table (for all editable fields)
   const saveReceivedItemField = useCallback(async (field: string, value: string) => {
     if (!item.item_id) return; // Only for received items
 
@@ -218,6 +235,21 @@ export function ShipmentItemRow({
     if (field === 'sidemark') {
       updateData.sidemark = value || null;
     }
+    if (field === 'vendor') {
+      updateData.vendor = value || null;
+    }
+    if (field === 'description') {
+      updateData.description = value || null;
+    }
+    if (field === 'room') {
+      updateData.room = value || null;
+    }
+    if (field === 'quantity') {
+      updateData.quantity = parseInt(value) || 1;
+    }
+
+    // Skip if no updates
+    if (Object.keys(updateData).length === 0) return;
 
     setSaving(true);
     skipNextSyncRef.current = true; // Prevent useEffect from reverting value
@@ -286,14 +318,15 @@ export function ShipmentItemRow({
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    // For class and sidemark, use refs to get the latest value (avoids stale closure)
+    // For class, sidemark, and room, use refs to get the latest value (avoids stale closure)
     const actualValue = field === 'class' ? selectedClassRef.current :
-                        field === 'sidemark' ? sidemarkRef.current : value;
+                        field === 'sidemark' ? sidemarkRef.current :
+                        field === 'room' ? roomRef.current : value;
 
     // Save after a short delay to allow for tab navigation
     saveTimeoutRef.current = setTimeout(() => {
-      if (item.item_id && (field === 'class' || field === 'sidemark')) {
-        // For received items, update the items table
+      if (item.item_id) {
+        // For received items, update the items table for all fields
         saveReceivedItemField(field, actualValue);
       } else {
         // For pending items, update shipment_items table
@@ -397,10 +430,12 @@ export function ShipmentItemRow({
     }
   }, [item.item_id, navigate]);
 
-  // Can edit pending item fields if inbound, not completed, and item not yet received
+  // Can edit pending item fields if inbound/return, not completed, and item not yet received
   const canEditPending = isInbound && !isCompleted && !item.item_id;
-  // Can edit class/sidemark on received items if not completed
+  // Can edit all fields on received items if inbound/return and not completed
   const canEditReceived = isInbound && !isCompleted && !!item.item_id;
+  // Unified editable flag for all fields
+  const canEdit = canEditPending || canEditReceived;
   // Can delete pending items (not yet received)
   const canDelete = isInbound && !isCompleted && !item.item_id;
 
@@ -455,9 +490,9 @@ export function ShipmentItemRow({
           )}
         </TableCell>
 
-        {/* Qty - shows expected for pending, received for received items */}
-        <TableCell className="w-20 text-right" onClick={(e) => canEditPending && e.stopPropagation()}>
-          {canEditPending ? (
+        {/* Qty - editable for all inbound items */}
+        <TableCell className="w-20 text-right" onClick={(e) => canEdit && e.stopPropagation()}>
+          {canEdit ? (
             <Input
               type="number"
               value={quantity}
@@ -473,14 +508,15 @@ export function ShipmentItemRow({
           )}
         </TableCell>
 
-        {/* Vendor - editable for pending items */}
-        <TableCell className="w-32" onClick={(e) => canEditPending && e.stopPropagation()}>
-          {canEditPending ? (
+        {/* Vendor - editable for all inbound items */}
+        <TableCell className="w-32" onClick={(e) => canEdit && e.stopPropagation()}>
+          {canEdit ? (
             <Input
               value={vendor}
               onChange={(e) => setVendor(e.target.value)}
               onBlur={() => handleBlur('vendor', vendor)}
               placeholder="Vendor"
+              autoCapitalize="sentences"
               className="h-7 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
             />
           ) : (
@@ -488,14 +524,15 @@ export function ShipmentItemRow({
           )}
         </TableCell>
 
-        {/* Description - editable for pending items */}
-        <TableCell className="min-w-[140px]" onClick={(e) => canEditPending && e.stopPropagation()}>
-          {canEditPending ? (
+        {/* Description - editable for all inbound items */}
+        <TableCell className="min-w-[140px]" onClick={(e) => canEdit && e.stopPropagation()}>
+          {canEdit ? (
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               onBlur={() => handleBlur('description', description)}
               placeholder="Description"
+              autoCapitalize="sentences"
               className="h-7 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
             />
           ) : (
@@ -510,9 +547,9 @@ export function ShipmentItemRow({
           </span>
         </TableCell>
 
-        {/* Class - editable for pending AND received items with autocomplete */}
-        <TableCell className="w-24" onClick={(e) => (canEditPending || canEditReceived) && e.stopPropagation()}>
-          {(canEditPending || canEditReceived) ? (
+        {/* Class - editable for all inbound items with autocomplete */}
+        <TableCell className="w-24" onClick={(e) => canEdit && e.stopPropagation()}>
+          {canEdit ? (
             <AutocompleteInput
               value={selectedClass}
               onChange={handleClassChange}
@@ -527,14 +564,15 @@ export function ShipmentItemRow({
           )}
         </TableCell>
 
-        {/* Sidemark - editable for pending AND received items */}
-        <TableCell className="w-28" onClick={(e) => (canEditPending || canEditReceived) && e.stopPropagation()}>
-          {(canEditPending || canEditReceived) ? (
+        {/* Sidemark - editable for all inbound items */}
+        <TableCell className="w-28" onClick={(e) => canEdit && e.stopPropagation()}>
+          {canEdit ? (
             <Input
               value={sidemark}
               onChange={(e) => setSidemark(e.target.value)}
               onBlur={() => handleBlur('sidemark', sidemark)}
               placeholder="Sidemark"
+              autoCapitalize="sentences"
               className="h-7 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
             />
           ) : (
@@ -544,11 +582,22 @@ export function ShipmentItemRow({
           )}
         </TableCell>
 
-        {/* Room - only for received items */}
-        <TableCell className="w-24">
-          <span className="text-sm">
-            {item.item?.room || '-'}
-          </span>
+        {/* Room - editable for received items */}
+        <TableCell className="w-24" onClick={(e) => canEditReceived && e.stopPropagation()}>
+          {canEditReceived ? (
+            <Input
+              value={room}
+              onChange={(e) => setRoom(e.target.value)}
+              onBlur={() => handleBlur('room', room)}
+              placeholder="Room"
+              autoCapitalize="sentences"
+              className="h-7 text-sm border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-input"
+            />
+          ) : (
+            <span className="text-sm">
+              {item.item?.room || '-'}
+            </span>
+          )}
         </TableCell>
 
         {/* Status */}
