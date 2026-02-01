@@ -39,6 +39,7 @@ import {
 import { useTechnicians } from '@/hooks/useTechnicians';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
+import { AccountSelect } from '@/components/ui/account-select';
 
 // Status text classes for bold colored text
 const getStatusTextClass = (status: string) => {
@@ -121,6 +122,10 @@ export default function RepairQuoteDetail() {
   const [testEmailAddress, setTestEmailAddress] = useState('');
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
 
+  // Account editing state
+  const [editingAccount, setEditingAccount] = useState(false);
+  const [savingAccount, setSavingAccount] = useState(false);
+
   const fetchQuote = useCallback(async () => {
     if (!id || !profile?.tenant_id) return;
 
@@ -176,7 +181,7 @@ export default function RepairQuoteDetail() {
             id, item_code, description, status, vendor,
             current_location_id,
             location:locations!items_current_location_id_fkey(code),
-            inspection_notes
+            inspection_photos
           )
         `)
         .eq('repair_quote_id', id);
@@ -202,9 +207,10 @@ export default function RepairQuoteDetail() {
               .eq('id', quote.source_task_id)
               .single();
 
-            if (taskData?.metadata?.photos) {
-              const photos = taskData.metadata.photos;
-              taskPhotos = photos.map((p: any) => typeof p === 'string' ? p : p.url).filter(Boolean);
+            const taskMetadata = taskData?.metadata as Record<string, unknown> | null;
+            if (taskMetadata?.photos) {
+              const photosArr = taskMetadata.photos as unknown[];
+              taskPhotos = photosArr.map((p: any) => typeof p === 'string' ? p : p.url).filter(Boolean);
             }
           }
 
@@ -215,7 +221,7 @@ export default function RepairQuoteDetail() {
             ...qi,
             vendor: qi.item?.vendor || null,
             location_code: qi.item?.location?.code || null,
-            inspection_notes: qi.item?.inspection_notes || qi.damage_description || null,
+            inspection_notes: qi.damage_description || null,
             inspection_photos: qi.damage_photos?.length > 0 ? qi.damage_photos : allPhotos,
           } as ItemWithDetails;
         })
@@ -350,6 +356,39 @@ export default function RepairQuoteDetail() {
   const formatCurrency = (amount: number | null) => {
     if (amount === null || amount === undefined) return '-';
     return `$${amount.toFixed(2)}`;
+  };
+
+  const handleAccountChange = async (newAccountId: string) => {
+    if (!quote || !newAccountId) return;
+
+    setSavingAccount(true);
+    try {
+      const { error } = await supabase
+        .from('repair_quotes')
+        .update({
+          account_id: newAccountId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', quote.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Account Updated',
+        description: 'Quote account has been updated. Items list will refresh.',
+      });
+      setEditingAccount(false);
+      fetchQuote();
+    } catch (error) {
+      console.error('Error updating account:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update account',
+      });
+    } finally {
+      setSavingAccount(false);
+    }
   };
 
   // Add items functionality
@@ -552,10 +591,41 @@ export default function RepairQuoteDetail() {
                   {statusInfo.label.toUpperCase()}
                 </span>
               </div>
-              <p className="text-muted-foreground text-sm mt-1">
-                {quote.account?.name || 'No account'}
-                {quote.sidemark && ` - ${quote.sidemark.name}`}
-              </p>
+              <div className="flex items-center gap-2 text-sm mt-1">
+                {editingAccount ? (
+                  <div className="flex items-center gap-2">
+                    <AccountSelect
+                      value={quote.account_id || ''}
+                      onChange={handleAccountChange}
+                      placeholder="Select account..."
+                      disabled={savingAccount}
+                      className="w-64"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingAccount(false)}
+                      disabled={savingAccount}
+                    >
+                      <MaterialIcon name="close" size="sm" />
+                    </Button>
+                    {savingAccount && (
+                      <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEditingAccount(true)}
+                    className="text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                    title="Click to change account"
+                  >
+                    <span>{quote.account?.name || 'No account'}</span>
+                    {quote.sidemark && <span> - {quote.sidemark.name}</span>}
+                    <MaterialIcon name="edit" size="sm" className="ml-1 opacity-50" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex gap-2 self-start sm:self-center flex-wrap">
@@ -788,7 +858,7 @@ export default function RepairQuoteDetail() {
                     <Label htmlFor="customerPrice" className="text-sm">Customer Price</Label>
                     {pricingLocked && (
                       <Badge variant="secondary" className="text-xs">
-                        <MaterialIcon name="lock" size="xs" className="mr-1" />
+                        <MaterialIcon name="lock" size="sm" className="mr-1" />
                         Locked
                       </Badge>
                     )}
@@ -1073,7 +1143,7 @@ export default function RepairQuoteDetail() {
                   >
                     <MaterialIcon name="description" size="sm" />
                     View Source Task
-                    <MaterialIcon name="open_in_new" size="xs" />
+                    <MaterialIcon name="open_in_new" size="sm" />
                   </Link>
                 </CardContent>
               </Card>

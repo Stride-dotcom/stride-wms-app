@@ -1784,6 +1784,7 @@ async function runRepairQuotesFlowTests(ctx: TestContext): Promise<TestResult[]>
     const startedAt = new Date().toISOString();
     try {
       if (!itemId) throw new Error('No item created');
+      const testItemId = itemId as string;
 
       log(ctx, `Running test: ${testName}`);
 
@@ -1820,7 +1821,7 @@ async function runRepairQuotesFlowTests(ctx: TestContext): Promise<TestResult[]>
         status: 'pass',
         started_at: startedAt,
         finished_at: new Date().toISOString(),
-        entity_ids: { repair_quotes: [quoteId], items: [itemId] },
+        entity_ids: { repair_quotes: [quoteId!], items: [testItemId] },
         details: { quote_status: quote.status }
       });
     } catch (error) {

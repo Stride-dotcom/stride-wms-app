@@ -7498,14 +7498,18 @@ export type Database = {
           client_response: string | null
           created_at: string
           created_by: string | null
+          customer_price: number | null
           customer_total: number | null
           expires_at: string | null
           flat_rate: number | null
           id: string
+          internal_cost: number | null
           item_id: string
           last_sent_at: string | null
           markup_applied: number | null
           notes: string | null
+          office_notes: string | null
+          pricing_locked: boolean | null
           sidemark_id: string | null
           source_task_id: string | null
           status:
@@ -7534,14 +7538,18 @@ export type Database = {
           client_response?: string | null
           created_at?: string
           created_by?: string | null
+          customer_price?: number | null
           customer_total?: number | null
           expires_at?: string | null
           flat_rate?: number | null
           id?: string
+          internal_cost?: number | null
           item_id: string
           last_sent_at?: string | null
           markup_applied?: number | null
           notes?: string | null
+          office_notes?: string | null
+          pricing_locked?: boolean | null
           sidemark_id?: string | null
           source_task_id?: string | null
           status?:
@@ -7570,14 +7578,18 @@ export type Database = {
           client_response?: string | null
           created_at?: string
           created_by?: string | null
+          customer_price?: number | null
           customer_total?: number | null
           expires_at?: string | null
           flat_rate?: number | null
           id?: string
+          internal_cost?: number | null
           item_id?: string
           last_sent_at?: string | null
           markup_applied?: number | null
           notes?: string | null
+          office_notes?: string | null
+          pricing_locked?: boolean | null
           sidemark_id?: string | null
           source_task_id?: string | null
           status?:
