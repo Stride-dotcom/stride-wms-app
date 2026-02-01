@@ -468,7 +468,7 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
           shipment_type: 'outbound',
           status: 'pending',
           customer_authorized: true,
-          release_type: 'customer_pickup',
+          release_type: 'will_call',
           released_to: 'QA Test Customer',
           metadata: { qa_test: true, qa_run_id: ctx.runId }
         })
