@@ -703,13 +703,14 @@ export function useServiceEventsAdmin() {
     setSaving(true);
     try {
       // Generate 6 class rows copying config from base service
+      // IMPORTANT: rate = null until user explicitly sets it (prevents accidental $0 billing)
       const classRows = CLASS_CODES.map(classCode => ({
         tenant_id: profile.tenant_id,
         service_code: baseService.service_code,
         service_name: baseService.service_name,
         class_code: classCode,
         billing_unit: baseService.billing_unit,
-        rate: 0, // Start with 0, user will fill in
+        rate: null, // NULL until user sets rate - UI will display placeholder
         service_time_minutes: baseService.service_time_minutes,
         taxable: baseService.taxable,
         uses_class_pricing: true,
@@ -745,7 +746,7 @@ export function useServiceEventsAdmin() {
 
       toast({
         title: 'Class Pricing Generated',
-        description: `Created ${CLASS_CODES.length} class variants for "${baseService.service_code}". Edit rates inline below.`,
+        description: `Created ${CLASS_CODES.length} class variants for "${baseService.service_code}". Set rates for each class below (rates are unset until you enter values).`,
       });
 
       await fetchServiceEvents();

@@ -1172,18 +1172,48 @@ function InlineEditCell({ event, field, getCurrentValue, updatePendingChange, sa
     );
   }
 
-  // Rate field
+  // Rate field - handles NULL rates with visual indicator
   if (field === 'rate') {
+    const isNullRate = value === null || value === undefined;
     return (
-      <Input
-        type="number"
-        step="0.01"
-        min="0"
-        value={value ?? ''}
-        onChange={(e) => updatePendingChange(event.id, field, parseFloat(e.target.value) || 0)}
-        className="w-24 h-8 text-right font-mono"
-        disabled={saving}
-      />
+      <div className="flex items-center gap-1">
+        <Input
+          type="number"
+          step="0.01"
+          min="0"
+          value={value ?? ''}
+          onChange={(e) => {
+            // If user clears the field, set to null (not 0)
+            // If user enters a value, persist the actual number
+            const inputVal = e.target.value;
+            if (inputVal === '' || inputVal === null) {
+              updatePendingChange(event.id, field, null);
+            } else {
+              updatePendingChange(event.id, field, parseFloat(inputVal));
+            }
+          }}
+          className={cn(
+            "w-24 h-8 text-right font-mono",
+            isNullRate && "border-amber-400 bg-amber-50 dark:bg-amber-950/30"
+          )}
+          disabled={saving}
+          placeholder="—"
+        />
+        {isNullRate && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-amber-500">
+                  <MaterialIcon name="warning" size="sm" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Rate not set - enter a value</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
     );
   }
 
@@ -1393,18 +1423,40 @@ function MobileServiceCard({
             <p className="font-medium text-sm">{getCurrentValue(event, 'service_name')}</p>
           </div>
         </div>
-        <div className="text-right" onClick={(e) => e.stopPropagation()}>
-          <Input
-            type="number"
-            step="0.01"
-            value={getCurrentValue(event, 'rate') ?? ''}
-            onChange={(e) => updatePendingChange(event.id, 'rate', parseFloat(e.target.value) || 0)}
-            className={cn(
-              'w-24 h-8 text-right font-mono font-semibold',
-              hasFieldChanged(event, 'rate') && 'bg-amber-50 dark:bg-amber-950'
-            )}
-            disabled={saving}
-          />
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          {(() => {
+            const rateVal = getCurrentValue(event, 'rate');
+            const isNullRate = rateVal === null || rateVal === undefined;
+            return (
+              <>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={rateVal ?? ''}
+                  onChange={(e) => {
+                    const inputVal = e.target.value;
+                    if (inputVal === '' || inputVal === null) {
+                      updatePendingChange(event.id, 'rate', null);
+                    } else {
+                      updatePendingChange(event.id, 'rate', parseFloat(inputVal));
+                    }
+                  }}
+                  className={cn(
+                    'w-24 h-8 text-right font-mono font-semibold',
+                    hasFieldChanged(event, 'rate') && 'bg-amber-50 dark:bg-amber-950',
+                    isNullRate && 'border-amber-400 bg-amber-50 dark:bg-amber-950/30'
+                  )}
+                  disabled={saving}
+                  placeholder="—"
+                />
+                {isNullRate && (
+                  <span className="text-amber-500">
+                    <MaterialIcon name="warning" size="sm" />
+                  </span>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
 

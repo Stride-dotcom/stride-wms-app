@@ -29,10 +29,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ServiceEvent,
-  CreateServiceEventInput,
   BILLING_TRIGGERS,
   CLASS_CODES,
-  CLASS_LABELS,
   BILLING_UNITS,
   ALERT_RULES,
 } from '@/hooks/useServiceEventsAdmin';
@@ -46,12 +44,6 @@ interface AddServiceDialogProps {
   onOpenChange: (open: boolean) => void;
   duplicateFrom?: ServiceEvent | null;
   onSuccess: () => void;
-}
-
-interface ClassRate {
-  class_code: string;
-  rate: number;
-  service_time_minutes?: number;
 }
 
 export function AddServiceDialog({
@@ -101,8 +93,6 @@ export function AddServiceDialog({
   // Track if user has manually edited the service code
   const [codeManuallyEdited, setCodeManuallyEdited] = useState(false);
 
-  const [classRates, setClassRates] = useState<ClassRate[]>([]);
-
   // Generate service code from service name
   const generateServiceCode = (name: string): string => {
     return name
@@ -143,7 +133,7 @@ export function AddServiceDialog({
           service_code: generateServiceCode(copyName), // Auto-generate from name
           service_name: copyName,
           billing_unit: duplicateFrom.billing_unit,
-          rate: duplicateFrom.rate,
+          rate: duplicateFrom.rate ?? 0,
           service_time_minutes: duplicateFrom.service_time_minutes,
           taxable: duplicateFrom.taxable,
           is_active: true,
@@ -155,19 +145,7 @@ export function AddServiceDialog({
           uses_class_pricing: duplicateFrom.uses_class_pricing,
           category_id: duplicateFrom.category_id || null,
         });
-        setCodeManuallyEdited(false); // Reset manual edit flag
-        // If duplicating a class-based service, initialize class rates
-        if (duplicateFrom.uses_class_pricing) {
-          setClassRates(
-            CLASS_CODES.map((code) => ({
-              class_code: code,
-              rate: duplicateFrom.rate,
-              service_time_minutes: duplicateFrom.service_time_minutes || undefined,
-            }))
-          );
-        } else {
-          setClassRates([]);
-        }
+        setCodeManuallyEdited(false);
       } else {
         // Reset form for new service
         setFormData({
@@ -186,71 +164,10 @@ export function AddServiceDialog({
           uses_class_pricing: false,
           category_id: null,
         });
-        setCodeManuallyEdited(false); // Reset manual edit flag
-        setClassRates([]);
+        setCodeManuallyEdited(false);
       }
     }
   }, [open, duplicateFrom]);
-
-  // Toggle class pricing
-  const handleToggleClassPricing = (checked: boolean) => {
-    setFormData({ ...formData, uses_class_pricing: checked });
-    if (checked && classRates.length === 0) {
-      // Initialize class rates with current rate
-      setClassRates(
-        CLASS_CODES.map((code) => ({
-          class_code: code,
-          rate: formData.rate,
-          service_time_minutes: formData.service_time_minutes || undefined,
-        }))
-      );
-    }
-  };
-
-  // Update class rate
-  const updateClassRate = (classCode: string, field: 'rate' | 'service_time_minutes', value: number) => {
-    setClassRates((prev) =>
-      prev.map((cr) =>
-        cr.class_code === classCode ? { ...cr, [field]: value } : cr
-      )
-    );
-  };
-
-  // Copy first rate to all class rates
-  const copyFirstRateToAll = () => {
-    if (classRates.length === 0) return;
-    const firstRate = classRates[0].rate;
-    const firstTime = classRates[0].service_time_minutes;
-    setClassRates((prev) =>
-      prev.map((cr) => ({
-        ...cr,
-        rate: firstRate,
-        service_time_minutes: firstTime,
-      }))
-    );
-  };
-
-  // Scale rates by size (XS=base, each size increases by 50%)
-  const scaleRatesBySize = () => {
-    if (classRates.length === 0) return;
-    const baseRate = classRates[0].rate;
-    const baseTime = classRates[0].service_time_minutes || 0;
-    const multipliers: Record<string, number> = {
-      XS: 1.0,
-      S: 1.25,
-      M: 1.5,
-      L: 2.0,
-      XL: 2.5,
-      XXL: 3.0,
-    };
-    setClassRates((prev) =>
-      prev.map((cr) => ({
-        ...cr,
-        rate: Math.round(baseRate * (multipliers[cr.class_code] || 1) * 100) / 100,
-        service_time_minutes: baseTime ? Math.round(baseTime * (multipliers[cr.class_code] || 1)) : undefined,
-      }))
-    );
-  };
 
   // Get billing trigger description
   const getBillingTriggerDescription = (trigger: string): string => {
@@ -335,12 +252,13 @@ export function AddServiceDialog({
       };
 
       if (formData.uses_class_pricing) {
-        // Insert multiple rows for class-based pricing
-        const inserts = classRates.map((cr) => ({
+        // Insert 6 class rows with NULL rates (user will set rates in Price List)
+        // IMPORTANT: rate = null prevents accidental $0 billing
+        const inserts = CLASS_CODES.map((classCode) => ({
           ...baseData,
-          class_code: cr.class_code,
-          rate: cr.rate,
-          service_time_minutes: cr.service_time_minutes || null,
+          class_code: classCode,
+          rate: null, // NULL until user explicitly sets rate
+          service_time_minutes: formData.service_time_minutes || null,
         }));
 
         const { error } = await (supabase
@@ -362,10 +280,17 @@ export function AddServiceDialog({
         if (error) throw error;
       }
 
-      toast({
-        title: 'Service Created',
-        description: `Service "${formData.service_name}" has been created successfully.`,
-      });
+      if (formData.uses_class_pricing) {
+        toast({
+          title: 'Class-Based Service Created',
+          description: `Created 6 class rows for "${formData.service_name}". Set rates for each class in the Price List below.`,
+        });
+      } else {
+        toast({
+          title: 'Service Created',
+          description: `Service "${formData.service_name}" has been created successfully.`,
+        });
+      }
 
       onSuccess();
     } catch (error: any) {
@@ -525,17 +450,33 @@ export function AddServiceDialog({
             <Checkbox
               id="uses_class_pricing"
               checked={formData.uses_class_pricing}
-              onCheckedChange={handleToggleClassPricing}
+              onCheckedChange={(checked) => setFormData({ ...formData, uses_class_pricing: !!checked })}
             />
             <div className="flex-1">
               <Label htmlFor="uses_class_pricing" className="cursor-pointer font-medium">
                 Use Class-Based Pricing
               </Label>
               <p className="text-xs text-muted-foreground">
-                Set different rates for each size class (XS, S, M, L, XL, XXL)
+                Create 6 class rows (XS, S, M, L, XL, XXL) with rates you can set after creation
               </p>
             </div>
           </div>
+
+          {/* Class Pricing Info */}
+          {formData.uses_class_pricing && (
+            <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+              <div className="flex items-start gap-3">
+                <MaterialIcon name="info" size="sm" className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-blue-800 dark:text-blue-200">Class-Based Pricing Flow</p>
+                  <p className="text-blue-700 dark:text-blue-300 mt-1">
+                    This will create 6 service rows (one for each size class: XS, S, M, L, XL, XXL).
+                    Rates will be <strong>unset</strong> until you enter them in the Price List after creation.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Rate Input (single rate) */}
           {!formData.uses_class_pricing && (
@@ -575,78 +516,27 @@ export function AddServiceDialog({
             </div>
           )}
 
-          {/* Class-based Rates */}
+          {/* Service Time for class-based services */}
           {formData.uses_class_pricing && (
-            <div className="space-y-3 p-4 border rounded-lg">
-              <div className="flex items-center justify-between">
-                <Label>Rates by Class</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={copyFirstRateToAll}
-                    disabled={classRates.length === 0}
-                  >
-                    <MaterialIcon name="content_copy" size="sm" className="mr-1" />
-                    Copy XS to All
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={scaleRatesBySize}
-                    disabled={classRates.length === 0}
-                  >
-                    <MaterialIcon name="trending_up" size="sm" className="mr-1" />
-                    Scale by Size
-                  </Button>
-                </div>
-              </div>
-              <div className="grid gap-3">
-                <div className="grid grid-cols-3 gap-3 text-xs text-muted-foreground font-medium">
-                  <div>Class</div>
-                  <div>Rate ($)</div>
-                  <div>Time (min)</div>
-                </div>
-                {classRates.map((cr) => (
-                  <div key={cr.class_code} className="grid grid-cols-3 gap-3 items-center">
-                    <div className="font-medium text-sm">
-                      {CLASS_LABELS[cr.class_code] || cr.class_code}
-                    </div>
-                    <div>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={cr.rate}
-                        onChange={(e) =>
-                          updateClassRate(cr.class_code, 'rate', parseFloat(e.target.value) || 0)
-                        }
-                        placeholder="Rate"
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        type="number"
-                        step="1"
-                        min="0"
-                        value={cr.service_time_minutes ?? ''}
-                        onChange={(e) =>
-                          updateClassRate(
-                            cr.class_code,
-                            'service_time_minutes',
-                            e.target.value ? parseInt(e.target.value) : 0
-                          )
-                        }
-                        placeholder="Minutes"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="class_service_time_minutes">Default Service Time (minutes)</Label>
+              <Input
+                id="class_service_time_minutes"
+                type="number"
+                step="1"
+                min="0"
+                value={formData.service_time_minutes ?? ''}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    service_time_minutes: e.target.value ? parseInt(e.target.value) : null,
+                  })
+                }
+                placeholder="Optional - applies to all class rows"
+                className="max-w-xs"
+              />
               <p className="text-xs text-muted-foreground">
-                "Scale by Size" applies multipliers: XS=1×, S=1.25×, M=1.5×, L=2×, XL=2.5×, XXL=3×
+                This time will be copied to all 6 class rows. You can edit individual times in the Price List.
               </p>
             </div>
           )}
@@ -741,14 +631,10 @@ export function AddServiceDialog({
                   <span className="font-medium">Billing: </span>
                   {formData.uses_class_pricing ? (
                     <span>
-                      Per {formData.billing_unit} (varies by size)
-                      <div className="mt-1 grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        {classRates.map((cr) => (
-                          <span key={cr.class_code}>
-                            {cr.class_code}: ${cr.rate.toFixed(2)}
-                            {cr.service_time_minutes ? ` (${cr.service_time_minutes}m)` : ''}
-                          </span>
-                        ))}
+                      Per {formData.billing_unit} (6 class rows: XS, S, M, L, XL, XXL)
+                      <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <MaterialIcon name="info" size="sm" />
+                        Rates will be unset - set them in Price List after creation
                       </div>
                     </span>
                   ) : (
