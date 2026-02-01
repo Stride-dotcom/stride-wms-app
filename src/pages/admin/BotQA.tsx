@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,6 +34,35 @@ interface ResolverResult {
   match_count: number;
   matches: Array<{ id: string; code: string; type: string }>;
   ambiguous: boolean;
+}
+
+// Conversation test types
+interface ConversationTurnResult {
+  user_message: string;
+  bot_response: string;
+  assertions_checked: Array<{
+    description: string;
+    passed: boolean;
+    actual?: any;
+    expected?: any;
+  }>;
+  duration_ms: number;
+}
+
+interface ConversationScenarioResult {
+  scenario_id: string;
+  scenario_name: string;
+  status: 'pass' | 'fail' | 'skip' | 'error';
+  message: string;
+  turns: ConversationTurnResult[];
+  db_assertions: Array<{
+    description: string;
+    passed: boolean;
+    actual?: any;
+    expected?: any;
+  }>;
+  total_duration_ms: number;
+  error?: string;
 }
 
 // ============================================================
@@ -177,9 +208,18 @@ async function resolveEntityReference(
 export default function BotQA() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState('tool-level');
+
+  // Tool-level test state
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<TestResult[]>([]);
   const [expandedTests, setExpandedTests] = useState<Set<string>>(new Set());
+
+  // Conversation test state
+  const [isRunningConv, setIsRunningConv] = useState(false);
+  const [convResults, setConvResults] = useState<ConversationScenarioResult[]>([]);
+  const [expandedScenarios, setExpandedScenarios] = useState<Set<string>>(new Set());
+  const [expandedTurns, setExpandedTurns] = useState<Set<string>>(new Set());
 
   // Shipment selection for tests
   const [inboundShipments, setInboundShipments] = useState<Array<{ id: string; shipment_number: string; total_items: number }>>([]);
@@ -242,6 +282,30 @@ export default function BotQA() {
     });
   }
 
+  function toggleScenarioExpanded(scenarioId: string) {
+    setExpandedScenarios(prev => {
+      const next = new Set(prev);
+      if (next.has(scenarioId)) {
+        next.delete(scenarioId);
+      } else {
+        next.add(scenarioId);
+      }
+      return next;
+    });
+  }
+
+  function toggleTurnExpanded(turnKey: string) {
+    setExpandedTurns(prev => {
+      const next = new Set(prev);
+      if (next.has(turnKey)) {
+        next.delete(turnKey);
+      } else {
+        next.add(turnKey);
+      }
+      return next;
+    });
+  }
+
   function updateResult(result: TestResult) {
     setResults(prev => {
       const existing = prev.findIndex(r => r.name === result.name);
@@ -255,10 +319,10 @@ export default function BotQA() {
   }
 
   // ============================================================
-  // TEST RUNNERS
+  // TOOL-LEVEL TEST RUNNERS
   // ============================================================
 
-  async function runAllTests() {
+  async function runAllToolTests() {
     if (!profile?.tenant_id) {
       toast({ title: 'Error', description: 'No tenant ID found', variant: 'destructive' });
       return;
@@ -708,20 +772,6 @@ export default function BotQA() {
 
     const startC1 = Date.now();
     try {
-      // Simulate calling the bulk preview tool without confirmed flag
-      // In a real scenario, this would call the Edge Function
-      // Here we verify the tool pattern exists
-
-      // The tool_create_tasks_bulk_preview should return preview=true
-      // The tool_create_tasks_bulk_execute should require confirmed=true
-
-      // Check by analyzing the tool behavior expectation:
-      // 1. Preview returns { ok: true, preview: true, needs_confirmation: true }
-      // 2. Execute without confirmed=true returns error
-
-      // Since we can't call the Edge Function directly from here,
-      // we verify the pattern by checking the implementation expectation
-
       updateResult({
         name: 'C1: Bulk Task Creation Requires Confirmation',
         category: 'Confirmation Gates',
@@ -790,7 +840,6 @@ export default function BotQA() {
 
     const startD1 = Date.now();
     try {
-      // Simulate validation with null destination
       const result = validateMovement({
         item_ids: ['test-item-id'],
         to_location_id: null,
@@ -865,7 +914,6 @@ export default function BotQA() {
 
     const startD3 = Date.now();
     try {
-      // Check if a random UUID exists as a location
       const fakeLocationId = crypto.randomUUID();
       const { data: location } = await supabase
         .from('locations')
@@ -873,7 +921,7 @@ export default function BotQA() {
         .eq('id', fakeLocationId)
         .single();
 
-      const pass = !location; // Should not find the fake location
+      const pass = !location;
 
       updateResult({
         name: 'D3: Movement Validation - Invalid Location',
@@ -928,7 +976,6 @@ export default function BotQA() {
 
     const startE1 = Date.now();
     try {
-      // Get shipment details
       const { data: shipment } = await supabase
         .from('shipments')
         .select('id, shipment_number, status')
@@ -947,7 +994,6 @@ export default function BotQA() {
         return;
       }
 
-      // Get shipment items
       const { data: shipmentItems } = await supabase
         .from('shipment_items')
         .select(`
@@ -971,7 +1017,6 @@ export default function BotQA() {
         }
       }
 
-      // Check for active tasks blocking release
       const itemIds = (shipmentItems || []).map((si: any) => si.item_id).filter(Boolean);
 
       if (itemIds.length > 0) {
@@ -996,7 +1041,7 @@ export default function BotQA() {
       updateResult({
         name: 'E1: Outbound Shipment Validator',
         category: 'Outbound Validation',
-        status: 'pass', // This is a visibility test, not pass/fail
+        status: 'pass',
         message: blockers.length > 0
           ? `Found ${blockers.length} blocker(s) for ${shipment.shipment_number}`
           : `${shipment.shipment_number} appears ready for release`,
@@ -1017,6 +1062,44 @@ export default function BotQA() {
         message: `Error: ${e instanceof Error ? e.message : 'Unknown'}`,
         duration: Date.now() - startE1,
       });
+    }
+  }
+
+  // ============================================================
+  // CONVERSATION-LEVEL TEST RUNNERS
+  // ============================================================
+
+  async function runConversationTests() {
+    if (!profile?.tenant_id) {
+      toast({ title: 'Error', description: 'No tenant ID found', variant: 'destructive' });
+      return;
+    }
+
+    setIsRunningConv(true);
+    setConvResults([]);
+
+    try {
+      // Get selected shipment info
+      const selectedShipment = inboundShipments.find(s => s.id === selectedInboundId);
+
+      const { data } = await supabase.functions.invoke('bot-qa-runner', {
+        body: {
+          action: 'run_scenarios',
+          test_shipment_id: selectedInboundId || undefined,
+          test_shipment_number: selectedShipment?.shipment_number || undefined,
+        },
+      });
+
+      if (data?.results) {
+        setConvResults(data.results);
+      } else {
+        toast({ title: 'Error', description: 'No results returned from test runner', variant: 'destructive' });
+      }
+    } catch (error) {
+      console.error('Conversation test error:', error);
+      toast({ title: 'Error', description: 'Failed to run conversation tests', variant: 'destructive' });
+    } finally {
+      setIsRunningConv(false);
     }
   }
 
@@ -1045,11 +1128,29 @@ export default function BotQA() {
     }
   }
 
+  async function cleanupAllQATasks() {
+    try {
+      const { data } = await supabase.functions.invoke('bot-qa-runner', {
+        body: { action: 'cleanup' },
+      });
+
+      if (data?.deleted !== undefined) {
+        toast({
+          title: 'Cleanup complete',
+          description: `Deleted ${data.deleted} QA task(s)${data.errors?.length ? ` with ${data.errors.length} errors` : ''}`,
+        });
+        setCreatedTaskIds([]);
+      }
+    } catch (error) {
+      toast({ title: 'Cleanup error', description: 'Failed to cleanup QA tasks', variant: 'destructive' });
+    }
+  }
+
   // ============================================================
-  // RENDER
+  // RENDER HELPERS
   // ============================================================
 
-  const statusColors: Record<TestStatus, string> = {
+  const statusColors: Record<TestStatus | string, string> = {
     pending: 'bg-gray-100 text-gray-800',
     running: 'bg-blue-100 text-blue-800',
     pass: 'bg-green-100 text-green-800',
@@ -1058,7 +1159,7 @@ export default function BotQA() {
     error: 'bg-red-200 text-red-900',
   };
 
-  const statusIcons: Record<TestStatus, string> = {
+  const statusIcons: Record<TestStatus | string, string> = {
     pending: 'hourglass_empty',
     running: 'progress_activity',
     pass: 'check_circle',
@@ -1067,35 +1168,24 @@ export default function BotQA() {
     error: 'error',
   };
 
-  const categories = [...new Set(results.map(r => r.category))];
+  const toolCategories = [...new Set(results.map(r => r.category))];
+
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6 max-w-5xl mx-auto">
+      <div className="p-6 space-y-6 max-w-6xl mx-auto">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Bot QA Harness</h1>
-            <p className="text-muted-foreground">Test Tenant/Ops Bot Logic</p>
+            <p className="text-muted-foreground">Test Tenant/Ops Bot Logic (Tool-Level & Conversation-Level)</p>
           </div>
           <div className="flex gap-2">
-            {createdTaskIds.length > 0 && (
-              <Button variant="outline" onClick={cleanupQATasks}>
-                <MaterialIcon name="delete" size="sm" className="mr-2" />
-                Cleanup ({createdTaskIds.length} tasks)
-              </Button>
-            )}
-            <Button onClick={runAllTests} disabled={isRunning}>
-              {isRunning ? (
-                <>
-                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
-                  Running...
-                </>
-              ) : (
-                <>
-                  <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
-                  Run All Tests
-                </>
-              )}
+            <Button variant="outline" onClick={cleanupAllQATasks}>
+              <MaterialIcon name="delete_sweep" size="sm" className="mr-2" />
+              Cleanup All QA Data
             </Button>
           </div>
         </div>
@@ -1104,7 +1194,7 @@ export default function BotQA() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Test Configuration</CardTitle>
-            <CardDescription>Select shipments for specific tests</CardDescription>
+            <CardDescription>Select shipments for tests that require real data</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -1143,104 +1233,398 @@ export default function BotQA() {
           </CardContent>
         </Card>
 
-        {/* Results Summary */}
-        {results.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                Results Summary
-                <Badge variant="outline">
-                  {results.filter(r => r.status === 'pass').length}/{results.length} passed
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-4 text-sm">
-                <span className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-green-500" />
-                  Pass: {results.filter(r => r.status === 'pass').length}
-                </span>
-                <span className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-red-500" />
-                  Fail: {results.filter(r => r.status === 'fail').length}
-                </span>
-                <span className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                  Skip: {results.filter(r => r.status === 'skip').length}
-                </span>
-                <span className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-red-700" />
-                  Error: {results.filter(r => r.status === 'error').length}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Test Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="tool-level" className="flex items-center gap-2">
+              <MaterialIcon name="build" size="sm" />
+              Tool-Level Tests (A)
+            </TabsTrigger>
+            <TabsTrigger value="conversation" className="flex items-center gap-2">
+              <MaterialIcon name="chat" size="sm" />
+              Conversation Tests (B)
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Test Results by Category */}
-        {categories.map(category => (
-          <Card key={category}>
-            <CardHeader>
-              <CardTitle className="text-lg">{category}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {results.filter(r => r.category === category).map(result => (
+          {/* Tool-Level Tests Tab */}
+          <TabsContent value="tool-level" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-muted-foreground">
+                Deterministic tests for partial ID matching, task creation rules, movement validation
+              </p>
+              <div className="flex gap-2">
+                {createdTaskIds.length > 0 && (
+                  <Button variant="outline" onClick={cleanupQATasks}>
+                    <MaterialIcon name="delete" size="sm" className="mr-2" />
+                    Cleanup ({createdTaskIds.length})
+                  </Button>
+                )}
+                <Button onClick={runAllToolTests} disabled={isRunning}>
+                  {isRunning ? (
+                    <>
+                      <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
+                      Run Tool Tests
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Results Summary */}
+            {results.length > 0 && (
+              <Card>
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    Results
+                    <Badge variant="outline">
+                      {results.filter(r => r.status === 'pass').length}/{results.length} passed
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="flex gap-4 text-sm">
+                    <span className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-green-500" />
+                      Pass: {results.filter(r => r.status === 'pass').length}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-red-500" />
+                      Fail: {results.filter(r => r.status === 'fail').length}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                      Skip: {results.filter(r => r.status === 'skip').length}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Test Results by Category */}
+            {toolCategories.map(category => (
+              <Card key={category}>
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm">{category}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 pt-0">
+                  {results.filter(r => r.category === category).map(result => (
+                    <Collapsible
+                      key={result.name}
+                      open={expandedTests.has(result.name)}
+                      onOpenChange={() => toggleExpanded(result.name)}
+                    >
+                      <div className="border rounded-lg">
+                        <CollapsibleTrigger asChild>
+                          <button className="w-full p-2 flex items-center justify-between hover:bg-muted/50 transition-colors text-sm">
+                            <div className="flex items-center gap-2">
+                              <MaterialIcon
+                                name={statusIcons[result.status]}
+                                size="sm"
+                                className={result.status === 'running' ? 'animate-spin' : ''}
+                              />
+                              <span className="font-medium">{result.name}</span>
+                              <Badge className={statusColors[result.status]} variant="secondary">
+                                {result.status.toUpperCase()}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              {result.duration && <span>{result.duration}ms</span>}
+                              <MaterialIcon name="expand_more" size="sm" />
+                            </div>
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <Separator />
+                          <div className="p-3 space-y-2 bg-muted/30">
+                            <p className="text-sm">{result.message}</p>
+                            {result.details && (
+                              <details className="text-xs">
+                                <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                                  View Details (JSON)
+                                </summary>
+                                <pre className="mt-2 p-2 bg-muted rounded overflow-x-auto max-h-48 overflow-y-auto">
+                                  {JSON.stringify(result.details, null, 2)}
+                                </pre>
+                              </details>
+                            )}
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+                  ))}
+                </CardContent>
+              </Card>
+            ))}
+
+            {results.length === 0 && !isRunning && (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <MaterialIcon name="science" className="mx-auto mb-4" style={{ fontSize: '48px' }} />
+                  <p>Click "Run Tool Tests" to start validation</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Conversation Tests Tab */}
+          <TabsContent value="conversation" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-muted-foreground">
+                End-to-end conversation tests calling the tenant bot endpoint
+              </p>
+              <Button onClick={runConversationTests} disabled={isRunningConv}>
+                {isRunningConv ? (
+                  <>
+                    <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                    Running Conversations...
+                  </>
+                ) : (
+                  <>
+                    <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
+                    Run Conversation Tests
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Conversation Results Summary */}
+            {convResults.length > 0 && (
+              <Card>
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    Conversation Test Results
+                    <Badge variant="outline">
+                      {convResults.filter(r => r.status === 'pass').length}/{convResults.length} passed
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="flex gap-4 text-sm">
+                    <span className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-green-500" />
+                      Pass: {convResults.filter(r => r.status === 'pass').length}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-red-500" />
+                      Fail: {convResults.filter(r => r.status === 'fail').length}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                      Skip: {convResults.filter(r => r.status === 'skip').length}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-red-700" />
+                      Error: {convResults.filter(r => r.status === 'error').length}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Conversation Scenario Results */}
+            {convResults.map(scenario => (
+              <Card key={scenario.scenario_id}>
                 <Collapsible
-                  key={result.name}
-                  open={expandedTests.has(result.name)}
-                  onOpenChange={() => toggleExpanded(result.name)}
+                  open={expandedScenarios.has(scenario.scenario_id)}
+                  onOpenChange={() => toggleScenarioExpanded(scenario.scenario_id)}
                 >
-                  <div className="border rounded-lg">
-                    <CollapsibleTrigger asChild>
-                      <button className="w-full p-3 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-3">
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="py-3 cursor-pointer hover:bg-muted/50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
                           <MaterialIcon
-                            name={statusIcons[result.status]}
+                            name={statusIcons[scenario.status]}
                             size="sm"
-                            className={result.status === 'running' ? 'animate-spin' : ''}
                           />
-                          <span className="font-medium">{result.name}</span>
-                          <Badge className={statusColors[result.status]}>
-                            {result.status.toUpperCase()}
+                          <CardTitle className="text-sm">{scenario.scenario_name}</CardTitle>
+                          <Badge className={statusColors[scenario.status]} variant="secondary">
+                            {scenario.status.toUpperCase()}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          {result.duration && <span>{result.duration}ms</span>}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{scenario.turns.length} turn(s)</span>
+                          <span>{scenario.total_duration_ms}ms</span>
                           <MaterialIcon name="expand_more" size="sm" />
                         </div>
-                      </button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <Separator />
-                      <div className="p-3 space-y-2 bg-muted/30">
-                        <p className="text-sm">{result.message}</p>
-                        {result.details && (
-                          <details className="text-xs">
-                            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                              View Details (JSON)
-                            </summary>
-                            <pre className="mt-2 p-2 bg-muted rounded overflow-x-auto max-h-64 overflow-y-auto">
-                              {JSON.stringify(result.details, null, 2)}
-                            </pre>
-                          </details>
-                        )}
                       </div>
-                    </CollapsibleContent>
-                  </div>
-                </Collapsible>
-              ))}
-            </CardContent>
-          </Card>
-        ))}
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0 space-y-4">
+                      <p className="text-sm text-muted-foreground">{scenario.message}</p>
 
-        {results.length === 0 && !isRunning && (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <MaterialIcon name="science" className="mx-auto mb-4" style={{ fontSize: '48px' }} />
-              <p>Click "Run All Tests" to start the QA validation</p>
-            </CardContent>
-          </Card>
-        )}
+                      {/* Conversation Transcript */}
+                      {scenario.turns.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium">Conversation Transcript</h4>
+                          <ScrollArea className="h-[400px] border rounded-lg p-3 bg-slate-950">
+                            <div className="space-y-4 font-mono text-xs">
+                              {scenario.turns.map((turn, turnIdx) => {
+                                const turnKey = `${scenario.scenario_id}-turn-${turnIdx}`;
+                                return (
+                                  <div key={turnKey} className="space-y-2">
+                                    {/* User message */}
+                                    <div className="flex items-start gap-2">
+                                      <span className="text-blue-400 font-bold shrink-0">User:</span>
+                                      <span className="text-slate-300">{turn.user_message}</span>
+                                    </div>
+
+                                    {/* Bot response */}
+                                    <div className="flex items-start gap-2">
+                                      <span className="text-green-400 font-bold shrink-0">Bot:</span>
+                                      <div className="text-slate-300 whitespace-pre-wrap max-h-48 overflow-y-auto">
+                                        {turn.bot_response || <span className="text-red-400">(no response)</span>}
+                                      </div>
+                                    </div>
+
+                                    {/* Turn assertions */}
+                                    {turn.assertions_checked.length > 0 && (
+                                      <Collapsible
+                                        open={expandedTurns.has(turnKey)}
+                                        onOpenChange={() => toggleTurnExpanded(turnKey)}
+                                      >
+                                        <CollapsibleTrigger className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1">
+                                          <MaterialIcon name="fact_check" size="sm" />
+                                          {turn.assertions_checked.filter(a => a.passed).length}/{turn.assertions_checked.length} assertions passed
+                                          <MaterialIcon name="expand_more" size="sm" />
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                          <div className="mt-2 pl-4 space-y-1">
+                                            {turn.assertions_checked.map((assertion, aIdx) => (
+                                              <div key={aIdx} className="flex items-start gap-2">
+                                                <MaterialIcon
+                                                  name={assertion.passed ? 'check' : 'close'}
+                                                  size="sm"
+                                                  className={assertion.passed ? 'text-green-500' : 'text-red-500'}
+                                                />
+                                                <div>
+                                                  <span className={assertion.passed ? 'text-green-400' : 'text-red-400'}>
+                                                    {assertion.description}
+                                                  </span>
+                                                  {!assertion.passed && (
+                                                    <div className="text-slate-500 text-xs">
+                                                      Expected: {String(assertion.expected)} | Actual: {String(assertion.actual)}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    )}
+
+                                    <Separator className="bg-slate-800" />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      )}
+
+                      {/* DB Assertions */}
+                      {scenario.db_assertions.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium">Database Assertions</h4>
+                          <div className="space-y-1">
+                            {scenario.db_assertions.map((assertion, idx) => (
+                              <div key={idx} className="flex items-start gap-2 text-sm">
+                                <MaterialIcon
+                                  name={assertion.passed ? 'check_circle' : 'cancel'}
+                                  size="sm"
+                                  className={assertion.passed ? 'text-green-500' : 'text-red-500'}
+                                />
+                                <div>
+                                  <span className={assertion.passed ? 'text-green-700' : 'text-red-700'}>
+                                    {assertion.description}
+                                  </span>
+                                  <div className="text-xs text-muted-foreground">
+                                    Actual: {String(assertion.actual)} | Expected: {String(assertion.expected)}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Error */}
+                      {scenario.error && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                          <strong>Error:</strong> {scenario.error}
+                        </div>
+                      )}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
+            ))}
+
+            {convResults.length === 0 && !isRunningConv && (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <MaterialIcon name="chat" className="mx-auto mb-4" style={{ fontSize: '48px' }} />
+                  <p>Click "Run Conversation Tests" to test bot behavior end-to-end</p>
+                  <p className="text-xs mt-2">
+                    Tests: Partial matching, ambiguity handling, confirmation gates, inspection rules
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Scenario Descriptions */}
+            <Card>
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm">Test Scenarios</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-start gap-2">
+                    <Badge variant="outline" className="shrink-0">conv-1</Badge>
+                    <div>
+                      <strong>Partial Shipment Match (Unambiguous)</strong>
+                      <p className="text-muted-foreground text-xs">User references shipment by partial number, bot resolves unambiguously</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Badge variant="outline" className="shrink-0">conv-2</Badge>
+                    <div>
+                      <strong>Ambiguous Suffix Detection</strong>
+                      <p className="text-muted-foreground text-xs">User references with short suffix matching multiple records - bot should ask to choose</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Badge variant="outline" className="shrink-0">conv-3</Badge>
+                    <div>
+                      <strong>Bulk Inspection Creation (1 per item)</strong>
+                      <p className="text-muted-foreground text-xs">Create inspection tasks for shipment items - verifies one task per item rule and confirmation flow</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Badge variant="outline" className="shrink-0">conv-4</Badge>
+                    <div>
+                      <strong>Bulk Move Preview + Confirm</strong>
+                      <p className="text-muted-foreground text-xs">Bulk move should show preview and require explicit confirmation</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Badge variant="outline" className="shrink-0">conv-5</Badge>
+                    <div>
+                      <strong>Movement History Query</strong>
+                      <p className="text-muted-foreground text-xs">Read-only query - should execute immediately without confirmation</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
