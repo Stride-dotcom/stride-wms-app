@@ -1758,7 +1758,7 @@ async function runRepairQuotesFlowTests(ctx: TestContext): Promise<TestResult[]>
 
   // Create test item (damaged condition)
   {
-    const { data: item } = await ctx.supabase
+    const { data: item, error: itemError } = await ctx.supabase
       .from('items')
       .insert({
         tenant_id: ctx.tenantId,
@@ -1768,13 +1768,16 @@ async function runRepairQuotesFlowTests(ctx: TestContext): Promise<TestResult[]>
         description: 'QA Repair Quote Test Item',
         quantity: 1,
         status: 'stored',
-        condition: 'damaged',
+        inspection_status: 'damaged',
         current_location_id: locationId,
         metadata: { qa_test: true, qa_run_id: ctx.runId }
       })
       .select()
       .single();
 
+    if (itemError) {
+      log(ctx, `Failed to create repair quote test item: ${itemError.message}`);
+    }
     itemId = item?.id;
   }
 
