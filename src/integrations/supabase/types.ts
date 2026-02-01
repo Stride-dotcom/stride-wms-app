@@ -11799,6 +11799,10 @@ export type Database = {
           success: boolean
         }[]
       }
+      apply_core_defaults: {
+        Args: { p_tenant_id: string; p_user_id?: string }
+        Returns: Json
+      }
       apply_credit_to_invoice: {
         Args: {
           p_amount: number
@@ -11808,6 +11812,10 @@ export type Database = {
           p_notes?: string
         }
         Returns: string
+      }
+      apply_full_starter: {
+        Args: { p_tenant_id: string; p_user_id?: string }
+        Returns: Json
       }
       backfill_service_events_categories: {
         Args: { p_tenant_id: string }
@@ -12134,6 +12142,14 @@ export type Database = {
         Returns: undefined
       }
       seed_standard_roles: { Args: { p_tenant_id: string }; Returns: undefined }
+      seed_starter_service_events: {
+        Args: { p_tenant_id: string }
+        Returns: number
+      }
+      seed_task_types: {
+        Args: { p_created_by?: string; p_tenant_id: string }
+        Returns: undefined
+      }
       send_claim_for_acceptance: {
         Args: {
           p_claim_id: string
