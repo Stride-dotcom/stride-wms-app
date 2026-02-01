@@ -43,6 +43,7 @@ import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
 import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
 import { IntegrationsSettingsTab } from '@/components/settings/IntegrationsSettingsTab';
 import { PromptsSettingsTab } from '@/components/settings/PromptsSettingsTab';
+import { TenantTemplatesTab } from '@/components/settings/TenantTemplatesTab';
 
 interface TenantInfo {
   id: string;
@@ -59,6 +60,7 @@ const TAB_OPTIONS = [
   { value: 'labor', label: 'Labor', adminOnly: true },
   { value: 'pricing', label: 'Pricing', adminOnly: true },
   { value: 'categories', label: 'Categories', adminOnly: true },
+  { value: 'templates', label: 'Templates', adminOnly: true },
   { value: 'integrations', label: 'Integrations', adminOnly: true },
   { value: 'sidemarks', label: 'Sidemarks' },
   // Removed: Services, Rate Sheets, Classes tabs - now using unified service_events pricing system
@@ -322,6 +324,7 @@ export default function Settings() {
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
             {isAdmin && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
             {isAdmin && <TabsTrigger value="categories">Categories</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="templates">Templates</TabsTrigger>}
             {isAdmin && <TabsTrigger value="integrations">Integrations</TabsTrigger>}
             <TabsTrigger value="sidemarks">Sidemarks</TabsTrigger>
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
@@ -416,6 +419,12 @@ export default function Settings() {
           {isAdmin && (
             <TabsContent value="categories">
               <ServiceCategoriesSettingsTab />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="templates">
+              <TenantTemplatesTab />
             </TabsContent>
           )}
 
