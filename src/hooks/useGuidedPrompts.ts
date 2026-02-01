@@ -6,6 +6,7 @@ import {
   GuidedPrompt,
   UserPromptSettings,
   PromptLevel,
+  PromptSeverity,
   PromptWorkflow,
   PromptTriggerPoint,
   PromptContext,
@@ -15,11 +16,14 @@ import {
 } from '@/types/guidedPrompts';
 import { DEFAULT_PROMPTS } from '@/lib/defaultPrompts';
 
-// Level hierarchy for visibility check
-const LEVEL_HIERARCHY: Record<PromptLevel, number> = {
-  training: 1,
-  standard: 2,
-  advanced: 3,
+// Severity visibility by user level:
+// - training: sees info, warning, blocking (all)
+// - standard: sees warning, blocking
+// - advanced: sees blocking only
+const SEVERITY_VISIBLE_AT_LEVEL: Record<PromptLevel, PromptSeverity[]> = {
+  training: ['info', 'warning', 'blocking'],
+  standard: ['warning', 'blocking'],
+  advanced: ['blocking'],
 };
 
 interface ActivePromptState {
@@ -199,15 +203,19 @@ export function useGuidedPrompts() {
     }).sort((a, b) => a.sort_order - b.sort_order);
   }, [prompts]);
 
-  // Check if a prompt should be shown based on user level
+  // Check if a prompt should be shown based on user level and prompt severity
   const shouldShowPrompt = useCallback((prompt: GuidedPrompt): boolean => {
-    // Advanced users don't see any prompts (only Help)
-    if (promptLevel === 'advanced') {
-      return false;
-    }
+    // Get the severities visible at the user's level
+    const visibleSeverities = SEVERITY_VISIBLE_AT_LEVEL[promptLevel];
 
-    // Check level hierarchy
-    return LEVEL_HIERARCHY[promptLevel] <= LEVEL_HIERARCHY[prompt.min_level];
+    // Use severity if available, fallback to mapping min_level for backward compatibility
+    const promptSeverity = prompt.severity || (
+      prompt.min_level === 'advanced' ? 'blocking' :
+      prompt.min_level === 'standard' ? 'warning' :
+      'info'
+    );
+
+    return visibleSeverities.includes(promptSeverity);
   }, [promptLevel]);
 
   // Show a prompt
@@ -240,11 +248,17 @@ export function useGuidedPrompts() {
     promptId: string,
     confirmed: boolean,
     checklistState?: Record<string, boolean>,
-    context?: PromptContext
+    context?: PromptContext,
+    status: 'acknowledged' | 'snoozed' | 'dismissed' = 'acknowledged',
+    snoozeDurationMinutes?: number
   ): Promise<boolean> => {
     if (!profile?.tenant_id || !profile?.id) return false;
 
     try {
+      const snoozedUntil = status === 'snoozed' && snoozeDurationMinutes
+        ? new Date(Date.now() + snoozeDurationMinutes * 60 * 1000).toISOString()
+        : null;
+
       const { error } = await (supabase
         .from('prompt_acknowledgments') as any)
         .insert({
@@ -255,6 +269,8 @@ export function useGuidedPrompts() {
           checklist_state: checklistState,
           context_type: context?.contextType,
           context_id: context?.contextId,
+          status,
+          snoozed_until: snoozedUntil,
         });
 
       if (error) throw error;
@@ -266,6 +282,15 @@ export function useGuidedPrompts() {
       return false;
     }
   }, [profile?.tenant_id, profile?.id, dismissActivePrompt]);
+
+  // Snooze a prompt for a given duration
+  const snoozePrompt = useCallback(async (
+    promptId: string,
+    durationMinutes: number = 60,
+    context?: PromptContext
+  ): Promise<boolean> => {
+    return acknowledgePrompt(promptId, false, undefined, context, 'snoozed', durationMinutes);
+  }, [acknowledgePrompt]);
 
   // Track competency event
   const trackCompetencyEvent = useCallback(async (
@@ -457,6 +482,7 @@ export function useGuidedPrompts() {
     showPrompt,
     shouldShowPrompt,
     acknowledgePrompt,
+    snoozePrompt,
     activePrompt,
     dismissActivePrompt,
 
