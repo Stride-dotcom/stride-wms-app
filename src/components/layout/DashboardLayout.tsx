@@ -61,6 +61,7 @@ const navItems: NavItem[] = [
   { label: 'Accounts', href: '/accounts', icon: 'group', requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Settings', href: '/settings', icon: 'settings', requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Diagnostics', href: '/diagnostics', icon: 'bug_report', requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Bot QA', href: '/admin/bot-qa', icon: 'smart_toy', requiredRole: ['admin', 'tenant_admin'] },
 ];
 
 interface DashboardLayoutProps {
