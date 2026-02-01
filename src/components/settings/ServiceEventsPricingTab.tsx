@@ -75,7 +75,7 @@ import { useServiceCategories } from '@/hooks/useServiceCategories';
 import { AddServiceDialog } from './AddServiceDialog';
 import { CSVImportServiceDialog } from './CSVImportServiceDialog';
 import { ServiceAuditDialog } from './ServiceAuditDialog';
-import { TaskBillingMappingsCard } from './TaskBillingMappingsCard';
+import { TaskTypeManagementCard } from './TaskTypeManagementCard';
 import { cn } from '@/lib/utils';
 
 // ============================================================================
@@ -691,8 +691,8 @@ export function ServiceEventsPricingTab() {
         </CardContent>
       </Card>
 
-      {/* Task Billing Mappings */}
-      <TaskBillingMappingsCard />
+      {/* Task Type Management */}
+      <TaskTypeManagementCard />
 
       {/* Service Events Table */}
       <Card>
