@@ -216,11 +216,21 @@ export function useQATests() {
 
     setRunningTests(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
+      // Ensure we have an authenticated session before invoking the Edge Function.
+      // If the session is missing (common after refresh / expired local storage), try a refresh once.
+      let { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        await supabase.auth.refreshSession();
+        sessionData = (await supabase.auth.getSession()).data;
+      }
 
-      if (!accessToken) {
-        throw new Error('No access token available');
+      if (!sessionData?.session) {
+        toast({
+          variant: 'destructive',
+          title: 'You are signed out',
+          description: 'Please sign in again to run QA tests.',
+        });
+        return null;
       }
 
       const response = await supabase.functions.invoke('qa-runner', {
