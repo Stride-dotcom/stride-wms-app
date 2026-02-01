@@ -12146,6 +12146,7 @@ export type Database = {
         Returns: boolean
       }
       user_tenant_id: { Args: never; Returns: string }
+      validate_task_completion: { Args: { p_task_id: string }; Returns: Json }
       validate_workflow_completion: {
         Args: {
           p_entity_id: string
