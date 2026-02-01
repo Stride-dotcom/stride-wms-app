@@ -71,7 +71,13 @@ CREATE POLICY "user_prompt_settings_update_own" ON public.user_prompt_settings
     user_id = auth.uid()
     OR (
       tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())
-      AND (public.has_role(auth.uid(), 'tenant_admin') OR public.has_role(auth.uid(), 'manager'))
+      AND EXISTS (
+        SELECT 1 FROM public.user_roles ur
+        JOIN public.roles r ON r.id = ur.role_id
+        WHERE ur.user_id = auth.uid()
+        AND r.name IN ('tenant_admin', 'manager')
+        AND ur.deleted_at IS NULL
+      )
     )
   );
 
@@ -79,7 +85,13 @@ DROP POLICY IF EXISTS "user_prompt_settings_delete" ON public.user_prompt_settin
 CREATE POLICY "user_prompt_settings_delete" ON public.user_prompt_settings
   FOR DELETE USING (
     tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())
-    AND public.has_role(auth.uid(), 'tenant_admin')
+    AND EXISTS (
+      SELECT 1 FROM public.user_roles ur
+      JOIN public.roles r ON r.id = ur.role_id
+      WHERE ur.user_id = auth.uid()
+      AND r.name = 'tenant_admin'
+      AND ur.deleted_at IS NULL
+    )
   );
 
 -- ============================================================================
@@ -160,7 +172,13 @@ CREATE POLICY "guided_prompts_insert" ON public.guided_prompts
   FOR INSERT WITH CHECK (
     tenant_id IS NOT NULL
     AND tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())
-    AND (public.has_role(auth.uid(), 'tenant_admin') OR public.has_role(auth.uid(), 'manager'))
+    AND EXISTS (
+      SELECT 1 FROM public.user_roles ur
+      JOIN public.roles r ON r.id = ur.role_id
+      WHERE ur.user_id = auth.uid()
+      AND r.name IN ('tenant_admin', 'manager')
+      AND ur.deleted_at IS NULL
+    )
   );
 
 DROP POLICY IF EXISTS "guided_prompts_update" ON public.guided_prompts;
@@ -168,7 +186,13 @@ CREATE POLICY "guided_prompts_update" ON public.guided_prompts
   FOR UPDATE USING (
     tenant_id IS NOT NULL
     AND tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())
-    AND (public.has_role(auth.uid(), 'tenant_admin') OR public.has_role(auth.uid(), 'manager'))
+    AND EXISTS (
+      SELECT 1 FROM public.user_roles ur
+      JOIN public.roles r ON r.id = ur.role_id
+      WHERE ur.user_id = auth.uid()
+      AND r.name IN ('tenant_admin', 'manager')
+      AND ur.deleted_at IS NULL
+    )
   );
 
 DROP POLICY IF EXISTS "guided_prompts_delete" ON public.guided_prompts;
@@ -176,7 +200,13 @@ CREATE POLICY "guided_prompts_delete" ON public.guided_prompts
   FOR DELETE USING (
     tenant_id IS NOT NULL
     AND tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())
-    AND public.has_role(auth.uid(), 'tenant_admin')
+    AND EXISTS (
+      SELECT 1 FROM public.user_roles ur
+      JOIN public.roles r ON r.id = ur.role_id
+      WHERE ur.user_id = auth.uid()
+      AND r.name = 'tenant_admin'
+      AND ur.deleted_at IS NULL
+    )
   );
 
 -- ============================================================================
@@ -285,7 +315,13 @@ CREATE POLICY "prompt_competency_update" ON public.prompt_competency_tracking
     user_id = auth.uid()
     OR (
       tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())
-      AND (public.has_role(auth.uid(), 'tenant_admin') OR public.has_role(auth.uid(), 'manager'))
+      AND EXISTS (
+        SELECT 1 FROM public.user_roles ur
+        JOIN public.roles r ON r.id = ur.role_id
+        WHERE ur.user_id = auth.uid()
+        AND r.name IN ('tenant_admin', 'manager')
+        AND ur.deleted_at IS NULL
+      )
     )
   );
 
@@ -334,7 +370,13 @@ DROP POLICY IF EXISTS "prompt_upgrade_suggestions_update" ON public.prompt_upgra
 CREATE POLICY "prompt_upgrade_suggestions_update" ON public.prompt_upgrade_suggestions
   FOR UPDATE USING (
     tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())
-    AND (public.has_role(auth.uid(), 'tenant_admin') OR public.has_role(auth.uid(), 'manager'))
+    AND EXISTS (
+      SELECT 1 FROM public.user_roles ur
+      JOIN public.roles r ON r.id = ur.role_id
+      WHERE ur.user_id = auth.uid()
+      AND r.name IN ('tenant_admin', 'manager')
+      AND ur.deleted_at IS NULL
+    )
   );
 
 -- ============================================================================
@@ -377,14 +419,26 @@ DROP POLICY IF EXISTS "tenant_prompt_defaults_insert" ON public.tenant_prompt_de
 CREATE POLICY "tenant_prompt_defaults_insert" ON public.tenant_prompt_defaults
   FOR INSERT WITH CHECK (
     tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())
-    AND public.has_role(auth.uid(), 'tenant_admin')
+    AND EXISTS (
+      SELECT 1 FROM public.user_roles ur
+      JOIN public.roles r ON r.id = ur.role_id
+      WHERE ur.user_id = auth.uid()
+      AND r.name = 'tenant_admin'
+      AND ur.deleted_at IS NULL
+    )
   );
 
 DROP POLICY IF EXISTS "tenant_prompt_defaults_update" ON public.tenant_prompt_defaults;
 CREATE POLICY "tenant_prompt_defaults_update" ON public.tenant_prompt_defaults
   FOR UPDATE USING (
     tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())
-    AND (public.has_role(auth.uid(), 'tenant_admin') OR public.has_role(auth.uid(), 'manager'))
+    AND EXISTS (
+      SELECT 1 FROM public.user_roles ur
+      JOIN public.roles r ON r.id = ur.role_id
+      WHERE ur.user_id = auth.uid()
+      AND r.name IN ('tenant_admin', 'manager')
+      AND ur.deleted_at IS NULL
+    )
   );
 
 -- ============================================================================
