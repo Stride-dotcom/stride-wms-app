@@ -10,7 +10,7 @@ export interface CreateBillingEventParams {
   item_id?: string | null;
   task_id?: string | null;
   shipment_id?: string | null;
-  event_type: 'receiving' | 'task_completion' | 'flag_change' | 'storage' | 'will_call' | 'disposal' | 'addon' | 'outbound_shipment';
+  event_type: 'receiving' | 'returns_processing' | 'task_completion' | 'flag' | 'storage' | 'will_call' | 'disposal' | 'addon' | 'outbound_shipment';
   charge_type: string;
   description?: string;
   quantity?: number;
@@ -20,7 +20,9 @@ export interface CreateBillingEventParams {
   occurred_at?: string;
   metadata?: Record<string, any>;
   created_by?: string;
-  skip_promo?: boolean; // Skip promo code application (e.g., for manual adjustments)
+  skip_promo?: boolean;
+  has_rate_error?: boolean;
+  rate_error_message?: string | null;
 }
 
 export interface BillingEventResult {
@@ -87,6 +89,8 @@ export async function createBillingEvent(params: CreateBillingEventParams): Prom
     occurred_at: params.occurred_at || new Date().toISOString(),
     metadata,
     created_by: params.created_by || null,
+    has_rate_error: params.has_rate_error ?? params.unit_rate === 0,
+    rate_error_message: params.rate_error_message || null,
     needs_review: params.unit_rate === 0,
   };
 
@@ -177,6 +181,8 @@ export async function createBillingEventsBatch(events: CreateBillingEventParams[
       occurred_at: params.occurred_at || new Date().toISOString(),
       metadata,
       created_by: params.created_by || null,
+      has_rate_error: params.has_rate_error ?? params.unit_rate === 0,
+      rate_error_message: params.rate_error_message || null,
       needs_review: params.unit_rate === 0,
     };
   }));

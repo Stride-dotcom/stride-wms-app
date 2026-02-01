@@ -34,6 +34,9 @@ import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDia
 import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
 import { ShipmentHistoryTab } from '@/components/shipments/ShipmentHistoryTab';
+import { QRScanner } from '@/components/scan/QRScanner';
+import { useLocations } from '@/hooks/useLocations';
+import { hapticError, hapticSuccess } from '@/lib/haptics';
 
 // ============================================
 // TYPES
@@ -110,6 +113,12 @@ interface Shipment {
   warehouses?: { id: string; name: string } | null;
 }
 
+interface LastScanResult {
+  itemCode: string;
+  result: 'success' | 'duplicate' | 'invalid' | 'error';
+  message: string;
+}
+
 // ============================================
 // COMPONENT
 // ============================================
@@ -163,6 +172,16 @@ export default function ShipmentDetail() {
   const [completingOutbound, setCompletingOutbound] = useState(false);
   const [classes, setClasses] = useState<{ id: string; code: string; name: string }[]>([]);
   const [billingRefreshKey, setBillingRefreshKey] = useState(0);
+  const [pullSessionActive, setPullSessionActive] = useState(false);
+  const [releaseSessionActive, setReleaseSessionActive] = useState(false);
+  const [processingScan, setProcessingScan] = useState(false);
+  const [lastScan, setLastScan] = useState<LastScanResult | null>(null);
+  const [manualScanValue, setManualScanValue] = useState('');
+  const [manualOverrideItemId, setManualOverrideItemId] = useState('');
+  const [showPartialReleaseDialog, setShowPartialReleaseDialog] = useState(false);
+  const [partialReleaseNote, setPartialReleaseNote] = useState('');
+  const [partialReleaseItems, setPartialReleaseItems] = useState<Set<string>>(new Set());
+  const [submittingPartialRelease, setSubmittingPartialRelease] = useState(false);
 
   // Receiving session hook
   const {
@@ -173,6 +192,33 @@ export default function ShipmentDetail() {
     finishSession,
     cancelSession,
   } = useReceivingSession(id);
+
+  const { locations } = useLocations(shipment?.warehouse_id || undefined);
+
+  const normalizeLocationCode = (code?: string | null) =>
+    (code || '').toUpperCase().replace(/[_\s]+/g, '-');
+  const isOutboundDock = (code?: string | null) => normalizeLocationCode(code) === 'OUTBOUND-DOCK';
+  const isReleasedLocation = (code?: string | null) =>
+    ['RELEASED', 'RELEASE'].includes(normalizeLocationCode(code));
+  const outboundDockLocation = locations.find(location => isOutboundDock(location.code));
+  const releasedLocation = locations.find(location => normalizeLocationCode(location.code) === 'RELEASED')
+    || locations.find(location => location.type === 'release');
+
+  const logShipmentAudit = useCallback(async (action: string, changes: Record<string, unknown>) => {
+    if (!profile?.tenant_id || !profile?.id || !shipment?.id) return;
+    const { error } = await (supabase.from('admin_audit_log') as any).insert({
+      action,
+      actor_id: profile.id,
+      tenant_id: profile.tenant_id,
+      entity_type: 'shipment',
+      entity_id: shipment.id,
+      changes_json: changes as Json,
+    });
+
+    if (error) {
+      console.error('Error logging shipment audit:', error);
+    }
+  }, [profile?.id, profile?.tenant_id, shipment?.id]);
 
   // ------------------------------------------
   // Fetch shipment data
@@ -274,6 +320,70 @@ export default function ShipmentDetail() {
   useEffect(() => {
     fetchShipment();
   }, [fetchShipment]);
+
+  const outboundItems = items.filter(item => item.item?.id);
+  const activeOutboundItems = outboundItems.filter(item => item.status !== 'cancelled');
+  const allPulled = activeOutboundItems.length > 0
+    && activeOutboundItems.every(item => isOutboundDock(item.item?.current_location?.code));
+  const allReleased = activeOutboundItems.length > 0
+    && activeOutboundItems.every(item => isReleasedLocation(item.item?.current_location?.code));
+
+  const updateShipmentStatus = useCallback(async (status: string) => {
+    if (!shipment) return;
+    const { error } = await supabase
+      .from('shipments')
+      .update({ status })
+      .eq('id', shipment.id);
+
+    if (error) {
+      console.error('Error updating shipment status:', error);
+      return;
+    }
+    await fetchShipment();
+  }, [fetchShipment, shipment]);
+
+  useEffect(() => {
+    if (!shipment || shipment.shipment_type !== 'outbound') return;
+    if (pullSessionActive && allPulled) {
+      setPullSessionActive(false);
+      toast({
+        title: 'Pull complete',
+        description: 'All items are staged at Outbound Dock.',
+      });
+      logShipmentAudit('pull_completed', {
+        shipment_id: shipment.id,
+        item_count: activeOutboundItems.length,
+      });
+    }
+  }, [activeOutboundItems.length, allPulled, logShipmentAudit, pullSessionActive, shipment, toast]);
+
+  useEffect(() => {
+    if (!shipment || shipment.shipment_type !== 'outbound') return;
+    if (releaseSessionActive && allReleased) {
+      setReleaseSessionActive(false);
+      toast({
+        title: 'Release scan complete',
+        description: 'All items have been scanned as Released.',
+      });
+      logShipmentAudit('release_scan_completed', {
+        shipment_id: shipment.id,
+        item_count: activeOutboundItems.length,
+      });
+      if (shipment.status !== 'released') {
+        updateShipmentStatus('released');
+      }
+    }
+  }, [activeOutboundItems.length, allReleased, logShipmentAudit, releaseSessionActive, shipment, toast, updateShipmentStatus]);
+
+  useEffect(() => {
+    if (!shipment || shipment.shipment_type !== 'outbound') return;
+    if (shipment.status === 'in_progress' && !allPulled && !pullSessionActive) {
+      setPullSessionActive(true);
+    }
+    if (shipment.status === 'released' && !allReleased && !releaseSessionActive) {
+      setReleaseSessionActive(true);
+    }
+  }, [allPulled, allReleased, pullSessionActive, releaseSessionActive, shipment]);
 
   // ------------------------------------------
   // Initialize received items for finish dialog
@@ -496,11 +606,320 @@ export default function ShipmentDetail() {
     }
   };
 
+  const findShipmentItemByScan = (scanValue: string) => {
+    const normalized = scanValue.trim().toLowerCase();
+    if (!normalized) return null;
+    return activeOutboundItems.find(item =>
+      item.item?.id?.toLowerCase() === normalized
+      || item.item?.item_code?.toLowerCase() === normalized
+    ) || null;
+  };
+
+  const updateItemLocation = async (itemId: string, locationId: string) => {
+    const { error } = await (supabase.from('items') as any)
+      .update({ current_location_id: locationId })
+      .eq('id', itemId);
+
+    if (error) {
+      throw error;
+    }
+  };
+
+  const updateItemReleasedState = async (itemId: string) => {
+    const now = new Date().toISOString();
+    const { error } = await (supabase.from('items') as any)
+      .update({
+        status: 'released',
+        released_at: now,
+        released_date: now,
+      })
+      .eq('id', itemId);
+
+    if (error) {
+      throw error;
+    }
+  };
+
+  const updateShipmentItemRelease = async (shipmentItemId: string) => {
+    const { error } = await (supabase.from('shipment_items') as any)
+      .update({
+        status: 'released',
+        released_at: new Date().toISOString(),
+      })
+      .eq('id', shipmentItemId);
+
+    if (error) {
+      throw error;
+    }
+  };
+
+  const handleOutboundScan = async (scanValue: string, mode: 'pull' | 'release') => {
+    if (!shipment) return;
+    if (processingScan) return;
+    const trimmed = scanValue.trim();
+    if (!trimmed) return;
+
+    setProcessingScan(true);
+    setLastScan(null);
+
+    try {
+      const matched = findShipmentItemByScan(trimmed);
+      if (!matched || !matched.item?.id) {
+        const message = 'This is the wrong item. Please return the item to its previous location.';
+        setLastScan({ itemCode: trimmed, result: 'invalid', message });
+        hapticError();
+        toast({
+          variant: 'destructive',
+          title: 'Wrong item',
+          description: message,
+        });
+        await logShipmentAudit('scan_invalid', {
+          scan_value: trimmed,
+          mode,
+          message,
+        });
+        return;
+      }
+
+      if (mode === 'pull') {
+        if (!outboundDockLocation?.id) {
+          toast({
+            variant: 'destructive',
+            title: 'Outbound Dock missing',
+            description: 'Create an OUTBOUND-DOCK location before scanning.',
+          });
+          return;
+        }
+
+        if (isOutboundDock(matched.item.current_location?.code)) {
+          const message = 'Item already staged at Outbound Dock.';
+          setLastScan({ itemCode: matched.item.item_code, result: 'duplicate', message });
+          hapticError();
+          toast({ title: 'Duplicate scan', description: message });
+          await logShipmentAudit('scan_duplicate', {
+            scan_value: trimmed,
+            mode,
+            item_id: matched.item.id,
+          });
+          return;
+        }
+
+        await updateItemLocation(matched.item.id, outboundDockLocation.id);
+        setLastScan({
+          itemCode: matched.item.item_code,
+          result: 'success',
+          message: 'Moved to Outbound Dock.',
+        });
+        hapticSuccess();
+        await logShipmentAudit('pull_scan_success', {
+          item_id: matched.item.id,
+          shipment_item_id: matched.id,
+          location_id: outboundDockLocation.id,
+        });
+      }
+
+      if (mode === 'release') {
+        if (!releasedLocation?.id) {
+          toast({
+            variant: 'destructive',
+            title: 'Released location missing',
+            description: 'Create a RELEASED (or type Release) location before scanning.',
+          });
+          return;
+        }
+
+        if (isReleasedLocation(matched.item.current_location?.code)) {
+          const message = 'Item already scanned as Released.';
+          setLastScan({ itemCode: matched.item.item_code, result: 'duplicate', message });
+          hapticError();
+          toast({ title: 'Duplicate scan', description: message });
+          await logShipmentAudit('scan_duplicate', {
+            scan_value: trimmed,
+            mode,
+            item_id: matched.item.id,
+          });
+          return;
+        }
+
+        await updateItemLocation(matched.item.id, releasedLocation.id);
+        await updateItemReleasedState(matched.item.id);
+        await updateShipmentItemRelease(matched.id);
+        setLastScan({
+          itemCode: matched.item.item_code,
+          result: 'success',
+          message: 'Marked as Released.',
+        });
+        hapticSuccess();
+        await logShipmentAudit('release_scan_success', {
+          item_id: matched.item.id,
+          shipment_item_id: matched.id,
+          location_id: releasedLocation.id,
+        });
+      }
+
+      await fetchShipment();
+    } catch (error) {
+      console.error('Error processing scan:', error);
+      setLastScan({ itemCode: trimmed, result: 'error', message: 'Failed to process scan.' });
+      hapticError();
+      toast({
+        variant: 'destructive',
+        title: 'Scan failed',
+        description: 'Unable to update item. Please try again.',
+      });
+      await logShipmentAudit('scan_error', {
+        scan_value: trimmed,
+        mode,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    } finally {
+      setProcessingScan(false);
+    }
+  };
+
+  const handleStartPull = async () => {
+    if (!shipment) return;
+    if (!outboundDockLocation?.id) {
+      toast({
+        variant: 'destructive',
+        title: 'Outbound Dock missing',
+        description: 'Create an OUTBOUND-DOCK location before starting the pull.',
+      });
+      return;
+    }
+    setPullSessionActive(true);
+    setReleaseSessionActive(false);
+    if (['expected', 'pending'].includes(shipment.status)) {
+      await updateShipmentStatus('in_progress');
+    }
+    await logShipmentAudit('pull_started', {
+      shipment_id: shipment.id,
+      item_count: activeOutboundItems.length,
+    });
+  };
+
+  const handleStartRelease = async () => {
+    if (!shipment) return;
+    if (!allPulled) {
+      toast({
+        variant: 'destructive',
+        title: 'Items not staged',
+        description: 'All items must be at Outbound Dock before release scanning.',
+      });
+      return;
+    }
+    if (!releasedLocation?.id) {
+      toast({
+        variant: 'destructive',
+        title: 'Released location missing',
+        description: 'Create a RELEASED (or type Release) location before starting the release scan.',
+      });
+      return;
+    }
+    setReleaseSessionActive(true);
+    setPullSessionActive(false);
+    await logShipmentAudit('release_scan_started', {
+      shipment_id: shipment.id,
+      item_count: activeOutboundItems.length,
+    });
+  };
+
+  const handleManualOverride = async (mode: 'pull' | 'release') => {
+    if (!manualOverrideItemId) return;
+    const targetItem = items.find(item => item.item?.id === manualOverrideItemId);
+    if (!targetItem || !targetItem.item?.id) return;
+    try {
+      if (mode === 'pull') {
+        if (!outboundDockLocation?.id) return;
+        await updateItemLocation(targetItem.item.id, outboundDockLocation.id);
+        await logShipmentAudit('pull_manual_override', {
+          shipment_item_id: targetItem.id,
+          item_id: targetItem.item.id,
+        });
+        toast({ title: 'Item staged', description: 'Marked as Outbound Dock.' });
+      }
+
+      if (mode === 'release') {
+        if (!releasedLocation?.id) return;
+        await updateItemLocation(targetItem.item.id, releasedLocation.id);
+        await updateItemReleasedState(targetItem.item.id);
+        await updateShipmentItemRelease(targetItem.id);
+        await logShipmentAudit('release_manual_override', {
+          shipment_item_id: targetItem.id,
+          item_id: targetItem.item.id,
+        });
+        toast({ title: 'Item released', description: 'Marked as Released.' });
+      }
+
+      setManualOverrideItemId('');
+      await fetchShipment();
+    } catch (error) {
+      console.error('Error applying manual override:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Manual override failed',
+        description: 'Unable to update this item.',
+      });
+    }
+  };
+
+  const handleSubmitPartialRelease = async () => {
+    if (!shipment || partialReleaseItems.size === 0) return;
+    if (!partialReleaseNote.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Note required',
+        description: 'Please add a note explaining the partial release.',
+      });
+      return;
+    }
+    setSubmittingPartialRelease(true);
+    try {
+      const ids = Array.from(partialReleaseItems);
+      const { error } = await (supabase.from('shipment_items') as any)
+        .update({
+          status: 'cancelled',
+          notes: partialReleaseNote || null,
+        })
+        .in('id', ids);
+
+      if (error) throw error;
+      await logShipmentAudit('partial_release', {
+        shipment_id: shipment.id,
+        removed_items: ids,
+        note: partialReleaseNote || null,
+      });
+      setPartialReleaseItems(new Set());
+      setPartialReleaseNote('');
+      setShowPartialReleaseDialog(false);
+      await fetchShipment();
+      toast({ title: 'Items removed', description: 'Shipment updated for partial release.' });
+    } catch (error) {
+      console.error('Error applying partial release:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Partial release failed',
+        description: 'Unable to update shipment items.',
+      });
+    } finally {
+      setSubmittingPartialRelease(false);
+    }
+  };
+
   // ------------------------------------------
   // Handle complete outbound shipment
   // ------------------------------------------
   const handleCompleteOutbound = async () => {
     if (!shipment) return;
+
+    if (activeOutboundItems.length > 0 && !allReleased) {
+      toast({
+        variant: 'destructive',
+        title: 'Release scanning incomplete',
+        description: 'All items must be scanned as Released before completion.',
+      });
+      return;
+    }
 
     // Validate photos are required
     if (receivingPhotos.length === 0) {
@@ -515,40 +934,56 @@ export default function ShipmentDetail() {
 
     setCompletingOutbound(true);
     try {
+      const now = new Date().toISOString();
       // Update shipment status to completed
       const { error: shipmentError } = await supabase
         .from('shipments')
         .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
+          status: 'shipped',
+          shipped_at: now,
+          completed_at: now,
+          completed_by: profile?.id || null,
         })
         .eq('id', shipment.id);
 
       if (shipmentError) throw shipmentError;
 
       // Update all items in the shipment to released status
-      const itemIds = items.filter(i => i.item_id).map(i => i.item_id);
+      const itemIds = activeOutboundItems.filter(i => i.item_id).map(i => i.item_id);
       if (itemIds.length > 0) {
+        const itemUpdate: Record<string, string | null> = {
+          status: 'released',
+          released_at: now,
+          released_date: now,
+        };
+        if (releasedLocation?.id) {
+          itemUpdate.current_location_id = releasedLocation.id;
+        }
         const { error: itemsError } = await supabase
           .from('items')
-          .update({
-            status: 'released',
-            released_at: new Date().toISOString(),
-          })
+          .update(itemUpdate)
           .in('id', itemIds);
 
         if (itemsError) throw itemsError;
       }
 
-      // Update shipment_items status
+      // Update shipment_items status to released (valid values: pending, received, released, cancelled)
       const { error: shipmentItemsError } = await supabase
         .from('shipment_items')
-        .update({ status: 'completed' })
-        .eq('shipment_id', shipment.id);
+        .update({
+          status: 'released',
+          released_at: now,
+        })
+        .eq('shipment_id', shipment.id)
+        .neq('status', 'cancelled');
 
       if (shipmentItemsError) throw shipmentItemsError;
 
-      toast({ title: 'Shipment Completed', description: 'Items have been released.' });
+      await logShipmentAudit('shipment_completed', {
+        shipment_id: shipment.id,
+        item_count: activeOutboundItems.length,
+      });
+      toast({ title: 'Shipment Shipped', description: 'Items have been released.' });
       setShowOutboundCompleteDialog(false);
       fetchShipment();
     } catch (error) {
@@ -569,6 +1004,7 @@ export default function ShipmentDetail() {
       in_progress: 'default',
       received: 'default',
       partial: 'destructive',
+      shipped: 'default',
       completed: 'default',
       cancelled: 'outline',
     };
@@ -578,6 +1014,7 @@ export default function ShipmentDetail() {
       in_progress: 'In Progress',
       received: 'Received',
       partial: 'Partial',
+      shipped: 'Shipped',
       completed: 'Completed',
       cancelled: 'Cancelled',
     };
@@ -617,9 +1054,14 @@ export default function ShipmentDetail() {
   }
 
   const isInbound = shipment.shipment_type === 'inbound' || shipment.shipment_type === 'return';
+  const isOutbound = shipment.shipment_type === 'outbound';
   const canReceive = isInbound && ['expected', 'receiving'].includes(shipment.status);
   const isReceiving = session !== null;
   const isReceived = shipment.status === 'received' || shipment.status === 'partial';
+  const canStartPull = isOutbound && !pullSessionActive && !allPulled && ['expected', 'pending', 'in_progress'].includes(shipment.status);
+  const canStartRelease = isOutbound && allPulled && !releaseSessionActive && !allReleased;
+  const canCompleteOutbound = isOutbound && (activeOutboundItems.length === 0 || allReleased);
+  const partialReleaseCandidates = activeOutboundItems.filter(item => !isReleasedLocation(item.item?.current_location?.code));
 
   return (
     <DashboardLayout>
@@ -666,9 +1108,23 @@ export default function ShipmentDetail() {
               <span className="sm:hidden">Receive</span>
             </Button>
           )}
+          {canStartPull && (
+            <Button size="sm" onClick={handleStartPull}>
+              <MaterialIcon name="qr_code_scanner" size="sm" className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Start Pull</span>
+              <span className="sm:hidden">Pull</span>
+            </Button>
+          )}
+          {canStartRelease && (
+            <Button size="sm" onClick={handleStartRelease}>
+              <MaterialIcon name="local_shipping" size="sm" className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Start Release Scan</span>
+              <span className="sm:hidden">Release</span>
+            </Button>
+          )}
           {/* Complete Shipment button for outbound shipments */}
-          {!isInbound && ['expected', 'in_progress'].includes(shipment.status) && (
-            <Button size="sm" onClick={() => setShowOutboundCompleteDialog(true)}>
+          {!isInbound && ['pending', 'expected', 'in_progress', 'released'].includes(shipment.status) && (
+            <Button size="sm" onClick={() => setShowOutboundCompleteDialog(true)} disabled={!canCompleteOutbound}>
               <MaterialIcon name="check_circle" size="sm" className="mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Complete Shipment</span>
               <span className="sm:hidden">Complete</span>
@@ -688,8 +1144,8 @@ export default function ShipmentDetail() {
               <span className="hidden sm:inline">Reassign</span>
             </Button>
           )}
-          {/* Cancel Shipment - only for expected or receiving shipments */}
-          {['expected', 'receiving', 'in_progress'].includes(shipment.status) && (
+          {/* Cancel Shipment - only for expected, pending, or receiving shipments */}
+          {['expected', 'pending', 'receiving', 'in_progress'].includes(shipment.status) && (
             <Button variant="outline" size="sm" onClick={() => setShowCancelDialog(true)}>
               <MaterialIcon name="block" size="sm" className="mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Cancel</span>
@@ -716,6 +1172,149 @@ export default function ShipmentDetail() {
                   <MaterialIcon name="check_circle" size="sm" className="mr-2" />
                   Finish Receiving
                 </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Outbound Status Banner */}
+      {isOutbound && ['expected', 'pending', 'in_progress', 'released'].includes(shipment.status) && (
+        <Card className="mb-6 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20">
+          <CardContent className="py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-3 w-3 bg-blue-500 rounded-full animate-pulse" />
+                <span className="font-medium">
+                  {allReleased
+                    ? 'Outbound release ready to complete'
+                    : allPulled
+                      ? 'Outbound items staged at dock'
+                      : 'Outbound pull in progress'}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowCancelDialog(true)}>
+                  <MaterialIcon name="cancel" size="sm" className="mr-2" />
+                  Cancel
+                </Button>
+                {!allPulled && (
+                  <Button size="sm" onClick={handleStartPull} disabled={pullSessionActive}>
+                    <MaterialIcon name="qr_code_scanner" size="sm" className="mr-2" />
+                    Pull Items
+                  </Button>
+                )}
+                {allPulled && !allReleased && (
+                  <Button size="sm" onClick={handleStartRelease} disabled={releaseSessionActive}>
+                    <MaterialIcon name="local_shipping" size="sm" className="mr-2" />
+                    Release Scan
+                  </Button>
+                )}
+                <Button size="sm" onClick={() => setShowOutboundCompleteDialog(true)} disabled={!canCompleteOutbound}>
+                  <MaterialIcon name="check_circle" size="sm" className="mr-2" />
+                  Complete Release
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Outbound Scanning */}
+      {isOutbound && (pullSessionActive || releaseSessionActive) && (
+        <Card className="mb-6 border-primary/40">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <CardTitle>Outbound Scanning</CardTitle>
+                <CardDescription>
+                  {pullSessionActive
+                    ? 'Scan each item to stage it at Outbound Dock.'
+                    : 'Scan each item to mark it Released.'}
+                </CardDescription>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {activeOutboundItems.length} item{activeOutboundItems.length !== 1 ? 's' : ''} •
+                {' '}
+                {pullSessionActive ? 'Staged' : 'Released'} {pullSessionActive ? activeOutboundItems.filter(item => isOutboundDock(item.item?.current_location?.code)).length : activeOutboundItems.filter(item => isReleasedLocation(item.item?.current_location?.code)).length}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+              <div className="space-y-4">
+                <QRScanner
+                  onScan={(value) => handleOutboundScan(value, pullSessionActive ? 'pull' : 'release')}
+                  onError={() => {
+                    setLastScan({ itemCode: '', result: 'error', message: 'Scanner error. Please try again.' });
+                  }}
+                  scanning={!processingScan}
+                />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    value={manualScanValue}
+                    onChange={(e) => setManualScanValue(e.target.value)}
+                    placeholder="Enter or scan item code"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleOutboundScan(manualScanValue, pullSessionActive ? 'pull' : 'release');
+                        setManualScanValue('');
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={() => {
+                      handleOutboundScan(manualScanValue, pullSessionActive ? 'pull' : 'release');
+                      setManualScanValue('');
+                    }}
+                    disabled={!manualScanValue.trim() || processingScan}
+                  >
+                    Scan
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-4">
+                {lastScan && (
+                  <div className={cn(
+                    'rounded-lg border p-3 text-sm',
+                    lastScan.result === 'success' && 'border-green-500/40 bg-green-500/10 text-green-500',
+                    lastScan.result === 'duplicate' && 'border-yellow-500/40 bg-yellow-500/10 text-yellow-500',
+                    (lastScan.result === 'invalid' || lastScan.result === 'error') && 'border-red-500/40 bg-red-500/10 text-red-500'
+                  )}>
+                    <p className="font-semibold">{lastScan.itemCode || 'Scan Result'}</p>
+                    <p>{lastScan.message}</p>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label className="text-sm">Manual override</Label>
+                  <Select value={manualOverrideItemId} onValueChange={setManualOverrideItemId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an item..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(pullSessionActive
+                        ? activeOutboundItems.filter(item => !isOutboundDock(item.item?.current_location?.code))
+                        : activeOutboundItems.filter(item => !isReleasedLocation(item.item?.current_location?.code))
+                      ).map(item => (
+                        <SelectItem key={item.id} value={item.item?.id || ''}>
+                          {item.item?.item_code || item.expected_description || 'Unknown item'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleManualOverride(pullSessionActive ? 'pull' : 'release')}
+                    disabled={!manualOverrideItemId}
+                  >
+                    Mark {pullSessionActive ? 'Pulled' : 'Released'}
+                  </Button>
+                </div>
+                {releaseSessionActive && (
+                  <Button variant="destructive" onClick={() => setShowPartialReleaseDialog(true)}>
+                    Partial Release / Remove Items
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>
@@ -828,6 +1427,20 @@ export default function ShipmentDetail() {
         </Card>
       )}
 
+      {/* Billing Calculator - Full width at top right area */}
+      {canSeeBilling && shipment.account_id && (
+        <div className="flex justify-end mb-6">
+          <div className="w-full lg:w-1/3">
+            <BillingCalculator
+              shipmentId={shipment.id}
+              shipmentDirection={shipment.shipment_type as 'inbound' | 'outbound' | 'return'}
+              refreshKey={billingRefreshKey}
+              title="Billing Calculator"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Shipment Details */}
         <Card className="lg:col-span-2">
@@ -878,7 +1491,7 @@ export default function ShipmentDetail() {
           </CardContent>
         </Card>
 
-        {/* Quick Info */}
+        {/* Quick Info / Summary */}
         <Card>
           <CardHeader>
             <CardTitle>Summary</CardTitle>
@@ -902,16 +1515,6 @@ export default function ShipmentDetail() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Billing Charges - Manager/Admin Only */}
-        {canSeeBilling && shipment.account_id && (
-          <BillingCalculator
-            shipmentId={shipment.id}
-            shipmentDirection={shipment.shipment_type as 'inbound' | 'outbound' | 'return'}
-            refreshKey={billingRefreshKey}
-            title="Billing Calculator"
-          />
-        )}
       </div>
 
       {/* Shipment Items */}
@@ -979,6 +1582,7 @@ export default function ShipmentDetail() {
                 <TableHead className="w-20 text-right">Qty</TableHead>
                 <TableHead className="w-32">Vendor</TableHead>
                 <TableHead className="min-w-[140px]">Description</TableHead>
+                <TableHead className="w-24">Location</TableHead>
                 <TableHead className="w-24">Class</TableHead>
                 <TableHead className="w-28">Sidemark</TableHead>
                 <TableHead className="w-24">Room</TableHead>
@@ -989,7 +1593,7 @@ export default function ShipmentDetail() {
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                     No items in this shipment
                   </TableCell>
                 </TableRow>
@@ -1016,7 +1620,7 @@ export default function ShipmentDetail() {
                     onDelete={() => fetchShipment()}
                     onDuplicate={handleDuplicateItem}
                     isInbound={isInbound}
-                    isCompleted={shipment.status === 'completed' || shipment.status === 'cancelled'}
+                    isCompleted={shipment.status === 'completed' || shipment.status === 'cancelled' || shipment.status === 'shipped'}
                     classes={classes}
                     accountId={shipment.account_id || undefined}
                   />
@@ -1311,7 +1915,7 @@ export default function ShipmentDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Complete Shipment</AlertDialogTitle>
             <AlertDialogDescription>
-              This will release {items.length} item(s) and mark the shipment as completed.
+              This will release {items.length} item(s) and mark the shipment as shipped.
               {receivingPhotos.length === 0 && (
                 <span className="block mt-2 text-destructive font-medium">
                   Note: At least one photo is required to complete this shipment.
@@ -1332,6 +1936,77 @@ export default function ShipmentDetail() {
                 </>
               ) : (
                 'Complete Shipment'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Partial Release Dialog */}
+      <AlertDialog open={showPartialReleaseDialog} onOpenChange={setShowPartialReleaseDialog}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Partial Release</AlertDialogTitle>
+            <AlertDialogDescription>
+              Select items to remove from this shipment and add a required note.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2 max-h-64 overflow-y-auto rounded-md border p-3">
+              {partialReleaseCandidates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">All items are already released.</p>
+              ) : (
+                partialReleaseCandidates.map(item => (
+                  <div key={item.id} className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={partialReleaseItems.has(item.id)}
+                        onCheckedChange={(checked) => {
+                          setPartialReleaseItems(prev => {
+                            const next = new Set(prev);
+                            if (checked) {
+                              next.add(item.id);
+                            } else {
+                              next.delete(item.id);
+                            }
+                            return next;
+                          });
+                        }}
+                      />
+                      <div className="text-sm">
+                        <p className="font-medium">{item.item?.item_code || item.expected_description || 'Unknown item'}</p>
+                        <p className="text-muted-foreground">
+                          Location: {item.item?.current_location?.code || '-'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Required note</Label>
+              <Textarea
+                value={partialReleaseNote}
+                onChange={(e) => setPartialReleaseNote(e.target.value)}
+                placeholder="Explain why items are not being released..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleSubmitPartialRelease}
+              disabled={submittingPartialRelease || partialReleaseItems.size === 0 || !partialReleaseNote.trim()}
+            >
+              {submittingPartialRelease ? (
+                <>
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Remove Selected Items'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

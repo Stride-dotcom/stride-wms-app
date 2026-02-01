@@ -37,6 +37,7 @@ import {
   calculateShipmentBillingPreview,
   BillingPreview,
 } from '@/lib/billing/billingCalculation';
+import { getTaskTypeServiceCode } from '@/lib/billing/taskServiceLookup';
 
 // ============================================================================
 // TYPES
@@ -188,11 +189,14 @@ export function BillingCalculator({
       let result: BillingPreview;
 
       if (isTask && taskId && taskType) {
+        // Get dynamic service code from task_types table if no override provided
+        const effectiveServiceCode = selectedServiceCode || await getTaskTypeServiceCode(profile.tenant_id, taskType);
+        
         result = await calculateTaskBillingPreview(
           profile.tenant_id,
           taskId,
           taskType,
-          selectedServiceCode,
+          effectiveServiceCode,
           billingQuantity,
           billingRate
         );

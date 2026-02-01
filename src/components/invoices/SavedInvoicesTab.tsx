@@ -1,35 +1,41 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent } from '@/components/ui/card';
+import { useInvoices, Invoice, InvoiceLine } from '@/hooks/useInvoices';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { InvoiceDetailDialog } from './InvoiceDetailDialog';
-import { MarkPaidDialog } from './MarkPaidDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { downloadInvoicePdf, InvoicePdfData } from '@/lib/invoicePdf';
+import { sendEmail, buildInvoiceSentEmail } from '@/lib/email';
+import * as XLSX from 'xlsx';
 
-interface Invoice {
+interface Account {
   id: string;
-  invoice_number: string;
-  account_id: string;
-  invoice_date: string;
-  due_date: string | null;
-  period_start: string | null;
-  period_end: string | null;
-  status: string;
-  payment_status: string | null;
-  subtotal: number;
-  total_amount: number;
-  paid_amount: number | null;
-  tax_amount: number | null;
-  notes: string | null;
-  created_at: string;
-  sent_at: string | null;
+  account_name: string;
+  account_code: string;
+  billing_contact_email: string | null;
+}
+
+interface TenantCompanySettings {
+  company_name: string | null;
+  company_address: string | null;
+  company_phone: string | null;
+  company_email: string | null;
+  logo_url: string | null;
+}
+
+interface InvoiceWithDetails extends Invoice {
+  // Explicit types for fields used in this component (overrides unknown from index signature)
+  invoice_date?: string;
+  due_date?: string | null;
+  tax_amount?: number;
   accounts?: {
     account_name: string;
     account_code: string;
@@ -37,42 +43,52 @@ interface Invoice {
   };
 }
 
+type SortField = 'invoice_number' | 'created_at' | 'total' | 'status' | 'account';
+type SortDir = 'asc' | 'desc';
+
 export function SavedInvoicesTab() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const { voidInvoice, markInvoiceSent, fetchInvoiceLines } = useInvoices();
 
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  // Data state
+  const [invoices, setInvoices] = useState<InvoiceWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
-  const [accounts, setAccounts] = useState<{ id: string; account_name: string }[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [tenantSettings, setTenantSettings] = useState<TenantCompanySettings | null>(null);
 
-  // Filters
-  const [accountFilter, setAccountFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [accountFilter, setAccountFilter] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
-  // Selection
+  // Selection state
   const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(new Set());
 
-  // Dialogs
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-  const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  // Sorting state
+  const [sortField, setSortField] = useState<SortField>('created_at');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
 
-  // Bulk action states
+  // Dialog state
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceWithDetails | null>(null);
+  const [invoiceLines, setInvoiceLines] = useState<InvoiceLine[]>([]);
+  const [loadingLines, setLoadingLines] = useState(false);
+
+  // Bulk action state
+  const [bulkSending, setBulkSending] = useState(false);
   const [bulkDownloading, setBulkDownloading] = useState(false);
 
   // Load invoices
-  useEffect(() => {
-    loadInvoices();
-    loadAccounts();
-  }, [profile?.tenant_id]);
-
-  const loadInvoices = async () => {
+  const loadInvoices = useCallback(async () => {
     if (!profile?.tenant_id) return;
     setLoading(true);
 
     try {
-      const { data, error } = await (supabase
-        .from('invoices') as any)
+      const { data, error } = await supabase
+        .from('invoices')
         .select(`
           *,
           accounts!inner(account_name, account_code, billing_contact_email)
@@ -88,29 +104,123 @@ export function SavedInvoicesTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [profile?.tenant_id, toast]);
 
-  const loadAccounts = async () => {
+  const loadAccounts = useCallback(async () => {
     if (!profile?.tenant_id) return;
 
     const { data } = await supabase
       .from('accounts')
-      .select('id, account_name')
+      .select('id, account_name, account_code, billing_contact_email')
       .eq('tenant_id', profile.tenant_id)
       .eq('is_active', true)
+      .is('deleted_at', null)
       .order('account_name');
 
     setAccounts(data || []);
-  };
+  }, [profile?.tenant_id]);
 
-  // Filtered invoices
+  const loadTenantSettings = useCallback(async () => {
+    if (!profile?.tenant_id) return;
+
+    const { data } = await supabase
+      .from('tenant_company_settings')
+      .select('company_name, company_address, company_phone, company_email, logo_url')
+      .eq('tenant_id', profile.tenant_id)
+      .maybeSingle();
+
+    setTenantSettings(data);
+  }, [profile?.tenant_id]);
+
+  useEffect(() => {
+    loadInvoices();
+    loadAccounts();
+    loadTenantSettings();
+  }, [loadInvoices, loadAccounts, loadTenantSettings]);
+
+  // Universal search - searches across ALL fields
+  const searchFilteredInvoices = useMemo(() => {
+    if (!searchQuery.trim()) return invoices;
+
+    const query = searchQuery.toLowerCase().trim();
+
+    return invoices.filter(invoice => {
+      const searchableValues = [
+        invoice.invoice_number,
+        invoice.accounts?.account_name,
+        invoice.accounts?.account_code,
+        invoice.invoice_date,
+        invoice.due_date,
+        invoice.period_start,
+        invoice.period_end,
+        invoice.status,
+        invoice.subtotal?.toString(),
+        invoice.total?.toString(),
+        invoice.notes,
+      ];
+
+      return searchableValues.some(field =>
+        typeof field === 'string' && field.toLowerCase().includes(query)
+      );
+    });
+  }, [invoices, searchQuery]);
+
+  // Apply additional filters
   const filteredInvoices = useMemo(() => {
-    return invoices.filter(inv => {
-      if (accountFilter !== 'all' && inv.account_id !== accountFilter) return false;
+    return searchFilteredInvoices.filter(inv => {
+      // Status filter
       if (statusFilter !== 'all' && inv.status !== statusFilter) return false;
+
+      // Account filter
+      if (accountFilter !== 'all' && inv.account_id !== accountFilter) return false;
+
+      // Date range filter
+      if (startDate && inv.invoice_date && inv.invoice_date < startDate) return false;
+      if (endDate && inv.invoice_date && inv.invoice_date > endDate) return false;
+
       return true;
     });
-  }, [invoices, accountFilter, statusFilter]);
+  }, [searchFilteredInvoices, statusFilter, accountFilter, startDate, endDate]);
+
+  // Sort invoices
+  const sortedInvoices = useMemo(() => {
+    return [...filteredInvoices].sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+
+      switch (sortField) {
+        case 'invoice_number':
+          aVal = a.invoice_number || '';
+          bVal = b.invoice_number || '';
+          break;
+        case 'created_at':
+          aVal = new Date(a.created_at || 0).getTime();
+          bVal = new Date(b.created_at || 0).getTime();
+          break;
+        case 'total':
+          aVal = Number(a.total || 0);
+          bVal = Number(b.total || 0);
+          break;
+        case 'status':
+          aVal = a.status || '';
+          bVal = b.status || '';
+          break;
+        case 'account':
+          aVal = a.accounts?.account_name || '';
+          bVal = b.accounts?.account_name || '';
+          break;
+      }
+
+      if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = (bVal as string).toLowerCase();
+      }
+
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredInvoices, sortField, sortDir]);
 
   // Summary calculations
   const summary = useMemo(() => {
@@ -119,12 +229,24 @@ export function SavedInvoicesTab() {
     const paid = filteredInvoices.filter(i => i.status === 'paid');
 
     return {
-      draft: { count: draft.length, total: draft.reduce((s, i) => s + Number(i.total_amount || 0), 0) },
-      sent: { count: sent.length, total: sent.reduce((s, i) => s + Number(i.total_amount || 0), 0) },
-      paid: { count: paid.length, total: paid.reduce((s, i) => s + Number(i.total_amount || 0), 0) },
-      total: { count: filteredInvoices.length, total: filteredInvoices.reduce((s, i) => s + Number(i.total_amount || 0), 0) },
+      draft: { count: draft.length, total: draft.reduce((s, i) => s + Number(i.total || 0), 0) },
+      sent: { count: sent.length, total: sent.reduce((s, i) => s + Number(i.total || 0), 0) },
+      paid: { count: paid.length, total: paid.reduce((s, i) => s + Number(i.total || 0), 0) },
+      total: {
+        count: filteredInvoices.filter(i => i.status !== 'void').length,
+        total: filteredInvoices.filter(i => i.status !== 'void').reduce((s, i) => s + Number(i.total || 0), 0)
+      },
     };
   }, [filteredInvoices]);
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setAccountFilter('all');
+    setStartDate('');
+    setEndDate('');
+  };
 
   // Selection handlers
   const toggleInvoiceSelection = (id: string) => {
@@ -140,163 +262,294 @@ export function SavedInvoicesTab() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedInvoices.size === filteredInvoices.length) {
+    if (selectedInvoices.size === sortedInvoices.length) {
       setSelectedInvoices(new Set());
     } else {
-      setSelectedInvoices(new Set(filteredInvoices.map(i => i.id)));
+      setSelectedInvoices(new Set(sortedInvoices.map(i => i.id)));
     }
+  };
+
+  const allSelected = sortedInvoices.length > 0 && selectedInvoices.size === sortedInvoices.length;
+  const someSelected = selectedInvoices.size > 0 && !allSelected;
+
+  // Sort handlers
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) {
+      return <MaterialIcon name="unfold_more" size="sm" className="ml-1 opacity-30" />;
+    }
+    return sortDir === 'asc'
+      ? <MaterialIcon name="arrow_upward" size="sm" className="ml-1" />
+      : <MaterialIcon name="arrow_downward" size="sm" className="ml-1" />;
   };
 
   // Action handlers
-  const handleViewInvoice = (invoice: Invoice) => {
+  const handleViewInvoice = async (invoice: InvoiceWithDetails) => {
     setSelectedInvoice(invoice);
     setDetailDialogOpen(true);
+    setLoadingLines(true);
+
+    const lines = await fetchInvoiceLines(invoice.id);
+    setInvoiceLines(lines);
+    setLoadingLines(false);
   };
 
-  const handleMarkPaid = (invoice: Invoice) => {
-    setSelectedInvoice(invoice);
-    setMarkPaidDialogOpen(true);
-  };
-
-  const handleVoidInvoice = async (invoice: Invoice) => {
-    if (!confirm(`Are you sure you want to void invoice ${invoice.invoice_number}?`)) return;
-
-    try {
-      // Void the invoice
-      const { error: voidErr } = await supabase
-        .from('invoices')
-        .update({ status: 'void' })
-        .eq('id', invoice.id);
-
-      if (voidErr) throw voidErr;
-
-      // Reset billing events to unbilled
-      const { error: resetErr } = await supabase
-        .from('billing_events')
-        .update({ status: 'unbilled', invoice_id: null, invoiced_at: null })
-        .eq('invoice_id', invoice.id);
-
-      if (resetErr) throw resetErr;
-
-      toast({ title: 'Invoice voided' });
-      loadInvoices();
-    } catch (err) {
-      console.error('Error voiding invoice:', err);
-      toast({ title: 'Error voiding invoice', variant: 'destructive' });
+  const handleSendInvoice = async (invoice: InvoiceWithDetails) => {
+    const account = accounts.find(a => a.id === invoice.account_id);
+    if (!account?.billing_contact_email) {
+      toast({ title: 'No email address', description: 'This account has no billing contact email.', variant: 'destructive' });
+      return;
     }
-  };
 
-  const handleSendInvoice = async (invoice: Invoice) => {
-    try {
-      const { error } = await supabase
-        .from('invoices')
-        .update({ status: 'sent', sent_at: new Date().toISOString() })
-        .eq('id', invoice.id);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Invoice marked as sent',
-        description: `Invoice ${invoice.invoice_number} is now marked as sent`,
-      });
-      loadInvoices();
-    } catch (err) {
-      console.error('Error sending invoice:', err);
-      toast({ title: 'Error sending invoice', variant: 'destructive' });
+    const lines = await fetchInvoiceLines(invoice.id);
+    if (lines.length === 0) {
+      toast({ title: 'No line items', description: 'This invoice has no line items.', variant: 'destructive' });
+      return;
     }
-  };
 
-  // Bulk download
-  const handleBulkDownload = async () => {
-    setBulkDownloading(true);
-
-    for (const id of selectedInvoices) {
-      const invoice = invoices.find(i => i.id === id);
-      if (!invoice) continue;
-
-      // Generate and download PDF
-      const pdfData: InvoicePdfData = {
+    // Mark as sent
+    const success = await markInvoiceSent(invoice.id);
+    if (success) {
+      // Send email notification
+      const emailData = buildInvoiceSentEmail({
         invoiceNumber: invoice.invoice_number,
-        invoiceDate: invoice.invoice_date,
-        dueDate: invoice.due_date || undefined,
+        accountName: account.account_name,
         periodStart: invoice.period_start || '',
         periodEnd: invoice.period_end || '',
-        invoiceType: 'manual',
-        companyName: 'Stride Warehouse',
-        accountName: invoice.accounts?.account_name || '',
-        accountCode: invoice.accounts?.account_code || '',
-        lines: [],
-        subtotal: invoice.subtotal || 0,
-        total: invoice.total_amount || 0,
-      };
+        total: Number(invoice.total || 0),
+        lineCount: lines.length,
+      });
 
-      downloadInvoicePdf(pdfData);
-      await new Promise(r => setTimeout(r, 500)); // Delay between downloads
+      await sendEmail(account.billing_contact_email, emailData.subject, emailData.html);
+      toast({ title: 'Invoice sent', description: `Invoice ${invoice.invoice_number} sent to ${account.billing_contact_email}` });
+      loadInvoices();
     }
+  };
+
+  const handleDownloadPdf = async (invoice: InvoiceWithDetails) => {
+    const lines = await fetchInvoiceLines(invoice.id);
+    const account = accounts.find(a => a.id === invoice.account_id);
+
+    if (!account || lines.length === 0) {
+      toast({ title: 'Cannot generate PDF', description: 'Missing invoice data.', variant: 'destructive' });
+      return;
+    }
+
+    const pdfData: InvoicePdfData = {
+      invoiceNumber: invoice.invoice_number,
+      invoiceDate: invoice.invoice_date || '',
+      dueDate: invoice.due_date || '',
+      periodStart: invoice.period_start || '',
+      periodEnd: invoice.period_end || '',
+      invoiceType: (invoice.invoice_type as string) || 'manual',
+      accountName: account.account_name,
+      accountCode: account.account_code,
+      billingAddress: '',
+      companyName: tenantSettings?.company_name || 'Stride WMS',
+      companyAddress: tenantSettings?.company_address || '',
+      companyPhone: tenantSettings?.company_phone || '',
+      companyEmail: tenantSettings?.company_email || '',
+      companyLogo: tenantSettings?.logo_url || undefined,
+      lines: lines.map(l => ({
+        date: (l.occurred_at as string)?.slice(0, 10) || '',
+        description: (l.description as string) || (l.charge_type as string) || '',
+        sidemark: (l.sidemark_name as string) || '',
+        quantity: l.quantity,
+        unitRate: l.unit_rate,
+        lineTotal: l.total_amount,
+        rate: l.unit_rate,
+        total: l.total_amount,
+      })),
+      subtotal: Number(invoice.subtotal || 0),
+      taxAmount: Number(invoice.tax_amount || 0),
+      total: Number(invoice.total || 0),
+      notes: invoice.notes || '',
+    };
+
+    downloadInvoicePdf(pdfData);
+  };
+
+  const handleVoidInvoice = async (invoice: InvoiceWithDetails) => {
+    const success = await voidInvoice(invoice.id);
+    if (success) {
+      loadInvoices();
+    }
+  };
+
+  // Bulk actions
+  const handleBulkSend = async () => {
+    const draftInvoices = sortedInvoices.filter(i =>
+      selectedInvoices.has(i.id) && i.status === 'draft'
+    );
+
+    if (draftInvoices.length === 0) {
+      toast({ title: 'No draft invoices', description: 'Only draft invoices can be sent.', variant: 'destructive' });
+      return;
+    }
+
+    setBulkSending(true);
+    let successCount = 0;
+
+    for (const invoice of draftInvoices) {
+      try {
+        const account = accounts.find(a => a.id === invoice.account_id);
+        if (!account?.billing_contact_email) continue;
+
+        const lines = await fetchInvoiceLines(invoice.id);
+        if (lines.length === 0) continue;
+
+        const success = await markInvoiceSent(invoice.id);
+        if (success) {
+          const emailData = buildInvoiceSentEmail({
+            invoiceNumber: invoice.invoice_number,
+            accountName: account.account_name,
+            periodStart: invoice.period_start || '',
+            periodEnd: invoice.period_end || '',
+            total: Number(invoice.total || 0),
+            lineCount: lines.length,
+          });
+
+          await sendEmail(account.billing_contact_email, emailData.subject, emailData.html);
+          successCount++;
+        }
+      } catch (err) {
+        console.error('Error sending invoice:', err);
+      }
+    }
+
+    toast({ title: 'Invoices sent', description: `${successCount} invoice(s) sent successfully.` });
+    setSelectedInvoices(new Set());
+    loadInvoices();
+    setBulkSending(false);
+  };
+
+  const handleBulkDownloadExcel = async () => {
+    const selectedList = sortedInvoices.filter(i => selectedInvoices.has(i.id));
+    if (selectedList.length === 0) return;
+
+    setBulkDownloading(true);
+
+    const rows = selectedList.map(inv => ({
+      'Invoice #': inv.invoice_number,
+      'Account': inv.accounts?.account_name || '',
+      'Account Code': inv.accounts?.account_code || '',
+      'Date': inv.invoice_date || '',
+      'Due Date': inv.due_date || '',
+      'Period Start': inv.period_start || '',
+      'Period End': inv.period_end || '',
+      'Status': inv.status || '',
+      'Subtotal': Number(inv.subtotal || 0).toFixed(2),
+      'Tax': Number(inv.tax_amount || 0).toFixed(2),
+      'Total': Number(inv.total || 0).toFixed(2),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Invoices');
+    XLSX.writeFile(wb, `invoices-export-${new Date().toISOString().slice(0, 10)}.xlsx`);
 
     setBulkDownloading(false);
-    toast({ title: `Downloaded ${selectedInvoices.size} invoices` });
   };
 
-  const getStatusBadge = (status: string, paymentStatus: string | null) => {
-    if (status === 'draft') return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Draft</Badge>;
-    if (status === 'sent') {
-      if (paymentStatus === 'partial') return <Badge variant="outline" className="bg-orange-100 text-orange-800">Partial</Badge>;
-      return <Badge variant="outline" className="bg-green-100 text-green-800">Sent</Badge>;
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'draft':
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Draft</Badge>;
+      case 'sent':
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Sent</Badge>;
+      case 'paid':
+        return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Paid</Badge>;
+      case 'void':
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Void</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
     }
-    if (status === 'paid') return <Badge variant="outline" className="bg-blue-100 text-blue-800">Paid</Badge>;
-    if (status === 'void') return <Badge variant="outline" className="bg-gray-100 text-gray-500">Void</Badge>;
-    return <Badge variant="outline">{status}</Badge>;
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <MaterialIcon name="progress_activity" className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Saved Invoices</h2>
-          <p className="text-muted-foreground">View and manage all invoices</p>
+          <h2 className="text-xl font-semibold">Saved Invoices</h2>
+          <p className="text-muted-foreground text-sm">View and manage all invoices</p>
         </div>
-        <Button variant="outline" onClick={loadInvoices}>
-          <MaterialIcon name="refresh" size="sm" className="mr-2" />
-          Refresh
+        <Button variant="outline" onClick={loadInvoices} disabled={loading}>
+          <MaterialIcon name="refresh" size="sm" className={`mr-2 ${loading ? "animate-spin" : ""}`} />
+          {loading ? "Loading..." : "Refresh"}
         </Button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-sm text-muted-foreground">Draft</div>
+            <div className="text-2xl font-bold text-blue-600">{summary.draft.count}</div>
+            <div className="text-sm text-muted-foreground">${summary.draft.total.toFixed(2)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-sm text-muted-foreground">Sent</div>
+            <div className="text-2xl font-bold text-green-600">{summary.sent.count}</div>
+            <div className="text-sm text-muted-foreground">${summary.sent.total.toFixed(2)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-sm text-muted-foreground">Paid</div>
+            <div className="text-2xl font-bold text-emerald-600">{summary.paid.count}</div>
+            <div className="text-sm text-muted-foreground">${summary.paid.total.toFixed(2)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-sm text-muted-foreground">Total Active</div>
+            <div className="text-2xl font-bold">{summary.total.count}</div>
+            <div className="text-sm text-muted-foreground">${summary.total.total.toFixed(2)}</div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardContent className="py-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Account:</span>
-              <Select value={accountFilter} onValueChange={setAccountFilter}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All accounts</SelectItem>
-                  {accounts.map(a => (
-                    <SelectItem key={a.id} value={a.id}>{a.account_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <MaterialIcon name="filter_list" size="sm" />
+            Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="lg:col-span-2 space-y-1">
+              <label className="text-sm font-medium">Search</label>
+              <div className="relative">
+                <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by invoice #, account, date..."
+                  className="pl-9"
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Status:</span>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Status</label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[150px]">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="draft">Draft</SelectItem>
                   <SelectItem value="sent">Sent</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
@@ -304,164 +557,293 @@ export function SavedInvoicesTab() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Account</label>
+              <Select value={accountFilter} onValueChange={setAccountFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Accounts</SelectItem>
+                  {accounts.map(a => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.account_code} - {a.account_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Date Range</label>
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="flex-1"
+                />
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-between items-center">
+            <div className="text-sm text-muted-foreground">
+              {sortedInvoices.length} invoice(s) found
+              {selectedInvoices.size > 0 && ` · ${selectedInvoices.size} selected`}
+            </div>
+            <div className="flex gap-2">
+              {(searchQuery || statusFilter !== 'all' || accountFilter !== 'all' || startDate || endDate) && (
+                <Button variant="outline" size="sm" onClick={clearFilters}>
+                  Clear Filters
+                </Button>
+              )}
+              {selectedInvoices.size > 0 && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBulkSend}
+                    disabled={bulkSending}
+                  >
+                    <MaterialIcon name="mail" size="sm" className="mr-2" />
+                    {bulkSending ? "Sending..." : `Send (${selectedInvoices.size})`}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBulkDownloadExcel}
+                    disabled={bulkDownloading}
+                  >
+                    <MaterialIcon name="table_chart" size="sm" className="mr-2" />
+                    {bulkDownloading ? "Exporting..." : "Export Excel"}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Draft</p>
-            <p className="text-2xl font-bold text-yellow-600">${summary.draft.total.toFixed(2)}</p>
-            <p className="text-xs text-muted-foreground">{summary.draft.count} invoices</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Sent</p>
-            <p className="text-2xl font-bold text-green-600">${summary.sent.total.toFixed(2)}</p>
-            <p className="text-xs text-muted-foreground">{summary.sent.count} invoices</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Paid</p>
-            <p className="text-2xl font-bold text-blue-600">${summary.paid.total.toFixed(2)}</p>
-            <p className="text-xs text-muted-foreground">{summary.paid.count} invoices</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Total</p>
-            <p className="text-2xl font-bold">${summary.total.total.toFixed(2)}</p>
-            <p className="text-xs text-muted-foreground">{summary.total.count} invoices</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Bulk Actions */}
-      {selectedInvoices.size > 0 && (
-        <Card>
-          <CardContent className="py-3">
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-medium">{selectedInvoices.size} selected</span>
-              <Button variant="outline" size="sm" onClick={handleBulkDownload} disabled={bulkDownloading}>
-                <MaterialIcon name="download" size="sm" className="mr-1" />
-                {bulkDownloading ? 'Downloading...' : 'Download PDFs'}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setSelectedInvoices(new Set())}>
-                Clear Selection
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Invoice Table */}
+      {/* Invoices Table */}
       <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={selectedInvoices.size === filteredInvoices.length && filteredInvoices.length > 0}
-                    onCheckedChange={toggleSelectAll}
-                  />
-                </TableHead>
-                <TableHead>Invoice #</TableHead>
-                <TableHead>Account</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Due</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredInvoices.map(invoice => (
-                <TableRow key={invoice.id}>
-                  <TableCell>
+        <CardContent className="pt-6">
+          <div className="border rounded-lg overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">
                     <Checkbox
-                      checked={selectedInvoices.has(invoice.id)}
-                      onCheckedChange={() => toggleInvoiceSelection(invoice.id)}
+                      checked={allSelected}
+                      onCheckedChange={toggleSelectAll}
+                      className={someSelected ? "data-[state=checked]:bg-primary/50" : ""}
                     />
-                  </TableCell>
-                  <TableCell className="font-mono font-medium">{invoice.invoice_number}</TableCell>
-                  <TableCell>{invoice.accounts?.account_name || '-'}</TableCell>
-                  <TableCell>{invoice.invoice_date}</TableCell>
-                  <TableCell>{invoice.due_date || '-'}</TableCell>
-                  <TableCell className="text-right font-medium">${Number(invoice.total_amount || 0).toFixed(2)}</TableCell>
-                  <TableCell>{getStatusBadge(invoice.status || 'draft', invoice.payment_status)}</TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleViewInvoice(invoice)}>
-                        <MaterialIcon name="visibility" size="sm" />
-                      </Button>
-                      {invoice.status === 'draft' && (
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('invoice_number')}
+                  >
+                    <span className="flex items-center">Invoice # <SortIcon field="invoice_number" /></span>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('account')}
+                  >
+                    <span className="flex items-center">Account <SortIcon field="account" /></span>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('created_at')}
+                  >
+                    <span className="flex items-center">Date <SortIcon field="created_at" /></span>
+                  </TableHead>
+                  <TableHead>Period</TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('status')}
+                  >
+                    <span className="flex items-center">Status <SortIcon field="status" /></span>
+                  </TableHead>
+                  <TableHead
+                    className="text-right cursor-pointer select-none"
+                    onClick={() => handleSort('total')}
+                  >
+                    <span className="flex items-center justify-end">Total <SortIcon field="total" /></span>
+                  </TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedInvoices.map(invoice => (
+                  <TableRow key={invoice.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedInvoices.has(invoice.id)}
+                        onCheckedChange={() => toggleInvoiceSelection(invoice.id)}
+                      />
+                    </TableCell>
+                    <TableCell className="font-mono">{invoice.invoice_number}</TableCell>
+                    <TableCell>
+                      <div>{invoice.accounts?.account_name}</div>
+                      <div className="text-xs text-muted-foreground">{invoice.accounts?.account_code}</div>
+                    </TableCell>
+                    <TableCell>{invoice.invoice_date?.slice(0, 10)}</TableCell>
+                    <TableCell>
+                      {invoice.period_start && invoice.period_end && (
+                        <span className="text-sm">
+                          {invoice.period_start.slice(5)} - {invoice.period_end.slice(5)}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(invoice.status || 'draft')}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      ${Number(invoice.total || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleViewInvoice(invoice)} title="View">
+                          <MaterialIcon name="visibility" size="sm" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDownloadPdf(invoice)} title="Download PDF">
+                          <MaterialIcon name="download" size="sm" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => handleSendInvoice(invoice)}
+                          disabled={invoice.status !== 'draft'}
+                          title="Send"
                         >
                           <MaterialIcon name="send" size="sm" />
                         </Button>
-                      )}
-                      {invoice.status === 'sent' && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleMarkPaid(invoice)}
-                        >
-                          <MaterialIcon name="payments" size="sm" />
-                        </Button>
-                      )}
-                      {invoice.status !== 'void' && invoice.status !== 'paid' && (
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => handleVoidInvoice(invoice)}
+                          disabled={invoice.status === 'void' || invoice.status === 'paid'}
+                          title="Void"
                         >
-                          <MaterialIcon name="cancel" size="sm" className="text-red-500" />
+                          <MaterialIcon name="cancel" size="sm" className="text-destructive" />
                         </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredInvoices.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    No invoices found
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {sortedInvoices.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      {invoices.length === 0 ? 'No invoices found' : `No results match "${searchQuery}"`}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Dialogs */}
-      {selectedInvoice && (
-        <>
-          <InvoiceDetailDialog
-            open={detailDialogOpen}
-            onOpenChange={setDetailDialogOpen}
-            invoice={selectedInvoice}
-            onRefresh={loadInvoices}
-          />
-          <MarkPaidDialog
-            open={markPaidDialogOpen}
-            onOpenChange={setMarkPaidDialogOpen}
-            invoice={selectedInvoice}
-            onSuccess={() => {
-              setMarkPaidDialogOpen(false);
-              loadInvoices();
-            }}
-          />
-        </>
-      )}
+      {/* Invoice Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MaterialIcon name="description" size="md" />
+              Invoice {selectedInvoice?.invoice_number}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedInvoice?.accounts?.account_name} · {getStatusBadge(selectedInvoice?.status || 'draft')}
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingLines ? (
+            <div className="py-8 text-center">Loading line items...</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <div className="text-muted-foreground">Invoice Date</div>
+                  <div className="font-medium">{selectedInvoice?.invoice_date || '-'}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Due Date</div>
+                  <div className="font-medium">{selectedInvoice?.due_date ?? '-'}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Period</div>
+                  <div className="font-medium">
+                    {selectedInvoice?.period_start} to {selectedInvoice?.period_end}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Total</div>
+                  <div className="font-medium text-lg">${Number(selectedInvoice?.total || 0).toFixed(2)}</div>
+                </div>
+              </div>
+
+              <div className="border rounded-lg overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Sidemark</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Rate</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {invoiceLines.map(line => (
+                      <TableRow key={line.id}>
+                        <TableCell>{(line.occurred_at as string)?.slice(0, 10) || '-'}</TableCell>
+                        <TableCell>{(line.description as string) || (line.charge_type as string) || '-'}</TableCell>
+                        <TableCell>{(line.sidemark_name as string) || '-'}</TableCell>
+                        <TableCell className="text-right">{line.quantity}</TableCell>
+                        <TableCell className="text-right">${Number(line.unit_rate || 0).toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${Number(line.total_amount || 0).toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {selectedInvoice?.notes && (
+                <div>
+                  <div className="text-sm text-muted-foreground mb-1">Notes</div>
+                  <div className="text-sm p-3 bg-muted rounded-lg">{selectedInvoice.notes}</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
+              Close
+            </Button>
+            {selectedInvoice && (
+              <>
+                <Button variant="outline" onClick={() => handleDownloadPdf(selectedInvoice)}>
+                  <MaterialIcon name="download" size="sm" className="mr-2" />
+                  Download PDF
+                </Button>
+                {selectedInvoice.status === 'draft' && (
+                  <Button onClick={() => {
+                    handleSendInvoice(selectedInvoice);
+                    setDetailDialogOpen(false);
+                  }}>
+                    <MaterialIcon name="send" size="sm" className="mr-2" />
+                    Send Invoice
+                  </Button>
+                )}
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

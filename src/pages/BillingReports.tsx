@@ -253,8 +253,7 @@ export default function BillingReports() {
         .eq('tenant_id', profile.tenant_id)
         .gte('occurred_at', format(dateFrom, 'yyyy-MM-dd'))
         .lte('occurred_at', format(dateTo, 'yyyy-MM-dd') + 'T23:59:59')
-        .order('occurred_at', { ascending: false })
-        .limit(2000);
+        .order('occurred_at', { ascending: false });
 
       if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
@@ -309,13 +308,8 @@ export default function BillingReports() {
         return false;
       }
       // Service filter (match by charge_type which is the service_code)
-      if (selectedServices.length > 0 && event.charge_type) {
-        const selectedCodes = services
-          .filter(s => selectedServices.includes(s.id))
-          .map(s => s.service_code);
-        if (!selectedCodes.includes(event.charge_type)) {
-          return false;
-        }
+      if (selectedServices.length > 0 && !selectedServices.includes(event.charge_type)) {
+        return false;
       }
       // Class filter
       if (selectedClasses.length > 0 && event.class_id && !selectedClasses.includes(event.class_id)) {
@@ -946,7 +940,7 @@ export default function BillingReports() {
                   <SelectContent>
                     <SelectItem value="all">All Services</SelectItem>
                     {services.map((svc) => (
-                      <SelectItem key={svc.id} value={svc.id}>{svc.service_name}</SelectItem>
+                      <SelectItem key={svc.id} value={svc.service_code}>{svc.service_name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

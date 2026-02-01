@@ -8,7 +8,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface HistoryEvent {
   id: string;
-  type: 'status' | 'item' | 'receiving' | 'billing' | 'photo' | 'note' | 'created';
+  type: 'status' | 'item' | 'receiving' | 'billing' | 'photo' | 'note' | 'created' | 'audit';
   title: string;
   description: string;
   timestamp: string;
@@ -207,6 +207,39 @@ export function ShipmentHistoryTab({ shipmentId }: ShipmentHistoryTabProps) {
         });
       }
 
+      // 6. Fetch audit log entries for scans and partial releases
+      const { data: auditEntries } = await (supabase as any)
+        .from('admin_audit_log')
+        .select(`
+          id,
+          action,
+          changes_json,
+          created_at,
+          actor:actor_id(first_name, last_name)
+        `)
+        .eq('entity_type', 'shipment')
+        .eq('entity_id', shipmentId)
+        .order('created_at', { ascending: false });
+
+      if (auditEntries) {
+        auditEntries.forEach((entry: any) => {
+          const actionLabel = String(entry.action || 'Audit Event');
+          const detail = entry.changes_json?.message
+            || entry.changes_json?.note
+            || entry.changes_json?.scan_value
+            || 'Shipment activity recorded';
+          allEvents.push({
+            id: `audit-${entry.id}`,
+            type: 'audit',
+            title: actionLabel.replace(/_/g, ' ').toUpperCase(),
+            description: detail,
+            timestamp: entry.created_at,
+            user: entry.actor ? `${entry.actor.first_name} ${entry.actor.last_name}` : undefined,
+            metadata: entry.changes_json || undefined,
+          });
+        });
+      }
+
       // Sort all events by timestamp (newest first)
       allEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setEvents(allEvents);
@@ -233,6 +266,8 @@ export function ShipmentHistoryTab({ shipmentId }: ShipmentHistoryTabProps) {
         return <MaterialIcon name="photo_camera" size="sm" />;
       case 'note':
         return <MaterialIcon name="sticky_note_2" size="sm" />;
+      case 'audit':
+        return <MaterialIcon name="history" size="sm" />;
       default:
         return <MaterialIcon name="history" size="sm" />;
     }
@@ -254,6 +289,8 @@ export function ShipmentHistoryTab({ shipmentId }: ShipmentHistoryTabProps) {
         return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200';
       case 'note':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'audit':
+        return 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }

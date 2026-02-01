@@ -52,12 +52,17 @@ ALTER TABLE invoice_lines
 ADD COLUMN IF NOT EXISTS sidemark_name TEXT;
 
 -- Create global invoice number function (replace existing if any)
+-- Uses advisory lock to ensure concurrency safety
 CREATE OR REPLACE FUNCTION next_global_invoice_number()
 RETURNS TEXT AS $$
 DECLARE
   next_num INTEGER;
   invoice_num TEXT;
+  lock_key BIGINT := 8675309; -- Unique lock key for invoice numbering
 BEGIN
+  -- Acquire advisory lock to prevent concurrent access
+  PERFORM pg_advisory_xact_lock(lock_key);
+
   SELECT COALESCE(
     MAX(
       CASE

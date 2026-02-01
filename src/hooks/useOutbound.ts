@@ -546,10 +546,10 @@ export function useOutboundShipments(filters?: {
           occurred_at: new Date().toISOString(),
           metadata: {
             class_code: classCode,
-            has_rate_error: rateResult.hasError,
-            rate_error_message: rateResult.errorMessage,
           },
           created_by: profile.id,
+          has_rate_error: rateResult.hasError,
+          rate_error_message: rateResult.errorMessage,
         });
 
         // Track alerts to queue for services with email_office alert rule
@@ -702,7 +702,7 @@ export function useAccountItems(accountId: string | undefined) {
         `)
         .eq('tenant_id', profile.tenant_id)
         .eq('account_id', accountId)
-        .in('status', ['in_storage', 'available']) // Only items that can be shipped
+        .in('status', ['in_storage', 'available', 'active']) // Only items that can be shipped (active is the main storage status)
         .is('deleted_at', null)
         .order('item_code');
 

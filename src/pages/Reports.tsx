@@ -25,6 +25,7 @@ import { RevenueLedgerTab } from '@/components/reports/RevenueLedgerTab';
 import { AddChargeTab } from '@/components/reports/AddChargeTab';
 import { ReportBuilderTab } from '@/components/reports/ReportBuilderTab';
 import { InvoiceTemplateTab } from '@/components/invoices/InvoiceTemplateTab';
+import { SavedInvoicesTab } from '@/components/invoices/SavedInvoicesTab';
 
 interface ReportStats {
   totalItems: number;
@@ -164,9 +165,15 @@ export default function Reports() {
               </TabsTrigger>
             )}
             {isAdmin && (
-              <TabsTrigger value="revenue-ledger" className="gap-2">
-                <MaterialIcon name="receipt" size="sm" />
-                Revenue Ledger
+              <TabsTrigger value="invoice-builder" className="gap-2">
+                <MaterialIcon name="build" size="sm" />
+                Invoice Builder
+              </TabsTrigger>
+            )}
+            {isAdmin && (
+              <TabsTrigger value="saved-invoices" className="gap-2">
+                <MaterialIcon name="folder" size="sm" />
+                Saved Invoices
               </TabsTrigger>
             )}
             {isAdmin && (
@@ -337,8 +344,14 @@ export default function Reports() {
           )}
 
           {isAdmin && (
-            <TabsContent value="revenue-ledger" className="mt-6">
+            <TabsContent value="invoice-builder" className="mt-6">
               <RevenueLedgerTab />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="saved-invoices" className="mt-6">
+              <SavedInvoicesTab />
             </TabsContent>
           )}
 

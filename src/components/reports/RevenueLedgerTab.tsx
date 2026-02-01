@@ -67,7 +67,7 @@ export function RevenueLedgerTab() {
   const { toast } = useToast();
   const { profile } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { createInvoiceDraft, markInvoiceSent, voidInvoice, fetchInvoices, fetchInvoiceLines, generateStorageForDate, updateInvoiceNotes, createInvoicesFromEvents } = useInvoices();
+  const { createInvoiceDraft, markInvoiceSent, voidInvoice, fetchInvoices, fetchInvoiceLines, updateInvoiceNotes, createInvoicesFromEvents } = useInvoices();
 
   const [accountId, setAccountId] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -99,32 +99,9 @@ export function RevenueLedgerTab() {
   const [notesValue, setNotesValue] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
 
-  // Storage generation
-  const [storageDate, setStorageDate] = useState<string>(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().slice(0, 10);
-  });
-  const [generatingStorage, setGeneratingStorage] = useState(false);
-
   // Invoice generation options
   const [invoiceGrouping, setInvoiceGrouping] = useState<InvoiceGrouping>('by_sidemark');
   const [lineSortOption, setLineSortOption] = useState<LineSortOption>('date');
-
-  // Storage billing period (for monthly storage invoices)
-  const [storagePeriodStart, setStoragePeriodStart] = useState<string>(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
-  });
-  const [storagePeriodEnd, setStoragePeriodEnd] = useState<string>(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
-  });
-  const [generateStorageForPeriod, setGenerateStorageForPeriod] = useState(false);
-
-  // Batch invoice creation
-  const [batchCreating, setBatchCreating] = useState(false);
-  const [selectedAccountsForBatch, setSelectedAccountsForBatch] = useState<string[]>([]);
 
   // Billing report flow - selected events from billing report
   const [fromBillingReport, setFromBillingReport] = useState(false);
@@ -132,6 +109,14 @@ export function RevenueLedgerTab() {
   const [billingReportGrouping, setBillingReportGrouping] = useState<InvoiceGrouping>('by_account');
   const [billingReportInvoiceType, setBillingReportInvoiceType] = useState<InvoiceType>('manual');
   const [creatingFromReport, setCreatingFromReport] = useState(false);
+
+  // Grouping checkboxes for billing report flow
+  const [groupByAccount, setGroupByAccount] = useState(true);
+  const [groupBySidemark, setGroupBySidemark] = useState(false);
+  const [groupByServiceType, setGroupByServiceType] = useState(false);
+
+  // Sort direction for invoice lines
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Tenant company settings for PDF
   const [tenantSettings, setTenantSettings] = useState<TenantCompanySettings | null>(null);
@@ -257,10 +242,21 @@ export function RevenueLedgerTab() {
       return;
     }
 
+    // Convert checkbox states to grouping value
+    let grouping: InvoiceGrouping = 'single';
+    if (groupByAccount && groupBySidemark) {
+      grouping = 'by_account_sidemark';
+    } else if (groupByAccount && !groupBySidemark) {
+      grouping = 'by_account';
+    } else if (!groupByAccount && groupBySidemark) {
+      grouping = 'by_sidemark';
+    }
+    // When no checkboxes are selected, 'single' creates one invoice for all events
+
     setCreatingFromReport(true);
     const result = await createInvoicesFromEvents({
       billingEventIds: selectedBillingEvents.map(e => e.id),
-      grouping: billingReportGrouping,
+      grouping,
       invoiceType: billingReportInvoiceType,
     });
 
@@ -594,71 +590,6 @@ export function RevenueLedgerTab() {
     setCreating(false);
   };
 
-  // Batch create invoices for multiple accounts
-  const createBatchInvoices = async () => {
-    if (selectedAccountsForBatch.length === 0) {
-      toast({ title: "No accounts selected", description: "Please select at least one account.", variant: "destructive" });
-      return;
-    }
-
-    setBatchCreating(true);
-    let totalCreated = 0;
-
-    for (const acctId of selectedAccountsForBatch) {
-      if (invoiceGrouping === 'by_sidemark') {
-        // Get sidemarks for this account
-        const { data: acctSidemarks } = await supabase
-          .from("sidemarks")
-          .select("id")
-          .eq("account_id", acctId)
-          .is("deleted_at", null);
-
-        if (acctSidemarks && acctSidemarks.length > 0) {
-          for (const sm of acctSidemarks) {
-            const inv = await createInvoiceDraft({
-              accountId: acctId,
-              invoiceType,
-              periodStart,
-              periodEnd,
-              sidemark: sm.id,
-              includeUnbilledBeforePeriod: includeEarlier,
-            });
-            if (inv) totalCreated++;
-          }
-        }
-        // Also create for charges without sidemark
-        const inv = await createInvoiceDraft({
-          accountId: acctId,
-          invoiceType,
-          periodStart,
-          periodEnd,
-          sidemark: null,
-          includeUnbilledBeforePeriod: includeEarlier,
-        });
-        if (inv) totalCreated++;
-      } else {
-        // One invoice per account
-        const inv = await createInvoiceDraft({
-          accountId: acctId,
-          invoiceType,
-          periodStart,
-          periodEnd,
-          sidemark: null,
-          includeUnbilledBeforePeriod: includeEarlier,
-        });
-        if (inv) totalCreated++;
-      }
-    }
-
-    if (totalCreated > 0) {
-      toast({ title: "Batch invoices created", description: `Created ${totalCreated} invoice draft(s).` });
-    }
-
-    await load();
-    setSelectedAccountsForBatch([]);
-    setBatchCreating(false);
-  };
-
   const openLines = async (invoice: Invoice) => {
     setSelectedInvoice(invoice);
     setNotesValue(invoice.notes || "");
@@ -854,12 +785,6 @@ export function RevenueLedgerTab() {
     if (ok) await load();
   };
 
-  const handleGenerateStorage = async () => {
-    setGeneratingStorage(true);
-    await generateStorageForDate(storageDate);
-    setGeneratingStorage(false);
-  };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "draft":
@@ -893,8 +818,8 @@ export function RevenueLedgerTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Revenue Ledger</h2>
-          <p className="text-muted-foreground text-sm">Create, manage, and track invoices</p>
+          <h2 className="text-xl font-semibold">Invoice Builder</h2>
+          <p className="text-muted-foreground text-sm">Build and manage invoice drafts from billing events</p>
         </div>
         <Button variant="outline" onClick={load} disabled={loading}>
           <MaterialIcon name="refresh" size="sm" className={`mr-2 ${loading ? "animate-spin" : ""}`} />
@@ -949,201 +874,127 @@ export function RevenueLedgerTab() {
             </div>
 
             {/* Invoice creation options */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Invoice Grouping</label>
-                <Select value={billingReportGrouping} onValueChange={(v) => setBillingReportGrouping(v as InvoiceGrouping)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="by_account">Separate invoice per Account</SelectItem>
-                    <SelectItem value="by_sidemark">Separate invoice per Sidemark</SelectItem>
-                    <SelectItem value="by_account_sidemark">Separate by Account + Sidemark</SelectItem>
-                    <SelectItem value="include_subaccounts">Include sub-accounts on parent invoice</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Grouping Options */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium">Grouping Options</label>
+                <div className="space-y-2 p-4 border rounded-lg bg-white">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="groupByAccount"
+                      checked={groupByAccount}
+                      onCheckedChange={(checked) => setGroupByAccount(!!checked)}
+                    />
+                    <label htmlFor="groupByAccount" className="text-sm font-normal cursor-pointer">
+                      By Account <span className="text-muted-foreground">(one invoice per account)</span>
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="groupBySidemark"
+                      checked={groupBySidemark}
+                      onCheckedChange={(checked) => setGroupBySidemark(!!checked)}
+                    />
+                    <label htmlFor="groupBySidemark" className="text-sm font-normal cursor-pointer">
+                      By Sidemark <span className="text-muted-foreground">(separate invoice per sidemark)</span>
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2 opacity-50">
+                    <Checkbox
+                      id="groupByServiceType"
+                      checked={false}
+                      disabled
+                    />
+                    <label htmlFor="groupByServiceType" className="text-sm font-normal">
+                      By Service Type <span className="text-muted-foreground">(coming soon)</span>
+                    </label>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Invoice Type</label>
-                <Select value={billingReportInvoiceType} onValueChange={(v) => setBillingReportInvoiceType(v as InvoiceType)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="weekly_services">Weekly Services</SelectItem>
-                    <SelectItem value="monthly_storage">Monthly Storage</SelectItem>
-                    <SelectItem value="closeout">Closeout</SelectItem>
-                    <SelectItem value="manual">Manual</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              {/* Invoice Type and Line Sorting */}
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Invoice Type</label>
+                  <Select value={billingReportInvoiceType} onValueChange={(v) => setBillingReportInvoiceType(v as InvoiceType)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly_services">Weekly Services</SelectItem>
+                      <SelectItem value="monthly_storage">Monthly Storage</SelectItem>
+                      <SelectItem value="closeout">Closeout</SelectItem>
+                      <SelectItem value="manual">Manual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Line Sorting</label>
+                    <Select value={lineSortOption} onValueChange={(v) => setLineSortOption(v as LineSortOption)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="date">By Date</SelectItem>
+                        <SelectItem value="service">By Service Type</SelectItem>
+                        <SelectItem value="item">By Item</SelectItem>
+                        <SelectItem value="amount">By Amount</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Sort Direction</label>
+                    <Select value={sortDirection} onValueChange={(v) => setSortDirection(v as 'asc' | 'desc')}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="asc">Ascending</SelectItem>
+                        <SelectItem value="desc">Descending</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-end gap-2">
-                <Button
-                  onClick={handleCreateFromBillingReport}
-                  disabled={creatingFromReport}
-                  className="flex-1"
-                >
-                  <MaterialIcon name="add" size="sm" className="mr-2" />
-                  {creatingFromReport ? "Creating..." : "Create Invoices"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleCancelBillingReportFlow}
-                  disabled={creatingFromReport}
-                >
-                  Cancel
-                </Button>
-              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 pt-2">
+              <Button
+                onClick={handleCreateFromBillingReport}
+                disabled={creatingFromReport}
+              >
+                <MaterialIcon name="add" size="sm" className="mr-2" />
+                {creatingFromReport ? "Creating..." : "Create Invoices"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleCancelBillingReportFlow}
+                disabled={creatingFromReport}
+              >
+                Cancel
+              </Button>
             </div>
 
             {/* Grouping explanation */}
             <div className="text-sm text-muted-foreground bg-white p-3 rounded-lg border">
-              {billingReportGrouping === 'by_account' && (
+              {!groupByAccount && !groupBySidemark && (
+                <p>One single invoice will be created with all selected billing events.</p>
+              )}
+              {groupByAccount && !groupBySidemark && (
                 <p>One invoice will be created for each unique account in the selection.</p>
               )}
-              {billingReportGrouping === 'by_sidemark' && (
-                <p>Separate invoices will be created for each sidemark. Events without a sidemark will be grouped by account.</p>
-              )}
-              {billingReportGrouping === 'by_account_sidemark' && (
+              {groupByAccount && groupBySidemark && (
                 <p>Separate invoices will be created for each unique account + sidemark combination.</p>
               )}
-              {billingReportGrouping === 'include_subaccounts' && (
-                <p>Sub-account charges will be included on their parent account's invoice. Parent accounts get all charges from their sub-accounts.</p>
+              {!groupByAccount && groupBySidemark && (
+                <p>One invoice will be created for each unique sidemark (regardless of account).</p>
               )}
             </div>
           </CardContent>
         </Card>
       )}
-
-      {/* Storage Generation Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MaterialIcon name="calendar_month" size="md" />
-            Storage Charge Billing
-          </CardTitle>
-          <CardDescription>
-            Generate storage charges for a date range or specific date. Storage charges are calculated daily based on item rates.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Single Day Storage */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium">Single Day Generation</h4>
-            <div className="flex items-end gap-4">
-              <div className="space-y-1">
-                <label className="text-sm text-muted-foreground">Date</label>
-                <Input
-                  type="date"
-                  value={storageDate}
-                  onChange={(e) => setStorageDate(e.target.value)}
-                  className="w-[200px]"
-                />
-              </div>
-              <Button onClick={handleGenerateStorage} disabled={generatingStorage} variant="outline">
-                {generatingStorage ? "Generating..." : "Generate for Day"}
-              </Button>
-            </div>
-          </div>
-
-          {/* Period Storage Generation */}
-          <div className="border-t pt-4 space-y-2">
-            <h4 className="text-sm font-medium">Period Storage Generation</h4>
-            <p className="text-xs text-muted-foreground">
-              Generate storage charges for all days in a period. Useful for monthly storage billing.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              <div className="space-y-1">
-                <label className="text-sm text-muted-foreground">Period Start</label>
-                <Input
-                  type="date"
-                  value={storagePeriodStart}
-                  onChange={(e) => setStoragePeriodStart(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm text-muted-foreground">Period End</label>
-                <Input
-                  type="date"
-                  value={storagePeriodEnd}
-                  onChange={(e) => setStoragePeriodEnd(e.target.value)}
-                />
-              </div>
-              <Button
-                onClick={async () => {
-                  setGenerateStorageForPeriod(true);
-                  const startDate = new Date(storagePeriodStart);
-                  const endDate = new Date(storagePeriodEnd);
-                  let current = startDate;
-                  let count = 0;
-                  while (current <= endDate) {
-                    await generateStorageForDate(current.toISOString().slice(0, 10));
-                    count++;
-                    current.setDate(current.getDate() + 1);
-                  }
-                  toast({ title: "Storage charges generated", description: `Generated storage for ${count} day(s).` });
-                  setGenerateStorageForPeriod(false);
-                }}
-                disabled={generateStorageForPeriod}
-              >
-                {generateStorageForPeriod ? "Generating..." : "Generate for Period"}
-              </Button>
-              <div className="text-sm text-muted-foreground">
-                {Math.ceil((new Date(storagePeriodEnd).getTime() - new Date(storagePeriodStart).getTime()) / (1000 * 60 * 60 * 24)) + 1} day(s)
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Presets */}
-          <div className="border-t pt-4 space-y-2">
-            <h4 className="text-sm font-medium">Quick Presets</h4>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const d = new Date();
-                  const firstDay = new Date(d.getFullYear(), d.getMonth() - 1, 1);
-                  const lastDay = new Date(d.getFullYear(), d.getMonth(), 0);
-                  setStoragePeriodStart(firstDay.toISOString().slice(0, 10));
-                  setStoragePeriodEnd(lastDay.toISOString().slice(0, 10));
-                }}
-              >
-                Last Month
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const d = new Date();
-                  const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
-                  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-                  setStoragePeriodStart(firstDay.toISOString().slice(0, 10));
-                  setStoragePeriodEnd(lastDay.toISOString().slice(0, 10));
-                }}
-              >
-                This Month
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const d = new Date();
-                  const lastWeekStart = new Date(d);
-                  lastWeekStart.setDate(d.getDate() - d.getDay() - 7);
-                  const lastWeekEnd = new Date(lastWeekStart);
-                  lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
-                  setStoragePeriodStart(lastWeekStart.toISOString().slice(0, 10));
-                  setStoragePeriodEnd(lastWeekEnd.toISOString().slice(0, 10));
-                }}
-              >
-                Last Week
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Create Invoice Draft */}
       <Card>
@@ -1270,67 +1121,6 @@ export function RevenueLedgerTab() {
               </p>
             )}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Batch Invoice Creation */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MaterialIcon name="description" size="md" />
-            Batch Invoice Creation
-          </CardTitle>
-          <CardDescription>
-            Create invoices for multiple accounts at once using the same period and settings
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Select Accounts</label>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
-              {accounts.map((a) => (
-                <div key={a.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`batch-${a.id}`}
-                    checked={selectedAccountsForBatch.includes(a.id)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedAccountsForBatch(prev => [...prev, a.id]);
-                      } else {
-                        setSelectedAccountsForBatch(prev => prev.filter(id => id !== a.id));
-                      }
-                    }}
-                  />
-                  <label htmlFor={`batch-${a.id}`} className="text-sm cursor-pointer">
-                    {a.account_code} - {a.account_name}
-                  </label>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedAccountsForBatch(accounts.map(a => a.id))}
-              >
-                Select All
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedAccountsForBatch([])}
-              >
-                Clear All
-              </Button>
-            </div>
-          </div>
-          <Button
-            onClick={createBatchInvoices}
-            disabled={batchCreating || selectedAccountsForBatch.length === 0}
-          >
-            <MaterialIcon name="add" size="sm" className="mr-2" />
-            {batchCreating ? "Creating..." : `Create Invoices for ${selectedAccountsForBatch.length} Account(s)`}
-          </Button>
         </CardContent>
       </Card>
 

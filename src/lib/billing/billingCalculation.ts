@@ -32,10 +32,11 @@ export const TASK_TYPE_TO_SERVICE_CODE: Record<string, string> = {
 
 /**
  * Map shipment direction to service codes
+ * Outbound uses Will_Call for class-based pickup/release fees
  */
 export const SHIPMENT_DIRECTION_TO_SERVICE_CODE: Record<string, string> = {
   'inbound': 'RCVG',
-  'outbound': 'Shipping',
+  'outbound': 'Will_Call',
   'return': 'Returns',
 };
 
@@ -160,6 +161,9 @@ export interface BillingPreview {
 /**
  * Calculate billing preview for a TASK
  * Returns what billing events WOULD be created when task completes
+ * 
+ * Note: For dynamic service code lookup from task_types table, 
+ * callers should use getTaskTypeServiceCode() before calling this function.
  */
 export async function calculateTaskBillingPreview(
   tenantId: string,
@@ -169,7 +173,8 @@ export async function calculateTaskBillingPreview(
   overrideQuantity?: number | null,
   overrideRate?: number | null
 ): Promise<BillingPreview> {
-  // Determine service code
+  // Determine service code - override takes priority, then falls back to hardcoded defaults
+  // For dynamic lookup, caller should pass in the result of getTaskTypeServiceCode()
   const serviceCode = overrideServiceCode || TASK_TYPE_TO_SERVICE_CODE[taskType] || 'INSP';
 
   // Get task items with class info
