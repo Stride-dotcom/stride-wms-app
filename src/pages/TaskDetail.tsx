@@ -44,6 +44,8 @@ import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
 import { DocumentUploadButton } from '@/components/scanner/DocumentUploadButton';
 import { DocumentList } from '@/components/scanner/DocumentList';
 import { TaskHistoryTab } from '@/components/tasks/TaskHistoryTab';
+import { HelpButton } from '@/components/prompts';
+import { PromptWorkflow } from '@/types/guidedPrompts';
 
 interface TaskDetail {
   id: string;
@@ -576,10 +578,20 @@ export default function TaskDetailPage() {
               </div>
             </div>
           </div>
-          <Button variant="outline" onClick={() => setEditDialogOpen(true)} className="self-start sm:self-center">
-            <MaterialIcon name="edit" size="sm" className="mr-2" />
-            Edit Task
-          </Button>
+          <div className="flex gap-2 self-start sm:self-center">
+            <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
+              <MaterialIcon name="edit" size="sm" className="mr-2" />
+              Edit Task
+            </Button>
+            {/* Help button - workflow based on task type */}
+            <HelpButton
+              workflow={
+                task.task_type === 'Inspection' ? 'inspection' :
+                task.task_type === 'Assembly' ? 'assembly' :
+                task.task_type === 'Repair' ? 'repair' : 'inspection'
+              }
+            />
+          </div>
         </div>
 
         {/* Task Pending Banner */}

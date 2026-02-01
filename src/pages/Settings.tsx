@@ -41,6 +41,7 @@ import { ServiceEventsPricingTab } from '@/components/settings/ServiceEventsPric
 import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
 import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
 import { IntegrationsSettingsTab } from '@/components/settings/IntegrationsSettingsTab';
+import { PromptsSettingsTab } from '@/components/settings/PromptsSettingsTab';
 
 interface TenantInfo {
   id: string;
@@ -54,6 +55,7 @@ const TAB_OPTIONS = [
   { value: 'organization', label: 'Organization' },
   { value: 'employees', label: 'Employees' },
   { value: 'alerts', label: 'Alerts' },
+  { value: 'prompts', label: 'Prompts', adminOnly: true },
   { value: 'labor', label: 'Labor', adminOnly: true },
   { value: 'pricing', label: 'Pricing', adminOnly: true },
   { value: 'integrations', label: 'Integrations', adminOnly: true },
@@ -312,6 +314,7 @@ export default function Settings() {
             <TabsTrigger value="organization">Organization</TabsTrigger>
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
+            {isAdmin && <TabsTrigger value="prompts">Prompts</TabsTrigger>}
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
             {isAdmin && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
             {isAdmin && <TabsTrigger value="integrations">Integrations</TabsTrigger>}
@@ -389,6 +392,12 @@ export default function Settings() {
           <TabsContent value="alerts">
             <AlertsSettingsTab />
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="prompts">
+              <PromptsSettingsTab />
+            </TabsContent>
+          )}
 
           {/* Billing tab removed - charge templates moved to Rate Sheets */}
 

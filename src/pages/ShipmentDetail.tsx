@@ -37,6 +37,7 @@ import { ShipmentHistoryTab } from '@/components/shipments/ShipmentHistoryTab';
 import { QRScanner } from '@/components/scan/QRScanner';
 import { useLocations } from '@/hooks/useLocations';
 import { hapticError, hapticSuccess } from '@/lib/haptics';
+import { HelpButton, usePromptContextSafe } from '@/components/prompts';
 
 // ============================================
 // TYPES
@@ -187,8 +188,8 @@ export default function ShipmentDetail() {
     session,
     loading: sessionLoading,
     fetchSession,
-    startSession,
-    finishSession,
+    startSession: rawStartSession,
+    finishSession: rawFinishSession,
     cancelSession,
   } = useReceivingSession(id);
 
@@ -218,6 +219,43 @@ export default function ShipmentDetail() {
       console.error('Error logging shipment audit:', error);
     }
   }, [profile?.id, profile?.tenant_id, shipment?.id]);
+
+  // Prompt context for guided prompts
+  const promptContext = usePromptContextSafe();
+
+  // Wrapped startSession with prompt trigger
+  const startSession = useCallback(async () => {
+    // Show pre-task prompt if available
+    if (promptContext?.showPrompt) {
+      const shown = promptContext.showPrompt('receiving_pre_task', {
+        contextType: 'shipment',
+        contextId: id,
+      });
+      // If prompt is shown, it will block; if not shown (advanced user), continue
+      if (!shown) {
+        await rawStartSession();
+      }
+      // If prompt is shown, user will confirm and we proceed after
+    } else {
+      await rawStartSession();
+    }
+  }, [rawStartSession, promptContext, id]);
+
+  // Wrapped finishSession with prompt trigger and competency tracking
+  const finishSession = useCallback(async () => {
+    // Show completion prompt if available
+    if (promptContext?.showPrompt) {
+      promptContext.showPrompt('receiving_completion', {
+        contextType: 'shipment',
+        contextId: id,
+      });
+    }
+    await rawFinishSession();
+    // Track competency after completion
+    if (promptContext?.trackCompetencyEvent) {
+      promptContext.trackCompetencyEvent('receiving', 'task_completed');
+    }
+  }, [rawFinishSession, promptContext, id]);
 
   // ------------------------------------------
   // Fetch shipment data
@@ -1148,6 +1186,8 @@ export default function ShipmentDetail() {
               <span className="hidden sm:inline">Cancel</span>
             </Button>
           )}
+          {/* Help button for receiving workflow */}
+          {isInbound && <HelpButton workflow="receiving" />}
         </div>
       </div>
 
