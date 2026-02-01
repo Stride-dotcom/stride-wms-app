@@ -228,7 +228,7 @@ export default function ShipmentDetail() {
             class_id,
             current_location:locations!items_current_location_id_fkey(code),
             account:accounts!items_account_id_fkey(account_name),
-            class:classes!items_class_id_fkey(id, code, name)
+            class:classes(id, code, name)
           )
         `)
         .eq('shipment_id', id)
