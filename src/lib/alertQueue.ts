@@ -250,6 +250,33 @@ export async function queueRepairQuoteReadyAlert(
 }
 
 /**
+ * Queue a repair quote sent to client alert with review link
+ */
+export async function queueRepairQuoteSentToClientAlert(
+  tenantId: string,
+  quoteId: string,
+  accountName: string,
+  quoteAmount: number,
+  itemCodes: string[],
+  bodyHtml: string,
+  recipientEmails: string[]
+): Promise<boolean> {
+  const itemSummary = itemCodes.length === 1
+    ? itemCodes[0]
+    : `${itemCodes.length} items`;
+
+  return queueAlert({
+    tenantId,
+    alertType: 'repair.quote_sent_to_client',
+    entityType: 'repair_quote',
+    entityId: quoteId,
+    subject: `🔧 Repair Quote - ${itemSummary} - $${quoteAmount.toFixed(2)}`,
+    recipientEmails,
+    bodyHtml,
+  });
+}
+
+/**
  * Queue an inspection completed alert
  */
 export async function queueInspectionCompletedAlert(

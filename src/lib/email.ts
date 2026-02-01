@@ -151,7 +151,7 @@ export function buildRepairQuoteReadyEmail(params: {
           </tr>
           <tr>
             <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Quote Amount:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; color: #333;">$${params.quoteAmount.toFixed(2)}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; font-size: 18px; font-weight: bold; color: #333;">$${params.quoteAmount.toFixed(2)}</td>
           </tr>
           ${params.quoteNotes ? `
           <tr>
@@ -161,11 +161,13 @@ export function buildRepairQuoteReadyEmail(params: {
           ` : ''}
         </table>
         ${params.quoteLink ? `
-        <p style="margin: 20px 0;">
-          <a href="${params.quoteLink}" style="background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">View Quote Details</a>
-        </p>
+        <div style="margin: 30px 0; text-align: center;">
+          <p style="margin-bottom: 20px; font-size: 16px;">Please review and respond to this quote:</p>
+          <a href="${params.quoteLink}" style="display: inline-block; background-color: #0066cc; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">Review Quote</a>
+        </div>
+        <p style="color: #666; font-size: 13px; text-align: center;">Click the button above to view full details and accept or decline this quote.</p>
         ` : ''}
-        <p style="color: #666; font-size: 14px;">This is an automated notification from Stride WMS.</p>
+        <p style="color: #666; font-size: 14px; margin-top: 30px;">This is an automated notification from Stride WMS.</p>
       </div>
     `,
   };
