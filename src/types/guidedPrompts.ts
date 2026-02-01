@@ -4,6 +4,12 @@
 
 export type PromptLevel = 'training' | 'standard' | 'advanced';
 
+// Severity determines visibility based on user level:
+//   'info'     -> training only
+//   'warning'  -> training + standard
+//   'blocking' -> everyone (training + standard + advanced)
+export type PromptSeverity = 'info' | 'warning' | 'blocking';
+
 export type PromptWorkflow =
   | 'receiving'
   | 'inspection'
@@ -12,11 +18,27 @@ export type PromptWorkflow =
   | 'movement'
   | 'stocktake'
   | 'scan_hub'
-  | 'outbound';
+  | 'outbound'
+  | 'claims'
+  | 'will_call';
 
 export type PromptTriggerPoint = 'before' | 'during' | 'after';
 
-export type PromptUIType = 'modal' | 'slide_panel' | 'tooltip' | 'toast';
+export type PromptUIType = 'modal' | 'slide_panel' | 'tooltip' | 'toast' | 'bottom_sheet';
+
+// Condition operators for complex validation rules
+export type ConditionOperator = 'eq' | 'ne' | 'in' | 'not_in' | 'gt' | 'lt' | 'gte' | 'lte' | 'is_null' | 'is_not_null' | 'contains';
+
+export interface ConditionRule {
+  field: string;
+  op: ConditionOperator;
+  value?: unknown;
+}
+
+export interface PromptConditions {
+  operator: 'and' | 'or';
+  rules: ConditionRule[];
+}
 
 export interface ChecklistItem {
   key: string;
@@ -33,12 +55,13 @@ export interface PromptButton {
 
 export interface GuidedPrompt {
   id: string;
-  tenant_id: string;
+  tenant_id: string | null; // null for global prompts
   prompt_key: string;
   workflow: PromptWorkflow;
   trigger_point: PromptTriggerPoint;
   prompt_type: PromptUIType;
-  min_level: PromptLevel;
+  min_level: PromptLevel; // Deprecated: use severity instead
+  severity: PromptSeverity;
   title: string;
   message: string;
   tip_text?: string | null;
@@ -47,6 +70,14 @@ export interface GuidedPrompt {
   requires_confirmation: boolean;
   sort_order: number;
   is_active: boolean;
+  // Versioning
+  version: number;
+  published_at?: string | null;
+  archived_at?: string | null;
+  // Override tracking
+  base_prompt_id?: string | null;
+  // Complex conditions
+  conditions?: PromptConditions | null;
   created_at: string;
   updated_at: string;
 }
@@ -66,6 +97,8 @@ export interface UserPromptSettings {
   updated_at: string;
 }
 
+export type AcknowledgmentStatus = 'acknowledged' | 'snoozed' | 'dismissed';
+
 export interface PromptAcknowledgment {
   id: string;
   tenant_id: string;
@@ -75,6 +108,8 @@ export interface PromptAcknowledgment {
   context_id?: string | null;
   was_confirmed: boolean;
   checklist_state?: Record<string, boolean> | null;
+  status: AcknowledgmentStatus;
+  snoozed_until?: string | null;
   acknowledged_at: string;
   created_at: string;
 }
@@ -92,6 +127,10 @@ export interface PromptCompetencyTracking {
   last_task_completed_at?: string | null;
   qualifies_for_upgrade: boolean;
   qualified_at?: string | null;
+  // Analytics fields
+  blocked_action_count: number;
+  prompts_shown_count: number;
+  prompts_confirmed_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -132,7 +171,8 @@ export interface DefaultPromptDefinition {
   workflow: PromptWorkflow;
   trigger_point: PromptTriggerPoint;
   prompt_type: PromptUIType;
-  min_level: PromptLevel;
+  min_level: PromptLevel; // Deprecated: use severity
+  severity: PromptSeverity;
   title: string;
   message: string;
   tip_text?: string;
@@ -141,6 +181,7 @@ export interface DefaultPromptDefinition {
   requires_confirmation: boolean;
   sort_order: number;
   is_active: boolean;
+  conditions?: PromptConditions;
 }
 
 // Context for showing prompts

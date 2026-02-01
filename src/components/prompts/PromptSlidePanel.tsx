@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -20,6 +20,24 @@ interface PromptSlidePanelProps {
   onSkip?: () => void;
 }
 
+// Hook to detect mobile viewport
+function useIsMobile(breakpoint: number = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  );
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < breakpoint);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
 export function PromptSlidePanel({
   prompt,
   context,
@@ -28,6 +46,7 @@ export function PromptSlidePanel({
   onSkip,
 }: PromptSlidePanelProps) {
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>({});
+  const isMobile = useIsMobile();
 
   const handleChecklistChange = useCallback((state: Record<string, boolean>) => {
     setChecklistState(state);
@@ -60,9 +79,19 @@ export function PromptSlidePanel({
     { key: 'confirm', label: 'Continue', variant: 'default', action: 'confirm' },
   ];
 
+  // Use bottom sheet on mobile for better UX with touch gestures
+  const sheetSide = isMobile ? 'bottom' : 'right';
+
   return (
     <Sheet open onOpenChange={() => onCancel()}>
-      <SheetContent side="right" className="w-full sm:max-w-md">
+      <SheetContent
+        side={sheetSide}
+        className={
+          isMobile
+            ? 'h-auto max-h-[85vh] rounded-t-xl'
+            : 'w-full sm:max-w-md'
+        }
+      >
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <MaterialIcon name="school" className="text-blue-600" />

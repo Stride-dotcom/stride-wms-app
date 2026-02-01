@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -11,6 +12,24 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { GuidedPrompt, PromptWorkflow, PromptTriggerPoint } from '@/types/guidedPrompts';
 import { usePromptContext } from './PromptProvider';
 
+// Hook to detect mobile viewport
+function useIsMobile(breakpoint: number = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  );
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < breakpoint);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
 const WORKFLOW_LABELS: Record<PromptWorkflow, string> = {
   receiving: 'Receiving',
   inspection: 'Inspection',
@@ -20,6 +39,8 @@ const WORKFLOW_LABELS: Record<PromptWorkflow, string> = {
   stocktake: 'Stocktake',
   scan_hub: 'Scan Hub',
   outbound: 'Outbound',
+  claims: 'Claims',
+  will_call: 'Will Call',
 };
 
 const TRIGGER_LABELS: Record<PromptTriggerPoint, string> = {
@@ -69,6 +90,8 @@ function PromptHelpCard({ prompt }: { prompt: GuidedPrompt }) {
 }
 
 export function HelpPanel({ workflow, prompts, isOpen, onClose }: HelpPanelProps) {
+  const isMobile = useIsMobile();
+
   // Group prompts by trigger point
   const groupedPrompts = prompts.reduce<Record<PromptTriggerPoint, GuidedPrompt[]>>(
     (acc, prompt) => {
@@ -83,9 +106,19 @@ export function HelpPanel({ workflow, prompts, isOpen, onClose }: HelpPanelProps
 
   const triggerOrder: PromptTriggerPoint[] = ['before', 'during', 'after'];
 
+  // Use bottom sheet on mobile for better UX with touch gestures
+  const sheetSide = isMobile ? 'bottom' : 'right';
+
   return (
     <Sheet open={isOpen} onOpenChange={() => onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent
+        side={sheetSide}
+        className={
+          isMobile
+            ? 'h-[80vh] rounded-t-xl overflow-y-auto'
+            : 'w-full sm:max-w-lg overflow-y-auto'
+        }
+      >
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <MaterialIcon name="help" className="text-blue-600" />
