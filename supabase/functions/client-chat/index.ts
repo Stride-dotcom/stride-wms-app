@@ -89,9 +89,19 @@ Any action that changes data MUST follow this flow:
 - Only include clickable links when the user asks to "open", "view", or "show me" something
 - Or when showing a draft that needs review
 
+## Partial ID Matching
+Users may reference items using partial numbers (e.g., "12345" instead of "ITM-00012345").
+The system will attempt to resolve in this order:
+1. Exact match
+2. Ends-with match
+3. Contains match
+
+If more than one record matches, you MUST present the options and ask the user to choose.
+Never guess when ambiguity exists.
+
 ## Available Tools
 You have access to tools for:
-- Searching items (scoped to the client's account)
+- Searching items (scoped to the client's account) - supports partial ID matching
 - Getting the most recent shipment
 - Checking item status and location
 - Viewing inspection reports
@@ -334,54 +344,136 @@ async function handleTool(
   }
 }
 
+// ============================================================
+// PARTIAL ID MATCHING HELPERS
+// ============================================================
+
+// Check if query looks like a partial ID (numeric, or prefixed like ITM-, SHP-, TSK-)
+function isPartialIdQuery(query: string): boolean {
+  // Pure numeric (e.g., "12345", "00142")
+  if (/^\d+$/.test(query)) return true;
+  // Prefixed patterns (e.g., "ITM-12345", "SHP-00891", "TSK-142")
+  if (/^(ITM|SHP|TSK|RPQ|EST)-?\d+$/i.test(query)) return true;
+  return false;
+}
+
+// Extract numeric portion from a query or ID
+function extractNumericPortion(value: string): string {
+  // Remove common prefixes and non-numeric chars
+  return value.replace(/^(ITM|SHP|TSK|RPQ|EST)-?/i, "").replace(/\D/g, "");
+}
+
+// Prioritize matches: exact > ends-with > contains
+function prioritizeMatches<T extends { item_code?: string; shipment_number?: string; task_number?: string }>(
+  items: T[],
+  query: string,
+  codeField: "item_code" | "shipment_number" | "task_number"
+): T[] {
+  const queryNumeric = extractNumericPortion(query);
+  const queryUpper = query.toUpperCase();
+
+  // Categorize matches
+  const exact: T[] = [];
+  const endsWith: T[] = [];
+  const contains: T[] = [];
+
+  for (const item of items) {
+    const code = (item[codeField] as string) || "";
+    const codeUpper = code.toUpperCase();
+    const codeNumeric = extractNumericPortion(code);
+
+    if (codeUpper === queryUpper || codeNumeric === queryNumeric) {
+      exact.push(item);
+    } else if (codeNumeric.endsWith(queryNumeric) || codeUpper.endsWith(queryUpper)) {
+      endsWith.push(item);
+    } else if (codeNumeric.includes(queryNumeric) || codeUpper.includes(queryUpper)) {
+      contains.push(item);
+    }
+  }
+
+  // Return in priority order: if exact match exists, return only exact
+  if (exact.length > 0) return exact;
+  if (endsWith.length > 0) return endsWith;
+  return contains;
+}
+
 // Tool: Search Items
 async function toolSearchItems(supabase: any, params: { query: string }, scope: ChatScope) {
   const { query } = params;
+  const isIdQuery = isPartialIdQuery(query);
 
-  const { data: items, error } = await supabase
-    .from("items")
-    .select(`
-      id,
-      item_code,
-      description,
-      status,
-      received_at,
-      sidemark:sidemarks(id, sidemark_name),
-      location:locations(id, code, name),
-      shipment:shipments!items_shipment_id_fkey(id, shipment_number)
-    `)
-    .eq("tenant_id", scope.tenant_id)
-    .eq("account_id", scope.account_id)
-    .is("deleted_at", null)
-    .or(`description.ilike.%${query}%,item_code.ilike.%${query}%`)
-    .limit(20);
+  // Base select query
+  const selectFields = `
+    id,
+    item_code,
+    description,
+    status,
+    received_at,
+    sidemark:sidemarks(id, sidemark_name),
+    location:locations(id, code, name),
+    shipment:shipments!items_shipment_id_fkey(id, shipment_number)
+  `;
 
-  if (error) {
-    console.error("Search items error:", error);
-    return { result: { error: "Failed to search items", candidates: [] } };
+  let allItems: any[] = [];
+
+  if (isIdQuery) {
+    // For partial ID queries, fetch more broadly and filter client-side for precision
+    const numericPart = extractNumericPortion(query);
+
+    // Try exact match first
+    const { data: exactMatch } = await supabase
+      .from("items")
+      .select(selectFields)
+      .eq("tenant_id", scope.tenant_id)
+      .eq("account_id", scope.account_id)
+      .is("deleted_at", null)
+      .ilike("item_code", `%${numericPart}%`)
+      .limit(50);
+
+    allItems = exactMatch || [];
+
+    // Apply priority matching
+    allItems = prioritizeMatches(allItems, query, "item_code");
+  } else {
+    // For text queries, search description, item_code, and sidemark name
+    const { data: items, error } = await supabase
+      .from("items")
+      .select(selectFields)
+      .eq("tenant_id", scope.tenant_id)
+      .eq("account_id", scope.account_id)
+      .is("deleted_at", null)
+      .or(`description.ilike.%${query}%,item_code.ilike.%${query}%`)
+      .limit(20);
+
+    if (error) {
+      console.error("Search items error:", error);
+      return { result: { error: "Failed to search items", candidates: [] } };
+    }
+
+    // Also search by sidemark/job name
+    const { data: sidemarkItems } = await supabase
+      .from("items")
+      .select(`
+        id,
+        item_code,
+        description,
+        status,
+        received_at,
+        sidemark:sidemarks!inner(id, sidemark_name),
+        location:locations(id, code, name),
+        shipment:shipments!items_shipment_id_fkey(id, shipment_number)
+      `)
+      .eq("tenant_id", scope.tenant_id)
+      .eq("account_id", scope.account_id)
+      .is("deleted_at", null)
+      .ilike("sidemarks.sidemark_name", `%${query}%`)
+      .limit(20);
+
+    // Combine and dedupe
+    allItems = [...(items || []), ...(sidemarkItems || [])];
   }
 
-  // Also search by sidemark/job name
-  const { data: sidemarkItems } = await supabase
-    .from("items")
-    .select(`
-      id,
-      item_code,
-      description,
-      status,
-      received_at,
-      sidemark:sidemarks!inner(id, sidemark_name),
-      location:locations(id, code, name),
-      shipment:shipments!items_shipment_id_fkey(id, shipment_number)
-    `)
-    .eq("tenant_id", scope.tenant_id)
-    .eq("account_id", scope.account_id)
-    .is("deleted_at", null)
-    .ilike("sidemarks.sidemark_name", `%${query}%`)
-    .limit(20);
-
-  // Combine and dedupe
-  const allItems = [...(items || []), ...(sidemarkItems || [])];
+  // Dedupe by ID
   const uniqueItems = Array.from(new Map(allItems.map(i => [i.id, i])).values());
 
   const candidates = uniqueItems.map((item: any) => ({
