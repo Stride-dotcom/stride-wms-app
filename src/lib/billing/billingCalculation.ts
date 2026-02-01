@@ -133,53 +133,6 @@ export async function getRateFromPriceList(
       };
     }
 
-    // If no class provided and no NULL-class rate exists, try default class 'M' as fallback
-    // This handles cases where items don't have a class assigned yet
-    if (!classCode) {
-      const { data: defaultClassRate } = await supabase
-        .from('service_events')
-        .select('rate, service_name, billing_unit, alert_rule, class_code')
-        .eq('tenant_id', tenantId)
-        .eq('service_code', serviceCode)
-        .eq('class_code', 'M')
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (defaultClassRate) {
-        console.warn(`[getRateFromPriceList] No class on item, using default class 'M' rate for ${serviceCode}`);
-        return {
-          rate: defaultClassRate.rate,
-          serviceName: defaultClassRate.service_name || serviceCode,
-          serviceCode,
-          billingUnit: defaultClassRate.billing_unit || 'Item',
-          alertRule: defaultClassRate.alert_rule || 'none',
-          hasError: false, // Not an error, just using default
-        };
-      }
-
-      // If M doesn't exist, grab any rate for this service as last resort
-      const { data: anyRate } = await supabase
-        .from('service_events')
-        .select('rate, service_name, billing_unit, alert_rule, class_code')
-        .eq('tenant_id', tenantId)
-        .eq('service_code', serviceCode)
-        .eq('is_active', true)
-        .limit(1)
-        .maybeSingle();
-
-      if (anyRate) {
-        console.warn(`[getRateFromPriceList] No class on item, using first available rate for ${serviceCode}`);
-        return {
-          rate: anyRate.rate,
-          serviceName: anyRate.service_name || serviceCode,
-          serviceCode,
-          billingUnit: anyRate.billing_unit || 'Item',
-          alertRule: anyRate.alert_rule || 'none',
-          hasError: false,
-        };
-      }
-    }
-
     // No rate found
     return {
       rate: 0,
