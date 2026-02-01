@@ -11,8 +11,70 @@
  * - Service lookup: category_id + class_code → unique service rate
  * - One service per (category, class) combination
  *
+ * SERVICE TYPES:
+ * 1. Class-based (uses_class_pricing=true): 6 rows per service (XS/S/M/L/XL/XXL)
+ *    - Lookup by category_id + class_code
+ *    - Rate varies by item class
+ *    - Example: INSP (Inspection) - different rates per item size
+ *
+ * 2. Flat-rate (uses_class_pricing=false): Single row with class_code=NULL
+ *    - Applies same rate regardless of item class
+ *    - Example: 1HRO (1-hour repair), 60MA (60-minute assembly)
+ *
  * By sharing this logic, we guarantee the Calculator shows EXACTLY
  * what will appear in Billing Reports once the event is triggered.
+ *
+ * =============================================================================
+ * TEST CASES
+ * =============================================================================
+ *
+ * TEST CASE 1: INSP (Inspection) - Class-based per-item billing
+ * -----------------------------------------------------------------------------
+ * Setup:
+ * - Service: INSP, uses_class_pricing=true
+ * - 6 rows in service_events: INSP/XS=$5, INSP/S=$7, INSP/M=$10, INSP/L=$15, INSP/XL=$20, INSP/XXL=$25
+ * - Task Type "Inspection" has category_id pointing to "Inspection" category
+ *
+ * Scenario:
+ * - Task with 3 items: 1x class=S, 2x class=L
+ *
+ * Expected billing:
+ * - Line 1: Item (S) @ $7.00 = $7.00
+ * - Line 2: Item (L) @ $15.00 = $15.00
+ * - Line 3: Item (L) @ $15.00 = $15.00
+ * - Total: $37.00
+ *
+ * TEST CASE 2: 1HRO (1-Hour Repair) - Flat-rate per-task billing
+ * -----------------------------------------------------------------------------
+ * Setup:
+ * - Service: 1HRO, uses_class_pricing=false
+ * - 1 row in service_events: 1HRO, class_code=NULL, rate=$95, billing_unit="Hour"
+ * - Task Type "Repair" has category_id pointing to "Repair" category
+ *
+ * Scenario:
+ * - Task with any number of items, billing_quantity=2 (hours worked)
+ *
+ * Expected billing:
+ * - Line 1: 1-Hour Repair @ $95.00 x 2 = $190.00
+ * - Total: $190.00
+ * - Note: Rate is flat regardless of item classes
+ *
+ * TEST CASE 3: RCVG (Receiving) - Flat-rate per-item billing
+ * -----------------------------------------------------------------------------
+ * Setup:
+ * - Service: RCVG, uses_class_pricing=false
+ * - 1 row in service_events: RCVG, class_code=NULL, rate=$3.50, billing_unit="Item"
+ * - Shipment receiving uses service_code "RCVG"
+ *
+ * Scenario:
+ * - Inbound shipment with 5 items (any class)
+ *
+ * Expected billing:
+ * - Line 1: Receiving @ $3.50 x 5 = $17.50
+ * - Total: $17.50
+ * - Note: Same rate applied to all items regardless of class
+ *
+ * =============================================================================
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -91,9 +153,15 @@ export interface RateLookupResult {
  * NEW: Get rate from Price List using category_id + class_code
  * This is the primary method for the simplified billing model
  *
+ * BILLING MODEL supports two service types:
+ * 1. Class-based (uses_class_pricing=true): 6 rows per service (XS/S/M/L/XL/XXL)
+ *    - Lookup by category_id + class_code
+ * 2. Flat-rate (uses_class_pricing=false): Single row with class_code=NULL
+ *    - Applies same rate regardless of item class
+ *
  * @param tenantId - The tenant ID
  * @param categoryId - The category ID from the task type
- * @param classCode - The class code from the item (XS, S, M, L, XL, XXL)
+ * @param classCode - The class code from the item (XS, S, M, L, XL, XXL) - can be null for flat-rate
  * @returns RateLookupResult with rate and service details
  */
 export async function getRateByCategoryAndClass(
@@ -102,30 +170,52 @@ export async function getRateByCategoryAndClass(
   classCode: string | null
 ): Promise<RateLookupResult> {
   try {
-    if (!classCode) {
-      return {
-        rate: 0,
-        serviceName: 'Unknown',
-        serviceCode: 'UNKNOWN',
-        billingUnit: 'Item',
-        alertRule: 'none',
-        hasError: true,
-        errorMessage: 'Item has no class assigned - cannot determine pricing',
-      };
+    // Strategy:
+    // 1. If classCode is provided, try to find a class-specific service first
+    // 2. If not found (or classCode is null), try to find a flat-rate service for this category
+    // 3. A flat-rate service has uses_class_pricing=false and class_code IS NULL
+
+    // Step 1: Try class-specific lookup if classCode is provided
+    if (classCode) {
+      const { data: classService, error: classError } = await supabase
+        .from('service_events')
+        .select('rate, service_name, service_code, billing_unit, alert_rule, uses_class_pricing')
+        .eq('tenant_id', tenantId)
+        .eq('category_id', categoryId)
+        .eq('class_code', classCode)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (classError) {
+        console.error('[getRateByCategoryAndClass] Error looking up class-specific rate:', classError);
+      }
+
+      if (classService) {
+        return {
+          rate: classService.rate ?? 0,
+          serviceName: classService.service_name || 'Unknown',
+          serviceCode: classService.service_code || 'UNKNOWN',
+          billingUnit: classService.billing_unit || 'Item',
+          alertRule: classService.alert_rule || 'none',
+          hasError: classService.rate === null,
+          errorMessage: classService.rate === null ? 'Rate not configured for this service' : undefined,
+        };
+      }
     }
 
-    // Look up service by category_id + class_code
-    const { data: service, error } = await supabase
+    // Step 2: Try flat-rate service (class_code IS NULL, uses_class_pricing=false)
+    const { data: flatRateService, error: flatError } = await supabase
       .from('service_events')
-      .select('rate, service_name, service_code, billing_unit, alert_rule')
+      .select('rate, service_name, service_code, billing_unit, alert_rule, uses_class_pricing')
       .eq('tenant_id', tenantId)
       .eq('category_id', categoryId)
-      .eq('class_code', classCode)
+      .is('class_code', null)
+      .eq('uses_class_pricing', false)
       .eq('is_active', true)
       .maybeSingle();
 
-    if (error) {
-      console.error('[getRateByCategoryAndClass] Error:', error);
+    if (flatError) {
+      console.error('[getRateByCategoryAndClass] Error looking up flat-rate service:', flatError);
       return {
         rate: 0,
         serviceName: 'Unknown',
@@ -137,19 +227,23 @@ export async function getRateByCategoryAndClass(
       };
     }
 
-    if (service) {
+    if (flatRateService) {
       return {
-        rate: service.rate ?? 0,
-        serviceName: service.service_name || 'Unknown',
-        serviceCode: service.service_code || 'UNKNOWN',
-        billingUnit: service.billing_unit || 'Item',
-        alertRule: service.alert_rule || 'none',
-        hasError: service.rate === null,
-        errorMessage: service.rate === null ? 'Rate not configured for this service' : undefined,
+        rate: flatRateService.rate ?? 0,
+        serviceName: flatRateService.service_name || 'Unknown',
+        serviceCode: flatRateService.service_code || 'UNKNOWN',
+        billingUnit: flatRateService.billing_unit || 'Item',
+        alertRule: flatRateService.alert_rule || 'none',
+        hasError: flatRateService.rate === null,
+        errorMessage: flatRateService.rate === null ? 'Rate not configured for this service' : undefined,
       };
     }
 
-    // No service found for this category + class combination
+    // No service found for this category
+    const errorMsg = classCode
+      ? `No service exists for this category and item class (${classCode}). Configure pricing in the Price List.`
+      : 'No flat-rate service exists for this category. Configure pricing in the Price List.';
+
     return {
       rate: 0,
       serviceName: 'Unknown',
@@ -157,7 +251,7 @@ export async function getRateByCategoryAndClass(
       billingUnit: 'Item',
       alertRule: 'none',
       hasError: true,
-      errorMessage: `No service exists for this category and item class (${classCode}). Configure pricing in the Price List.`,
+      errorMessage: errorMsg,
     };
   } catch (error) {
     console.error('[getRateByCategoryAndClass] Unexpected error:', error);
@@ -176,8 +270,12 @@ export async function getRateByCategoryAndClass(
 /**
  * @deprecated Use getRateByCategoryAndClass for new billing
  * Get rate from Price List (service_events table)
- * Tries class-specific rate first, falls back to general rate
- * Kept for backward compatibility with legacy billing
+ *
+ * Supports two service types:
+ * 1. Class-based (uses_class_pricing=true): Try class-specific rate first
+ * 2. Flat-rate (uses_class_pricing=false): Use the single row with class_code IS NULL
+ *
+ * Kept for backward compatibility with legacy billing (service_code based lookup)
  */
 export async function getRateFromPriceList(
   tenantId: string,
@@ -185,11 +283,11 @@ export async function getRateFromPriceList(
   classCode: string | null
 ): Promise<RateLookupResult> {
   try {
-    // Try class-specific rate first
+    // Step 1: Try class-specific rate first if classCode is provided
     if (classCode) {
       const { data: classRate } = await supabase
         .from('service_events')
-        .select('rate, service_name, billing_unit, alert_rule')
+        .select('rate, service_name, billing_unit, alert_rule, uses_class_pricing')
         .eq('tenant_id', tenantId)
         .eq('service_code', serviceCode)
         .eq('class_code', classCode)
@@ -203,13 +301,37 @@ export async function getRateFromPriceList(
           serviceCode,
           billingUnit: classRate.billing_unit || 'Item',
           alertRule: classRate.alert_rule || 'none',
-          hasError: false,
+          hasError: classRate.rate === null,
+          errorMessage: classRate.rate === null ? 'Rate not configured for this service' : undefined,
         };
       }
     }
 
-    // Fall back to general rate (no class_code)
-    const { data: generalRate } = await supabase
+    // Step 2: Fall back to flat-rate service (class_code IS NULL, uses_class_pricing=false)
+    const { data: flatRate } = await supabase
+      .from('service_events')
+      .select('rate, service_name, billing_unit, alert_rule, uses_class_pricing')
+      .eq('tenant_id', tenantId)
+      .eq('service_code', serviceCode)
+      .is('class_code', null)
+      .eq('uses_class_pricing', false)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (flatRate) {
+      return {
+        rate: flatRate.rate ?? 0,
+        serviceName: flatRate.service_name || serviceCode,
+        serviceCode,
+        billingUnit: flatRate.billing_unit || 'Item',
+        alertRule: flatRate.alert_rule || 'none',
+        hasError: flatRate.rate === null,
+        errorMessage: flatRate.rate === null ? 'Rate not configured for this service' : undefined,
+      };
+    }
+
+    // Step 3: Try any service with class_code IS NULL (for legacy data without uses_class_pricing flag)
+    const { data: legacyFlatRate } = await supabase
       .from('service_events')
       .select('rate, service_name, billing_unit, alert_rule')
       .eq('tenant_id', tenantId)
@@ -218,14 +340,15 @@ export async function getRateFromPriceList(
       .eq('is_active', true)
       .maybeSingle();
 
-    if (generalRate) {
+    if (legacyFlatRate) {
       return {
-        rate: generalRate.rate ?? 0,
-        serviceName: generalRate.service_name || serviceCode,
+        rate: legacyFlatRate.rate ?? 0,
+        serviceName: legacyFlatRate.service_name || serviceCode,
         serviceCode,
-        billingUnit: generalRate.billing_unit || 'Item',
-        alertRule: generalRate.alert_rule || 'none',
-        hasError: false,
+        billingUnit: legacyFlatRate.billing_unit || 'Item',
+        alertRule: legacyFlatRate.alert_rule || 'none',
+        hasError: legacyFlatRate.rate === null,
+        errorMessage: legacyFlatRate.rate === null ? 'Rate not configured for this service' : undefined,
       };
     }
 
@@ -277,6 +400,7 @@ export interface BillingPreview {
   hasErrors: boolean;
   serviceCode: string;
   serviceName: string;
+  errorMessage?: string; // For Safety Billing - shows when manual rate is required
 }
 
 /**

@@ -418,9 +418,55 @@ export function ServiceEventsPricingTab() {
   // Has pending changes
   const hasPendingChanges = pendingChanges.size > 0;
 
-  // Count services without class_code (legacy services that don't work with new billing)
-  const servicesWithoutClass = useMemo(() => {
-    return filteredServiceEvents.filter(s => !s.class_code && s.is_active);
+  // Detect problematic services that need attention
+  // Two types of issues:
+  // 1. Services with rate = NULL (rate not set)
+  // 2. Class-based services (uses_class_pricing = true) missing one or more class rows
+  const problematicServices = useMemo(() => {
+    const issues: Array<{ service: ServiceEvent; issue: string }> = [];
+
+    // Check for null rates on active services
+    filteredServiceEvents.forEach(s => {
+      if (s.is_active && (s.rate === null || s.rate === undefined)) {
+        issues.push({ service: s, issue: 'rate_null' });
+      }
+    });
+
+    // Check class-based services for missing class rows
+    // Group services by service_code to check completeness
+    const expectedClasses = new Set(['XS', 'S', 'M', 'L', 'XL', 'XXL']);
+    const serviceCodeGroups = new Map<string, Set<string | null>>();
+    const classBasedServiceCodes = new Set<string>();
+
+    filteredServiceEvents.forEach(s => {
+      if (s.is_active && s.uses_class_pricing) {
+        classBasedServiceCodes.add(s.service_code);
+        if (!serviceCodeGroups.has(s.service_code)) {
+          serviceCodeGroups.set(s.service_code, new Set());
+        }
+        serviceCodeGroups.get(s.service_code)!.add(s.class_code);
+      }
+    });
+
+    // Check each class-based service for completeness
+    classBasedServiceCodes.forEach(serviceCode => {
+      const presentClasses = serviceCodeGroups.get(serviceCode)!;
+      const missingClasses = [...expectedClasses].filter(c => !presentClasses.has(c));
+      if (missingClasses.length > 0) {
+        // Find one representative service to show
+        const representativeService = filteredServiceEvents.find(
+          s => s.service_code === serviceCode && s.is_active && s.uses_class_pricing
+        );
+        if (representativeService) {
+          issues.push({
+            service: representativeService,
+            issue: `missing_classes:${missingClasses.join(',')}`
+          });
+        }
+      }
+    });
+
+    return issues;
   }, [filteredServiceEvents]);
 
   if (loading) {
@@ -468,30 +514,49 @@ export function ServiceEventsPricingTab() {
         </div>
       )}
 
-      {/* Warning: Services without class_code */}
-      {servicesWithoutClass.length > 0 && (
+      {/* Warning: Problematic services (null rates or incomplete class-based pricing) */}
+      {problematicServices.length > 0 && (
         <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <MaterialIcon name="warning" className="text-amber-600 dark:text-amber-400 mt-0.5" />
             <div className="flex-1">
               <h3 className="font-medium text-amber-800 dark:text-amber-200">
-                Legacy Services Detected ({servicesWithoutClass.length})
+                Attention Needed ({problematicServices.length} issue{problematicServices.length !== 1 ? 's' : ''})
               </h3>
               <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                The following services have no class assigned and will not work with the simplified billing model:
+                The following services have configuration issues:
               </p>
               <div className="flex flex-wrap gap-1 mt-2">
-                {servicesWithoutClass.slice(0, 10).map(s => (
-                  <Badge key={s.id} variant="outline" className="text-xs bg-amber-100 dark:bg-amber-900">
-                    {s.service_code}
-                  </Badge>
-                ))}
-                {servicesWithoutClass.length > 10 && (
-                  <span className="text-xs text-amber-600">+{servicesWithoutClass.length - 10} more</span>
+                {problematicServices.slice(0, 10).map((item, idx) => {
+                  const isRateNull = item.issue === 'rate_null';
+                  const missingClasses = item.issue.startsWith('missing_classes:')
+                    ? item.issue.replace('missing_classes:', '')
+                    : null;
+                  return (
+                    <TooltipProvider key={`${item.service.id}-${idx}`}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="text-xs bg-amber-100 dark:bg-amber-900 cursor-help">
+                            {item.service.service_code}
+                            {item.service.class_code && ` (${item.service.class_code})`}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {isRateNull && <p>Rate not set</p>}
+                          {missingClasses && <p>Missing classes: {missingClasses}</p>}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                })}
+                {problematicServices.length > 10 && (
+                  <span className="text-xs text-amber-600">+{problematicServices.length - 10} more</span>
                 )}
               </div>
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                Consider deactivating these services or recreating them with class-based pricing.
+                • Services with "Rate not set" need a rate value configured.
+                <br />
+                • Class-based services need all 6 class rows (XS/S/M/L/XL/XXL) for billing to work correctly.
               </p>
             </div>
           </div>
@@ -503,7 +568,8 @@ export function ServiceEventsPricingTab() {
         <div>
           <h2 className="text-2xl font-bold">Price List</h2>
           <p className="text-muted-foreground">
-            Each service represents the price for one class within a category. Services without a class are not used in billing.
+            Two types of services: <strong>Class-based</strong> (uses_class_pricing=true) need 6 rows (XS-XXL) for per-item billing.
+            <strong> Flat-rate</strong> (uses_class_pricing=false) use a single row with no class for per-task or per-shipment billing.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
