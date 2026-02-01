@@ -1,8 +1,12 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -39,6 +43,13 @@ export default function ClientItems() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [quoteRequestState, setQuoteRequestState] = useState<{
+    loading: boolean;
+    existingQuoteId: string | null;
+    submitted: boolean;
+    error: string | null;
+  }>({ loading: false, existingQuoteId: null, submitted: false, error: null });
+  const { toast } = useToast();
 
   const userName = portalUser?.first_name
     ? `${portalUser.first_name} ${portalUser.last_name || ''}`.trim()
@@ -89,6 +100,109 @@ export default function ClientItems() {
         {condition}
       </Badge>
     );
+  };
+
+  // Check if item qualifies for repair quote request (damaged or poor condition)
+  const canRequestRepairQuote = (item: any): boolean => {
+    if (!item) return false;
+    const damageConditions = ['damaged', 'poor'];
+    return (
+      damageConditions.includes(item.condition?.toLowerCase()) ||
+      item.status?.toLowerCase() === 'damaged'
+    );
+  };
+
+  // Check for existing open repair quote when item is selected
+  const checkExistingQuote = useCallback(async (itemId: string) => {
+    if (!tenant?.id) return;
+
+    setQuoteRequestState(prev => ({ ...prev, loading: true, error: null }));
+
+    try {
+      const { data, error } = await (supabase.rpc as any)('check_existing_repair_quote', {
+        p_item_id: itemId,
+        p_tenant_id: tenant.id
+      });
+
+      if (error) throw error;
+
+      if (data?.exists) {
+        setQuoteRequestState(prev => ({
+          ...prev,
+          loading: false,
+          existingQuoteId: data.quote_id
+        }));
+      } else {
+        setQuoteRequestState(prev => ({
+          ...prev,
+          loading: false,
+          existingQuoteId: null
+        }));
+      }
+    } catch (err) {
+      console.error('Error checking existing quote:', err);
+      setQuoteRequestState(prev => ({
+        ...prev,
+        loading: false,
+        error: 'Failed to check quote status'
+      }));
+    }
+  }, [tenant?.id]);
+
+  // Request a new repair quote for the selected item
+  const handleRequestRepairQuote = async () => {
+    if (!selectedItem || !account?.id || !tenant?.id) return;
+
+    setQuoteRequestState(prev => ({ ...prev, loading: true, error: null }));
+
+    try {
+      const { data, error } = await (supabase.rpc as any)('create_client_repair_quote_request', {
+        p_item_id: selectedItem.id,
+        p_account_id: account.id,
+        p_tenant_id: tenant.id,
+        p_notes: `Client requested repair quote for item ${selectedItem.item_code}. Condition: ${selectedItem.condition || 'Not specified'}.`
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        setQuoteRequestState(prev => ({
+          ...prev,
+          loading: false,
+          submitted: true
+        }));
+        toast({
+          title: 'Quote Requested',
+          description: 'Your repair quote request has been submitted. You will be notified when a quote is ready.'
+        });
+      } else {
+        throw new Error(data?.error || 'Failed to create quote request');
+      }
+    } catch (err: any) {
+      console.error('Error requesting repair quote:', err);
+      const errorMessage = err.message?.includes('already exists')
+        ? 'A repair quote already exists for this item'
+        : 'Failed to submit quote request. Please try again.';
+      setQuoteRequestState(prev => ({
+        ...prev,
+        loading: false,
+        error: errorMessage
+      }));
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: errorMessage
+      });
+    }
+  };
+
+  // Reset quote state when item selection changes
+  const handleSelectItem = (item: any) => {
+    setSelectedItem(item);
+    setQuoteRequestState({ loading: false, existingQuoteId: null, submitted: false, error: null });
+    if (item && canRequestRepairQuote(item)) {
+      checkExistingQuote(item.id);
+    }
   };
 
   return (
@@ -162,7 +276,7 @@ export default function ClientItems() {
                   <div
                     key={item.id}
                     className="border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => setSelectedItem(item)}
+                    onClick={() => handleSelectItem(item)}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div>
@@ -207,7 +321,7 @@ export default function ClientItems() {
                       <TableRow
                         key={item.id}
                         className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => setSelectedItem(item)}
+                        onClick={() => handleSelectItem(item)}
                       >
                         <TableCell className="font-medium">{item.item_code}</TableCell>
                         <TableCell className="max-w-xs truncate">
@@ -320,6 +434,63 @@ export default function ClientItems() {
                   {formatDistanceToNow(new Date(selectedItem.created_at), { addSuffix: true })}
                 </p>
               </div>
+
+              {/* Repair Quote Request Section */}
+              {canRequestRepairQuote(selectedItem) && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <MaterialIcon name="build" size="sm" className="text-amber-600" />
+                      <p className="font-medium">Repair Services</p>
+                    </div>
+
+                    {quoteRequestState.submitted ? (
+                      <Alert>
+                        <MaterialIcon name="check_circle" size="sm" className="text-green-600" />
+                        <AlertDescription>
+                          Your repair quote request has been submitted. Our team will review and provide a quote soon.
+                        </AlertDescription>
+                      </Alert>
+                    ) : quoteRequestState.existingQuoteId ? (
+                      <Alert>
+                        <MaterialIcon name="info" size="sm" className="text-blue-600" />
+                        <AlertDescription>
+                          A repair quote is already in progress for this item. You will be notified when it's ready for review.
+                        </AlertDescription>
+                      </Alert>
+                    ) : (
+                      <>
+                        <p className="text-sm text-muted-foreground">
+                          This item appears to be damaged or in poor condition. Would you like to request a repair quote?
+                        </p>
+                        {quoteRequestState.error && (
+                          <Alert variant="destructive">
+                            <AlertDescription>{quoteRequestState.error}</AlertDescription>
+                          </Alert>
+                        )}
+                        <Button
+                          onClick={handleRequestRepairQuote}
+                          disabled={quoteRequestState.loading}
+                          className="w-full"
+                        >
+                          {quoteRequestState.loading ? (
+                            <>
+                              <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                              Submitting...
+                            </>
+                          ) : (
+                            <>
+                              <MaterialIcon name="build" size="sm" className="mr-2" />
+                              Request Repair Quote
+                            </>
+                          )}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </DialogContent>

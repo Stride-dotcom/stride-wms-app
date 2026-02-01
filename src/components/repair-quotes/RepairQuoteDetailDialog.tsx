@@ -12,6 +12,10 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -66,10 +70,22 @@ export function RepairQuoteDetailDialog({
   const [quoteItems, setQuoteItems] = useState<RepairQuoteItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
 
-  // Load quote items when dialog opens
+  // Office pricing state
+  const [customerPrice, setCustomerPrice] = useState<string>('');
+  const [internalCost, setInternalCost] = useState<string>('');
+  const [officeNotes, setOfficeNotes] = useState<string>('');
+  const [pricingLocked, setPricingLocked] = useState<boolean>(false);
+  const [savingPricing, setSavingPricing] = useState(false);
+
+  // Load quote items and pricing when dialog opens
   useEffect(() => {
     if (open && quote) {
       loadQuoteItems();
+      // Initialize pricing fields from quote
+      setCustomerPrice(quote.customer_price?.toString() || quote.customer_total?.toString() || '');
+      setInternalCost(quote.internal_cost?.toString() || '');
+      setOfficeNotes(quote.office_notes || '');
+      setPricingLocked(quote.pricing_locked || false);
     }
   }, [open, quote?.id]);
 
@@ -160,6 +176,57 @@ export function RepairQuoteDetailDialog({
     await closeQuote(quote.id);
     onOpenChange(false);
     onRefresh();
+  };
+
+  const handleSavePricing = async () => {
+    if (!quote) return;
+
+    const price = parseFloat(customerPrice);
+    if (isNaN(price) || price <= 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Price',
+        description: 'Please enter a valid customer price greater than 0',
+      });
+      return;
+    }
+
+    setSavingPricing(true);
+    try {
+      const { error } = await supabase
+        .from('repair_quotes')
+        .update({
+          customer_price: price,
+          internal_cost: internalCost ? parseFloat(internalCost) : null,
+          office_notes: officeNotes || null,
+          pricing_locked: pricingLocked,
+          customer_total: price, // Also update customer_total to match
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', quote.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Pricing Saved',
+        description: 'Office pricing has been updated',
+      });
+      onRefresh();
+    } catch (error) {
+      console.error('Error saving pricing:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save pricing',
+      });
+    } finally {
+      setSavingPricing(false);
+    }
+  };
+
+  const canSendToClient = () => {
+    const price = parseFloat(customerPrice);
+    return !isNaN(price) && price > 0 && ['tech_submitted', 'under_review'].includes(quote?.status || '');
   };
 
   const formatCurrency = (amount: number | null) => {
@@ -293,7 +360,7 @@ export function RepairQuoteDetailDialog({
               {/* Pricing Section */}
               {quote.tech_submitted_at && (
                 <div className="space-y-4">
-                  <h4 className="font-medium">Quote Details</h4>
+                  <h4 className="font-medium">Tech Quote Details</h4>
                   <div className="bg-muted rounded-lg p-4 space-y-3">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
@@ -321,8 +388,8 @@ export function RepairQuoteDetailDialog({
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Customer Total</p>
-                        <p className="text-2xl font-bold text-primary">
+                        <p className="text-sm text-muted-foreground">Auto-calculated Total</p>
+                        <p className="text-xl font-bold text-muted-foreground">
                           {formatCurrency(quote.customer_total)}
                         </p>
                       </div>
@@ -339,6 +406,106 @@ export function RepairQuoteDetailDialog({
                   )}
                 </div>
               )}
+
+              {/* Office Pricing Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium flex items-center gap-2">
+                    <MaterialIcon name="attach_money" size="sm" />
+                    Office Pricing
+                  </h4>
+                  {pricingLocked && (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      <MaterialIcon name="lock" size="sm" />
+                      Locked
+                    </Badge>
+                  )}
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="customerPrice">Customer Price *</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                        <Input
+                          id="customerPrice"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={customerPrice}
+                          onChange={(e) => setCustomerPrice(e.target.value)}
+                          className="pl-7"
+                          disabled={pricingLocked && quote.status !== 'under_review'}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Final price shown to client
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="internalCost">Internal Cost (Optional)</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                        <Input
+                          id="internalCost"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={internalCost}
+                          onChange={(e) => setInternalCost(e.target.value)}
+                          className="pl-7"
+                          disabled={pricingLocked && quote.status !== 'under_review'}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        For internal tracking only
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="officeNotes">Office Notes</Label>
+                    <Textarea
+                      id="officeNotes"
+                      placeholder="Internal notes about this quote..."
+                      value={officeNotes}
+                      onChange={(e) => setOfficeNotes(e.target.value)}
+                      rows={3}
+                      disabled={pricingLocked && quote.status !== 'under_review'}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="pricingLocked"
+                        checked={pricingLocked}
+                        onCheckedChange={setPricingLocked}
+                        disabled={quote.status === 'accepted'}
+                      />
+                      <Label htmlFor="pricingLocked" className="text-sm">
+                        Lock pricing (prevents further edits)
+                      </Label>
+                    </div>
+                    <Button
+                      onClick={handleSavePricing}
+                      disabled={savingPricing || (pricingLocked && !['under_review', 'tech_submitted'].includes(quote.status || ''))}
+                    >
+                      {savingPricing ? (
+                        <>
+                          <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <MaterialIcon name="save" size="sm" className="mr-2" />
+                          Save Pricing
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
 
               {/* Source Task Link */}
               {quote.source_task_id && (
@@ -373,7 +540,7 @@ export function RepairQuoteDetailDialog({
                   </Button>
                 )}
 
-                {['tech_submitted', 'under_review'].includes(quote.status || '') && quote.customer_total && (
+                {canSendToClient() && (
                   <Button onClick={handleSendToClient}>
                     <MaterialIcon name="open_in_new" size="sm" className="mr-2" />
                     Send to Client

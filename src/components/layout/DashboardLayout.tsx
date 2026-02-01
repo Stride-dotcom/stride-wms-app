@@ -55,6 +55,7 @@ const navItems: NavItem[] = [
   { label: 'Scan', href: '/scan', icon: 'qr_code_scanner', requiredRole: ['admin', 'tenant_admin', 'warehouse_user', 'technician'] },
 
   { label: 'Analytics', href: '/reports', icon: 'analytics', requiredRole: ['admin', 'tenant_admin'] },
+  { label: 'Repair Quotes', href: '/repair-quotes', icon: 'build', requiredRole: ['admin', 'tenant_admin', 'manager'] },
   { label: 'Quotes', href: '/quotes', icon: 'request_quote', requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Claims', href: '/claims', icon: 'assignment_late', requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Accounts', href: '/accounts', icon: 'group', requiredRole: ['admin', 'tenant_admin'] },
