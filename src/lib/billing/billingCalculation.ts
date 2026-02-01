@@ -20,6 +20,23 @@ import { supabase } from '@/integrations/supabase/client';
  * Map task types to service codes in the Price List
  * This is the single source of truth for task → service mapping
  */
+// Case-insensitive lookup helper
+const normalizeTaskType = (taskType: string): string => {
+  // Map lowercase DB values to title case for lookup
+  const normalized = taskType.toLowerCase();
+  const titleCaseMap: Record<string, string> = {
+    'inspection': 'Inspection',
+    'will call': 'Will Call',
+    'will_call': 'Will Call',
+    'disposal': 'Disposal',
+    'assembly': 'Assembly',
+    'repair': 'Repair',
+    'receiving': 'Receiving',
+    'returns': 'Returns',
+  };
+  return titleCaseMap[normalized] || taskType;
+};
+
 export const TASK_TYPE_TO_SERVICE_CODE: Record<string, string> = {
   'Inspection': 'INSP',
   'Will Call': 'Will_Call',
@@ -29,6 +46,14 @@ export const TASK_TYPE_TO_SERVICE_CODE: Record<string, string> = {
   'Receiving': 'RCVG',
   'Returns': 'Returns',
 };
+
+/**
+ * Get service code for a task type (case-insensitive)
+ */
+export function getServiceCodeForTaskType(taskType: string): string {
+  const normalized = normalizeTaskType(taskType);
+  return TASK_TYPE_TO_SERVICE_CODE[normalized] || 'INSP';
+}
 
 /**
  * Map shipment direction to service codes
@@ -173,9 +198,9 @@ export async function calculateTaskBillingPreview(
   overrideQuantity?: number | null,
   overrideRate?: number | null
 ): Promise<BillingPreview> {
-  // Determine service code - override takes priority, then falls back to hardcoded defaults
+  // Determine service code - override takes priority, then falls back to normalized lookup
   // For dynamic lookup, caller should pass in the result of getTaskTypeServiceCode()
-  const serviceCode = overrideServiceCode || TASK_TYPE_TO_SERVICE_CODE[taskType] || 'INSP';
+  const serviceCode = overrideServiceCode || getServiceCodeForTaskType(taskType);
 
   // Get task items with class info
   const { data: taskItems, error: taskItemsError } = await supabase
@@ -211,7 +236,8 @@ export async function calculateTaskBillingPreview(
   let serviceName = serviceCode;
 
   // For Assembly/Repair with override quantity, treat as single line item
-  const isPerTaskBilling = taskType === 'Assembly' || taskType === 'Repair';
+  const normalizedType = normalizeTaskType(taskType);
+  const isPerTaskBilling = normalizedType === 'Assembly' || normalizedType === 'Repair';
 
   if (isPerTaskBilling && overrideQuantity !== null && overrideQuantity !== undefined) {
     // Get the rate (use override if provided, otherwise look up)
