@@ -246,8 +246,21 @@ export default function ShipmentDetail() {
         return;
       }
 
-      // Fetch shipment items with full item details
-      // Use simpler join syntax without explicit FK hints for better compatibility
+      // Fetch classes first (needed for mapping)
+      const { data: classesData } = await supabase
+        .from('classes')
+        .select('id, code, name')
+        .eq('tenant_id', profile.tenant_id)
+        .order('code');
+
+      if (classesData) {
+        setClasses(classesData);
+      }
+
+      // Build class lookup map
+      const classById = new Map((classesData || []).map(c => [c.id, c]));
+
+      // Fetch shipment items - avoid nested class joins that fail with PostgREST
       const { data: itemsData, error: itemsError } = await (supabase
         .from('shipment_items') as any)
         .select(`
@@ -260,11 +273,6 @@ export default function ShipmentDetail() {
           actual_quantity,
           status,
           item_id,
-          expected_class:classes(
-            id,
-            code,
-            name
-          ),
           item:items(
             id,
             item_code,
@@ -274,8 +282,7 @@ export default function ShipmentDetail() {
             room,
             class_id,
             current_location:locations(code),
-            account:accounts(account_name),
-            class:classes(id, code, name)
+            account:accounts(account_name)
           )
         `)
         .eq('shipment_id', id)
@@ -285,20 +292,22 @@ export default function ShipmentDetail() {
         console.error('[ShipmentDetail] fetch items failed:', itemsError);
       }
 
+      // Map classes manually to avoid PostgREST join issues
+      const mappedItems = ((itemsData || []) as any[]).map(si => {
+        // Map expected_class from expected_class_id
+        if (si.expected_class_id) {
+          si.expected_class = classById.get(si.expected_class_id) || null;
+        }
+        // Map item.class from item.class_id
+        if (si.item?.class_id) {
+          si.item.class = classById.get(si.item.class_id) || null;
+        }
+        return si;
+      });
+
       setShipment(shipmentData as unknown as Shipment);
-      setItems((itemsData || []) as unknown as ShipmentItem[]);
+      setItems(mappedItems as unknown as ShipmentItem[]);
       setBillingRefreshKey(prev => prev + 1); // Trigger billing recalculation
-
-      // Fetch classes for autocomplete
-      const { data: classesData } = await supabase
-        .from('classes')
-        .select('id, code, name')
-        .eq('tenant_id', profile.tenant_id)
-        .order('code');
-
-      if (classesData) {
-        setClasses(classesData);
-      }
 
       // Initialize receiving photos/documents from shipment
       if (shipmentData.receiving_photos) {
