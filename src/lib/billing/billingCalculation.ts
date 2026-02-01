@@ -28,6 +28,23 @@ import { supabase } from '@/integrations/supabase/client';
  * Map task types to service codes in the Price List
  * Only used as fallback for legacy tasks without category_id
  */
+// Case-insensitive lookup helper
+const normalizeTaskType = (taskType: string): string => {
+  // Map lowercase DB values to title case for lookup
+  const normalized = taskType.toLowerCase();
+  const titleCaseMap: Record<string, string> = {
+    'inspection': 'Inspection',
+    'will call': 'Will Call',
+    'will_call': 'Will Call',
+    'disposal': 'Disposal',
+    'assembly': 'Assembly',
+    'repair': 'Repair',
+    'receiving': 'Receiving',
+    'returns': 'Returns',
+  };
+  return titleCaseMap[normalized] || taskType;
+};
+
 export const TASK_TYPE_TO_SERVICE_CODE: Record<string, string> = {
   'Inspection': 'INSP',
   'Will Call': 'Will_Call',
@@ -37,6 +54,14 @@ export const TASK_TYPE_TO_SERVICE_CODE: Record<string, string> = {
   'Receiving': 'RCVG',
   'Returns': 'Returns',
 };
+
+/**
+ * Get service code for a task type (case-insensitive)
+ */
+export function getServiceCodeForTaskType(taskType: string): string {
+  const normalized = normalizeTaskType(taskType);
+  return TASK_TYPE_TO_SERVICE_CODE[normalized] || 'INSP';
+}
 
 /**
  * Map shipment direction to service codes
@@ -272,21 +297,10 @@ export async function calculateTaskBillingPreview(
   overrideRate?: number | null,
   categoryId?: string | null
 ): Promise<BillingPreview> {
-  // Get task items with class info
-  const { data: taskItems, error: taskItemsError } = await supabase
+  // Get task items - avoid nested PostgREST joins (no FK defined for classes)
+  const { data: taskItemsRaw, error: taskItemsError } = await supabase
     .from('task_items')
-    .select(`
-      item_id,
-      quantity,
-      items:item_id (
-        item_code,
-        class_id,
-        classes:class_id (
-          code,
-          name
-        )
-      )
-    `)
+    .select('item_id, quantity')
     .eq('task_id', taskId);
 
   if (taskItemsError) {
@@ -300,6 +314,26 @@ export async function calculateTaskBillingPreview(
     };
   }
 
+  // Fetch items separately 
+  const itemIds = [...new Set((taskItemsRaw || []).map(ti => ti.item_id).filter(Boolean))];
+  const { data: items } = itemIds.length > 0
+    ? await supabase.from('items').select('id, item_code, class_id').in('id', itemIds)
+    : { data: [] };
+  const itemMap = new Map((items || []).map((i: any) => [i.id, i]));
+
+  // Fetch classes separately
+  const classIds = [...new Set((items || []).map((i: any) => i.class_id).filter(Boolean))];
+  const { data: classes } = classIds.length > 0
+    ? await supabase.from('classes').select('id, code, name').in('id', classIds)
+    : { data: [] };
+  const classMap = new Map((classes || []).map((c: any) => [c.id, c]));
+
+  // Merge data
+  const taskItems = (taskItemsRaw || []).map(ti => ({
+    ...ti,
+    items: itemMap.get(ti.item_id) || null,
+  }));
+
   const lineItems: BillingLineItem[] = [];
   let subtotal = 0;
   let hasErrors = false;
@@ -307,7 +341,8 @@ export async function calculateTaskBillingPreview(
   let serviceCode = overrideServiceCode || TASK_TYPE_TO_SERVICE_CODE[taskType] || 'UNKNOWN';
 
   // For Assembly/Repair with override quantity, treat as single line item (legacy behavior)
-  const isPerTaskBilling = taskType === 'Assembly' || taskType === 'Repair';
+  const normalizedType = normalizeTaskType(taskType);
+  const isPerTaskBilling = normalizedType === 'Assembly' || normalizedType === 'Repair';
 
   if (isPerTaskBilling && overrideQuantity !== null && overrideQuantity !== undefined) {
     // Get the rate (use override if provided, otherwise look up)
@@ -316,7 +351,7 @@ export async function calculateTaskBillingPreview(
     let errorMessage: string | undefined;
 
     if (rate === null || rate === undefined) {
-      const legacyServiceCode = overrideServiceCode || TASK_TYPE_TO_SERVICE_CODE[taskType] || 'INSP';
+      const legacyServiceCode = overrideServiceCode || getServiceCodeForTaskType(taskType);
       const rateResult = await getRateFromPriceList(tenantId, legacyServiceCode, null);
       rate = rateResult.rate;
       serviceName = rateResult.serviceName;
@@ -350,8 +385,10 @@ export async function calculateTaskBillingPreview(
     for (const ti of taskItems || []) {
       const item = ti.items as any;
       const itemCode = item?.item_code || null;
-      const classCode = item?.classes?.code || null;
-      const className = item?.classes?.name || null;
+      // Lookup class from classMap using item's class_id
+      const itemClass = item?.class_id ? classMap.get(item.class_id) : null;
+      const classCode = itemClass?.code || null;
+      const className = itemClass?.name || null;
       const quantity = ti.quantity || 1;
 
       let rateResult: RateLookupResult;
@@ -360,8 +397,8 @@ export async function calculateTaskBillingPreview(
         // NEW: Category-based billing
         rateResult = await getRateByCategoryAndClass(tenantId, categoryId, classCode);
       } else {
-        // LEGACY: Service code-based billing
-        const legacyServiceCode = overrideServiceCode || TASK_TYPE_TO_SERVICE_CODE[taskType] || 'INSP';
+        // LEGACY: Service code-based billing (case-insensitive)
+        const legacyServiceCode = overrideServiceCode || getServiceCodeForTaskType(taskType);
         rateResult = await getRateFromPriceList(tenantId, legacyServiceCode, classCode);
       }
 
