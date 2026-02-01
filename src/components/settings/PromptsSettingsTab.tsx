@@ -42,6 +42,8 @@ const WORKFLOW_LABELS: Record<PromptWorkflow, string> = {
   stocktake: 'Stocktake',
   scan_hub: 'Scan Hub',
   outbound: 'Outbound',
+  claims: 'Claims',
+  will_call: 'Will Call',
 };
 
 export function PromptsSettingsTab() {
