@@ -1921,7 +1921,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: TENANT_SYSTEM_PROMPT + contextAddition },
           ...messages,
@@ -2024,7 +2024,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.0-flash",
+          model: "google/gemini-3-flash-preview",
           messages: followUpMessages,
           stream: true,
         }),
