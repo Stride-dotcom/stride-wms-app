@@ -43,6 +43,7 @@ import { useWarehouses } from '@/hooks/useWarehouses';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
+import { HelpButton } from '@/components/prompts';
 
 const statusColors: Record<StocktakeStatus, string> = {
   draft: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
@@ -161,6 +162,7 @@ export default function Stocktakes() {
             <MaterialIcon name="add" size="sm" className="mr-2" />
             New Stocktake
           </Button>
+          <HelpButton workflow="stocktake" />
         </div>
       </div>
 

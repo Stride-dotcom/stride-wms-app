@@ -22,6 +22,7 @@ import {
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { HelpButton } from '@/components/prompts';
 import {
   Select,
   SelectContent,
@@ -626,12 +627,15 @@ export default function ScanHub() {
     return (
       <DashboardLayout>
         <div className="space-y-6">
-          <PageHeader
-            primaryText="Scan"
-            accentText="Hub"
-            description="High-speed warehouse operations hub"
-          />
-          
+          <div className="flex items-start justify-between">
+            <PageHeader
+              primaryText="Scan"
+              accentText="Hub"
+              description="High-speed warehouse operations hub"
+            />
+            <HelpButton workflow="scan_hub" />
+          </div>
+
           <div className="flex flex-col gap-6 w-full max-w-xl mx-auto">
             {/* Move Card */}
             <button
@@ -1133,7 +1137,13 @@ export default function ScanHub() {
         </button>
 
         {/* Title and instructions */}
-        <div className="text-center mb-4">
+        <div className="text-center mb-4 relative">
+          {/* Help button for movement workflow */}
+          {(mode === 'move' || mode === 'batch') && (
+            <div className="absolute right-0 top-0">
+              <HelpButton workflow="movement" />
+            </div>
+          )}
           <h2 className="text-xl font-bold">
             {mode === 'lookup' && 'Scan Item'}
             {mode === 'move' && phase === 'scanning-item' && 'Scan Item'}

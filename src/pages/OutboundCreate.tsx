@@ -23,6 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { HelpButton } from '@/components/prompts';
 
 // ============================================
 // TYPES
@@ -302,10 +303,11 @@ export default function OutboundCreate() {
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
             <MaterialIcon name="arrow_back" size="md" />
           </Button>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-xl sm:text-2xl font-bold truncate">Create Outbound Shipment</h1>
             <p className="text-sm text-muted-foreground">Select items to ship out</p>
           </div>
+          <HelpButton workflow="outbound" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

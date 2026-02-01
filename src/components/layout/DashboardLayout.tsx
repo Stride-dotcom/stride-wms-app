@@ -1,6 +1,7 @@
 import { ReactNode, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { UpgradeNotificationBanner } from '@/components/prompts';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { Button } from '@/components/ui/button';
@@ -581,6 +582,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </Button>
           </div>
         </header>
+
+        {/* Upgrade notification banner */}
+        <UpgradeNotificationBanner />
 
         {/* Page content - scrollable with extra bottom padding for full scrolling */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-24 animate-fade-in">{children}</main>
