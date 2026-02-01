@@ -90,6 +90,44 @@ interface RowEdit {
 type SortField = 'occurred_at' | 'account_name' | 'sidemark_name' | 'item_code' | 'event_type' | 'charge_type' | 'description' | 'quantity' | 'unit_rate' | 'total_amount' | 'status';
 type SortDirection = 'asc' | 'desc';
 
+// ============================================
+// BILLING SAFETY HELPER FUNCTIONS (Phase 5A)
+// ============================================
+// These functions check if a billing line item is safe for invoicing
+// without modifying any billing calculations.
+
+/**
+ * Check if a billing line has a valid rate for invoicing
+ * Returns true if the rate is set and greater than 0
+ * NOTE: A rate of exactly 0 is considered unsafe (likely unset/placeholder)
+ */
+function isLineSafe(row: BillingEventRow): boolean {
+  const rate = row.unit_rate;
+  // NULL, undefined, or 0 are considered unsafe
+  if (rate === null || rate === undefined || rate === 0) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Get the specific issue with a billing line
+ * Returns null if the line is safe, otherwise returns an issue description
+ */
+function getLineIssue(row: BillingEventRow): string | null {
+  const rate = row.unit_rate;
+
+  if (rate === null || rate === undefined) {
+    return "Rate not set";
+  }
+
+  if (rate === 0) {
+    return "Rate is $0.00";
+  }
+
+  return null;
+}
+
 function formatDateMMDDYY(dateStr: string | null): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
@@ -173,6 +211,11 @@ export function BillingReportTab() {
     unit_rate: '',
     occurred_at: new Date().toISOString().slice(0, 10),
   });
+
+  // Billing Safety UX (Phase 5A)
+  const [showOnlyIssues, setShowOnlyIssues] = useState(false);
+  const [unsafeInvoiceDialogOpen, setUnsafeInvoiceDialogOpen] = useState(false);
+  const [pendingUnsafeEventIds, setPendingUnsafeEventIds] = useState<string[]>([]);
 
   // Check if there are unsaved changes
   const hasUnsavedChanges = useMemo(() => {
@@ -467,34 +510,53 @@ export function BillingReportTab() {
 
   // Universal search - filter across all fields
   const filteredRows = useMemo(() => {
-    if (!searchQuery.trim()) return sortedRows;
+    let result = sortedRows;
 
-    const query = searchQuery.toLowerCase().trim();
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(row => {
+        // Create array of all searchable field values
+        const searchableValues = [
+          row.item_code,                    // Item code
+          row.description,                  // Description
+          row.account_name,                 // Account name
+          row.sidemark_name,                // Sidemark name
+          row.charge_type,                  // Charge type / service code
+          row.event_type,                   // Event type
+          row.occurred_at,                  // Date
+          formatDateMMDDYY(row.occurred_at), // Formatted date
+          row.total_amount?.toString(),     // Amount as string
+          row.unit_rate?.toString(),        // Rate as string
+          row.quantity?.toString(),         // Quantity as string
+          row.status,                       // Status
+          row.invoice_id,                   // Invoice ID
+        ];
 
-    return sortedRows.filter(row => {
-      // Create array of all searchable field values
-      const searchableValues = [
-        row.item_code,                    // Item code
-        row.description,                  // Description
-        row.account_name,                 // Account name
-        row.sidemark_name,                // Sidemark name
-        row.charge_type,                  // Charge type / service code
-        row.event_type,                   // Event type
-        row.occurred_at,                  // Date
-        formatDateMMDDYY(row.occurred_at), // Formatted date
-        row.total_amount?.toString(),     // Amount as string
-        row.unit_rate?.toString(),        // Rate as string
-        row.quantity?.toString(),         // Quantity as string
-        row.status,                       // Status
-        row.invoice_id,                   // Invoice ID
-      ];
+        // Return true if any field contains the search query
+        return searchableValues.some(value =>
+          value?.toLowerCase?.()?.includes(query)
+        );
+      });
+    }
 
-      // Return true if any field contains the search query
-      return searchableValues.some(value =>
-        value?.toLowerCase?.()?.includes(query)
-      );
-    });
-  }, [sortedRows, searchQuery]);
+    // Apply "Show only issues" filter (Phase 5A)
+    if (showOnlyIssues) {
+      result = result.filter(row => row.status === 'unbilled' && !isLineSafe(row));
+    }
+
+    return result;
+  }, [sortedRows, searchQuery, showOnlyIssues]);
+
+  // Billing Safety: Count of unbilled rows with issues (Phase 5A)
+  const unbilledIssueRows = useMemo(() => {
+    return rows.filter(r => r.status === 'unbilled' && !isLineSafe(r));
+  }, [rows]);
+
+  const unbilledIssueCount = unbilledIssueRows.length;
+  const unbilledIssueTotal = useMemo(() => {
+    return unbilledIssueRows.reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+  }, [unbilledIssueRows]);
 
   // Handle column header click for sorting
   const handleSort = (field: SortField) => {
@@ -798,6 +860,7 @@ export function BillingReportTab() {
   };
 
   // Navigate to Invoice Builder with selected unbilled events
+  // Phase 5A: Block if any selected rows have billing issues
   const handleCreateInvoice = () => {
     const unbilledEventIds = Array.from(selectedRows).filter(id => {
       const row = rows.find(r => r.id === id);
@@ -813,9 +876,38 @@ export function BillingReportTab() {
       return;
     }
 
+    // Phase 5A: Check for unsafe lines before proceeding
+    const unsafeIds = unbilledEventIds.filter(id => {
+      const row = rows.find(r => r.id === id);
+      return row && !isLineSafe(row);
+    });
+
+    if (unsafeIds.length > 0) {
+      // Block and show modal
+      setPendingUnsafeEventIds(unsafeIds);
+      setUnsafeInvoiceDialogOpen(true);
+      return;
+    }
+
+    // All lines are safe, proceed to invoice builder
     const eventParams = unbilledEventIds.join(',');
     navigate(`/reports?tab=revenue-ledger&subtab=builder&events=${eventParams}`);
   };
+
+  // Phase 5A: Get details of unsafe rows for the modal
+  const getUnsafeRowDetails = useMemo(() => {
+    return pendingUnsafeEventIds.map(id => {
+      const row = rows.find(r => r.id === id);
+      if (!row) return null;
+      return {
+        id: row.id,
+        account: row.account_name || 'Unknown',
+        chargeType: row.charge_type,
+        issue: getLineIssue(row) || 'Unknown issue',
+        quantity: row.quantity,
+      };
+    }).filter(Boolean);
+  }, [pendingUnsafeEventIds, rows]);
 
   // Get unique charge types for service filter
   const uniqueChargeTypes = useMemo(() => {
@@ -1002,6 +1094,38 @@ export function BillingReportTab() {
         </Card>
       </div>
 
+      {/* Phase 5A: Billing Issues Banner */}
+      {unbilledIssueCount > 0 && (
+        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900">
+                  <MaterialIcon name="warning" size="md" className="text-amber-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-amber-800 dark:text-amber-200">
+                    {unbilledIssueCount} billing line{unbilledIssueCount !== 1 ? 's' : ''} need{unbilledIssueCount === 1 ? 's' : ''} attention
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    {unbilledIssueTotal} item{unbilledIssueTotal !== 1 ? 's' : ''} with missing or zero rates cannot be invoiced until resolved
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-amber-400 text-amber-700 hover:bg-amber-100"
+                onClick={() => setShowOnlyIssues(!showOnlyIssues)}
+              >
+                <MaterialIcon name={showOnlyIssues ? "visibility_off" : "visibility"} size="sm" className="mr-2" />
+                {showOnlyIssues ? 'Show All' : 'Show Only Issues'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
@@ -1131,6 +1255,10 @@ export function BillingReportTab() {
                       className={someUnbilledSelected ? "data-[state=checked]:bg-primary/50" : ""}
                     />
                   </th>
+                  {/* Phase 5A: Billing Safety Status Column */}
+                  <th className="w-10 p-3 border-b text-center" title="Billing Status">
+                    <MaterialIcon name="verified" size="sm" className="text-muted-foreground" />
+                  </th>
                   <SortableHeader field="occurred_at" className="text-left">Date</SortableHeader>
                   <SortableHeader field="account_name" className="text-left">Account</SortableHeader>
                   <SortableHeader field="sidemark_name" className="text-left">Sidemark</SortableHeader>
@@ -1158,6 +1286,24 @@ export function BillingReportTab() {
                             checked={selectedRows.has(r.id)}
                             onCheckedChange={() => toggleRowSelection(r.id)}
                           />
+                        )}
+                      </td>
+                      {/* Phase 5A: Billing Safety Status Indicator */}
+                      <td className="p-3 text-center">
+                        {r.status === 'unbilled' ? (
+                          isLineSafe(r) ? (
+                            <span className="text-green-600" title="Ready for invoicing">
+                              <MaterialIcon name="check_circle" size="sm" />
+                            </span>
+                          ) : (
+                            <span className="text-amber-500" title={getLineIssue(r) || 'Needs review'}>
+                              <MaterialIcon name="warning" size="sm" />
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-muted-foreground" title="Already processed">
+                            <MaterialIcon name="remove" size="sm" />
+                          </span>
                         )}
                       </td>
                       <td className="p-3">{r.occurred_at?.slice(0, 10)}</td>
@@ -1270,10 +1416,12 @@ export function BillingReportTab() {
                 })}
                 {filteredRows.length === 0 && (
                   <tr>
-                    <td className="p-8 text-center text-muted-foreground" colSpan={12}>
+                    <td className="p-8 text-center text-muted-foreground" colSpan={13}>
                       {rows.length === 0
                         ? 'No billing events found for the selected filters'
-                        : `No results match "${searchQuery}"`}
+                        : showOnlyIssues
+                          ? 'No billing issues found - all unbilled lines have valid rates'
+                          : `No results match "${searchQuery}"`}
                     </td>
                   </tr>
                 )}
@@ -1482,6 +1630,60 @@ export function BillingReportTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Phase 5A: Unsafe Invoice Blocking Modal */}
+      <AlertDialog open={unsafeInvoiceDialogOpen} onOpenChange={setUnsafeInvoiceDialogOpen}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+              <MaterialIcon name="warning" size="md" />
+              Cannot Create Invoice
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingUnsafeEventIds.length} of your selected billing line{pendingUnsafeEventIds.length !== 1 ? 's have' : ' has'} pricing issues that must be resolved before creating an invoice.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="py-4">
+            <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3 space-y-2 max-h-[200px] overflow-y-auto border border-amber-200">
+              {getUnsafeRowDetails.map((detail: any, i: number) => (
+                <div key={i} className="flex justify-between text-sm items-center">
+                  <div>
+                    <span className="font-medium">{detail.chargeType}</span>
+                    <span className="text-muted-foreground ml-2">({detail.account})</span>
+                  </div>
+                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300">
+                    {detail.issue}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-muted-foreground mt-3">
+              Click on the Rate field for each line to set a valid rate, then try again.
+            </p>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setUnsafeInvoiceDialogOpen(false);
+              setPendingUnsafeEventIds([]);
+            }}>
+              Close
+            </AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUnsafeInvoiceDialogOpen(false);
+                setPendingUnsafeEventIds([]);
+                setShowOnlyIssues(true);
+              }}
+            >
+              <MaterialIcon name="visibility" size="sm" className="mr-2" />
+              Show Issues
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
