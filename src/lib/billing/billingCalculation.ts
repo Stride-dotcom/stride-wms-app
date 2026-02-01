@@ -202,21 +202,10 @@ export async function calculateTaskBillingPreview(
   // For dynamic lookup, caller should pass in the result of getTaskTypeServiceCode()
   const serviceCode = overrideServiceCode || getServiceCodeForTaskType(taskType);
 
-  // Get task items with class info
-  const { data: taskItems, error: taskItemsError } = await supabase
+  // Get task items - avoid nested PostgREST joins (no FK defined for classes)
+  const { data: taskItemsRaw, error: taskItemsError } = await supabase
     .from('task_items')
-    .select(`
-      item_id,
-      quantity,
-      items:item_id (
-        item_code,
-        class_id,
-        classes:class_id (
-          code,
-          name
-        )
-      )
-    `)
+    .select('item_id, quantity')
     .eq('task_id', taskId);
 
   if (taskItemsError) {
@@ -229,6 +218,26 @@ export async function calculateTaskBillingPreview(
       serviceName: serviceCode,
     };
   }
+
+  // Fetch items separately 
+  const itemIds = [...new Set((taskItemsRaw || []).map(ti => ti.item_id).filter(Boolean))];
+  const { data: items } = itemIds.length > 0
+    ? await supabase.from('items').select('id, item_code, class_id').in('id', itemIds)
+    : { data: [] };
+  const itemMap = new Map((items || []).map((i: any) => [i.id, i]));
+
+  // Fetch classes separately
+  const classIds = [...new Set((items || []).map((i: any) => i.class_id).filter(Boolean))];
+  const { data: classes } = classIds.length > 0
+    ? await supabase.from('classes').select('id, code, name').in('id', classIds)
+    : { data: [] };
+  const classMap = new Map((classes || []).map((c: any) => [c.id, c]));
+
+  // Merge data
+  const taskItems = (taskItemsRaw || []).map(ti => ({
+    ...ti,
+    items: itemMap.get(ti.item_id) || null,
+  }));
 
   const lineItems: BillingLineItem[] = [];
   let subtotal = 0;
@@ -276,8 +285,10 @@ export async function calculateTaskBillingPreview(
     for (const ti of taskItems || []) {
       const item = ti.items as any;
       const itemCode = item?.item_code || null;
-      const classCode = item?.classes?.code || null;
-      const className = item?.classes?.name || null;
+      // Lookup class from classMap using item's class_id
+      const itemClass = item?.class_id ? classMap.get(item.class_id) : null;
+      const classCode = itemClass?.code || null;
+      const className = itemClass?.name || null;
       const quantity = ti.quantity || 1;
 
       const rateResult = await getRateFromPriceList(tenantId, serviceCode, classCode);

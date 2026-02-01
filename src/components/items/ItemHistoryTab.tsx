@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 
 interface HistoryEvent {
   id: string;
-  type: 'movement' | 'billing' | 'task' | 'shipment' | 'note' | 'repair';
+  type: 'movement' | 'billing' | 'billing_void' | 'task' | 'shipment' | 'note' | 'repair';
   title: string;
   description: string;
   timestamp: string;
@@ -75,23 +75,29 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
         });
       }
 
-      // 2. Fetch billing events with calculation metadata
+      // 2. Fetch billing events with calculation metadata (including voided ones for audit)
       const { data: billingEvents } = await (supabase.from('billing_events') as any)
-        .select('id, event_type, charge_type, description, total_amount, created_at, calculation_metadata')
+        .select('id, event_type, charge_type, description, total_amount, status, created_at, updated_at, calculation_metadata')
         .eq('item_id', itemId)
         .order('created_at', { ascending: false })
         .limit(50);
 
       if (billingEvents) {
         billingEvents.forEach((b: any) => {
+          const isVoid = b.status === 'void';
           allEvents.push({
             id: `billing-${b.id}`,
-            type: 'billing',
-            title: b.charge_type?.replace('_', ' ').toUpperCase() || 'CHARGE',
-            description: `${b.description || b.event_type} - $${b.total_amount?.toFixed(2) || '0.00'}`,
-            timestamp: b.created_at,
+            type: isVoid ? 'billing_void' : 'billing',
+            title: isVoid 
+              ? 'BILLING CHARGE VOIDED' 
+              : (b.charge_type?.replace('_', ' ').toUpperCase() || 'CHARGE'),
+            description: isVoid
+              ? `VOIDED: ${b.description || b.event_type} - $${Math.abs(b.total_amount)?.toFixed(2) || '0.00'}`
+              : `${b.description || b.event_type} - $${b.total_amount?.toFixed(2) || '0.00'}`,
+            timestamp: isVoid && b.updated_at ? b.updated_at : b.created_at,
             metadata: {
               amount: b.total_amount,
+              status: b.status,
               calculation: b.calculation_metadata,
             },
           });
@@ -226,6 +232,8 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
         return <MaterialIcon name="location_on" size="sm" />;
       case 'billing':
         return <MaterialIcon name="attach_money" size="sm" />;
+      case 'billing_void':
+        return <MaterialIcon name="money_off" size="sm" />;
       case 'task':
         return <MaterialIcon name="assignment" size="sm" />;
       case 'shipment':
@@ -245,6 +253,8 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
         return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200';
       case 'billing':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'billing_void':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
       case 'task':
         return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
       case 'shipment':
