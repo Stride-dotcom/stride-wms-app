@@ -661,6 +661,123 @@ export function useServiceEventsAdmin() {
     }
   }, [profile?.tenant_id, toast, fetchServiceEvents]);
 
+  // Generate class pricing rows from a base service
+  // Creates 6 class rows (XS, S, M, L, XL, XXL) copying config from the base service
+  const generateClassPricing = useCallback(async (baseServiceId: string): Promise<boolean> => {
+    if (!profile?.tenant_id) return false;
+
+    // Find the base service
+    const baseService = serviceEvents.find(se => se.id === baseServiceId);
+    if (!baseService) {
+      toast({
+        variant: 'destructive',
+        title: 'Service Not Found',
+        description: 'Could not find the base service to generate class pricing from.',
+      });
+      return false;
+    }
+
+    // Check if this service already has class variants
+    const existingClassRows = serviceEvents.filter(
+      se => se.service_code === baseService.service_code && se.class_code
+    );
+    if (existingClassRows.length > 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Class Pricing Already Exists',
+        description: `Service "${baseService.service_code}" already has ${existingClassRows.length} class variant(s). Delete them first to regenerate.`,
+      });
+      return false;
+    }
+
+    // Check if the base service has a class_code (it shouldn't)
+    if (baseService.class_code) {
+      toast({
+        variant: 'destructive',
+        title: 'Cannot Generate From Class Row',
+        description: 'You can only generate class pricing from a base service (one without a class code).',
+      });
+      return false;
+    }
+
+    setSaving(true);
+    try {
+      // Generate 6 class rows copying config from base service
+      const classRows = CLASS_CODES.map(classCode => ({
+        tenant_id: profile.tenant_id,
+        service_code: baseService.service_code,
+        service_name: baseService.service_name,
+        class_code: classCode,
+        billing_unit: baseService.billing_unit,
+        rate: 0, // Start with 0, user will fill in
+        service_time_minutes: baseService.service_time_minutes,
+        taxable: baseService.taxable,
+        uses_class_pricing: true,
+        is_active: baseService.is_active,
+        notes: baseService.notes,
+        add_flag: baseService.add_flag,
+        add_to_service_event_scan: baseService.add_to_service_event_scan,
+        alert_rule: baseService.alert_rule,
+        billing_trigger: baseService.billing_trigger,
+        category_id: baseService.category_id,
+      }));
+
+      const { error } = await (supabase
+        .from('service_events') as any)
+        .insert(classRows);
+
+      if (error) {
+        console.error('[useServiceEventsAdmin] Generate class pricing failed:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Generation Failed',
+          description: error.message,
+        });
+        return false;
+      }
+
+      // Also update the base service to mark it as using class pricing
+      await (supabase
+        .from('service_events') as any)
+        .update({ uses_class_pricing: true, updated_at: new Date().toISOString() })
+        .eq('id', baseServiceId)
+        .eq('tenant_id', profile.tenant_id);
+
+      toast({
+        title: 'Class Pricing Generated',
+        description: `Created ${CLASS_CODES.length} class variants for "${baseService.service_code}". Edit rates inline below.`,
+      });
+
+      await fetchServiceEvents();
+      return true;
+    } catch (error: any) {
+      console.error('[useServiceEventsAdmin] Generate class pricing error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to generate class pricing',
+      });
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [profile?.tenant_id, serviceEvents, toast, fetchServiceEvents]);
+
+  // Check if a service can have class pricing generated
+  const canGenerateClassPricing = useCallback((serviceId: string): boolean => {
+    const service = serviceEvents.find(se => se.id === serviceId);
+    if (!service) return false;
+
+    // Must be a base service (no class_code)
+    if (service.class_code) return false;
+
+    // Must not already have class variants
+    const existingClassRows = serviceEvents.filter(
+      se => se.service_code === service.service_code && se.class_code
+    );
+    return existingClassRows.length === 0;
+  }, [serviceEvents]);
+
   // Fetch audit history for a service
   const fetchAuditHistory = useCallback(async (serviceCode?: string): Promise<ServiceEventAudit[]> => {
     if (!profile?.tenant_id) return [];
@@ -721,6 +838,10 @@ export function useServiceEventsAdmin() {
     importServices,
     exportToCSV,
     generateTemplate,
+
+    // Class pricing generation
+    generateClassPricing,
+    canGenerateClassPricing,
 
     // Audit
     fetchAuditHistory,
