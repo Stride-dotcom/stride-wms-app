@@ -38,6 +38,7 @@ import { QRScanner } from '@/components/scan/QRScanner';
 import { useLocations } from '@/hooks/useLocations';
 import { hapticError, hapticSuccess } from '@/lib/haptics';
 import { HelpButton, usePromptContextSafe } from '@/components/prompts';
+import { SOPValidationDialog, SOPBlocker } from '@/components/common/SOPValidationDialog';
 
 // ============================================
 // TYPES
@@ -182,6 +183,8 @@ export default function ShipmentDetail() {
   const [showPartialReleaseDialog, setShowPartialReleaseDialog] = useState(false);
   const [partialReleaseNote, setPartialReleaseNote] = useState('');
   const [partialReleaseItems, setPartialReleaseItems] = useState<Set<string>>(new Set());
+  const [sopValidationOpen, setSopValidationOpen] = useState(false);
+  const [sopBlockers, setSopBlockers] = useState<SOPBlocker[]>([]);
   const [submittingPartialRelease, setSubmittingPartialRelease] = useState(false);
 
   // Receiving session hook
@@ -475,14 +478,41 @@ export default function ShipmentDetail() {
   const handleFinishReceiving = async () => {
     if (!shipment) return;
 
-    // Validate photos are required
-    if (receivingPhotos.length === 0) {
+    // Call SOP validator RPC first
+    try {
+      const { data: validationResult, error: rpcError } = await (supabase as any).rpc(
+        'validate_shipment_receiving_completion',
+        { p_shipment_id: shipment.id }
+      );
+
+      if (rpcError) {
+        console.error('Validation RPC error:', rpcError);
+        toast({
+          variant: 'destructive',
+          title: 'Validation Error',
+          description: 'Failed to validate receiving completion. Please try again.',
+        });
+        return;
+      }
+
+      const result = validationResult as { ok: boolean; blockers: SOPBlocker[] };
+      const blockers = (result?.blockers || []).filter(
+        (b: SOPBlocker) => b.severity === 'blocking' || !b.severity
+      );
+
+      if (!result?.ok && blockers.length > 0) {
+        setSopBlockers(result.blockers);
+        setSopValidationOpen(true);
+        setShowFinishDialog(false);
+        return;
+      }
+    } catch (err) {
+      console.error('Validation error:', err);
       toast({
         variant: 'destructive',
-        title: 'Photos Required',
-        description: 'Please add at least one photo before completing the receiving process.',
+        title: 'Validation Error',
+        description: 'An unexpected error occurred during validation.',
       });
-      setShowFinishDialog(false);
       return;
     }
 
@@ -963,23 +993,50 @@ export default function ShipmentDetail() {
   const handleCompleteOutbound = async () => {
     if (!shipment) return;
 
+    // Call SOP validator RPC first
+    try {
+      const { data: validationResult, error: rpcError } = await (supabase as any).rpc(
+        'validate_shipment_outbound_completion',
+        { p_shipment_id: shipment.id }
+      );
+
+      if (rpcError) {
+        console.error('Validation RPC error:', rpcError);
+        toast({
+          variant: 'destructive',
+          title: 'Validation Error',
+          description: 'Failed to validate outbound completion. Please try again.',
+        });
+        return;
+      }
+
+      const result = validationResult as { ok: boolean; blockers: SOPBlocker[] };
+      const blockers = (result?.blockers || []).filter(
+        (b: SOPBlocker) => b.severity === 'blocking' || !b.severity
+      );
+
+      if (!result?.ok && blockers.length > 0) {
+        setSopBlockers(result.blockers);
+        setSopValidationOpen(true);
+        setShowOutboundCompleteDialog(false);
+        return;
+      }
+    } catch (err) {
+      console.error('Validation error:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Validation Error',
+        description: 'An unexpected error occurred during validation.',
+      });
+      return;
+    }
+
     if (activeOutboundItems.length > 0 && !allReleased) {
       toast({
         variant: 'destructive',
         title: 'Release scanning incomplete',
         description: 'All items must be scanned as Released before completion.',
       });
-      return;
-    }
-
-    // Validate photos are required
-    if (receivingPhotos.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Photos Required',
-        description: 'Please add at least one photo before completing the shipment.',
-      });
-      setShowOutboundCompleteDialog(false);
       return;
     }
 
@@ -2078,6 +2135,13 @@ export default function ShipmentDetail() {
           onSuccess={fetchShipment}
         />
       )}
+
+      {/* SOP Validation Dialog */}
+      <SOPValidationDialog
+        open={sopValidationOpen}
+        onOpenChange={setSopValidationOpen}
+        blockers={sopBlockers}
+      />
     </DashboardLayout>
   );
 }

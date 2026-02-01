@@ -23,6 +23,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { HelpButton } from '@/components/prompts';
+import { SOPValidationDialog, SOPBlocker } from '@/components/common/SOPValidationDialog';
 import {
   Select,
   SelectContent,
@@ -87,6 +88,10 @@ export default function ScanHub() {
   // Search overlay state
   const [showItemSearch, setShowItemSearch] = useState(false);
   const [showLocationSearch, setShowLocationSearch] = useState(false);
+
+  // SOP Validation state
+  const [sopValidationOpen, setSopValidationOpen] = useState(false);
+  const [sopBlockers, setSopBlockers] = useState<SOPBlocker[]>([]);
 
   // Swipe confirmation state
   const [swipeProgress, setSwipeProgress] = useState(0);
@@ -399,6 +404,42 @@ export default function ScanHub() {
     setProcessing(true);
     try {
       const items = mode === 'move' && scannedItem ? [scannedItem] : batchItems;
+      const itemIds = items.map(i => i.id);
+
+      // Call SOP validator RPC first
+      const { data: validationResult, error: rpcError } = await (supabase as any).rpc(
+        'validate_movement_event',
+        { 
+          p_item_ids: itemIds,
+          p_destination_location_id: targetLocation.id
+        }
+      );
+
+      if (rpcError) {
+        console.error('Validation RPC error:', rpcError);
+        hapticError();
+        toast({
+          variant: 'destructive',
+          title: 'Validation Error',
+          description: 'Failed to validate movement. Please try again.',
+        });
+        setProcessing(false);
+        return;
+      }
+
+      const result = validationResult as { ok: boolean; blockers: SOPBlocker[] };
+      const blockers = (result?.blockers || []).filter(
+        (b: SOPBlocker) => b.severity === 'blocking' || !b.severity
+      );
+
+      if (!result?.ok && blockers.length > 0) {
+        setSopBlockers(result.blockers);
+        setSopValidationOpen(true);
+        hapticError();
+        setProcessing(false);
+        return;
+      }
+
       let successCount = 0;
 
       // Check for freeze moves on all items
@@ -1368,6 +1409,13 @@ export default function ScanHub() {
         onClose={() => setShowLocationSearch(false)}
         onSelect={handleLocationSelect}
         locations={locationData}
+      />
+
+      {/* SOP Validation Dialog */}
+      <SOPValidationDialog
+        open={sopValidationOpen}
+        onOpenChange={setSopValidationOpen}
+        blockers={sopBlockers}
       />
     </DashboardLayout>
   );
