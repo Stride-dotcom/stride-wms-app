@@ -457,7 +457,7 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
         itemIds.push(item.id);
       }
 
-      // Create outbound shipment
+      // Create outbound shipment with all required fields for SOP validation
       const { data: shipment, error: shipmentError } = await ctx.supabase
         .from('shipments')
         .insert({
@@ -468,6 +468,9 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
           shipment_type: 'outbound',
           status: 'pending',
           released_to: 'QA Test Recipient',
+          release_type: 'Customer Pickup',
+          customer_authorized: true,
+          customer_authorized_at: new Date().toISOString(),
           metadata: { qa_test: true, qa_run_id: ctx.runId }
         })
         .select()
@@ -476,8 +479,19 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
       if (shipmentError) throw new Error(`Failed to create shipment: ${shipmentError.message}`);
       shipmentId = shipment.id;
 
-      // Link items to shipment
+      // Link items to shipment via shipment_items table (required for validator)
       for (const itemId of itemIds) {
+        const { error: linkError } = await ctx.supabase
+          .from('shipment_items')
+          .insert({
+            shipment_id: shipmentId,
+            item_id: itemId,
+            is_staged: true
+          });
+        
+        if (linkError) log(ctx, `Warning: Failed to link item to shipment_items: ${linkError.message}`);
+        
+        // Also update items table for backward compatibility
         await ctx.supabase
           .from('items')
           .update({ releasing_shipment_id: shipmentId })
