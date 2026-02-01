@@ -457,7 +457,7 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
         itemIds.push(item.id);
       }
 
-      // Create outbound shipment with all required fields for SOP validation
+      // Create outbound shipment
       const { data: shipment, error: shipmentError } = await ctx.supabase
         .from('shipments')
         .insert({
@@ -467,10 +467,6 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
           shipment_number: generateCode('OUT'),
           shipment_type: 'outbound',
           status: 'pending',
-          released_to: 'QA Test Recipient',
-          release_type: 'Customer Pickup',
-          customer_authorized: true,
-          customer_authorized_at: new Date().toISOString(),
           metadata: { qa_test: true, qa_run_id: ctx.runId }
         })
         .select()
@@ -479,19 +475,8 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
       if (shipmentError) throw new Error(`Failed to create shipment: ${shipmentError.message}`);
       shipmentId = shipment.id;
 
-      // Link items to shipment via shipment_items table (required for validator)
+      // Link items to shipment
       for (const itemId of itemIds) {
-        const { error: linkError } = await ctx.supabase
-          .from('shipment_items')
-          .insert({
-            shipment_id: shipmentId,
-            item_id: itemId,
-            is_staged: true
-          });
-        
-        if (linkError) log(ctx, `Warning: Failed to link item to shipment_items: ${linkError.message}`);
-        
-        // Also update items table for backward compatibility
         await ctx.supabase
           .from('items')
           .update({ releasing_shipment_id: shipmentId })
@@ -778,16 +763,15 @@ async function runTaskFlowTests(ctx: TestContext): Promise<TestResult[]> {
       const taskId = taskIds[0];
       const itemId = itemIds[0];
 
-      // Add item photo (using correct column names)
+      // Add item photo
       const { error: photoError } = await ctx.supabase
         .from('item_photos')
         .insert({
           item_id: itemId,
           tenant_id: ctx.tenantId,
-          storage_url: 'https://placehold.co/400x300?text=QA+Inspection+Photo',
+          photo_url: 'https://placehold.co/400x300?text=QA+Inspection+Photo',
           photo_type: 'inspection',
-          file_name: 'qa-inspection-photo.jpg',
-          caption: `QA Test - Run ${ctx.runId}`
+          metadata: { qa_test: true, qa_run_id: ctx.runId }
         });
 
       if (photoError) throw new Error(`Failed to add photo: ${photoError.message}`);
