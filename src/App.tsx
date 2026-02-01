@@ -44,6 +44,7 @@ import RepairTechAccess from "./pages/RepairTechAccess";
 import TechQuoteSubmit from "./pages/TechQuoteSubmit";
 import Technicians from "./pages/Technicians";
 import RepairQuotes from "./pages/RepairQuotes";
+import RepairQuoteDetail from "./pages/RepairQuoteDetail";
 import Quotes from "./pages/Quotes";
 import QuoteBuilder from "./pages/QuoteBuilder";
 import QuoteAcceptance from "./pages/QuoteAcceptance";
@@ -120,6 +121,7 @@ const App = () => (
             <Route path="/employees" element={<ProtectedRoute><RequireRole role="tenant_admin"><Employees /></RequireRole></ProtectedRoute>} />
             <Route path="/technicians" element={<ProtectedRoute><RequireRole role="tenant_admin"><Technicians /></RequireRole></ProtectedRoute>} />
             <Route path="/repair-quotes" element={<ProtectedRoute><RequireRole role="tenant_admin"><RepairQuotes /></RequireRole></ProtectedRoute>} />
+            <Route path="/repair-quotes/:id" element={<ProtectedRoute><RequireRole role="tenant_admin"><RepairQuoteDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/quotes" element={<ProtectedRoute><RequireRole role="tenant_admin"><Quotes /></RequireRole></ProtectedRoute>} />
             <Route path="/quotes/new" element={<ProtectedRoute><RequireRole role="tenant_admin"><QuoteBuilder /></RequireRole></ProtectedRoute>} />
             <Route path="/quotes/:id" element={<ProtectedRoute><RequireRole role="tenant_admin"><QuoteBuilder /></RequireRole></ProtectedRoute>} />
