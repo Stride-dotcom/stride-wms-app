@@ -18,8 +18,10 @@ import { ClaimAttachments } from '@/components/claims/ClaimAttachments';
 import { ClaimNotes } from '@/components/claims/ClaimNotes';
 import { ClaimStatusActions } from '@/components/claims/ClaimStatusActions';
 import { ClaimItemsList } from '@/components/claims/ClaimItemsList';
+import { ClaimEditDialog } from '@/components/claims/ClaimEditDialog';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/integrations/supabase/client';
 
 const statusColors: Record<string, string> = {
   initiated: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
@@ -35,6 +37,11 @@ const statusColors: Record<string, string> = {
   closed: 'bg-muted text-muted-foreground',
 };
 
+// Extended audit log type with user info
+interface AuditLogWithUser extends ClaimAudit {
+  user?: { id: string; first_name: string | null; last_name: string | null } | null;
+}
+
 export default function ClaimDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -42,9 +49,10 @@ export default function ClaimDetail() {
   const { claims, loading, fetchAuditLog, fetchClaimItems, refetch } = useClaims();
   const [claim, setClaim] = useState<Claim | null>(null);
   const [claimItems, setClaimItems] = useState<ClaimItem[]>([]);
-  const [auditLog, setAuditLog] = useState<ClaimAudit[]>([]);
+  const [auditLog, setAuditLog] = useState<AuditLogWithUser[]>([]);
   const [loadingAudit, setLoadingAudit] = useState(false);
   const [claimPhotos, setClaimPhotos] = useState<string[]>([]);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (claims.length > 0 && id) {
@@ -53,17 +61,62 @@ export default function ClaimDetail() {
     }
   }, [claims, id]);
 
+  // Fetch audit log with user details
+  const fetchAuditLogWithUsers = async (claimId: string) => {
+    setLoadingAudit(true);
+    try {
+      // Fetch audit entries
+      const { data: auditData, error: auditError } = await supabase
+        .from('claim_audit')
+        .select('*')
+        .eq('claim_id', claimId)
+        .order('created_at', { ascending: false });
+
+      if (auditError) throw auditError;
+
+      if (!auditData || auditData.length === 0) {
+        setAuditLog([]);
+        setLoadingAudit(false);
+        return;
+      }
+
+      // Get unique actor IDs
+      const actorIds = [...new Set(auditData.map(a => a.actor_id).filter(Boolean))] as string[];
+
+      // Fetch user details
+      let userMap = new Map<string, { id: string; first_name: string | null; last_name: string | null }>();
+      if (actorIds.length > 0) {
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, first_name, last_name')
+          .in('id', actorIds);
+
+        if (users) {
+          userMap = new Map(users.map(u => [u.id, u]));
+        }
+      }
+
+      // Merge user data with audit entries
+      const entriesWithUsers = auditData.map(entry => ({
+        ...entry,
+        user: entry.actor_id ? userMap.get(entry.actor_id) || null : null,
+      }));
+
+      setAuditLog(entriesWithUsers);
+    } catch (error) {
+      console.error('Error fetching audit log:', error);
+      setAuditLog([]);
+    } finally {
+      setLoadingAudit(false);
+    }
+  };
+
   useEffect(() => {
     if (id) {
-      setLoadingAudit(true);
-      fetchAuditLog(id).then(log => {
-        setAuditLog(log);
-        setLoadingAudit(false);
-      });
-      // Also fetch claim items
+      fetchAuditLogWithUsers(id);
       fetchClaimItems(id).then(setClaimItems);
     }
-  }, [id, fetchAuditLog, fetchClaimItems]);
+  }, [id, fetchClaimItems]);
 
   // Refetch claim items when claim is refetched
   const handleRefetch = async () => {
@@ -71,6 +124,8 @@ export default function ClaimDetail() {
     if (id) {
       const items = await fetchClaimItems(id);
       setClaimItems(items);
+      // Also refetch audit log to show changes
+      fetchAuditLogWithUsers(id);
     }
   };
 
@@ -130,11 +185,15 @@ export default function ClaimDetail() {
           <div className="lg:col-span-2 space-y-6">
             {/* Overview */}
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
                 <CardTitle className="flex items-center gap-2">
                   <MaterialIcon name="description" size="md" />
                   Claim Details
                 </CardTitle>
+                <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
+                  <MaterialIcon name="edit" size="sm" className="mr-1" />
+                  Edit
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -195,6 +254,7 @@ export default function ClaimDetail() {
               claimStatus={claim.status}
               accountId={claim.account_id || undefined}
               sidemarkId={claim.sidemark_id || undefined}
+              onItemsChange={handleRefetch}
             />
 
             {/* Incident & Contact Info - Only show if there's incident data */}
@@ -311,23 +371,38 @@ export default function ClaimDetail() {
                       <p className="text-muted-foreground text-sm">No activity recorded yet.</p>
                     ) : (
                       <div className="space-y-3">
-                        {auditLog.map(entry => (
-                          <div key={entry.id} className="flex items-start gap-3 text-sm">
-                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                              <MaterialIcon name="person" size="sm" className="text-muted-foreground" />
+                        {auditLog.map(entry => {
+                          const userName = entry.user
+                            ? `${entry.user.first_name || ''} ${entry.user.last_name || ''}`.trim() || 'Unknown User'
+                            : 'System';
+                          const details = entry.details as Record<string, unknown> | null;
+                          const changedFields = details?.changed_fields as string[] | undefined;
+
+                          return (
+                            <div key={entry.id} className="flex items-start gap-3 text-sm border-b border-border last:border-0 pb-3 last:pb-0">
+                              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                                <MaterialIcon name="person" size="sm" className="text-muted-foreground" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-foreground">
+                                  <span className="font-medium">{userName}</span>
+                                  <span className="text-muted-foreground mx-1">·</span>
+                                  <span className="capitalize">
+                                    {entry.action.replace(/_/g, ' ')}
+                                  </span>
+                                </p>
+                                {changedFields && changedFields.length > 0 && (
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    Changed: {changedFields.map(f => f.replace(/_/g, ' ')).join(', ')}
+                                  </p>
+                                )}
+                                <p className="text-muted-foreground text-xs mt-1">
+                                  {format(new Date(entry.created_at), 'MMM d, yyyy h:mm a')}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex-1">
-                              <p className="text-foreground">
-                                <span className="font-medium capitalize">
-                                  {entry.action.replace(/_/g, ' ')}
-                                </span>
-                              </p>
-                              <p className="text-muted-foreground text-xs">
-                                {format(new Date(entry.created_at), 'MMM d, yyyy h:mm a')}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </CardContent>
@@ -418,6 +493,14 @@ export default function ClaimDetail() {
             </Card>
           </div>
         </div>
+
+        {/* Edit Dialog */}
+        <ClaimEditDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          claim={claim}
+          onSave={handleRefetch}
+        />
       </div>
     </DashboardLayout>
   );
