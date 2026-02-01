@@ -247,8 +247,9 @@ export default function ShipmentDetail() {
       }
 
       // Fetch shipment items with full item details
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('shipment_items')
+      // Use simpler join syntax without explicit FK hints for better compatibility
+      const { data: itemsData, error: itemsError } = await (supabase
+        .from('shipment_items') as any)
         .select(`
           id,
           expected_description,
@@ -259,12 +260,12 @@ export default function ShipmentDetail() {
           actual_quantity,
           status,
           item_id,
-          expected_class:classes!shipment_items_expected_class_id_fkey(
+          expected_class:classes(
             id,
             code,
             name
           ),
-          item:items!shipment_items_item_id_fkey(
+          item:items(
             id,
             item_code,
             description,
@@ -272,8 +273,8 @@ export default function ShipmentDetail() {
             sidemark,
             room,
             class_id,
-            current_location:locations!items_current_location_id_fkey(code),
-            account:accounts!items_account_id_fkey(account_name),
+            current_location:locations(code),
+            account:accounts(account_name),
             class:classes(id, code, name)
           )
         `)
