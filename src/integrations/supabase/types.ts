@@ -7586,6 +7586,70 @@ export type Database = {
           },
         ]
       }
+      service_categories: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_system: boolean | null
+          name: string
+          sort_order: number | null
+          tenant_id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name: string
+          sort_order?: number | null
+          tenant_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name?: string
+          sort_order?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_categories_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_categories_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_events: {
         Row: {
           add_flag: boolean
@@ -7593,6 +7657,7 @@ export type Database = {
           alert_rule: string | null
           billing_trigger: string
           billing_unit: string
+          category_id: string | null
           class_code: string | null
           created_at: string | null
           id: string
@@ -7613,6 +7678,7 @@ export type Database = {
           alert_rule?: string | null
           billing_trigger?: string
           billing_unit?: string
+          category_id?: string | null
           class_code?: string | null
           created_at?: string | null
           id?: string
@@ -7633,6 +7699,7 @@ export type Database = {
           alert_rule?: string | null
           billing_trigger?: string
           billing_unit?: string
+          category_id?: string | null
           class_code?: string | null
           created_at?: string | null
           id?: string
@@ -7648,6 +7715,13 @@ export type Database = {
           uses_class_pricing?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "service_events_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "service_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "service_events_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -9209,48 +9283,67 @@ export type Database = {
       }
       task_types: {
         Row: {
+          allow_rate_override: boolean | null
           billing_service_code: string | null
+          category_id: string | null
           color: string | null
           created_at: string | null
+          default_service_code: string | null
           description: string | null
           icon: string | null
           id: string
           is_active: boolean | null
           is_system: boolean | null
           name: string
+          requires_items: boolean | null
           sort_order: number | null
           tenant_id: string
           updated_at: string | null
         }
         Insert: {
+          allow_rate_override?: boolean | null
           billing_service_code?: string | null
+          category_id?: string | null
           color?: string | null
           created_at?: string | null
+          default_service_code?: string | null
           description?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean | null
           is_system?: boolean | null
           name: string
+          requires_items?: boolean | null
           sort_order?: number | null
           tenant_id: string
           updated_at?: string | null
         }
         Update: {
+          allow_rate_override?: boolean | null
           billing_service_code?: string | null
+          category_id?: string | null
           color?: string | null
           created_at?: string | null
+          default_service_code?: string | null
           description?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean | null
           is_system?: boolean | null
           name?: string
+          requires_items?: boolean | null
           sort_order?: number | null
           tenant_id?: string
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "task_types_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "service_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "task_types_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -11698,6 +11791,10 @@ export type Database = {
         }
         Returns: string
       }
+      backfill_service_events_categories: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
       batch_move_items: {
         Args: {
           p_action_type?: string
@@ -12005,7 +12102,15 @@ export type Database = {
         Returns: undefined
       }
       seed_enhanced_flags: { Args: { p_tenant_id: string }; Returns: undefined }
+      seed_service_categories: {
+        Args: { p_created_by?: string; p_tenant_id: string }
+        Returns: undefined
+      }
       seed_service_events: { Args: { p_tenant_id: string }; Returns: undefined }
+      seed_service_events_with_categories: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
       seed_standard_roles: { Args: { p_tenant_id: string }; Returns: undefined }
       send_claim_for_acceptance: {
         Args: {
