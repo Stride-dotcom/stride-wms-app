@@ -45,6 +45,7 @@ import { IntegrationsSettingsTab } from '@/components/settings/IntegrationsSetti
 import { PromptsSettingsTab } from '@/components/settings/PromptsSettingsTab';
 import { TenantTemplatesTab } from '@/components/settings/TenantTemplatesTab';
 import { AuditLogTab } from '@/components/settings/AuditLogTab';
+import { QATestConsoleTab } from '@/components/settings/QATestConsoleTab';
 
 interface TenantInfo {
   id: string;
@@ -70,6 +71,7 @@ const TAB_OPTIONS = [
   { value: 'warehouses', label: 'Warehouses' },
   { value: 'locations', label: 'Locations' },
   { value: 'users', label: 'Users' },
+  { value: 'qa', label: 'QA Tests', adminOnly: true },
 ];
 
 export default function Settings() {
@@ -333,6 +335,7 @@ export default function Settings() {
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
+            {isAdmin && <TabsTrigger value="qa">QA Tests</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="profile">
@@ -518,6 +521,12 @@ export default function Settings() {
               />
             </div>
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="qa">
+              <QATestConsoleTab />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 
