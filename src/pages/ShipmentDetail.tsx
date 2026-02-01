@@ -851,6 +851,20 @@ export default function ShipmentDetail() {
         </Card>
       )}
 
+      {/* Billing Calculator - Full width at top right area */}
+      {canSeeBilling && shipment.account_id && (
+        <div className="flex justify-end mb-6">
+          <div className="w-full lg:w-1/3">
+            <BillingCalculator
+              shipmentId={shipment.id}
+              shipmentDirection={shipment.shipment_type as 'inbound' | 'outbound' | 'return'}
+              refreshKey={billingRefreshKey}
+              title="Billing Calculator"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Shipment Details */}
         <Card className="lg:col-span-2">
@@ -901,17 +915,7 @@ export default function ShipmentDetail() {
           </CardContent>
         </Card>
 
-        {/* Billing Charges - Manager/Admin Only */}
-        {canSeeBilling && shipment.account_id && (
-          <BillingCalculator
-            shipmentId={shipment.id}
-            shipmentDirection={shipment.shipment_type as 'inbound' | 'outbound' | 'return'}
-            refreshKey={billingRefreshKey}
-            title="Billing Calculator"
-          />
-        )}
-
-        {/* Quick Info */}
+        {/* Quick Info / Summary */}
         <Card>
           <CardHeader>
             <CardTitle>Summary</CardTitle>
