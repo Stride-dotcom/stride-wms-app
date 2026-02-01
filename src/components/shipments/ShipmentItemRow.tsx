@@ -122,6 +122,11 @@ export function ShipmentItemRow({
   const [loadingFlags, setLoadingFlags] = useState(false);
   const [updatingFlag, setUpdatingFlag] = useState<string | null>(null);
 
+  const normalizeLocationCode = (code?: string | null) =>
+    (code || '').toUpperCase().replace(/[_\s]+/g, '-');
+  const isOutboundDock = (code?: string | null) => normalizeLocationCode(code) === 'OUTBOUND-DOCK';
+  const isReleasedLocation = (code?: string | null) => ['RELEASED', 'RELEASE'].includes(normalizeLocationCode(code));
+
   // Get flag services from price list
   const { flagServiceEvents, getServiceRate, loading: serviceEventsLoading } = useServiceEvents();
 
@@ -542,9 +547,23 @@ export function ShipmentItemRow({
 
         {/* Location - read-only, only for received items */}
         <TableCell className="w-24">
-          <span className="text-sm">
-            {item.item?.current_location?.code || '-'}
-          </span>
+          {item.item?.current_location?.code ? (
+            <span
+              className={cn(
+                'text-sm font-medium',
+                isOutboundDock(item.item.current_location.code) && 'text-lg font-bold text-orange-500',
+                isReleasedLocation(item.item.current_location.code) && 'text-lg font-bold text-green-500'
+              )}
+            >
+              {isOutboundDock(item.item.current_location.code)
+                ? 'Outbound Dock'
+                : isReleasedLocation(item.item.current_location.code)
+                  ? 'Released'
+                  : item.item.current_location.code}
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">-</span>
+          )}
         </TableCell>
 
         {/* Class - editable for all inbound items with autocomplete */}
