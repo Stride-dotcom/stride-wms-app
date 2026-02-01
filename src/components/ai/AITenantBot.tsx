@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
-import { useClientPortalContext } from '@/hooks/useClientPortal';
 import { useToast } from '@/hooks/use-toast';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
@@ -17,9 +16,10 @@ interface Message {
 interface UIContext {
   route?: string;
   selected_item_ids?: string[];
+  selected_shipment_id?: string;
 }
 
-export function AIClientBot() {
+export function AITenantBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -27,22 +27,19 @@ export function AIClientBot() {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { profile } = useAuth();
-  const { portalUser, isClientPortalUser } = useClientPortalContext();
   const { toast } = useToast();
   const location = useLocation();
 
   // Dragging state
-  const [position, setPosition] = useState({ x: 24, y: 24 }); // bottom-right default
+  const [position, setPosition] = useState({ x: 24, y: 24 });
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null);
 
-  // Get current UI context for the chatbot
   const getUIContext = useCallback((): UIContext => {
     return {
       route: location.pathname,
-      // selected_item_ids could be passed via a context or URL params
-      // For now, we'll extract from URL if available
       selected_item_ids: undefined,
+      selected_shipment_id: undefined,
     };
   }, [location.pathname]);
 
@@ -79,7 +76,6 @@ export function AIClientBot() {
     dragRef.current = null;
   }, []);
 
-  // Add global event listeners for drag
   useEffect(() => {
     if (isDragging) {
       window.addEventListener('mousemove', handleDragMove);
@@ -95,7 +91,7 @@ export function AIClientBot() {
     };
   }, [isDragging, handleDragMove, handleDragEnd]);
 
-  const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/client-chat`;
+  const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tenant-chat`;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -107,11 +103,7 @@ export function AIClientBot() {
     if (!input.trim() || isLoading) return;
 
     const userContent = input.trim();
-
-    const userMessage: Message = {
-      role: 'user',
-      content: userContent,
-    };
+    const userMessage: Message = { role: 'user', content: userContent };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
@@ -119,13 +111,11 @@ export function AIClientBot() {
     let assistantContent = '';
 
     try {
-      // Build conversation history for context
       const conversationHistory = messages.map(m => ({
         role: m.role,
         content: m.content,
       }));
 
-      // Get UI context
       const uiContext = getUIContext();
 
       const response = await fetch(CHAT_URL, {
@@ -136,9 +126,7 @@ export function AIClientBot() {
         },
         body: JSON.stringify({
           message: userMessage.content,
-          // Use client portal context if available, otherwise fall back to profile
-          tenantId: isClientPortalUser ? portalUser?.tenant_id : profile?.tenant_id,
-          accountId: isClientPortalUser ? portalUser?.account_id : undefined,
+          tenantId: profile?.tenant_id,
           uiContext,
           conversationHistory,
         }),
@@ -147,7 +135,7 @@ export function AIClientBot() {
       if (response.status === 429) {
         toast({
           title: 'Rate Limited',
-          description: 'Too many requests. Please try again later.',
+          description: 'Too many requests. Try again shortly.',
           variant: 'destructive',
         });
         setIsLoading(false);
@@ -157,7 +145,7 @@ export function AIClientBot() {
       if (response.status === 402) {
         toast({
           title: 'Payment Required',
-          description: 'AI credits have been exhausted.',
+          description: 'AI credits exhausted.',
           variant: 'destructive',
         });
         setIsLoading(false);
@@ -172,7 +160,6 @@ export function AIClientBot() {
       const decoder = new TextDecoder();
       let textBuffer = '';
 
-      // Add initial assistant message
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
       while (true) {
@@ -214,16 +201,12 @@ export function AIClientBot() {
         }
       }
 
-      // Final update
       if (assistantContent) {
         setMessages(prev => {
           const newMessages = [...prev];
           const lastIdx = newMessages.length - 1;
           if (newMessages[lastIdx]?.role === 'assistant') {
-            newMessages[lastIdx] = {
-              ...newMessages[lastIdx],
-              content: assistantContent,
-            };
+            newMessages[lastIdx] = { ...newMessages[lastIdx], content: assistantContent };
           }
           return newMessages;
         });
@@ -232,10 +215,9 @@ export function AIClientBot() {
       console.error('Chat error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to get response. Please try again.',
+        description: 'Failed to get response. Try again.',
         variant: 'destructive',
       });
-      // Remove the empty assistant message if there was an error
       setMessages(prev => prev.filter((m, i) => !(i === prev.length - 1 && m.role === 'assistant' && !m.content)));
     } finally {
       setIsLoading(false);
@@ -249,25 +231,22 @@ export function AIClientBot() {
     }
   };
 
-  // Clear conversation
   const clearConversation = () => {
     setMessages([]);
   };
 
-  // Render message content with markdown-like formatting
   const renderMessageContent = (message: Message) => {
     if (!message.content) {
       return isLoading ? <MaterialIcon name="progress_activity" size="sm" className="animate-spin" /> : null;
     }
 
-    // Simple markdown rendering for bold text and lists
     const content = message.content;
     const lines = content.split('\n');
 
     return (
-      <div className="whitespace-pre-wrap">
+      <div className="whitespace-pre-wrap font-mono text-xs">
         {lines.map((line, idx) => {
-          // Bold text: **text**
+          // Bold text
           const boldRegex = /\*\*(.*?)\*\*/g;
           const parts: (string | JSX.Element)[] = [];
           let lastIndex = 0;
@@ -285,25 +264,24 @@ export function AIClientBot() {
             parts.push(line.slice(lastIndex));
           }
 
-          // Check if it's a list item
-          const isListItem = line.trim().startsWith('- ') || line.trim().startsWith('• ');
-          const listContent = isListItem ? line.replace(/^[\s]*[-•]\s*/, '') : null;
-
-          if (isListItem && listContent) {
+          // List items
+          const isListItem = line.trim().startsWith('- ') || line.trim().startsWith('* ');
+          if (isListItem) {
+            const listContent = line.replace(/^[\s]*[-*]\s*/, '');
             return (
-              <div key={idx} className="flex items-start gap-1">
-                <span className="text-muted-foreground">•</span>
+              <div key={idx} className="flex items-start gap-1 pl-2">
+                <span className="text-muted-foreground">-</span>
                 <span>{listContent}</span>
               </div>
             );
           }
 
-          // Check if it's a numbered item
+          // Numbered items
           const numberedMatch = line.trim().match(/^(\d+)\.\s+(.*)/);
           if (numberedMatch) {
             return (
-              <div key={idx} className="flex items-start gap-2">
-                <span className="font-medium min-w-[1.5rem]">{numberedMatch[1]}.</span>
+              <div key={idx} className="flex items-start gap-2 pl-2">
+                <span className="text-muted-foreground min-w-[1.25rem]">{numberedMatch[1]}.</span>
                 <span>{numberedMatch[2]}</span>
               </div>
             );
@@ -312,7 +290,6 @@ export function AIClientBot() {
           return (
             <div key={idx}>
               {parts.length > 0 ? parts : line}
-              {idx < lines.length - 1 && <br />}
             </div>
           );
         })}
@@ -326,33 +303,34 @@ export function AIClientBot() {
         onClick={() => !isDragging && setIsOpen(true)}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
-        className={`fixed h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center z-50 transition-shadow duration-200 ${
-          isDragging ? 'shadow-2xl scale-110 cursor-grabbing' : 'hover:shadow-xl cursor-grab'
+        className={`fixed h-12 w-12 rounded-full bg-slate-800 text-white shadow-lg flex items-center justify-center z-50 transition-shadow duration-200 ${
+          isDragging ? 'shadow-2xl scale-110 cursor-grabbing' : 'hover:shadow-xl hover:bg-slate-700 cursor-grab'
         }`}
         style={{
           right: position.x,
           bottom: position.y,
           transition: isDragging ? 'none' : 'box-shadow 0.2s, transform 0.2s',
         }}
+        title="Stride Ops Assistant"
       >
-        <MaterialIcon name="smart_toy" size="md" />
+        <MaterialIcon name="terminal" size="md" />
       </button>
     );
   }
 
   if (isMinimized) {
     return (
-      <Card className="fixed bottom-6 right-6 w-72 shadow-lg z-50">
+      <Card className="fixed bottom-6 right-6 w-72 shadow-lg z-50 bg-slate-900 border-slate-700">
         <CardHeader className="p-3 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-            <MaterialIcon name="smart_toy" size="md" className="text-primary" />
-            <CardTitle className="text-sm">Stride Helper</CardTitle>
+            <MaterialIcon name="terminal" size="md" className="text-green-400" />
+            <CardTitle className="text-sm text-slate-100">Ops Assistant</CardTitle>
           </div>
           <div className="flex gap-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMinimized(false)}>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-white" onClick={() => setIsMinimized(false)}>
               <MaterialIcon name="open_in_full" size="sm" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsOpen(false)}>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-white" onClick={() => setIsOpen(false)}>
               <MaterialIcon name="close" size="sm" />
             </Button>
           </div>
@@ -362,84 +340,63 @@ export function AIClientBot() {
   }
 
   return (
-    <Card className="fixed bottom-6 right-6 w-96 h-[520px] shadow-lg z-50 flex flex-col">
-      <CardHeader className="p-3 border-b flex flex-row items-center justify-between shrink-0">
+    <Card className="fixed bottom-6 right-6 w-[420px] h-[560px] shadow-lg z-50 flex flex-col bg-slate-900 border-slate-700">
+      <CardHeader className="p-3 border-b border-slate-700 flex flex-row items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <MaterialIcon name="smart_toy" size="md" className="text-primary" />
+          <MaterialIcon name="terminal" size="md" className="text-green-400" />
           <div>
-            <CardTitle className="text-sm">Stride Helper</CardTitle>
-            <p className="text-xs text-muted-foreground">Your friendly warehouse assistant</p>
+            <CardTitle className="text-sm text-slate-100">Ops Assistant</CardTitle>
+            <p className="text-xs text-slate-400">Warehouse operations</p>
           </div>
         </div>
         <div className="flex gap-1">
           {messages.length > 0 && (
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearConversation} title="Clear chat">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-white" onClick={clearConversation} title="Clear">
               <MaterialIcon name="delete_sweep" size="sm" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMinimized(true)}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-white" onClick={() => setIsMinimized(true)}>
             <MaterialIcon name="minimize" size="sm" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsOpen(false)}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-white" onClick={() => setIsOpen(false)}>
             <MaterialIcon name="close" size="sm" />
           </Button>
         </div>
       </CardHeader>
 
-      <ScrollArea ref={scrollRef} className="flex-1 p-4">
+      <ScrollArea ref={scrollRef} className="flex-1 p-4 bg-slate-950">
         {messages.length === 0 ? (
-          <div className="text-center text-muted-foreground py-6">
-            <MaterialIcon name="waving_hand" className="mx-auto mb-3 text-primary" style={{ fontSize: '40px' }} />
-            <p className="text-sm font-medium text-foreground mb-2">Hi there! I'm here to help.</p>
-            <p className="text-xs mb-4">Here are some things I can do:</p>
-            <div className="text-left space-y-2 text-xs bg-muted/50 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <MaterialIcon name="local_shipping" size="sm" className="text-primary mt-0.5" />
-                <span>"Did I get a Jones sofa yet?"</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <MaterialIcon name="inventory_2" size="sm" className="text-primary mt-0.5" />
-                <span>"Create a will call for my dining table"</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <MaterialIcon name="build" size="sm" className="text-primary mt-0.5" />
-                <span>"Request a repair quote for the blue sofa"</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <MaterialIcon name="swap_horiz" size="sm" className="text-primary mt-0.5" />
-                <span>"Move items from Job A to Job B"</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <MaterialIcon name="description" size="sm" className="text-primary mt-0.5" />
-                <span>"Show inspection reports"</span>
-              </div>
+          <div className="text-slate-400 py-6">
+            <p className="text-sm font-medium text-slate-200 mb-3">Stride Ops Assistant</p>
+            <p className="text-xs mb-4">Search inventory, manage tasks, validate shipments.</p>
+            <div className="space-y-2 text-xs font-mono bg-slate-900/50 rounded p-3 border border-slate-800">
+              <p className="text-slate-500"># Examples</p>
+              <p><span className="text-green-400">$</span> Where is item 12345?</p>
+              <p><span className="text-green-400">$</span> What's in shipment 45678?</p>
+              <p><span className="text-green-400">$</span> Create inspections for shipment SHP-99110</p>
+              <p><span className="text-green-400">$</span> Move item 3435678 to B1-04</p>
+              <p><span className="text-green-400">$</span> What's blocking outbound SHP-78901?</p>
+              <p><span className="text-green-400">$</span> Who moved item 998877 last?</p>
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex items-start gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
-              >
-                <div
-                  className={`p-2 rounded-full shrink-0 ${
-                    msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                  }`}
-                >
+              <div key={idx} className={`flex items-start gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                <div className={`p-1.5 rounded shrink-0 ${
+                  msg.role === 'user' ? 'bg-blue-600' : 'bg-slate-700'
+                }`}>
                   {msg.role === 'user' ? (
-                    <MaterialIcon name="person" size="sm" />
+                    <MaterialIcon name="person" size="sm" className="text-white" />
                   ) : (
-                    <MaterialIcon name="smart_toy" size="sm" />
+                    <MaterialIcon name="terminal" size="sm" className="text-green-400" />
                   )}
                 </div>
-                <div
-                  className={`rounded-lg p-3 max-w-[80%] text-sm ${
-                    msg.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
-                  }`}
-                >
+                <div className={`rounded p-2.5 max-w-[85%] ${
+                  msg.role === 'user'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-800 text-slate-100'
+                }`}>
                   {renderMessageContent(msg)}
                 </div>
               </div>
@@ -448,17 +405,22 @@ export function AIClientBot() {
         )}
       </ScrollArea>
 
-      <CardContent className="p-3 border-t shrink-0">
+      <CardContent className="p-3 border-t border-slate-700 shrink-0 bg-slate-900">
         <div className="flex gap-2">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask me anything..."
+            placeholder="Search, query, or command..."
             disabled={isLoading}
-            className="flex-1"
+            className="flex-1 bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500 font-mono text-sm"
           />
-          <Button onClick={sendMessage} disabled={isLoading || !input.trim()} size="icon">
+          <Button
+            onClick={sendMessage}
+            disabled={isLoading || !input.trim()}
+            size="icon"
+            className="bg-green-600 hover:bg-green-500"
+          >
             {isLoading ? (
               <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
             ) : (
