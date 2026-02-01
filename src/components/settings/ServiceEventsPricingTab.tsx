@@ -71,6 +71,7 @@ import {
   UpdateServiceEventInput,
 } from '@/hooks/useServiceEventsAdmin';
 import { useServiceEvents } from '@/hooks/useServiceEvents';
+import { useServiceCategories } from '@/hooks/useServiceCategories';
 import { AddServiceDialog } from './AddServiceDialog';
 import { CSVImportServiceDialog } from './CSVImportServiceDialog';
 import { ServiceAuditDialog } from './ServiceAuditDialog';
@@ -95,6 +96,7 @@ interface ColumnConfig {
 const ALL_COLUMNS: ColumnConfig[] = [
   { key: 'service_code', label: 'Service Code', defaultVisible: true, sortable: true, sortKey: 'service_code' },
   { key: 'service_name', label: 'Service Name', defaultVisible: true, sortable: true, sortKey: 'service_name' },
+  { key: 'category', label: 'Category', defaultVisible: true },
   { key: 'class_code', label: 'Class', defaultVisible: true, sortable: true, sortKey: 'class_code' },
   { key: 'billing_unit', label: 'Billing Unit', defaultVisible: true, sortable: true, sortKey: 'billing_unit' },
   { key: 'rate', label: 'Rate', defaultVisible: true, sortable: true, sortKey: 'rate' },
@@ -139,6 +141,9 @@ export function ServiceEventsPricingTab() {
 
   // Get seed function from useServiceEvents
   const { seedServiceEvents } = useServiceEvents();
+
+  // Get categories for display and editing
+  const { activeCategories, getCategoryName, loading: categoriesLoading } = useServiceCategories();
 
   // UI State
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -595,6 +600,23 @@ export function ServiceEventsPricingTab() {
               </SelectContent>
             </Select>
 
+            {/* Category Filter */}
+            <Select
+              value={filters.category_id || 'all'}
+              onValueChange={(value) => setFilters({ ...filters, category_id: value === 'all' ? undefined : value })}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="uncategorized">Uncategorized</SelectItem>
+                {activeCategories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             {/* Billing Trigger Filter */}
             <Select
               value={filters.billing_trigger || 'all'}
@@ -644,7 +666,7 @@ export function ServiceEventsPricingTab() {
             </Select>
 
             {/* Clear Filters */}
-            {(filters.search || filters.service_code || filters.billing_trigger || filters.class_code || filters.is_active !== undefined) && (
+            {(filters.search || filters.service_code || filters.category_id || filters.billing_trigger || filters.class_code || filters.is_active !== undefined) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -690,6 +712,8 @@ export function ServiceEventsPricingTab() {
                 onDuplicate={() => handleDuplicate(event)}
                 onDelete={() => setDeleteConfirm({ id: event.id, name: event.service_name, deleteAll: false })}
                 saving={saving}
+                categories={activeCategories}
+                getCategoryName={getCategoryName}
               />
             ))}
           </div>
@@ -727,6 +751,8 @@ export function ServiceEventsPricingTab() {
                     onDuplicate={() => handleDuplicate(event)}
                     onDelete={() => setDeleteConfirm({ id: event.id, name: event.service_name, deleteAll: false })}
                     saving={saving}
+                    categories={activeCategories}
+                    getCategoryName={getCategoryName}
                   />
                 ))}
               </TableBody>
@@ -738,12 +764,12 @@ export function ServiceEventsPricingTab() {
               <MaterialIcon name="info" size="lg" className="mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No services found</h3>
               <p className="text-muted-foreground mb-4">
-                {filters.search || filters.service_code || filters.billing_trigger || filters.class_code || filters.is_active !== undefined
+                {filters.search || filters.service_code || filters.category_id || filters.billing_trigger || filters.class_code || filters.is_active !== undefined
                   ? 'Try adjusting your filters'
                   : 'Load the standard price list or add services manually'}
               </p>
               <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                {!(filters.search || filters.service_code || filters.billing_trigger || filters.class_code || filters.is_active !== undefined) && (
+                {!(filters.search || filters.service_code || filters.category_id || filters.billing_trigger || filters.class_code || filters.is_active !== undefined) && (
                   <Button onClick={handleSeedPricing} disabled={seeding}>
                     {seeding ? (
                       <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
@@ -917,6 +943,8 @@ interface ServiceEventRowProps {
   onDuplicate: () => void;
   onDelete: () => void;
   saving: boolean;
+  categories: Array<{ id: string; name: string }>;
+  getCategoryName: (id: string | null) => string;
 }
 
 function ServiceEventRow({
@@ -931,6 +959,8 @@ function ServiceEventRow({
   onDuplicate,
   onDelete,
   saving,
+  categories,
+  getCategoryName,
 }: ServiceEventRowProps) {
   const isActive = getCurrentValue(event, 'is_active');
 
@@ -977,6 +1007,8 @@ function ServiceEventRow({
               getCurrentValue={getCurrentValue}
               updatePendingChange={updatePendingChange}
               saving={saving}
+              categories={categories}
+              getCategoryName={getCategoryName}
             />
           </TableCell>
         ))}
@@ -1032,6 +1064,8 @@ function ServiceEventRow({
               hasFieldChanged={hasFieldChanged}
               updatePendingChange={updatePendingChange}
               saving={saving}
+              categories={categories}
+              getCategoryName={getCategoryName}
             />
           </TableCell>
         </TableRow>
@@ -1050,9 +1084,11 @@ interface ExpandedDetailsProps {
   hasFieldChanged: (event: ServiceEvent, field: keyof ServiceEvent) => boolean;
   updatePendingChange: (id: string, field: string, value: any) => void;
   saving: boolean;
+  categories: Array<{ id: string; name: string }>;
+  getCategoryName: (id: string | null) => string;
 }
 
-function ExpandedDetails({ event, getCurrentValue, hasFieldChanged, updatePendingChange, saving }: ExpandedDetailsProps) {
+function ExpandedDetails({ event, getCurrentValue, hasFieldChanged, updatePendingChange, saving, categories, getCategoryName }: ExpandedDetailsProps) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-4">
       {ALL_COLUMNS.map(col => (
@@ -1069,6 +1105,8 @@ function ExpandedDetails({ event, getCurrentValue, hasFieldChanged, updatePendin
               updatePendingChange={updatePendingChange}
               saving={saving}
               showLabel={false}
+              categories={categories}
+              getCategoryName={getCategoryName}
             />
           </div>
         </div>
@@ -1088,9 +1126,11 @@ interface InlineEditCellProps {
   updatePendingChange: (id: string, field: string, value: any) => void;
   saving: boolean;
   showLabel?: boolean;
+  categories?: Array<{ id: string; name: string }>;
+  getCategoryName?: (id: string | null) => string;
 }
 
-function InlineEditCell({ event, field, getCurrentValue, updatePendingChange, saving, showLabel = true }: InlineEditCellProps) {
+function InlineEditCell({ event, field, getCurrentValue, updatePendingChange, saving, showLabel = true, categories = [], getCategoryName }: InlineEditCellProps) {
   const value = getCurrentValue(event, field as keyof ServiceEvent);
 
   // Boolean fields
@@ -1209,6 +1249,34 @@ function InlineEditCell({ event, field, getCurrentValue, updatePendingChange, sa
     return <Badge variant="outline" className="font-mono">{value}</Badge>;
   }
 
+  // Category - editable dropdown
+  if (field === 'category') {
+    const categoryId = getCurrentValue(event, 'category_id' as keyof ServiceEvent);
+    const categoryName = getCategoryName ? getCategoryName(categoryId) : '';
+
+    return (
+      <Select
+        value={categoryId || 'none'}
+        onValueChange={(val) => updatePendingChange(event.id, 'category_id', val === 'none' ? null : val)}
+        disabled={saving}
+      >
+        <SelectTrigger className="w-36 h-8">
+          <SelectValue placeholder="Select...">
+            {categoryId ? categoryName : <span className="text-muted-foreground">None</span>}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">
+            <span className="text-muted-foreground">None</span>
+          </SelectItem>
+          {categories.map(cat => (
+            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
   // Service name - editable text
   if (field === 'service_name') {
     return (
@@ -1253,6 +1321,8 @@ interface MobileServiceCardProps {
   onDuplicate: () => void;
   onDelete: () => void;
   saving: boolean;
+  categories: Array<{ id: string; name: string }>;
+  getCategoryName: (id: string | null) => string;
 }
 
 function MobileServiceCard({
@@ -1266,6 +1336,8 @@ function MobileServiceCard({
   onDuplicate,
   onDelete,
   saving,
+  categories,
+  getCategoryName,
 }: MobileServiceCardProps) {
   const isActive = getCurrentValue(event, 'is_active');
 
@@ -1327,6 +1399,8 @@ function MobileServiceCard({
                   getCurrentValue={getCurrentValue}
                   updatePendingChange={updatePendingChange}
                   saving={saving}
+                  categories={categories}
+                  getCategoryName={getCategoryName}
                 />
               </div>
             ))}
