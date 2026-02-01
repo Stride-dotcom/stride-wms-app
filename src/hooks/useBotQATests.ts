@@ -74,7 +74,7 @@ export function useBotQATests() {
           executed_by_user:users!qa_test_runs_executed_by_fkey(first_name, last_name, email)
         `)
         .eq('tenant_id', profile.tenant_id)
-        .contains('suites_requested', ['bot_tool_level', 'bot_conversation'])
+        .eq('mode', 'bot_qa')
         .order('started_at', { ascending: false })
         .limit(50);
 
