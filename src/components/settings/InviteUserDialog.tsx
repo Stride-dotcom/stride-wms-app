@@ -28,17 +28,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Role } from '@/hooks/useUsers';
+import { PromptLevel } from '@/types/guidedPrompts';
 
 const inviteSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   first_name: z.string().optional(),
   last_name: z.string().optional(),
   role_id: z.string().min(1, 'Please select a role'),
+  prompt_level: z.enum(['training', 'standard', 'advanced']),
+  is_employee: z.boolean(),
+  labor_rate: z.number().min(0).nullable(),
 });
 
 type InviteFormData = z.infer<typeof inviteSchema>;
@@ -49,6 +55,21 @@ interface InviteUserDialogProps {
   roles: Role[];
   onSuccess: () => void;
 }
+
+const PROMPT_LEVEL_INFO: Record<PromptLevel, { label: string; description: string }> = {
+  training: {
+    label: 'Training',
+    description: 'All prompts shown - best for new employees',
+  },
+  standard: {
+    label: 'Standard',
+    description: 'Warning and blocking prompts only',
+  },
+  advanced: {
+    label: 'Advanced',
+    description: 'Blocking prompts only - for experienced staff',
+  },
+};
 
 export function InviteUserDialog({
   open,
@@ -67,8 +88,13 @@ export function InviteUserDialog({
       first_name: '',
       last_name: '',
       role_id: '',
+      prompt_level: 'training',
+      is_employee: false,
+      labor_rate: null,
     },
   });
+
+  const isEmployee = form.watch('is_employee');
 
   const onSubmit = async (data: InviteFormData) => {
     if (!profile?.tenant_id || !profile?.id) return;
@@ -94,7 +120,6 @@ export function InviteUserDialog({
       }
 
       // Create a pending user record
-      // Note: password_hash is set to a placeholder - actual auth is handled by Supabase Auth
       const { data: newUser, error: userError } = await supabase
         .from('users')
         .insert({
@@ -103,7 +128,8 @@ export function InviteUserDialog({
           last_name: data.last_name || null,
           tenant_id: profile.tenant_id,
           status: 'pending',
-          password_hash: 'PENDING_INVITE', // Placeholder - actual auth via Supabase Auth
+          password_hash: 'PENDING_INVITE',
+          labor_rate: data.is_employee ? data.labor_rate : null,
         })
         .select()
         .single();
@@ -120,6 +146,20 @@ export function InviteUserDialog({
         });
 
       if (roleError) throw roleError;
+
+      // Create prompt settings
+      const { error: promptError } = await supabase
+        .from('user_prompt_settings')
+        .insert({
+          user_id: newUser.id,
+          tenant_id: profile.tenant_id,
+          prompt_level: data.prompt_level,
+        });
+
+      if (promptError) {
+        console.error('Error creating prompt settings:', promptError);
+        // Don't fail the whole operation
+      }
 
       toast({
         title: 'Invitation sent',
@@ -142,11 +182,11 @@ export function InviteUserDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MaterialIcon name="person_add" size="md" />
-            Invite User
+            Add User
           </DialogTitle>
           <DialogDescription>
             Add a new user to your organization. They will receive access when they sign up.
@@ -164,10 +204,10 @@ export function InviteUserDialog({
                   <FormControl>
                     <div className="relative">
                       <MaterialIcon name="mail" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                      <Input 
-                        placeholder="user@example.com" 
+                      <Input
+                        placeholder="user@example.com"
                         className="pl-9"
-                        {...field} 
+                        {...field}
                       />
                     </div>
                   </FormControl>
@@ -206,50 +246,127 @@ export function InviteUserDialog({
               />
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="role_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role *</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!roles || roles.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={!roles || roles.length === 0 ? "Loading roles..." : "Select a role"} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {(!roles || roles.length === 0) ? (
+                          <SelectItem value="__loading__" disabled>
+                            No roles available
+                          </SelectItem>
+                        ) : (
+                          roles.map((role) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              <span className="capitalize">{role.name}</span>
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="prompt_level"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Prompt Level</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select level" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {(Object.keys(PROMPT_LEVEL_INFO) as PromptLevel[]).map((level) => (
+                          <SelectItem key={level} value={level}>
+                            {PROMPT_LEVEL_INFO[level].label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription className="text-xs">
+                      {PROMPT_LEVEL_INFO[field.value]?.description}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <Separator />
+
+            {/* Employee Section */}
             <FormField
               control={form.control}
-              name="role_id"
+              name="is_employee"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Role *</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={!roles || roles.length === 0}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={!roles || roles.length === 0 ? "Loading roles..." : "Select a role"} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {(!roles || roles.length === 0) ? (
-                        <SelectItem value="__loading__" disabled>
-                          No roles available
-                        </SelectItem>
-                      ) : (
-                        roles.map((role) => (
-                          <SelectItem key={role.id} value={role.id}>
-                            <div className="flex flex-col">
-                              <span className="font-medium capitalize">{role.name}</span>
-                              {role.description && (
-                                <span className="text-xs text-muted-foreground">
-                                  {role.description}
-                                </span>
-                              )}
-                            </div>
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    This determines what the user can access
-                  </FormDescription>
-                  <FormMessage />
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Employee</FormLabel>
+                    <FormDescription>
+                      Track labor costs for this user
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />
+
+            {isEmployee && (
+              <FormField
+                control={form.control}
+                name="labor_rate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Hourly Rate ($)</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <MaterialIcon name="attach_money" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          className="pl-9"
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      Used for labor cost calculations in reports
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <DialogFooter className="pt-4">
               <Button

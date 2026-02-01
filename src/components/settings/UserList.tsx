@@ -35,6 +35,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -46,6 +52,7 @@ import {
   MobileDataCardContent,
   MobileDataCardActions,
 } from '@/components/ui/mobile-data-card';
+import { PromptLevel } from '@/types/guidedPrompts';
 
 interface UserListProps {
   users: UserWithRoles[];
@@ -163,6 +170,55 @@ export function UserList({
         return <Badge variant="destructive">Suspended</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const getPromptLevelBadge = (level?: PromptLevel) => {
+    switch (level) {
+      case 'training':
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="border-blue-500 text-blue-600">
+                  <MaterialIcon name="school" size="sm" className="mr-1" />
+                  Training
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>All prompts shown</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      case 'standard':
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="border-amber-500 text-amber-600">
+                  <MaterialIcon name="verified_user" size="sm" className="mr-1" />
+                  Standard
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>Warning & blocking prompts only</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      case 'advanced':
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="border-green-500 text-green-600">
+                  <MaterialIcon name="workspace_premium" size="sm" className="mr-1" />
+                  Advanced
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>Blocking prompts only</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      default:
+        return null;
     }
   };
 
@@ -301,6 +357,7 @@ export function UserList({
                       ) : (
                         <span className="text-muted-foreground text-sm">No roles</span>
                       )}
+                      {user.prompt_level && getPromptLevelBadge(user.prompt_level)}
                     </div>
                   </MobileDataCardContent>
                   <MobileDataCardActions>
@@ -328,6 +385,7 @@ export function UserList({
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Roles</TableHead>
+                <TableHead>Prompt Level</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[70px]"></TableHead>
               </TableRow>
@@ -360,6 +418,7 @@ export function UserList({
                       )}
                     </div>
                   </TableCell>
+                  <TableCell>{getPromptLevelBadge(user.prompt_level)}</TableCell>
                   <TableCell>{getStatusBadge(user.status)}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>

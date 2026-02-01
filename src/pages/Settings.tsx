@@ -33,7 +33,7 @@ import { UserList } from '@/components/settings/UserList';
 import { UserDialog } from '@/components/settings/UserDialog';
 import { InviteUserDialog } from '@/components/settings/InviteUserDialog';
 // Removed: ItemTypesSettingsTab, RateSheetsSettingsTab, BillableServicesSettingsTab - using unified service_events pricing
-import { EmployeesSettingsTab } from '@/components/settings/EmployeesSettingsTab';
+// Removed: EmployeesSettingsTab - employee functionality consolidated into Users tab
 import { OrganizationSettingsTab } from '@/components/settings/OrganizationSettingsTab';
 import { SidemarksSettingsTab } from '@/components/settings/SidemarksSettingsTab';
 import { ServiceEventsPricingTab } from '@/components/settings/ServiceEventsPricingTab';
@@ -53,7 +53,6 @@ interface TenantInfo {
 const TAB_OPTIONS = [
   { value: 'profile', label: 'Profile' },
   { value: 'organization', label: 'Organization' },
-  { value: 'employees', label: 'Employees' },
   { value: 'alerts', label: 'Alerts' },
   { value: 'prompts', label: 'Prompts', adminOnly: true },
   { value: 'labor', label: 'Labor', adminOnly: true },
@@ -61,6 +60,7 @@ const TAB_OPTIONS = [
   { value: 'integrations', label: 'Integrations', adminOnly: true },
   { value: 'sidemarks', label: 'Sidemarks' },
   // Removed: Services, Rate Sheets, Classes tabs - now using unified service_events pricing system
+  // Removed: Employees tab - consolidated into Users tab
   { value: 'warehouses', label: 'Warehouses' },
   { value: 'locations', label: 'Locations' },
   { value: 'users', label: 'Users' },
@@ -102,14 +102,17 @@ export default function Settings() {
   const { locations, loading: locationsLoading, refetch: refetchLocations } = useLocations(
     selectedWarehouse === 'all' ? undefined : selectedWarehouse
   );
-  const { 
-    users, 
-    roles, 
-    loading: usersLoading, 
-    refetch: refetchUsers, 
-    deleteUser, 
-    assignRole, 
-    removeRole 
+  const {
+    users,
+    roles,
+    loading: usersLoading,
+    refetch: refetchUsers,
+    deleteUser,
+    assignRole,
+    removeRole,
+    updatePromptLevel,
+    resendInvite,
+    revokeAccess,
   } = useUsers();
   const { hasRole } = usePermissions();
   const isAdmin = hasRole('admin') || hasRole('tenant_admin');
@@ -312,7 +315,6 @@ export default function Settings() {
           <TabsList className="hidden sm:flex flex-wrap h-auto gap-1">
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="organization">Organization</TabsTrigger>
-            <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
             {isAdmin && <TabsTrigger value="prompts">Prompts</TabsTrigger>}
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
@@ -383,11 +385,6 @@ export default function Settings() {
           <TabsContent value="organization">
             <OrganizationSettingsTab />
           </TabsContent>
-
-          <TabsContent value="employees">
-            <EmployeesSettingsTab />
-          </TabsContent>
-
 
           <TabsContent value="alerts">
             <AlertsSettingsTab />
@@ -548,6 +545,9 @@ export default function Settings() {
         }}
         onAssignRole={assignRole}
         onRemoveRole={removeRole}
+        onUpdatePromptLevel={updatePromptLevel}
+        onResendInvite={resendInvite}
+        onRevokeAccess={revokeAccess}
       />
 
       {/* Invite User Dialog */}
