@@ -506,14 +506,34 @@ serve(async (req) => {
       );
     }
 
-    // Get user profile and check role
+    // Get user profile
     const { data: profile } = await supabase
       .from("users")
-      .select("id, tenant_id, role")
+      .select("id, tenant_id")
       .eq("id", user.id)
       .single();
 
-    if (!profile || profile.role !== 'tenant_admin') {
+    if (!profile) {
+      return new Response(
+        JSON.stringify({ error: "User profile not found" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check admin role via user_roles table
+    const { data: userRoles } = await supabase
+      .from("user_roles")
+      .select(`
+        role_id,
+        roles (name)
+      `)
+      .eq("user_id", user.id)
+      .is("deleted_at", null);
+
+    const roleNames = (userRoles || []).map((ur: any) => ur.roles?.name?.toLowerCase());
+    const isAdmin = roleNames.includes('admin') || roleNames.includes('tenant_admin');
+
+    if (!isAdmin) {
       return new Response(
         JSON.stringify({ error: "Admin access required" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
