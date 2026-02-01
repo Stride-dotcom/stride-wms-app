@@ -64,6 +64,7 @@ interface ShipmentItem {
     class_id: string | null;
     current_location?: { code: string } | null;
     account?: { account_name: string } | null;
+    class?: { id: string; code: string; name: string } | null;
   } | null;
 }
 
@@ -226,7 +227,8 @@ export default function ShipmentDetail() {
             room,
             class_id,
             current_location:locations!items_current_location_id_fkey(code),
-            account:accounts!items_account_id_fkey(account_name)
+            account:accounts!items_account_id_fkey(account_name),
+            class:classes!items_class_id_fkey(id, code, name)
           )
         `)
         .eq('shipment_id', id)
