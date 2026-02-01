@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -165,14 +165,21 @@ export function useGuidedPrompts() {
     }
   }, []);
 
-  // Initialize on mount
+  // Initialize on mount - track the tenant/user combo we've initialized for
+  const initializedForRef = useRef<string | null>(null);
   useEffect(() => {
+    const tenantUserId = profile?.tenant_id && profile?.id 
+      ? `${profile.tenant_id}:${profile.id}` 
+      : null;
+    
+    // Skip if no profile yet, or if we've already initialized for this tenant/user
+    if (!tenantUserId || initializedForRef.current === tenantUserId) {
+      if (!tenantUserId) setIsLoading(false);
+      return;
+    }
+    
     const init = async () => {
-      if (!profile?.tenant_id || !profile?.id) {
-        setIsLoading(false);
-        return;
-      }
-
+      initializedForRef.current = tenantUserId;
       setIsLoading(true);
       try {
         await seedPromptsIfMissing(profile.tenant_id);

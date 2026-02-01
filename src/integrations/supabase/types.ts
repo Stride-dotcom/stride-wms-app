@@ -3694,6 +3694,99 @@ export type Database = {
           },
         ]
       }
+      guided_prompts: {
+        Row: {
+          archived_at: string | null
+          base_prompt_id: string | null
+          buttons: Json | null
+          checklist_items: Json | null
+          conditions: Json | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          message: string
+          min_level: string
+          prompt_key: string
+          prompt_type: string
+          published_at: string | null
+          requires_confirmation: boolean | null
+          severity: string
+          sort_order: number | null
+          tenant_id: string | null
+          tip_text: string | null
+          title: string
+          trigger_point: string
+          updated_at: string | null
+          version: number | null
+          workflow: string
+        }
+        Insert: {
+          archived_at?: string | null
+          base_prompt_id?: string | null
+          buttons?: Json | null
+          checklist_items?: Json | null
+          conditions?: Json | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          message: string
+          min_level?: string
+          prompt_key: string
+          prompt_type: string
+          published_at?: string | null
+          requires_confirmation?: boolean | null
+          severity?: string
+          sort_order?: number | null
+          tenant_id?: string | null
+          tip_text?: string | null
+          title: string
+          trigger_point: string
+          updated_at?: string | null
+          version?: number | null
+          workflow: string
+        }
+        Update: {
+          archived_at?: string | null
+          base_prompt_id?: string | null
+          buttons?: Json | null
+          checklist_items?: Json | null
+          conditions?: Json | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          message?: string
+          min_level?: string
+          prompt_key?: string
+          prompt_type?: string
+          published_at?: string | null
+          requires_confirmation?: boolean | null
+          severity?: string
+          sort_order?: number | null
+          tenant_id?: string | null
+          tip_text?: string | null
+          title?: string
+          trigger_point?: string
+          updated_at?: string | null
+          version?: number | null
+          workflow?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guided_prompts_base_prompt_id_fkey"
+            columns: ["base_prompt_id"]
+            isOneToOne: false
+            referencedRelation: "guided_prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guided_prompts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       in_app_notifications: {
         Row: {
           action_url: string | null
@@ -5836,6 +5929,218 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prompt_acknowledgments: {
+        Row: {
+          acknowledged_at: string | null
+          checklist_state: Json | null
+          context_id: string | null
+          context_type: string | null
+          created_at: string | null
+          id: string
+          prompt_id: string
+          snoozed_until: string | null
+          status: string | null
+          tenant_id: string
+          user_id: string
+          was_confirmed: boolean | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          checklist_state?: Json | null
+          context_id?: string | null
+          context_type?: string | null
+          created_at?: string | null
+          id?: string
+          prompt_id: string
+          snoozed_until?: string | null
+          status?: string | null
+          tenant_id: string
+          user_id: string
+          was_confirmed?: boolean | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          checklist_state?: Json | null
+          context_id?: string | null
+          context_type?: string | null
+          created_at?: string | null
+          id?: string
+          prompt_id?: string
+          snoozed_until?: string | null
+          status?: string | null
+          tenant_id?: string
+          user_id?: string
+          was_confirmed?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_acknowledgments_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "guided_prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prompt_acknowledgments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prompt_acknowledgments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prompt_competency_tracking: {
+        Row: {
+          blocked_action_count: number | null
+          created_at: string | null
+          failed_completions_count: number | null
+          id: string
+          last_task_completed_at: string | null
+          location_errors_count: number | null
+          missing_photos_count: number | null
+          prompts_confirmed_count: number | null
+          prompts_shown_count: number | null
+          qualified_at: string | null
+          qualifies_for_upgrade: boolean | null
+          tasks_completed: number | null
+          tasks_with_errors: number | null
+          tenant_id: string
+          updated_at: string | null
+          user_id: string
+          workflow: string
+        }
+        Insert: {
+          blocked_action_count?: number | null
+          created_at?: string | null
+          failed_completions_count?: number | null
+          id?: string
+          last_task_completed_at?: string | null
+          location_errors_count?: number | null
+          missing_photos_count?: number | null
+          prompts_confirmed_count?: number | null
+          prompts_shown_count?: number | null
+          qualified_at?: string | null
+          qualifies_for_upgrade?: boolean | null
+          tasks_completed?: number | null
+          tasks_with_errors?: number | null
+          tenant_id: string
+          updated_at?: string | null
+          user_id: string
+          workflow: string
+        }
+        Update: {
+          blocked_action_count?: number | null
+          created_at?: string | null
+          failed_completions_count?: number | null
+          id?: string
+          last_task_completed_at?: string | null
+          location_errors_count?: number | null
+          missing_photos_count?: number | null
+          prompts_confirmed_count?: number | null
+          prompts_shown_count?: number | null
+          qualified_at?: string | null
+          qualifies_for_upgrade?: boolean | null
+          tasks_completed?: number | null
+          tasks_with_errors?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+          user_id?: string
+          workflow?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_competency_tracking_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prompt_competency_tracking_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prompt_upgrade_suggestions: {
+        Row: {
+          created_at: string | null
+          current_level: string
+          id: string
+          manager_notified_at: string | null
+          qualified_workflows: Json | null
+          reason: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string | null
+          suggested_level: string
+          tenant_id: string
+          user_id: string
+          user_notified_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_level: string
+          id?: string
+          manager_notified_at?: string | null
+          qualified_workflows?: Json | null
+          reason: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string | null
+          suggested_level: string
+          tenant_id: string
+          user_id: string
+          user_notified_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_level?: string
+          id?: string
+          manager_notified_at?: string | null
+          qualified_workflows?: Json | null
+          reason?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string | null
+          suggested_level?: string
+          tenant_id?: string
+          user_id?: string
+          user_notified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_upgrade_suggestions_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prompt_upgrade_suggestions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prompt_upgrade_suggestions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -9781,6 +10086,56 @@ export type Database = {
           },
         ]
       }
+      tenant_prompt_defaults: {
+        Row: {
+          auto_suggestion_enabled: boolean | null
+          competency_max_errors: number | null
+          competency_max_location_errors: number | null
+          competency_max_missing_photos: number | null
+          competency_tasks_required: number | null
+          created_at: string | null
+          default_prompt_level: string | null
+          default_reminder_days: number | null
+          id: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          auto_suggestion_enabled?: boolean | null
+          competency_max_errors?: number | null
+          competency_max_location_errors?: number | null
+          competency_max_missing_photos?: number | null
+          competency_tasks_required?: number | null
+          created_at?: string | null
+          default_prompt_level?: string | null
+          default_reminder_days?: number | null
+          id?: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          auto_suggestion_enabled?: boolean | null
+          competency_max_errors?: number | null
+          competency_max_location_errors?: number | null
+          competency_max_missing_photos?: number | null
+          competency_tasks_required?: number | null
+          created_at?: string | null
+          default_prompt_level?: string | null
+          default_reminder_days?: number | null
+          id?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_prompt_defaults_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_settings: {
         Row: {
           default_currency: string | null
@@ -10040,6 +10395,97 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "user_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_prompt_dismissals: {
+        Row: {
+          dismissed_at: string
+          id: string
+          prompt_id: string
+          snooze_until: string | null
+          user_id: string
+        }
+        Insert: {
+          dismissed_at?: string
+          id?: string
+          prompt_id: string
+          snooze_until?: string | null
+          user_id: string
+        }
+        Update: {
+          dismissed_at?: string
+          id?: string
+          prompt_id?: string
+          snooze_until?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_prompt_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          manager_notified_for_upgrade: boolean | null
+          prompt_level: string
+          prompt_reminder_days: number | null
+          prompts_enabled_at: string | null
+          reminder_sent_at: string | null
+          tenant_id: string
+          updated_at: string | null
+          updated_by: string | null
+          user_id: string
+          user_notified_for_upgrade: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          manager_notified_for_upgrade?: boolean | null
+          prompt_level?: string
+          prompt_reminder_days?: number | null
+          prompts_enabled_at?: string | null
+          reminder_sent_at?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+          user_id: string
+          user_notified_for_upgrade?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          manager_notified_for_upgrade?: boolean | null
+          prompt_level?: string
+          prompt_reminder_days?: number | null
+          prompts_enabled_at?: string | null
+          reminder_sent_at?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          user_id?: string
+          user_notified_for_upgrade?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_prompt_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_prompt_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_prompt_settings_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -11320,6 +11766,10 @@ export type Database = {
         }[]
       }
       can_access_document: { Args: { doc_id: string }; Returns: boolean }
+      can_complete_workflow: {
+        Args: { p_entity_id: string; p_entity_type: string; p_workflow: string }
+        Returns: boolean
+      }
       cancel_manifest: {
         Args: { p_manifest_id: string; p_reason?: string; p_user_id: string }
         Returns: {
@@ -11591,6 +12041,21 @@ export type Database = {
         Returns: boolean
       }
       user_tenant_id: { Args: never; Returns: string }
+      validate_workflow_completion: {
+        Args: {
+          p_entity_id: string
+          p_entity_type: string
+          p_user_id?: string
+          p_workflow: string
+        }
+        Returns: {
+          is_blocking: boolean
+          message: string
+          prompt_key: string
+          severity: string
+          title: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "warehouse" | "client_user"
@@ -11614,6 +12079,7 @@ export type Database = {
         | "other"
       coverage_type: "standard" | "enhanced" | "full" | "pending"
       discount_type: "percentage" | "flat_rate"
+      experience_level: "new" | "learning" | "experienced"
       expiration_type: "none" | "date"
       invoice_mode: "standard" | "rolling" | "manual"
       invoice_status:
@@ -11849,6 +12315,7 @@ export const Constants = {
       ],
       coverage_type: ["standard", "enhanced", "full", "pending"],
       discount_type: ["percentage", "flat_rate"],
+      experience_level: ["new", "learning", "experienced"],
       expiration_type: ["none", "date"],
       invoice_mode: ["standard", "rolling", "manual"],
       invoice_status: [

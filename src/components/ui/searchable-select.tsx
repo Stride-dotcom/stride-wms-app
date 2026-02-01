@@ -113,10 +113,23 @@ export function SearchableSelect({
   const triggerRef = React.useRef<HTMLButtonElement>(null);
 
   // Get recent selections if key provided
+  // Track open state changes to trigger refresh only when opening
+  const [recentRefreshKey, setRecentRefreshKey] = React.useState(0);
+  const wasOpenRef = React.useRef(false);
+  
+  React.useEffect(() => {
+    // Only increment key when transitioning from closed to open
+    if (open && !wasOpenRef.current) {
+      setRecentRefreshKey(k => k + 1);
+    }
+    wasOpenRef.current = open;
+  }, [open]);
+  
   const recentValues = React.useMemo(() => {
     if (!recentKey) return [];
     return getRecentSelections(recentKey);
-  }, [recentKey, open]); // Refresh when popover opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recentKey, recentRefreshKey]);
 
   // Filter options based on search
   const filteredOptions = React.useMemo(() => {

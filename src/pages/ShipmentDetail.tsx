@@ -243,7 +243,10 @@ export default function ShipmentDetail() {
   }, [rawStartSession, promptContext, id]);
 
   // Wrapped finishSession with prompt trigger and competency tracking
-  const finishSession = useCallback(async () => {
+  const finishSession = useCallback(async (
+    verificationData: Parameters<typeof rawFinishSession>[0],
+    createItems?: Parameters<typeof rawFinishSession>[1]
+  ) => {
     // Show completion prompt if available
     if (promptContext?.showPrompt) {
       promptContext.showPrompt('receiving_completion', {
@@ -251,11 +254,12 @@ export default function ShipmentDetail() {
         contextId: id,
       });
     }
-    await rawFinishSession();
+    const result = await rawFinishSession(verificationData, createItems);
     // Track competency after completion
     if (promptContext?.trackCompetencyEvent) {
       promptContext.trackCompetencyEvent('receiving', 'task_completed');
     }
+    return result;
   }, [rawFinishSession, promptContext, id]);
 
   // ------------------------------------------
