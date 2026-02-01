@@ -486,7 +486,7 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
           .update({ releasing_shipment_id: shipmentId })
           .eq('id', itemId);
 
-        // Also create shipment_items record
+        // Also create shipment_items record with is_staged for outbound validation
         await ctx.supabase
           .from('shipment_items')
           .insert({
@@ -494,7 +494,8 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
             item_id: itemId,
             expected_quantity: 1,
             actual_quantity: 1,
-            status: 'pending'
+            status: 'pending',
+            is_staged: true
           });
       }
 
