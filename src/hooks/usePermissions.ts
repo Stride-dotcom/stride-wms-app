@@ -108,6 +108,11 @@ export function usePermissions(): UsePermissionsReturn {
           .is('deleted_at', null);
 
         if (error) {
+          // Suppress AbortError - happens during navigation/re-renders
+          if (error.message?.includes('AbortError') || error.code === '20') {
+            setLoading(false);
+            return;
+          }
           console.error('[Permissions] Error fetching roles:', {
             error,
             message: error.message,
@@ -136,7 +141,11 @@ export function usePermissions(): UsePermissionsReturn {
 
         setRoles(fetchedRoles);
         setPermissions(Array.from(allPermissions));
-      } catch (error) {
+      } catch (error: any) {
+        // Suppress AbortError - happens during navigation/re-renders
+        if (error?.name === 'AbortError' || error?.message?.includes('AbortError')) {
+          return;
+        }
         console.error('[Permissions] Exception fetching permissions:', error);
       } finally {
         setLoading(false);
