@@ -763,15 +763,17 @@ async function runTaskFlowTests(ctx: TestContext): Promise<TestResult[]> {
       const taskId = taskIds[0];
       const itemId = itemIds[0];
 
-      // Add item photo
+      // Add item photo (using correct column names for item_photos table)
       const { error: photoError } = await ctx.supabase
         .from('item_photos')
         .insert({
           item_id: itemId,
           tenant_id: ctx.tenantId,
-          photo_url: 'https://placehold.co/400x300?text=QA+Inspection+Photo',
+          storage_key: `qa-test/${ctx.runId}/inspection-photo.jpg`,
+          storage_url: 'https://placehold.co/400x300?text=QA+Inspection+Photo',
+          file_name: 'qa-inspection-photo.jpg',
           photo_type: 'inspection',
-          metadata: { qa_test: true, qa_run_id: ctx.runId }
+          caption: `QA Test - Run ${ctx.runId}`
         });
 
       if (photoError) throw new Error(`Failed to add photo: ${photoError.message}`);
@@ -1124,7 +1126,7 @@ async function runStocktakeFlowTests(ctx: TestContext): Promise<TestResult[]> {
           warehouse_id: warehouseId,
           stocktake_number: generateCode('STK'),
           status: 'draft',
-          metadata: { qa_test: true, qa_run_id: ctx.runId }
+          notes: `QA Test - Run ${ctx.runId}`
         })
         .select()
         .single();
@@ -1330,7 +1332,7 @@ async function runClaimsFlowTests(ctx: TestContext): Promise<TestResult[]> {
           status: 'pending',
           description: 'QA Test Claim - Damage during handling',
           claimed_amount: 500,
-          metadata: { qa_test: true, qa_run_id: ctx.runId }
+          notes: `QA Test - Run ${ctx.runId}`
         })
         .select()
         .single();
@@ -1448,8 +1450,7 @@ async function runClaimsFlowTests(ctx: TestContext): Promise<TestResult[]> {
             item_id: itemId,
             flat_rate: 150,
             approval_status: 'pending',
-            notes: 'QA Test Repair Quote',
-            metadata: { qa_test: true, qa_run_id: ctx.runId }
+            notes: `QA Test Repair Quote - Run ${ctx.runId}`
           })
           .select()
           .single();
