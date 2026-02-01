@@ -8001,6 +8001,7 @@ export type Database = {
           release_to_name: string | null
           release_to_phone: string | null
           release_type: string | null
+          released_to: string | null
           return_type: string | null
           shipment_number: string
           shipment_type: string
@@ -8051,6 +8052,7 @@ export type Database = {
           release_to_name?: string | null
           release_to_phone?: string | null
           release_type?: string | null
+          released_to?: string | null
           return_type?: string | null
           shipment_number: string
           shipment_type?: string
@@ -8101,6 +8103,7 @@ export type Database = {
           release_to_name?: string | null
           release_to_phone?: string | null
           release_type?: string | null
+          released_to?: string | null
           return_type?: string | null
           shipment_number?: string
           shipment_type?: string

@@ -44,6 +44,9 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 import { HelpButton } from '@/components/prompts';
+import { SOPValidationDialog, SOPBlocker } from '@/components/common/SOPValidationDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const statusColors: Record<StocktakeStatus, string> = {
   draft: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
@@ -70,6 +73,10 @@ export default function Stocktakes() {
     id: string;
     name: string;
   } | null>(null);
+  const [sopValidationOpen, setSopValidationOpen] = useState(false);
+  const [sopBlockers, setSopBlockers] = useState<SOPBlocker[]>([]);
+
+  const { toast } = useToast();
 
   const isMobile = useIsMobile();
   const { warehouses } = useWarehouses();
@@ -104,6 +111,36 @@ export default function Stocktakes() {
     if (!confirmAction) return;
 
     try {
+      // For 'close' action, call SOP validator first
+      if (confirmAction.type === 'close') {
+        const { data: validationResult, error: rpcError } = await (supabase as any).rpc(
+          'validate_stocktake_completion',
+          { p_stocktake_id: confirmAction.id }
+        );
+
+        if (rpcError) {
+          console.error('Validation RPC error:', rpcError);
+          toast({
+            variant: 'destructive',
+            title: 'Validation Error',
+            description: 'Failed to validate stocktake completion. Please try again.',
+          });
+          return;
+        }
+
+        const result = validationResult as { ok: boolean; blockers: SOPBlocker[] };
+        const blockers = (result?.blockers || []).filter(
+          (b: SOPBlocker) => b.severity === 'blocking' || !b.severity
+        );
+
+        if (!result?.ok && blockers.length > 0) {
+          setSopBlockers(result.blockers);
+          setSopValidationOpen(true);
+          setConfirmAction(null);
+          return;
+        }
+      }
+
       switch (confirmAction.type) {
         case 'start':
           await startStocktake(confirmAction.id);
@@ -568,6 +605,13 @@ export default function Stocktakes() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* SOP Validation Dialog */}
+      <SOPValidationDialog
+        open={sopValidationOpen}
+        onOpenChange={setSopValidationOpen}
+        blockers={sopBlockers}
+      />
     </DashboardLayout>
   );
 }
