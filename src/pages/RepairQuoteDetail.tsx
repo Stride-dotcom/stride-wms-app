@@ -116,6 +116,12 @@ export default function RepairQuoteDetail() {
   const [viewingPhotos, setViewingPhotos] = useState<string[]>([]);
   const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
 
+  // Send email state
+  const [sendingToClient, setSendingToClient] = useState(false);
+  const [testEmailDialogOpen, setTestEmailDialogOpen] = useState(false);
+  const [testEmailAddress, setTestEmailAddress] = useState('');
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
+
   // Account editing state
   const [editingAccount, setEditingAccount] = useState(false);
   const [savingAccount, setSavingAccount] = useState(false);
@@ -261,15 +267,26 @@ export default function RepairQuoteDetail() {
 
   const handleSendToClient = async () => {
     if (!quote) return;
-    const token = await sendToClient(quote.id);
-    if (token) {
-      const link = `${window.location.origin}/quote/review?token=${token}`;
-      await navigator.clipboard.writeText(link);
-      toast({
-        title: 'Link Copied',
-        description: 'Quote link copied to clipboard.',
-      });
-      fetchQuote();
+    setSendingToClient(true);
+    try {
+      const token = await sendToClient(quote.id);
+      if (token) {
+        fetchQuote();
+      }
+    } finally {
+      setSendingToClient(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!quote || !testEmailAddress) return;
+    setSendingTestEmail(true);
+    try {
+      await sendToClient(quote.id, testEmailAddress);
+      setTestEmailDialogOpen(false);
+      setTestEmailAddress('');
+    } finally {
+      setSendingTestEmail(false);
     }
   };
 
@@ -625,11 +642,24 @@ export default function RepairQuoteDetail() {
               </Button>
             )}
             {canSendToClient() && (
-              <Button onClick={handleSendToClient} size="sm">
-                <MaterialIcon name="open_in_new" size="sm" className="mr-2" />
+              <Button onClick={handleSendToClient} size="sm" disabled={sendingToClient}>
+                {sendingToClient ? (
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                ) : (
+                  <MaterialIcon name="email" size="sm" className="mr-2" />
+                )}
                 Send to Client
               </Button>
             )}
+            {/* DEV: Send Test Email Button */}
+            <Button
+              onClick={() => setTestEmailDialogOpen(true)}
+              variant="outline"
+              size="sm"
+            >
+              <MaterialIcon name="bug_report" size="sm" className="mr-2" />
+              Send Test
+            </Button>
             <Button onClick={handleClose} variant="outline" size="sm" className="text-destructive">
               <MaterialIcon name="close" size="sm" className="mr-2" />
               Close Quote
@@ -1345,6 +1375,46 @@ export default function RepairQuoteDetail() {
               </a>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* DEV: Test Email Dialog */}
+      <Dialog open={testEmailDialogOpen} onOpenChange={setTestEmailDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send Test Email</DialogTitle>
+            <DialogDescription>
+              Send a test copy of this quote email to any email address.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="testEmail">Email Address</Label>
+              <Input
+                id="testEmail"
+                type="email"
+                placeholder="test@example.com"
+                value={testEmailAddress}
+                onChange={(e) => setTestEmailAddress(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTestEmailDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendTestEmail}
+              disabled={!testEmailAddress || sendingTestEmail}
+            >
+              {sendingTestEmail ? (
+                <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+              ) : (
+                <MaterialIcon name="send" size="sm" className="mr-2" />
+              )}
+              Send Test
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </DashboardLayout>

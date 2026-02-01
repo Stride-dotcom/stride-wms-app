@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { queueRepairQuoteReadyAlert } from '@/lib/alertQueue';
+import { queueRepairQuoteReadyAlert, queueRepairQuoteSentToClientAlert } from '@/lib/alertQueue';
+import { buildRepairQuoteReadyEmail } from '@/lib/email';
 
 // ============================================================================
 // NEW WORKFLOW TYPES
@@ -685,7 +686,7 @@ export function useRepairQuoteWorkflow() {
   }, [profile, toast, fetchQuotes]);
 
   // Send to client
-  const sendToClient = useCallback(async (quoteId: string): Promise<string | null> => {
+  const sendToClient = useCallback(async (quoteId: string, testEmail?: string): Promise<string | null> => {
     if (!profile?.tenant_id || !profile?.id) return null;
 
     try {
@@ -693,7 +694,7 @@ export function useRepairQuoteWorkflow() {
         .from('repair_quotes') as any)
         .select(`
           *,
-          account:accounts(id, name:account_name, primary_contact_email)
+          account:accounts(id, name:account_name, primary_contact_email, alerts_contact_email)
         `)
         .eq('id', quoteId)
         .single();
@@ -707,54 +708,139 @@ export function useRepairQuoteWorkflow() {
         return null;
       }
 
+      // Fetch quote items for the email
+      const { data: quoteItems } = await (supabase as any)
+        .from('repair_quote_items')
+        .select(`
+          *,
+          item:items(item_code, description)
+        `)
+        .eq('repair_quote_id', quoteId);
+
+      const itemCodes = (quoteItems || []).map((qi: any) =>
+        qi.item?.item_code || qi.item_code || 'Unknown'
+      );
+      const firstItemCode = itemCodes[0] || 'Unknown';
+      const firstItemDescription = (quoteItems?.[0]?.item?.description || quoteItems?.[0]?.item_description || 'No description');
+
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 14);
 
-      const { data: tokenData, error: tokenError } = await (supabase as any)
-        .from('repair_quote_tokens')
-        .insert({
-          tenant_id: profile.tenant_id,
-          repair_quote_id: quoteId,
-          token_type: 'client_review',
-          recipient_email: quote.account.primary_contact_email,
-          recipient_name: quote.account.name,
-          expires_at: expiresAt.toISOString(),
-          created_by: profile.id,
-        })
-        .select()
-        .single();
+      // Only create token if not a test email
+      let tokenData: any = null;
+      if (!testEmail) {
+        const { data, error: tokenError } = await (supabase as any)
+          .from('repair_quote_tokens')
+          .insert({
+            tenant_id: profile.tenant_id,
+            repair_quote_id: quoteId,
+            token_type: 'client_review',
+            recipient_email: quote.account.alerts_contact_email || quote.account.primary_contact_email,
+            recipient_name: quote.account.name,
+            expires_at: expiresAt.toISOString(),
+            created_by: profile.id,
+          })
+          .select()
+          .single();
 
-      if (tokenError) throw tokenError;
+        if (tokenError) throw tokenError;
+        tokenData = data;
+      } else {
+        // For test email, create a temporary token
+        const { data, error: tokenError } = await (supabase as any)
+          .from('repair_quote_tokens')
+          .insert({
+            tenant_id: profile.tenant_id,
+            repair_quote_id: quoteId,
+            token_type: 'client_review',
+            recipient_email: testEmail,
+            recipient_name: 'Test Recipient',
+            expires_at: expiresAt.toISOString(),
+            created_by: profile.id,
+          })
+          .select()
+          .single();
 
-      const auditLog = quote.audit_log || [];
-      const auditEntry: AuditLogEntry = {
-        action: 'sent_to_client',
-        by: profile.id,
-        by_name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email,
-        at: new Date().toISOString(),
-        details: {
-          account_name: quote.account.name,
-          contact_email: quote.account.primary_contact_email,
-        },
-      };
+        if (tokenError) throw tokenError;
+        tokenData = data;
+      }
 
-      await (supabase
-        .from('repair_quotes') as any)
-        .update({
-          status: 'sent_to_client',
-          expires_at: expiresAt.toISOString(),
-          last_sent_at: new Date().toISOString(),
-          audit_log: [...auditLog, auditEntry],
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', quoteId);
+      // Build the review link
+      const reviewLink = `${window.location.origin}/quote/review?token=${tokenData.token}`;
 
-      toast({
-        title: 'Success',
-        description: `Quote sent to ${quote.account.name}`,
+      // Build email using existing template
+      const emailData = buildRepairQuoteReadyEmail({
+        itemCode: firstItemCode,
+        itemDescription: firstItemDescription,
+        accountName: quote.account.name,
+        quoteAmount: quote.customer_total || quote.customer_price || 0,
+        quoteNotes: quote.tech_notes || undefined,
+        quoteLink: reviewLink,
       });
 
-      await fetchQuotes();
+      // Determine recipient emails
+      const recipientEmails = testEmail
+        ? [testEmail]
+        : [quote.account.alerts_contact_email || quote.account.primary_contact_email].filter(Boolean);
+
+      if (recipientEmails.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'No email address found for this account',
+        });
+        return null;
+      }
+
+      // Queue the email alert
+      await queueRepairQuoteSentToClientAlert(
+        profile.tenant_id,
+        quoteId,
+        quote.account.name,
+        quote.customer_total || quote.customer_price || 0,
+        itemCodes,
+        emailData.html,
+        recipientEmails
+      );
+
+      // Only update quote status if not a test email
+      if (!testEmail) {
+        const auditLog = quote.audit_log || [];
+        const auditEntry: AuditLogEntry = {
+          action: 'sent_to_client',
+          by: profile.id,
+          by_name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email,
+          at: new Date().toISOString(),
+          details: {
+            account_name: quote.account.name,
+            contact_email: quote.account.alerts_contact_email || quote.account.primary_contact_email,
+          },
+        };
+
+        await (supabase
+          .from('repair_quotes') as any)
+          .update({
+            status: 'sent_to_client',
+            expires_at: expiresAt.toISOString(),
+            last_sent_at: new Date().toISOString(),
+            audit_log: [...auditLog, auditEntry],
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', quoteId);
+
+        toast({
+          title: 'Quote Sent',
+          description: `Email queued to ${recipientEmails.join(', ')}`,
+        });
+
+        await fetchQuotes();
+      } else {
+        toast({
+          title: 'Test Email Sent',
+          description: `Test email queued to ${testEmail}`,
+        });
+      }
+
       return tokenData.token;
     } catch (error) {
       console.error('Error sending to client:', error);
