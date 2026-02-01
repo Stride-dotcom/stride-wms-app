@@ -1002,6 +1002,7 @@ export default function ShipmentDetail() {
                 <TableHead className="w-20 text-right">Qty</TableHead>
                 <TableHead className="w-32">Vendor</TableHead>
                 <TableHead className="min-w-[140px]">Description</TableHead>
+                <TableHead className="w-24">Location</TableHead>
                 <TableHead className="w-24">Class</TableHead>
                 <TableHead className="w-28">Sidemark</TableHead>
                 <TableHead className="w-24">Room</TableHead>
@@ -1012,7 +1013,7 @@ export default function ShipmentDetail() {
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                     No items in this shipment
                   </TableCell>
                 </TableRow>

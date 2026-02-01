@@ -40,6 +40,9 @@ interface ShipmentItem {
     sidemark: string | null;
     room: string | null;
     class_id: string | null;
+    current_location?: {
+      code: string;
+    } | null;
     class?: {
       id: string;
       code: string;
@@ -498,6 +501,13 @@ export function ShipmentItemRow({
           ) : (
             <span className="text-sm">{item.item?.description || item.expected_description || '-'}</span>
           )}
+        </TableCell>
+
+        {/* Location - read-only, only for received items */}
+        <TableCell className="w-24">
+          <span className="text-sm">
+            {item.item?.current_location?.code || '-'}
+          </span>
         </TableCell>
 
         {/* Class - editable for pending AND received items with autocomplete */}
