@@ -498,7 +498,7 @@ async function toolSearchItems(supabase: any, params: { query: string }, scope: 
       },
       newSessionState: {
         pending_disambiguation: {
-          type: "items",
+          type: "items" as const,
           candidates: candidates.slice(0, 10).map((c: any, i: number) => ({
             id: c.id,
             label: c.label,
@@ -798,7 +798,7 @@ Would you like me to submit this pickup request?
     },
     newSessionState: {
       pending_draft: {
-        type: "will_call",
+        type: "will_call" as const,
         draft_id: draft.id,
         summary,
       },
@@ -942,7 +942,7 @@ Would you like me to submit this repair quote request?
     },
     newSessionState: {
       pending_draft: {
-        type: "repair_quote",
+        type: "repair_quote" as const,
         draft_id: draft.id,
         summary,
       },

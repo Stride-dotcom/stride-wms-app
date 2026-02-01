@@ -41,7 +41,7 @@ export function useTenantTemplates() {
 
       if (error) throw error;
 
-      const result = data as TemplateResult;
+      const result = data as unknown as TemplateResult;
       setLastResult(result);
 
       const addedCount = result.categories_added + result.task_types_added + result.classes_added;
@@ -91,7 +91,7 @@ export function useTenantTemplates() {
 
       if (error) throw error;
 
-      const result = data as TemplateResult;
+      const result = data as unknown as TemplateResult;
       setLastResult(result);
 
       const coreAdded = result.categories_added + result.task_types_added + result.classes_added;
