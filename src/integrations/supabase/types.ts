@@ -1473,8 +1473,8 @@ export type Database = {
           status: string
           task_id: string | null
           tenant_id: string
-          total_amount: number
-          unit_rate: number
+          total_amount: number | null
+          unit_rate: number | null
         }
         Insert: {
           account_id?: string | null
@@ -1503,8 +1503,8 @@ export type Database = {
           status?: string
           task_id?: string | null
           tenant_id: string
-          total_amount: number
-          unit_rate: number
+          total_amount?: number | null
+          unit_rate?: number | null
         }
         Update: {
           account_id?: string | null
@@ -1533,8 +1533,8 @@ export type Database = {
           status?: string
           task_id?: string | null
           tenant_id?: string
-          total_amount?: number
-          unit_rate?: number
+          total_amount?: number | null
+          unit_rate?: number | null
         }
         Relationships: [
           {
@@ -9668,6 +9668,7 @@ export type Database = {
           is_system: boolean | null
           name: string
           requires_items: boolean | null
+          requires_manual_rate: boolean | null
           sort_order: number | null
           tenant_id: string
           updated_at: string | null
@@ -9686,6 +9687,7 @@ export type Database = {
           is_system?: boolean | null
           name: string
           requires_items?: boolean | null
+          requires_manual_rate?: boolean | null
           sort_order?: number | null
           tenant_id: string
           updated_at?: string | null
@@ -9704,6 +9706,7 @@ export type Database = {
           is_system?: boolean | null
           name?: string
           requires_items?: boolean | null
+          requires_manual_rate?: boolean | null
           sort_order?: number | null
           tenant_id?: string
           updated_at?: string | null
