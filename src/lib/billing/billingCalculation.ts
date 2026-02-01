@@ -5,6 +5,12 @@
  * 1. BillingCalculator component (preview before triggering)
  * 2. Actual billing event creation (when task/shipment completes)
  *
+ * BILLING MODEL (Simplified):
+ * - Task Types define a category_id (no longer a service_code)
+ * - Each item has a class_id (linked to classes table)
+ * - Service lookup: category_id + class_code → unique service rate
+ * - One service per (category, class) combination
+ *
  * By sharing this logic, we guarantee the Calculator shows EXACTLY
  * what will appear in Billing Reports once the event is triggered.
  */
@@ -12,13 +18,15 @@
 import { supabase } from '@/integrations/supabase/client';
 
 // ============================================================================
-// SERVICE CODE MAPPINGS
-// These are the authoritative mappings - used by both preview and creation
+// LEGACY SERVICE CODE MAPPINGS (for backward compatibility)
+// These are kept for historical data and shipments
+// New task billing uses category_id + class_code lookup
 // ============================================================================
 
 /**
+ * @deprecated Use category-based lookup instead
  * Map task types to service codes in the Price List
- * This is the single source of truth for task → service mapping
+ * Only used as fallback for legacy tasks without category_id
  */
 export const TASK_TYPE_TO_SERVICE_CODE: Record<string, string> = {
   'Inspection': 'INSP',
@@ -55,8 +63,96 @@ export interface RateLookupResult {
 }
 
 /**
+ * NEW: Get rate from Price List using category_id + class_code
+ * This is the primary method for the simplified billing model
+ *
+ * @param tenantId - The tenant ID
+ * @param categoryId - The category ID from the task type
+ * @param classCode - The class code from the item (XS, S, M, L, XL, XXL)
+ * @returns RateLookupResult with rate and service details
+ */
+export async function getRateByCategoryAndClass(
+  tenantId: string,
+  categoryId: string,
+  classCode: string | null
+): Promise<RateLookupResult> {
+  try {
+    if (!classCode) {
+      return {
+        rate: 0,
+        serviceName: 'Unknown',
+        serviceCode: 'UNKNOWN',
+        billingUnit: 'Item',
+        alertRule: 'none',
+        hasError: true,
+        errorMessage: 'Item has no class assigned - cannot determine pricing',
+      };
+    }
+
+    // Look up service by category_id + class_code
+    const { data: service, error } = await supabase
+      .from('service_events')
+      .select('rate, service_name, service_code, billing_unit, alert_rule')
+      .eq('tenant_id', tenantId)
+      .eq('category_id', categoryId)
+      .eq('class_code', classCode)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[getRateByCategoryAndClass] Error:', error);
+      return {
+        rate: 0,
+        serviceName: 'Unknown',
+        serviceCode: 'UNKNOWN',
+        billingUnit: 'Item',
+        alertRule: 'none',
+        hasError: true,
+        errorMessage: 'Error looking up rate',
+      };
+    }
+
+    if (service) {
+      return {
+        rate: service.rate ?? 0,
+        serviceName: service.service_name || 'Unknown',
+        serviceCode: service.service_code || 'UNKNOWN',
+        billingUnit: service.billing_unit || 'Item',
+        alertRule: service.alert_rule || 'none',
+        hasError: service.rate === null,
+        errorMessage: service.rate === null ? 'Rate not configured for this service' : undefined,
+      };
+    }
+
+    // No service found for this category + class combination
+    return {
+      rate: 0,
+      serviceName: 'Unknown',
+      serviceCode: 'UNKNOWN',
+      billingUnit: 'Item',
+      alertRule: 'none',
+      hasError: true,
+      errorMessage: `No service exists for this category and item class (${classCode}). Configure pricing in the Price List.`,
+    };
+  } catch (error) {
+    console.error('[getRateByCategoryAndClass] Unexpected error:', error);
+    return {
+      rate: 0,
+      serviceName: 'Unknown',
+      serviceCode: 'UNKNOWN',
+      billingUnit: 'Item',
+      alertRule: 'none',
+      hasError: true,
+      errorMessage: 'Error looking up rate',
+    };
+  }
+}
+
+/**
+ * @deprecated Use getRateByCategoryAndClass for new billing
  * Get rate from Price List (service_events table)
  * Tries class-specific rate first, falls back to general rate
+ * Kept for backward compatibility with legacy billing
  */
 export async function getRateFromPriceList(
   tenantId: string,
@@ -77,7 +173,7 @@ export async function getRateFromPriceList(
 
       if (classRate) {
         return {
-          rate: classRate.rate,
+          rate: classRate.rate ?? 0,
           serviceName: classRate.service_name || serviceCode,
           serviceCode,
           billingUnit: classRate.billing_unit || 'Item',
@@ -99,7 +195,7 @@ export async function getRateFromPriceList(
 
     if (generalRate) {
       return {
-        rate: generalRate.rate,
+        rate: generalRate.rate ?? 0,
         serviceName: generalRate.service_name || serviceCode,
         serviceCode,
         billingUnit: generalRate.billing_unit || 'Item',
@@ -161,9 +257,11 @@ export interface BillingPreview {
 /**
  * Calculate billing preview for a TASK
  * Returns what billing events WOULD be created when task completes
- * 
- * Note: For dynamic service code lookup from task_types table, 
- * callers should use getTaskTypeServiceCode() before calling this function.
+ *
+ * BILLING MODEL:
+ * - If task type has category_id: Uses category + item class lookup (NEW)
+ * - If task type has no category_id: Falls back to legacy service code lookup
+ * - Each item is billed individually based on its class
  */
 export async function calculateTaskBillingPreview(
   tenantId: string,
@@ -171,12 +269,9 @@ export async function calculateTaskBillingPreview(
   taskType: string,
   overrideServiceCode?: string | null,
   overrideQuantity?: number | null,
-  overrideRate?: number | null
+  overrideRate?: number | null,
+  categoryId?: string | null
 ): Promise<BillingPreview> {
-  // Determine service code - override takes priority, then falls back to hardcoded defaults
-  // For dynamic lookup, caller should pass in the result of getTaskTypeServiceCode()
-  const serviceCode = overrideServiceCode || TASK_TYPE_TO_SERVICE_CODE[taskType] || 'INSP';
-
   // Get task items with class info
   const { data: taskItems, error: taskItemsError } = await supabase
     .from('task_items')
@@ -200,17 +295,18 @@ export async function calculateTaskBillingPreview(
       lineItems: [],
       subtotal: 0,
       hasErrors: true,
-      serviceCode,
-      serviceName: serviceCode,
+      serviceCode: overrideServiceCode || 'UNKNOWN',
+      serviceName: 'Unknown',
     };
   }
 
   const lineItems: BillingLineItem[] = [];
   let subtotal = 0;
   let hasErrors = false;
-  let serviceName = serviceCode;
+  let serviceName = 'Unknown';
+  let serviceCode = overrideServiceCode || TASK_TYPE_TO_SERVICE_CODE[taskType] || 'UNKNOWN';
 
-  // For Assembly/Repair with override quantity, treat as single line item
+  // For Assembly/Repair with override quantity, treat as single line item (legacy behavior)
   const isPerTaskBilling = taskType === 'Assembly' || taskType === 'Repair';
 
   if (isPerTaskBilling && overrideQuantity !== null && overrideQuantity !== undefined) {
@@ -220,9 +316,11 @@ export async function calculateTaskBillingPreview(
     let errorMessage: string | undefined;
 
     if (rate === null || rate === undefined) {
-      const rateResult = await getRateFromPriceList(tenantId, serviceCode, null);
+      const legacyServiceCode = overrideServiceCode || TASK_TYPE_TO_SERVICE_CODE[taskType] || 'INSP';
+      const rateResult = await getRateFromPriceList(tenantId, legacyServiceCode, null);
       rate = rateResult.rate;
       serviceName = rateResult.serviceName;
+      serviceCode = rateResult.serviceCode;
       rateError = rateResult.hasError;
       errorMessage = rateResult.errorMessage;
     }
@@ -247,6 +345,8 @@ export async function calculateTaskBillingPreview(
     hasErrors = rateError;
   } else {
     // Per-item billing - calculate for each item based on class
+    // Use category-based lookup if category_id is provided (new model)
+    // Otherwise fall back to legacy service code lookup
     for (const ti of taskItems || []) {
       const item = ti.items as any;
       const itemCode = item?.item_code || null;
@@ -254,8 +354,19 @@ export async function calculateTaskBillingPreview(
       const className = item?.classes?.name || null;
       const quantity = ti.quantity || 1;
 
-      const rateResult = await getRateFromPriceList(tenantId, serviceCode, classCode);
+      let rateResult: RateLookupResult;
+
+      if (categoryId) {
+        // NEW: Category-based billing
+        rateResult = await getRateByCategoryAndClass(tenantId, categoryId, classCode);
+      } else {
+        // LEGACY: Service code-based billing
+        const legacyServiceCode = overrideServiceCode || TASK_TYPE_TO_SERVICE_CODE[taskType] || 'INSP';
+        rateResult = await getRateFromPriceList(tenantId, legacyServiceCode, classCode);
+      }
+
       serviceName = rateResult.serviceName;
+      serviceCode = rateResult.serviceCode;
 
       const totalAmount = quantity * rateResult.rate;
 

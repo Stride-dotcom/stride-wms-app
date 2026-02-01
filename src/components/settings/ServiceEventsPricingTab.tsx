@@ -418,6 +418,11 @@ export function ServiceEventsPricingTab() {
   // Has pending changes
   const hasPendingChanges = pendingChanges.size > 0;
 
+  // Count services without class_code (legacy services that don't work with new billing)
+  const servicesWithoutClass = useMemo(() => {
+    return filteredServiceEvents.filter(s => !s.class_code && s.is_active);
+  }, [filteredServiceEvents]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -463,12 +468,42 @@ export function ServiceEventsPricingTab() {
         </div>
       )}
 
+      {/* Warning: Services without class_code */}
+      {servicesWithoutClass.length > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <MaterialIcon name="warning" className="text-amber-600 dark:text-amber-400 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-medium text-amber-800 dark:text-amber-200">
+                Legacy Services Detected ({servicesWithoutClass.length})
+              </h3>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                The following services have no class assigned and will not work with the simplified billing model:
+              </p>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {servicesWithoutClass.slice(0, 10).map(s => (
+                  <Badge key={s.id} variant="outline" className="text-xs bg-amber-100 dark:bg-amber-900">
+                    {s.service_code}
+                  </Badge>
+                ))}
+                {servicesWithoutClass.length > 10 && (
+                  <span className="text-xs text-amber-600">+{servicesWithoutClass.length - 10} more</span>
+                )}
+              </div>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                Consider deactivating these services or recreating them with class-based pricing.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold">Price List</h2>
           <p className="text-muted-foreground">
-            Manage rates and service configurations
+            Each service represents the price for one class within a category. Services without a class are not used in billing.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

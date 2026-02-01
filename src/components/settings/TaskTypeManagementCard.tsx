@@ -79,24 +79,19 @@ interface TaskType {
   is_system: boolean;
   is_active: boolean;
   sort_order: number;
+  // Legacy fields - kept for backward compatibility but not used in new UI
   billing_service_code: string | null;
-  category_id: string | null;
   default_service_code: string | null;
+  // New simplified model: only category_id determines pricing
+  category_id: string | null;
   requires_items: boolean;
   allow_rate_override: boolean;
-}
-
-interface ServiceCode {
-  service_code: string;
-  service_name: string;
-  category_id: string | null;
 }
 
 interface TaskTypeFormData {
   name: string;
   description: string;
   category_id: string | null;
-  default_service_code: string | null;
   requires_items: boolean;
   allow_rate_override: boolean;
   is_active: boolean;
@@ -114,7 +109,6 @@ interface TaskTypeDialogProps {
   taskType: TaskType | null;
   mode: DialogMode;
   categories: Array<{ id: string; name: string }>;
-  allServices: ServiceCode[];
   onSave: (data: TaskTypeFormData, isClone: boolean) => Promise<boolean>;
   saving: boolean;
 }
@@ -125,7 +119,6 @@ function TaskTypeDialog({
   taskType,
   mode,
   categories,
-  allServices,
   onSave,
   saving,
 }: TaskTypeDialogProps) {
@@ -133,7 +126,6 @@ function TaskTypeDialog({
     name: '',
     description: '',
     category_id: null,
-    default_service_code: null,
     requires_items: true,
     allow_rate_override: true,
     is_active: true,
@@ -149,7 +141,6 @@ function TaskTypeDialog({
             name: `${taskType.name} (Custom)`,
             description: taskType.description || '',
             category_id: taskType.category_id,
-            default_service_code: taskType.default_service_code || taskType.billing_service_code,
             requires_items: taskType.requires_items ?? true,
             allow_rate_override: taskType.allow_rate_override ?? true,
             is_active: true, // New clones are active by default
@@ -160,7 +151,6 @@ function TaskTypeDialog({
             name: taskType.name,
             description: taskType.description || '',
             category_id: taskType.category_id,
-            default_service_code: taskType.default_service_code || taskType.billing_service_code,
             requires_items: taskType.requires_items ?? true,
             allow_rate_override: taskType.allow_rate_override ?? true,
             is_active: taskType.is_active,
@@ -172,7 +162,6 @@ function TaskTypeDialog({
           name: '',
           description: '',
           category_id: null,
-          default_service_code: null,
           requires_items: true,
           allow_rate_override: true,
           is_active: true,
@@ -180,43 +169,6 @@ function TaskTypeDialog({
       }
     }
   }, [open, taskType, mode]);
-
-  // Filter services by selected category - DISTINCT service_codes only
-  const filteredServices = useMemo(() => {
-    if (!formData.category_id) {
-      // If no category selected, show all unique services
-      const unique = new Map<string, ServiceCode>();
-      allServices.forEach(s => {
-        if (!unique.has(s.service_code)) {
-          unique.set(s.service_code, s);
-        }
-      });
-      return Array.from(unique.values());
-    }
-
-    // Filter by category and dedupe
-    const unique = new Map<string, ServiceCode>();
-    allServices
-      .filter(s => s.category_id === formData.category_id)
-      .forEach(s => {
-        if (!unique.has(s.service_code)) {
-          unique.set(s.service_code, s);
-        }
-      });
-    return Array.from(unique.values());
-  }, [allServices, formData.category_id]);
-
-  // When category changes, check if current service is still valid
-  useEffect(() => {
-    if (formData.category_id && formData.default_service_code) {
-      const isValidService = filteredServices.some(
-        s => s.service_code === formData.default_service_code
-      );
-      if (!isValidService) {
-        setFormData(prev => ({ ...prev, default_service_code: null }));
-      }
-    }
-  }, [formData.category_id, formData.default_service_code, filteredServices]);
 
   const handleSave = async () => {
     if (!formData.name.trim()) return;
@@ -338,9 +290,9 @@ function TaskTypeDialog({
               />
             </div>
 
-            {/* Category Selection (First) */}
+            {/* Category Selection - determines pricing lookup */}
             <div className="space-y-2">
-              <Label>Category</Label>
+              <Label>Category *</Label>
               <Select
                 value={formData.category_id || 'none'}
                 onValueChange={(value) => setFormData({
@@ -353,7 +305,7 @@ function TaskTypeDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">
-                    <span className="text-muted-foreground">No category</span>
+                    <span className="text-muted-foreground">No category (no billing)</span>
                   </SelectItem>
                   {categories.map(cat => (
                     <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
@@ -361,41 +313,24 @@ function TaskTypeDialog({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Select a category to filter available services
+                Pricing is determined automatically per item based on this category and the item's class.
               </p>
             </div>
 
-            {/* Service Selection (Second - filtered by category) */}
-            <div className="space-y-2">
-              <Label>Service Code</Label>
-              <Select
-                value={formData.default_service_code || 'none'}
-                onValueChange={(value) => setFormData({
-                  ...formData,
-                  default_service_code: value === 'none' ? null : value,
-                })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select service..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">
-                    <span className="text-muted-foreground">No billing (informational only)</span>
-                  </SelectItem>
-                  {filteredServices.map(service => (
-                    <SelectItem key={service.service_code} value={service.service_code}>
-                      <span className="font-mono text-xs mr-2">{service.service_code}</span>
-                      <span className="text-muted-foreground">- {service.service_name}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {formData.category_id
-                  ? `Showing services in selected category (${filteredServices.length} available)`
-                  : 'Select a category first to filter services, or choose from all'}
-              </p>
-            </div>
+            {/* Pricing explanation */}
+            {formData.category_id && (
+              <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+                <div className="flex items-start gap-2">
+                  <MaterialIcon name="info" size="sm" className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-blue-800 dark:text-blue-200">Automatic Pricing</p>
+                    <p className="text-blue-700 dark:text-blue-300 mt-0.5">
+                      When this task completes, each item will be billed using the rate for this category + the item's class (XS, S, M, L, XL, XXL).
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Options */}
             <div className="space-y-4 pt-2 border-t">
@@ -483,7 +418,6 @@ export function TaskTypeManagementCard() {
   const { activeCategories, getCategoryName } = useServiceCategories();
 
   const [taskTypes, setTaskTypes] = useState<TaskType[]>([]);
-  const [serviceCodes, setServiceCodes] = useState<ServiceCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -515,30 +449,7 @@ export function TaskTypeManagementCard() {
 
       if (taskTypesError) throw taskTypesError;
 
-      // Fetch all active service codes (with category_id for filtering)
-      const { data: serviceCodesData, error: serviceCodesError } = await supabase
-        .from('service_events')
-        .select('service_code, service_name, category_id')
-        .eq('tenant_id', profile.tenant_id)
-        .eq('is_active', true)
-        .order('service_code');
-
-      if (serviceCodesError) throw serviceCodesError;
-
-      // Deduplicate service codes (ignore class_code rows)
-      const uniqueServices = new Map<string, ServiceCode>();
-      (serviceCodesData || []).forEach(s => {
-        if (!uniqueServices.has(s.service_code)) {
-          uniqueServices.set(s.service_code, {
-            service_code: s.service_code,
-            service_name: s.service_name,
-            category_id: s.category_id,
-          });
-        }
-      });
-
       setTaskTypes(taskTypesData || []);
-      setServiceCodes(Array.from(uniqueServices.values()));
     } catch (error) {
       console.error('Error fetching task types:', error);
       toast({
@@ -610,8 +521,9 @@ export function TaskTypeManagementCard() {
         const updateData: any = {
           description: data.description || null,
           category_id: data.category_id,
-          default_service_code: data.default_service_code,
-          billing_service_code: data.default_service_code, // Keep in sync for backward compat
+          // Clear legacy service fields - pricing is now determined by category + item class
+          default_service_code: null,
+          billing_service_code: null,
           requires_items: data.requires_items,
           allow_rate_override: data.allow_rate_override,
           is_active: data.is_active,
@@ -642,8 +554,9 @@ export function TaskTypeManagementCard() {
             name: data.name.trim(),
             description: data.description || null,
             category_id: data.category_id,
-            default_service_code: data.default_service_code,
-            billing_service_code: data.default_service_code,
+            // No service code - pricing is determined by category + item class
+            default_service_code: null,
+            billing_service_code: null,
             requires_items: data.requires_items,
             allow_rate_override: data.allow_rate_override,
             is_active: data.is_active,
@@ -741,13 +654,6 @@ export function TaskTypeManagementCard() {
     }
   };
 
-  // Get service name by code
-  const getServiceName = (code: string | null): string => {
-    if (!code) return '';
-    const service = serviceCodes.find(s => s.service_code === code);
-    return service?.service_name || code;
-  };
-
   if (loading) {
     return (
       <Card>
@@ -769,8 +675,7 @@ export function TaskTypeManagementCard() {
             <div>
               <CardTitle className="text-lg">Task Type Management</CardTitle>
               <CardDescription>
-                Configure task types with category and service mappings.
-                The rate is looked up from the Price List based on item class.
+                Task Types define the type of work. Pricing is determined automatically per item based on the task's category and each item's class.
               </CardDescription>
             </div>
           </div>
@@ -821,7 +726,6 @@ export function TaskTypeManagementCard() {
               <TableHead className="w-24">Type</TableHead>
               <TableHead>Task Type</TableHead>
               <TableHead>Category</TableHead>
-              <TableHead>Service</TableHead>
               <TableHead className="text-center w-28">Requires Items</TableHead>
               <TableHead className="text-center w-20">Active</TableHead>
               <TableHead className="w-32">Actions</TableHead>
@@ -829,7 +733,6 @@ export function TaskTypeManagementCard() {
           </TableHeader>
           <TableBody>
             {filteredTaskTypes.map(taskType => {
-              const serviceCode = taskType.default_service_code || taskType.billing_service_code;
               const categoryName = getCategoryName(taskType.category_id);
 
               return (
@@ -864,22 +767,6 @@ export function TaskTypeManagementCard() {
                   <TableCell>
                     {categoryName ? (
                       <Badge variant="secondary">{categoryName}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">-</span>
-                    )}
-                  </TableCell>
-
-                  {/* Service */}
-                  <TableCell>
-                    {serviceCode ? (
-                      <div>
-                        <Badge variant="outline" className="font-mono text-xs">
-                          {serviceCode}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground ml-2">
-                          {getServiceName(serviceCode)}
-                        </span>
-                      </div>
                     ) : (
                       <Badge variant="secondary" className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300">
                         <MaterialIcon name="info" size="sm" className="mr-1" />
@@ -992,7 +879,7 @@ export function TaskTypeManagementCard() {
             })}
             {filteredTaskTypes.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                   {typeFilter !== 'all'
                     ? `No ${typeFilter} task types found.`
                     : showInactive
@@ -1012,7 +899,6 @@ export function TaskTypeManagementCard() {
         taskType={editingTaskType}
         mode={dialogMode}
         categories={activeCategories}
-        allServices={serviceCodes}
         onSave={handleSave}
         saving={saving}
       />

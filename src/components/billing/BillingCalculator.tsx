@@ -189,16 +189,38 @@ export function BillingCalculator({
       let result: BillingPreview;
 
       if (isTask && taskId && taskType) {
-        // Get dynamic service code from task_types table if no override provided
-        const effectiveServiceCode = selectedServiceCode || await getTaskTypeServiceCode(profile.tenant_id, taskType);
-        
+        // Fetch task type details to get category_id for new billing model
+        let categoryId: string | null = null;
+        let effectiveServiceCode = selectedServiceCode;
+
+        const { data: taskTypeData } = await (supabase
+          .from('task_types') as any)
+          .select('category_id, default_service_code, billing_service_code')
+          .eq('tenant_id', profile.tenant_id)
+          .eq('name', taskType)
+          .maybeSingle();
+
+        if (taskTypeData) {
+          categoryId = taskTypeData.category_id;
+          // Only use legacy service code lookup if no category is set
+          if (!categoryId && !effectiveServiceCode) {
+            effectiveServiceCode = taskTypeData.default_service_code ||
+                                   taskTypeData.billing_service_code ||
+                                   await getTaskTypeServiceCode(profile.tenant_id, taskType);
+          }
+        } else if (!effectiveServiceCode) {
+          // Fallback to legacy hardcoded lookup
+          effectiveServiceCode = await getTaskTypeServiceCode(profile.tenant_id, taskType);
+        }
+
         result = await calculateTaskBillingPreview(
           profile.tenant_id,
           taskId,
           taskType,
           effectiveServiceCode,
           billingQuantity,
-          billingRate
+          billingRate,
+          categoryId  // Pass category_id for new billing model
         );
       } else if (isShipment && shipmentId) {
         result = await calculateShipmentBillingPreview(
