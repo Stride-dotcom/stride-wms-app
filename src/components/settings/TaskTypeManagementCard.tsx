@@ -43,6 +43,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -274,184 +275,189 @@ function TaskTypeDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          {/* System Task Warning Banner */}
-          {isSystemTask && (
-            <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
-              <div className="flex items-start gap-2">
-                <MaterialIcon name="lock" size="sm" className="text-blue-600 dark:text-blue-400 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium text-blue-800 dark:text-blue-200">System Task Type</p>
-                  <p className="text-blue-700 dark:text-blue-300 mt-0.5">
-                    Name cannot be changed. You can modify settings, category, and service mapping.
-                    To create a fully editable version, use the <strong>Clone</strong> action.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Clone Info Banner */}
-          {isCloning && (
-            <div className="p-3 border rounded-lg bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
-              <div className="flex items-start gap-2">
-                <MaterialIcon name="content_copy" size="sm" className="text-green-600 dark:text-green-400 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium text-green-800 dark:text-green-200">Creating Custom Copy</p>
-                  <p className="text-green-700 dark:text-green-300 mt-0.5">
-                    This will create a new custom task type based on "{taskType?.name}".
-                    You can fully customize all fields.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Name */}
-          <div className="space-y-2">
-            <Label htmlFor="name">Task Type Name *</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., Assembly, Inspection"
-              disabled={isSystemTask}
-            />
+        <DialogBody>
+          <div className="space-y-4 py-4">
+            {/* System Task Warning Banner */}
             {isSystemTask && (
-              <p className="text-xs text-muted-foreground">
-                System task types cannot be renamed. Clone to create an editable copy.
-              </p>
+              <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+                <div className="flex items-start gap-2">
+                  <MaterialIcon name="lock" size="sm" className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-blue-800 dark:text-blue-200">System Task Type</p>
+                    <p className="text-blue-700 dark:text-blue-300 mt-0.5">
+                      Name cannot be changed. You can modify settings, category, and service mapping.
+                      To create a fully editable version, use the <strong>Clone</strong> action.
+                    </p>
+                  </div>
+                </div>
+              </div>
             )}
-          </div>
 
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Optional description..."
-              rows={2}
-            />
-          </div>
+            {/* Clone Info Banner */}
+            {isCloning && (
+              <div className="p-3 border rounded-lg bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+                <div className="flex items-start gap-2">
+                  <MaterialIcon name="content_copy" size="sm" className="text-green-600 dark:text-green-400 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-green-800 dark:text-green-200">Creating Custom Copy</p>
+                    <p className="text-green-700 dark:text-green-300 mt-0.5">
+                      This will create a new custom task type based on "{taskType?.name}".
+                      You can fully customize all fields.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-          {/* Category Selection (First) */}
-          <div className="space-y-2">
-            <Label>Category</Label>
-            <Select
-              value={formData.category_id || 'none'}
-              onValueChange={(value) => setFormData({
-                ...formData,
-                category_id: value === 'none' ? null : value,
-              })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select category..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">
-                  <span className="text-muted-foreground">No category</span>
-                </SelectItem>
-                {categories.map(cat => (
-                  <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Select a category to filter available services
-            </p>
-          </div>
+            {/* Name */}
+            <div className="space-y-2">
+              <Label htmlFor="name">Task Type Name *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Assembly, Inspection"
+                disabled={isSystemTask}
+              />
+              {isSystemTask && (
+                <p className="text-xs text-muted-foreground">
+                  System task types cannot be renamed. Clone to create an editable copy.
+                </p>
+              )}
+            </div>
 
-          {/* Service Selection (Second - filtered by category) */}
-          <div className="space-y-2">
-            <Label>Service Code</Label>
-            <Select
-              value={formData.default_service_code || 'none'}
-              onValueChange={(value) => setFormData({
-                ...formData,
-                default_service_code: value === 'none' ? null : value,
-              })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select service..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">
-                  <span className="text-muted-foreground">No billing (informational only)</span>
-                </SelectItem>
-                {filteredServices.map(service => (
-                  <SelectItem key={service.service_code} value={service.service_code}>
-                    <span className="font-mono text-xs mr-2">{service.service_code}</span>
-                    <span className="text-muted-foreground">- {service.service_name}</span>
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Optional description..."
+                rows={2}
+              />
+            </div>
+
+            {/* Category Selection (First) */}
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select
+                value={formData.category_id || 'none'}
+                onValueChange={(value) => setFormData({
+                  ...formData,
+                  category_id: value === 'none' ? null : value,
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">No category</span>
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {formData.category_id
-                ? `Showing services in selected category (${filteredServices.length} available)`
-                : 'Select a category first to filter services, or choose from all'}
-            </p>
-          </div>
+                  {categories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Select a category to filter available services
+              </p>
+            </div>
 
-          {/* Options */}
-          <div className="space-y-4 pt-2 border-t">
-            <Label className="text-sm font-medium">Options</Label>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="requires_items"
-                checked={formData.requires_items}
-                onCheckedChange={(checked) => setFormData({
+            {/* Service Selection (Second - filtered by category) */}
+            <div className="space-y-2">
+              <Label>Service Code</Label>
+              <Select
+                value={formData.default_service_code || 'none'}
+                onValueChange={(value) => setFormData({
                   ...formData,
-                  requires_items: !!checked,
+                  default_service_code: value === 'none' ? null : value,
                 })}
-              />
-              <div>
-                <Label htmlFor="requires_items" className="cursor-pointer">
-                  Requires Items
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select service..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">No billing (informational only)</span>
+                  </SelectItem>
+                  {filteredServices.map(service => (
+                    <SelectItem key={service.service_code} value={service.service_code}>
+                      <span className="font-mono text-xs mr-2">{service.service_code}</span>
+                      <span className="text-muted-foreground">- {service.service_name}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {formData.category_id
+                  ? `Showing services in selected category (${filteredServices.length} available)`
+                  : 'Select a category first to filter services, or choose from all'}
+              </p>
+            </div>
+
+            {/* Options */}
+            <div className="space-y-4 pt-2 border-t">
+              <Label className="text-sm font-medium">Options</Label>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="requires_items"
+                  checked={formData.requires_items}
+                  onCheckedChange={(checked) => setFormData({
+                    ...formData,
+                    requires_items: !!checked,
+                  })}
+                />
+                <div>
+                  <Label htmlFor="requires_items" className="cursor-pointer">
+                    Requires Items
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Task must have items attached before billing
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="allow_rate_override"
+                  checked={formData.allow_rate_override}
+                  onCheckedChange={(checked) => setFormData({
+                    ...formData,
+                    allow_rate_override: !!checked,
+                  })}
+                />
+                <div>
+                  <Label htmlFor="allow_rate_override" className="cursor-pointer">
+                    Allow Rate Override
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Admins can override the rate for this task type
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="is_active"
+                  checked={formData.is_active}
+                  onCheckedChange={(checked) => setFormData({
+                    ...formData,
+                    is_active: checked,
+                  })}
+                />
+                <Label htmlFor="is_active" className="cursor-pointer">
+                  Active
                 </Label>
-                <p className="text-xs text-muted-foreground">
-                  Task must have items attached before billing
-                </p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="allow_rate_override"
-                checked={formData.allow_rate_override}
-                onCheckedChange={(checked) => setFormData({
-                  ...formData,
-                  allow_rate_override: !!checked,
-                })}
-              />
-              <div>
-                <Label htmlFor="allow_rate_override" className="cursor-pointer">
-                  Allow Rate Override
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Admins can override the rate for this task type
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="is_active"
-                checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData({
-                  ...formData,
-                  is_active: checked,
-                })}
-              />
-              <Label htmlFor="is_active" className="cursor-pointer">
-                Active
-              </Label>
-            </div>
+            {/* Extra bottom padding for mobile scrolling comfort */}
+            <div className="h-8" />
           </div>
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

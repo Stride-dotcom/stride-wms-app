@@ -7663,7 +7663,7 @@ export type Database = {
           id: string
           is_active: boolean
           notes: string | null
-          rate: number
+          rate: number | null
           service_code: string
           service_name: string
           service_time_minutes: number | null
@@ -7684,7 +7684,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           notes?: string | null
-          rate?: number
+          rate?: number | null
           service_code: string
           service_name: string
           service_time_minutes?: number | null
@@ -7705,7 +7705,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           notes?: string | null
-          rate?: number
+          rate?: number | null
           service_code?: string
           service_name?: string
           service_time_minutes?: number | null
@@ -7974,6 +7974,9 @@ export type Database = {
           completed_by: string | null
           created_at: string
           created_by: string | null
+          customer_authorized: boolean | null
+          customer_authorized_at: string | null
+          customer_authorized_by: string | null
           deleted_at: string | null
           driver_name: string | null
           expected_arrival_date: string | null
@@ -7988,10 +7991,12 @@ export type Database = {
           payment_reference: string | null
           payment_status: string | null
           po_number: string | null
+          portal_request_id: string | null
           received_at: string | null
           receiving_documents: Json | null
           receiving_notes: string | null
           receiving_photos: Json | null
+          release_photos: Json | null
           release_to_email: string | null
           release_to_name: string | null
           release_to_phone: string | null
@@ -8019,6 +8024,9 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           created_by?: string | null
+          customer_authorized?: boolean | null
+          customer_authorized_at?: string | null
+          customer_authorized_by?: string | null
           deleted_at?: string | null
           driver_name?: string | null
           expected_arrival_date?: string | null
@@ -8033,10 +8041,12 @@ export type Database = {
           payment_reference?: string | null
           payment_status?: string | null
           po_number?: string | null
+          portal_request_id?: string | null
           received_at?: string | null
           receiving_documents?: Json | null
           receiving_notes?: string | null
           receiving_photos?: Json | null
+          release_photos?: Json | null
           release_to_email?: string | null
           release_to_name?: string | null
           release_to_phone?: string | null
@@ -8064,6 +8074,9 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           created_by?: string | null
+          customer_authorized?: boolean | null
+          customer_authorized_at?: string | null
+          customer_authorized_by?: string | null
           deleted_at?: string | null
           driver_name?: string | null
           expected_arrival_date?: string | null
@@ -8078,10 +8091,12 @@ export type Database = {
           payment_reference?: string | null
           payment_status?: string | null
           po_number?: string | null
+          portal_request_id?: string | null
           received_at?: string | null
           receiving_documents?: Json | null
           receiving_notes?: string | null
           receiving_photos?: Json | null
+          release_photos?: Json | null
           release_to_email?: string | null
           release_to_name?: string | null
           release_to_phone?: string | null
@@ -11795,6 +11810,10 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: undefined
       }
+      backfill_task_types_categories: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
       batch_move_items: {
         Args: {
           p_action_type?: string
@@ -12146,6 +12165,22 @@ export type Database = {
         Returns: boolean
       }
       user_tenant_id: { Args: never; Returns: string }
+      validate_movement_event: {
+        Args: { p_destination_location_id: string; p_item_ids: string[] }
+        Returns: Json
+      }
+      validate_shipment_outbound_completion: {
+        Args: { p_shipment_id: string }
+        Returns: Json
+      }
+      validate_shipment_receiving_completion: {
+        Args: { p_shipment_id: string }
+        Returns: Json
+      }
+      validate_stocktake_completion: {
+        Args: { p_stocktake_id: string }
+        Returns: Json
+      }
       validate_task_completion: { Args: { p_task_id: string }; Returns: Json }
       validate_workflow_completion: {
         Args: {
