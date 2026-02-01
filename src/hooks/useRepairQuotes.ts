@@ -365,8 +365,15 @@ export interface RepairQuoteWorkflow {
   tech_submitted_at: string | null;
 
   // Customer pricing
+  // (Office-entered pricing overrides; some older rows may have nulls)
+  customer_price: number | null;
   customer_total: number | null;
   markup_applied: number | null;
+
+  // Office-only fields
+  internal_cost: number | null;
+  office_notes: string | null;
+  pricing_locked: boolean | null;
 
   // Client response
   client_response: 'accepted' | 'declined' | null;
