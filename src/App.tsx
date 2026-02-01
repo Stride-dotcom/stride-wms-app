@@ -59,6 +59,7 @@ import ScanHub from "./pages/ScanHub";
 import ScanItemRedirect from "./pages/ScanItemRedirect";
 import PrintPreview from "./pages/PrintPreview";
 import Diagnostics from "./pages/Diagnostics";
+import BotQA from "./pages/admin/BotQA";
 import Messages from "./pages/Messages";
 import ComponentsDemo from "./pages/ComponentsDemo";
 import MaterialIconsSample from "./pages/MaterialIconsSample";
@@ -124,6 +125,7 @@ const App = () => (
             <Route path="/quotes/:id" element={<ProtectedRoute><RequireRole role="tenant_admin"><QuoteBuilder /></RequireRole></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><RequireRole role="tenant_admin"><Settings /></RequireRole></ProtectedRoute>} />
             <Route path="/diagnostics" element={<ProtectedRoute><RequireRole role="tenant_admin"><Diagnostics /></RequireRole></ProtectedRoute>} />
+            <Route path="/admin/bot-qa" element={<ProtectedRoute><RequireRole role="tenant_admin"><BotQA /></RequireRole></ProtectedRoute>} />
             <Route path="/repair-access" element={<RepairTechAccess />} />
             <Route path="/quote/tech" element={<TechQuoteSubmit />} />
             <Route path="/quote/review" element={<ClientQuoteReview />} />
