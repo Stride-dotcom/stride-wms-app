@@ -542,9 +542,22 @@ export default function ItemDetail() {
               <MaterialIcon name="arrow_back" size="md" />
             </Button>
             <div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-3xl font-bold tracking-tight">{item.item_code}</h1>
                 {getStatusBadge(item.status)}
+                {/* Repair Status - bold colored text */}
+                {item.repair_status === 'completed' && (
+                  <span className="font-bold text-green-600 dark:text-green-400">REPAIRED</span>
+                )}
+                {item.repair_status === 'in_progress' && (
+                  <span className="font-bold text-orange-500 dark:text-orange-400">REPAIR IN PROGRESS</span>
+                )}
+                {item.needs_repair && !item.repair_status && (
+                  <span className="font-bold text-red-600 dark:text-red-400">NEEDS REPAIR</span>
+                )}
+                {item.repair_status === 'pending' && (
+                  <span className="font-bold text-red-600 dark:text-red-400">NEEDS REPAIR</span>
+                )}
               </div>
               <p className="text-muted-foreground">
                 {item.description || 'No description'}
