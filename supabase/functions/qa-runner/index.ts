@@ -457,7 +457,7 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
         itemIds.push(item.id);
       }
 
-      // Create outbound shipment
+      // Create outbound shipment with required authorization fields
       const { data: shipment, error: shipmentError } = await ctx.supabase
         .from('shipments')
         .insert({
@@ -467,6 +467,9 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
           shipment_number: generateCode('OUT'),
           shipment_type: 'outbound',
           status: 'pending',
+          customer_authorized: true,
+          release_type: 'customer_pickup',
+          released_to: 'QA Test Customer',
           metadata: { qa_test: true, qa_run_id: ctx.runId }
         })
         .select()
@@ -475,12 +478,24 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
       if (shipmentError) throw new Error(`Failed to create shipment: ${shipmentError.message}`);
       shipmentId = shipment.id;
 
-      // Link items to shipment
+      // Link items to shipment via shipment_items table and also releasing_shipment_id
       for (const itemId of itemIds) {
+        // Update item's releasing_shipment_id
         await ctx.supabase
           .from('items')
           .update({ releasing_shipment_id: shipmentId })
           .eq('id', itemId);
+
+        // Also create shipment_items record
+        await ctx.supabase
+          .from('shipment_items')
+          .insert({
+            shipment_id: shipmentId,
+            item_id: itemId,
+            expected_quantity: 1,
+            actual_quantity: 1,
+            status: 'pending'
+          });
       }
 
       log(ctx, `Created outbound shipment: ${shipment.shipment_number} with ${itemIds.length} items`);
