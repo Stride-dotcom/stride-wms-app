@@ -63,7 +63,7 @@ import Messages from "./pages/Messages";
 import ComponentsDemo from "./pages/ComponentsDemo";
 import MaterialIconsSample from "./pages/MaterialIconsSample";
 import NotFound from "./pages/NotFound";
-import { AIClientBot } from "./components/ai/AIClientBot";
+import { AIBotSwitch } from "./components/ai/AIBotSwitch";
 
 const queryClient = new QueryClient();
 
@@ -140,7 +140,7 @@ const App = () => (
             <Route path="/print-preview" element={<PrintPreview />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
-          <AIClientBot />
+          <AIBotSwitch />
           </SidebarProvider>
           </PromptProvider>
         </AuthProvider>
