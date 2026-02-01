@@ -1,5 +1,6 @@
 /**
  * AddServiceDialog - Create or duplicate service events
+ * Supports class-based pricing with auto-generation of class rows
  */
 
 import { useState, useEffect } from 'react';
@@ -35,6 +36,7 @@ import {
   BILLING_UNITS,
   ALERT_RULES,
 } from '@/hooks/useServiceEventsAdmin';
+import { useServiceCategories } from '@/hooks/useServiceCategories';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -60,6 +62,7 @@ export function AddServiceDialog({
 }: AddServiceDialogProps) {
   const { toast } = useToast();
   const { profile } = useAuth();
+  const { activeCategories } = useServiceCategories();
   const [saving, setSaving] = useState(false);
 
   // Form state
@@ -77,6 +80,7 @@ export function AddServiceDialog({
     alert_rule: string;
     billing_trigger: string;
     uses_class_pricing: boolean;
+    category_id: string | null;
   }>({
     service_code: '',
     service_name: '',
@@ -91,6 +95,7 @@ export function AddServiceDialog({
     alert_rule: 'none',
     billing_trigger: 'SCAN EVENT',
     uses_class_pricing: false,
+    category_id: null,
   });
 
   // Track if user has manually edited the service code
@@ -148,6 +153,7 @@ export function AddServiceDialog({
           alert_rule: duplicateFrom.alert_rule,
           billing_trigger: duplicateFrom.billing_trigger,
           uses_class_pricing: duplicateFrom.uses_class_pricing,
+          category_id: duplicateFrom.category_id || null,
         });
         setCodeManuallyEdited(false); // Reset manual edit flag
         // If duplicating a class-based service, initialize class rates
@@ -178,6 +184,7 @@ export function AddServiceDialog({
           alert_rule: 'none',
           billing_trigger: 'SCAN EVENT',
           uses_class_pricing: false,
+          category_id: null,
         });
         setCodeManuallyEdited(false); // Reset manual edit flag
         setClassRates([]);
@@ -324,6 +331,7 @@ export function AddServiceDialog({
         add_to_service_event_scan: formData.add_to_service_event_scan,
         alert_rule: formData.alert_rule,
         billing_trigger: formData.billing_trigger,
+        category_id: formData.category_id,
       };
 
       if (formData.uses_class_pricing) {
@@ -418,6 +426,32 @@ export function AddServiceDialog({
                 {codeManuallyEdited ? 'Manually set' : 'Auto-generated from name'}
               </p>
             </div>
+          </div>
+
+          {/* Category */}
+          <div className="space-y-2">
+            <Label>Category</Label>
+            <Select
+              value={formData.category_id || 'none'}
+              onValueChange={(value) =>
+                setFormData({ ...formData, category_id: value === 'none' ? null : value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select category..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  <span className="text-muted-foreground">No category</span>
+                </SelectItem>
+                {activeCategories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Categories help organize services in the Price List (does not affect billing)
+            </p>
           </div>
 
           {/* Billing Settings */}
