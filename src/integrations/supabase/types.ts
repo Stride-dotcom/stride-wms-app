@@ -6462,6 +6462,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "qa_test_runs_executed_by_fkey"
+            columns: ["executed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "qa_test_runs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -8125,6 +8132,7 @@ export type Database = {
           expected_vendor: string | null
           flags: string[] | null
           id: string
+          is_staged: boolean | null
           item_id: string | null
           item_type_id: string | null
           notes: string | null
@@ -8145,6 +8153,7 @@ export type Database = {
           expected_vendor?: string | null
           flags?: string[] | null
           id?: string
+          is_staged?: boolean | null
           item_id?: string | null
           item_type_id?: string | null
           notes?: string | null
@@ -8165,6 +8174,7 @@ export type Database = {
           expected_vendor?: string | null
           flags?: string[] | null
           id?: string
+          is_staged?: boolean | null
           item_id?: string | null
           item_type_id?: string | null
           notes?: string | null
