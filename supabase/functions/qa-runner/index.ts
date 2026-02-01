@@ -1328,11 +1328,11 @@ async function runClaimsFlowTests(ctx: TestContext): Promise<TestResult[]> {
           account_id: accountId,
           item_id: itemId,
           claim_number: generateCode('CLM'),
-          claim_type: 'damage',
-          status: 'pending',
+          claim_type: 'shipping_damage',
+          status: 'initiated',
           description: 'QA Test Claim - Damage during handling',
-          claimed_amount: 500,
-          notes: `QA Test - Run ${ctx.runId}`
+          total_claimed_value: 500,
+          internal_notes: `QA Test - Run ${ctx.runId}`
         })
         .select()
         .single();
