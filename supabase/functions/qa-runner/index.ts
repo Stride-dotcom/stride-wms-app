@@ -1345,7 +1345,7 @@ async function runClaimsFlowTests(ctx: TestContext): Promise<TestResult[]> {
           item_id: itemId,
           claim_number: generateCode('CLM'),
           claim_type: 'shipping_damage',
-          status: 'initiated',
+          status: 'open',
           description: 'QA Test Claim - Damage during handling',
           claimed_amount: 500,
           internal_notes: `QA Test - Run ${ctx.runId}`
