@@ -37,6 +37,7 @@ import { InviteUserDialog } from '@/components/settings/InviteUserDialog';
 import { OrganizationSettingsTab } from '@/components/settings/OrganizationSettingsTab';
 import { SidemarksSettingsTab } from '@/components/settings/SidemarksSettingsTab';
 import { ServiceEventsPricingTab } from '@/components/settings/ServiceEventsPricingTab';
+import { ServiceCategoriesSettingsTab } from '@/components/settings/ServiceCategoriesSettingsTab';
 
 import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
 import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
@@ -57,6 +58,7 @@ const TAB_OPTIONS = [
   { value: 'prompts', label: 'Prompts', adminOnly: true },
   { value: 'labor', label: 'Labor', adminOnly: true },
   { value: 'pricing', label: 'Pricing', adminOnly: true },
+  { value: 'categories', label: 'Categories', adminOnly: true },
   { value: 'integrations', label: 'Integrations', adminOnly: true },
   { value: 'sidemarks', label: 'Sidemarks' },
   // Removed: Services, Rate Sheets, Classes tabs - now using unified service_events pricing system
@@ -319,6 +321,7 @@ export default function Settings() {
             {isAdmin && <TabsTrigger value="prompts">Prompts</TabsTrigger>}
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
             {isAdmin && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="categories">Categories</TabsTrigger>}
             {isAdmin && <TabsTrigger value="integrations">Integrations</TabsTrigger>}
             <TabsTrigger value="sidemarks">Sidemarks</TabsTrigger>
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
@@ -407,6 +410,12 @@ export default function Settings() {
           {isAdmin && (
             <TabsContent value="pricing">
               <ServiceEventsPricingTab />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="categories">
+              <ServiceCategoriesSettingsTab />
             </TabsContent>
           )}
 

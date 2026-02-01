@@ -25,6 +25,7 @@ export interface ServiceEvent {
   add_to_service_event_scan: boolean;
   alert_rule: string;
   billing_trigger: string;
+  category_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -84,6 +85,7 @@ export interface UpdateServiceEventInput {
   alert_rule?: string;
   billing_trigger?: string;
   uses_class_pricing?: boolean;
+  category_id?: string | null;
 }
 
 export interface ServiceEventFilters {
@@ -92,6 +94,7 @@ export interface ServiceEventFilters {
   class_code?: string;
   is_active?: boolean;
   search?: string;
+  category_id?: string;
 }
 
 export const BILLING_TRIGGERS = [
@@ -211,6 +214,14 @@ export function useServiceEventsAdmin() {
         se.service_name.toLowerCase().includes(search) ||
         (se.notes && se.notes.toLowerCase().includes(search))
       );
+    }
+
+    if (filters.category_id) {
+      if (filters.category_id === 'uncategorized') {
+        filtered = filtered.filter(se => !se.category_id);
+      } else {
+        filtered = filtered.filter(se => se.category_id === filters.category_id);
+      }
     }
 
     return filtered;
