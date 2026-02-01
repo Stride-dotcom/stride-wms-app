@@ -138,7 +138,8 @@ export function BillingCalculator({
       let query = (supabase.from('billing_events') as any)
         .select('id, charge_type, description, quantity, unit_rate, total_amount, event_type, status')
         .eq('tenant_id', profile.tenant_id)
-        .in('status', ['unbilled', 'flagged', 'billed']);
+        // Include void for audit integrity (reversals and voided charges should still be visible)
+        .in('status', ['unbilled', 'flagged', 'billed', 'void']);
 
       // Filter by context
       if (shipmentId) {
