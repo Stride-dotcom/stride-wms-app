@@ -35,8 +35,10 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { UnableToCompleteDialog } from '@/components/tasks/UnableToCompleteDialog';
 import { WillCallCompletionDialog } from '@/components/tasks/WillCallCompletionDialog';
+import { TaskCompletionBlockedDialog } from '@/components/tasks/TaskCompletionBlockedDialog';
 import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { validateTaskCompletion, TaskCompletionValidationResult } from '@/lib/billing/taskCompletionValidation';
 
 // Status text classes for bold colored text without background
 const getStatusTextClass = (status: string) => {
@@ -137,6 +139,8 @@ export default function Tasks() {
   const [unableToCompleteTask, setUnableToCompleteTask] = useState<Task | null>(null);
   const [willCallTask, setWillCallTask] = useState<Task | null>(null);
   const [willCallItems, setWillCallItems] = useState<Array<{ id: string; item_code: string; description: string | null }>>([]);
+  const [completionBlockedOpen, setCompletionBlockedOpen] = useState(false);
+  const [completionValidationResult, setCompletionValidationResult] = useState<TaskCompletionValidationResult | null>(null);
 
   // Fetch ALL tasks for stable tile counts (no filters, but respect technician filter)
   const { tasks: allTasks } = useTasks({
@@ -255,6 +259,22 @@ export default function Tasks() {
 
   // Handle Will Call completion
   const handleCompleteClick = async (task: Task) => {
+    // Phase 5B: Validate task completion requirements
+    if (profile?.tenant_id) {
+      const validationResult = await validateTaskCompletion(
+        profile.tenant_id,
+        task.id,
+        task.task_type
+      );
+
+      if (!validationResult.canComplete) {
+        // Show blocking dialog with validation issues
+        setCompletionValidationResult(validationResult);
+        setCompletionBlockedOpen(true);
+        return;
+      }
+    }
+
     if (task.task_type === 'Will Call') {
       // Fetch items for this task
       const items = await getTaskItems(task.id);
@@ -615,6 +635,12 @@ export default function Tasks() {
         taskTitle={willCallTask?.title || ''}
         items={willCallItems}
         onComplete={handleWillCallComplete}
+      />
+
+      <TaskCompletionBlockedDialog
+        open={completionBlockedOpen}
+        onOpenChange={setCompletionBlockedOpen}
+        validationResult={completionValidationResult}
       />
     </DashboardLayout>
   );

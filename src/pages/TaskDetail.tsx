@@ -44,8 +44,10 @@ import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
 import { DocumentUploadButton } from '@/components/scanner/DocumentUploadButton';
 import { DocumentList } from '@/components/scanner/DocumentList';
 import { TaskHistoryTab } from '@/components/tasks/TaskHistoryTab';
+import { TaskCompletionBlockedDialog } from '@/components/tasks/TaskCompletionBlockedDialog';
 import { HelpButton } from '@/components/prompts';
 import { PromptWorkflow } from '@/types/guidedPrompts';
+import { validateTaskCompletion, TaskCompletionValidationResult } from '@/lib/billing/taskCompletionValidation';
 
 interface TaskDetail {
   id: string;
@@ -151,11 +153,13 @@ export default function TaskDetailPage() {
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>('');
   const [creatingQuote, setCreatingQuote] = useState(false);
   const [billingRefreshKey, setBillingRefreshKey] = useState(0);
-  
+  const [completionBlockedOpen, setCompletionBlockedOpen] = useState(false);
+  const [completionValidationResult, setCompletionValidationResult] = useState<TaskCompletionValidationResult | null>(null);
+
   // SOP validation gate state
   const [validationOpen, setValidationOpen] = useState(false);
   const [validationBlockers, setValidationBlockers] = useState<{ code: string; message: string; severity: string }[]>([]);
-  
+
 
   const { activeTechnicians } = useTechnicians();
   const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
@@ -283,7 +287,7 @@ export default function TaskDetailPage() {
   };
 
   const handleCompleteTask = async () => {
-    if (!id || !profile?.id || !task) return;
+    if (!id || !profile?.id || !task || !profile?.tenant_id) return;
 
     // Validate Assembly and Repair tasks require billing quantity > 0
     if (task.task_type === 'Assembly' || task.task_type === 'Repair') {
@@ -301,8 +305,23 @@ export default function TaskDetailPage() {
 
     setActionLoading(true);
     try {
+      // Phase 5B: Validate task completion requirements (client-side)
+      const phase5bValidation = await validateTaskCompletion(
+        profile.tenant_id,
+        id,
+        task.task_type
+      );
+
+      if (!phase5bValidation.canComplete) {
+        // Show blocking dialog with validation issues
+        setCompletionValidationResult(phase5bValidation);
+        setCompletionBlockedOpen(true);
+        setActionLoading(false);
+        return;
+      }
+
       // SOP Hard Gate: Call RPC to validate task completion
-      const { data: validationResult, error: rpcError } = await supabase.rpc('validate_task_completion', {
+      const { data: sopValidationResult, error: rpcError } = await supabase.rpc('validate_task_completion', {
         p_task_id: id,
       });
 
@@ -318,7 +337,7 @@ export default function TaskDetailPage() {
       }
 
       // Cast to expected shape
-      const result = validationResult as { ok: boolean; blockers: { code: string; message: string; severity: string }[]; task_type: string } | null;
+      const result = sopValidationResult as { ok: boolean; blockers: { code: string; message: string; severity: string }[]; task_type: string } | null;
 
       // Filter blockers to only include those with severity "blocking" (or all if no severity field)
       const blockers = (result?.blockers || []).filter(
@@ -333,7 +352,7 @@ export default function TaskDetailPage() {
         return;
       }
 
-      // Validation passed - continue with existing completion logic
+      // All validations passed - continue with completion
       const success = await completeTask(id);
       if (success) {
         fetchTask();
@@ -1164,6 +1183,13 @@ export default function TaskDetailPage() {
           onSuccess={fetchTask}
         />
       )}
+
+      {/* Task Completion Blocked Dialog (Phase 5B) */}
+      <TaskCompletionBlockedDialog
+        open={completionBlockedOpen}
+        onOpenChange={setCompletionBlockedOpen}
+        validationResult={completionValidationResult}
+      />
 
       {/* SOP Validation Blockers Modal */}
       <Dialog open={validationOpen} onOpenChange={setValidationOpen}>
