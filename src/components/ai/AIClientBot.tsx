@@ -1,19 +1,22 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
+import { useClientPortalContext } from '@/hooks/useClientPortal';
 import { useToast } from '@/hooks/use-toast';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { parseMessageWithLinks, extractEntityNumbers, EntityMap } from '@/utils/parseEntityLinks';
-import { resolveEntities, buildEntityMap } from '@/services/entityResolver';
-import { EntityType } from '@/config/entities';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
-  entityMap?: EntityMap;
+}
+
+interface UIContext {
+  route?: string;
+  selected_item_ids?: string[];
 }
 
 export function AIClientBot() {
@@ -24,12 +27,24 @@ export function AIClientBot() {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { profile } = useAuth();
+  const { portalUser, isClientPortalUser } = useClientPortalContext();
   const { toast } = useToast();
+  const location = useLocation();
 
   // Dragging state
   const [position, setPosition] = useState({ x: 24, y: 24 }); // bottom-right default
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null);
+
+  // Get current UI context for the chatbot
+  const getUIContext = useCallback((): UIContext => {
+    return {
+      route: location.pathname,
+      // selected_item_ids could be passed via a context or URL params
+      // For now, we'll extract from URL if available
+      selected_item_ids: undefined,
+    };
+  }, [location.pathname]);
 
   const handleDragStart = (e: React.TouchEvent | React.MouseEvent) => {
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -88,32 +103,14 @@ export function AIClientBot() {
     }
   }, [messages]);
 
-  // Resolve entities in a message
-  const resolveMessageEntities = useCallback(async (content: string): Promise<EntityMap> => {
-    const entityNumbers = extractEntityNumbers(content);
-    if (entityNumbers.length === 0) return {};
-
-    try {
-      const resolved = await resolveEntities(entityNumbers);
-      return buildEntityMap(resolved);
-    } catch (error) {
-      console.error('Error resolving entities:', error);
-      return {};
-    }
-  }, []);
-
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
     const userContent = input.trim();
 
-    // Resolve entities in user message
-    const userEntityMap = await resolveMessageEntities(userContent);
-
     const userMessage: Message = {
       role: 'user',
       content: userContent,
-      entityMap: userEntityMap,
     };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
@@ -122,6 +119,15 @@ export function AIClientBot() {
     let assistantContent = '';
 
     try {
+      // Build conversation history for context
+      const conversationHistory = messages.map(m => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      // Get UI context
+      const uiContext = getUIContext();
+
       const response = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
@@ -130,12 +136,11 @@ export function AIClientBot() {
         },
         body: JSON.stringify({
           message: userMessage.content,
-          tenantId: profile?.tenant_id,
-          // Include resolved entities for context
-          entityContext: Object.entries(userEntityMap)
-            .filter(([_, info]) => info.exists)
-            .map(([num, info]) => `${num}: ${info.summary}`)
-            .join('\n'),
+          // Use client portal context if available, otherwise fall back to profile
+          tenantId: isClientPortalUser ? portalUser?.tenant_id : profile?.tenant_id,
+          accountId: isClientPortalUser ? portalUser?.account_id : undefined,
+          uiContext,
+          conversationHistory,
         }),
       });
 
@@ -168,7 +173,7 @@ export function AIClientBot() {
       let textBuffer = '';
 
       // Add initial assistant message
-      setMessages(prev => [...prev, { role: 'assistant', content: '', entityMap: {} }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
       while (true) {
         const { done, value } = await reader.read();
@@ -209,12 +214,8 @@ export function AIClientBot() {
         }
       }
 
-      // After streaming complete, resolve entities in assistant response
+      // Final update
       if (assistantContent) {
-        const assistantEntityMap = await resolveMessageEntities(assistantContent);
-        // Merge with any entities from user message
-        const combinedEntityMap: EntityMap = { ...userEntityMap, ...assistantEntityMap };
-
         setMessages(prev => {
           const newMessages = [...prev];
           const lastIdx = newMessages.length - 1;
@@ -222,7 +223,6 @@ export function AIClientBot() {
             newMessages[lastIdx] = {
               ...newMessages[lastIdx],
               content: assistantContent,
-              entityMap: combinedEntityMap,
             };
           }
           return newMessages;
@@ -249,21 +249,74 @@ export function AIClientBot() {
     }
   };
 
-  // Render message content with entity links
+  // Clear conversation
+  const clearConversation = () => {
+    setMessages([]);
+  };
+
+  // Render message content with markdown-like formatting
   const renderMessageContent = (message: Message) => {
     if (!message.content) {
       return isLoading ? <MaterialIcon name="progress_activity" size="sm" className="animate-spin" /> : null;
     }
 
-    // Parse message and convert entity references to clickable links
-    const parsed = parseMessageWithLinks(message.content, message.entityMap);
+    // Simple markdown rendering for bold text and lists
+    const content = message.content;
+    const lines = content.split('\n');
 
     return (
-      <span className="whitespace-pre-wrap">
-        {parsed.map((node, idx) => (
-          <span key={idx}>{node}</span>
-        ))}
-      </span>
+      <div className="whitespace-pre-wrap">
+        {lines.map((line, idx) => {
+          // Bold text: **text**
+          const boldRegex = /\*\*(.*?)\*\*/g;
+          const parts: (string | JSX.Element)[] = [];
+          let lastIndex = 0;
+          let match;
+
+          while ((match = boldRegex.exec(line)) !== null) {
+            if (match.index > lastIndex) {
+              parts.push(line.slice(lastIndex, match.index));
+            }
+            parts.push(<strong key={`bold-${idx}-${match.index}`}>{match[1]}</strong>);
+            lastIndex = match.index + match[0].length;
+          }
+
+          if (lastIndex < line.length) {
+            parts.push(line.slice(lastIndex));
+          }
+
+          // Check if it's a list item
+          const isListItem = line.trim().startsWith('- ') || line.trim().startsWith('• ');
+          const listContent = isListItem ? line.replace(/^[\s]*[-•]\s*/, '') : null;
+
+          if (isListItem && listContent) {
+            return (
+              <div key={idx} className="flex items-start gap-1">
+                <span className="text-muted-foreground">•</span>
+                <span>{listContent}</span>
+              </div>
+            );
+          }
+
+          // Check if it's a numbered item
+          const numberedMatch = line.trim().match(/^(\d+)\.\s+(.*)/);
+          if (numberedMatch) {
+            return (
+              <div key={idx} className="flex items-start gap-2">
+                <span className="font-medium min-w-[1.5rem]">{numberedMatch[1]}.</span>
+                <span>{numberedMatch[2]}</span>
+              </div>
+            );
+          }
+
+          return (
+            <div key={idx}>
+              {parts.length > 0 ? parts : line}
+              {idx < lines.length - 1 && <br />}
+            </div>
+          );
+        })}
+      </div>
     );
   };
 
@@ -273,7 +326,7 @@ export function AIClientBot() {
         onClick={() => !isDragging && setIsOpen(true)}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
-        className={`fixed h-10 w-10 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center z-50 transition-shadow duration-200 ${
+        className={`fixed h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center z-50 transition-shadow duration-200 ${
           isDragging ? 'shadow-2xl scale-110 cursor-grabbing' : 'hover:shadow-xl cursor-grab'
         }`}
         style={{
@@ -282,7 +335,7 @@ export function AIClientBot() {
           transition: isDragging ? 'none' : 'box-shadow 0.2s, transform 0.2s',
         }}
       >
-        🤖
+        <MaterialIcon name="smart_toy" size="md" />
       </button>
     );
   }
@@ -293,11 +346,11 @@ export function AIClientBot() {
         <CardHeader className="p-3 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             <MaterialIcon name="smart_toy" size="md" className="text-primary" />
-            <CardTitle className="text-sm">AI Assistant</CardTitle>
+            <CardTitle className="text-sm">Stride Helper</CardTitle>
           </div>
           <div className="flex gap-1">
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMinimized(false)}>
-              <MaterialIcon name="fullscreen_exit" size="sm" />
+              <MaterialIcon name="open_in_full" size="sm" />
             </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsOpen(false)}>
               <MaterialIcon name="close" size="sm" />
@@ -309,15 +362,23 @@ export function AIClientBot() {
   }
 
   return (
-    <Card className="fixed bottom-6 right-6 w-96 h-[500px] shadow-lg z-50 flex flex-col">
+    <Card className="fixed bottom-6 right-6 w-96 h-[520px] shadow-lg z-50 flex flex-col">
       <CardHeader className="p-3 border-b flex flex-row items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <MaterialIcon name="smart_toy" size="md" className="text-primary" />
-          <CardTitle className="text-sm">AI Assistant</CardTitle>
+          <div>
+            <CardTitle className="text-sm">Stride Helper</CardTitle>
+            <p className="text-xs text-muted-foreground">Your friendly warehouse assistant</p>
+          </div>
         </div>
         <div className="flex gap-1">
+          {messages.length > 0 && (
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearConversation} title="Clear chat">
+              <MaterialIcon name="delete_sweep" size="sm" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMinimized(true)}>
-            <MaterialIcon name="fullscreen_exit" size="sm" />
+            <MaterialIcon name="minimize" size="sm" />
           </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsOpen(false)}>
             <MaterialIcon name="close" size="sm" />
@@ -327,16 +388,32 @@ export function AIClientBot() {
 
       <ScrollArea ref={scrollRef} className="flex-1 p-4">
         {messages.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8">
-            <MaterialIcon name="smart_toy" className="mx-auto mb-3 opacity-50" style={{ fontSize: '48px' }} />
-            <p className="text-sm">Hi! I can help you find information about:</p>
-            <ul className="text-xs mt-2 space-y-1">
-              <li>• Tasks (e.g., "What's the status of TSK-00142?")</li>
-              <li>• Shipments (e.g., "Show me SHP-00891")</li>
-              <li>• Items (e.g., "Where is ITM-12345?")</li>
-              <li>• Quotes (e.g., "Find quote EST-00001")</li>
-              <li>• And more - just ask!</li>
-            </ul>
+          <div className="text-center text-muted-foreground py-6">
+            <MaterialIcon name="waving_hand" className="mx-auto mb-3 text-primary" style={{ fontSize: '40px' }} />
+            <p className="text-sm font-medium text-foreground mb-2">Hi there! I'm here to help.</p>
+            <p className="text-xs mb-4">Here are some things I can do:</p>
+            <div className="text-left space-y-2 text-xs bg-muted/50 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <MaterialIcon name="local_shipping" size="sm" className="text-primary mt-0.5" />
+                <span>"Did I get a Jones sofa yet?"</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <MaterialIcon name="inventory_2" size="sm" className="text-primary mt-0.5" />
+                <span>"Create a will call for my dining table"</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <MaterialIcon name="build" size="sm" className="text-primary mt-0.5" />
+                <span>"Request a repair quote for the blue sofa"</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <MaterialIcon name="swap_horiz" size="sm" className="text-primary mt-0.5" />
+                <span>"Move items from Job A to Job B"</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <MaterialIcon name="description" size="sm" className="text-primary mt-0.5" />
+                <span>"Show inspection reports"</span>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -377,7 +454,7 @@ export function AIClientBot() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask about tasks, shipments, items..."
+            placeholder="Ask me anything..."
             disabled={isLoading}
             className="flex-1"
           />
