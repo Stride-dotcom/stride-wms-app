@@ -86,7 +86,7 @@ export function QuickReleaseDialog({
 
       if (!profile) throw new Error('User profile not found');
 
-      // Create the outbound shipment for tracking
+      // Create the outbound shipment for tracking with customer_authorized for SOP compliance
       // Note: release_type must be 'will_call', 'disposal', or 'return' per database constraint
       const shipmentData = {
         tenant_id: profile.tenant_id,
@@ -97,6 +97,9 @@ export function QuickReleaseDialog({
         notes: `Manual release of ${selectedItems.length} item(s)`,
         created_by: profile.id,
         completed_at: releaseDate.toISOString(),
+        customer_authorized: true,
+        customer_authorized_at: releaseDate.toISOString(),
+        customer_authorized_by: profile.id,
       };
 
       const { data: shipment, error: shipmentError } = await (supabase
