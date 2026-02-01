@@ -166,9 +166,21 @@ export function useTasks(filters?: {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        // Ignore AbortError - happens during rapid navigation
+        if (error.message?.includes('AbortError') || error.message?.includes('aborted')) {
+          console.debug('[useTasks] Request aborted (expected during navigation)');
+          return;
+        }
+        throw error;
+      }
       setTasks(data || []);
-    } catch (error) {
+    } catch (error: any) {
+      // Ignore AbortError - happens during rapid navigation
+      if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) {
+        console.debug('[useTasks] Request aborted (expected during navigation)');
+        return;
+      }
       console.error('Error fetching tasks:', error);
       toast({
         variant: 'destructive',
