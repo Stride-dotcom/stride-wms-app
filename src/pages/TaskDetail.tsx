@@ -44,8 +44,10 @@ import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
 import { DocumentUploadButton } from '@/components/scanner/DocumentUploadButton';
 import { DocumentList } from '@/components/scanner/DocumentList';
 import { TaskHistoryTab } from '@/components/tasks/TaskHistoryTab';
+import { TaskCompletionBlockedDialog } from '@/components/tasks/TaskCompletionBlockedDialog';
 import { HelpButton } from '@/components/prompts';
 import { PromptWorkflow } from '@/types/guidedPrompts';
+import { validateTaskCompletion, TaskCompletionValidationResult } from '@/lib/billing/taskCompletionValidation';
 
 interface TaskDetail {
   id: string;
@@ -151,7 +153,8 @@ export default function TaskDetailPage() {
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>('');
   const [creatingQuote, setCreatingQuote] = useState(false);
   const [billingRefreshKey, setBillingRefreshKey] = useState(0);
-  
+  const [completionBlockedOpen, setCompletionBlockedOpen] = useState(false);
+  const [completionValidationResult, setCompletionValidationResult] = useState<TaskCompletionValidationResult | null>(null);
 
   const { activeTechnicians } = useTechnicians();
   const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
@@ -279,7 +282,7 @@ export default function TaskDetailPage() {
   };
 
   const handleCompleteTask = async () => {
-    if (!id || !profile?.id || !task) return;
+    if (!id || !profile?.id || !task || !profile?.tenant_id) return;
 
     // Validate Assembly and Repair tasks require billing quantity > 0
     if (task.task_type === 'Assembly' || task.task_type === 'Repair') {
@@ -297,6 +300,21 @@ export default function TaskDetailPage() {
 
     setActionLoading(true);
     try {
+      // Phase 5B: Validate task completion requirements
+      const validationResult = await validateTaskCompletion(
+        profile.tenant_id,
+        id,
+        task.task_type
+      );
+
+      if (!validationResult.canComplete) {
+        // Show blocking dialog with validation issues
+        setCompletionValidationResult(validationResult);
+        setCompletionBlockedOpen(true);
+        setActionLoading(false);
+        return;
+      }
+
       // Use completeTask from useTasks which creates billing events
       const success = await completeTask(id);
       if (success) {
@@ -1127,6 +1145,13 @@ export default function TaskDetailPage() {
           onSuccess={fetchTask}
         />
       )}
+
+      {/* Task Completion Blocked Dialog */}
+      <TaskCompletionBlockedDialog
+        open={completionBlockedOpen}
+        onOpenChange={setCompletionBlockedOpen}
+        validationResult={completionValidationResult}
+      />
     </DashboardLayout>
   );
 }
