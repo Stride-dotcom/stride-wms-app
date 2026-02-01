@@ -701,23 +701,17 @@ export default function ItemDetail() {
           </TabsList>
 
           <TabsContent value="details" className="space-y-6 mt-6">
-            {/* Account Default Notes - Full width above details */}
-            {accountSettings?.default_item_notes && (
-              <Card className={cn(
-                accountSettings.highlight_item_notes
-                  ? "bg-orange-50 dark:bg-orange-900/20 border-4 border-orange-500 dark:border-orange-400"
-                  : "bg-card"
-              )}>
+            {/* Account Default Notes - Full width above details, only show if highlight enabled AND notes not blank */}
+            {accountSettings?.highlight_item_notes && accountSettings?.default_item_notes?.trim() && (
+              <Card className="bg-orange-50 dark:bg-orange-900/20 border-4 border-orange-500 dark:border-orange-400">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    {accountSettings.highlight_item_notes && (
-                      <span className="text-orange-600 dark:text-orange-400">⚠️</span>
-                    )}
+                    <span className="text-orange-600 dark:text-orange-400">⚠️</span>
                     Account Notes
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm whitespace-pre-wrap">{accountSettings.default_item_notes}</p>
+                  <p className="text-sm whitespace-pre-wrap font-bold text-orange-700 dark:text-orange-300">{accountSettings.default_item_notes}</p>
                 </CardContent>
               </Card>
             )}

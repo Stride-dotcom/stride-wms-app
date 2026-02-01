@@ -186,6 +186,10 @@ export default function ShipmentDetail() {
   const [sopValidationOpen, setSopValidationOpen] = useState(false);
   const [sopBlockers, setSopBlockers] = useState<SOPBlocker[]>([]);
   const [submittingPartialRelease, setSubmittingPartialRelease] = useState(false);
+  const [accountSettings, setAccountSettings] = useState<{
+    default_shipment_notes: string | null;
+    highlight_shipment_notes: boolean;
+  } | null>(null);
 
   // Receiving session hook
   const {
@@ -353,6 +357,22 @@ export default function ShipmentDetail() {
       setShipment(shipmentData as unknown as Shipment);
       setItems(mappedItems as unknown as ShipmentItem[]);
       setBillingRefreshKey(prev => prev + 1); // Trigger billing recalculation
+
+      // Fetch account settings for shipment notes
+      if (shipmentData.account_id) {
+        const { data: accSettings } = await supabase
+          .from('accounts')
+          .select('default_shipment_notes, highlight_shipment_notes')
+          .eq('id', shipmentData.account_id)
+          .single();
+
+        if (accSettings) {
+          setAccountSettings({
+            default_shipment_notes: accSettings.default_shipment_notes,
+            highlight_shipment_notes: accSettings.highlight_shipment_notes || false,
+          });
+        }
+      }
 
       // Initialize receiving photos/documents from shipment
       if (shipmentData.receiving_photos) {
@@ -1533,6 +1553,21 @@ export default function ShipmentDetail() {
                 Cancel
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Account Default Shipment Notes - Full width, only show if highlight enabled AND notes not blank */}
+      {accountSettings?.highlight_shipment_notes && accountSettings?.default_shipment_notes?.trim() && (
+        <Card className="mb-6 bg-orange-50 dark:bg-orange-900/20 border-4 border-orange-500 dark:border-orange-400">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <span className="text-orange-600 dark:text-orange-400">⚠️</span>
+              Account Notes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm whitespace-pre-wrap font-bold text-orange-700 dark:text-orange-300">{accountSettings.default_shipment_notes}</p>
           </CardContent>
         </Card>
       )}
