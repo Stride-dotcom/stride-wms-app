@@ -156,6 +156,11 @@ export default function TaskDetailPage() {
   const [completionBlockedOpen, setCompletionBlockedOpen] = useState(false);
   const [completionValidationResult, setCompletionValidationResult] = useState<TaskCompletionValidationResult | null>(null);
 
+  // SOP validation gate state
+  const [validationOpen, setValidationOpen] = useState(false);
+  const [validationBlockers, setValidationBlockers] = useState<{ code: string; message: string; severity: string }[]>([]);
+
+
   const { activeTechnicians } = useTechnicians();
   const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
   const { hasRole } = usePermissions();
@@ -300,28 +305,61 @@ export default function TaskDetailPage() {
 
     setActionLoading(true);
     try {
-      // Phase 5B: Validate task completion requirements
-      const validationResult = await validateTaskCompletion(
+      // Phase 5B: Validate task completion requirements (client-side)
+      const phase5bValidation = await validateTaskCompletion(
         profile.tenant_id,
         id,
         task.task_type
       );
 
-      if (!validationResult.canComplete) {
+      if (!phase5bValidation.canComplete) {
         // Show blocking dialog with validation issues
-        setCompletionValidationResult(validationResult);
+        setCompletionValidationResult(phase5bValidation);
         setCompletionBlockedOpen(true);
         setActionLoading(false);
         return;
       }
 
-      // Use completeTask from useTasks which creates billing events
+      // SOP Hard Gate: Call RPC to validate task completion
+      const { data: sopValidationResult, error: rpcError } = await supabase.rpc('validate_task_completion', {
+        p_task_id: id,
+      });
+
+      if (rpcError) {
+        console.error('SOP validation RPC error:', rpcError);
+        toast({
+          variant: 'destructive',
+          title: 'Validation Error',
+          description: 'Failed to validate task requirements. Please try again.',
+        });
+        setActionLoading(false);
+        return;
+      }
+
+      // Cast to expected shape
+      const result = sopValidationResult as { ok: boolean; blockers: { code: string; message: string; severity: string }[]; task_type: string } | null;
+
+      // Filter blockers to only include those with severity "blocking" (or all if no severity field)
+      const blockers = (result?.blockers || []).filter(
+        (b) => b.severity === 'blocking' || !b.severity
+      );
+
+      if (!result?.ok && blockers.length > 0) {
+        // Block completion and show modal
+        setValidationBlockers(blockers);
+        setValidationOpen(true);
+        setActionLoading(false);
+        return;
+      }
+
+      // All validations passed - continue with completion
       const success = await completeTask(id);
       if (success) {
         fetchTask();
         fetchTaskItems();
       }
     } catch (error) {
+      console.error('Error completing task:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to complete task' });
     } finally {
       setActionLoading(false);
@@ -1146,12 +1184,47 @@ export default function TaskDetailPage() {
         />
       )}
 
-      {/* Task Completion Blocked Dialog */}
+      {/* Task Completion Blocked Dialog (Phase 5B) */}
       <TaskCompletionBlockedDialog
         open={completionBlockedOpen}
         onOpenChange={setCompletionBlockedOpen}
         validationResult={completionValidationResult}
       />
+
+      {/* SOP Validation Blockers Modal */}
+      <Dialog open={validationOpen} onOpenChange={setValidationOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <MaterialIcon name="block" size="md" />
+              Can't Complete Task Yet
+            </DialogTitle>
+            <DialogDescription>
+              Fix the items below, then try again.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <div className="space-y-2">
+              {validationBlockers.map((blocker, index) => (
+                <div
+                  key={`${blocker.code}-${index}`}
+                  className="flex items-start gap-3 p-3 border rounded-lg bg-muted/50"
+                >
+                  <MaterialIcon name="error" size="sm" className="text-destructive mt-0.5 shrink-0" />
+                  <span className="text-sm">{blocker.message}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setValidationOpen(false)}>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

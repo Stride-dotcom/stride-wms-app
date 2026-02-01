@@ -38,6 +38,7 @@ import { QRScanner } from '@/components/scan/QRScanner';
 import { useLocations } from '@/hooks/useLocations';
 import { hapticError, hapticSuccess } from '@/lib/haptics';
 import { HelpButton, usePromptContextSafe } from '@/components/prompts';
+import { SOPValidationDialog, SOPBlocker } from '@/components/common/SOPValidationDialog';
 
 // ============================================
 // TYPES
@@ -68,6 +69,7 @@ interface ShipmentItem {
     class_id: string | null;
     current_location?: { code: string } | null;
     account?: { account_name: string } | null;
+    class?: { id: string; code: string; name: string } | null;
   } | null;
 }
 
@@ -181,6 +183,8 @@ export default function ShipmentDetail() {
   const [showPartialReleaseDialog, setShowPartialReleaseDialog] = useState(false);
   const [partialReleaseNote, setPartialReleaseNote] = useState('');
   const [partialReleaseItems, setPartialReleaseItems] = useState<Set<string>>(new Set());
+  const [sopValidationOpen, setSopValidationOpen] = useState(false);
+  const [sopBlockers, setSopBlockers] = useState<SOPBlocker[]>([]);
   const [submittingPartialRelease, setSubmittingPartialRelease] = useState(false);
 
   // Receiving session hook
@@ -242,7 +246,10 @@ export default function ShipmentDetail() {
   }, [rawStartSession, promptContext, id]);
 
   // Wrapped finishSession with prompt trigger and competency tracking
-  const finishSession = useCallback(async () => {
+  const finishSession = useCallback(async (
+    verificationData: Parameters<typeof rawFinishSession>[0],
+    createItems?: Parameters<typeof rawFinishSession>[1]
+  ) => {
     // Show completion prompt if available
     if (promptContext?.showPrompt) {
       promptContext.showPrompt('receiving_completion', {
@@ -250,11 +257,12 @@ export default function ShipmentDetail() {
         contextId: id,
       });
     }
-    await rawFinishSession();
+    const result = await rawFinishSession(verificationData, createItems);
     // Track competency after completion
     if (promptContext?.trackCompetencyEvent) {
       promptContext.trackCompetencyEvent('receiving', 'task_completed');
     }
+    return result;
   }, [rawFinishSession, promptContext, id]);
 
   // ------------------------------------------
@@ -283,9 +291,23 @@ export default function ShipmentDetail() {
         return;
       }
 
-      // Fetch shipment items with full item details
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('shipment_items')
+      // Fetch classes first (needed for mapping)
+      const { data: classesData } = await supabase
+        .from('classes')
+        .select('id, code, name')
+        .eq('tenant_id', profile.tenant_id)
+        .order('code');
+
+      if (classesData) {
+        setClasses(classesData);
+      }
+
+      // Build class lookup map
+      const classById = new Map((classesData || []).map(c => [c.id, c]));
+
+      // Fetch shipment items - avoid nested class joins that fail with PostgREST
+      const { data: itemsData, error: itemsError } = await (supabase
+        .from('shipment_items') as any)
         .select(`
           id,
           expected_description,
@@ -296,12 +318,7 @@ export default function ShipmentDetail() {
           actual_quantity,
           status,
           item_id,
-          expected_class:classes!shipment_items_expected_class_id_fkey(
-            id,
-            code,
-            name
-          ),
-          item:items!shipment_items_item_id_fkey(
+          item:items(
             id,
             item_code,
             description,
@@ -309,8 +326,8 @@ export default function ShipmentDetail() {
             sidemark,
             room,
             class_id,
-            current_location:locations!items_current_location_id_fkey(code),
-            account:accounts!items_account_id_fkey(account_name)
+            current_location:locations(code),
+            account:accounts(account_name)
           )
         `)
         .eq('shipment_id', id)
@@ -320,20 +337,22 @@ export default function ShipmentDetail() {
         console.error('[ShipmentDetail] fetch items failed:', itemsError);
       }
 
+      // Map classes manually to avoid PostgREST join issues
+      const mappedItems = ((itemsData || []) as any[]).map(si => {
+        // Map expected_class from expected_class_id
+        if (si.expected_class_id) {
+          si.expected_class = classById.get(si.expected_class_id) || null;
+        }
+        // Map item.class from item.class_id
+        if (si.item?.class_id) {
+          si.item.class = classById.get(si.item.class_id) || null;
+        }
+        return si;
+      });
+
       setShipment(shipmentData as unknown as Shipment);
-      setItems((itemsData || []) as unknown as ShipmentItem[]);
+      setItems(mappedItems as unknown as ShipmentItem[]);
       setBillingRefreshKey(prev => prev + 1); // Trigger billing recalculation
-
-      // Fetch classes for autocomplete
-      const { data: classesData } = await supabase
-        .from('classes')
-        .select('id, code, name')
-        .eq('tenant_id', profile.tenant_id)
-        .order('code');
-
-      if (classesData) {
-        setClasses(classesData);
-      }
 
       // Initialize receiving photos/documents from shipment
       if (shipmentData.receiving_photos) {
@@ -459,14 +478,41 @@ export default function ShipmentDetail() {
   const handleFinishReceiving = async () => {
     if (!shipment) return;
 
-    // Validate photos are required
-    if (receivingPhotos.length === 0) {
+    // Call SOP validator RPC first
+    try {
+      const { data: validationResult, error: rpcError } = await (supabase as any).rpc(
+        'validate_shipment_receiving_completion',
+        { p_shipment_id: shipment.id }
+      );
+
+      if (rpcError) {
+        console.error('Validation RPC error:', rpcError);
+        toast({
+          variant: 'destructive',
+          title: 'Validation Error',
+          description: 'Failed to validate receiving completion. Please try again.',
+        });
+        return;
+      }
+
+      const result = validationResult as { ok: boolean; blockers: SOPBlocker[] };
+      const blockers = (result?.blockers || []).filter(
+        (b: SOPBlocker) => b.severity === 'blocking' || !b.severity
+      );
+
+      if (!result?.ok && blockers.length > 0) {
+        setSopBlockers(result.blockers);
+        setSopValidationOpen(true);
+        setShowFinishDialog(false);
+        return;
+      }
+    } catch (err) {
+      console.error('Validation error:', err);
       toast({
         variant: 'destructive',
-        title: 'Photos Required',
-        description: 'Please add at least one photo before completing the receiving process.',
+        title: 'Validation Error',
+        description: 'An unexpected error occurred during validation.',
       });
-      setShowFinishDialog(false);
       return;
     }
 
@@ -947,23 +993,50 @@ export default function ShipmentDetail() {
   const handleCompleteOutbound = async () => {
     if (!shipment) return;
 
+    // Call SOP validator RPC first
+    try {
+      const { data: validationResult, error: rpcError } = await (supabase as any).rpc(
+        'validate_shipment_outbound_completion',
+        { p_shipment_id: shipment.id }
+      );
+
+      if (rpcError) {
+        console.error('Validation RPC error:', rpcError);
+        toast({
+          variant: 'destructive',
+          title: 'Validation Error',
+          description: 'Failed to validate outbound completion. Please try again.',
+        });
+        return;
+      }
+
+      const result = validationResult as { ok: boolean; blockers: SOPBlocker[] };
+      const blockers = (result?.blockers || []).filter(
+        (b: SOPBlocker) => b.severity === 'blocking' || !b.severity
+      );
+
+      if (!result?.ok && blockers.length > 0) {
+        setSopBlockers(result.blockers);
+        setSopValidationOpen(true);
+        setShowOutboundCompleteDialog(false);
+        return;
+      }
+    } catch (err) {
+      console.error('Validation error:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Validation Error',
+        description: 'An unexpected error occurred during validation.',
+      });
+      return;
+    }
+
     if (activeOutboundItems.length > 0 && !allReleased) {
       toast({
         variant: 'destructive',
         title: 'Release scanning incomplete',
         description: 'All items must be scanned as Released before completion.',
       });
-      return;
-    }
-
-    // Validate photos are required
-    if (receivingPhotos.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Photos Required',
-        description: 'Please add at least one photo before completing the shipment.',
-      });
-      setShowOutboundCompleteDialog(false);
       return;
     }
 
@@ -1464,6 +1537,20 @@ export default function ShipmentDetail() {
         </Card>
       )}
 
+      {/* Billing Calculator - Full width at top right area */}
+      {canSeeBilling && shipment.account_id && (
+        <div className="flex justify-end mb-6">
+          <div className="w-full lg:w-1/3">
+            <BillingCalculator
+              shipmentId={shipment.id}
+              shipmentDirection={shipment.shipment_type as 'inbound' | 'outbound' | 'return'}
+              refreshKey={billingRefreshKey}
+              title="Billing Calculator"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Shipment Details */}
         <Card className="lg:col-span-2">
@@ -1514,17 +1601,7 @@ export default function ShipmentDetail() {
           </CardContent>
         </Card>
 
-        {/* Billing Charges - Manager/Admin Only */}
-        {canSeeBilling && shipment.account_id && (
-          <BillingCalculator
-            shipmentId={shipment.id}
-            shipmentDirection={shipment.shipment_type as 'inbound' | 'outbound' | 'return'}
-            refreshKey={billingRefreshKey}
-            title="Billing Calculator"
-          />
-        )}
-
-        {/* Quick Info */}
+        {/* Quick Info / Summary */}
         <Card>
           <CardHeader>
             <CardTitle>Summary</CardTitle>
@@ -2058,6 +2135,13 @@ export default function ShipmentDetail() {
           onSuccess={fetchShipment}
         />
       )}
+
+      {/* SOP Validation Dialog */}
+      <SOPValidationDialog
+        open={sopValidationOpen}
+        onOpenChange={setSopValidationOpen}
+        blockers={sopBlockers}
+      />
     </DashboardLayout>
   );
 }

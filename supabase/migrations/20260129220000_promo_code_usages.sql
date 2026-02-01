@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS promo_code_usages (
   used_by_account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   billing_event_id UUID REFERENCES billing_events(id) ON DELETE SET NULL,
   used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  used_by UUID REFERENCES profiles(id),
+  used_by UUID REFERENCES auth.users(id),
 
   -- Indexes for fast lookups
   CONSTRAINT unique_usage_per_event UNIQUE(promo_code_id, billing_event_id)
@@ -19,21 +19,28 @@ CREATE TABLE IF NOT EXISTS promo_code_usages (
 -- Enable RLS
 ALTER TABLE promo_code_usages ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies
-CREATE POLICY "promo_code_usages_tenant_access" ON promo_code_usages
-  FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM promo_codes pc
-      WHERE pc.id = promo_code_usages.promo_code_id
-      AND pc.tenant_id = auth.jwt() ->> 'tenant_id'
-    )
-  );
+-- RLS Policies (use IF NOT EXISTS pattern)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname = 'promo_code_usages_tenant_access' AND tablename = 'promo_code_usages'
+  ) THEN
+    CREATE POLICY "promo_code_usages_tenant_access" ON promo_code_usages
+      FOR ALL
+      USING (
+        EXISTS (
+          SELECT 1 FROM promo_codes pc
+          WHERE pc.id = promo_code_usages.promo_code_id
+          AND pc.tenant_id::text = auth.jwt() ->> 'tenant_id'
+        )
+      );
+  END IF;
+END $$;
 
 -- Indexes
-CREATE INDEX idx_promo_code_usages_promo ON promo_code_usages(promo_code_id);
-CREATE INDEX idx_promo_code_usages_root_account ON promo_code_usages(root_account_id);
-CREATE INDEX idx_promo_code_usages_lookup ON promo_code_usages(promo_code_id, root_account_id);
+CREATE INDEX IF NOT EXISTS idx_promo_code_usages_promo ON promo_code_usages(promo_code_id);
+CREATE INDEX IF NOT EXISTS idx_promo_code_usages_root_account ON promo_code_usages(root_account_id);
+CREATE INDEX IF NOT EXISTS idx_promo_code_usages_lookup ON promo_code_usages(promo_code_id, root_account_id);
 
 -- Function to get the root account ID (parent if exists, otherwise self)
 CREATE OR REPLACE FUNCTION get_root_account_id(p_account_id UUID)
