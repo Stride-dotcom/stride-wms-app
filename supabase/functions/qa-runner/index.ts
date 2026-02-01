@@ -778,15 +778,16 @@ async function runTaskFlowTests(ctx: TestContext): Promise<TestResult[]> {
       const taskId = taskIds[0];
       const itemId = itemIds[0];
 
-      // Add item photo
+      // Add item photo (using correct column names)
       const { error: photoError } = await ctx.supabase
         .from('item_photos')
         .insert({
           item_id: itemId,
           tenant_id: ctx.tenantId,
-          photo_url: 'https://placehold.co/400x300?text=QA+Inspection+Photo',
+          storage_url: 'https://placehold.co/400x300?text=QA+Inspection+Photo',
           photo_type: 'inspection',
-          metadata: { qa_test: true, qa_run_id: ctx.runId }
+          file_name: 'qa-inspection-photo.jpg',
+          caption: `QA Test - Run ${ctx.runId}`
         });
 
       if (photoError) throw new Error(`Failed to add photo: ${photoError.message}`);
