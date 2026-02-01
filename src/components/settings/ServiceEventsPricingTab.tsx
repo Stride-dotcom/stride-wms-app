@@ -137,6 +137,8 @@ export function ServiceEventsPricingTab() {
     toggleActive,
     exportToCSV,
     generateTemplate,
+    generateClassPricing,
+    canGenerateClassPricing,
   } = useServiceEventsAdmin();
 
   // Get seed function from useServiceEvents
@@ -711,6 +713,8 @@ export function ServiceEventsPricingTab() {
                 onViewAudit={() => openAuditDialog(event.service_code)}
                 onDuplicate={() => handleDuplicate(event)}
                 onDelete={() => setDeleteConfirm({ id: event.id, name: event.service_name, deleteAll: false })}
+                onGenerateClassPricing={() => generateClassPricing(event.id)}
+                canGenerateClassPricing={canGenerateClassPricing(event.id)}
                 saving={saving}
                 categories={activeCategories}
                 getCategoryName={getCategoryName}
@@ -750,6 +754,8 @@ export function ServiceEventsPricingTab() {
                     onViewAudit={() => openAuditDialog(event.service_code)}
                     onDuplicate={() => handleDuplicate(event)}
                     onDelete={() => setDeleteConfirm({ id: event.id, name: event.service_name, deleteAll: false })}
+                    onGenerateClassPricing={() => generateClassPricing(event.id)}
+                    canGenerateClassPricing={canGenerateClassPricing(event.id)}
                     saving={saving}
                     categories={activeCategories}
                     getCategoryName={getCategoryName}
@@ -942,6 +948,8 @@ interface ServiceEventRowProps {
   onViewAudit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onGenerateClassPricing: () => void;
+  canGenerateClassPricing: boolean;
   saving: boolean;
   categories: Array<{ id: string; name: string }>;
   getCategoryName: (id: string | null) => string;
@@ -958,6 +966,8 @@ function ServiceEventRow({
   onViewAudit,
   onDuplicate,
   onDelete,
+  onGenerateClassPricing,
+  canGenerateClassPricing,
   saving,
   categories,
   getCategoryName,
@@ -1015,6 +1025,24 @@ function ServiceEventRow({
 
         <TableCell onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1">
+            {canGenerateClassPricing && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-primary hover:text-primary"
+                      onClick={onGenerateClassPricing}
+                      disabled={saving}
+                    >
+                      <MaterialIcon name="view_list" size="sm" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Generate Class Pricing (XS-XXL)</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1320,6 +1348,8 @@ interface MobileServiceCardProps {
   onViewAudit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onGenerateClassPricing: () => void;
+  canGenerateClassPricing: boolean;
   saving: boolean;
   categories: Array<{ id: string; name: string }>;
   getCategoryName: (id: string | null) => string;
@@ -1335,6 +1365,8 @@ function MobileServiceCard({
   onViewAudit,
   onDuplicate,
   onDelete,
+  onGenerateClassPricing,
+  canGenerateClassPricing,
   saving,
   categories,
   getCategoryName,
@@ -1407,7 +1439,19 @@ function MobileServiceCard({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-2 pt-2 border-t">
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+            {canGenerateClassPricing && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-primary"
+                onClick={onGenerateClassPricing}
+                disabled={saving}
+              >
+                <MaterialIcon name="view_list" size="sm" className="mr-1" />
+                Generate Class Pricing
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={onViewAudit}>
               <MaterialIcon name="history" size="sm" className="mr-1" />
               History
