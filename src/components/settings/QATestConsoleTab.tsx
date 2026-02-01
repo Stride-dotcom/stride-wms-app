@@ -144,12 +144,12 @@ function RunTestsTab() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Target Warehouse</Label>
-              <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
+              <Select value={selectedWarehouse || '__all__'} onValueChange={(v) => setSelectedWarehouse(v === '__all__' ? '' : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All warehouses (default)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All warehouses</SelectItem>
+                  <SelectItem value="__all__">All warehouses</SelectItem>
                   {warehouses.map(wh => (
                     <SelectItem key={wh.id} value={wh.id}>
                       {wh.name} ({wh.code})
