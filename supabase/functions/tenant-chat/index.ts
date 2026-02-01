@@ -563,7 +563,7 @@ async function toolSearchItems(supabase: any, params: any, scope: TenantScope) {
       },
       newSessionState: {
         pending_disambiguation: {
-          type: "items",
+          type: "items" as const,
           candidates: candidates.map((c: any) => ({ id: c.id, label: `${c.item_code} - ${c.description || 'No description'}`, index: c.index })),
           original_query: query,
         },
@@ -632,7 +632,7 @@ async function toolSearchShipments(supabase: any, params: any, scope: TenantScop
       },
       newSessionState: {
         pending_disambiguation: {
-          type: "shipments",
+          type: "shipments" as const,
           candidates: candidates.map((c: any) => ({ id: c.id, label: `${c.shipment_number} (${c.type})`, index: c.index })),
           original_query: query,
         },
@@ -701,7 +701,7 @@ async function toolSearchTasks(supabase: any, params: any, scope: TenantScope) {
       },
       newSessionState: {
         pending_disambiguation: {
-          type: "tasks",
+          type: "tasks" as const,
           candidates: candidates.map((c: any) => ({ id: c.id, label: `${c.task_number} - ${c.title}`, index: c.index })),
           original_query: query,
         },

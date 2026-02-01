@@ -204,7 +204,7 @@ async function runReceivingFlowTests(ctx: TestContext): Promise<TestResult[]> {
         status: 'pass',
         started_at: startedAt,
         finished_at: new Date().toISOString(),
-        entity_ids: { shipments: [shipmentId], items: itemIds },
+        entity_ids: { shipments: shipmentId ? [shipmentId] : [], items: itemIds },
         details: { items_created: itemIds.length }
       });
     } catch (error) {
@@ -492,7 +492,7 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
         status: 'pass',
         started_at: startedAt,
         finished_at: new Date().toISOString(),
-        entity_ids: { shipments: [shipmentId], items: itemIds }
+        entity_ids: { shipments: shipmentId ? [shipmentId] : [], items: itemIds }
       });
     } catch (error) {
       results.push({
@@ -1140,7 +1140,7 @@ async function runStocktakeFlowTests(ctx: TestContext): Promise<TestResult[]> {
         status: 'pass',
         started_at: startedAt,
         finished_at: new Date().toISOString(),
-        entity_ids: { stocktakes: [stocktakeId] }
+        entity_ids: { stocktakes: stocktakeId ? [stocktakeId] : [] }
       });
     } catch (error) {
       results.push({
@@ -1351,7 +1351,7 @@ async function runClaimsFlowTests(ctx: TestContext): Promise<TestResult[]> {
         status: 'pass',
         started_at: startedAt,
         finished_at: new Date().toISOString(),
-        entity_ids: { claims: [claimId], items: [itemId] }
+        entity_ids: { claims: claimId ? [claimId] : [], items: itemId ? [itemId] : [] }
       });
     } catch (error) {
       results.push({

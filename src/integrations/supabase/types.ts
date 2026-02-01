@@ -1277,6 +1277,7 @@ export type Database = {
           actor_type: string
           after_json: Json | null
           before_json: Json | null
+          changed_at: string
           changes_json: Json | null
           created_at: string
           entity_id: string
@@ -1292,6 +1293,7 @@ export type Database = {
           actor_type: string
           after_json?: Json | null
           before_json?: Json | null
+          changed_at?: string
           changes_json?: Json | null
           created_at?: string
           entity_id: string
@@ -1307,6 +1309,7 @@ export type Database = {
           actor_type?: string
           after_json?: Json | null
           before_json?: Json | null
+          changed_at?: string
           changes_json?: Json | null
           created_at?: string
           entity_id?: string
@@ -2273,6 +2276,197 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "classes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_chat_repair_quote_drafts: {
+        Row: {
+          account_id: string
+          confirmed_at: string | null
+          created_at: string | null
+          created_by: string
+          expires_at: string | null
+          id: string
+          item_ids: string[]
+          notes: string | null
+          status: string | null
+          subaccount_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          account_id: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          item_ids: string[]
+          notes?: string | null
+          status?: string | null
+          subaccount_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          account_id?: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          item_ids?: string[]
+          notes?: string | null
+          status?: string | null
+          subaccount_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_chat_repair_quote_drafts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_chat_repair_quote_drafts_subaccount_id_fkey"
+            columns: ["subaccount_id"]
+            isOneToOne: false
+            referencedRelation: "sidemarks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_chat_repair_quote_drafts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_chat_sessions: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          last_route: string | null
+          last_selected_items: string[] | null
+          pending_disambiguation: Json | null
+          pending_draft: Json | null
+          tenant_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          last_route?: string | null
+          last_selected_items?: string[] | null
+          pending_disambiguation?: Json | null
+          pending_draft?: Json | null
+          tenant_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          last_route?: string | null
+          last_selected_items?: string[] | null
+          pending_disambiguation?: Json | null
+          pending_draft?: Json | null
+          tenant_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_chat_sessions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_chat_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_chat_will_call_drafts: {
+        Row: {
+          account_id: string
+          confirmed_at: string | null
+          created_at: string | null
+          created_by: string
+          expires_at: string | null
+          id: string
+          item_ids: string[]
+          notes: string | null
+          release_type: string
+          released_to_name: string
+          status: string | null
+          subaccount_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          account_id: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          item_ids: string[]
+          notes?: string | null
+          release_type: string
+          released_to_name: string
+          status?: string | null
+          subaccount_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          account_id?: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          item_ids?: string[]
+          notes?: string | null
+          release_type?: string
+          released_to_name?: string
+          status?: string | null
+          subaccount_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_chat_will_call_drafts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_chat_will_call_drafts_subaccount_id_fkey"
+            columns: ["subaccount_id"]
+            isOneToOne: false
+            referencedRelation: "sidemarks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_chat_will_call_drafts_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -6141,6 +6335,144 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qa_test_results: {
+        Row: {
+          created_at: string
+          details: Json | null
+          entity_ids: Json | null
+          error_message: string | null
+          error_stack: string | null
+          finished_at: string | null
+          id: string
+          logs: string | null
+          run_id: string
+          started_at: string | null
+          status: string
+          suite: string
+          tenant_id: string
+          test_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          entity_ids?: Json | null
+          error_message?: string | null
+          error_stack?: string | null
+          finished_at?: string | null
+          id?: string
+          logs?: string | null
+          run_id: string
+          started_at?: string | null
+          status?: string
+          suite: string
+          tenant_id: string
+          test_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          entity_ids?: Json | null
+          error_message?: string | null
+          error_stack?: string | null
+          finished_at?: string | null
+          id?: string
+          logs?: string | null
+          run_id?: string
+          started_at?: string | null
+          status?: string
+          suite?: string
+          tenant_id?: string
+          test_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_test_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "qa_test_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qa_test_results_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qa_test_runs: {
+        Row: {
+          created_at: string
+          executed_by: string
+          fail_count: number
+          finished_at: string | null
+          id: string
+          metadata: Json | null
+          mode: string
+          pass_count: number
+          skip_count: number
+          started_at: string
+          status: string
+          suites_requested: string[]
+          tenant_id: string
+          updated_at: string
+          warehouse_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          executed_by: string
+          fail_count?: number
+          finished_at?: string | null
+          id?: string
+          metadata?: Json | null
+          mode?: string
+          pass_count?: number
+          skip_count?: number
+          started_at?: string
+          status?: string
+          suites_requested?: string[]
+          tenant_id: string
+          updated_at?: string
+          warehouse_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          executed_by?: string
+          fail_count?: number
+          finished_at?: string | null
+          id?: string
+          metadata?: Json | null
+          mode?: string
+          pass_count?: number
+          skip_count?: number
+          started_at?: string
+          status?: string
+          suites_requested?: string[]
+          tenant_id?: string
+          updated_at?: string
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_test_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qa_test_runs_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
         ]
@@ -11917,6 +12249,8 @@ export type Database = {
         Returns: Database["public"]["Enums"]["canonical_task_type"]
       }
       check_past_due_tasks: { Args: never; Returns: undefined }
+      cleanup_expired_client_chat_data: { Args: never; Returns: undefined }
+      cleanup_qa_test_data: { Args: { p_run_id: string }; Returns: Json }
       complete_manifest: {
         Args: { p_manifest_id: string; p_user_id: string }
         Returns: {
