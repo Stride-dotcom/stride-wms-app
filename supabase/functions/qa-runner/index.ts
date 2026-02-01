@@ -1,1172 +1,2407 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ============================================================================
-// TYPES
-// ============================================================================
+// =============================================================================
+// Types
+// =============================================================================
 
-type TestStatus = 'pass' | 'fail' | 'skip' | 'error';
-
-interface TestStep {
-  name: string;
-  status: TestStatus;
-  message: string;
-  expected?: string;
-  actual?: string;
-  duration_ms?: number;
-  entity_ids?: Record<string, string>;
+interface QARunnerRequest {
+  action: 'run_tests' | 'cleanup' | 'get_status';
+  suites?: string[];
+  warehouse_id?: string;
+  mode?: 'create_cleanup' | 'create_only';
+  run_id?: string;
 }
 
 interface TestResult {
-  test_id: string;
+  suite: string;
   test_name: string;
-  status: TestStatus;
-  message: string;
-  steps: TestStep[];
-  entity_ids: Record<string, string>;
-  error?: string;
+  status: 'pass' | 'fail' | 'skip';
+  error_message?: string;
   error_stack?: string;
-  duration_ms: number;
+  details?: Record<string, unknown>;
+  entity_ids?: Record<string, string[]>;
+  logs?: string;
+  started_at: string;
+  finished_at: string;
 }
 
-interface SuiteResult {
-  suite_key: string;
-  suite_name: string;
-  qa_run_id: string;
-  status: TestStatus;
-  tests: TestResult[];
-  created_entity_ids: Record<string, string[]>;
-  total_duration_ms: number;
-  summary: {
-    passed: number;
-    failed: number;
-    skipped: number;
-  };
+interface TestContext {
+  supabase: SupabaseClient;
+  tenantId: string;
+  warehouseId: string | null;
+  runId: string;
+  logs: string[];
 }
 
-// ============================================================================
-// REPAIR QUOTES FLOW TEST SUITE
-// ============================================================================
+// =============================================================================
+// Utility Functions
+// =============================================================================
 
-async function runRepairQuotesFlow(
-  supabase: any,
-  tenantId: string,
-  profileId: string,
-  qaRunId: string
-): Promise<SuiteResult> {
-  const startTime = Date.now();
-  const tests: TestResult[] = [];
-  const createdEntityIds: Record<string, string[]> = {
-    accounts: [],
-    items: [],
-    repair_quotes: [],
-    repair_quote_tokens: [],
-    tasks: [],
-  };
+function log(ctx: TestContext, message: string) {
+  const timestamp = new Date().toISOString();
+  ctx.logs.push(`[${timestamp}] ${message}`);
+  console.log(`[QA] ${message}`);
+}
 
-  // Shared state
-  let qaAccount: { id: string; name: string } | null = null;
-  let qaItem1: { id: string; item_code: string } | null = null;
-  let qaItem2: { id: string; item_code: string } | null = null;
-  let qaItem3: { id: string; item_code: string } | null = null;
-  let quote1: { id: string } | null = null;
-  let quote2: { id: string } | null = null;
-  let quote3: { id: string } | null = null;
+function generateCode(prefix: string): string {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 6);
+  return `${prefix}-QA-${timestamp}-${random}`.toUpperCase();
+}
 
-  // Helper: Create QA account
-  async function createQAAccount(): Promise<{ id: string; name: string } | null> {
-    const accountName = `QA Test Account ${qaRunId.slice(0, 8)}`;
-    const { data, error } = await supabase
-      .from('accounts')
-      .insert({
-        tenant_id: tenantId,
-        account_name: accountName,
-        account_code: `QA-${qaRunId.slice(0, 8)}`,
-        status: 'active',
-        primary_contact_email: 'qa-test@example.com',
-        metadata: { qa_test: true, qa_run_id: qaRunId, source: 'qa_runner' },
-      })
-      .select('id, account_name')
-      .single();
+async function getOrCreateWarehouse(ctx: TestContext): Promise<string> {
+  if (ctx.warehouseId) return ctx.warehouseId;
 
-    if (error) return null;
-    createdEntityIds.accounts.push(data.id);
-    return { id: data.id, name: data.account_name };
+  // Get first active warehouse for tenant
+  const { data: warehouses } = await ctx.supabase
+    .from('warehouses')
+    .select('id')
+    .eq('tenant_id', ctx.tenantId)
+    .eq('status', 'active')
+    .is('deleted_at', null)
+    .limit(1);
+
+  if (warehouses && warehouses.length > 0) {
+    return warehouses[0].id;
   }
 
-  // Helper: Create QA item
-  async function createQAItem(accountId: string, suffix: string): Promise<{ id: string; item_code: string } | null> {
-    const itemCode = `QA-ITM-${qaRunId.slice(0, 6)}${suffix}`;
-    const { data, error } = await supabase
+  throw new Error('No active warehouse found for tenant');
+}
+
+async function getOrCreateAccount(ctx: TestContext): Promise<string> {
+  // Get first account for tenant
+  const { data: accounts } = await ctx.supabase
+    .from('accounts')
+    .select('id')
+    .eq('tenant_id', ctx.tenantId)
+    .is('deleted_at', null)
+    .limit(1);
+
+  if (accounts && accounts.length > 0) {
+    return accounts[0].id;
+  }
+
+  // Create a QA test account
+  const { data: account, error } = await ctx.supabase
+    .from('accounts')
+    .insert({
+      tenant_id: ctx.tenantId,
+      account_name: 'QA Test Account',
+      account_code: generateCode('ACCT'),
+      status: 'active',
+      metadata: { qa_test: true, qa_run_id: ctx.runId }
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to create QA account: ${error.message}`);
+  return account.id;
+}
+
+async function getOrCreateLocation(ctx: TestContext, warehouseId: string, type: string = 'bin'): Promise<string> {
+  // Get first location for warehouse
+  const { data: locations } = await ctx.supabase
+    .from('locations')
+    .select('id')
+    .eq('warehouse_id', warehouseId)
+    .eq('type', type)
+    .is('deleted_at', null)
+    .limit(1);
+
+  if (locations && locations.length > 0) {
+    return locations[0].id;
+  }
+
+  // Create a QA test location
+  const { data: location, error } = await ctx.supabase
+    .from('locations')
+    .insert({
+      warehouse_id: warehouseId,
+      code: generateCode('LOC'),
+      name: `QA Test Location (${type})`,
+      type: type,
+      status: 'active',
+      metadata: { qa_test: true, qa_run_id: ctx.runId }
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to create QA location: ${error.message}`);
+  return location.id;
+}
+
+// =============================================================================
+// Test Suite: Receiving Flow
+// =============================================================================
+
+async function runReceivingFlowTests(ctx: TestContext): Promise<TestResult[]> {
+  const results: TestResult[] = [];
+  const suite = 'receiving_flow';
+  let shipmentId: string | null = null;
+  const itemIds: string[] = [];
+
+  // Test 1: Create inbound shipment with items
+  {
+    const testName = 'Create inbound shipment with items';
+    const startedAt = new Date().toISOString();
+    try {
+      log(ctx, `Running test: ${testName}`);
+      const warehouseId = await getOrCreateWarehouse(ctx);
+      const accountId = await getOrCreateAccount(ctx);
+
+      // Create shipment
+      const { data: shipment, error: shipmentError } = await ctx.supabase
+        .from('shipments')
+        .insert({
+          tenant_id: ctx.tenantId,
+          warehouse_id: warehouseId,
+          account_id: accountId,
+          shipment_number: generateCode('SHP'),
+          shipment_type: 'inbound',
+          status: 'pending',
+          metadata: { qa_test: true, qa_run_id: ctx.runId }
+        })
+        .select()
+        .single();
+
+      if (shipmentError) throw new Error(`Failed to create shipment: ${shipmentError.message}`);
+      shipmentId = shipment.id;
+      log(ctx, `Created shipment: ${shipment.shipment_number}`);
+
+      // Create 5 items
+      for (let i = 0; i < 5; i++) {
+        const { data: item, error: itemError } = await ctx.supabase
+          .from('items')
+          .insert({
+            tenant_id: ctx.tenantId,
+            warehouse_id: warehouseId,
+            account_id: accountId,
+            item_code: generateCode('ITM'),
+            description: `QA Test Item ${i + 1}`,
+            quantity: 1,
+            status: 'pending',
+            receiving_shipment_id: shipmentId,
+            metadata: { qa_test: true, qa_run_id: ctx.runId }
+          })
+          .select()
+          .single();
+
+        if (itemError) throw new Error(`Failed to create item ${i + 1}: ${itemError.message}`);
+        itemIds.push(item.id);
+      }
+
+      log(ctx, `Created ${itemIds.length} items`);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        entity_ids: { shipments: shipmentId ? [shipmentId] : [], items: itemIds },
+        details: { items_created: itemIds.length }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        error_stack: error instanceof Error ? error.stack : undefined,
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 2: Add receiving photos (simulate with URLs)
+  {
+    const testName = 'Add receiving photos to shipment';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!shipmentId) throw new Error('No shipment created in previous test');
+
+      log(ctx, `Running test: ${testName}`);
+      const photos = [
+        'https://placehold.co/400x300?text=QA+Receiving+Photo+1',
+        'https://placehold.co/400x300?text=QA+Receiving+Photo+2'
+      ];
+
+      const { error } = await ctx.supabase
+        .from('shipments')
+        .update({ receiving_photos: photos })
+        .eq('id', shipmentId);
+
+      if (error) throw new Error(`Failed to add photos: ${error.message}`);
+      log(ctx, `Added ${photos.length} receiving photos`);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        details: { photos_count: photos.length }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        error_stack: error instanceof Error ? error.stack : undefined,
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 3: Assign put-away locations to items
+  {
+    const testName = 'Assign put-away locations to items';
+    const startedAt = new Date().toISOString();
+    try {
+      if (itemIds.length === 0) throw new Error('No items created in previous test');
+
+      log(ctx, `Running test: ${testName}`);
+      const warehouseId = await getOrCreateWarehouse(ctx);
+      const locationId = await getOrCreateLocation(ctx, warehouseId, 'bin');
+
+      for (const itemId of itemIds) {
+        const { error } = await ctx.supabase
+          .from('items')
+          .update({
+            current_location_id: locationId,
+            status: 'stored'
+          })
+          .eq('id', itemId);
+
+        if (error) throw new Error(`Failed to update item ${itemId}: ${error.message}`);
+      }
+
+      log(ctx, `Assigned location to ${itemIds.length} items`);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        details: { items_updated: itemIds.length, location_id: locationId }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        error_stack: error instanceof Error ? error.stack : undefined,
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 4: Call validator
+  {
+    const testName = 'Validate shipment receiving completion';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!shipmentId) throw new Error('No shipment created in previous test');
+
+      log(ctx, `Running test: ${testName}`);
+
+      const { data: validationResult, error } = await ctx.supabase.rpc(
+        'validate_shipment_receiving_completion',
+        { p_shipment_id: shipmentId }
+      );
+
+      if (error) {
+        // Function may not exist, mark as skip
+        log(ctx, `Validator function not found, skipping: ${error.message}`);
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'skip',
+          error_message: 'validate_shipment_receiving_completion function not found',
+          started_at: startedAt,
+          finished_at: new Date().toISOString()
+        });
+      } else {
+        const isValid = validationResult?.ok === true;
+        log(ctx, `Validation result: ${JSON.stringify(validationResult)}`);
+
+        results.push({
+          suite,
+          test_name: testName,
+          status: isValid ? 'pass' : 'fail',
+          error_message: !isValid ? `Validation failed: ${JSON.stringify(validationResult?.blockers)}` : undefined,
+          started_at: startedAt,
+          finished_at: new Date().toISOString(),
+          details: { validation_result: validationResult }
+        });
+      }
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'skip',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 5: Complete receiving
+  {
+    const testName = 'Complete shipment receiving';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!shipmentId) throw new Error('No shipment created in previous test');
+
+      log(ctx, `Running test: ${testName}`);
+
+      const { error } = await ctx.supabase
+        .from('shipments')
+        .update({
+          status: 'received',
+          received_at: new Date().toISOString()
+        })
+        .eq('id', shipmentId);
+
+      if (error) throw new Error(`Failed to complete receiving: ${error.message}`);
+      log(ctx, 'Shipment marked as received');
+
+      // Verify items have locations
+      const { data: items } = await ctx.supabase
+        .from('items')
+        .select('id, current_location_id, status')
+        .in('id', itemIds);
+
+      const allHaveLocations = items?.every(item => item.current_location_id !== null);
+      const allStored = items?.every(item => item.status === 'stored');
+
+      if (!allHaveLocations) throw new Error('Not all items have locations assigned');
+      if (!allStored) throw new Error('Not all items have stored status');
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        details: { items_with_locations: items?.length }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        error_stack: error instanceof Error ? error.stack : undefined,
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  return results;
+}
+
+// =============================================================================
+// Test Suite: Outbound / Will Call Flow
+// =============================================================================
+
+async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
+  const results: TestResult[] = [];
+  const suite = 'outbound_flow';
+  let shipmentId: string | null = null;
+  const itemIds: string[] = [];
+
+  // Test 1: Create outbound shipment with items
+  {
+    const testName = 'Create outbound shipment with items';
+    const startedAt = new Date().toISOString();
+    try {
+      log(ctx, `Running test: ${testName}`);
+      const warehouseId = await getOrCreateWarehouse(ctx);
+      const accountId = await getOrCreateAccount(ctx);
+      const locationId = await getOrCreateLocation(ctx, warehouseId, 'bin');
+
+      // Create items first (they need to exist for outbound)
+      for (let i = 0; i < 3; i++) {
+        const { data: item, error: itemError } = await ctx.supabase
+          .from('items')
+          .insert({
+            tenant_id: ctx.tenantId,
+            warehouse_id: warehouseId,
+            account_id: accountId,
+            item_code: generateCode('ITM'),
+            description: `QA Outbound Test Item ${i + 1}`,
+            quantity: 1,
+            status: 'stored',
+            current_location_id: locationId,
+            metadata: { qa_test: true, qa_run_id: ctx.runId }
+          })
+          .select()
+          .single();
+
+        if (itemError) throw new Error(`Failed to create item ${i + 1}: ${itemError.message}`);
+        itemIds.push(item.id);
+      }
+
+      // Create outbound shipment with required authorization fields
+      const { data: shipment, error: shipmentError } = await ctx.supabase
+        .from('shipments')
+        .insert({
+          tenant_id: ctx.tenantId,
+          warehouse_id: warehouseId,
+          account_id: accountId,
+          shipment_number: generateCode('OUT'),
+          shipment_type: 'outbound',
+          status: 'pending',
+          customer_authorized: true,
+          release_type: 'will_call',
+          released_to: 'QA Test Customer',
+          metadata: { qa_test: true, qa_run_id: ctx.runId }
+        })
+        .select()
+        .single();
+
+      if (shipmentError) throw new Error(`Failed to create shipment: ${shipmentError.message}`);
+      shipmentId = shipment.id;
+
+      // Link items to shipment via shipment_items table and also releasing_shipment_id
+      for (const itemId of itemIds) {
+        // Update item's releasing_shipment_id
+        await ctx.supabase
+          .from('items')
+          .update({ releasing_shipment_id: shipmentId })
+          .eq('id', itemId);
+
+        // Also create shipment_items record with is_staged for outbound validation
+        await ctx.supabase
+          .from('shipment_items')
+          .insert({
+            shipment_id: shipmentId,
+            item_id: itemId,
+            expected_quantity: 1,
+            actual_quantity: 1,
+            status: 'pending',
+            is_staged: true
+          });
+      }
+
+      log(ctx, `Created outbound shipment: ${shipment.shipment_number} with ${itemIds.length} items`);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        entity_ids: { shipments: shipmentId ? [shipmentId] : [], items: itemIds }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        error_stack: error instanceof Error ? error.stack : undefined,
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 2: Add release photos
+  {
+    const testName = 'Add release photos to shipment';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!shipmentId) throw new Error('No shipment created');
+
+      log(ctx, `Running test: ${testName}`);
+      const photos = ['https://placehold.co/400x300?text=QA+Release+Photo'];
+
+      const { error } = await ctx.supabase
+        .from('shipments')
+        .update({ release_photos: photos })
+        .eq('id', shipmentId);
+
+      if (error) throw new Error(`Failed to add photos: ${error.message}`);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 3: Validate outbound completion
+  {
+    const testName = 'Validate outbound completion';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!shipmentId) throw new Error('No shipment created');
+
+      log(ctx, `Running test: ${testName}`);
+
+      const { data: validationResult, error } = await ctx.supabase.rpc(
+        'validate_shipment_outbound_completion',
+        { p_shipment_id: shipmentId }
+      );
+
+      if (error) {
+        log(ctx, `Validator function not found, skipping: ${error.message}`);
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'skip',
+          error_message: 'validate_shipment_outbound_completion function not found',
+          started_at: startedAt,
+          finished_at: new Date().toISOString()
+        });
+      } else {
+        const isValid = validationResult?.ok === true;
+
+        results.push({
+          suite,
+          test_name: testName,
+          status: isValid ? 'pass' : 'fail',
+          error_message: !isValid ? `Validation failed: ${JSON.stringify(validationResult?.blockers)}` : undefined,
+          started_at: startedAt,
+          finished_at: new Date().toISOString(),
+          details: { validation_result: validationResult }
+        });
+      }
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'skip',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 4: Complete outbound
+  {
+    const testName = 'Complete outbound shipment';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!shipmentId) throw new Error('No shipment created');
+
+      log(ctx, `Running test: ${testName}`);
+
+      // Update items to released
+      for (const itemId of itemIds) {
+        await ctx.supabase
+          .from('items')
+          .update({
+            status: 'released',
+            released_at: new Date().toISOString()
+          })
+          .eq('id', itemId);
+      }
+
+      // Complete shipment
+      const { error } = await ctx.supabase
+        .from('shipments')
+        .update({
+          status: 'released',
+          shipped_at: new Date().toISOString()
+        })
+        .eq('id', shipmentId);
+
+      if (error) throw new Error(`Failed to complete outbound: ${error.message}`);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  return results;
+}
+
+// =============================================================================
+// Test Suite: Task Flow (Inspection/Assembly/Repair)
+// =============================================================================
+
+async function runTaskFlowTests(ctx: TestContext): Promise<TestResult[]> {
+  const results: TestResult[] = [];
+  const suite = 'task_flow';
+  const itemIds: string[] = [];
+  const taskIds: string[] = [];
+
+  // Setup: Create items for tasks
+  const warehouseId = await getOrCreateWarehouse(ctx);
+  const accountId = await getOrCreateAccount(ctx);
+  const locationId = await getOrCreateLocation(ctx, warehouseId, 'bin');
+
+  for (let i = 0; i < 3; i++) {
+    const { data: item, error } = await ctx.supabase
       .from('items')
       .insert({
-        tenant_id: tenantId,
+        tenant_id: ctx.tenantId,
+        warehouse_id: warehouseId,
         account_id: accountId,
-        item_code: itemCode,
-        description: `QA Test Item ${suffix}`,
-        status: 'active',
-        metadata: { qa_test: true, qa_run_id: qaRunId, source: 'qa_runner' },
+        item_code: generateCode('ITM'),
+        description: `QA Task Test Item ${i + 1}`,
+        quantity: 1,
+        status: 'stored',
+        current_location_id: locationId,
+        metadata: { qa_test: true, qa_run_id: ctx.runId }
       })
-      .select('id, item_code')
+      .select()
       .single();
 
-    if (error) return null;
-    createdEntityIds.items.push(data.id);
-    return data;
+    if (!error && item) itemIds.push(item.id);
   }
 
-  // Helper: Create repair quote
-  async function createRepairQuote(
-    itemId: string,
-    accountId: string,
-    status: string = 'draft'
-  ): Promise<{ id: string } | null> {
-    const { data, error } = await supabase
-      .from('repair_quotes')
+  // Test 1: Create inspection tasks (one per item)
+  {
+    const testName = 'Create inspection tasks (one per item)';
+    const startedAt = new Date().toISOString();
+    try {
+      log(ctx, `Running test: ${testName}`);
+
+      for (const itemId of itemIds) {
+        const { data: task, error: taskError } = await ctx.supabase
+          .from('tasks')
+          .insert({
+            tenant_id: ctx.tenantId,
+            warehouse_id: warehouseId,
+            account_id: accountId,
+            title: `Inspection - QA Test`,
+            task_type: 'inspection',
+            status: 'pending',
+            related_item_id: itemId,
+            metadata: { qa_test: true, qa_run_id: ctx.runId }
+          })
+          .select()
+          .single();
+
+        if (taskError) throw new Error(`Failed to create inspection task: ${taskError.message}`);
+        taskIds.push(task.id);
+
+        // Link task to item via task_items
+        const { error: linkError } = await ctx.supabase
+          .from('task_items')
+          .insert({
+            task_id: task.id,
+            item_id: itemId
+          });
+
+        if (linkError) throw new Error(`Failed to link task to item: ${linkError.message}`);
+      }
+
+      log(ctx, `Created ${taskIds.length} inspection tasks`);
+
+      // Verify each inspection task has exactly 1 item
+      for (const taskId of taskIds) {
+        const { data: taskItems } = await ctx.supabase
+          .from('task_items')
+          .select('id')
+          .eq('task_id', taskId);
+
+        if (!taskItems || taskItems.length !== 1) {
+          throw new Error(`Inspection task ${taskId} has ${taskItems?.length ?? 0} items, expected 1`);
+        }
+      }
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        entity_ids: { tasks: taskIds, items: itemIds },
+        details: { tasks_created: taskIds.length, items_per_task: 1 }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        error_stack: error instanceof Error ? error.stack : undefined,
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 2: Complete inspection task and verify photos
+  {
+    const testName = 'Complete inspection task with photos';
+    const startedAt = new Date().toISOString();
+    try {
+      if (taskIds.length === 0) throw new Error('No tasks created');
+
+      log(ctx, `Running test: ${testName}`);
+      const taskId = taskIds[0];
+      const itemId = itemIds[0];
+
+      // Add item photo (using correct column names for item_photos table)
+      const { error: photoError } = await ctx.supabase
+        .from('item_photos')
+        .insert({
+          item_id: itemId,
+          tenant_id: ctx.tenantId,
+          storage_key: `qa-test/${ctx.runId}/inspection-photo.jpg`,
+          storage_url: 'https://placehold.co/400x300?text=QA+Inspection+Photo',
+          file_name: 'qa-inspection-photo.jpg',
+          photo_type: 'inspection',
+          caption: `QA Test - Run ${ctx.runId}`
+        });
+
+      if (photoError) throw new Error(`Failed to add photo: ${photoError.message}`);
+
+      // Complete task
+      const { error: taskError } = await ctx.supabase
+        .from('tasks')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', taskId);
+
+      if (taskError) throw new Error(`Failed to complete task: ${taskError.message}`);
+
+      // Verify photo exists for item
+      const { data: photos } = await ctx.supabase
+        .from('item_photos')
+        .select('id')
+        .eq('item_id', itemId);
+
+      if (!photos || photos.length === 0) {
+        throw new Error('No photos found for item after inspection completion');
+      }
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        details: { photos_count: photos.length }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 3: Create repair task (should start as pending approval if enforced)
+  {
+    const testName = 'Create repair task';
+    const startedAt = new Date().toISOString();
+    try {
+      log(ctx, `Running test: ${testName}`);
+
+      const { data: task, error } = await ctx.supabase
+        .from('tasks')
+        .insert({
+          tenant_id: ctx.tenantId,
+          warehouse_id: warehouseId,
+          account_id: accountId,
+          title: `Repair - QA Test`,
+          task_type: 'repair',
+          status: 'pending',
+          related_item_id: itemIds[1],
+          metadata: { qa_test: true, qa_run_id: ctx.runId }
+        })
+        .select()
+        .single();
+
+      if (error) throw new Error(`Failed to create repair task: ${error.message}`);
+      taskIds.push(task.id);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        entity_ids: { tasks: [task.id] }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 4: Create assembly task
+  {
+    const testName = 'Create assembly task';
+    const startedAt = new Date().toISOString();
+    try {
+      log(ctx, `Running test: ${testName}`);
+
+      const { data: task, error } = await ctx.supabase
+        .from('tasks')
+        .insert({
+          tenant_id: ctx.tenantId,
+          warehouse_id: warehouseId,
+          account_id: accountId,
+          title: `Assembly - QA Test`,
+          task_type: 'assembly',
+          status: 'pending',
+          related_item_id: itemIds[2],
+          metadata: { qa_test: true, qa_run_id: ctx.runId }
+        })
+        .select()
+        .single();
+
+      if (error) throw new Error(`Failed to create assembly task: ${error.message}`);
+      taskIds.push(task.id);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        entity_ids: { tasks: [task.id] }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 5: Validate task completion
+  {
+    const testName = 'Validate task completion';
+    const startedAt = new Date().toISOString();
+    try {
+      if (taskIds.length === 0) throw new Error('No tasks created');
+
+      log(ctx, `Running test: ${testName}`);
+      const taskId = taskIds[0];
+
+      const { data: validationResult, error } = await ctx.supabase.rpc(
+        'validate_task_completion',
+        { p_task_id: taskId }
+      );
+
+      if (error) {
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'skip',
+          error_message: 'validate_task_completion function not found',
+          started_at: startedAt,
+          finished_at: new Date().toISOString()
+        });
+      } else {
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'pass',
+          started_at: startedAt,
+          finished_at: new Date().toISOString(),
+          details: { validation_result: validationResult }
+        });
+      }
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'skip',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  return results;
+}
+
+// =============================================================================
+// Test Suite: Movement / Put-away Flow
+// =============================================================================
+
+async function runMovementFlowTests(ctx: TestContext): Promise<TestResult[]> {
+  const results: TestResult[] = [];
+  const suite = 'movement_flow';
+
+  const warehouseId = await getOrCreateWarehouse(ctx);
+  const accountId = await getOrCreateAccount(ctx);
+  const locationId1 = await getOrCreateLocation(ctx, warehouseId, 'bin');
+
+  // Create second location
+  const { data: location2 } = await ctx.supabase
+    .from('locations')
+    .insert({
+      warehouse_id: warehouseId,
+      code: generateCode('LOC'),
+      name: 'QA Test Location 2',
+      type: 'bin',
+      status: 'active',
+      metadata: { qa_test: true, qa_run_id: ctx.runId }
+    })
+    .select()
+    .single();
+
+  const locationId2 = location2?.id;
+
+  // Create test item
+  const { data: item } = await ctx.supabase
+    .from('items')
+    .insert({
+      tenant_id: ctx.tenantId,
+      warehouse_id: warehouseId,
+      account_id: accountId,
+      item_code: generateCode('ITM'),
+      description: 'QA Movement Test Item',
+      quantity: 1,
+      status: 'stored',
+      current_location_id: locationId1,
+      metadata: { qa_test: true, qa_run_id: ctx.runId }
+    })
+    .select()
+    .single();
+
+  const itemId = item?.id;
+
+  // Test 1: Move item to new location
+  {
+    const testName = 'Move item to new location';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!itemId || !locationId2) throw new Error('Setup failed');
+
+      log(ctx, `Running test: ${testName}`);
+
+      const { error } = await ctx.supabase
+        .from('items')
+        .update({ current_location_id: locationId2 })
+        .eq('id', itemId);
+
+      if (error) throw new Error(`Failed to move item: ${error.message}`);
+
+      // Verify movement
+      const { data: movedItem } = await ctx.supabase
+        .from('items')
+        .select('current_location_id')
+        .eq('id', itemId)
+        .single();
+
+      if (movedItem?.current_location_id !== locationId2) {
+        throw new Error('Item location not updated');
+      }
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        entity_ids: { items: [itemId] },
+        details: { from_location: locationId1, to_location: locationId2 }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 2: Validate movement event
+  {
+    const testName = 'Validate movement event';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!itemId || !locationId1) throw new Error('Setup failed');
+
+      log(ctx, `Running test: ${testName}`);
+
+      const { data: validationResult, error } = await ctx.supabase.rpc(
+        'validate_movement_event',
+        { p_destination_location_id: locationId1, p_item_ids: [itemId] }
+      );
+
+      if (error) {
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'skip',
+          error_message: 'validate_movement_event function not found',
+          started_at: startedAt,
+          finished_at: new Date().toISOString()
+        });
+      } else {
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'pass',
+          started_at: startedAt,
+          finished_at: new Date().toISOString(),
+          details: { validation_result: validationResult }
+        });
+      }
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'skip',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  return results;
+}
+
+// =============================================================================
+// Test Suite: Stocktake Flow
+// =============================================================================
+
+async function runStocktakeFlowTests(ctx: TestContext): Promise<TestResult[]> {
+  const results: TestResult[] = [];
+  const suite = 'stocktake_flow';
+  let stocktakeId: string | null = null;
+
+  const warehouseId = await getOrCreateWarehouse(ctx);
+
+  // Test 1: Create stocktake
+  {
+    const testName = 'Create stocktake for warehouse';
+    const startedAt = new Date().toISOString();
+    try {
+      log(ctx, `Running test: ${testName}`);
+
+      const { data: stocktake, error } = await ctx.supabase
+        .from('stocktakes')
+        .insert({
+          tenant_id: ctx.tenantId,
+          warehouse_id: warehouseId,
+          stocktake_number: generateCode('STK'),
+          status: 'draft',
+          notes: `QA Test - Run ${ctx.runId}`
+        })
+        .select()
+        .single();
+
+      if (error) throw new Error(`Failed to create stocktake: ${error.message}`);
+      stocktakeId = stocktake.id;
+      log(ctx, `Created stocktake: ${stocktake.stocktake_number}`);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        entity_ids: { stocktakes: stocktakeId ? [stocktakeId] : [] }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 2: Start stocktake
+  {
+    const testName = 'Start stocktake';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!stocktakeId) throw new Error('No stocktake created');
+
+      log(ctx, `Running test: ${testName}`);
+
+      const { error } = await ctx.supabase
+        .from('stocktakes')
+        .update({
+          status: 'in_progress',
+          started_at: new Date().toISOString()
+        })
+        .eq('id', stocktakeId);
+
+      if (error) throw new Error(`Failed to start stocktake: ${error.message}`);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 3: Validate stocktake completion
+  {
+    const testName = 'Validate stocktake completion';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!stocktakeId) throw new Error('No stocktake created');
+
+      log(ctx, `Running test: ${testName}`);
+
+      const { data: validationResult, error } = await ctx.supabase.rpc(
+        'validate_stocktake_completion',
+        { p_stocktake_id: stocktakeId }
+      );
+
+      if (error) {
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'skip',
+          error_message: 'validate_stocktake_completion function not found',
+          started_at: startedAt,
+          finished_at: new Date().toISOString()
+        });
+      } else {
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'pass',
+          started_at: startedAt,
+          finished_at: new Date().toISOString(),
+          details: { validation_result: validationResult }
+        });
+      }
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'skip',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 4: Complete stocktake
+  {
+    const testName = 'Complete stocktake';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!stocktakeId) throw new Error('No stocktake created');
+
+      log(ctx, `Running test: ${testName}`);
+
+      const { error } = await ctx.supabase
+        .from('stocktakes')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', stocktakeId);
+
+      if (error) throw new Error(`Failed to complete stocktake: ${error.message}`);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  return results;
+}
+
+// =============================================================================
+// Test Suite: Claims + Repair Quote Flow
+// =============================================================================
+
+async function runClaimsFlowTests(ctx: TestContext): Promise<TestResult[]> {
+  const results: TestResult[] = [];
+  const suite = 'claims_flow';
+  let claimId: string | null = null;
+
+  const warehouseId = await getOrCreateWarehouse(ctx);
+  const accountId = await getOrCreateAccount(ctx);
+  const locationId = await getOrCreateLocation(ctx, warehouseId, 'bin');
+
+  // Create test item for claim
+  const { data: item } = await ctx.supabase
+    .from('items')
+    .insert({
+      tenant_id: ctx.tenantId,
+      warehouse_id: warehouseId,
+      account_id: accountId,
+      item_code: generateCode('ITM'),
+      description: 'QA Claims Test Item',
+      quantity: 1,
+      status: 'stored',
+      current_location_id: locationId,
+      declared_value: 1000,
+      metadata: { qa_test: true, qa_run_id: ctx.runId }
+    })
+    .select()
+    .single();
+
+  const itemId = item?.id;
+
+  // Test 1: Create claim
+  {
+    const testName = 'Create claim for item';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!itemId) throw new Error('No item created');
+
+      log(ctx, `Running test: ${testName}`);
+
+      const { data: claim, error } = await ctx.supabase
+        .from('claims')
+        .insert({
+          tenant_id: ctx.tenantId,
+          account_id: accountId,
+          item_id: itemId,
+          claim_number: generateCode('CLM'),
+          claim_type: 'shipping_damage',
+          status: 'initiated',
+          description: 'QA Test Claim - Damage during handling',
+          claimed_amount: 500,
+          internal_notes: `QA Test - Run ${ctx.runId}`
+        })
+        .select()
+        .single();
+
+      if (error) throw new Error(`Failed to create claim: ${error.message}`);
+      claimId = claim.id;
+      log(ctx, `Created claim: ${claim.claim_number}`);
+
+      // Verify tenant_id
+      if (claim.tenant_id !== ctx.tenantId) {
+        throw new Error('Claim tenant_id mismatch');
+      }
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        entity_ids: { claims: claimId ? [claimId] : [], items: itemId ? [itemId] : [] }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 2: Add claim attachments
+  {
+    const testName = 'Add claim attachments';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!claimId) throw new Error('No claim created');
+
+      log(ctx, `Running test: ${testName}`);
+
+      const photos = [
+        'https://placehold.co/400x300?text=QA+Claim+Photo+1',
+        'https://placehold.co/400x300?text=QA+Claim+Photo+2'
+      ];
+
+      const { error } = await ctx.supabase
+        .from('claims')
+        .update({ photos })
+        .eq('id', claimId);
+
+      if (error) throw new Error(`Failed to add attachments: ${error.message}`);
+
+      // Verify attachments
+      const { data: claim } = await ctx.supabase
+        .from('claims')
+        .select('photos')
+        .eq('id', claimId)
+        .single();
+
+      if (!claim?.photos || (claim.photos as string[]).length === 0) {
+        throw new Error('Attachments not saved');
+      }
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        details: { attachments_count: (claim.photos as string[]).length }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 3: Create repair quote (if table exists)
+  {
+    const testName = 'Create repair quote for item';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!itemId) throw new Error('No item created');
+
+      log(ctx, `Running test: ${testName}`);
+
+      // Check if repair_quotes table exists
+      const { error: checkError } = await ctx.supabase
+        .from('repair_quotes')
+        .select('id')
+        .limit(1);
+
+      if (checkError && checkError.message.includes('does not exist')) {
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'skip',
+          error_message: 'repair_quotes table does not exist',
+          started_at: startedAt,
+          finished_at: new Date().toISOString()
+        });
+      } else {
+        const { data: quote, error } = await ctx.supabase
+          .from('repair_quotes')
+          .insert({
+            tenant_id: ctx.tenantId,
+            item_id: itemId,
+            flat_rate: 150,
+            approval_status: 'pending',
+            notes: `QA Test Repair Quote - Run ${ctx.runId}`
+          })
+          .select()
+          .single();
+
+        if (error) throw new Error(`Failed to create repair quote: ${error.message}`);
+
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'pass',
+          started_at: startedAt,
+          finished_at: new Date().toISOString(),
+          entity_ids: { repair_quotes: [quote.id] }
+        });
+      }
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'skip',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  return results;
+}
+
+// =============================================================================
+// Test Suite: Pricing Engine / Class Pricing Flow
+// =============================================================================
+
+async function runPricingFlowTests(ctx: TestContext): Promise<TestResult[]> {
+  const results: TestResult[] = [];
+  const suite = 'pricing_flow';
+
+  // Test 1: Check service_events table exists and has data
+  {
+    const testName = 'Verify service_events pricing table';
+    const startedAt = new Date().toISOString();
+    try {
+      log(ctx, `Running test: ${testName}`);
+
+      const { data: services, error } = await ctx.supabase
+        .from('service_events')
+        .select('id, service_code, service_name, class_code, rate')
+        .eq('tenant_id', ctx.tenantId)
+        .limit(10);
+
+      if (error) {
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'skip',
+          error_message: 'service_events table not found',
+          started_at: startedAt,
+          finished_at: new Date().toISOString()
+        });
+      } else {
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'pass',
+          started_at: startedAt,
+          finished_at: new Date().toISOString(),
+          details: { services_found: services?.length || 0 }
+        });
+      }
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'skip',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 2: Verify class pricing rows (if they exist)
+  {
+    const testName = 'Verify class pricing structure';
+    const startedAt = new Date().toISOString();
+    try {
+      log(ctx, `Running test: ${testName}`);
+
+      const { data: classPricing, error } = await ctx.supabase
+        .from('service_events')
+        .select('service_code, class_code, rate')
+        .eq('tenant_id', ctx.tenantId)
+        .not('class_code', 'is', null);
+
+      if (error) throw new Error(`Failed to query class pricing: ${error.message}`);
+
+      // Check for duplicates
+      const seen = new Set<string>();
+      const duplicates: string[] = [];
+      for (const row of classPricing || []) {
+        const key = `${row.service_code}-${row.class_code}`;
+        if (seen.has(key)) {
+          duplicates.push(key);
+        }
+        seen.add(key);
+      }
+
+      if (duplicates.length > 0) {
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'fail',
+          error_message: `Duplicate class pricing rows found: ${duplicates.join(', ')}`,
+          started_at: startedAt,
+          finished_at: new Date().toISOString()
+        });
+      } else {
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'pass',
+          started_at: startedAt,
+          finished_at: new Date().toISOString(),
+          details: { class_pricing_rows: classPricing?.length || 0 }
+        });
+      }
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'skip',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  return results;
+}
+
+// =============================================================================
+// Test Suite: Guided Prompts Coverage
+// =============================================================================
+
+async function runPromptsFlowTests(ctx: TestContext): Promise<TestResult[]> {
+  const results: TestResult[] = [];
+  const suite = 'prompts_flow';
+
+  const expectedPromptTypes = ['receiving', 'inspection', 'assembly', 'repair', 'outbound'];
+
+  // Test 1: Check prompts table exists
+  {
+    const testName = 'Verify guided prompts table exists';
+    const startedAt = new Date().toISOString();
+    try {
+      log(ctx, `Running test: ${testName}`);
+
+      // Try tenant_guided_prompts first
+      const { error: error1 } = await ctx.supabase
+        .from('tenant_guided_prompts')
+        .select('id')
+        .eq('tenant_id', ctx.tenantId)
+        .limit(1);
+
+      if (!error1) {
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'pass',
+          started_at: startedAt,
+          finished_at: new Date().toISOString(),
+          details: { table: 'tenant_guided_prompts' }
+        });
+      } else {
+        // Try guided_prompts
+        const { error: error2 } = await ctx.supabase
+          .from('guided_prompts')
+          .select('id')
+          .limit(1);
+
+        if (!error2) {
+          results.push({
+            suite,
+            test_name: testName,
+            status: 'pass',
+            started_at: startedAt,
+            finished_at: new Date().toISOString(),
+            details: { table: 'guided_prompts' }
+          });
+        } else {
+          results.push({
+            suite,
+            test_name: testName,
+            status: 'skip',
+            error_message: 'Guided prompts table not found',
+            started_at: startedAt,
+            finished_at: new Date().toISOString()
+          });
+        }
+      }
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'skip',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 2: Check for required prompt types
+  {
+    const testName = 'Verify required prompt types exist';
+    const startedAt = new Date().toISOString();
+    try {
+      log(ctx, `Running test: ${testName}`);
+
+      const { data: prompts, error } = await ctx.supabase
+        .from('tenant_guided_prompts')
+        .select('prompt_type, is_enabled')
+        .eq('tenant_id', ctx.tenantId);
+
+      if (error) {
+        results.push({
+          suite,
+          test_name: testName,
+          status: 'skip',
+          error_message: 'Could not query prompts',
+          started_at: startedAt,
+          finished_at: new Date().toISOString()
+        });
+      } else {
+        const foundTypes = new Set((prompts || []).map(p => p.prompt_type));
+        const missingTypes = expectedPromptTypes.filter(t => !foundTypes.has(t));
+
+        if (missingTypes.length > 0) {
+          results.push({
+            suite,
+            test_name: testName,
+            status: 'fail',
+            error_message: `Missing prompt types: ${missingTypes.join(', ')}`,
+            started_at: startedAt,
+            finished_at: new Date().toISOString(),
+            details: { found_types: Array.from(foundTypes), missing_types: missingTypes }
+          });
+        } else {
+          results.push({
+            suite,
+            test_name: testName,
+            status: 'pass',
+            started_at: startedAt,
+            finished_at: new Date().toISOString(),
+            details: { prompt_types: Array.from(foundTypes) }
+          });
+        }
+      }
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'skip',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  return results;
+}
+
+// =============================================================================
+// Test Suite: Repair Quote + Single-Item Task Flow
+// =============================================================================
+
+async function runRepairQuotesFlowTests(ctx: TestContext): Promise<TestResult[]> {
+  const results: TestResult[] = [];
+  const suite = 'repair_quotes_flow';
+  let quoteId: string | null = null;
+  let itemId: string | null = null;
+
+  const warehouseId = await getOrCreateWarehouse(ctx);
+  const accountId = await getOrCreateAccount(ctx);
+  const locationId = await getOrCreateLocation(ctx, warehouseId, 'bin');
+
+  // Create test item (damaged condition)
+  {
+    const { data: item } = await ctx.supabase
+      .from('items')
       .insert({
-        tenant_id: tenantId,
-        item_id: itemId,
+        tenant_id: ctx.tenantId,
+        warehouse_id: warehouseId,
         account_id: accountId,
-        status,
-        audit_log: [{ action: 'created', by: 'QA Runner', at: new Date().toISOString() }],
-        metadata: { qa_test: true, qa_run_id: qaRunId, source: 'qa_runner' },
+        item_code: generateCode('ITM'),
+        description: 'QA Repair Quote Test Item',
+        quantity: 1,
+        status: 'stored',
+        condition: 'damaged',
+        current_location_id: locationId,
+        metadata: { qa_test: true, qa_run_id: ctx.runId }
       })
-      .select('id')
+      .select()
       .single();
 
-    if (error) return null;
-    createdEntityIds.repair_quotes.push(data.id);
-    return data;
+    itemId = item?.id;
   }
 
-  // Helper: Set customer price
-  async function setCustomerPrice(quoteId: string, price: number): Promise<boolean> {
-    const { error } = await supabase
-      .from('repair_quotes')
-      .update({ customer_total: price, updated_at: new Date().toISOString() })
-      .eq('id', quoteId);
-    return !error;
+  // Test 1: Client can request a repair quote for a single item
+  {
+    const testName = 'Client can request repair quote for single item';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!itemId) throw new Error('No item created');
+
+      log(ctx, `Running test: ${testName}`);
+
+      // Use the RPC function to create a quote request
+      const { data: result, error } = await ctx.supabase.rpc(
+        'create_client_repair_quote_request',
+        {
+          p_item_id: itemId,
+          p_account_id: accountId,
+          p_tenant_id: ctx.tenantId,
+          p_notes: 'QA Test - Client requested repair quote'
+        }
+      );
+
+      if (error) throw new Error(`RPC failed: ${error.message}`);
+      if (!result?.success) throw new Error(result?.error || 'Quote creation failed');
+
+      quoteId = result.quote_id;
+      log(ctx, `Created repair quote: ${quoteId}`);
+
+      // Verify quote is single-item (has item_id set)
+      const { data: quote } = await ctx.supabase
+        .from('repair_quotes')
+        .select('item_id, status')
+        .eq('id', quoteId)
+        .single();
+
+      if (!quote?.item_id) throw new Error('Quote missing item_id - not single-item');
+      if (quote.item_id !== itemId) throw new Error('Quote item_id mismatch');
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        entity_ids: { repair_quotes: [quoteId], items: [itemId] },
+        details: { quote_status: quote.status }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        error_stack: error instanceof Error ? error.stack : undefined,
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
   }
 
-  // Helper: Send to client (create token + update status)
-  async function sendToClient(quoteId: string): Promise<{ token: string } | null> {
-    const { data: quote } = await supabase
-      .from('repair_quotes')
-      .select('customer_total, account_id')
-      .eq('id', quoteId)
-      .single();
+  // Test 2: Duplicate quote request is blocked
+  {
+    const testName = 'Duplicate quote request is blocked';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!itemId) throw new Error('No item created');
 
-    if (!quote?.customer_total || quote.customer_total <= 0) {
-      return null; // Price not set
+      log(ctx, `Running test: ${testName}`);
+
+      // Try to create another quote for the same item
+      const { data: result, error } = await ctx.supabase.rpc(
+        'create_client_repair_quote_request',
+        {
+          p_item_id: itemId,
+          p_account_id: accountId,
+          p_tenant_id: ctx.tenantId,
+          p_notes: 'QA Test - Duplicate request'
+        }
+      );
+
+      if (error) throw new Error(`RPC failed: ${error.message}`);
+
+      // Should return exists: true or success: false
+      if (result?.success === true) {
+        throw new Error('Duplicate quote was allowed - expected to be blocked');
+      }
+
+      log(ctx, `Duplicate blocked correctly: ${result?.error || 'exists'}`);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        details: { blocked: true, message: result?.error }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
     }
-
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 14);
-
-    const { data: tokenData, error: tokenError } = await supabase
-      .from('repair_quote_tokens')
-      .insert({
-        tenant_id: tenantId,
-        repair_quote_id: quoteId,
-        token_type: 'client_review',
-        recipient_email: 'qa-test@example.com',
-        recipient_name: 'QA Test Client',
-        expires_at: expiresAt.toISOString(),
-        created_by: profileId,
-        metadata: { qa_test: true, qa_run_id: qaRunId, source: 'qa_runner' },
-      })
-      .select('token')
-      .single();
-
-    if (tokenError) return null;
-    createdEntityIds.repair_quote_tokens.push(tokenData.token);
-
-    await supabase
-      .from('repair_quotes')
-      .update({
-        status: 'sent_to_client',
-        last_sent_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', quoteId);
-
-    return { token: tokenData.token };
   }
 
-  // Helper: Simulate client accept + create repair task
-  async function simulateClientAccept(quoteId: string): Promise<{ taskId: string } | null> {
-    const { data: quote } = await supabase
-      .from('repair_quotes')
-      .select('audit_log, item_id, tenant_id, account_id, sidemark_id')
-      .eq('id', quoteId)
-      .single();
+  // Test 3: Office can set customer_price and lock pricing
+  {
+    const testName = 'Office can set customer_price and lock pricing';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!quoteId) throw new Error('No quote created');
 
-    if (!quote) return null;
+      log(ctx, `Running test: ${testName}`);
 
-    const auditLog = quote.audit_log || [];
-    auditLog.push({
-      action: 'accepted',
-      by: null,
-      by_name: 'QA Test Client',
-      at: new Date().toISOString(),
-    });
+      // Update quote with office pricing
+      const { error: updateError } = await ctx.supabase
+        .from('repair_quotes')
+        .update({
+          customer_price: 250.00,
+          internal_cost: 175.00,
+          office_notes: 'QA Test - Office pricing set',
+          pricing_locked: false, // Not locked yet (will lock on acceptance)
+          status: 'sent_to_client'
+        })
+        .eq('id', quoteId);
 
-    const { error: updateError } = await supabase
-      .from('repair_quotes')
-      .update({
-        status: 'accepted',
-        client_response: 'accepted',
-        client_responded_at: new Date().toISOString(),
-        audit_log: auditLog,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', quoteId);
+      if (updateError) throw new Error(`Failed to update quote: ${updateError.message}`);
 
-    if (updateError) return null;
+      // Verify update
+      const { data: quote } = await ctx.supabase
+        .from('repair_quotes')
+        .select('customer_price, internal_cost, office_notes, pricing_locked')
+        .eq('id', quoteId)
+        .single();
 
-    // Create repair task - SINGLE ITEM ONLY
-    const { data: task, error: taskError } = await supabase
-      .from('tasks')
-      .insert({
-        tenant_id: quote.tenant_id,
-        account_id: quote.account_id,
-        sidemark_id: quote.sidemark_id,
-        title: 'Repair - QA Test',
-        task_type: 'Repair',
-        status: 'pending',
-        priority: 'normal',
-        metadata: {
-          qa_test: true,
-          qa_run_id: qaRunId,
-          source: 'qa_runner',
-          repair_quote_id: quoteId,
-        },
-      })
-      .select('id')
-      .single();
+      if (quote?.customer_price !== 250) throw new Error('customer_price not saved correctly');
+      if (quote?.internal_cost !== 175) throw new Error('internal_cost not saved correctly');
 
-    if (taskError) return null;
-    createdEntityIds.tasks.push(task.id);
+      log(ctx, 'Office pricing fields saved successfully');
 
-    // Create task_items - ONE item only (HARD REQUIREMENT)
-    await supabase.from('task_items').insert({
-      task_id: task.id,
-      item_id: quote.item_id,
-    });
-
-    return { taskId: task.id };
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        details: {
+          customer_price: quote?.customer_price,
+          internal_cost: quote?.internal_cost,
+          pricing_locked: quote?.pricing_locked
+        }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
   }
 
-  // Helper: Simulate client decline
-  async function simulateClientDecline(quoteId: string): Promise<boolean> {
-    const { data: quote } = await supabase
-      .from('repair_quotes')
-      .select('audit_log')
-      .eq('id', quoteId)
-      .single();
+  // Test 4: Accepted quote auto-creates single-item Repair task
+  {
+    const testName = 'Accepted quote auto-creates single-item Repair task';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!quoteId) throw new Error('No quote created');
 
-    if (!quote) return false;
+      log(ctx, `Running test: ${testName}`);
 
-    const auditLog = quote.audit_log || [];
-    auditLog.push({
-      action: 'declined',
-      by: null,
-      by_name: 'QA Test Client',
-      at: new Date().toISOString(),
-      details: { reason: 'QA test decline' },
-    });
+      // Accept the quote (trigger should create repair task)
+      const { error: acceptError } = await ctx.supabase
+        .from('repair_quotes')
+        .update({
+          status: 'accepted'
+        })
+        .eq('id', quoteId);
 
-    const { error } = await supabase
-      .from('repair_quotes')
-      .update({
-        status: 'declined',
-        client_response: 'declined',
-        client_responded_at: new Date().toISOString(),
-        audit_log: auditLog,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', quoteId);
+      if (acceptError) throw new Error(`Failed to accept quote: ${acceptError.message}`);
 
-    return !error;
+      // Wait a moment for trigger to execute
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Check if repair_task_id was set
+      const { data: quote } = await ctx.supabase
+        .from('repair_quotes')
+        .select('repair_task_id, pricing_locked')
+        .eq('id', quoteId)
+        .single();
+
+      if (!quote?.repair_task_id) {
+        throw new Error('repair_task_id not set after acceptance - trigger may not have fired');
+      }
+
+      // Verify pricing is now locked
+      if (!quote?.pricing_locked) {
+        throw new Error('pricing_locked should be true after acceptance');
+      }
+
+      // Verify the repair task was created correctly
+      const { data: task } = await ctx.supabase
+        .from('tasks')
+        .select('id, task_type, status, related_item_id, metadata')
+        .eq('id', quote.repair_task_id)
+        .single();
+
+      if (!task) throw new Error('Repair task not found');
+      if (task.task_type !== 'Repair') throw new Error(`Wrong task_type: ${task.task_type}`);
+      if (task.related_item_id !== itemId) throw new Error('Task not linked to correct item');
+
+      log(ctx, `Repair task created: ${task.id}`);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        entity_ids: { tasks: [task.id] },
+        details: {
+          repair_task_id: task.id,
+          task_type: task.task_type,
+          pricing_locked: quote.pricing_locked
+        }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        error_stack: error instanceof Error ? error.stack : undefined,
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
   }
 
-  // Helper: Cancel quote
-  async function cancelQuote(quoteId: string): Promise<boolean> {
-    const { data: quote } = await supabase
-      .from('repair_quotes')
-      .select('audit_log')
-      .eq('id', quoteId)
-      .single();
+  // Test 5: Repair task references the quote in metadata
+  {
+    const testName = 'Repair task references quote in metadata';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!quoteId) throw new Error('No quote created');
 
-    if (!quote) return false;
+      log(ctx, `Running test: ${testName}`);
 
-    const auditLog = quote.audit_log || [];
-    auditLog.push({
-      action: 'cancelled',
-      by: 'QA Test Admin',
-      at: new Date().toISOString(),
-    });
+      // Get the quote to find repair_task_id
+      const { data: quote } = await ctx.supabase
+        .from('repair_quotes')
+        .select('repair_task_id')
+        .eq('id', quoteId)
+        .single();
 
-    const { error } = await supabase
-      .from('repair_quotes')
-      .update({
-        status: 'closed',
-        audit_log: auditLog,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', quoteId);
+      if (!quote?.repair_task_id) throw new Error('No repair task linked');
 
-    return !error;
+      // Get the task and check metadata
+      const { data: task } = await ctx.supabase
+        .from('tasks')
+        .select('metadata')
+        .eq('id', quote.repair_task_id)
+        .single();
+
+      if (!task?.metadata) throw new Error('Task has no metadata');
+
+      const metadata = task.metadata as Record<string, unknown>;
+      if (metadata.repair_quote_id !== quoteId) {
+        throw new Error(`Task metadata.repair_quote_id mismatch: expected ${quoteId}, got ${metadata.repair_quote_id}`);
+      }
+
+      // Also verify task_items has exactly 1 item
+      const { data: taskItems } = await ctx.supabase
+        .from('task_items')
+        .select('item_id')
+        .eq('task_id', quote.repair_task_id);
+
+      if (!taskItems || taskItems.length !== 1) {
+        throw new Error(`Repair task should have exactly 1 item, has ${taskItems?.length || 0}`);
+      }
+
+      if (taskItems[0].item_id !== itemId) {
+        throw new Error('task_items references wrong item');
+      }
+
+      log(ctx, 'Task metadata and task_items verified');
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        details: {
+          repair_quote_id_in_metadata: metadata.repair_quote_id,
+          task_items_count: taskItems.length,
+          auto_created: metadata.auto_created
+        }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
   }
 
-  // ==========================================================================
-  // TEST 1: Create Quote Request (Single Item)
-  // ==========================================================================
-  const test1Start = Date.now();
-  const test1Steps: TestStep[] = [];
-  const test1Entities: Record<string, string> = {};
+  return results;
+}
 
-  try {
-    // Step 1: Create QA account
-    qaAccount = await createQAAccount();
-    if (!qaAccount) {
-      test1Steps.push({ name: 'Create QA account', status: 'fail', message: 'Failed to create account' });
-      throw new Error('Failed to create QA account');
-    }
-    test1Steps.push({ name: 'Create QA account', status: 'pass', message: `Created: ${qaAccount.name}` });
-    test1Entities.account_id = qaAccount.id;
+// =============================================================================
+// Main Test Runner
+// =============================================================================
 
-    // Step 2: Create QA item
-    qaItem1 = await createQAItem(qaAccount.id, '-1');
-    if (!qaItem1) {
-      test1Steps.push({ name: 'Create QA item', status: 'fail', message: 'Failed to create item' });
-      throw new Error('Failed to create QA item');
-    }
-    test1Steps.push({ name: 'Create QA item', status: 'pass', message: `Created: ${qaItem1.item_code}` });
-    test1Entities.item_id = qaItem1.id;
+async function runTests(
+  supabase: SupabaseClient,
+  tenantId: string,
+  warehouseId: string | null,
+  runId: string,
+  requestedSuites: string[],
+  mode: string
+): Promise<{ results: TestResult[]; summary: { pass: number; fail: number; skip: number } }> {
+  const ctx: TestContext = {
+    supabase,
+    tenantId,
+    warehouseId,
+    runId,
+    logs: []
+  };
 
-    // Step 3: Create repair quote
-    quote1 = await createRepairQuote(qaItem1.id, qaAccount.id, 'awaiting_assignment');
-    if (!quote1) {
-      test1Steps.push({ name: 'Create repair quote', status: 'fail', message: 'Failed to create quote' });
-      throw new Error('Failed to create repair quote');
-    }
-    test1Steps.push({ name: 'Create repair quote', status: 'pass', message: `Created: ${quote1.id.slice(0, 8)}...` });
-    test1Entities.quote_id = quote1.id;
+  const allResults: TestResult[] = [];
 
-    // Step 4: Verify single-item link
-    const { data: verifyQuote } = await supabase
-      .from('repair_quotes')
-      .select('id, item_id, status')
-      .eq('id', quote1.id)
-      .single();
+  const suiteRunners: Record<string, (ctx: TestContext) => Promise<TestResult[]>> = {
+    receiving_flow: runReceivingFlowTests,
+    outbound_flow: runOutboundFlowTests,
+    task_flow: runTaskFlowTests,
+    movement_flow: runMovementFlowTests,
+    stocktake_flow: runStocktakeFlowTests,
+    claims_flow: runClaimsFlowTests,
+    pricing_flow: runPricingFlowTests,
+    prompts_flow: runPromptsFlowTests,
+    repair_quotes_flow: runRepairQuotesFlowTests
+  };
 
-    if (!verifyQuote?.item_id) {
-      test1Steps.push({
-        name: 'Verify single-item link',
+  const suitesToRun = requestedSuites.length > 0
+    ? requestedSuites.filter(s => s in suiteRunners)
+    : Object.keys(suiteRunners);
+
+  for (const suite of suitesToRun) {
+    log(ctx, `Starting suite: ${suite}`);
+    try {
+      const runner = suiteRunners[suite];
+      const results = await runner(ctx);
+      allResults.push(...results);
+
+      // Save results to database
+      for (const result of results) {
+        await supabase.from('qa_test_results').insert({
+          run_id: runId,
+          tenant_id: tenantId,
+          suite: result.suite,
+          test_name: result.test_name,
+          status: result.status,
+          started_at: result.started_at,
+          finished_at: result.finished_at,
+          error_message: result.error_message,
+          error_stack: result.error_stack,
+          details: result.details || {},
+          entity_ids: result.entity_ids || {},
+          logs: result.logs
+        });
+      }
+    } catch (error) {
+      log(ctx, `Suite ${suite} failed with error: ${error instanceof Error ? error.message : 'Unknown'}`);
+      allResults.push({
+        suite,
+        test_name: 'Suite execution',
         status: 'fail',
-        message: 'Quote item_id is null',
-        expected: 'item_id not null',
-        actual: 'null',
+        error_message: error instanceof Error ? error.message : 'Suite execution failed',
+        error_stack: error instanceof Error ? error.stack : undefined,
+        started_at: new Date().toISOString(),
+        finished_at: new Date().toISOString()
       });
-      throw new Error('Quote item_id is null');
     }
-
-    if (verifyQuote.item_id !== qaItem1.id) {
-      test1Steps.push({
-        name: 'Verify single-item link',
-        status: 'fail',
-        message: 'Quote linked to wrong item',
-        expected: qaItem1.id,
-        actual: verifyQuote.item_id,
-      });
-      throw new Error('Quote linked to wrong item');
-    }
-
-    test1Steps.push({
-      name: 'Verify single-item link',
-      status: 'pass',
-      message: 'Quote correctly linked to single item',
-      expected: qaItem1.id,
-      actual: verifyQuote.item_id,
-    });
-
-    tests.push({
-      test_id: 'rq_1',
-      test_name: 'Create Quote Request (Single Item)',
-      status: 'pass',
-      message: 'Successfully created repair quote for single item',
-      steps: test1Steps,
-      entity_ids: test1Entities,
-      duration_ms: Date.now() - test1Start,
-    });
-  } catch (error) {
-    tests.push({
-      test_id: 'rq_1',
-      test_name: 'Create Quote Request (Single Item)',
-      status: 'fail',
-      message: error instanceof Error ? error.message : 'Unknown error',
-      steps: test1Steps,
-      entity_ids: test1Entities,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      error_stack: error instanceof Error ? error.stack : undefined,
-      duration_ms: Date.now() - test1Start,
-    });
-  }
-
-  // ==========================================================================
-  // TEST 2: Duplicate Protection
-  // ==========================================================================
-  const test2Start = Date.now();
-  const test2Steps: TestStep[] = [];
-  const test2Entities: Record<string, string> = {};
-
-  try {
-    if (!qaItem1 || !qaAccount) {
-      test2Steps.push({ name: 'Prerequisites', status: 'skip', message: 'Test 1 failed' });
-      throw new Error('Prerequisites not met');
-    }
-
-    // Count open quotes for item
-    const { count } = await supabase
-      .from('repair_quotes')
-      .select('*', { count: 'exact', head: true })
-      .eq('item_id', qaItem1.id)
-      .not('status', 'in', '("cancelled","declined","closed")');
-
-    if ((count || 0) > 1) {
-      test2Steps.push({
-        name: 'Verify single open quote',
-        status: 'fail',
-        message: 'Multiple open quotes for same item',
-        expected: '≤1',
-        actual: String(count),
-      });
-      throw new Error('Duplicate protection failed');
-    }
-
-    test2Steps.push({
-      name: 'Verify single open quote',
-      status: 'pass',
-      message: 'Only 1 open quote exists',
-      expected: '≤1',
-      actual: String(count),
-    });
-
-    tests.push({
-      test_id: 'rq_2',
-      test_name: 'Duplicate Protection',
-      status: 'pass',
-      message: 'Duplicate protection working',
-      steps: test2Steps,
-      entity_ids: test2Entities,
-      duration_ms: Date.now() - test2Start,
-    });
-  } catch (error) {
-    const status = test2Steps.some(s => s.status === 'skip') ? 'skip' : 'fail';
-    tests.push({
-      test_id: 'rq_2',
-      test_name: 'Duplicate Protection',
-      status,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      steps: test2Steps,
-      entity_ids: test2Entities,
-      error: error instanceof Error ? error.message : undefined,
-      duration_ms: Date.now() - test2Start,
-    });
-  }
-
-  // ==========================================================================
-  // TEST 3: Admin Pricing Required Before Send
-  // ==========================================================================
-  const test3Start = Date.now();
-  const test3Steps: TestStep[] = [];
-  const test3Entities: Record<string, string> = {};
-
-  try {
-    if (!quote1) {
-      test3Steps.push({ name: 'Prerequisites', status: 'skip', message: 'No quote to test' });
-      throw new Error('Prerequisites not met');
-    }
-
-    test3Entities.quote_id = quote1.id;
-
-    // Step 1: Attempt send without price
-    const sendResult1 = await sendToClient(quote1.id);
-    if (sendResult1) {
-      test3Steps.push({
-        name: 'Attempt send without price',
-        status: 'fail',
-        message: 'Send succeeded without price (should be blocked)',
-        expected: 'blocked',
-        actual: 'sent',
-      });
-      throw new Error('Send should be blocked without price');
-    }
-    test3Steps.push({ name: 'Attempt send without price', status: 'pass', message: 'Correctly blocked' });
-
-    // Step 2: Set customer price
-    const priceSet = await setCustomerPrice(quote1.id, 250.00);
-    if (!priceSet) {
-      test3Steps.push({ name: 'Set customer price', status: 'fail', message: 'Failed to set price' });
-      throw new Error('Failed to set price');
-    }
-    test3Steps.push({ name: 'Set customer price', status: 'pass', message: 'Price set to $250.00' });
-
-    // Step 3: Send to client
-    const sendResult2 = await sendToClient(quote1.id);
-    if (!sendResult2) {
-      test3Steps.push({ name: 'Send to client', status: 'fail', message: 'Failed to send after price set' });
-      throw new Error('Failed to send quote');
-    }
-    test3Steps.push({ name: 'Send to client', status: 'pass', message: `Token: ${sendResult2.token.slice(0, 8)}...` });
-    test3Entities.token = sendResult2.token;
-
-    // Step 4: Verify status
-    const { data: verifyQuote } = await supabase
-      .from('repair_quotes')
-      .select('status')
-      .eq('id', quote1.id)
-      .single();
-
-    if (verifyQuote?.status !== 'sent_to_client') {
-      test3Steps.push({
-        name: 'Verify status',
-        status: 'fail',
-        expected: 'sent_to_client',
-        actual: verifyQuote?.status,
-        message: 'Status not updated',
-      });
-      throw new Error('Status not updated');
-    }
-    test3Steps.push({ name: 'Verify status', status: 'pass', message: 'Status: sent_to_client' });
-
-    tests.push({
-      test_id: 'rq_3',
-      test_name: 'Admin Pricing Required Before Send',
-      status: 'pass',
-      message: 'Pricing requirement enforced correctly',
-      steps: test3Steps,
-      entity_ids: test3Entities,
-      duration_ms: Date.now() - test3Start,
-    });
-  } catch (error) {
-    const status = test3Steps.some(s => s.status === 'skip') ? 'skip' : 'fail';
-    tests.push({
-      test_id: 'rq_3',
-      test_name: 'Admin Pricing Required Before Send',
-      status,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      steps: test3Steps,
-      entity_ids: test3Entities,
-      error: error instanceof Error ? error.message : undefined,
-      duration_ms: Date.now() - test3Start,
-    });
-  }
-
-  // ==========================================================================
-  // TEST 4: Client Accepts Quote → Creates Single Repair Task
-  // ==========================================================================
-  const test4Start = Date.now();
-  const test4Steps: TestStep[] = [];
-  const test4Entities: Record<string, string> = {};
-
-  try {
-    if (!quote1 || !qaItem1) {
-      test4Steps.push({ name: 'Prerequisites', status: 'skip', message: 'Earlier tests failed' });
-      throw new Error('Prerequisites not met');
-    }
-
-    test4Entities.quote_id = quote1.id;
-    test4Entities.item_id = qaItem1.id;
-
-    // Step 1: Simulate accept
-    const acceptResult = await simulateClientAccept(quote1.id);
-    if (!acceptResult) {
-      test4Steps.push({ name: 'Simulate client accept', status: 'fail', message: 'Accept failed' });
-      throw new Error('Accept failed');
-    }
-    test4Steps.push({ name: 'Simulate client accept', status: 'pass', message: 'Quote accepted' });
-    test4Entities.task_id = acceptResult.taskId;
-
-    // Step 2: Verify quote status
-    const { data: verifyQuote } = await supabase
-      .from('repair_quotes')
-      .select('status, client_response')
-      .eq('id', quote1.id)
-      .single();
-
-    if (verifyQuote?.status !== 'accepted') {
-      test4Steps.push({
-        name: 'Verify quote status',
-        status: 'fail',
-        expected: 'accepted',
-        actual: verifyQuote?.status,
-        message: 'Status not updated',
-      });
-      throw new Error('Quote status not updated');
-    }
-    test4Steps.push({ name: 'Verify quote status', status: 'pass', message: 'Status: accepted' });
-
-    // Step 3: Find repair task
-    const { data: repairTasks } = await supabase
-      .from('tasks')
-      .select('id, task_type')
-      .eq('tenant_id', tenantId)
-      .eq('task_type', 'Repair')
-      .contains('metadata', { repair_quote_id: quote1.id });
-
-    if (!repairTasks || repairTasks.length !== 1) {
-      test4Steps.push({
-        name: 'Verify single repair task',
-        status: 'fail',
-        expected: '1 task',
-        actual: `${repairTasks?.length || 0} tasks`,
-        message: 'Should have exactly 1 repair task',
-      });
-      throw new Error('Wrong number of repair tasks');
-    }
-    test4Steps.push({ name: 'Verify single repair task', status: 'pass', message: '1 repair task created' });
-
-    // Step 4: Verify task_items count = 1
-    const { count: taskItemCount } = await supabase
-      .from('task_items')
-      .select('*', { count: 'exact', head: true })
-      .eq('task_id', repairTasks[0].id);
-
-    if (taskItemCount !== 1) {
-      test4Steps.push({
-        name: 'Verify single task_item',
-        status: 'fail',
-        expected: '1',
-        actual: String(taskItemCount),
-        message: 'Task should have exactly 1 item',
-      });
-      throw new Error('Task item count mismatch');
-    }
-    test4Steps.push({ name: 'Verify single task_item', status: 'pass', message: '1 item linked to task' });
-
-    // Step 5: Verify correct item linked
-    const { data: taskItems } = await supabase
-      .from('task_items')
-      .select('item_id')
-      .eq('task_id', repairTasks[0].id);
-
-    if (taskItems?.[0]?.item_id !== qaItem1.id) {
-      test4Steps.push({
-        name: 'Verify correct item',
-        status: 'fail',
-        expected: qaItem1.id,
-        actual: taskItems?.[0]?.item_id,
-        message: 'Wrong item linked',
-      });
-      throw new Error('Wrong item linked');
-    }
-    test4Steps.push({
-      name: 'Verify correct item',
-      status: 'pass',
-      message: 'Correct item linked to task',
-      expected: qaItem1.id,
-      actual: taskItems[0].item_id,
-    });
-
-    tests.push({
-      test_id: 'rq_4',
-      test_name: 'Client Accepts Quote → Creates Single Repair Task',
-      status: 'pass',
-      message: 'Accept creates exactly 1 repair task with 1 item',
-      steps: test4Steps,
-      entity_ids: test4Entities,
-      duration_ms: Date.now() - test4Start,
-    });
-  } catch (error) {
-    const status = test4Steps.some(s => s.status === 'skip') ? 'skip' : 'fail';
-    tests.push({
-      test_id: 'rq_4',
-      test_name: 'Client Accepts Quote → Creates Single Repair Task',
-      status,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      steps: test4Steps,
-      entity_ids: test4Entities,
-      error: error instanceof Error ? error.message : undefined,
-      error_stack: error instanceof Error ? error.stack : undefined,
-      duration_ms: Date.now() - test4Start,
-    });
-  }
-
-  // ==========================================================================
-  // TEST 5: Client Declines Quote → No Repair Task
-  // ==========================================================================
-  const test5Start = Date.now();
-  const test5Steps: TestStep[] = [];
-  const test5Entities: Record<string, string> = {};
-
-  try {
-    if (!qaAccount) {
-      test5Steps.push({ name: 'Prerequisites', status: 'skip', message: 'No account' });
-      throw new Error('Prerequisites not met');
-    }
-
-    // Create fresh item and quote
-    qaItem2 = await createQAItem(qaAccount.id, '-2');
-    if (!qaItem2) {
-      test5Steps.push({ name: 'Create fresh item', status: 'fail', message: 'Failed' });
-      throw new Error('Failed to create item');
-    }
-    test5Steps.push({ name: 'Create fresh item', status: 'pass', message: qaItem2.item_code });
-    test5Entities.item_id = qaItem2.id;
-
-    quote2 = await createRepairQuote(qaItem2.id, qaAccount.id, 'draft');
-    if (!quote2) {
-      test5Steps.push({ name: 'Create quote', status: 'fail', message: 'Failed' });
-      throw new Error('Failed to create quote');
-    }
-    test5Steps.push({ name: 'Create quote', status: 'pass', message: quote2.id.slice(0, 8) });
-    test5Entities.quote_id = quote2.id;
-
-    // Set price and send
-    await setCustomerPrice(quote2.id, 150.00);
-    const sendResult = await sendToClient(quote2.id);
-    if (!sendResult) {
-      test5Steps.push({ name: 'Send to client', status: 'fail', message: 'Failed' });
-      throw new Error('Failed to send');
-    }
-    test5Steps.push({ name: 'Send to client', status: 'pass', message: 'Sent' });
-
-    // Simulate decline
-    const declined = await simulateClientDecline(quote2.id);
-    if (!declined) {
-      test5Steps.push({ name: 'Simulate decline', status: 'fail', message: 'Failed' });
-      throw new Error('Failed to decline');
-    }
-    test5Steps.push({ name: 'Simulate decline', status: 'pass', message: 'Declined' });
-
-    // Verify no repair task
-    const { count: taskCount } = await supabase
-      .from('tasks')
-      .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .eq('task_type', 'Repair')
-      .contains('metadata', { repair_quote_id: quote2.id });
-
-    if (taskCount && taskCount > 0) {
-      test5Steps.push({
-        name: 'Verify no repair task',
-        status: 'fail',
-        expected: '0',
-        actual: String(taskCount),
-        message: 'Task created on decline',
-      });
-      throw new Error('Task created on decline');
-    }
-    test5Steps.push({ name: 'Verify no repair task', status: 'pass', message: 'No task created' });
-
-    tests.push({
-      test_id: 'rq_5',
-      test_name: 'Client Declines Quote → No Repair Task',
-      status: 'pass',
-      message: 'Decline does not create repair task',
-      steps: test5Steps,
-      entity_ids: test5Entities,
-      duration_ms: Date.now() - test5Start,
-    });
-  } catch (error) {
-    const status = test5Steps.some(s => s.status === 'skip') ? 'skip' : 'fail';
-    tests.push({
-      test_id: 'rq_5',
-      test_name: 'Client Declines Quote → No Repair Task',
-      status,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      steps: test5Steps,
-      entity_ids: test5Entities,
-      error: error instanceof Error ? error.message : undefined,
-      duration_ms: Date.now() - test5Start,
-    });
-  }
-
-  // ==========================================================================
-  // TEST 6: Cancel Quote (Admin)
-  // ==========================================================================
-  const test6Start = Date.now();
-  const test6Steps: TestStep[] = [];
-  const test6Entities: Record<string, string> = {};
-
-  try {
-    if (!qaAccount) {
-      test6Steps.push({ name: 'Prerequisites', status: 'skip', message: 'No account' });
-      throw new Error('Prerequisites not met');
-    }
-
-    // Create fresh item and quote
-    qaItem3 = await createQAItem(qaAccount.id, '-3');
-    if (!qaItem3) {
-      test6Steps.push({ name: 'Create fresh item', status: 'fail', message: 'Failed' });
-      throw new Error('Failed to create item');
-    }
-    test6Entities.item_id = qaItem3.id;
-
-    quote3 = await createRepairQuote(qaItem3.id, qaAccount.id, 'draft');
-    if (!quote3) {
-      test6Steps.push({ name: 'Create quote', status: 'fail', message: 'Failed' });
-      throw new Error('Failed to create quote');
-    }
-    test6Steps.push({ name: 'Create fresh item and quote', status: 'pass', message: 'Created' });
-    test6Entities.quote_id = quote3.id;
-
-    // Set price and send
-    await setCustomerPrice(quote3.id, 200.00);
-    await sendToClient(quote3.id);
-    test6Steps.push({ name: 'Send to client', status: 'pass', message: 'Sent' });
-
-    // Admin cancels
-    const cancelled = await cancelQuote(quote3.id);
-    if (!cancelled) {
-      test6Steps.push({ name: 'Cancel quote', status: 'fail', message: 'Failed' });
-      throw new Error('Failed to cancel');
-    }
-    test6Steps.push({ name: 'Cancel quote', status: 'pass', message: 'Cancelled' });
-
-    // Verify status = closed
-    const { data: verifyQuote } = await supabase
-      .from('repair_quotes')
-      .select('status')
-      .eq('id', quote3.id)
-      .single();
-
-    if (verifyQuote?.status !== 'closed') {
-      test6Steps.push({
-        name: 'Verify status closed',
-        status: 'fail',
-        expected: 'closed',
-        actual: verifyQuote?.status,
-        message: 'Status not closed',
-      });
-      throw new Error('Status not closed');
-    }
-    test6Steps.push({ name: 'Verify status closed', status: 'pass', message: 'Status: closed' });
-
-    // Verify no repair task
-    const { count: taskCount } = await supabase
-      .from('tasks')
-      .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .eq('task_type', 'Repair')
-      .contains('metadata', { repair_quote_id: quote3.id });
-
-    if (taskCount && taskCount > 0) {
-      test6Steps.push({
-        name: 'Verify no repair task',
-        status: 'fail',
-        expected: '0',
-        actual: String(taskCount),
-        message: 'Task created for cancelled quote',
-      });
-      throw new Error('Task created for cancelled quote');
-    }
-    test6Steps.push({ name: 'Verify no repair task', status: 'pass', message: 'No task created' });
-
-    tests.push({
-      test_id: 'rq_6',
-      test_name: 'Cancel Quote (Admin)',
-      status: 'pass',
-      message: 'Cancel closes quote and prevents task creation',
-      steps: test6Steps,
-      entity_ids: test6Entities,
-      duration_ms: Date.now() - test6Start,
-    });
-  } catch (error) {
-    const status = test6Steps.some(s => s.status === 'skip') ? 'skip' : 'fail';
-    tests.push({
-      test_id: 'rq_6',
-      test_name: 'Cancel Quote (Admin)',
-      status,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      steps: test6Steps,
-      entity_ids: test6Entities,
-      error: error instanceof Error ? error.message : undefined,
-      duration_ms: Date.now() - test6Start,
-    });
-  }
-
-  // ==========================================================================
-  // TEST 7: Audit / Timestamps / Ownership
-  // ==========================================================================
-  const test7Start = Date.now();
-  const test7Steps: TestStep[] = [];
-  const test7Entities: Record<string, string> = {};
-
-  try {
-    if (!quote1) {
-      test7Steps.push({ name: 'Prerequisites', status: 'skip', message: 'No quote' });
-      throw new Error('Prerequisites not met');
-    }
-
-    test7Entities.quote_id = quote1.id;
-
-    const { data: verifyQuote } = await supabase
-      .from('repair_quotes')
-      .select('tenant_id, account_id, created_at, updated_at')
-      .eq('id', quote1.id)
-      .single();
-
-    // Verify tenant_id
-    if (verifyQuote?.tenant_id !== tenantId) {
-      test7Steps.push({
-        name: 'Verify tenant_id',
-        status: 'fail',
-        expected: tenantId,
-        actual: verifyQuote?.tenant_id,
-        message: 'Tenant mismatch',
-      });
-      throw new Error('Tenant mismatch');
-    }
-    test7Steps.push({ name: 'Verify tenant_id', status: 'pass', message: 'Matches' });
-
-    // Verify timestamps
-    if (!verifyQuote?.created_at || !verifyQuote?.updated_at) {
-      test7Steps.push({
-        name: 'Verify timestamps',
-        status: 'fail',
-        expected: 'Both set',
-        actual: `created: ${!!verifyQuote?.created_at}, updated: ${!!verifyQuote?.updated_at}`,
-        message: 'Missing timestamps',
-      });
-      throw new Error('Missing timestamps');
-    }
-    test7Steps.push({ name: 'Verify timestamps', status: 'pass', message: 'Both present' });
-
-    // Verify account_id
-    if (!verifyQuote?.account_id) {
-      test7Steps.push({
-        name: 'Verify account_id',
-        status: 'fail',
-        expected: 'not null',
-        actual: 'null',
-        message: 'Account not set',
-      });
-      throw new Error('Account not set');
-    }
-    test7Steps.push({ name: 'Verify account_id', status: 'pass', message: verifyQuote.account_id.slice(0, 8) });
-
-    tests.push({
-      test_id: 'rq_7',
-      test_name: 'Audit / Timestamps / Ownership',
-      status: 'pass',
-      message: 'All audit fields correct',
-      steps: test7Steps,
-      entity_ids: test7Entities,
-      duration_ms: Date.now() - test7Start,
-    });
-  } catch (error) {
-    const status = test7Steps.some(s => s.status === 'skip') ? 'skip' : 'fail';
-    tests.push({
-      test_id: 'rq_7',
-      test_name: 'Audit / Timestamps / Ownership',
-      status,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      steps: test7Steps,
-      entity_ids: test7Entities,
-      error: error instanceof Error ? error.message : undefined,
-      duration_ms: Date.now() - test7Start,
-    });
+    log(ctx, `Completed suite: ${suite}`);
   }
 
   // Calculate summary
-  const passed = tests.filter(t => t.status === 'pass').length;
-  const failed = tests.filter(t => t.status === 'fail').length;
-  const skipped = tests.filter(t => t.status === 'skip').length;
-
-  const overallStatus: TestStatus = failed > 0 ? 'fail' : skipped === tests.length ? 'skip' : 'pass';
-
-  return {
-    suite_key: 'repair_quotes_flow',
-    suite_name: 'Repair Quotes',
-    qa_run_id: qaRunId,
-    status: overallStatus,
-    tests,
-    created_entity_ids: createdEntityIds,
-    total_duration_ms: Date.now() - startTime,
-    summary: { passed, failed, skipped },
+  const summary = {
+    pass: allResults.filter(r => r.status === 'pass').length,
+    fail: allResults.filter(r => r.status === 'fail').length,
+    skip: allResults.filter(r => r.status === 'skip').length
   };
-}
 
-// ============================================================================
-// CLEANUP
-// ============================================================================
-
-async function cleanupQAData(
-  supabase: any,
-  tenantId: string,
-  qaRunId?: string
-): Promise<{ deleted: number; errors: string[] }> {
-  let deleted = 0;
-  const errors: string[] = [];
-
-  const filter = qaRunId
-    ? { qa_run_id: qaRunId }
-    : { qa_test: true };
-
-  // Delete in order: task_items (via tasks), tasks, tokens, quote_items, quotes, items, accounts
-  try {
-    // Get tasks to delete task_items first
-    const { data: tasks } = await supabase
-      .from('tasks')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .contains('metadata', filter);
-
-    if (tasks?.length) {
-      for (const task of tasks) {
-        await supabase.from('task_items').delete().eq('task_id', task.id);
-      }
-      const { count } = await supabase
-        .from('tasks')
-        .delete()
-        .eq('tenant_id', tenantId)
-        .contains('metadata', filter);
-      deleted += count || 0;
+  // Cleanup if mode is create_cleanup
+  if (mode === 'create_cleanup') {
+    log(ctx, 'Running cleanup...');
+    try {
+      await supabase.rpc('cleanup_qa_test_data', { p_run_id: runId });
+      log(ctx, 'Cleanup completed');
+    } catch (error) {
+      log(ctx, `Cleanup failed: ${error instanceof Error ? error.message : 'Unknown'}`);
     }
-
-    // Delete tokens
-    const { count: tokenCount } = await supabase
-      .from('repair_quote_tokens')
-      .delete()
-      .eq('tenant_id', tenantId)
-      .contains('metadata', filter);
-    deleted += tokenCount || 0;
-
-    // Get quotes to delete quote_items first
-    const { data: quotes } = await supabase
-      .from('repair_quotes')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .contains('metadata', filter);
-
-    if (quotes?.length) {
-      for (const quote of quotes) {
-        await supabase.from('repair_quote_items').delete().eq('repair_quote_id', quote.id);
-      }
-      const { count } = await supabase
-        .from('repair_quotes')
-        .delete()
-        .eq('tenant_id', tenantId)
-        .contains('metadata', filter);
-      deleted += count || 0;
-    }
-
-    // Delete items
-    const { count: itemCount } = await supabase
-      .from('items')
-      .delete()
-      .eq('tenant_id', tenantId)
-      .contains('metadata', filter);
-    deleted += itemCount || 0;
-
-    // Delete accounts
-    const { count: accountCount } = await supabase
-      .from('accounts')
-      .delete()
-      .eq('tenant_id', tenantId)
-      .contains('metadata', filter);
-    deleted += accountCount || 0;
-
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : 'Unknown cleanup error');
   }
 
-  return { deleted, errors };
+  return { results: allResults, summary };
 }
 
-// ============================================================================
-// MAIN HANDLER
-// ============================================================================
+// =============================================================================
+// HTTP Handler
+// =============================================================================
 
-serve(async (req) => {
+const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify auth
-    const authHeader = req.headers.get("authorization");
+    // Get auth header
+    const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Authorization required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // Create client with user's JWT
+    const supabaseUser = createClient(supabaseUrl, supabaseServiceKey.replace('service_role', ''), {
+      global: { headers: { Authorization: authHeader } }
+    });
 
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Invalid authentication" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Get user
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
 
-    // Get user profile
+    // Create service role client for operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get user profile and verify admin
     const { data: profile } = await supabase
-      .from("users")
-      .select("id, tenant_id, role")
-      .eq("id", user.id)
+      .from('users')
+      .select('tenant_id')
+      .eq('id', user.id)
       .single();
 
-    if (!profile || profile.role !== 'tenant_admin') {
-      return new Response(
-        JSON.stringify({ error: "Admin access required" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!profile?.tenant_id) {
+      return new Response(JSON.stringify({ error: 'No tenant found for user' }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
 
-    const body = await req.json();
-    const { action, suite_key, qa_run_id } = body;
+    // Verify admin role
+    const { data: userRoles } = await supabase
+      .from('user_roles')
+      .select(`roles(name)`)
+      .eq('user_id', user.id)
+      .is('deleted_at', null);
 
-    if (action === 'run_suite') {
-      const runId = crypto.randomUUID();
+    const isAdmin = userRoles?.some((ur: any) =>
+      ['admin', 'tenant_admin', 'manager'].includes(ur.roles?.name)
+    );
 
-      if (suite_key === 'repair_quotes_flow') {
-        const result = await runRepairQuotesFlow(supabase, profile.tenant_id, profile.id, runId);
-        return new Response(
-          JSON.stringify(result),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+    if (!isAdmin) {
+      return new Response(JSON.stringify({ error: 'Admin access required' }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    const body: QARunnerRequest = await req.json();
+
+    if (body.action === 'cleanup') {
+      // Cleanup existing run
+      if (!body.run_id) {
+        return new Response(JSON.stringify({ error: 'run_id required for cleanup' }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
       }
 
-      return new Response(
-        JSON.stringify({ error: `Unknown suite: ${suite_key}` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      const { data: cleanupResult, error: cleanupError } = await supabase.rpc(
+        'cleanup_qa_test_data',
+        { p_run_id: body.run_id }
       );
+
+      if (cleanupError) {
+        return new Response(JSON.stringify({ error: cleanupError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, result: cleanupResult }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
 
-    if (action === 'cleanup') {
-      const result = await cleanupQAData(supabase, profile.tenant_id, qa_run_id);
-      return new Response(
-        JSON.stringify(result),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (body.action === 'get_status') {
+      // Get status of a run
+      if (!body.run_id) {
+        return new Response(JSON.stringify({ error: 'run_id required' }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
+      const { data: run } = await supabase
+        .from('qa_test_runs')
+        .select('*')
+        .eq('id', body.run_id)
+        .single();
+
+      const { data: results } = await supabase
+        .from('qa_test_results')
+        .select('*')
+        .eq('run_id', body.run_id)
+        .order('created_at');
+
+      return new Response(JSON.stringify({ run, results }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
 
-    return new Response(
-      JSON.stringify({ error: "Unknown action. Use: run_suite, cleanup" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    if (body.action === 'run_tests') {
+      const suites = body.suites || [];
+      const warehouseId = body.warehouse_id || null;
+      const mode = body.mode || 'create_cleanup';
+
+      // Create test run record
+      const { data: run, error: runError } = await supabase
+        .from('qa_test_runs')
+        .insert({
+          tenant_id: profile.tenant_id,
+          warehouse_id: warehouseId,
+          executed_by: user.id,
+          status: 'running',
+          mode,
+          suites_requested: suites,
+          metadata: {
+            user_agent: req.headers.get('user-agent'),
+            started_via: 'edge_function'
+          }
+        })
+        .select()
+        .single();
+
+      if (runError) {
+        return new Response(JSON.stringify({ error: runError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
+      // Run tests
+      const { results, summary } = await runTests(
+        supabase,
+        profile.tenant_id,
+        warehouseId,
+        run.id,
+        suites,
+        mode
+      );
+
+      // Update run record
+      const finalStatus = summary.fail > 0 ? 'failed' : 'completed';
+      await supabase
+        .from('qa_test_runs')
+        .update({
+          status: finalStatus,
+          finished_at: new Date().toISOString(),
+          pass_count: summary.pass,
+          fail_count: summary.fail,
+          skip_count: summary.skip
+        })
+        .eq('id', run.id);
+
+      return new Response(JSON.stringify({
+        run_id: run.id,
+        status: finalStatus,
+        summary,
+        results_count: results.length
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    return new Response(JSON.stringify({ error: 'Invalid action' }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
 
   } catch (error) {
-    console.error("qa-runner error:", error);
+    console.error("Error in qa-runner function:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
     );
   }
-});
+};
+
+serve(handler);

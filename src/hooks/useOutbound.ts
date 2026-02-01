@@ -318,7 +318,7 @@ export function useOutboundShipments(filters?: {
     if (!profile?.tenant_id || !profile?.id) return null;
 
     try {
-      // Create shipment
+      // Create shipment with customer_authorized and release_type for SOP compliance
       const { data: shipment, error: shipmentError } = await (supabase
         .from('shipments') as any)
         .insert({
@@ -332,6 +332,10 @@ export function useOutboundShipments(filters?: {
           notes: params.notes || null,
           expected_arrival_date: params.expected_date || null,
           created_by: profile.id,
+          customer_authorized: true,
+          customer_authorized_at: new Date().toISOString(),
+          customer_authorized_by: profile.id,
+          release_type: 'Customer Pickup', // Default release type for outbound
         })
         .select('*')
         .single();

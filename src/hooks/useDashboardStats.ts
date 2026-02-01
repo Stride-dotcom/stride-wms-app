@@ -10,6 +10,7 @@ export interface DashboardStats {
   willCallCount: number;
   disposalCount: number;
   repairCount: number;
+  repairQuotesCount: number;
   // Urgent counts
   urgentNeedToInspect: number;
   urgentNeedToAssemble: number;
@@ -69,6 +70,7 @@ export function useDashboardStats() {
     willCallCount: 0,
     disposalCount: 0,
     repairCount: 0,
+    repairQuotesCount: 0,
     urgentNeedToInspect: 0,
     urgentNeedToAssemble: 0,
     urgentNeedToRepair: 0,
@@ -178,6 +180,13 @@ export function useDashboardStats() {
         .is('deleted_at', null)
         .order('expected_arrival_date', { ascending: true, nullsFirst: false })
         .limit(10);
+
+      // Fetch repair quotes needing action
+      const { count: repairQuotesActionCount } = await (supabase
+        .from('repair_quotes') as any)
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', profile.tenant_id)
+        .in('status', ['awaiting_assignment', 'tech_submitted', 'under_review', 'sent_to_client']);
 
       // Fetch items at Receiving Dock location (need to put away)
       const { data: receivingDockLocation } = await (supabase
@@ -310,6 +319,7 @@ export function useDashboardStats() {
         willCallCount: willCallCount || 0,
         disposalCount: disposalCount || 0,
         repairCount: repairCount || 0,
+        repairQuotesCount: repairQuotesActionCount || 0,
         urgentNeedToInspect: urgentInspections,
         urgentNeedToAssemble: urgentAssemblies,
         urgentNeedToRepair: urgentRepairs,

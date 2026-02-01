@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DashboardLayout } from '@/components/DashboardLayout';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -127,13 +127,13 @@ async function resolveEntityReference(
     }
 
     // Query the database
-    const { data: records } = await supabase
-      .from(tableName)
+    const { data: records } = await (supabase
+      .from(tableName as any)
       .select(`id, ${codeField}`)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .ilike(codeField, `%${queryNumeric}%`)
-      .limit(50);
+      .limit(50) as any);
 
     if (!records) continue;
 
@@ -247,7 +247,7 @@ export default function BotQA() {
     // Load inbound shipments
     const { data: inbound } = await supabase
       .from('shipments')
-      .select('id, shipment_number, total_items')
+      .select('id, shipment_number')
       .eq('tenant_id', profile.tenant_id)
       .eq('shipment_type', 'inbound')
       .gte('created_at', thirtyDaysAgo.toISOString())
@@ -255,7 +255,7 @@ export default function BotQA() {
       .order('created_at', { ascending: false })
       .limit(20);
 
-    setInboundShipments(inbound || []);
+    setInboundShipments((inbound as any) || []);
 
     // Load outbound shipments
     const { data: outbound } = await supabase
@@ -267,7 +267,7 @@ export default function BotQA() {
       .order('created_at', { ascending: false })
       .limit(20);
 
-    setOutboundShipments(outbound || []);
+    setOutboundShipments((outbound as any) || []);
   }
 
   function toggleExpanded(testName: string) {
@@ -659,11 +659,11 @@ export default function BotQA() {
     try {
       // Get items from the selected shipment
       const { data: items } = await supabase
-        .from('items')
+        .from('items' as any)
         .select('id, item_code, description, account_id, sidemark_id')
         .eq('shipment_id', selectedInboundId)
         .eq('tenant_id', tenantId)
-        .is('deleted_at', null);
+        .is('deleted_at', null) as { data: any[] | null };
 
       if (!items || items.length === 0) {
         updateResult({
@@ -681,7 +681,7 @@ export default function BotQA() {
       const errors: string[] = [];
 
       for (const item of items.slice(0, 5)) { // Limit to 5 for testing
-        const { data: task, error } = await supabase
+        const { data: task, error } = await (supabase
           .from('tasks')
           .insert({
             tenant_id: tenantId,
@@ -696,7 +696,7 @@ export default function BotQA() {
             notes: JSON.stringify({ qa_test: true, qa_run_id: qaRunId }),
           })
           .select('id, item_ids')
-          .single();
+          .single() as any);
 
         if (error) {
           errors.push(`Failed for ${item.item_code}: ${error.message}`);
@@ -712,11 +712,11 @@ export default function BotQA() {
       const validationDetails: any[] = [];
 
       for (const taskId of createdTasks) {
-        const { data: task } = await supabase
+        const { data: task } = await (supabase
           .from('tasks')
           .select('id, task_number, item_ids')
           .eq('id', taskId)
-          .single();
+          .single() as any);
 
         if (task) {
           const itemCount = Array.isArray(task.item_ids) ? task.item_ids.length : 0;
@@ -1020,12 +1020,12 @@ export default function BotQA() {
       const itemIds = (shipmentItems || []).map((si: any) => si.item_id).filter(Boolean);
 
       if (itemIds.length > 0) {
-        const { data: activeTasks } = await supabase
+        const { data: activeTasks } = await (supabase
           .from('tasks')
           .select('task_number, task_type, status')
           .eq('tenant_id', tenantId)
           .in('status', ['open', 'in_progress'])
-          .overlaps('item_ids', itemIds);
+          .overlaps('item_ids', itemIds) as any);
 
         if (activeTasks && activeTasks.length > 0) {
           for (const task of activeTasks) {

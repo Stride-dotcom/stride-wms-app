@@ -1,521 +1,758 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useQATests, TEST_SUITES, QATestRun, QATestResult } from '@/hooks/useQATests';
+import { useWarehouses } from '@/hooks/useWarehouses';
+import { cn } from '@/lib/utils';
 
-// ============================================================================
-// TYPES
-// ============================================================================
+type QAHook = ReturnType<typeof useQATests>;
 
-type TestStatus = 'pending' | 'running' | 'pass' | 'fail' | 'skip' | 'error';
+// =============================================================================
+// Status Badge Component
+// =============================================================================
 
-interface TestStep {
-  name: string;
-  status: TestStatus;
-  message: string;
-  expected?: string;
-  actual?: string;
-  duration_ms?: number;
-  entity_ids?: Record<string, string>;
-}
-
-interface TestResult {
-  test_id: string;
-  test_name: string;
-  status: TestStatus;
-  message: string;
-  steps: TestStep[];
-  entity_ids: Record<string, string>;
-  error?: string;
-  error_stack?: string;
-  duration_ms: number;
-}
-
-interface SuiteResult {
-  suite_key: string;
-  suite_name: string;
-  qa_run_id: string;
-  status: TestStatus;
-  tests: TestResult[];
-  created_entity_ids: Record<string, string[]>;
-  total_duration_ms: number;
-  summary: {
-    passed: number;
-    failed: number;
-    skipped: number;
-  };
-}
-
-interface TestSuiteDefinition {
-  key: string;
-  name: string;
-  description: string;
-  tests: Array<{
-    id: string;
-    name: string;
-    description: string;
-  }>;
-}
-
-// ============================================================================
-// TEST SUITES DEFINITION
-// ============================================================================
-
-const TEST_SUITES: TestSuiteDefinition[] = [
-  {
-    key: 'repair_quotes_flow',
-    name: 'Repair Quotes',
-    description: 'Test the full repair quote lifecycle including creation, pricing, client acceptance/decline, and task creation.',
-    tests: [
-      { id: 'rq_1', name: 'Create Quote Request (Single Item)', description: 'Verify a repair quote can be created for exactly one item' },
-      { id: 'rq_2', name: 'Duplicate Protection', description: 'Ensure duplicate open quotes for same item are prevented' },
-      { id: 'rq_3', name: 'Admin Pricing Required Before Send', description: 'Verify price must be set before sending to client' },
-      { id: 'rq_4', name: 'Client Accepts Quote → Creates Repair Task', description: 'Prove acceptance creates exactly one repair task for the item' },
-      { id: 'rq_5', name: 'Client Declines Quote → No Repair Task', description: 'Decline should not create any repair task' },
-      { id: 'rq_6', name: 'Cancel Quote (Admin)', description: 'Cancel blocks acceptance and prevents task creation' },
-      { id: 'rq_7', name: 'Audit / Timestamps / Ownership', description: 'Verify tenant_id, timestamps, and account ownership' },
-    ],
-  },
-];
-
-// ============================================================================
-// COMPONENT
-// ============================================================================
-
-export function QATestConsoleTab() {
-  const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('run');
-  const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
-
-  const [isRunning, setIsRunning] = useState(false);
-  const [currentSuite, setCurrentSuite] = useState<string | null>(null);
-  const [suiteResult, setSuiteResult] = useState<SuiteResult | null>(null);
-  const [logs, setLogs] = useState<string[]>([]);
-
-  // ============================================================================
-  // HELPERS
-  // ============================================================================
-
-  const log = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
+function StatusBadge({ status }: { status: string }) {
+  const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
+    running: { variant: 'default', label: 'Running' },
+    completed: { variant: 'secondary', label: 'Completed' },
+    failed: { variant: 'destructive', label: 'Failed' },
+    cancelled: { variant: 'outline', label: 'Cancelled' },
+    pass: { variant: 'secondary', label: 'Pass' },
+    fail: { variant: 'destructive', label: 'Fail' },
+    skip: { variant: 'outline', label: 'Skip' },
+    pending: { variant: 'outline', label: 'Pending' }
   };
 
-  const runSuite = async (suiteKey: string) => {
-    setIsRunning(true);
-    setCurrentSuite(suiteKey);
-    setSuiteResult(null);
-    setLogs([]);
+  const config = variants[status] || { variant: 'outline', label: status };
 
-    log(`Starting suite: ${suiteKey}`);
+  return (
+    <Badge variant={config.variant} className={cn(
+      status === 'pass' && 'bg-green-100 text-green-800 hover:bg-green-100',
+      status === 'completed' && 'bg-green-100 text-green-800 hover:bg-green-100'
+    )}>
+      {config.label}
+    </Badge>
+  );
+}
 
-    try {
-      const { data, error } = await supabase.functions.invoke('qa-runner', {
-        body: {
-          action: 'run_suite',
-          suite_key: suiteKey,
-        },
-      });
+// =============================================================================
+// Run Tests Tab
+// =============================================================================
 
-      if (error) {
-        log(`Error: ${error.message}`);
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
-        return;
-      }
+function RunTestsTab({
+  qa,
+  onRunCompleted,
+}: {
+  qa: QAHook;
+  onRunCompleted?: (runId: string) => void;
+}) {
+  const { runTests, runningTests } = qa;
+  const { warehouses } = useWarehouses();
+  const [selectedSuites, setSelectedSuites] = useState<string[]>([]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>('');
+  const [mode, setMode] = useState<'create_cleanup' | 'create_only'>('create_cleanup');
+  const [runLog, setRunLog] = useState<string[]>([]);
 
-      const result = data as SuiteResult;
-      setSuiteResult(result);
+  const handleToggleSuite = (suiteId: string) => {
+    setSelectedSuites(prev =>
+      prev.includes(suiteId)
+        ? prev.filter(s => s !== suiteId)
+        : [...prev, suiteId]
+    );
+  };
 
-      log(`Suite completed: ${result.summary.passed} passed, ${result.summary.failed} failed, ${result.summary.skipped} skipped`);
-      log(`Duration: ${result.total_duration_ms}ms`);
-
-      toast({
-        title: 'Suite Completed',
-        description: `${result.summary.passed} passed, ${result.summary.failed} failed`,
-        variant: result.summary.failed > 0 ? 'destructive' : 'default',
-      });
-
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      log(`Error: ${message}`);
-      toast({ title: 'Error', description: message, variant: 'destructive' });
-    } finally {
-      setIsRunning(false);
-      setCurrentSuite(null);
+  const handleSelectAll = () => {
+    if (selectedSuites.length === TEST_SUITES.length) {
+      setSelectedSuites([]);
+    } else {
+      setSelectedSuites(TEST_SUITES.map(s => s.id));
     }
   };
 
-  const cleanup = async () => {
-    if (!suiteResult) return;
+  const handleRunTests = async (suites?: string[]) => {
+    setRunLog([`[${new Date().toISOString()}] Starting test run...`]);
 
-    log('Starting cleanup...');
+    const suitesToRun = suites || selectedSuites;
+    if (suitesToRun.length === 0) {
+      setRunLog(prev => [...prev, `[${new Date().toISOString()}] Running all test suites`]);
+    } else {
+      setRunLog(prev => [...prev, `[${new Date().toISOString()}] Running suites: ${suitesToRun.join(', ')}`]);
+    }
 
-    try {
-      const { data, error } = await supabase.functions.invoke('qa-runner', {
-        body: {
-          action: 'cleanup',
-          qa_run_id: suiteResult.qa_run_id,
-        },
-      });
+    const result = await runTests({
+      suites: suitesToRun,
+      warehouse_id: selectedWarehouse || undefined,
+      mode
+    });
 
-      if (error) {
-        log(`Cleanup error: ${error.message}`);
-        toast({ title: 'Cleanup Error', description: error.message, variant: 'destructive' });
-        return;
-      }
+    if (result) {
+      setRunLog(prev => [
+        ...prev,
+        `[${new Date().toISOString()}] Tests completed`,
+        `  Pass: ${result.summary.pass}`,
+        `  Fail: ${result.summary.fail}`,
+        `  Skip: ${result.summary.skip}`,
+        `  Run ID: ${result.run_id}`
+      ]);
 
-      log(`Cleanup completed: ${data.deleted} entities deleted`);
-      toast({ title: 'Cleanup Complete', description: `Deleted ${data.deleted} QA entities` });
-
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      log(`Cleanup error: ${message}`);
-      toast({ title: 'Cleanup Error', description: message, variant: 'destructive' });
+      // Jump straight to results and load the run so users don't have to hunt for it.
+      onRunCompleted?.(result.run_id);
+    } else {
+      setRunLog(prev => [...prev, `[${new Date().toISOString()}] Test run failed`]);
     }
   };
-
-  const generateFixPrompt = (result: TestResult): string => {
-    const failingSteps = result.steps.filter(s => s.status === 'fail');
-
-    return `## QA Test Failure
-
-**Suite:** Repair Quotes
-**Test:** ${result.test_name}
-**Test ID:** ${result.test_id}
-
-### Failing Step(s):
-${failingSteps.map(s => `- **${s.name}**
-  - Expected: ${s.expected || 'N/A'}
-  - Actual: ${s.actual || 'N/A'}
-  - Message: ${s.message}`).join('\n')}
-
-### Error:
-${result.error || 'No error message'}
-
-### Error Stack:
-\`\`\`
-${result.error_stack || 'No stack trace'}
-\`\`\`
-
-### Entity IDs Involved:
-${Object.entries(result.entity_ids).map(([k, v]) => `- ${k}: ${v}`).join('\n') || 'None'}
-
-### Suspected Files:
-- src/hooks/useRepairQuotes.ts
-- supabase/functions/qa-runner/index.ts
-
-### Expected Behavior:
-${result.test_name} should pass with all steps completing successfully.
-
-Please investigate and fix the issue.`;
-  };
-
-  const copyFixPrompt = (result: TestResult) => {
-    const prompt = generateFixPrompt(result);
-    navigator.clipboard.writeText(prompt);
-    toast({ title: 'Copied', description: 'Fix prompt copied to clipboard' });
-  };
-
-  // ============================================================================
-  // RENDER HELPERS
-  // ============================================================================
-
-  const statusColors: Record<TestStatus, string> = {
-    pending: 'bg-gray-100 text-gray-800',
-    running: 'bg-blue-100 text-blue-800',
-    pass: 'bg-green-100 text-green-800',
-    fail: 'bg-red-100 text-red-800',
-    skip: 'bg-yellow-100 text-yellow-800',
-    error: 'bg-red-200 text-red-900',
-  };
-
-  const statusIcons: Record<TestStatus, string> = {
-    pending: 'hourglass_empty',
-    running: 'progress_activity',
-    pass: 'check_circle',
-    fail: 'cancel',
-    skip: 'skip_next',
-    error: 'error',
-  };
-
-  const failedTests = suiteResult?.tests.filter(t => t.status === 'fail' || t.status === 'error') || [];
-
-  // ============================================================================
-  // RENDER
-  // ============================================================================
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-medium flex items-center gap-2">
-            <MaterialIcon name="science" size="md" />
-            QA Test Console
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Run automated tests to validate system behavior
-          </p>
+      {/* Options Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MaterialIcon name="settings" size="md" />
+            Test Options
+          </CardTitle>
+          <CardDescription>
+            Configure test execution settings
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Target Warehouse</Label>
+              <Select value={selectedWarehouse || '__all__'} onValueChange={(v) => setSelectedWarehouse(v === '__all__' ? '' : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All warehouses (default)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All warehouses</SelectItem>
+                  {warehouses.map(wh => (
+                    <SelectItem key={wh.id} value={wh.id}>
+                      {wh.name} ({wh.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>QA Mode</Label>
+              <Select value={mode} onValueChange={(v) => setMode(v as 'create_cleanup' | 'create_only')}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="create_cleanup">Create + Cleanup (default)</SelectItem>
+                  <SelectItem value="create_only">Create only (keep test data)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {mode === 'create_cleanup'
+                  ? 'Test data will be automatically cleaned up after tests complete'
+                  : 'Test data will be preserved for inspection'}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Test Suites Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <MaterialIcon name="science" size="md" />
+                Test Suites
+              </CardTitle>
+              <CardDescription>
+                Select test suites to run
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSelectAll}
+              >
+                {selectedSuites.length === TEST_SUITES.length ? 'Deselect All' : 'Select All'}
+              </Button>
+              <Button
+                onClick={() => handleRunTests()}
+                disabled={runningTests}
+              >
+                {runningTests ? (
+                  <>
+                    <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                    Running...
+                  </>
+                ) : (
+                  <>
+                    <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
+                    Run All Tests
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2">
+            {TEST_SUITES.map(suite => (
+              <div
+                key={suite.id}
+                className={cn(
+                  "flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors",
+                  selectedSuites.includes(suite.id)
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-muted/50"
+                )}
+                onClick={() => handleToggleSuite(suite.id)}
+              >
+                <Checkbox
+                  checked={selectedSuites.includes(suite.id)}
+                  onCheckedChange={() => handleToggleSuite(suite.id)}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <MaterialIcon name={suite.icon} size="sm" className="text-muted-foreground" />
+                    <span className="font-medium">{suite.name}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {suite.description}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRunTests([suite.id]);
+                  }}
+                  disabled={runningTests}
+                >
+                  <MaterialIcon name="play_arrow" size="sm" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Run Log Card */}
+      {runLog.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MaterialIcon name="terminal" size="md" />
+              Run Log
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-48 w-full rounded-md border bg-muted/30 p-4">
+              <pre className="text-sm font-mono">
+                {runLog.join('\n')}
+              </pre>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// Error Results Tab
+// =============================================================================
+
+function ErrorResultsTab({ qa }: { qa: QAHook }) {
+  const {
+    runs,
+    currentRun,
+    currentResults,
+    loading,
+    fetchRuns,
+    fetchRunResults,
+    cleanupRun,
+    generateFixPrompt,
+    clearCurrentRun,
+  } = qa;
+  const [selectedResult, setSelectedResult] = useState<QATestResult | null>(null);
+  const [fixPromptDialogOpen, setFixPromptDialogOpen] = useState(false);
+  const [fixPrompt, setFixPrompt] = useState('');
+
+  useEffect(() => {
+    fetchRuns();
+  }, [fetchRuns]);
+
+  const handleViewRun = (run: QATestRun) => {
+    fetchRunResults(run.id);
+  };
+
+  const handleCopyFixPrompt = (result: QATestResult) => {
+    const prompt = generateFixPrompt(result);
+    setFixPrompt(prompt);
+    setFixPromptDialogOpen(true);
+  };
+
+  const handleCopyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(fixPrompt);
+    } catch {
+      // Fallback
+      const textArea = document.createElement('textarea');
+      textArea.value = fixPrompt;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+    }
+  };
+
+  // Group results by suite
+  const resultsBySuite = currentResults.reduce((acc, result) => {
+    if (!acc[result.suite]) acc[result.suite] = [];
+    acc[result.suite].push(result);
+    return acc;
+  }, {} as Record<string, QATestResult[]>);
+
+  if (currentRun) {
+    return (
+      <div className="space-y-6">
+        {/* Back button and run header */}
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={clearCurrentRun}>
+            <MaterialIcon name="arrow_back" size="sm" className="mr-2" />
+            Back to Runs
+          </Button>
         </div>
-        <div className="flex gap-2">
-          {suiteResult && (
-            <Button variant="outline" onClick={cleanup}>
-              <MaterialIcon name="delete_sweep" size="sm" className="mr-2" />
-              Cleanup QA Data
-            </Button>
-          )}
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  Run Details
+                  <StatusBadge status={currentRun.status} />
+                </CardTitle>
+                <CardDescription>
+                  Started {new Date(currentRun.started_at).toLocaleString()}
+                  {currentRun.executed_by_user && (
+                    <> by {currentRun.executed_by_user.first_name} {currentRun.executed_by_user.last_name}</>
+                  )}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{currentRun.pass_count}</div>
+                  <div className="text-xs text-muted-foreground">Passed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-600">{currentRun.fail_count}</div>
+                  <div className="text-xs text-muted-foreground">Failed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-600">{currentRun.skip_count}</div>
+                  <div className="text-xs text-muted-foreground">Skipped</div>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 text-sm md:grid-cols-3">
+              <div>
+                <span className="text-muted-foreground">Mode:</span>{' '}
+                <span className="font-medium">{currentRun.mode === 'create_cleanup' ? 'Create + Cleanup' : 'Create Only'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Warehouse:</span>{' '}
+                <span className="font-medium">{currentRun.warehouse?.name || 'All'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Duration:</span>{' '}
+                <span className="font-medium">
+                  {currentRun.finished_at
+                    ? `${Math.round((new Date(currentRun.finished_at).getTime() - new Date(currentRun.started_at).getTime()) / 1000)}s`
+                    : 'In progress'}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Results by suite */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Test Results</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="multiple" className="w-full">
+              {Object.entries(resultsBySuite).map(([suite, results]) => {
+                const passCount = results.filter(r => r.status === 'pass').length;
+                const failCount = results.filter(r => r.status === 'fail').length;
+                const skipCount = results.filter(r => r.status === 'skip').length;
+                const suiteInfo = TEST_SUITES.find(s => s.id === suite);
+
+                return (
+                  <AccordionItem key={suite} value={suite}>
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center gap-3 flex-1">
+                        <MaterialIcon name={suiteInfo?.icon || 'folder'} size="sm" className="text-muted-foreground" />
+                        <span className="font-medium">{suiteInfo?.name || suite}</span>
+                        <div className="flex items-center gap-2 ml-auto mr-4">
+                          {passCount > 0 && (
+                            <Badge variant="secondary" className="bg-green-100 text-green-800">
+                              {passCount} pass
+                            </Badge>
+                          )}
+                          {failCount > 0 && (
+                            <Badge variant="destructive">
+                              {failCount} fail
+                            </Badge>
+                          )}
+                          {skipCount > 0 && (
+                            <Badge variant="outline">
+                              {skipCount} skip
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-2 pl-8">
+                        {results.map(result => (
+                          <div
+                            key={result.id}
+                            className={cn(
+                              "flex items-center justify-between p-3 rounded-lg border",
+                              result.status === 'fail' && "border-red-200 bg-red-50",
+                              result.status === 'pass' && "border-green-200 bg-green-50",
+                              result.status === 'skip' && "border-gray-200 bg-gray-50"
+                            )}
+                          >
+                            <div className="flex items-center gap-3">
+                              <StatusBadge status={result.status} />
+                              <span className="font-medium">{result.test_name}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {result.error_message && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setSelectedResult(result)}
+                                >
+                                  <MaterialIcon name="info" size="sm" className="mr-1" />
+                                  Details
+                                </Button>
+                              )}
+                              {result.status === 'fail' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleCopyFixPrompt(result)}
+                                >
+                                  <MaterialIcon name="content_copy" size="sm" className="mr-1" />
+                                  Copy Fix Prompt
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+          </CardContent>
+        </Card>
+
+        {/* Result details dialog */}
+        <Dialog open={!!selectedResult} onOpenChange={() => setSelectedResult(null)}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{selectedResult?.test_name}</DialogTitle>
+              <DialogDescription>
+                Suite: {selectedResult?.suite}
+              </DialogDescription>
+            </DialogHeader>
+            {selectedResult && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={selectedResult.status} />
+                  {selectedResult.started_at && selectedResult.finished_at && (
+                    <span className="text-sm text-muted-foreground">
+                      Duration: {Math.round((new Date(selectedResult.finished_at).getTime() - new Date(selectedResult.started_at).getTime()) / 1000)}s
+                    </span>
+                  )}
+                </div>
+
+                {selectedResult.error_message && (
+                  <div>
+                    <Label className="text-muted-foreground">Error Message</Label>
+                    <pre className="mt-1 p-3 bg-red-50 border border-red-200 rounded-lg text-sm overflow-x-auto">
+                      {selectedResult.error_message}
+                    </pre>
+                  </div>
+                )}
+
+                {selectedResult.error_stack && (
+                  <div>
+                    <Label className="text-muted-foreground">Stack Trace</Label>
+                    <pre className="mt-1 p-3 bg-muted rounded-lg text-xs overflow-x-auto max-h-48">
+                      {selectedResult.error_stack}
+                    </pre>
+                  </div>
+                )}
+
+                {selectedResult.details && Object.keys(selectedResult.details).length > 0 && (
+                  <div>
+                    <Label className="text-muted-foreground">Details</Label>
+                    <pre className="mt-1 p-3 bg-muted rounded-lg text-sm overflow-x-auto">
+                      {JSON.stringify(selectedResult.details, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                {selectedResult.entity_ids && Object.keys(selectedResult.entity_ids).length > 0 && (
+                  <div>
+                    <Label className="text-muted-foreground">Entity IDs</Label>
+                    <pre className="mt-1 p-3 bg-muted rounded-lg text-sm overflow-x-auto">
+                      {JSON.stringify(selectedResult.entity_ids, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                {selectedResult.status === 'fail' && (
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      setSelectedResult(null);
+                      handleCopyFixPrompt(selectedResult);
+                    }}
+                  >
+                    <MaterialIcon name="content_copy" size="sm" className="mr-2" />
+                    Copy Fix Prompt
+                  </Button>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Fix prompt dialog */}
+        <Dialog open={fixPromptDialogOpen} onOpenChange={setFixPromptDialogOpen}>
+          <DialogContent className="max-w-3xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>Fix Prompt</DialogTitle>
+              <DialogDescription>
+                Copy this prompt and paste it to Claude/Lovable to help fix the issue
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="h-[400px] w-full rounded-md border p-4">
+              <pre className="text-sm whitespace-pre-wrap">{fixPrompt}</pre>
+            </ScrollArea>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setFixPromptDialogOpen(false)}>
+                Close
+              </Button>
+              <Button onClick={handleCopyToClipboard}>
+                <MaterialIcon name="content_copy" size="sm" className="mr-2" />
+                Copy to Clipboard
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <MaterialIcon name="history" size="md" />
+              Test Run History
+            </CardTitle>
+            <CardDescription>
+              View results from previous test runs
+            </CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => fetchRuns()} disabled={loading}>
+            <MaterialIcon name="refresh" size="sm" className={cn("mr-2", loading && "animate-spin")} />
+            Refresh
+          </Button>
         </div>
+      </CardHeader>
+      <CardContent>
+        {loading && runs.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
+          </div>
+        ) : runs.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <MaterialIcon name="science" size="lg" className="mx-auto mb-2 opacity-50" />
+            <p>No test runs yet</p>
+            <p className="text-sm">Run some tests to see results here</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Started</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Results</TableHead>
+                <TableHead>Executed By</TableHead>
+                <TableHead>Mode</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {runs.map(run => (
+                <TableRow key={run.id}>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">
+                        {new Date(run.started_at).toLocaleDateString()}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(run.started_at).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={run.status} />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-600 font-medium">{run.pass_count}</span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="text-red-600 font-medium">{run.fail_count}</span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="text-gray-600">{run.skip_count}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {run.executed_by_user
+                      ? `${run.executed_by_user.first_name || ''} ${run.executed_by_user.last_name || ''}`.trim() || run.executed_by_user.email
+                      : 'Unknown'}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">
+                      {run.mode === 'create_cleanup' ? 'Cleanup' : 'Keep'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewRun(run)}
+                      >
+                        <MaterialIcon name="visibility" size="sm" className="mr-1" />
+                        View
+                      </Button>
+                      {run.mode === 'create_only' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => cleanupRun(run.id)}
+                        >
+                          <MaterialIcon name="delete_sweep" size="sm" className="mr-1" />
+                          Cleanup
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// =============================================================================
+// Main Component
+// =============================================================================
+
+export function QATestConsoleTab() {
+  const [activeTab, setActiveTab] = useState('run');
+  const qa = useQATests();
+
+  const handleRunCompleted = async (runId: string) => {
+    setActiveTab('results');
+    await qa.fetchRunResults(runId);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-medium flex items-center gap-2">
+          <MaterialIcon name="bug_report" size="md" />
+          QA Test Console
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Run automated end-to-end system tests and view results
+        </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="run" className="flex items-center gap-2">
-            <MaterialIcon name="play_arrow" size="sm" />
+            <MaterialIcon name="play_circle" size="sm" />
             Run Tests
           </TabsTrigger>
           <TabsTrigger value="results" className="flex items-center gap-2">
-            <MaterialIcon name="assignment" size="sm" />
+            <MaterialIcon name="checklist" size="sm" />
             Error Results
-            {failedTests.length > 0 && (
-              <Badge variant="destructive" className="ml-1">
-                {failedTests.length}
-              </Badge>
-            )}
           </TabsTrigger>
         </TabsList>
 
-        {/* Run Tests Tab */}
-        <TabsContent value="run" className="space-y-4 mt-4">
-          {/* Test Suites */}
-          {TEST_SUITES.map(suite => (
-            <Card key={suite.key}>
-              <CardHeader className="py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base">{suite.name}</CardTitle>
-                    <CardDescription>{suite.description}</CardDescription>
-                  </div>
-                  <Button
-                    onClick={() => runSuite(suite.key)}
-                    disabled={isRunning}
-                  >
-                    {isRunning && currentSuite === suite.key ? (
-                      <>
-                        <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
-                        Running...
-                      </>
-                    ) : (
-                      <>
-                        <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
-                        Run {suite.name} Suite
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {suite.tests.map(test => {
-                    const result = suiteResult?.tests.find(r => r.test_id === test.id);
-                    const status: TestStatus = isRunning && currentSuite === suite.key
-                      ? 'running'
-                      : result?.status || 'pending';
-
-                    return (
-                      <div
-                        key={test.id}
-                        className="flex items-center gap-2 p-2 rounded border bg-muted/30"
-                      >
-                        <MaterialIcon
-                          name={statusIcons[status]}
-                          size="sm"
-                          className={status === 'running' ? 'animate-spin' : ''}
-                        />
-                        <span className="text-sm truncate" title={test.description}>
-                          {test.name}
-                        </span>
-                        {result && (
-                          <Badge className={`ml-auto shrink-0 ${statusColors[result.status]}`}>
-                            {result.status.toUpperCase()}
-                          </Badge>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-          {/* Progress & Logs */}
-          {logs.length > 0 && (
-            <Card>
-              <CardHeader className="py-3">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <MaterialIcon name="terminal" size="sm" />
-                  Run Logs
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <ScrollArea className="h-48 border rounded bg-slate-950 p-2">
-                  <div className="font-mono text-xs text-slate-300 space-y-1">
-                    {logs.map((line, i) => (
-                      <div key={i} className="whitespace-pre-wrap">{line}</div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Summary */}
-          {suiteResult && (
-            <Card>
-              <CardHeader className="py-3">
-                <CardTitle className="text-sm">Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex gap-6 text-sm">
-                  <span className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-green-500" />
-                    Pass: {suiteResult.summary.passed}
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-500" />
-                    Fail: {suiteResult.summary.failed}
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                    Skip: {suiteResult.summary.skipped}
-                  </span>
-                  <span className="text-muted-foreground ml-auto">
-                    Duration: {suiteResult.total_duration_ms}ms
-                  </span>
-                </div>
-                <div className="mt-2 text-xs text-muted-foreground">
-                  Run ID: {suiteResult.qa_run_id}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+        <TabsContent value="run" className="mt-6">
+          <RunTestsTab qa={qa} onRunCompleted={handleRunCompleted} />
         </TabsContent>
 
-        {/* Error Results Tab */}
-        <TabsContent value="results" className="space-y-4 mt-4">
-          {failedTests.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                <MaterialIcon name="check_circle" className="mx-auto mb-4 text-green-500" style={{ fontSize: '48px' }} />
-                <p>No errors to display</p>
-                <p className="text-xs mt-1">Run tests to see results here</p>
-              </CardContent>
-            </Card>
-          ) : (
-            failedTests.map(result => (
-              <Card key={result.test_id}>
-                <Collapsible
-                  open={expandedResults.has(result.test_id)}
-                  onOpenChange={() => {
-                    setExpandedResults(prev => {
-                      const next = new Set(prev);
-                      if (next.has(result.test_id)) next.delete(result.test_id);
-                      else next.add(result.test_id);
-                      return next;
-                    });
-                  }}
-                >
-                  <CollapsibleTrigger asChild>
-                    <CardHeader className="py-3 cursor-pointer hover:bg-muted/50">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <MaterialIcon name={statusIcons[result.status]} size="sm" className="text-red-500" />
-                          <div>
-                            <CardTitle className="text-sm">{result.test_name}</CardTitle>
-                            <CardDescription className="text-xs">Repair Quotes Suite</CardDescription>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge className={statusColors[result.status]}>
-                            {result.status.toUpperCase()}
-                          </Badge>
-                          <MaterialIcon name="expand_more" size="sm" />
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <CardContent className="pt-0 space-y-4">
-                      <Separator />
-
-                      {/* Error Message */}
-                      <div>
-                        <h4 className="text-sm font-medium mb-2">Error</h4>
-                        <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-800">
-                          {result.error || result.message}
-                        </div>
-                      </div>
-
-                      {/* Steps */}
-                      <div>
-                        <h4 className="text-sm font-medium mb-2">Steps</h4>
-                        <div className="space-y-2">
-                          {result.steps.map((step, i) => (
-                            <div key={i} className="flex items-start gap-2 text-sm">
-                              <MaterialIcon
-                                name={statusIcons[step.status]}
-                                size="sm"
-                                className={step.status === 'pass' ? 'text-green-500' : step.status === 'fail' ? 'text-red-500' : 'text-gray-400'}
-                              />
-                              <div className="flex-1">
-                                <div className="font-medium">{step.name}</div>
-                                <div className="text-muted-foreground">{step.message}</div>
-                                {step.expected && (
-                                  <div className="text-xs mt-1">
-                                    <span className="text-green-600">Expected:</span> {step.expected}
-                                    {step.actual && (
-                                      <>
-                                        <span className="ml-2 text-red-600">Actual:</span> {step.actual}
-                                      </>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Entity IDs */}
-                      {Object.keys(result.entity_ids).length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-medium mb-2">Entity IDs</h4>
-                          <div className="text-xs font-mono bg-muted p-2 rounded">
-                            {Object.entries(result.entity_ids).map(([k, v]) => (
-                              <div key={k}>{k}: {v}</div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Actions */}
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => copyFixPrompt(result)}>
-                          <MaterialIcon name="content_copy" size="sm" className="mr-2" />
-                          Copy Fix Prompt
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </CollapsibleContent>
-                </Collapsible>
-              </Card>
-            ))
-          )}
+        <TabsContent value="results" className="mt-6">
+          <ErrorResultsTab qa={qa} />
         </TabsContent>
       </Tabs>
     </div>

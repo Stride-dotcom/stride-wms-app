@@ -44,6 +44,7 @@ import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
 import { IntegrationsSettingsTab } from '@/components/settings/IntegrationsSettingsTab';
 import { PromptsSettingsTab } from '@/components/settings/PromptsSettingsTab';
 import { TenantTemplatesTab } from '@/components/settings/TenantTemplatesTab';
+import { AuditLogTab } from '@/components/settings/AuditLogTab';
 import { QATestConsoleTab } from '@/components/settings/QATestConsoleTab';
 
 interface TenantInfo {
@@ -62,6 +63,7 @@ const TAB_OPTIONS = [
   { value: 'pricing', label: 'Pricing', adminOnly: true },
   { value: 'categories', label: 'Categories', adminOnly: true },
   { value: 'templates', label: 'Templates', adminOnly: true },
+  { value: 'audit', label: 'Audit Log', adminOnly: true },
   { value: 'integrations', label: 'Integrations', adminOnly: true },
   { value: 'sidemarks', label: 'Sidemarks' },
   // Removed: Services, Rate Sheets, Classes tabs - now using unified service_events pricing system
@@ -69,7 +71,7 @@ const TAB_OPTIONS = [
   { value: 'warehouses', label: 'Warehouses' },
   { value: 'locations', label: 'Locations' },
   { value: 'users', label: 'Users' },
-  { value: 'qa-console', label: 'QA Console', adminOnly: true },
+  { value: 'qa', label: 'QA Tests', adminOnly: true },
 ];
 
 export default function Settings() {
@@ -327,12 +329,13 @@ export default function Settings() {
             {isAdmin && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
             {isAdmin && <TabsTrigger value="categories">Categories</TabsTrigger>}
             {isAdmin && <TabsTrigger value="templates">Templates</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="audit">Audit Log</TabsTrigger>}
             {isAdmin && <TabsTrigger value="integrations">Integrations</TabsTrigger>}
             <TabsTrigger value="sidemarks">Sidemarks</TabsTrigger>
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
-            {isAdmin && <TabsTrigger value="qa-console">QA Console</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="qa">QA Tests</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="profile">
@@ -432,6 +435,12 @@ export default function Settings() {
           )}
 
           {isAdmin && (
+            <TabsContent value="audit">
+              <AuditLogTab />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
             <TabsContent value="integrations">
               <IntegrationsSettingsTab />
             </TabsContent>
@@ -514,7 +523,7 @@ export default function Settings() {
           </TabsContent>
 
           {isAdmin && (
-            <TabsContent value="qa-console">
+            <TabsContent value="qa">
               <QATestConsoleTab />
             </TabsContent>
           )}
