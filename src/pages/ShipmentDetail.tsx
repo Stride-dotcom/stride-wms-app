@@ -901,6 +901,16 @@ export default function ShipmentDetail() {
           </CardContent>
         </Card>
 
+        {/* Billing Charges - Manager/Admin Only */}
+        {canSeeBilling && shipment.account_id && (
+          <BillingCalculator
+            shipmentId={shipment.id}
+            shipmentDirection={shipment.shipment_type as 'inbound' | 'outbound' | 'return'}
+            refreshKey={billingRefreshKey}
+            title="Billing Calculator"
+          />
+        )}
+
         {/* Quick Info */}
         <Card>
           <CardHeader>
@@ -925,16 +935,6 @@ export default function ShipmentDetail() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Billing Charges - Manager/Admin Only */}
-        {canSeeBilling && shipment.account_id && (
-          <BillingCalculator
-            shipmentId={shipment.id}
-            shipmentDirection={shipment.shipment_type as 'inbound' | 'outbound' | 'return'}
-            refreshKey={billingRefreshKey}
-            title="Billing Calculator"
-          />
-        )}
       </div>
 
       {/* Shipment Items */}
