@@ -24,7 +24,7 @@ function formatTimeEstimate(minutes: number): string {
   return `${hours}h ${mins}m`;
 }
 
-type ExpandedCard = 'put_away' | 'inspection' | 'assembly' | 'incoming_shipments' | 'repairs' | null;
+type ExpandedCard = 'put_away' | 'inspection' | 'assembly' | 'incoming_shipments' | 'repairs' | 'repair_quotes' | null;
 
 /**
  * Phase 2 Dashboard (Command Center)
@@ -114,6 +114,18 @@ export default function Dashboard() {
         countColor: 'text-red-600 dark:text-red-400',
         onClick: () => navigate('/tasks?type=Repair&status=pending'),
         timeEstimate: stats.repairTimeEstimate,
+      },
+      {
+        key: 'repair_quotes' as ExpandedCard,
+        title: 'REPAIR QUOTES',
+        emoji: '📋',
+        count: stats.repairQuotesCount,
+        urgent: 0,
+        description: 'Quotes needing action',
+        bgColor: 'bg-card border border-border shadow-sm',
+        countColor: 'text-indigo-600 dark:text-indigo-400',
+        onClick: () => navigate('/repair-quotes'),
+        timeEstimate: 0,
       },
     ],
     [navigate, stats]

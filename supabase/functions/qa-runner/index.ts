@@ -1727,6 +1727,360 @@ async function runPromptsFlowTests(ctx: TestContext): Promise<TestResult[]> {
 }
 
 // =============================================================================
+// Test Suite: Repair Quote + Single-Item Task Flow
+// =============================================================================
+
+async function runRepairQuotesFlowTests(ctx: TestContext): Promise<TestResult[]> {
+  const results: TestResult[] = [];
+  const suite = 'repair_quotes_flow';
+  let quoteId: string | null = null;
+  let itemId: string | null = null;
+
+  const warehouseId = await getOrCreateWarehouse(ctx);
+  const accountId = await getOrCreateAccount(ctx);
+  const locationId = await getOrCreateLocation(ctx, warehouseId, 'bin');
+
+  // Create test item (damaged condition)
+  {
+    const { data: item } = await ctx.supabase
+      .from('items')
+      .insert({
+        tenant_id: ctx.tenantId,
+        warehouse_id: warehouseId,
+        account_id: accountId,
+        item_code: generateCode('ITM'),
+        description: 'QA Repair Quote Test Item',
+        quantity: 1,
+        status: 'stored',
+        condition: 'damaged',
+        current_location_id: locationId,
+        metadata: { qa_test: true, qa_run_id: ctx.runId }
+      })
+      .select()
+      .single();
+
+    itemId = item?.id;
+  }
+
+  // Test 1: Client can request a repair quote for a single item
+  {
+    const testName = 'Client can request repair quote for single item';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!itemId) throw new Error('No item created');
+
+      log(ctx, `Running test: ${testName}`);
+
+      // Use the RPC function to create a quote request
+      const { data: result, error } = await ctx.supabase.rpc(
+        'create_client_repair_quote_request',
+        {
+          p_item_id: itemId,
+          p_account_id: accountId,
+          p_tenant_id: ctx.tenantId,
+          p_notes: 'QA Test - Client requested repair quote'
+        }
+      );
+
+      if (error) throw new Error(`RPC failed: ${error.message}`);
+      if (!result?.success) throw new Error(result?.error || 'Quote creation failed');
+
+      quoteId = result.quote_id;
+      log(ctx, `Created repair quote: ${quoteId}`);
+
+      // Verify quote is single-item (has item_id set)
+      const { data: quote } = await ctx.supabase
+        .from('repair_quotes')
+        .select('item_id, status')
+        .eq('id', quoteId)
+        .single();
+
+      if (!quote?.item_id) throw new Error('Quote missing item_id - not single-item');
+      if (quote.item_id !== itemId) throw new Error('Quote item_id mismatch');
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        entity_ids: { repair_quotes: [quoteId], items: [itemId] },
+        details: { quote_status: quote.status }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        error_stack: error instanceof Error ? error.stack : undefined,
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 2: Duplicate quote request is blocked
+  {
+    const testName = 'Duplicate quote request is blocked';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!itemId) throw new Error('No item created');
+
+      log(ctx, `Running test: ${testName}`);
+
+      // Try to create another quote for the same item
+      const { data: result, error } = await ctx.supabase.rpc(
+        'create_client_repair_quote_request',
+        {
+          p_item_id: itemId,
+          p_account_id: accountId,
+          p_tenant_id: ctx.tenantId,
+          p_notes: 'QA Test - Duplicate request'
+        }
+      );
+
+      if (error) throw new Error(`RPC failed: ${error.message}`);
+
+      // Should return exists: true or success: false
+      if (result?.success === true) {
+        throw new Error('Duplicate quote was allowed - expected to be blocked');
+      }
+
+      log(ctx, `Duplicate blocked correctly: ${result?.error || 'exists'}`);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        details: { blocked: true, message: result?.error }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 3: Office can set customer_price and lock pricing
+  {
+    const testName = 'Office can set customer_price and lock pricing';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!quoteId) throw new Error('No quote created');
+
+      log(ctx, `Running test: ${testName}`);
+
+      // Update quote with office pricing
+      const { error: updateError } = await ctx.supabase
+        .from('repair_quotes')
+        .update({
+          customer_price: 250.00,
+          internal_cost: 175.00,
+          office_notes: 'QA Test - Office pricing set',
+          pricing_locked: false, // Not locked yet (will lock on acceptance)
+          status: 'sent_to_client'
+        })
+        .eq('id', quoteId);
+
+      if (updateError) throw new Error(`Failed to update quote: ${updateError.message}`);
+
+      // Verify update
+      const { data: quote } = await ctx.supabase
+        .from('repair_quotes')
+        .select('customer_price, internal_cost, office_notes, pricing_locked')
+        .eq('id', quoteId)
+        .single();
+
+      if (quote?.customer_price !== 250) throw new Error('customer_price not saved correctly');
+      if (quote?.internal_cost !== 175) throw new Error('internal_cost not saved correctly');
+
+      log(ctx, 'Office pricing fields saved successfully');
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        details: {
+          customer_price: quote?.customer_price,
+          internal_cost: quote?.internal_cost,
+          pricing_locked: quote?.pricing_locked
+        }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 4: Accepted quote auto-creates single-item Repair task
+  {
+    const testName = 'Accepted quote auto-creates single-item Repair task';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!quoteId) throw new Error('No quote created');
+
+      log(ctx, `Running test: ${testName}`);
+
+      // Accept the quote (trigger should create repair task)
+      const { error: acceptError } = await ctx.supabase
+        .from('repair_quotes')
+        .update({
+          status: 'accepted'
+        })
+        .eq('id', quoteId);
+
+      if (acceptError) throw new Error(`Failed to accept quote: ${acceptError.message}`);
+
+      // Wait a moment for trigger to execute
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Check if repair_task_id was set
+      const { data: quote } = await ctx.supabase
+        .from('repair_quotes')
+        .select('repair_task_id, pricing_locked')
+        .eq('id', quoteId)
+        .single();
+
+      if (!quote?.repair_task_id) {
+        throw new Error('repair_task_id not set after acceptance - trigger may not have fired');
+      }
+
+      // Verify pricing is now locked
+      if (!quote?.pricing_locked) {
+        throw new Error('pricing_locked should be true after acceptance');
+      }
+
+      // Verify the repair task was created correctly
+      const { data: task } = await ctx.supabase
+        .from('tasks')
+        .select('id, task_type, status, related_item_id, metadata')
+        .eq('id', quote.repair_task_id)
+        .single();
+
+      if (!task) throw new Error('Repair task not found');
+      if (task.task_type !== 'Repair') throw new Error(`Wrong task_type: ${task.task_type}`);
+      if (task.related_item_id !== itemId) throw new Error('Task not linked to correct item');
+
+      log(ctx, `Repair task created: ${task.id}`);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        entity_ids: { tasks: [task.id] },
+        details: {
+          repair_task_id: task.id,
+          task_type: task.task_type,
+          pricing_locked: quote.pricing_locked
+        }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        error_stack: error instanceof Error ? error.stack : undefined,
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  // Test 5: Repair task references the quote in metadata
+  {
+    const testName = 'Repair task references quote in metadata';
+    const startedAt = new Date().toISOString();
+    try {
+      if (!quoteId) throw new Error('No quote created');
+
+      log(ctx, `Running test: ${testName}`);
+
+      // Get the quote to find repair_task_id
+      const { data: quote } = await ctx.supabase
+        .from('repair_quotes')
+        .select('repair_task_id')
+        .eq('id', quoteId)
+        .single();
+
+      if (!quote?.repair_task_id) throw new Error('No repair task linked');
+
+      // Get the task and check metadata
+      const { data: task } = await ctx.supabase
+        .from('tasks')
+        .select('metadata')
+        .eq('id', quote.repair_task_id)
+        .single();
+
+      if (!task?.metadata) throw new Error('Task has no metadata');
+
+      const metadata = task.metadata as Record<string, unknown>;
+      if (metadata.repair_quote_id !== quoteId) {
+        throw new Error(`Task metadata.repair_quote_id mismatch: expected ${quoteId}, got ${metadata.repair_quote_id}`);
+      }
+
+      // Also verify task_items has exactly 1 item
+      const { data: taskItems } = await ctx.supabase
+        .from('task_items')
+        .select('item_id')
+        .eq('task_id', quote.repair_task_id);
+
+      if (!taskItems || taskItems.length !== 1) {
+        throw new Error(`Repair task should have exactly 1 item, has ${taskItems?.length || 0}`);
+      }
+
+      if (taskItems[0].item_id !== itemId) {
+        throw new Error('task_items references wrong item');
+      }
+
+      log(ctx, 'Task metadata and task_items verified');
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        details: {
+          repair_quote_id_in_metadata: metadata.repair_quote_id,
+          task_items_count: taskItems.length,
+          auto_created: metadata.auto_created
+        }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
+  return results;
+}
+
+// =============================================================================
 // Main Test Runner
 // =============================================================================
 
@@ -1756,7 +2110,8 @@ async function runTests(
     stocktake_flow: runStocktakeFlowTests,
     claims_flow: runClaimsFlowTests,
     pricing_flow: runPricingFlowTests,
-    prompts_flow: runPromptsFlowTests
+    prompts_flow: runPromptsFlowTests,
+    repair_quotes_flow: runRepairQuotesFlowTests
   };
 
   const suitesToRun = requestedSuites.length > 0

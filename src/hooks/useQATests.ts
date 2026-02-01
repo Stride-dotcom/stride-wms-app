@@ -107,8 +107,8 @@ export const TEST_SUITES = [
   },
   {
     id: 'claims_flow',
-    name: 'Claims + Repair Quote Flow',
-    description: 'Tests claim creation, attachments, repair quotes',
+    name: 'Claims Flow',
+    description: 'Tests claim creation, attachments, status workflow',
     icon: 'receipt_long'
   },
   {
@@ -122,6 +122,12 @@ export const TEST_SUITES = [
     name: 'Guided Prompts Coverage',
     description: 'Verifies guided prompts exist for all workflow types',
     icon: 'psychology'
+  },
+  {
+    id: 'repair_quotes_flow',
+    name: 'Repair Quote + Single-Item Task Flow',
+    description: 'Tests client quote requests, office pricing, auto-task creation',
+    icon: 'build'
   }
 ];
 
@@ -363,9 +369,10 @@ function getSuiteExpectedBehavior(suite: string, testName: string): string {
     task_flow: 'Tasks should follow one-per-item rules for inspections, photos should be attached to items on completion, and validators should verify all requirements.',
     movement_flow: 'Items should be movable between locations, movement should be blocked during active stocktakes if freeze is enabled.',
     stocktake_flow: 'Stocktakes should progress through draft → in_progress → completed, with proper validation at each step.',
-    claims_flow: 'Claims should be created with proper tenant_id, attachments should be linkable, and repair quotes should be creatable.',
+    claims_flow: 'Claims should be created with proper tenant_id, attachments should be linkable, and status workflow should progress correctly.',
     pricing_flow: 'Service events should exist with proper class pricing, no duplicate rows for the same service/class combination.',
-    prompts_flow: 'Guided prompts should exist for all workflow types: receiving, inspection, assembly, repair, outbound.'
+    prompts_flow: 'Guided prompts should exist for all workflow types: receiving, inspection, assembly, repair, outbound.',
+    repair_quotes_flow: 'Repair quotes should be single-item only. Client can request quote (no duplicates). Office sets customer_price and locks pricing. Accepted quotes auto-create single-item Repair tasks with quote metadata.'
   };
 
   return behaviors[suite] || 'Test should pass without errors.';
@@ -415,6 +422,13 @@ function getSuiteFilesToCheck(suite: string): string {
     prompts_flow: [
       'src/components/settings/PromptsSettingsTab.tsx',
       'src/hooks/useGuidedPrompts.ts'
+    ],
+    repair_quotes_flow: [
+      'src/pages/RepairQuotes.tsx',
+      'src/components/repair-quotes/RepairQuoteDetailDialog.tsx',
+      'src/pages/ClientItems.tsx',
+      'src/hooks/useDashboardStats.ts',
+      'supabase/migrations/20260201110000_repair_quotes_single_item.sql'
     ]
   };
 
