@@ -91,36 +91,63 @@ type SortField = 'occurred_at' | 'account_name' | 'sidemark_name' | 'item_code' 
 type SortDirection = 'asc' | 'desc';
 
 // ============================================
-// BILLING SAFETY HELPER FUNCTIONS (Phase 5A)
+// BILLING SAFETY HELPER FUNCTIONS (Phase 5A.1)
 // ============================================
 // These functions check if a billing line item is safe for invoicing
 // without modifying any billing calculations.
+//
+// BLOCKING ISSUES (prevent invoice creation):
+// - Rate is NULL/undefined/NaN (missing rate)
+// - Missing class rate mapping (future enhancement)
+//
+// NON-BLOCKING WARNINGS (allowed but flagged):
+// - Rate is $0.00 (intentional zero-rate is valid)
 
 /**
  * Check if a billing line has a valid rate for invoicing
- * Returns true if the rate is set and greater than 0
- * NOTE: A rate of exactly 0 is considered unsafe (likely unset/placeholder)
+ * Returns true if the rate is set (not NULL/undefined/NaN)
+ * NOTE: A rate of exactly 0 is ALLOWED - $0 billing is intentional in some cases
  */
 function isLineSafe(row: BillingEventRow): boolean {
   const rate = row.unit_rate;
-  // NULL, undefined, or 0 are considered unsafe
-  if (rate === null || rate === undefined || rate === 0) {
+  // Only NULL, undefined, or NaN are considered unsafe (truly missing)
+  // Rate === 0 is ALLOWED - it's a valid intentional rate
+  if (rate === null || rate === undefined || (typeof rate === 'number' && isNaN(rate))) {
     return false;
   }
   return true;
 }
 
 /**
- * Get the specific issue with a billing line
- * Returns null if the line is safe, otherwise returns an issue description
+ * Get the BLOCKING issue with a billing line (prevents invoicing)
+ * Returns null if the line is safe for invoicing
  */
 function getLineIssue(row: BillingEventRow): string | null {
   const rate = row.unit_rate;
 
+  // Only truly missing rates are blocking issues
   if (rate === null || rate === undefined) {
     return "Rate not set";
   }
 
+  if (typeof rate === 'number' && isNaN(rate)) {
+    return "Invalid rate";
+  }
+
+  // NOTE: Rate === 0 is NOT a blocking issue - $0 billing is intentional
+  // Future: Add class rate mapping check here if billing_events gains class_code field
+
+  return null;
+}
+
+/**
+ * Get a NON-BLOCKING warning for a billing line (does not prevent invoicing)
+ * Returns null if there are no warnings
+ */
+function getLineWarning(row: BillingEventRow): string | null {
+  const rate = row.unit_rate;
+
+  // $0 rate is a warning (might be unintentional) but not a blocking issue
   if (rate === 0) {
     return "Rate is $0.00";
   }
@@ -1094,28 +1121,28 @@ export function BillingReportTab() {
         </Card>
       </div>
 
-      {/* Phase 5A: Billing Issues Banner */}
+      {/* Phase 5A.1: Billing Issues Banner - Only shows for BLOCKING issues (missing rates) */}
       {unbilledIssueCount > 0 && (
-        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+        <Card className="border-red-300 bg-red-50 dark:bg-red-950/30">
           <CardContent className="py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900">
-                  <MaterialIcon name="warning" size="md" className="text-amber-600" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
+                  <MaterialIcon name="error" size="md" className="text-red-600" />
                 </div>
                 <div>
-                  <p className="font-medium text-amber-800 dark:text-amber-200">
-                    {unbilledIssueCount} billing line{unbilledIssueCount !== 1 ? 's' : ''} need{unbilledIssueCount === 1 ? 's' : ''} attention
+                  <p className="font-medium text-red-800 dark:text-red-200">
+                    {unbilledIssueCount} billing line{unbilledIssueCount !== 1 ? 's' : ''} blocked from invoicing
                   </p>
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    {unbilledIssueTotal} item{unbilledIssueTotal !== 1 ? 's' : ''} with missing or zero rates cannot be invoiced until resolved
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    {unbilledIssueTotal} item{unbilledIssueTotal !== 1 ? 's' : ''} with missing rates must be fixed before creating invoices
                   </p>
                 </div>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                className="border-amber-400 text-amber-700 hover:bg-amber-100"
+                className="border-red-400 text-red-700 hover:bg-red-100"
                 onClick={() => setShowOnlyIssues(!showOnlyIssues)}
               >
                 <MaterialIcon name={showOnlyIssues ? "visibility_off" : "visibility"} size="sm" className="mr-2" />
@@ -1288,18 +1315,36 @@ export function BillingReportTab() {
                           />
                         )}
                       </td>
-                      {/* Phase 5A: Billing Safety Status Indicator */}
+                      {/* Phase 5A.1: Billing Safety Status Indicator */}
                       <td className="p-3 text-center">
                         {r.status === 'unbilled' ? (
-                          isLineSafe(r) ? (
-                            <span className="text-green-600" title="Ready for invoicing">
-                              <MaterialIcon name="check_circle" size="sm" />
-                            </span>
-                          ) : (
-                            <span className="text-amber-500" title={getLineIssue(r) || 'Needs review'}>
-                              <MaterialIcon name="warning" size="sm" />
-                            </span>
-                          )
+                          (() => {
+                            const issue = getLineIssue(r);
+                            const warning = getLineWarning(r);
+
+                            if (issue) {
+                              // BLOCKING: Missing rate - cannot invoice
+                              return (
+                                <span className="text-red-500" title={`Blocked: ${issue}`}>
+                                  <MaterialIcon name="error" size="sm" />
+                                </span>
+                              );
+                            } else if (warning) {
+                              // WARNING: $0 rate - allowed but flagged
+                              return (
+                                <span className="text-blue-500" title={`Warning: ${warning}`}>
+                                  <MaterialIcon name="info" size="sm" />
+                                </span>
+                              );
+                            } else {
+                              // SAFE: Ready for invoicing
+                              return (
+                                <span className="text-green-600" title="Ready for invoicing">
+                                  <MaterialIcon name="check_circle" size="sm" />
+                                </span>
+                              );
+                            }
+                          })()
                         ) : (
                           <span className="text-muted-foreground" title="Already processed">
                             <MaterialIcon name="remove" size="sm" />
@@ -1631,35 +1676,35 @@ export function BillingReportTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Phase 5A: Unsafe Invoice Blocking Modal */}
+      {/* Phase 5A.1: Unsafe Invoice Blocking Modal - Only blocks for missing rates */}
       <AlertDialog open={unsafeInvoiceDialogOpen} onOpenChange={setUnsafeInvoiceDialogOpen}>
         <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
-              <MaterialIcon name="warning" size="md" />
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <MaterialIcon name="error" size="md" />
               Cannot Create Invoice
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingUnsafeEventIds.length} of your selected billing line{pendingUnsafeEventIds.length !== 1 ? 's have' : ' has'} pricing issues that must be resolved before creating an invoice.
+              {pendingUnsafeEventIds.length} of your selected billing line{pendingUnsafeEventIds.length !== 1 ? 's have' : ' has'} missing rates that must be set before creating an invoice.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="py-4">
-            <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3 space-y-2 max-h-[200px] overflow-y-auto border border-amber-200">
+            <div className="bg-red-50 dark:bg-red-950/30 rounded-lg p-3 space-y-2 max-h-[200px] overflow-y-auto border border-red-200">
               {getUnsafeRowDetails.map((detail: any, i: number) => (
                 <div key={i} className="flex justify-between text-sm items-center">
                   <div>
                     <span className="font-medium">{detail.chargeType}</span>
                     <span className="text-muted-foreground ml-2">({detail.account})</span>
                   </div>
-                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300">
+                  <Badge variant="outline" className="bg-red-100 text-red-700 border-red-300">
                     {detail.issue}
                   </Badge>
                 </div>
               ))}
             </div>
             <p className="text-sm text-muted-foreground mt-3">
-              Click on the Rate field for each line to set a valid rate, then try again.
+              Click on the Rate field for each line to set a rate, then try again.
             </p>
           </div>
 
