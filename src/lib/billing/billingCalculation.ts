@@ -400,6 +400,7 @@ export interface BillingPreview {
   hasErrors: boolean;
   serviceCode: string;
   serviceName: string;
+  errorMessage?: string; // For Safety Billing - shows when manual rate is required
 }
 
 /**
