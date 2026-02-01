@@ -3,12 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Database } from '@/integrations/supabase/types';
+import { PromptLevel } from '@/types/guidedPrompts';
 
 type UserRow = Database['public']['Tables']['users']['Row'];
 type RoleRow = Database['public']['Tables']['roles']['Row'];
 
 export interface UserWithRoles extends UserRow {
   roles: { id: string; name: string }[];
+  prompt_level?: PromptLevel;
 }
 
 export interface Role {
@@ -29,7 +31,7 @@ export function useUsers() {
 
     try {
       setLoading(true);
-      
+
       // Fetch users
       const { data: usersData, error: usersError } = await supabase
         .from('users')
@@ -54,7 +56,13 @@ export function useUsers() {
 
       if (rolesError) throw rolesError;
 
-      // Map roles to users
+      // Fetch user prompt settings
+      const { data: promptSettingsData } = await supabase
+        .from('user_prompt_settings')
+        .select('user_id, prompt_level')
+        .eq('tenant_id', profile.tenant_id);
+
+      // Map roles and prompt settings to users
       const usersWithRoles: UserWithRoles[] = (usersData || []).map(user => {
         const userRoles = userRolesData
           ?.filter(ur => ur.user_id === user.id)
@@ -64,9 +72,12 @@ export function useUsers() {
           })
           .filter(Boolean) || [];
 
+        const promptSetting = promptSettingsData?.find(ps => ps.user_id === user.id);
+
         return {
           ...user,
           roles: userRoles,
+          prompt_level: (promptSetting?.prompt_level as PromptLevel) || 'training',
         };
       });
 
@@ -106,10 +117,64 @@ export function useUsers() {
     fetchRoles();
   }, [fetchUsers, fetchRoles]);
 
-  const updateUser = async (userId: string, data: { first_name?: string; last_name?: string; status?: string }) => {
+  const updateUser = async (userId: string, data: { first_name?: string; last_name?: string; status?: string; labor_rate?: number | null }) => {
     const { error } = await supabase
       .from('users')
       .update(data)
+      .eq('id', userId);
+
+    if (error) throw error;
+  };
+
+  const updatePromptLevel = async (userId: string, promptLevel: PromptLevel) => {
+    if (!profile?.tenant_id) return;
+
+    // Check if settings exist
+    const { data: existing } = await supabase
+      .from('user_prompt_settings')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('tenant_id', profile.tenant_id)
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await supabase
+        .from('user_prompt_settings')
+        .update({ prompt_level: promptLevel, updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('tenant_id', profile.tenant_id);
+
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('user_prompt_settings')
+        .insert({
+          user_id: userId,
+          tenant_id: profile.tenant_id,
+          prompt_level: promptLevel,
+        });
+
+      if (error) throw error;
+    }
+  };
+
+  const resendInvite = async (userId: string) => {
+    if (!profile?.tenant_id) return;
+
+    const { error } = await supabase.functions.invoke('send-employee-invite', {
+      body: {
+        user_id: userId,
+        tenant_id: profile.tenant_id,
+      },
+    });
+
+    if (error) throw error;
+  };
+
+  const revokeAccess = async (userId: string) => {
+    const { error } = await supabase
+      .from('users')
+      .update({ status: 'suspended' })
       .eq('id', userId);
 
     if (error) throw error;
@@ -155,6 +220,9 @@ export function useUsers() {
     loading,
     refetch: fetchUsers,
     updateUser,
+    updatePromptLevel,
+    resendInvite,
+    revokeAccess,
     deleteUser,
     assignRole,
     removeRole,
