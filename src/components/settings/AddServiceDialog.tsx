@@ -1,15 +1,15 @@
 /**
  * AddServiceDialog - Create or duplicate service events
  *
- * SIMPLIFIED BILLING MODEL:
- * - Every service MUST have both a category and a class
- * - One service per (category, class) combination
- * - No "parent" or generic services without class
+ * BILLING MODEL supports two service types:
+ * 1. Class-based (uses_class_pricing = true):
+ *    - Creates 6 rows (XS, S, M, L, XL, XXL) - one for each item class
+ *    - Rate varies by item class
  *
- * When creating a new service:
- * - Select a category (required)
- * - Either create all 6 class rows at once, or add individual class rows
- * - System validates uniqueness of (category, class) combination
+ * 2. Flat-rate (uses_class_pricing = false):
+ *    - Creates 1 row with class_code = NULL
+ *    - Same rate applies regardless of item class
+ *    - Used for per-task or per-shipment billing
  */
 
 import { useState, useEffect } from 'react';
@@ -95,7 +95,7 @@ export function AddServiceDialog({
     add_to_service_event_scan: false,
     alert_rule: 'none',
     billing_trigger: 'SCAN EVENT',
-    uses_class_pricing: true,  // Default to true - required for new billing model
+    uses_class_pricing: true,  // Default to true for per-item billing
     category_id: null,
   });
 
@@ -170,7 +170,7 @@ export function AddServiceDialog({
           add_to_service_event_scan: false,
           alert_rule: 'none',
           billing_trigger: 'SCAN EVENT',
-          uses_class_pricing: true,  // Default to true - required for new billing model
+          uses_class_pricing: true,  // Default to true for per-item billing
           category_id: null,
         });
         setCodeManuallyEdited(false);
@@ -314,14 +314,23 @@ export function AddServiceDialog({
           description: `Created 6 class rows for "${formData.service_name}". Set rates for each class in the Price List below.`,
         });
       } else {
-        // Single class service - still requires class
+        // FLAT-RATE SERVICE: Insert single row with class_code = NULL
+        // This applies the same rate regardless of item class
+        const { error } = await (supabase
+          .from('service_events') as any)
+          .insert({
+            ...baseData,
+            class_code: null, // NULL = flat-rate service
+            rate: formData.rate || null, // Use provided rate or NULL
+            service_time_minutes: formData.service_time_minutes || null,
+          });
+
+        if (error) throw error;
+
         toast({
-          variant: 'destructive',
-          title: 'Class Required',
-          description: 'Services must use class-based pricing. Enable "Use Class-Based Pricing" to create services.',
+          title: 'Flat-Rate Service Created',
+          description: `Created "${formData.service_name}" with ${formData.rate ? `rate $${formData.rate.toFixed(2)}` : 'rate to be set'} per ${formData.billing_unit}.`,
         });
-        setSaving(false);
-        return;
       }
 
       onSuccess();
@@ -483,47 +492,46 @@ export function AddServiceDialog({
             </div>
           </div>
 
-          {/* Class Pricing - REQUIRED for simplified billing model */}
-          <div className="flex items-center space-x-2 p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+          {/* Class Pricing Toggle - Optional */}
+          <div className="flex items-center space-x-2 p-4 border rounded-lg bg-muted/50">
             <Checkbox
               id="uses_class_pricing"
               checked={formData.uses_class_pricing}
               onCheckedChange={(checked) => setFormData({ ...formData, uses_class_pricing: !!checked })}
             />
             <div className="flex-1">
-              <Label htmlFor="uses_class_pricing" className="cursor-pointer font-medium text-blue-800 dark:text-blue-200">
-                Create Class-Based Pricing (Required)
+              <Label htmlFor="uses_class_pricing" className="cursor-pointer font-medium">
+                Use Class-Based Pricing
               </Label>
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                Creates 6 service rows (XS, S, M, L, XL, XXL) - one for each item class. Set rates in the Price List after creation.
+              <p className="text-xs text-muted-foreground">
+                {formData.uses_class_pricing
+                  ? 'Creates 6 service rows (XS–XXL). Rate varies by item size.'
+                  : 'Creates 1 flat-rate service. Same rate applies to all items.'}
               </p>
             </div>
           </div>
 
-          {!formData.uses_class_pricing && (
-            <div className="p-3 border rounded-lg bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+          {/* Pricing Info Boxes */}
+          {formData.uses_class_pricing ? (
+            <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
               <div className="flex items-start gap-2">
-                <MaterialIcon name="warning" size="sm" className="text-amber-600 dark:text-amber-400 mt-0.5" />
-                <div className="text-sm text-amber-700 dark:text-amber-300">
-                  <p className="font-medium">Class-based pricing is required</p>
-                  <p className="text-xs mt-0.5">
-                    Each service must have class-based pricing so billing can match items to rates automatically.
+                <MaterialIcon name="info" size="sm" className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-blue-800 dark:text-blue-200">Class-Based Pricing</p>
+                  <p className="text-blue-700 dark:text-blue-300 text-xs mt-0.5">
+                    Creates 6 rows (XS–XXL). Set rates in the Price List after creation.
                   </p>
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Class Pricing Info */}
-          {formData.uses_class_pricing && (
-            <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
-              <div className="flex items-start gap-3">
-                <MaterialIcon name="info" size="sm" className="text-blue-600 dark:text-blue-400 mt-0.5" />
+          ) : (
+            <div className="p-3 border rounded-lg bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+              <div className="flex items-start gap-2">
+                <MaterialIcon name="info" size="sm" className="text-green-600 dark:text-green-400 mt-0.5" />
                 <div className="text-sm">
-                  <p className="font-medium text-blue-800 dark:text-blue-200">Class-Based Pricing Flow</p>
-                  <p className="text-blue-700 dark:text-blue-300 mt-1">
-                    This will create 6 service rows (one for each size class: XS, S, M, L, XL, XXL).
-                    Rates will be <strong>unset</strong> until you enter them in the Price List after creation.
+                  <p className="font-medium text-green-800 dark:text-green-200">Flat-Rate Pricing</p>
+                  <p className="text-green-700 dark:text-green-300 text-xs mt-0.5">
+                    Creates 1 service row. Same rate applies regardless of item class. Good for per-task or per-shipment billing.
                   </p>
                 </div>
               </div>
@@ -684,14 +692,14 @@ export function AddServiceDialog({
                   {formData.uses_class_pricing ? (
                     <span>
                       Per {formData.billing_unit} (6 class rows: XS, S, M, L, XL, XXL)
-                      <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                      <div className="mt-1 text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
                         <MaterialIcon name="info" size="sm" />
                         Rates will be unset - set them in Price List after creation
                       </div>
                     </span>
                   ) : (
                     <span>
-                      ${formData.rate.toFixed(2)} per {formData.billing_unit}
+                      {formData.rate > 0 ? `$${formData.rate.toFixed(2)}` : 'Rate to be set'} per {formData.billing_unit} (flat-rate)
                       {formData.service_time_minutes ? ` (${formData.service_time_minutes} min)` : ''}
                     </span>
                   )}
