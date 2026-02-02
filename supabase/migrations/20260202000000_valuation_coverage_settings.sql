@@ -108,14 +108,14 @@ DECLARE
     v_org_settings RECORD;
     v_account_settings RECORD;
 BEGIN
-    -- Get org-level settings
+    -- Get org-level settings (cast to handle potential type mismatches)
     SELECT
         coverage_rate_full_no_deductible,
         coverage_rate_full_deductible,
         coverage_deductible_amount
     INTO v_org_settings
     FROM organization_claim_settings
-    WHERE tenant_id = p_tenant_id;
+    WHERE tenant_id::text = p_tenant_id::text;
 
     -- If no account specified or no override, return org settings
     IF p_account_id IS NULL THEN
@@ -127,7 +127,7 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Check for account override
+    -- Check for account override (cast to handle potential type mismatches)
     SELECT
         override_enabled,
         coverage_rate_full_no_deductible,
@@ -135,7 +135,7 @@ BEGIN
         coverage_deductible_amount
     INTO v_account_settings
     FROM account_coverage_settings
-    WHERE tenant_id = p_tenant_id AND account_id = p_account_id;
+    WHERE tenant_id::text = p_tenant_id::text AND account_id::text = p_account_id::text;
 
     -- Return account rates if override is enabled
     IF v_account_settings.override_enabled THEN
