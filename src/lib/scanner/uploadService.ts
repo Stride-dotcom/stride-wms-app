@@ -251,7 +251,19 @@ export async function getDocumentSignedUrl(
     throw new Error(`Failed to get signed URL: ${error.message}`);
   }
   
-  return data.signedUrl;
+  // Handle case where signedUrl is a relative path
+  let signedUrl = data.signedUrl;
+  if (signedUrl.startsWith('/')) {
+    // Get Supabase URL and construct full URL
+    const supabaseUrl = (supabase as any).supabaseUrl || 
+      (supabase as any).storageUrl?.replace('/storage/v1', '') ||
+      import.meta.env.VITE_SUPABASE_URL;
+    if (supabaseUrl) {
+      signedUrl = `${supabaseUrl}/storage/v1${signedUrl}`;
+    }
+  }
+  
+  return signedUrl;
 }
 
 /**
