@@ -176,6 +176,7 @@ export default function ShipmentDetail() {
   const [completingOutbound, setCompletingOutbound] = useState(false);
   const [classes, setClasses] = useState<{ id: string; code: string; name: string }[]>([]);
   const [billingRefreshKey, setBillingRefreshKey] = useState(0);
+  const [documentRefreshKey, setDocumentRefreshKey] = useState(0);
   const [pullSessionActive, setPullSessionActive] = useState(false);
   const [releaseSessionActive, setReleaseSessionActive] = useState(false);
   const [processingScan, setProcessingScan] = useState(false);
@@ -1887,7 +1888,7 @@ export default function ShipmentDetail() {
             <ScanDocumentButton
               context={{ type: 'shipment', shipmentId: shipment.id }}
               onSuccess={() => {
-                // Documents will auto-refresh via the DocumentList
+                setDocumentRefreshKey(prev => prev + 1);
               }}
               label="Scan"
               size="sm"
@@ -1896,7 +1897,7 @@ export default function ShipmentDetail() {
             <DocumentUploadButton
               context={{ type: 'shipment', shipmentId: shipment.id }}
               onSuccess={() => {
-                // Documents will auto-refresh via the DocumentList
+                setDocumentRefreshKey(prev => prev + 1);
               }}
               size="sm"
             />
@@ -1906,6 +1907,7 @@ export default function ShipmentDetail() {
           <DocumentList
             contextType="shipment"
             contextId={shipment.id}
+            refetchKey={documentRefreshKey}
           />
         </CardContent>
       </Card>
