@@ -12874,6 +12874,16 @@ export type Database = {
         }[]
       }
       get_current_user_tenant_id: { Args: never; Returns: string }
+      get_my_roles: {
+        Args: never
+        Returns: {
+          id: string
+          is_system: boolean
+          name: string
+          permissions: Json
+          tenant_id: string
+        }[]
+      }
       get_or_create_receiving_dock: {
         Args: { p_warehouse_id: string }
         Returns: string
