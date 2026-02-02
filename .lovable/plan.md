@@ -1,96 +1,92 @@
 
-# Fix Plan: Task Items Not Loading & Build Errors
+
+# Fix Coverage-Related Build Errors and Dialog Scrolling
 
 ## Summary
-There are **two separate issues** that need to be resolved:
+This plan fixes **34 TypeScript build errors** caused by Supabase types being out of sync with the database, and adds proper scrolling to the ShipmentCoverageDialog.
 
-1. **Task Items Not Loading**: The TaskDetail page is failing to fetch items because it queries for a column `inspection_result` that doesn't exist in the database. The correct column name is `inspection_status`.
+## Root Cause
+The database has tables and columns that aren't reflected in the auto-generated `types.ts` file:
+- **`account_coverage_settings`** table - exists in DB but missing from types
+- **`organization_claim_settings`** - missing coverage-related columns
+- **`shipments`** - missing coverage-related columns
 
-2. **Build Errors (30+ files)**: Previous icon migration work left the `MaterialIcon` component without support for `style` and `onClick` props, causing TypeScript errors across many files.
-
----
-
-## Root Cause Analysis
-
-### Issue 1: Database Column Mismatch
-The `TaskDetail.tsx` file queries for `inspection_result` on the `items` table, but the actual database schema has:
-- `inspection_status` ✓
-- `inspection_photos` ✓  
-- `needs_inspection` ✓
-- `inspection_result` ✗ (does not exist)
-
-This causes a PostgreSQL error `42703: column items.inspection_result does not exist`.
-
-### Issue 2: MaterialIcon Props Missing
-The `MaterialIcon` component only accepts: `name`, `className`, `size`, `filled`, `weight`
-
-But various files are passing:
-- `style={{ fontSize: '...' }}` - not supported
-- `onClick={...}` - not supported
+## Solution Approach
+Use the established project pattern: **cast `supabase` as `any`** to bypass TypeScript's type checking for these tables. This is already used throughout the codebase (58 instances found) as a standard workaround when types are out of sync.
 
 ---
 
-## Implementation Plan
+## Implementation Steps
 
-### Part 1: Fix Task Items Query (TaskDetail.tsx)
+### Step 1: Fix CoverageSelector.tsx
+Update the database queries to use `(supabase as any).from()` pattern:
 
-**Changes needed:**
-1. Replace all references to `inspection_result` with `inspection_status`
-2. Update the database query to use the correct column
-3. Update the update function to use the correct column
-4. Update all UI display logic to check `inspection_status`
+**Lines 148-176** - Account settings and org settings queries:
+```typescript
+// Before:
+const { data: accountSettings } = await supabase
+  .from('account_coverage_settings')
+  
+// After:
+const { data: accountSettings } = await (supabase as any)
+  .from('account_coverage_settings')
+```
 
-Affected lines in `src/pages/TaskDetail.tsx`:
-- Line 62: Interface definition
-- Line 85: TaskItemRow interface
-- Line 210: Supabase query
-- Lines 302-312: Update function
-- Lines 546-555: Badge counting logic
-- Lines 616-632: Table cell rendering
-
-### Part 2: Fix MaterialIcon Component
-
-**Option A (Recommended)**: Extend `MaterialIcon` to support `style` and `onClick` props
-- Add `style?: React.CSSProperties` to the interface
-- Add `onClick?: React.MouseEventHandler` to the interface
-- Pass these through to the underlying `span` element
-
-This is the cleanest solution as it makes the component more flexible.
-
-### Part 3: Fix Missing Import Errors
-
-Two files have missing imports that need to be added:
-- `src/components/settings/alerts/tabs/EmailHtmlTab.tsx` - missing `Loader2` 
-- `src/components/ui/searchable-select.tsx` - missing `Check`
-
-These need to either import from lucide-react or be replaced with MaterialIcon.
+Same pattern for `organization_claim_settings` query.
 
 ---
 
-## Technical Details
+### Step 2: Fix ShipmentCoverageDialog.tsx
 
-### Database Schema (items table - relevant columns)
-| Column | Exists |
-|--------|--------|
-| inspection_status | ✓ |
-| inspection_photos | ✓ |
-| needs_inspection | ✓ |
-| inspection_result | ✗ |
+**Part A: Fix database queries (lines 96-124)**
+Apply the same `(supabase as any)` casting pattern.
 
-### Files to Modify
+**Part B: Add scroll support**
+Wrap the form content in `DialogBody` component:
+```typescript
+import { DialogBody } from '@/components/ui/dialog';
+
+// In the JSX:
+<DialogContent className="max-w-md">
+  <DialogHeader>...</DialogHeader>
+  <DialogBody>
+    <div className="space-y-4 py-4">
+      {/* form content */}
+    </div>
+  </DialogBody>
+  <DialogFooter>...</DialogFooter>
+</DialogContent>
+```
+
+---
+
+### Step 3: Fix useAccountCoverageSettings.ts
+
+Update all 5 database query locations (lines 59-63, 73-74, 107-108, 122-123, 162) to use `(supabase as any).from()`.
+
+---
+
+## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/pages/TaskDetail.tsx` | Replace `inspection_result` → `inspection_status` |
-| `src/components/ui/MaterialIcon.tsx` | Add `style` and `onClick` props |
-| `src/components/settings/alerts/tabs/EmailHtmlTab.tsx` | Fix missing Loader2 reference |
-| `src/components/ui/searchable-select.tsx` | Fix missing Check reference |
+| `src/components/coverage/CoverageSelector.tsx` | Cast supabase queries to `any` for account/org settings |
+| `src/components/shipments/ShipmentCoverageDialog.tsx` | Cast queries + add DialogBody for scrolling |
+| `src/hooks/useAccountCoverageSettings.ts` | Cast all supabase queries to `any` |
+
+---
+
+## Why This Approach?
+
+1. **Established Pattern**: 58 existing uses of `(supabase as any)` in the codebase
+2. **No Database Changes**: Types will auto-sync eventually; this is a temporary bypass
+3. **Minimal Risk**: The data exists in the database, we're just telling TypeScript to trust us
+4. **Quick Fix**: Can be implemented in one PR without regenerating types
 
 ---
 
 ## Expected Outcome
-After these fixes:
-1. Task items will load and display correctly on the Task Detail page
-2. Inspection pass/fail functionality will work again
-3. All TypeScript build errors will be resolved
-4. The app will compile and run without errors
+- All 34 build errors resolved
+- ShipmentCoverageDialog scrolls properly on mobile/tablet
+- Coverage features work as designed
+

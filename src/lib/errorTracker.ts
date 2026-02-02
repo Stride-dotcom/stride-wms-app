@@ -214,11 +214,13 @@ export function initErrorTracker(cfg: ErrorTrackerConfig): void {
       try { return JSON.stringify(a); } catch { return String(a); }
     }).join(' ');
     
-    // Skip common noise
+    // Skip common noise and browser-specific errors
     if (
       message.includes('Warning:') ||
       message.includes('React DevTools') ||
-      message.includes('Download the React DevTools')
+      message.includes('Download the React DevTools') ||
+      message.includes('ResizeObserver loop') ||
+      message.includes('cdn.tailwindcss.com')
     ) {
       return;
     }

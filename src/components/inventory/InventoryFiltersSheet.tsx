@@ -310,8 +310,8 @@ export function InventoryFiltersSheet({
                 <SelectItem value="uncovered">Uncovered (No coverage)</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="standard">Standard Coverage</SelectItem>
-                <SelectItem value="full_deductible">Full Replacement (w/ deductible)</SelectItem>
-                <SelectItem value="full_no_deductible">Full Replacement (no deductible)</SelectItem>
+                <SelectItem value="full_replacement_deductible">Full Replacement (w/ deductible)</SelectItem>
+                <SelectItem value="full_replacement_no_deductible">Full Replacement (no deductible)</SelectItem>
               </SelectContent>
             </Select>
           </div>

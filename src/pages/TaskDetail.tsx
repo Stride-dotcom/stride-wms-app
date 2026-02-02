@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -160,6 +161,20 @@ export default function TaskDetailPage() {
   const [validationOpen, setValidationOpen] = useState(false);
   const [validationBlockers, setValidationBlockers] = useState<{ code: string; message: string; severity: string }[]>([]);
 
+  // Set Task Rate modal state (Safety Billing)
+  const [setRateDialogOpen, setSetRateDialogOpen] = useState(false);
+  const [pendingRateBillingEvents, setPendingRateBillingEvents] = useState<Array<{
+    id: string;
+    charge_type: string;
+    quantity: number | null;
+    description: string | null;
+    item_id: string | null;
+    metadata: { task_item_codes?: string[] } | null;
+  }>>([]);
+  const [rateAmount, setRateAmount] = useState<string>('');
+  const [rateNotes, setRateNotes] = useState<string>('');
+  const [savingRate, setSavingRate] = useState(false);
+
 
   const { activeTechnicians } = useTechnicians();
   const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
@@ -264,10 +279,111 @@ export default function TaskDetailPage() {
     }
   }, [id]);
 
+  // Fetch pending-rate billing events for this task (Safety Billing)
+  const fetchPendingRateBillingEvents = useCallback(async () => {
+    if (!id || !profile?.tenant_id) return;
+    try {
+      const { data, error } = await (supabase
+        .from('billing_events') as any)
+        .select('id, charge_type, quantity, description, item_id, metadata')
+        .eq('tenant_id', profile.tenant_id)
+        .eq('task_id', id)
+        .eq('status', 'unbilled')
+        .is('unit_rate', null);
+
+      if (error) {
+        console.error('Error fetching pending-rate billing events:', error);
+        setPendingRateBillingEvents([]);
+        return;
+      }
+
+      setPendingRateBillingEvents(data || []);
+    } catch (error) {
+      console.error('Error fetching pending-rate billing events:', error);
+      setPendingRateBillingEvents([]);
+    }
+  }, [id, profile?.tenant_id]);
+
+  // Save the rate for pending billing events
+  const handleSaveRate = async () => {
+    if (!rateAmount || pendingRateBillingEvents.length === 0) return;
+
+    const rate = parseFloat(rateAmount);
+    if (isNaN(rate) || rate < 0) {
+      toast({ variant: 'destructive', title: 'Invalid Rate', description: 'Please enter a valid positive number' });
+      return;
+    }
+
+    setSavingRate(true);
+    try {
+      // Update all pending-rate billing events for this task
+      const eventIds = pendingRateBillingEvents.map(e => e.id);
+
+      for (const event of pendingRateBillingEvents) {
+        const quantity = event.quantity || 1;
+        const totalAmount = rate * quantity;
+
+        // Update the billing event with the new rate
+        const updateData: any = {
+          unit_rate: rate,
+          total_amount: totalAmount,
+          has_rate_error: false,
+          rate_error_message: null,
+        };
+
+        // Update description to remove RATE REQUIRED prefix
+        if (event.description?.startsWith('RATE REQUIRED – ')) {
+          updateData.description = event.description.replace('RATE REQUIRED – ', '');
+        }
+
+        // Add notes to metadata if provided
+        if (rateNotes) {
+          updateData.metadata = {
+            ...(event.metadata || {}),
+            rate_notes: rateNotes,
+            rate_set_at: new Date().toISOString(),
+          };
+        }
+
+        const { error } = await (supabase
+          .from('billing_events') as any)
+          .update(updateData)
+          .eq('id', event.id);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: 'Rate Set Successfully',
+        description: `Updated ${eventIds.length} billing line${eventIds.length !== 1 ? 's' : ''} with rate $${rate.toFixed(2)}`,
+      });
+
+      // Close dialog and refresh
+      setSetRateDialogOpen(false);
+      setRateAmount('');
+      setRateNotes('');
+      setPendingRateBillingEvents([]);
+      setBillingRefreshKey(prev => prev + 1);
+      fetchPendingRateBillingEvents();
+    } catch (error: any) {
+      console.error('Error saving rate:', error);
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to save rate' });
+    } finally {
+      setSavingRate(false);
+    }
+  };
+
   useEffect(() => {
     fetchTask();
     fetchTaskItems();
   }, [fetchTask, fetchTaskItems]);
+
+  // Fetch pending-rate events when task loads and is completed (for Safety Billing)
+  useEffect(() => {
+    if (task?.status === 'completed') {
+      fetchPendingRateBillingEvents();
+    }
+  }, [task?.status, fetchPendingRateBillingEvents]);
 
   const handleStartTask = async () => {
     if (!id || !profile?.id) return;
@@ -1069,6 +1185,32 @@ export default function TaskDetailPage() {
               </CardContent>
             </Card>
 
+            {/* Safety Billing: Set Task Rate Card - Shows when there are pending-rate billing events */}
+            {canSeeBilling && task.status === 'completed' && pendingRateBillingEvents.length > 0 && (
+              <Card className="border-red-300 bg-red-50 dark:bg-red-950/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-red-800 dark:text-red-200 flex items-center gap-2">
+                    <MaterialIcon name="warning" size="sm" className="text-red-600" />
+                    Rate Required
+                  </CardTitle>
+                  <CardDescription className="text-red-700 dark:text-red-300">
+                    This task has {pendingRateBillingEvents.length} billing line{pendingRateBillingEvents.length !== 1 ? 's' : ''} without a rate set.
+                    Set the rate before invoicing.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <Button
+                    onClick={() => setSetRateDialogOpen(true)}
+                    className="w-full"
+                    variant="destructive"
+                  >
+                    <MaterialIcon name="attach_money" size="sm" className="mr-2" />
+                    Set Task Rate
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Billing Charges - Manager/Admin Only */}
             {canSeeBilling && task.account_id && (
               <BillingCalculator
@@ -1221,6 +1363,126 @@ export default function TaskDetailPage() {
           <DialogFooter>
             <Button onClick={() => setValidationOpen(false)}>
               OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set Task Rate Dialog (Safety Billing) */}
+      <Dialog open={setRateDialogOpen} onOpenChange={setSetRateDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MaterialIcon name="attach_money" size="md" className="text-primary" />
+              Set Task Rate
+            </DialogTitle>
+            <DialogDescription>
+              Set the billing rate for this {task?.task_type} task.
+              This will update {pendingRateBillingEvents.length} pending billing line{pendingRateBillingEvents.length !== 1 ? 's' : ''}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Linked Items Display */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Linked Items</Label>
+              {taskItems.length > 0 ? (
+                <div className="bg-muted rounded-lg p-3 max-h-32 overflow-y-auto space-y-1">
+                  {taskItems.map((ti) => (
+                    <div key={ti.id} className="text-sm flex justify-between items-center">
+                      <span className="font-mono font-medium">{ti.item?.item_code || 'Unknown'}</span>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <span className="truncate max-w-[150px]">{ti.item?.description || '-'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-muted rounded-lg p-3 text-sm text-muted-foreground text-center">
+                  No linked items
+                </div>
+              )}
+            </div>
+
+            {/* Rate Input */}
+            <div className="space-y-2">
+              <Label htmlFor="rate_amount">Rate Amount *</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                <Input
+                  id="rate_amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={rateAmount}
+                  onChange={(e) => setRateAmount(e.target.value)}
+                  className="pl-7"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                This rate will be applied to all {pendingRateBillingEvents.length} billing line{pendingRateBillingEvents.length !== 1 ? 's' : ''} for this task.
+              </p>
+            </div>
+
+            {/* Billing Preview */}
+            {rateAmount && parseFloat(rateAmount) > 0 && (
+              <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Billing Preview</p>
+                {pendingRateBillingEvents.map((event, idx) => {
+                  const qty = event.quantity || 1;
+                  const total = parseFloat(rateAmount) * qty;
+                  return (
+                    <div key={event.id} className="flex justify-between text-sm mt-1 text-blue-700 dark:text-blue-300">
+                      <span>{event.charge_type} × {qty}</span>
+                      <span className="font-medium">${total.toFixed(2)}</span>
+                    </div>
+                  );
+                })}
+                <div className="border-t border-blue-200 mt-2 pt-2 flex justify-between font-medium text-blue-800 dark:text-blue-200">
+                  <span>Total</span>
+                  <span>
+                    ${pendingRateBillingEvents.reduce((sum, e) => sum + parseFloat(rateAmount) * (e.quantity || 1), 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="rate_notes">Notes (optional)</Label>
+              <Textarea
+                id="rate_notes"
+                placeholder="Add any notes about this rate..."
+                value={rateNotes}
+                onChange={(e) => setRateNotes(e.target.value)}
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/reports?tab=billing')}
+              className="sm:mr-auto"
+            >
+              <MaterialIcon name="open_in_new" size="sm" className="mr-2" />
+              View in Billing Report
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setSetRateDialogOpen(false)}
+              disabled={savingRate}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveRate}
+              disabled={savingRate || !rateAmount || parseFloat(rateAmount) <= 0}
+            >
+              {savingRate && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
+              Save Rate
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -3,7 +3,7 @@
  * Displays a list of documents for a given context
  */
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,8 @@ interface DocumentListProps {
   compact?: boolean;
   maxItems?: number;
   onViewDocument?: (document: Document) => void;
+  /** Change this value to trigger a refetch of documents */
+  refetchKey?: number;
 }
 
 export function DocumentList({
@@ -39,12 +41,20 @@ export function DocumentList({
   compact = false,
   maxItems,
   onViewDocument,
+  refetchKey,
 }: DocumentListProps) {
   const { documents, loading, error, getSignedUrl, deleteDocument, refetch } = useDocuments({
     contextType,
     contextId,
   });
   const { toast } = useToast();
+
+  // Refetch when refetchKey changes
+  useEffect(() => {
+    if (refetchKey !== undefined && refetchKey > 0) {
+      refetch();
+    }
+  }, [refetchKey, refetch]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [viewingDoc, setViewingDoc] = useState<Document | null>(null);

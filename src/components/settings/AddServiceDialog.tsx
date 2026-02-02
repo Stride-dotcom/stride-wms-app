@@ -1,6 +1,15 @@
 /**
  * AddServiceDialog - Create or duplicate service events
- * Supports class-based pricing with auto-generation of class rows
+ *
+ * BILLING MODEL supports two service types:
+ * 1. Class-based (uses_class_pricing = true):
+ *    - Creates 6 rows (XS, S, M, L, XL, XXL) - one for each item class
+ *    - Rate varies by item class
+ *
+ * 2. Flat-rate (uses_class_pricing = false):
+ *    - Creates 1 row with class_code = NULL
+ *    - Same rate applies regardless of item class
+ *    - Used for per-task or per-shipment billing
  */
 
 import { useState, useEffect } from 'react';
@@ -86,7 +95,7 @@ export function AddServiceDialog({
     add_to_service_event_scan: false,
     alert_rule: 'none',
     billing_trigger: 'SCAN EVENT',
-    uses_class_pricing: false,
+    uses_class_pricing: true,  // Default to true for per-item billing
     category_id: null,
   });
 
@@ -161,7 +170,7 @@ export function AddServiceDialog({
           add_to_service_event_scan: false,
           alert_rule: 'none',
           billing_trigger: 'SCAN EVENT',
-          uses_class_pricing: false,
+          uses_class_pricing: true,  // Default to true for per-item billing
           category_id: null,
         });
         setCodeManuallyEdited(false);
@@ -213,19 +222,29 @@ export function AddServiceDialog({
       return;
     }
 
+    // NEW: Category is required for billing lookup
+    if (!formData.category_id) {
+      toast({
+        variant: 'destructive',
+        title: 'Validation Error',
+        description: 'Category is required. Each service must belong to a category for billing lookup.',
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       const serviceCode = formData.service_code.toUpperCase().replace(/\s+/g, '_');
 
       // Check if service code exists
-      const { data: existing } = await (supabase
+      const { data: existingCode } = await (supabase
         .from('service_events') as any)
         .select('id')
         .eq('tenant_id', profile.tenant_id)
         .eq('service_code', serviceCode)
         .limit(1);
 
-      if (existing && existing.length > 0) {
+      if (existingCode && existingCode.length > 0) {
         toast({
           variant: 'destructive',
           title: 'Service Code Exists',
@@ -233,6 +252,29 @@ export function AddServiceDialog({
         });
         setSaving(false);
         return;
+      }
+
+      // NEW: Check for existing services with same category + class combination
+      if (formData.uses_class_pricing) {
+        // Check if any class already exists for this category
+        const { data: existingCategoryClass } = await (supabase
+          .from('service_events') as any)
+          .select('class_code, service_name')
+          .eq('tenant_id', profile.tenant_id)
+          .eq('category_id', formData.category_id)
+          .in('class_code', CLASS_CODES)
+          .eq('is_active', true);
+
+        if (existingCategoryClass && existingCategoryClass.length > 0) {
+          const existingClasses = existingCategoryClass.map((e: any) => e.class_code).join(', ');
+          toast({
+            variant: 'destructive',
+            title: 'Duplicate Service',
+            description: `Active services already exist for this category with classes: ${existingClasses}. Only one service per (category, class) is allowed.`,
+          });
+          setSaving(false);
+          return;
+        }
       }
 
       const baseData = {
@@ -266,29 +308,28 @@ export function AddServiceDialog({
           .insert(inserts);
 
         if (error) throw error;
-      } else {
-        // Insert single row
-        const { error } = await (supabase
-          .from('service_events') as any)
-          .insert({
-            ...baseData,
-            class_code: null,
-            rate: formData.rate,
-            service_time_minutes: formData.service_time_minutes,
-          });
 
-        if (error) throw error;
-      }
-
-      if (formData.uses_class_pricing) {
         toast({
           title: 'Class-Based Service Created',
           description: `Created 6 class rows for "${formData.service_name}". Set rates for each class in the Price List below.`,
         });
       } else {
+        // FLAT-RATE SERVICE: Insert single row with class_code = NULL
+        // This applies the same rate regardless of item class
+        const { error } = await (supabase
+          .from('service_events') as any)
+          .insert({
+            ...baseData,
+            class_code: null, // NULL = flat-rate service
+            rate: formData.rate || null, // Use provided rate or NULL
+            service_time_minutes: formData.service_time_minutes || null,
+          });
+
+        if (error) throw error;
+
         toast({
-          title: 'Service Created',
-          description: `Service "${formData.service_name}" has been created successfully.`,
+          title: 'Flat-Rate Service Created',
+          description: `Created "${formData.service_name}" with ${formData.rate ? `rate $${formData.rate.toFixed(2)}` : 'rate to be set'} per ${formData.billing_unit}.`,
         });
       }
 
@@ -353,21 +394,21 @@ export function AddServiceDialog({
             </div>
           </div>
 
-          {/* Category */}
+          {/* Category - REQUIRED for new billing model */}
           <div className="space-y-2">
-            <Label>Category</Label>
+            <Label>Category *</Label>
             <Select
               value={formData.category_id || 'none'}
               onValueChange={(value) =>
                 setFormData({ ...formData, category_id: value === 'none' ? null : value })
               }
             >
-              <SelectTrigger>
+              <SelectTrigger className={!formData.category_id ? 'border-amber-400' : ''}>
                 <SelectValue placeholder="Select category..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">
-                  <span className="text-muted-foreground">No category</span>
+                <SelectItem value="none" disabled>
+                  <span className="text-muted-foreground">Select a category...</span>
                 </SelectItem>
                 {activeCategories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
@@ -375,8 +416,14 @@ export function AddServiceDialog({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Categories help organize services in the Price List (does not affect billing)
+              Each category represents one billable service type. Pricing is looked up by category + item class.
             </p>
+            {!formData.category_id && (
+              <p className="text-xs text-amber-600 flex items-center gap-1">
+                <MaterialIcon name="warning" size="sm" />
+                Category is required for billing lookup
+              </p>
+            )}
           </div>
 
           {/* Billing Settings */}
@@ -445,8 +492,8 @@ export function AddServiceDialog({
             </div>
           </div>
 
-          {/* Class Pricing Toggle */}
-          <div className="flex items-center space-x-2 p-4 border rounded-lg bg-muted/30">
+          {/* Class Pricing Toggle - Optional */}
+          <div className="flex items-center space-x-2 p-4 border rounded-lg bg-muted/50">
             <Checkbox
               id="uses_class_pricing"
               checked={formData.uses_class_pricing}
@@ -457,21 +504,34 @@ export function AddServiceDialog({
                 Use Class-Based Pricing
               </Label>
               <p className="text-xs text-muted-foreground">
-                Create 6 class rows (XS, S, M, L, XL, XXL) with rates you can set after creation
+                {formData.uses_class_pricing
+                  ? 'Creates 6 service rows (XS–XXL). Rate varies by item size.'
+                  : 'Creates 1 flat-rate service. Same rate applies to all items.'}
               </p>
             </div>
           </div>
 
-          {/* Class Pricing Info */}
-          {formData.uses_class_pricing && (
-            <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
-              <div className="flex items-start gap-3">
+          {/* Pricing Info Boxes */}
+          {formData.uses_class_pricing ? (
+            <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+              <div className="flex items-start gap-2">
                 <MaterialIcon name="info" size="sm" className="text-blue-600 dark:text-blue-400 mt-0.5" />
                 <div className="text-sm">
-                  <p className="font-medium text-blue-800 dark:text-blue-200">Class-Based Pricing Flow</p>
-                  <p className="text-blue-700 dark:text-blue-300 mt-1">
-                    This will create 6 service rows (one for each size class: XS, S, M, L, XL, XXL).
-                    Rates will be <strong>unset</strong> until you enter them in the Price List after creation.
+                  <p className="font-medium text-blue-800 dark:text-blue-200">Class-Based Pricing</p>
+                  <p className="text-blue-700 dark:text-blue-300 text-xs mt-0.5">
+                    Creates 6 rows (XS–XXL). Set rates in the Price List after creation.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 border rounded-lg bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+              <div className="flex items-start gap-2">
+                <MaterialIcon name="info" size="sm" className="text-green-600 dark:text-green-400 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-green-800 dark:text-green-200">Flat-Rate Pricing</p>
+                  <p className="text-green-700 dark:text-green-300 text-xs mt-0.5">
+                    Creates 1 service row. Same rate applies regardless of item class. Good for per-task or per-shipment billing.
                   </p>
                 </div>
               </div>
@@ -632,14 +692,14 @@ export function AddServiceDialog({
                   {formData.uses_class_pricing ? (
                     <span>
                       Per {formData.billing_unit} (6 class rows: XS, S, M, L, XL, XXL)
-                      <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                      <div className="mt-1 text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
                         <MaterialIcon name="info" size="sm" />
                         Rates will be unset - set them in Price List after creation
                       </div>
                     </span>
                   ) : (
                     <span>
-                      ${formData.rate.toFixed(2)} per {formData.billing_unit}
+                      {formData.rate > 0 ? `$${formData.rate.toFixed(2)}` : 'Rate to be set'} per {formData.billing_unit} (flat-rate)
                       {formData.service_time_minutes ? ` (${formData.service_time_minutes} min)` : ''}
                     </span>
                   )}

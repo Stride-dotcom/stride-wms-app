@@ -1,21 +1,22 @@
 /**
- * ShipmentCoverageDialog
- * Modal for adding coverage to an entire shipment or selected items
+ * ShipmentCoverageDialog - Apply coverage to entire shipment
+ * Allows selecting coverage type and applying to all items in a shipment
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -24,526 +25,395 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
-import { useCoverageSettings, normalizeCoverageType } from '@/hooks/useCoverageSettings';
-import { CoverageTypeValue } from '@/hooks/useOrganizationClaimSettings';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
-interface ShipmentItem {
-  id: string;
-  item_id: string | null;
-  expected_description: string | null;
-  expected_quantity: number;
-  item?: {
-    id: string;
-    item_code: string;
-    description: string | null;
-    declared_value: number | null;
-    coverage_type: string | null;
-  } | null;
-}
+// Canonical coverage types
+type CoverageType = 'standard' | 'full_replacement_no_deductible' | 'full_replacement_deductible';
 
 interface ShipmentCoverageDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   shipmentId: string;
-  shipmentNumber: string;
   accountId: string | null;
-  items: ShipmentItem[];
-  onSuccess: () => void;
+  shipmentNumber: string;
+  itemCount: number;
+  currentCoverageType?: CoverageType | null;
+  currentDeclaredValue?: number | null;
+  onSuccess?: () => void;
 }
+
+const COVERAGE_LABELS: Record<CoverageType, string> = {
+  standard: 'Standard (60c/lb)',
+  full_replacement_no_deductible: 'Full Replacement (No Deductible)',
+  full_replacement_deductible: 'Full Replacement (With Deductible)',
+};
 
 export function ShipmentCoverageDialog({
   open,
   onOpenChange,
   shipmentId,
-  shipmentNumber,
   accountId,
-  items,
+  shipmentNumber,
+  itemCount,
+  currentCoverageType,
+  currentDeclaredValue,
   onSuccess,
 }: ShipmentCoverageDialogProps) {
-  const { toast } = useToast();
   const { profile } = useAuth();
-  const { effectiveRates, loading: ratesLoading } = useCoverageSettings({
-    accountId: accountId || undefined,
-  });
+  const { toast } = useToast();
 
-  // Form state
-  const [coverageScope, setCoverageScope] = useState<'shipment' | 'selected'>('shipment');
-  const [coverageType, setCoverageType] = useState<CoverageTypeValue>('standard');
-  const [declaredValueTotal, setDeclaredValueTotal] = useState('');
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [coverageType, setCoverageType] = useState<CoverageType>(currentCoverageType || 'standard');
+  const [declaredValue, setDeclaredValue] = useState(currentDeclaredValue?.toString() || '');
+  const [applyToItems, setApplyToItems] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Coverage rates
+  const [rates, setRates] = useState({
+    full_replacement_no_deductible: 0.0188,
+    full_replacement_deductible: 0.0142,
+    deductible_amount: 300,
+  });
 
   // Reset form when dialog opens
   useEffect(() => {
     if (open) {
-      setCoverageScope('shipment');
-      setCoverageType('standard');
-      setDeclaredValueTotal('');
-      setSelectedItemIds(new Set());
+      setCoverageType(currentCoverageType || 'standard');
+      setDeclaredValue(currentDeclaredValue?.toString() || '');
+      setApplyToItems(true);
     }
-  }, [open]);
+  }, [open, currentCoverageType, currentDeclaredValue]);
 
-  // Get items that have actual item records (received items)
-  const receivedItems = useMemo(() => {
-    return items.filter(item => item.item_id && item.item);
-  }, [items]);
+  // Fetch coverage rates
+  useEffect(() => {
+    async function fetchRates() {
+      if (!profile?.tenant_id) return;
 
-  // Calculate coverage cost
-  const calculateCost = (type: CoverageTypeValue, value: number): number => {
-    if (type === 'standard') return 0;
-    const rate = type === 'full_replacement_no_deductible'
-      ? effectiveRates.full_replacement_no_deductible_rate
-      : effectiveRates.full_replacement_deductible_rate;
-    return value * rate;
+      try {
+        // Check for account-level override
+        if (accountId) {
+          const { data: accountSettings } = await (supabase as any)
+            .from('account_coverage_settings')
+            .select('*')
+            .eq('tenant_id', profile.tenant_id)
+            .eq('account_id', accountId)
+            .maybeSingle();
+
+          if (accountSettings?.override_enabled) {
+            setRates({
+              full_replacement_no_deductible: accountSettings.coverage_rate_full_no_deductible ?? 0.0188,
+              full_replacement_deductible: accountSettings.coverage_rate_full_deductible ?? 0.0142,
+              deductible_amount: accountSettings.coverage_deductible_amount ?? 300,
+            });
+            return;
+          }
+        }
+
+        // Fall back to tenant settings
+        const { data: orgSettings } = await (supabase as any)
+          .from('organization_claim_settings')
+          .select('coverage_rate_full_no_deductible, coverage_rate_full_deductible, coverage_deductible_amount')
+          .eq('tenant_id', profile.tenant_id)
+          .maybeSingle();
+
+        if (orgSettings) {
+          setRates({
+            full_replacement_no_deductible: orgSettings.coverage_rate_full_no_deductible ?? 0.0188,
+            full_replacement_deductible: orgSettings.coverage_rate_full_deductible ?? 0.0142,
+            deductible_amount: orgSettings.coverage_deductible_amount ?? 300,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching coverage rates:', error);
+      }
+    }
+
+    if (open) {
+      fetchRates();
+    }
+  }, [open, profile?.tenant_id, accountId]);
+
+  // Calculate premium
+  const calculatePremium = (): number => {
+    const dv = parseFloat(declaredValue) || 0;
+    if (coverageType === 'standard') return 0;
+    if (coverageType === 'full_replacement_no_deductible') {
+      return dv * rates.full_replacement_no_deductible;
+    }
+    if (coverageType === 'full_replacement_deductible') {
+      return dv * rates.full_replacement_deductible;
+    }
+    return 0;
   };
 
-  // Get coverage label
-  const getCoverageLabel = (type: CoverageTypeValue): string => {
-    switch (type) {
-      case 'full_replacement_no_deductible':
-        return 'Full Replacement (No Deductible)';
-      case 'full_replacement_deductible':
-        return `Full Replacement ($${effectiveRates.deductible_amount} Deductible)`;
-      case 'standard':
-      default:
-        return 'Standard Coverage';
+  // Get rate for display
+  const getRate = (): number => {
+    if (coverageType === 'full_replacement_no_deductible') {
+      return rates.full_replacement_no_deductible;
     }
+    if (coverageType === 'full_replacement_deductible') {
+      return rates.full_replacement_deductible;
+    }
+    return 0;
   };
 
-  // Toggle item selection
-  const toggleItem = (itemId: string) => {
-    const newSelected = new Set(selectedItemIds);
-    if (newSelected.has(itemId)) {
-      newSelected.delete(itemId);
-    } else {
-      newSelected.add(itemId);
+  // Get deductible for display
+  const getDeductible = (): number => {
+    if (coverageType === 'full_replacement_deductible') {
+      return rates.deductible_amount;
     }
-    setSelectedItemIds(newSelected);
+    return 0;
   };
 
-  // Calculate total declared value from selected items
-  const selectedItemsValue = useMemo(() => {
-    if (coverageScope !== 'selected') return 0;
-    return receivedItems
-      .filter(item => selectedItemIds.has(item.id))
-      .reduce((sum, item) => sum + (item.item?.declared_value || 0), 0);
-  }, [coverageScope, receivedItems, selectedItemIds]);
-
-  // Handle save
   const handleSave = async () => {
-    if (!profile?.tenant_id) return;
+    const dv = parseFloat(declaredValue) || 0;
 
-    // Validation
-    if (coverageType !== 'standard') {
-      if (coverageScope === 'shipment' && (!declaredValueTotal || parseFloat(declaredValueTotal) <= 0)) {
-        toast({
-          variant: 'destructive',
-          title: 'Declared Value Required',
-          description: 'Please enter the total declared value for the shipment.',
-        });
-        return;
-      }
-      if (coverageScope === 'selected' && selectedItemIds.size === 0) {
-        toast({
-          variant: 'destructive',
-          title: 'No Items Selected',
-          description: 'Please select at least one item for coverage.',
-        });
-        return;
-      }
+    // Validation for full replacement coverage
+    if ((coverageType === 'full_replacement_no_deductible' || coverageType === 'full_replacement_deductible') && dv <= 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Declared Value Required',
+        description: 'Full replacement coverage requires a declared value.',
+      });
+      return;
     }
 
     setSaving(true);
     try {
-      const rate = coverageType === 'full_replacement_no_deductible'
-        ? effectiveRates.full_replacement_no_deductible_rate
-        : coverageType === 'full_replacement_deductible'
-        ? effectiveRates.full_replacement_deductible_rate
-        : 0;
+      const rate = getRate();
+      const deductible = getDeductible();
+      const premium = calculatePremium();
 
-      if (coverageScope === 'shipment') {
-        // Shipment-level coverage
-        const totalValue = parseFloat(declaredValueTotal) || 0;
-        const cost = calculateCost(coverageType, totalValue);
+      // Update shipment with coverage info
+      const { error: shipmentError } = await (supabase as any)
+        .from('shipments')
+        .update({
+          coverage_type: coverageType,
+          coverage_declared_value: dv || null,
+          coverage_rate: rate,
+          coverage_deductible: deductible,
+          coverage_premium: premium,
+          coverage_scope: applyToItems ? 'items' : 'shipment',
+          coverage_selected_at: new Date().toISOString(),
+          coverage_selected_by: profile?.id,
+        })
+        .eq('id', shipmentId);
 
-        // Update shipment metadata with coverage info
-        const { data: shipmentData, error: shipmentFetchError } = await supabase
-          .from('shipments')
-          .select('metadata')
-          .eq('id', shipmentId)
-          .single();
+      if (shipmentError) throw shipmentError;
 
-        if (shipmentFetchError) throw shipmentFetchError;
+      // If apply to items is checked, update all items in the shipment
+      if (applyToItems) {
+        // Get all items linked to this shipment
+        const { data: shipmentItems, error: itemsError } = await supabase
+          .from('shipment_items')
+          .select('item_id')
+          .eq('shipment_id', shipmentId)
+          .not('item_id', 'is', null);
 
-        const currentMetadata = (shipmentData?.metadata as Record<string, any>) || {};
-        const newMetadata = {
-          ...currentMetadata,
-          coverage: {
-            type: coverageType,
-            scope: 'shipment',
-            declared_value_total: totalValue,
-            rate,
-            deductible: coverageType === 'full_replacement_deductible' ? effectiveRates.deductible_amount : 0,
-            cost,
-            covered_item_count: receivedItems.length,
-            applied_at: new Date().toISOString(),
-            applied_by: profile.id,
-          },
-        };
+        if (itemsError) throw itemsError;
 
-        const { error: shipmentError } = await supabase
-          .from('shipments')
-          .update({ metadata: newMetadata })
-          .eq('id', shipmentId);
+        const itemIds = shipmentItems
+          .map(si => si.item_id)
+          .filter((id): id is string => id !== null);
 
-        if (shipmentError) throw shipmentError;
+        if (itemIds.length > 0) {
+          // Calculate per-item declared value (evenly distributed)
+          const perItemDV = itemIds.length > 0 ? dv / itemIds.length : 0;
 
-        // Mark all items as covered via shipment
-        if (receivedItems.length > 0) {
-          const itemIds = receivedItems.map(item => item.item_id).filter(Boolean);
-          const { error: itemsError } = await supabase
+          // Update all items with coverage
+          const { error: updateError } = await supabase
             .from('items')
             .update({
               coverage_type: coverageType,
+              declared_value: perItemDV || null,
               coverage_rate: rate,
-              coverage_deductible: coverageType === 'full_replacement_deductible' ? effectiveRates.deductible_amount : 0,
+              coverage_deductible: deductible,
               coverage_selected_at: new Date().toISOString(),
-              coverage_selected_by: profile.id,
-              // Store coverage source in metadata
-              metadata: supabase.sql`COALESCE(metadata, '{}'::jsonb) || '{"coverage_source": "shipment", "shipment_id": "${shipmentId}"}'::jsonb`,
+              coverage_selected_by: profile?.id,
             })
-            .in('id', itemIds as string[]);
+            .in('id', itemIds);
 
-          if (itemsError) {
-            console.error('Error updating items coverage:', itemsError);
-            // Don't throw - items update is secondary
-          }
+          if (updateError) throw updateError;
         }
-
-        // Create ONE billing event for shipment-level coverage
-        if (coverageType !== 'standard' && cost > 0) {
-          const { error: billingError } = await supabase.from('billing_events').insert([{
-            tenant_id: profile.tenant_id,
-            account_id: accountId,
-            shipment_id: shipmentId,
-            event_type: 'coverage',
-            charge_type: 'handling_coverage',
-            description: `Shipment Coverage: ${getCoverageLabel(coverageType)} - ${shipmentNumber} (${receivedItems.length} items, $${totalValue.toLocaleString()} declared)`,
-            quantity: 1,
-            unit_rate: cost,
-            total_amount: cost,
-            status: 'unbilled',
-            occurred_at: new Date().toISOString(),
-            metadata: {
-              coverage_type: coverageType,
-              coverage_scope: 'shipment',
-              rate,
-              declared_value_total: totalValue,
-              covered_item_count: receivedItems.length,
-              shipment_number: shipmentNumber,
-            },
-            created_by: profile.id,
-          }]);
-
-          if (billingError) throw billingError;
-        }
-
-        toast({
-          title: 'Shipment Coverage Applied',
-          description: coverageType === 'standard'
-            ? 'Standard coverage applied to all items.'
-            : `${getCoverageLabel(coverageType)} applied. Cost: $${cost.toFixed(2)}`,
-        });
-
-      } else {
-        // Selected items coverage - create individual billing events
-        const selectedItems = receivedItems.filter(item => selectedItemIds.has(item.id));
-        let totalCost = 0;
-
-        for (const item of selectedItems) {
-          if (!item.item_id || !item.item) continue;
-
-          const itemValue = item.item.declared_value || 0;
-          const itemCost = calculateCost(coverageType, itemValue);
-          totalCost += itemCost;
-
-          // Update item coverage
-          const { error: itemError } = await supabase
-            .from('items')
-            .update({
-              coverage_type: coverageType,
-              coverage_rate: rate,
-              coverage_deductible: coverageType === 'full_replacement_deductible' ? effectiveRates.deductible_amount : 0,
-              coverage_selected_at: new Date().toISOString(),
-              coverage_selected_by: profile.id,
-            })
-            .eq('id', item.item_id);
-
-          if (itemError) throw itemError;
-
-          // Create billing event per item if not standard
-          if (coverageType !== 'standard' && itemCost > 0) {
-            const { error: billingError } = await supabase.from('billing_events').insert([{
-              tenant_id: profile.tenant_id,
-              account_id: accountId,
-              item_id: item.item_id,
-              shipment_id: shipmentId,
-              event_type: 'coverage',
-              charge_type: 'handling_coverage',
-              description: `Coverage: ${getCoverageLabel(coverageType)} - ${item.item.item_code} ($${itemValue.toLocaleString()} declared)`,
-              quantity: 1,
-              unit_rate: itemCost,
-              total_amount: itemCost,
-              status: 'unbilled',
-              occurred_at: new Date().toISOString(),
-              metadata: {
-                coverage_type: coverageType,
-                coverage_scope: 'item',
-                rate,
-                declared_value: itemValue,
-                item_code: item.item.item_code,
-              },
-              created_by: profile.id,
-            }]);
-
-            if (billingError) throw billingError;
-          }
-        }
-
-        toast({
-          title: 'Item Coverage Applied',
-          description: coverageType === 'standard'
-            ? `Standard coverage applied to ${selectedItems.length} items.`
-            : `${getCoverageLabel(coverageType)} applied to ${selectedItems.length} items. Total: $${totalCost.toFixed(2)}`,
-        });
       }
 
-      onSuccess();
+      // Create billing event for coverage if applicable
+      if (coverageType !== 'standard' && premium > 0 && profile?.tenant_id) {
+        await supabase.from('billing_events').insert([{
+          tenant_id: profile.tenant_id,
+          account_id: accountId,
+          shipment_id: shipmentId,
+          event_type: 'coverage',
+          charge_type: 'handling_coverage',
+          description: `Shipment Coverage: ${COVERAGE_LABELS[coverageType]} (${shipmentNumber})`,
+          quantity: 1,
+          unit_rate: premium,
+          total_amount: premium,
+          status: 'unbilled',
+          occurred_at: new Date().toISOString(),
+          metadata: {
+            coverage_type: coverageType,
+            rate: rate,
+            declared_value: dv,
+            shipment_number: shipmentNumber,
+            item_count: itemCount,
+            scope: applyToItems ? 'items' : 'shipment',
+          },
+          created_by: profile.id,
+        }]);
+      }
+
+      toast({
+        title: 'Coverage Applied',
+        description: applyToItems
+          ? `Coverage has been applied to shipment and ${itemCount} items.`
+          : 'Coverage has been applied to shipment.',
+      });
+
       onOpenChange(false);
+      onSuccess?.();
     } catch (error) {
       console.error('Error applying coverage:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to apply coverage. Please try again.',
+        description: 'Failed to apply coverage to shipment.',
       });
     } finally {
       setSaving(false);
     }
   };
 
-  const estimatedCost = useMemo(() => {
-    if (coverageType === 'standard') return 0;
-    if (coverageScope === 'shipment') {
-      return calculateCost(coverageType, parseFloat(declaredValueTotal) || 0);
-    }
-    return calculateCost(coverageType, selectedItemsValue);
-  }, [coverageType, coverageScope, declaredValueTotal, selectedItemsValue, effectiveRates]);
+  const premium = calculatePremium();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MaterialIcon name="verified_user" size="md" />
-            Add Coverage - {shipmentNumber}
+            <MaterialIcon name="verified_user" className="h-5 w-5 text-blue-600" />
+            Add Shipment Coverage
           </DialogTitle>
           <DialogDescription>
-            Apply valuation coverage to protect items in this shipment.
+            Apply valuation coverage to shipment {shipmentNumber} and all its items.
           </DialogDescription>
         </DialogHeader>
 
-        {ratesLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <MaterialIcon name="progress_activity" className="animate-spin h-6 w-6" />
-          </div>
-        ) : (
-          <div className="space-y-6 py-4">
-            {/* Coverage Scope */}
-            <div className="space-y-3">
-              <Label className="text-base font-medium">Coverage Scope</Label>
-              <RadioGroup
-                value={coverageScope}
-                onValueChange={(v) => setCoverageScope(v as 'shipment' | 'selected')}
-                className="grid grid-cols-1 gap-3"
-              >
-                <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-muted/50 cursor-pointer">
-                  <RadioGroupItem value="shipment" id="scope-shipment" className="mt-1" />
-                  <div className="flex-1">
-                    <Label htmlFor="scope-shipment" className="font-medium cursor-pointer">
-                      Cover Entire Shipment
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Apply one coverage policy to all {receivedItems.length} items. Creates a single billing charge.
-                    </p>
-                  </div>
-                  <Badge variant="secondary">Recommended</Badge>
-                </div>
-                <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-muted/50 cursor-pointer">
-                  <RadioGroupItem value="selected" id="scope-selected" className="mt-1" />
-                  <div className="flex-1">
-                    <Label htmlFor="scope-selected" className="font-medium cursor-pointer">
-                      Cover Selected Items Only
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Choose specific items to cover. Each item will have its own billing charge.
-                    </p>
-                  </div>
-                </div>
-              </RadioGroup>
-            </div>
-
+        <DialogBody>
+          <div className="space-y-4 py-4">
             {/* Coverage Type */}
             <div className="space-y-2">
               <Label>Coverage Type</Label>
               <Select
                 value={coverageType}
-                onValueChange={(v) => setCoverageType(v as CoverageTypeValue)}
+                onValueChange={(v) => setCoverageType(v as CoverageType)}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="standard">Standard Coverage (No charge)</SelectItem>
+                  <SelectItem value="standard">
+                    <div className="flex flex-col">
+                      <span>Standard (60c/lb)</span>
+                      <span className="text-xs text-muted-foreground">No additional charge</span>
+                    </div>
+                  </SelectItem>
                   <SelectItem value="full_replacement_no_deductible">
-                    Full Replacement (No Deductible) - {(effectiveRates.full_replacement_no_deductible_rate * 100).toFixed(2)}%
+                    <div className="flex flex-col">
+                      <span>Full Replacement (No Deductible)</span>
+                      <span className="text-xs text-muted-foreground">{(rates.full_replacement_no_deductible * 100).toFixed(2)}% of declared value</span>
+                    </div>
                   </SelectItem>
                   <SelectItem value="full_replacement_deductible">
-                    Full Replacement (${effectiveRates.deductible_amount} Deductible) - {(effectiveRates.full_replacement_deductible_rate * 100).toFixed(2)}%
+                    <div className="flex flex-col">
+                      <span>Full Replacement (${rates.deductible_amount} Deductible)</span>
+                      <span className="text-xs text-muted-foreground">{(rates.full_replacement_deductible * 100).toFixed(2)}% of declared value</span>
+                    </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Shipment Total Declared Value */}
-            {coverageScope === 'shipment' && coverageType !== 'standard' && (
+            {/* Declared Value */}
+            {coverageType !== 'standard' && (
               <div className="space-y-2">
-                <Label>Total Declared Value for Shipment</Label>
-                <div className="relative max-w-xs">
-                  <MaterialIcon name="attach_money" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={declaredValueTotal}
-                    onChange={(e) => setDeclaredValueTotal(e.target.value)}
-                    placeholder="0.00"
-                    className="pl-8"
-                  />
-                </div>
+                <Label>Total Declared Value ($)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={declaredValue}
+                  onChange={(e) => setDeclaredValue(e.target.value)}
+                  placeholder="Enter total declared value"
+                />
                 <p className="text-xs text-muted-foreground">
-                  Enter the total declared value for all items in this shipment.
+                  This amount will be distributed across {itemCount} items.
                 </p>
               </div>
             )}
 
-            {/* Item Selection for Selected Items Scope */}
-            {coverageScope === 'selected' && (
-              <div className="space-y-3">
-                <Label>Select Items to Cover</Label>
-                <div className="border rounded-lg max-h-60 overflow-y-auto">
-                  {receivedItems.length === 0 ? (
-                    <div className="p-4 text-center text-muted-foreground">
-                      No received items available for coverage.
-                    </div>
-                  ) : (
-                    receivedItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center gap-3 p-3 border-b last:border-0 hover:bg-muted/50"
-                      >
-                        <Checkbox
-                          checked={selectedItemIds.has(item.id)}
-                          onCheckedChange={() => toggleItem(item.id)}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">
-                            {item.item?.item_code || item.expected_description || 'Unknown Item'}
-                          </p>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {item.item?.description || 'No description'}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          {item.item?.declared_value ? (
-                            <p className="font-mono">${item.item.declared_value.toLocaleString()}</p>
-                          ) : (
-                            <p className="text-muted-foreground text-sm">No value</p>
-                          )}
-                          {item.item?.coverage_type && item.item.coverage_type !== 'standard' && (
-                            <Badge variant="outline" className="text-xs">
-                              Already covered
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))
+            {/* Apply to Items */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="applyToItems"
+                checked={applyToItems}
+                onCheckedChange={(checked) => setApplyToItems(checked === true)}
+              />
+              <Label htmlFor="applyToItems" className="text-sm cursor-pointer">
+                Apply coverage to all items in this shipment
+              </Label>
+            </div>
+
+            {/* Premium Preview */}
+            {coverageType !== 'standard' && declaredValue && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                <h4 className="font-medium text-blue-900">Coverage Summary</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <span className="text-blue-700">Coverage Rate:</span>
+                  <span className="font-mono text-right">{(getRate() * 100).toFixed(2)}%</span>
+
+                  <span className="text-blue-700">Declared Value:</span>
+                  <span className="font-mono text-right">${parseFloat(declaredValue).toFixed(2)}</span>
+
+                  {coverageType === 'full_replacement_deductible' && (
+                    <>
+                      <span className="text-blue-700">Deductible:</span>
+                      <span className="font-mono text-right">${getDeductible().toFixed(2)}</span>
+                    </>
                   )}
                 </div>
-                {coverageType !== 'standard' && selectedItemsValue === 0 && selectedItemIds.size > 0 && (
-                  <p className="text-sm text-yellow-600">
-                    Selected items have no declared values. Please add declared values before applying full coverage.
-                  </p>
-                )}
+                <div className="border-t border-blue-200 pt-2 flex justify-between">
+                  <span className="font-medium text-blue-900">Coverage Premium:</span>
+                  <Badge className="bg-blue-600 text-lg font-mono">
+                    ${premium.toFixed(2)}
+                  </Badge>
+                </div>
               </div>
             )}
-
-            {/* Cost Preview */}
-            {coverageType !== 'standard' && (
-              <Card className="bg-muted/50">
-                <CardContent className="pt-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Coverage Rate:</span>
-                      <span>
-                        {coverageType === 'full_replacement_no_deductible'
-                          ? (effectiveRates.full_replacement_no_deductible_rate * 100).toFixed(2)
-                          : (effectiveRates.full_replacement_deductible_rate * 100).toFixed(2)}%
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Deductible:</span>
-                      <span>
-                        {coverageType === 'full_replacement_deductible'
-                          ? `$${effectiveRates.deductible_amount}`
-                          : '$0'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Declared Value:</span>
-                      <span>
-                        ${(coverageScope === 'shipment'
-                          ? parseFloat(declaredValueTotal) || 0
-                          : selectedItemsValue
-                        ).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="border-t pt-2 mt-2">
-                      <div className="flex justify-between font-medium">
-                        <span>Estimated Coverage Cost:</span>
-                        <span className="text-primary text-lg">${estimatedCost.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
-        )}
+        </DialogBody>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving || ratesLoading}>
-            {saving && <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />}
-            Apply Coverage
+          <Button
+            onClick={handleSave}
+            disabled={saving || ((coverageType !== 'standard') && (!declaredValue || parseFloat(declaredValue) <= 0))}
+          >
+            {saving ? (
+              <>
+                <MaterialIcon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
+                Applying...
+              </>
+            ) : (
+              <>
+                <MaterialIcon name="verified_user" className="h-4 w-4 mr-2" />
+                Apply Coverage
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

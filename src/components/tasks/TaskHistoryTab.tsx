@@ -8,7 +8,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface HistoryEvent {
   id: string;
-  type: 'status' | 'item' | 'billing' | 'assignment' | 'note' | 'created' | 'photo';
+  type: 'status' | 'item' | 'billing' | 'billing_void' | 'assignment' | 'note' | 'created' | 'photo';
   title: string;
   description: string;
   timestamp: string;
@@ -139,22 +139,25 @@ export function TaskHistoryTab({ taskId }: TaskHistoryTabProps) {
         });
       }
 
-      // 3. Fetch billing events
+      // 3. Fetch billing events (including voided ones for audit)
       const { data: billingEvents } = await supabase
         .from('billing_events')
-        .select('id, event_type, description, total_amount, created_at')
+        .select('id, event_type, description, total_amount, status, created_at, updated_at')
         .eq('task_id', taskId)
         .order('created_at', { ascending: false });
 
       if (billingEvents) {
         billingEvents.forEach((b: any) => {
+          const isVoid = b.status === 'void';
           allEvents.push({
             id: `billing-${b.id}`,
-            type: 'billing',
-            title: 'Billing Event',
-            description: `${b.description || b.event_type} - $${b.total_amount?.toFixed(2) || '0.00'}`,
-            timestamp: b.created_at,
-            metadata: { amount: b.total_amount },
+            type: isVoid ? 'billing_void' : 'billing',
+            title: isVoid ? 'Billing Charge Voided' : 'Billing Event',
+            description: isVoid 
+              ? `VOIDED: ${b.description || b.event_type} - $${Math.abs(b.total_amount)?.toFixed(2) || '0.00'}`
+              : `${b.description || b.event_type} - $${b.total_amount?.toFixed(2) || '0.00'}`,
+            timestamp: isVoid && b.updated_at ? b.updated_at : b.created_at,
+            metadata: { amount: b.total_amount, status: b.status },
           });
         });
       }
@@ -231,6 +234,8 @@ export function TaskHistoryTab({ taskId }: TaskHistoryTabProps) {
         return <MaterialIcon name="person_add" size="sm" />;
       case 'billing':
         return <MaterialIcon name="attach_money" size="sm" />;
+      case 'billing_void':
+        return <MaterialIcon name="money_off" size="sm" />;
       case 'note':
         return <MaterialIcon name="sticky_note_2" size="sm" />;
       case 'photo':
@@ -252,6 +257,8 @@ export function TaskHistoryTab({ taskId }: TaskHistoryTabProps) {
         return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
       case 'billing':
         return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200';
+      case 'billing_void':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
       case 'note':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
       case 'photo':

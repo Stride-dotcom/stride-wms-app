@@ -3,8 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-export type CoverageTypeValue = 'standard' | 'full_replacement_no_deductible' | 'full_replacement_deductible';
-
 export interface OrganizationClaimSettings {
   id: string;
   tenant_id: string;
@@ -16,12 +14,12 @@ export interface OrganizationClaimSettings {
   auto_create_repair_task: boolean;
   // Valuation Coverage Settings
   coverage_enabled: boolean;
-  default_coverage_type: CoverageTypeValue;
-  full_replacement_no_deductible_rate: number; // Default 0.0188 (1.88%)
-  full_replacement_deductible_rate: number; // Default 0.0142 (1.42%)
-  deductible_amount: number; // Default 300
-  allow_item_level_coverage: boolean;
-  allow_shipment_level_coverage: boolean;
+  coverage_default_type: 'standard' | 'full_replacement_no_deductible' | 'full_replacement_deductible';
+  coverage_rate_full_no_deductible: number;
+  coverage_rate_full_deductible: number;
+  coverage_deductible_amount: number;
+  coverage_allow_shipment: boolean;
+  coverage_allow_item: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -35,12 +33,12 @@ export interface OrganizationClaimSettingsUpdate {
   auto_create_repair_task?: boolean;
   // Valuation Coverage Settings
   coverage_enabled?: boolean;
-  default_coverage_type?: CoverageTypeValue;
-  full_replacement_no_deductible_rate?: number;
-  full_replacement_deductible_rate?: number;
-  deductible_amount?: number;
-  allow_item_level_coverage?: boolean;
-  allow_shipment_level_coverage?: boolean;
+  coverage_default_type?: 'standard' | 'full_replacement_no_deductible' | 'full_replacement_deductible';
+  coverage_rate_full_no_deductible?: number;
+  coverage_rate_full_deductible?: number;
+  coverage_deductible_amount?: number;
+  coverage_allow_shipment?: boolean;
+  coverage_allow_item?: boolean;
 }
 
 const DEFAULT_SETTINGS: Omit<OrganizationClaimSettings, 'id' | 'tenant_id' | 'created_at' | 'updated_at'> = {
@@ -52,12 +50,12 @@ const DEFAULT_SETTINGS: Omit<OrganizationClaimSettings, 'id' | 'tenant_id' | 'cr
   auto_create_repair_task: true,
   // Valuation Coverage Defaults
   coverage_enabled: true,
-  default_coverage_type: 'standard',
-  full_replacement_no_deductible_rate: 0.0188, // 1.88%
-  full_replacement_deductible_rate: 0.0142, // 1.42%
-  deductible_amount: 300,
-  allow_item_level_coverage: true,
-  allow_shipment_level_coverage: true,
+  coverage_default_type: 'standard',
+  coverage_rate_full_no_deductible: 0.0188,
+  coverage_rate_full_deductible: 0.0142,
+  coverage_deductible_amount: 300,
+  coverage_allow_shipment: true,
+  coverage_allow_item: true,
 };
 
 const DEFAULT_TERMS_TEMPLATE = `By accepting this settlement, you acknowledge and agree that:

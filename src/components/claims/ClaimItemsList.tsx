@@ -35,6 +35,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useNavigate } from 'react-router-dom';
+import { AddClaimItemDialog } from './AddClaimItemDialog';
 
 interface ClaimItemsListProps {
   claimId: string;
@@ -42,15 +43,17 @@ interface ClaimItemsListProps {
   accountId?: string;
   sidemarkId?: string;
   onTotalsChange?: (totals: { requested: number; approved: number; deductible: number }) => void;
+  onItemsChange?: () => void;
 }
 
-export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, onTotalsChange }: ClaimItemsListProps) {
+export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, onTotalsChange, onItemsChange }: ClaimItemsListProps) {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { fetchClaimItems, updateClaimItem, removeClaimItem, calculateItemPayout, calculateClaimPayout } = useClaims();
   const { createWorkflowQuote } = useRepairQuoteWorkflow();
   const [items, setItems] = useState<ClaimItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     requested_amount: string;
@@ -241,34 +244,62 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
 
   if (items.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MaterialIcon name="inventory_2" size="md" />
-            Claim Items
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-4">
-            No items linked to this claim
-          </p>
-        </CardContent>
-      </Card>
+      <>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <MaterialIcon name="inventory_2" size="md" />
+              Claim Items
+            </CardTitle>
+            {canEdit && (
+              <Button size="sm" onClick={() => setAddItemDialogOpen(true)}>
+                <MaterialIcon name="add" size="sm" className="mr-1" />
+                Add Item
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No items linked to this claim. {canEdit && 'Click "Add Item" to add inventory or non-inventory items.'}
+            </p>
+          </CardContent>
+        </Card>
+        
+        <AddClaimItemDialog
+          open={addItemDialogOpen}
+          onOpenChange={setAddItemDialogOpen}
+          claimId={claimId}
+          accountId={accountId}
+          sidemarkId={sidemarkId}
+          onSuccess={() => {
+            loadItems();
+            onItemsChange?.();
+          }}
+        />
+      </>
     );
   }
 
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MaterialIcon name="inventory_2" size="md" />
-            Claim Items
-            <Badge variant="secondary">{items.length}</Badge>
-          </CardTitle>
-          <CardDescription>
-            Items included in this claim with coverage and valuation details
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <MaterialIcon name="inventory_2" size="md" />
+              Claim Items
+              <Badge variant="secondary">{items.length}</Badge>
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Items included in this claim with coverage and valuation details
+            </CardDescription>
+          </div>
+          {canEdit && (
+            <Button size="sm" onClick={() => setAddItemDialogOpen(true)}>
+              <MaterialIcon name="add" size="sm" className="mr-1" />
+              Add Item
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -672,6 +703,19 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Item Dialog */}
+      <AddClaimItemDialog
+        open={addItemDialogOpen}
+        onOpenChange={setAddItemDialogOpen}
+        claimId={claimId}
+        accountId={accountId}
+        sidemarkId={sidemarkId}
+        onSuccess={() => {
+          loadItems();
+          onItemsChange?.();
+        }}
+      />
     </>
   );
 }

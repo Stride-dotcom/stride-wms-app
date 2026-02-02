@@ -166,9 +166,21 @@ export function useTasks(filters?: {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        // Ignore AbortError - happens during rapid navigation
+        if (error.message?.includes('AbortError') || error.message?.includes('aborted')) {
+          console.debug('[useTasks] Request aborted (expected during navigation)');
+          return;
+        }
+        throw error;
+      }
       setTasks(data || []);
-    } catch (error) {
+    } catch (error: any) {
+      // Ignore AbortError - happens during rapid navigation
+      if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) {
+        console.debug('[useTasks] Request aborted (expected during navigation)');
+        return;
+      }
       console.error('Error fetching tasks:', error);
       toast({
         variant: 'destructive',
@@ -232,6 +244,20 @@ export function useTasks(filters?: {
         .select('billing_rate, billing_rate_locked, title, metadata')
         .eq('id', taskId)
         .single();
+
+      // Check if task type requires manual rate entry (Safety Billing)
+      // This covers Assembly/Repair by name OR any task type with requires_manual_rate=true
+      const { data: taskTypeData } = await (supabase
+        .from('task_types') as any)
+        .select('requires_manual_rate')
+        .eq('tenant_id', profile.tenant_id)
+        .eq('name', taskType)
+        .maybeSingle();
+
+      const isManualRateTaskType =
+        taskTypeData?.requires_manual_rate === true ||
+        taskType === 'Assembly' ||
+        taskType === 'Repair';
 
       const hasManualRate = taskData?.billing_rate_locked && taskData?.billing_rate !== null;
       const manualRate = taskData?.billing_rate;
@@ -300,11 +326,17 @@ export function useTasks(filters?: {
             .map((ti: any) => ti.items?.item_code)
             .filter(Boolean);
           const itemCodesStr = itemCodes.join(', ');
-          const description = `${serviceInfo.serviceName}: ${taskData?.title || itemCodesStr}`;
 
-          // Use manual rate if set, otherwise use service rate
-          const unitRate = hasManualRate ? manualRate : serviceInfo.rate;
-          const totalAmount = unitRate * billingQuantity;
+          // SAFETY BILLING: For manual-rate task types without a rate set, use NULL
+          // This creates a "pending pricing" state that blocks invoicing until rate is entered
+          const needsPendingRate = isManualRateTaskType && !hasManualRate;
+          const unitRate = needsPendingRate ? null : (hasManualRate ? manualRate : serviceInfo.rate);
+          const totalAmount = unitRate !== null ? unitRate * billingQuantity : null;
+
+          // Description includes RATE REQUIRED notice if pending
+          const description = needsPendingRate
+            ? `RATE REQUIRED – ${serviceInfo.serviceName}: ${taskData?.title || itemCodesStr}`
+            : `${serviceInfo.serviceName}: ${taskData?.title || itemCodesStr}`;
 
           billingEvents.push({
             tenant_id: profile.tenant_id,
@@ -326,11 +358,14 @@ export function useTasks(filters?: {
               billing_unit: 'Task',
               service_code: serviceCode,
               manual_rate: hasManualRate,
+              pending_rate: needsPendingRate, // Flag for UI to show rate entry
               task_item_codes: itemCodes, // Store item codes for display in reports
             },
             created_by: profile.id,
-            has_rate_error: hasManualRate ? false : serviceInfo.hasError,
-            rate_error_message: hasManualRate ? null : serviceInfo.errorMessage,
+            has_rate_error: needsPendingRate ? true : (hasManualRate ? false : serviceInfo.hasError),
+            rate_error_message: needsPendingRate
+              ? 'Rate not set – set price before invoicing'
+              : (hasManualRate ? null : serviceInfo.errorMessage),
           });
         }
       } else if (isTaskLevelBilling && hasManualRate) {

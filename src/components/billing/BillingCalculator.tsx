@@ -48,8 +48,8 @@ interface ExistingBillingEvent {
   charge_type: string;
   description: string | null;
   quantity: number;
-  unit_rate: number;
-  total_amount: number;
+  unit_rate: number | null; // null for pending-rate billing events (Safety Billing)
+  total_amount: number | null; // null when rate is pending
   event_type: string;
   status: string;
 }
@@ -138,7 +138,8 @@ export function BillingCalculator({
       let query = (supabase.from('billing_events') as any)
         .select('id, charge_type, description, quantity, unit_rate, total_amount, event_type, status')
         .eq('tenant_id', profile.tenant_id)
-        .in('status', ['unbilled', 'flagged', 'billed']);
+        // Include void for audit integrity (reversals and voided charges should still be visible)
+        .in('status', ['unbilled', 'flagged', 'billed', 'void']);
 
       // Filter by context
       if (shipmentId) {
@@ -189,17 +190,60 @@ export function BillingCalculator({
       let result: BillingPreview;
 
       if (isTask && taskId && taskType) {
-        // Get dynamic service code from task_types table if no override provided
-        const effectiveServiceCode = selectedServiceCode || await getTaskTypeServiceCode(profile.tenant_id, taskType);
-        
-        result = await calculateTaskBillingPreview(
-          profile.tenant_id,
-          taskId,
-          taskType,
-          effectiveServiceCode,
-          billingQuantity,
-          billingRate
-        );
+        // Fetch task type details to get category_id and check if manual rate required
+        let categoryId: string | null = null;
+        let effectiveServiceCode = selectedServiceCode;
+        let requiresManualRate = false;
+
+        const { data: taskTypeData } = await (supabase
+          .from('task_types') as any)
+          .select('category_id, default_service_code, billing_service_code, requires_manual_rate')
+          .eq('tenant_id', profile.tenant_id)
+          .eq('name', taskType)
+          .maybeSingle();
+
+        if (taskTypeData) {
+          categoryId = taskTypeData.category_id;
+          // Check if this task type requires manual rate entry (Safety Billing)
+          requiresManualRate = taskTypeData.requires_manual_rate === true ||
+                               taskType === 'Assembly' ||
+                               taskType === 'Repair';
+
+          // Only use legacy service code lookup if no category is set
+          if (!categoryId && !effectiveServiceCode) {
+            effectiveServiceCode = taskTypeData.default_service_code ||
+                                   taskTypeData.billing_service_code ||
+                                   await getTaskTypeServiceCode(profile.tenant_id, taskType);
+          }
+        } else if (!effectiveServiceCode) {
+          // Fallback to legacy hardcoded lookup
+          effectiveServiceCode = await getTaskTypeServiceCode(profile.tenant_id, taskType);
+          // Also check by name for manual rate
+          requiresManualRate = taskType === 'Assembly' || taskType === 'Repair';
+        }
+
+        // SAFETY BILLING: For manual-rate task types without a locked rate,
+        // show "Rate required" instead of attempting price list lookup
+        if (requiresManualRate && !billingRate) {
+          result = {
+            lineItems: [],
+            subtotal: 0,
+            hasErrors: true,
+            serviceCode: effectiveServiceCode || taskType,
+            serviceName: `${taskType} (Rate Required)`,
+            errorMessage: 'This task type requires a manually set rate. Rate will be set after task completion.',
+          };
+        } else {
+          result = await calculateTaskBillingPreview(
+            profile.tenant_id,
+            taskId,
+            taskType,
+            effectiveServiceCode,
+            billingQuantity,
+            billingRate,
+            categoryId  // Pass category_id for new billing model
+          );
+        }
       } else if (isShipment && shipmentId) {
         result = await calculateShipmentBillingPreview(
           profile.tenant_id,
@@ -343,6 +387,23 @@ export function BillingCalculator({
         </CardHeader>
         <CardContent className={compact ? 'px-4 pb-3 space-y-3' : 'space-y-4'}>
 
+          {/* Safety Billing: Rate Required Banner */}
+          {showPreview && preview && preview.errorMessage && preview.lineItems.length === 0 && (
+            <div className="p-3 border border-amber-300 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
+              <div className="flex items-start gap-2">
+                <MaterialIcon name="info" size="sm" className="text-amber-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    {preview.serviceName}
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                    {preview.errorMessage}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Per-Item Billing Preview (Shipments, Tasks, etc.) */}
           {showPreview && preview && preview.lineItems.length > 0 && (
             <div className="space-y-2">
@@ -382,7 +443,7 @@ export function BillingCalculator({
                 ));
               })()}
 
-              {preview.hasErrors && (
+              {preview.hasErrors && !preview.errorMessage && (
                 <p className="text-xs text-amber-600 flex items-center gap-1 mt-2">
                   <MaterialIcon name="info" size="sm" />
                   Some items have no rate defined in Price List
@@ -398,56 +459,68 @@ export function BillingCalculator({
                 <MaterialIcon name="receipt_long" size="sm" />
                 Recorded Charges ({existingEvents.length})
               </p>
-              {existingEvents.map((event) => (
-                <div key={event.id} className="flex items-center justify-between py-1.5 text-sm">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate">{event.charge_type}</span>
-                      <Badge 
-                        variant={event.status === 'billed' ? 'default' : 'secondary'} 
-                        className="text-[10px] px-1"
-                      >
-                        {event.status}
-                      </Badge>
-                      {event.event_type === 'addon' && (
-                        <Badge variant="outline" className="text-[10px] px-1">
-                          manual
+              {existingEvents.map((event) => {
+                const hasMissingRate = event.unit_rate === null || event.unit_rate === undefined;
+                return (
+                  <div key={event.id} className={`flex items-center justify-between py-1.5 text-sm ${hasMissingRate ? 'bg-red-50 dark:bg-red-950/20 -mx-2 px-2 rounded' : ''}`}>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate">{event.charge_type}</span>
+                        <Badge
+                          variant={event.status === 'billed' ? 'default' : 'secondary'}
+                          className="text-[10px] px-1"
+                        >
+                          {event.status}
                         </Badge>
+                        {hasMissingRate && (
+                          <Badge variant="destructive" className="text-[10px] px-1 animate-pulse">
+                            RATE REQUIRED
+                          </Badge>
+                        )}
+                        {event.event_type === 'addon' && (
+                          <Badge variant="outline" className="text-[10px] px-1">
+                            manual
+                          </Badge>
+                        )}
+                      </div>
+                      {event.description && (
+                        <span className="text-xs text-muted-foreground truncate block">
+                          {event.description}
+                        </span>
                       )}
                     </div>
-                    {event.description && (
-                      <span className="text-xs text-muted-foreground truncate block">
-                        {event.description}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {hasMissingRate ? (
+                        <span className="text-red-600 font-medium text-xs">Set rate to invoice</span>
+                      ) : (
+                        <span className="font-medium">
+                          {formatCurrency(event.total_amount || (event.unit_rate || 0) * event.quantity)}
+                        </span>
+                      )}
+                      {/* Void button - only for unbilled addon charges */}
+                      {canVoidEvent(event) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => {
+                            setVoidingEventId(event.id);
+                            setVoidConfirmOpen(true);
+                          }}
+                          title="Void this charge"
+                        >
+                          <MaterialIcon name="close" size="sm" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">
-                      {formatCurrency(event.total_amount || event.unit_rate * event.quantity)}
-                    </span>
-                    {/* Void button - only for unbilled addon charges */}
-                    {canVoidEvent(event) && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => {
-                          setVoidingEventId(event.id);
-                          setVoidConfirmOpen(true);
-                        }}
-                        title="Void this charge"
-                      >
-                        <MaterialIcon name="close" size="sm" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
-          {/* Empty State */}
-          {existingEvents.length === 0 && (!showPreview || !preview || preview.lineItems.length === 0) && (
+          {/* Empty State - but don't show if we have Rate Required message */}
+          {existingEvents.length === 0 && (!showPreview || !preview || (preview.lineItems.length === 0 && !preview.errorMessage)) && (
             <div className="text-center py-4 text-sm text-muted-foreground">
               No billing charges yet
             </div>

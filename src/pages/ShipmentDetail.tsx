@@ -20,6 +20,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
 import { BillingCalculator } from '@/components/billing/BillingCalculator';
+import { ShipmentCoverageDialog } from '@/components/shipments/ShipmentCoverageDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -178,6 +179,7 @@ export default function ShipmentDetail() {
   const [completingOutbound, setCompletingOutbound] = useState(false);
   const [classes, setClasses] = useState<{ id: string; code: string; name: string }[]>([]);
   const [billingRefreshKey, setBillingRefreshKey] = useState(0);
+  const [documentRefreshKey, setDocumentRefreshKey] = useState(0);
   const [pullSessionActive, setPullSessionActive] = useState(false);
   const [releaseSessionActive, setReleaseSessionActive] = useState(false);
   const [processingScan, setProcessingScan] = useState(false);
@@ -1273,8 +1275,8 @@ export default function ShipmentDetail() {
           )}
           {/* Add Coverage button - only for inbound shipments with received items */}
           {shipment.account_id && canSeeBilling && isInbound && items.some(i => i.item_id) && (
-            <Button variant="secondary" size="sm" onClick={() => setCoverageDialogOpen(true)}>
-              <MaterialIcon name="verified_user" size="sm" className="mr-1 sm:mr-2" />
+            <Button variant="outline" size="sm" onClick={() => setCoverageDialogOpen(true)}>
+              <MaterialIcon name="verified_user" size="sm" className="mr-1 sm:mr-2 text-blue-600" />
               <span className="hidden sm:inline">Add Coverage</span>
               <span className="sm:hidden">Coverage</span>
             </Button>
@@ -1892,7 +1894,7 @@ export default function ShipmentDetail() {
             <ScanDocumentButton
               context={{ type: 'shipment', shipmentId: shipment.id }}
               onSuccess={() => {
-                // Documents will auto-refresh via the DocumentList
+                setDocumentRefreshKey(prev => prev + 1);
               }}
               label="Scan"
               size="sm"
@@ -1901,7 +1903,7 @@ export default function ShipmentDetail() {
             <DocumentUploadButton
               context={{ type: 'shipment', shipmentId: shipment.id }}
               onSuccess={() => {
-                // Documents will auto-refresh via the DocumentList
+                setDocumentRefreshKey(prev => prev + 1);
               }}
               size="sm"
             />
@@ -1911,6 +1913,7 @@ export default function ShipmentDetail() {
           <DocumentList
             contextType="shipment"
             contextId={shipment.id}
+            refetchKey={documentRefreshKey}
           />
         </CardContent>
       </Card>
@@ -2024,15 +2027,15 @@ export default function ShipmentDetail() {
         />
       )}
 
-      {/* Add Coverage Dialog */}
+      {/* Shipment Coverage Dialog - Manager/Admin Only */}
       {shipment.account_id && canSeeBilling && (
         <ShipmentCoverageDialog
           open={coverageDialogOpen}
           onOpenChange={setCoverageDialogOpen}
           shipmentId={shipment.id}
-          shipmentNumber={shipment.shipment_number}
           accountId={shipment.account_id}
-          items={items}
+          shipmentNumber={shipment.shipment_number}
+          itemCount={items.length}
           onSuccess={() => {
             fetchShipment();
             setBillingRefreshKey(prev => prev + 1);

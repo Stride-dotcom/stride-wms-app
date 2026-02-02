@@ -1304,9 +1304,10 @@ export function BillingReportTab() {
                   const canEdit = r.status === 'unbilled';
                   const hasEdits = !!rowEdits[r.id];
                   const rowSidemarks = getSidemarksForRow(r.account_id);
+                  const hasMissingRate = r.status === 'unbilled' && (r.unit_rate === null || r.unit_rate === undefined);
 
                   return (
-                    <tr key={r.id} className={`border-b hover:bg-muted/50 ${hasEdits ? 'bg-amber-50' : ''}`}>
+                    <tr key={r.id} className={`border-b hover:bg-muted/50 ${hasMissingRate ? 'bg-red-50 dark:bg-red-950/20' : hasEdits ? 'bg-amber-50' : ''}`}>
                       <td className="p-3">
                         {canEdit && (
                           <Checkbox
@@ -1426,7 +1427,7 @@ export function BillingReportTab() {
                           </span>
                         )}
                       </td>
-                      {/* Rate - Editable */}
+                      {/* Rate - Editable - Shows MISSING RATE badge if null */}
                       <td className="p-3 text-right">
                         {canEdit && editingCell?.rowId === r.id && editingCell?.field === 'unit_rate' ? (
                           <Input
@@ -1440,6 +1441,14 @@ export function BillingReportTab() {
                             step="0.01"
                             min="0"
                           />
+                        ) : hasMissingRate ? (
+                          <Badge
+                            variant="destructive"
+                            className="cursor-pointer text-xs font-semibold animate-pulse"
+                            onClick={() => canEdit && startCellEdit(r, 'unit_rate')}
+                          >
+                            MISSING RATE
+                          </Badge>
                         ) : (
                           <span
                             className={canEdit ? 'cursor-text hover:bg-muted p-1 rounded' : ''}
@@ -1449,11 +1458,15 @@ export function BillingReportTab() {
                           </span>
                         )}
                       </td>
-                      {/* Total - Auto-calculated */}
+                      {/* Total - Auto-calculated (shows N/A if rate is missing) */}
                       <td className="p-3 text-right font-semibold">
-                        <span className={hasEdits ? 'text-amber-600' : ''}>
-                          ${getRowTotal(r).toFixed(2)}
-                        </span>
+                        {hasMissingRate ? (
+                          <span className="text-red-500 text-sm">N/A</span>
+                        ) : (
+                          <span className={hasEdits ? 'text-amber-600' : ''}>
+                            ${getRowTotal(r).toFixed(2)}
+                          </span>
+                        )}
                       </td>
                       <td className="p-3 text-center">{getStatusBadge(r.status)}</td>
                     </tr>

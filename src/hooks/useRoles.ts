@@ -54,7 +54,11 @@ export function useRoles() {
 
       if (error) throw error;
       setRoles(data || []);
-    } catch (error) {
+    } catch (error: any) {
+      // Suppress AbortError - happens during navigation/re-renders
+      if (error?.name === 'AbortError' || error?.message?.includes('AbortError')) {
+        return;
+      }
       console.error('Error fetching roles:', error);
     } finally {
       setLoading(false);
