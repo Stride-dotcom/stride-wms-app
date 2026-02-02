@@ -391,11 +391,13 @@ export default function RepairQuoteDetail() {
     }
   };
 
-  // Add items functionality
+  // Add items functionality - fetch inventory items linked to the quote's account
   const fetchAvailableItems = async () => {
     if (!quote?.account_id || !profile?.tenant_id) return;
 
     try {
+      // Fetch items that belong to the same account as the repair quote
+      // Only show active/stored items (not released or disposed)
       const { data, error } = await supabase
         .from('items')
         .select(`
@@ -404,7 +406,8 @@ export default function RepairQuoteDetail() {
         `)
         .eq('tenant_id', profile.tenant_id)
         .eq('account_id', quote.account_id)
-        .in('status', ['in_stock', 'pending_inspection', 'needs_repair'])
+        .in('status', ['active', 'stored', 'allocated', 'pending_receipt'])
+        .is('deleted_at', null)
         .order('item_code');
 
       if (error) throw error;
