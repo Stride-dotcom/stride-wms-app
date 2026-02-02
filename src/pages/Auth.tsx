@@ -54,6 +54,13 @@ type LoginFormData = z.infer<typeof loginSchema>;
 type SignUpFormData = z.infer<typeof signUpSchema>;
 
 export default function Auth() {
+  // Debug: Log dev quick login visibility conditions
+  console.log('[Auth] Dev Quick Login conditions:', {
+    dev: import.meta.env.DEV,
+    flag: import.meta.env.VITE_ENABLE_DEV_QUICK_LOGIN,
+    shouldShow: import.meta.env.DEV === true || import.meta.env.VITE_ENABLE_DEV_QUICK_LOGIN === 'true',
+  });
+
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -301,8 +308,8 @@ export default function Auth() {
                     Google
                   </Button>
 
-                  {/* Dev Quick Login - Only visible in development */}
-                  {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_QUICK_LOGIN === 'true') && (
+                  {/* Dev Quick Login - Only visible in development or when flag is set */}
+                  {(import.meta.env.DEV === true || import.meta.env.VITE_ENABLE_DEV_QUICK_LOGIN === 'true') && (
                     <div className="mt-6">
                       <div className="relative mb-4">
                         <div className="absolute inset-0 flex items-center">
