@@ -308,7 +308,8 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
                 <TableRow>
                   <TableHead>Item</TableHead>
                   <TableHead>Coverage</TableHead>
-                  <TableHead className="text-right">Declared/Weight</TableHead>
+                  <TableHead>POP</TableHead>
+                  <TableHead className="text-right">Valuation</TableHead>
                   <TableHead className="text-right">Max Payout</TableHead>
                   <TableHead className="text-right">Requested</TableHead>
                   <TableHead className="text-right">Approved</TableHead>
@@ -344,39 +345,68 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
                         <Badge variant={getCoverageBadgeVariant(item.coverage_type)}>
                           {getCoverageLabel(item.coverage_type)}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {item.coverage_type === 'standard' ? (
-                          isEditing ? (
-                            <div className="flex items-center gap-1 justify-end">
-                              <Input
-                                type="number"
-                                step="0.1"
-                                placeholder="lbs"
-                                value={editForm.weight_lbs}
-                                onChange={(e) =>
-                                  setEditForm((f) => ({ ...f, weight_lbs: e.target.value }))
-                                }
-                                className="w-20 h-8 text-right"
-                              />
-                              <span className="text-xs text-muted-foreground">lbs</span>
-                            </div>
-                          ) : item.weight_lbs != null ? (
-                            <span className="flex items-center gap-1 justify-end">
-                              <MaterialIcon name="scale" className="!text-[12px] text-muted-foreground" />
-                              {item.weight_lbs} lbs
-                            </span>
-                          ) : (
-                            <span className="text-yellow-600 dark:text-yellow-400 flex items-center gap-1 justify-end text-xs">
-                              <MaterialIcon name="warning" className="!text-[12px]" />
-                              Need weight
-                            </span>
-                          )
-                        ) : item.declared_value != null ? (
-                          `$${item.declared_value.toLocaleString()}`
-                        ) : (
-                          '-'
+                        {item.coverage_source === 'shipment' && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            via Shipment
+                          </div>
                         )}
+                      </TableCell>
+                      {/* POP (Proof of Purchase) Column */}
+                      <TableCell>
+                        {item.pop_required ? (
+                          <div className="space-y-1">
+                            {item.pop_provided ? (
+                              <Badge className="bg-green-600">
+                                <MaterialIcon name="verified" className="h-3 w-3 mr-1" />
+                                Provided
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive">
+                                <MaterialIcon name="pending" className="h-3 w-3 mr-1" />
+                                Required
+                              </Badge>
+                            )}
+                            {item.pop_value != null && item.pop_provided && (
+                              <div className="text-xs text-muted-foreground">
+                                ${item.pop_value.toLocaleString()}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">N/A</span>
+                        )}
+                      </TableCell>
+                      {/* Valuation Column */}
+                      <TableCell className="text-right">
+                        <div className="space-y-1">
+                          <div className="text-xs uppercase text-muted-foreground">
+                            {item.valuation_method || 'standard'}
+                          </div>
+                          {item.valuation_basis != null ? (
+                            <div className="font-medium">${item.valuation_basis.toLocaleString()}</div>
+                          ) : item.coverage_type === 'standard' ? (
+                            item.weight_lbs != null ? (
+                              <span className="flex items-center gap-1 justify-end">
+                                <MaterialIcon name="scale" className="!text-[12px] text-muted-foreground" />
+                                {item.weight_lbs} lbs
+                              </span>
+                            ) : (
+                              <span className="text-yellow-600 dark:text-yellow-400 flex items-center gap-1 justify-end text-xs">
+                                <MaterialIcon name="warning" className="!text-[12px]" />
+                                Need weight
+                              </span>
+                            )
+                          ) : item.declared_value != null ? (
+                            <div>${item.declared_value.toLocaleString()}</div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                          {item.prorated_cap != null && item.coverage_source === 'shipment' && (
+                            <div className="text-xs text-muted-foreground">
+                              Cap: ${item.prorated_cap.toLocaleString()}
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
                         <span className={maxPayout.useRepairCost ? 'text-green-600' : ''}>
