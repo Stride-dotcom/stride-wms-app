@@ -47,7 +47,7 @@ export function useAccountCoverageSettings(accountId: string) {
       setLoading(true);
 
       // Fetch tenant defaults first
-      const { data: orgSettings, error: orgError } = await supabase
+      const { data: orgSettings, error: orgError } = await (supabase as any)
         .from('organization_claim_settings')
         .select('coverage_enabled, coverage_default_type, coverage_rate_full_no_deductible, coverage_rate_full_deductible, coverage_deductible_amount')
         .eq('tenant_id', profile.tenant_id)
@@ -70,7 +70,7 @@ export function useAccountCoverageSettings(accountId: string) {
       });
 
       // Fetch account-specific settings
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('account_coverage_settings')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
@@ -104,7 +104,7 @@ export function useAccountCoverageSettings(accountId: string) {
 
       if (settings) {
         // Update existing settings
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('account_coverage_settings')
           .update({
             ...updates,
@@ -119,7 +119,7 @@ export function useAccountCoverageSettings(accountId: string) {
         setSettings(data as AccountCoverageSettings);
       } else {
         // Create new settings
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('account_coverage_settings')
           .insert({
             tenant_id: profile.tenant_id,
@@ -158,7 +158,7 @@ export function useAccountCoverageSettings(accountId: string) {
 
     try {
       setSaving(true);
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('account_coverage_settings')
         .delete()
         .eq('id', settings.id);

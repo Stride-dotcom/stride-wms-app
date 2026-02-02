@@ -68,6 +68,80 @@ export type Database = {
           },
         ]
       }
+      account_coverage_settings: {
+        Row: {
+          account_id: string
+          coverage_deductible_amount: number | null
+          coverage_rate_full_deductible: number | null
+          coverage_rate_full_no_deductible: number | null
+          created_at: string | null
+          created_by: string | null
+          default_coverage_type: string | null
+          id: string
+          override_enabled: boolean | null
+          tenant_id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          coverage_deductible_amount?: number | null
+          coverage_rate_full_deductible?: number | null
+          coverage_rate_full_no_deductible?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          default_coverage_type?: string | null
+          id?: string
+          override_enabled?: boolean | null
+          tenant_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          coverage_deductible_amount?: number | null
+          coverage_rate_full_deductible?: number | null
+          coverage_rate_full_no_deductible?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          default_coverage_type?: string | null
+          id?: string
+          override_enabled?: boolean | null
+          tenant_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_coverage_settings_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_coverage_settings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_coverage_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_coverage_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_credits: {
         Row: {
           account_id: string
@@ -5902,6 +5976,13 @@ export type Database = {
           approval_required_above_threshold: boolean | null
           approval_threshold_amount: number | null
           auto_create_repair_task: boolean | null
+          coverage_allow_item: boolean | null
+          coverage_allow_shipment: boolean | null
+          coverage_deductible_amount: number | null
+          coverage_default_type: string | null
+          coverage_enabled: boolean | null
+          coverage_rate_full_deductible: number | null
+          coverage_rate_full_no_deductible: number | null
           created_at: string | null
           default_payout_method: string | null
           id: string
@@ -5914,6 +5995,13 @@ export type Database = {
           approval_required_above_threshold?: boolean | null
           approval_threshold_amount?: number | null
           auto_create_repair_task?: boolean | null
+          coverage_allow_item?: boolean | null
+          coverage_allow_shipment?: boolean | null
+          coverage_deductible_amount?: number | null
+          coverage_default_type?: string | null
+          coverage_enabled?: boolean | null
+          coverage_rate_full_deductible?: number | null
+          coverage_rate_full_no_deductible?: number | null
           created_at?: string | null
           default_payout_method?: string | null
           id?: string
@@ -5926,6 +6014,13 @@ export type Database = {
           approval_required_above_threshold?: boolean | null
           approval_threshold_amount?: number | null
           auto_create_repair_task?: boolean | null
+          coverage_allow_item?: boolean | null
+          coverage_allow_shipment?: boolean | null
+          coverage_deductible_amount?: number | null
+          coverage_default_type?: string | null
+          coverage_enabled?: boolean | null
+          coverage_rate_full_deductible?: number | null
+          coverage_rate_full_no_deductible?: number | null
           created_at?: string | null
           default_payout_method?: string | null
           id?: string
@@ -8326,6 +8421,14 @@ export type Database = {
           carrier: string | null
           completed_at: string | null
           completed_by: string | null
+          coverage_declared_value: number | null
+          coverage_deductible: number | null
+          coverage_premium: number | null
+          coverage_rate: number | null
+          coverage_scope: string | null
+          coverage_selected_at: string | null
+          coverage_selected_by: string | null
+          coverage_type: string | null
           created_at: string
           created_by: string | null
           customer_authorized: boolean | null
@@ -8377,6 +8480,14 @@ export type Database = {
           carrier?: string | null
           completed_at?: string | null
           completed_by?: string | null
+          coverage_declared_value?: number | null
+          coverage_deductible?: number | null
+          coverage_premium?: number | null
+          coverage_rate?: number | null
+          coverage_scope?: string | null
+          coverage_selected_at?: string | null
+          coverage_selected_by?: string | null
+          coverage_type?: string | null
           created_at?: string
           created_by?: string | null
           customer_authorized?: boolean | null
@@ -8428,6 +8539,14 @@ export type Database = {
           carrier?: string | null
           completed_at?: string | null
           completed_by?: string | null
+          coverage_declared_value?: number | null
+          coverage_deductible?: number | null
+          coverage_premium?: number | null
+          coverage_rate?: number | null
+          coverage_scope?: string | null
+          coverage_selected_at?: string | null
+          coverage_selected_by?: string | null
+          coverage_type?: string | null
           created_at?: string
           created_by?: string | null
           customer_authorized?: boolean | null
@@ -8484,6 +8603,13 @@ export type Database = {
           {
             foreignKeyName: "shipments_completed_by_fkey"
             columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_coverage_selected_by_fkey"
+            columns: ["coverage_selected_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -12371,6 +12497,15 @@ export type Database = {
       get_client_sidemark_mode: {
         Args: { p_account_id: string }
         Returns: string
+      }
+      get_coverage_rates: {
+        Args: { p_account_id?: string; p_tenant_id: string }
+        Returns: {
+          deductible_amount: number
+          rate_full_deductible: number
+          rate_full_no_deductible: number
+          source: string
+        }[]
       }
       get_current_user_tenant_id: { Args: never; Returns: string }
       get_or_create_receiving_dock: {

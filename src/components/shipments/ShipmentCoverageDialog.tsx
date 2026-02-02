@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -93,7 +94,7 @@ export function ShipmentCoverageDialog({
       try {
         // Check for account-level override
         if (accountId) {
-          const { data: accountSettings } = await supabase
+          const { data: accountSettings } = await (supabase as any)
             .from('account_coverage_settings')
             .select('*')
             .eq('tenant_id', profile.tenant_id)
@@ -111,7 +112,7 @@ export function ShipmentCoverageDialog({
         }
 
         // Fall back to tenant settings
-        const { data: orgSettings } = await supabase
+        const { data: orgSettings } = await (supabase as any)
           .from('organization_claim_settings')
           .select('coverage_rate_full_no_deductible, coverage_rate_full_deductible, coverage_deductible_amount')
           .eq('tenant_id', profile.tenant_id)
@@ -186,7 +187,7 @@ export function ShipmentCoverageDialog({
       const premium = calculatePremium();
 
       // Update shipment with coverage info
-      const { error: shipmentError } = await supabase
+      const { error: shipmentError } = await (supabase as any)
         .from('shipments')
         .update({
           coverage_type: coverageType,
@@ -300,97 +301,99 @@ export function ShipmentCoverageDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          {/* Coverage Type */}
-          <div className="space-y-2">
-            <Label>Coverage Type</Label>
-            <Select
-              value={coverageType}
-              onValueChange={(v) => setCoverageType(v as CoverageType)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="standard">
-                  <div className="flex flex-col">
-                    <span>Standard (60c/lb)</span>
-                    <span className="text-xs text-muted-foreground">No additional charge</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="full_replacement_no_deductible">
-                  <div className="flex flex-col">
-                    <span>Full Replacement (No Deductible)</span>
-                    <span className="text-xs text-muted-foreground">{(rates.full_replacement_no_deductible * 100).toFixed(2)}% of declared value</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="full_replacement_deductible">
-                  <div className="flex flex-col">
-                    <span>Full Replacement (${rates.deductible_amount} Deductible)</span>
-                    <span className="text-xs text-muted-foreground">{(rates.full_replacement_deductible * 100).toFixed(2)}% of declared value</span>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Declared Value */}
-          {coverageType !== 'standard' && (
+        <DialogBody>
+          <div className="space-y-4 py-4">
+            {/* Coverage Type */}
             <div className="space-y-2">
-              <Label>Total Declared Value ($)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={declaredValue}
-                onChange={(e) => setDeclaredValue(e.target.value)}
-                placeholder="Enter total declared value"
+              <Label>Coverage Type</Label>
+              <Select
+                value={coverageType}
+                onValueChange={(v) => setCoverageType(v as CoverageType)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">
+                    <div className="flex flex-col">
+                      <span>Standard (60c/lb)</span>
+                      <span className="text-xs text-muted-foreground">No additional charge</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="full_replacement_no_deductible">
+                    <div className="flex flex-col">
+                      <span>Full Replacement (No Deductible)</span>
+                      <span className="text-xs text-muted-foreground">{(rates.full_replacement_no_deductible * 100).toFixed(2)}% of declared value</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="full_replacement_deductible">
+                    <div className="flex flex-col">
+                      <span>Full Replacement (${rates.deductible_amount} Deductible)</span>
+                      <span className="text-xs text-muted-foreground">{(rates.full_replacement_deductible * 100).toFixed(2)}% of declared value</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Declared Value */}
+            {coverageType !== 'standard' && (
+              <div className="space-y-2">
+                <Label>Total Declared Value ($)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={declaredValue}
+                  onChange={(e) => setDeclaredValue(e.target.value)}
+                  placeholder="Enter total declared value"
+                />
+                <p className="text-xs text-muted-foreground">
+                  This amount will be distributed across {itemCount} items.
+                </p>
+              </div>
+            )}
+
+            {/* Apply to Items */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="applyToItems"
+                checked={applyToItems}
+                onCheckedChange={(checked) => setApplyToItems(checked === true)}
               />
-              <p className="text-xs text-muted-foreground">
-                This amount will be distributed across {itemCount} items.
-              </p>
+              <Label htmlFor="applyToItems" className="text-sm cursor-pointer">
+                Apply coverage to all items in this shipment
+              </Label>
             </div>
-          )}
 
-          {/* Apply to Items */}
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="applyToItems"
-              checked={applyToItems}
-              onCheckedChange={(checked) => setApplyToItems(checked === true)}
-            />
-            <Label htmlFor="applyToItems" className="text-sm cursor-pointer">
-              Apply coverage to all items in this shipment
-            </Label>
+            {/* Premium Preview */}
+            {coverageType !== 'standard' && declaredValue && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                <h4 className="font-medium text-blue-900">Coverage Summary</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <span className="text-blue-700">Coverage Rate:</span>
+                  <span className="font-mono text-right">{(getRate() * 100).toFixed(2)}%</span>
+
+                  <span className="text-blue-700">Declared Value:</span>
+                  <span className="font-mono text-right">${parseFloat(declaredValue).toFixed(2)}</span>
+
+                  {coverageType === 'full_replacement_deductible' && (
+                    <>
+                      <span className="text-blue-700">Deductible:</span>
+                      <span className="font-mono text-right">${getDeductible().toFixed(2)}</span>
+                    </>
+                  )}
+                </div>
+                <div className="border-t border-blue-200 pt-2 flex justify-between">
+                  <span className="font-medium text-blue-900">Coverage Premium:</span>
+                  <Badge className="bg-blue-600 text-lg font-mono">
+                    ${premium.toFixed(2)}
+                  </Badge>
+                </div>
+              </div>
+            )}
           </div>
-
-          {/* Premium Preview */}
-          {coverageType !== 'standard' && declaredValue && (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
-              <h4 className="font-medium text-blue-900">Coverage Summary</h4>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <span className="text-blue-700">Coverage Rate:</span>
-                <span className="font-mono text-right">{(getRate() * 100).toFixed(2)}%</span>
-
-                <span className="text-blue-700">Declared Value:</span>
-                <span className="font-mono text-right">${parseFloat(declaredValue).toFixed(2)}</span>
-
-                {coverageType === 'full_replacement_deductible' && (
-                  <>
-                    <span className="text-blue-700">Deductible:</span>
-                    <span className="font-mono text-right">${getDeductible().toFixed(2)}</span>
-                  </>
-                )}
-              </div>
-              <div className="border-t border-blue-200 pt-2 flex justify-between">
-                <span className="font-medium text-blue-900">Coverage Premium:</span>
-                <Badge className="bg-blue-600 text-lg font-mono">
-                  ${premium.toFixed(2)}
-                </Badge>
-              </div>
-            </div>
-          )}
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

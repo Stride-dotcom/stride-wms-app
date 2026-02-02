@@ -145,7 +145,7 @@ export function CoverageSelector({
       try {
         // First check for account-level override
         if (accountId) {
-          const { data: accountSettings } = await supabase
+          const { data: accountSettings } = await (supabase as any)
             .from('account_coverage_settings')
             .select('*')
             .eq('tenant_id', profile.tenant_id)
@@ -163,7 +163,7 @@ export function CoverageSelector({
         }
 
         // Fall back to tenant-level settings
-        const { data: orgSettings } = await supabase
+        const { data: orgSettings } = await (supabase as any)
           .from('organization_claim_settings')
           .select('coverage_rate_full_no_deductible, coverage_rate_full_deductible, coverage_deductible_amount')
           .eq('tenant_id', profile.tenant_id)
