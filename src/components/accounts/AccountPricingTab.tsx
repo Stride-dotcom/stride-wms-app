@@ -37,6 +37,7 @@ import { CreateAdjustmentDialog } from './CreateAdjustmentDialog';
 import { EditAdjustmentDialog } from './EditAdjustmentDialog';
 import { AccountPricingHistoryDialog } from './AccountPricingHistoryDialog';
 import { AccountPromoCodesSection } from './AccountPromoCodesSection';
+import { AccountCoverageOverridesSection } from './AccountCoverageOverridesSection';
 import { AddAccountChargeDialog } from './AddAccountChargeDialog';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -440,6 +441,11 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
       {/* Promo Codes Section */}
       <div className="pt-6 border-t mt-6">
         <AccountPromoCodesSection accountId={accountId} accountName={accountName} />
+      </div>
+
+      {/* Coverage Overrides Section */}
+      <div className="pt-6 border-t mt-6">
+        <AccountCoverageOverridesSection accountId={accountId} accountName={accountName} />
       </div>
 
       {/* Create Adjustment Dialog */}

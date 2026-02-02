@@ -20,6 +20,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
 import { BillingCalculator } from '@/components/billing/BillingCalculator';
+import { ShipmentCoverageDialog } from '@/components/shipments/ShipmentCoverageDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -163,6 +164,7 @@ export default function ShipmentDetail() {
   const [editNotes, setEditNotes] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
+  const [coverageDialogOpen, setCoverageDialogOpen] = useState(false);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
@@ -1265,6 +1267,13 @@ export default function ShipmentDetail() {
               <span className="sm:hidden">Charge</span>
             </Button>
           )}
+          {shipment.account_id && canSeeBilling && (
+            <Button variant="outline" size="sm" onClick={() => setCoverageDialogOpen(true)}>
+              <MaterialIcon name="verified_user" size="sm" className="mr-1 sm:mr-2 text-blue-600" />
+              <span className="hidden sm:inline">Add Coverage</span>
+              <span className="sm:hidden">Coverage</span>
+            </Button>
+          )}
           {/* Reassign Account */}
           {shipment.account_id && (
             <Button variant="outline" size="sm" onClick={() => setShowReassignDialog(true)}>
@@ -2004,6 +2013,22 @@ export default function ShipmentDetail() {
           shipmentId={shipment.id}
           onSuccess={() => {
             // Refresh both shipment data and billing calculator
+            fetchShipment();
+            setBillingRefreshKey(prev => prev + 1);
+          }}
+        />
+      )}
+
+      {/* Shipment Coverage Dialog - Manager/Admin Only */}
+      {shipment.account_id && canSeeBilling && (
+        <ShipmentCoverageDialog
+          open={coverageDialogOpen}
+          onOpenChange={setCoverageDialogOpen}
+          shipmentId={shipment.id}
+          accountId={shipment.account_id}
+          shipmentNumber={shipment.shipment_number}
+          itemCount={shipmentItems.length}
+          onSuccess={() => {
             fetchShipment();
             setBillingRefreshKey(prev => prev + 1);
           }}

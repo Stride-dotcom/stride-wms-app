@@ -12,6 +12,14 @@ export interface OrganizationClaimSettings {
   settlement_terms_template: string | null;
   acceptance_token_expiry_days: number;
   auto_create_repair_task: boolean;
+  // Valuation Coverage Settings
+  coverage_enabled: boolean;
+  coverage_default_type: 'standard' | 'full_replacement_no_deductible' | 'full_replacement_deductible';
+  coverage_rate_full_no_deductible: number;
+  coverage_rate_full_deductible: number;
+  coverage_deductible_amount: number;
+  coverage_allow_shipment: boolean;
+  coverage_allow_item: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -23,6 +31,14 @@ export interface OrganizationClaimSettingsUpdate {
   settlement_terms_template?: string | null;
   acceptance_token_expiry_days?: number;
   auto_create_repair_task?: boolean;
+  // Valuation Coverage Settings
+  coverage_enabled?: boolean;
+  coverage_default_type?: 'standard' | 'full_replacement_no_deductible' | 'full_replacement_deductible';
+  coverage_rate_full_no_deductible?: number;
+  coverage_rate_full_deductible?: number;
+  coverage_deductible_amount?: number;
+  coverage_allow_shipment?: boolean;
+  coverage_allow_item?: boolean;
 }
 
 const DEFAULT_SETTINGS: Omit<OrganizationClaimSettings, 'id' | 'tenant_id' | 'created_at' | 'updated_at'> = {
@@ -32,6 +48,14 @@ const DEFAULT_SETTINGS: Omit<OrganizationClaimSettings, 'id' | 'tenant_id' | 'cr
   settlement_terms_template: null,
   acceptance_token_expiry_days: 30,
   auto_create_repair_task: true,
+  // Valuation Coverage Defaults
+  coverage_enabled: true,
+  coverage_default_type: 'standard',
+  coverage_rate_full_no_deductible: 0.0188,
+  coverage_rate_full_deductible: 0.0142,
+  coverage_deductible_amount: 300,
+  coverage_allow_shipment: true,
+  coverage_allow_item: true,
 };
 
 const DEFAULT_TERMS_TEMPLATE = `By accepting this settlement, you acknowledge and agree that:
