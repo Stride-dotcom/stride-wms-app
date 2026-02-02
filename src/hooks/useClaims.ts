@@ -10,11 +10,28 @@ type ClaimInsert = Database['public']['Tables']['claims']['Insert'];
 type ClaimUpdate = Database['public']['Tables']['claims']['Update'];
 
 export type ClaimType = 'shipping_damage' | 'manufacture_defect' | 'handling_damage' | 'property_damage' | 'lost_item';
+export type ClaimCategory = 'liability' | 'shipping_damage'; // liability = payout, shipping_damage = assistance only
 export type ClaimStatus = 'initiated' | 'under_review' | 'pending_approval' | 'pending_acceptance' | 'accepted' | 'declined' | 'denied' | 'approved' | 'credited' | 'paid' | 'closed';
 export type CoverageType = 'standard' | 'full_replacement_deductible' | 'full_replacement_no_deductible' | 'pending' | null;
 export type CoverageSource = 'item' | 'shipment' | 'standard';
 export type ValuationMethod = 'proof' | 'prorated' | 'standard';
 export type PayoutMethod = 'credit' | 'check' | 'repair_vendor_pay';
+export type AIRecommendedAction = 'auto_approve' | 'approve' | 'request_info' | 'deny';
+export type AIConfidenceLevel = 'low' | 'medium' | 'high';
+
+// AI Analysis result
+export interface ClaimAIAnalysis {
+  id: string;
+  claim_id: string;
+  recommendation_amount: number | null;
+  recommended_action: AIRecommendedAction;
+  confidence_level: AIConfidenceLevel;
+  flags: string[];
+  reasoning: string | null;
+  input_snapshot: Record<string, any>;
+  model_version: string;
+  created_at: string;
+}
 
 // Coverage snapshot stored at claim creation time
 export interface CoverageSnapshot {
@@ -133,6 +150,7 @@ export interface ClaimFilters {
 
 export interface CreateClaimData {
   claim_type: ClaimType;
+  claim_category: ClaimCategory; // liability or shipping_damage (assistance only)
   account_id: string;
   sidemark_id?: string | null;
   shipment_id?: string | null;
@@ -251,10 +269,14 @@ export function useClaims(filters?: ClaimFilters) {
         }
       }
 
+      // Generate public report token for shareable reports
+      const publicReportToken = `${claimNumber}-${Math.random().toString(36).substring(2, 10)}`.toLowerCase();
+
       const insertData: ClaimInsert = {
         tenant_id: profile.tenant_id,
         claim_number: claimNumber,
         claim_type: data.claim_type,
+        claim_category: data.claim_category || 'liability', // Default to liability
         status: 'initiated',
         account_id: data.account_id,
         sidemark_id: data.sidemark_id || null,
@@ -267,9 +289,11 @@ export function useClaims(filters?: ClaimFilters) {
         incident_contact_email: data.incident_contact_email || null,
         filed_by: profile.id,
         description: data.description,
+        public_notes: data.public_notes || null,
         coverage_snapshot: coverageSnapshot,
-        requires_manager_approval: true,
-      };
+        requires_manager_approval: data.claim_category === 'liability', // Only liability claims need approval
+        public_report_token: publicReportToken,
+      } as any; // Type assertion for new fields
 
       const { data: result, error } = await supabase
         .from('claims')
@@ -413,6 +437,45 @@ export function useClaims(filters?: ClaimFilters) {
         await supabase.from('claim_items').insert(claimItemsInsert);
       }
 
+      // Create claim assistance billing event for shipping_damage claims
+      if (data.claim_category === 'shipping_damage') {
+        // Fetch tenant claim settings to get assistance fee
+        const { data: claimSettings } = await (supabase as any)
+          .from('organization_claim_settings')
+          .select('enable_claim_assistance, claim_assistance_flat_fee')
+          .eq('tenant_id', profile.tenant_id)
+          .maybeSingle();
+
+        if (claimSettings?.enable_claim_assistance && claimSettings?.claim_assistance_flat_fee > 0) {
+          // Create billing event for claim assistance
+          await supabase.from('billing_events').insert([{
+            tenant_id: profile.tenant_id,
+            account_id: data.account_id,
+            claim_id: result.id,
+            event_type: 'claim_assistance',
+            charge_type: 'claim_assistance',
+            description: `Claim Assistance – Shipping Damage (${result.claim_number})`,
+            quantity: 1,
+            unit_rate: claimSettings.claim_assistance_flat_fee,
+            total_amount: claimSettings.claim_assistance_flat_fee,
+            status: 'unbilled',
+            occurred_at: new Date().toISOString(),
+            metadata: {
+              claim_number: result.claim_number,
+              claim_type: data.claim_type,
+              claim_category: 'shipping_damage',
+            },
+            created_by: profile.id,
+          }]);
+
+          // Mark assistance fee as billed
+          await (supabase as any)
+            .from('claims')
+            .update({ assistance_fee_billed: true })
+            .eq('id', result.id);
+        }
+      }
+
       // Create audit entry
       await supabase.from('claim_audit').insert([{
         tenant_id: profile.tenant_id,
@@ -421,13 +484,14 @@ export function useClaims(filters?: ClaimFilters) {
         action: 'created',
         details: {
           claim_type: data.claim_type,
+          claim_category: data.claim_category,
           item_count: itemIds.length,
         } as Json,
       }]);
 
       toast({
         title: 'Claim Filed',
-        description: `Claim ${result.claim_number} has been created${itemIds.length > 1 ? ` with ${itemIds.length} items` : ''}`,
+        description: `Claim ${result.claim_number} has been created${itemIds.length > 1 ? ` with ${itemIds.length} items` : ''}${data.claim_category === 'shipping_damage' ? ' (Assistance claim)' : ''}`,
       });
 
       // Queue claim filed alert

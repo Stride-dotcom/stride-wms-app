@@ -20,6 +20,12 @@ export interface OrganizationClaimSettings {
   coverage_deductible_amount: number;
   coverage_allow_shipment: boolean;
   coverage_allow_item: boolean;
+  // Claim Assistance Settings (for shipping_damage claims)
+  enable_claim_assistance: boolean;
+  claim_assistance_flat_fee: number;
+  // AI Analysis Settings
+  enable_ai_analysis: boolean;
+  auto_approval_threshold: number;
   created_at: string;
   updated_at: string;
 }
@@ -39,6 +45,12 @@ export interface OrganizationClaimSettingsUpdate {
   coverage_deductible_amount?: number;
   coverage_allow_shipment?: boolean;
   coverage_allow_item?: boolean;
+  // Claim Assistance Settings
+  enable_claim_assistance?: boolean;
+  claim_assistance_flat_fee?: number;
+  // AI Analysis Settings
+  enable_ai_analysis?: boolean;
+  auto_approval_threshold?: number;
 }
 
 const DEFAULT_SETTINGS: Omit<OrganizationClaimSettings, 'id' | 'tenant_id' | 'created_at' | 'updated_at'> = {
@@ -56,6 +68,12 @@ const DEFAULT_SETTINGS: Omit<OrganizationClaimSettings, 'id' | 'tenant_id' | 'cr
   coverage_deductible_amount: 300,
   coverage_allow_shipment: true,
   coverage_allow_item: true,
+  // Claim Assistance Defaults
+  enable_claim_assistance: true,
+  claim_assistance_flat_fee: 150.00,
+  // AI Analysis Defaults
+  enable_ai_analysis: true,
+  auto_approval_threshold: 1000.00,
 };
 
 const DEFAULT_TERMS_TEMPLATE = `By accepting this settlement, you acknowledge and agree that:
