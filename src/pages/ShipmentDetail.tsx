@@ -2027,7 +2027,7 @@ export default function ShipmentDetail() {
           shipmentId={shipment.id}
           accountId={shipment.account_id}
           shipmentNumber={shipment.shipment_number}
-          itemCount={shipmentItems.length}
+          itemCount={items.length}
           onSuccess={() => {
             fetchShipment();
             setBillingRefreshKey(prev => prev + 1);
