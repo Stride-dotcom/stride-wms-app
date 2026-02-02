@@ -35,6 +35,7 @@ import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDia
 import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
 import { ShipmentHistoryTab } from '@/components/shipments/ShipmentHistoryTab';
+import { ShipmentCoverageDialog } from '@/components/shipments/ShipmentCoverageDialog';
 import { QRScanner } from '@/components/scan/QRScanner';
 import { useLocations } from '@/hooks/useLocations';
 import { hapticError, hapticSuccess } from '@/lib/haptics';
@@ -68,6 +69,8 @@ interface ShipmentItem {
     sidemark: string | null;
     room: string | null;
     class_id: string | null;
+    declared_value: number | null;
+    coverage_type: string | null;
     current_location?: { code: string } | null;
     account?: { account_name: string } | null;
     class?: { id: string; code: string; name: string } | null;
@@ -333,6 +336,8 @@ export default function ShipmentDetail() {
             sidemark,
             room,
             class_id,
+            declared_value,
+            coverage_type,
             current_location:locations(code),
             account:accounts(account_name)
           )
@@ -1268,7 +1273,8 @@ export default function ShipmentDetail() {
               <span className="sm:hidden">Charge</span>
             </Button>
           )}
-          {shipment.account_id && canSeeBilling && (
+          {/* Add Coverage button - only for inbound shipments with received items */}
+          {shipment.account_id && canSeeBilling && isInbound && items.some(i => i.item_id) && (
             <Button variant="outline" size="sm" onClick={() => setCoverageDialogOpen(true)}>
               <MaterialIcon name="verified_user" size="sm" className="mr-1 sm:mr-2 text-blue-600" />
               <span className="hidden sm:inline">Add Coverage</span>
