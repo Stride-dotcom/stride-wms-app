@@ -38,7 +38,9 @@ import { EditAdjustmentDialog } from './EditAdjustmentDialog';
 import { AccountPricingHistoryDialog } from './AccountPricingHistoryDialog';
 import { AccountPromoCodesSection } from './AccountPromoCodesSection';
 import { AccountCoverageOverridesSection } from './AccountCoverageOverridesSection';
+import { AddAccountChargeDialog } from './AddAccountChargeDialog';
 import { cn } from '@/lib/utils';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface AccountPricingTabProps {
   accountId: string;
@@ -60,6 +62,7 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [chargeDialogOpen, setChargeDialogOpen] = useState(false);
   const [selectedAdjustment, setSelectedAdjustment] = useState<AccountServiceSetting | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
@@ -161,21 +164,25 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-medium">Pricing Adjustments</h3>
+          <h3 className="text-lg font-medium">Pricing & Charges</h3>
           <p className="text-sm text-muted-foreground">
-            Custom pricing for {accountName}
+            Custom pricing and charges for {accountName}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => setChargeDialogOpen(true)}>
+            <MaterialIcon name="attach_money" size="sm" className="mr-1" />
+            Add Charge
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setHistoryDialogOpen(true)}>
             <MaterialIcon name="history" size="sm" className="mr-1" />
             History
           </Button>
-          <Button onClick={() => setCreateDialogOpen(true)}>
+          <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
             <MaterialIcon name="add" size="sm" className="mr-1" />
-            Create Adjustment
+            Adjustment
           </Button>
         </div>
       </div>
@@ -204,125 +211,209 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
         </div>
       )}
 
-      {/* Adjustments Table */}
+      {/* Adjustments - Desktop Table / Mobile Cards */}
       {adjustments.length > 0 ? (
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={selectedIds.size === adjustments.length && adjustments.length > 0}
-                    onCheckedChange={toggleSelectAll}
-                  />
-                </TableHead>
-                <TableHead>Service</TableHead>
-                <TableHead>Class</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Base Rate</TableHead>
-                <TableHead className="text-right">Adjustment</TableHead>
-                <TableHead className="text-right">Effective Rate</TableHead>
-                <TableHead className="w-24">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {adjustments.map((adj) => (
-                <TableRow key={adj.id}>
-                  <TableCell>
+        <>
+          {/* Desktop Table */}
+          <div className="hidden md:block border rounded-lg overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">
                     <Checkbox
-                      checked={selectedIds.has(adj.id)}
-                      onCheckedChange={() => toggleSelect(adj.id)}
+                      checked={selectedIds.size === adjustments.length && adjustments.length > 0}
+                      onCheckedChange={toggleSelectAll}
                     />
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <Badge variant="outline" className="font-mono">
-                        {adj.service_code}
-                      </Badge>
-                      {adj.service_event && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {adj.service_event.service_name}
-                        </p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {adj.class_code ? (
-                      <Badge variant="secondary">{adj.class_code}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{getAdjustmentBadge(adj)}</TableCell>
-                  <TableCell className="text-right font-mono text-muted-foreground">
-                    ${(adj.base_rate || 0).toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span
-                      className={cn(
-                        'font-mono',
-                        (adj.effective_rate || 0) > (adj.base_rate || 0)
-                          ? 'text-red-600'
-                          : (adj.effective_rate || 0) < (adj.base_rate || 0)
-                          ? 'text-green-600'
-                          : ''
-                      )}
-                    >
-                      {formatAdjustment(adj)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <MaterialIcon name="arrow_forward" className="h-3 w-3 text-muted-foreground" />
-                      <span className="font-mono font-medium">
-                        ${(adj.effective_rate || 0).toFixed(2)}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleEdit(adj)}
-                            >
-                              <MaterialIcon name="edit" size="sm" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Edit</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() =>
-                                setDeleteConfirm({
-                                  id: adj.id,
-                                  name: `${adj.service_code}${adj.class_code ? ` (${adj.class_code})` : ''}`,
-                                })
-                              }
-                            >
-                              <MaterialIcon name="delete" size="sm" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Delete</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  </TableCell>
+                  </TableHead>
+                  <TableHead>Service</TableHead>
+                  <TableHead>Class</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Base Rate</TableHead>
+                  <TableHead className="text-right">Adjustment</TableHead>
+                  <TableHead className="text-right">Effective Rate</TableHead>
+                  <TableHead className="w-24">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {adjustments.map((adj) => (
+                  <TableRow key={adj.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(adj.id)}
+                        onCheckedChange={() => toggleSelect(adj.id)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <Badge variant="outline" className="font-mono">
+                          {adj.service_code}
+                        </Badge>
+                        {adj.service_event && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {adj.service_event.service_name}
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {adj.class_code ? (
+                        <Badge variant="secondary">{adj.class_code}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>{getAdjustmentBadge(adj)}</TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      ${(adj.base_rate || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span
+                        className={cn(
+                          'font-mono',
+                          (adj.effective_rate || 0) > (adj.base_rate || 0)
+                            ? 'text-red-600'
+                            : (adj.effective_rate || 0) < (adj.base_rate || 0)
+                            ? 'text-green-600'
+                            : ''
+                        )}
+                      >
+                        {formatAdjustment(adj)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <MaterialIcon name="arrow_forward" className="h-3 w-3 text-muted-foreground" />
+                        <span className="font-mono font-medium">
+                          ${(adj.effective_rate || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleEdit(adj)}
+                              >
+                                <MaterialIcon name="edit" size="sm" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Edit</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                onClick={() =>
+                                  setDeleteConfirm({
+                                    id: adj.id,
+                                    name: `${adj.service_code}${adj.class_code ? ` (${adj.class_code})` : ''}`,
+                                  })
+                                }
+                              >
+                                <MaterialIcon name="delete" size="sm" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-3">
+            {adjustments.map((adj) => (
+              <Card key={adj.id} className="overflow-hidden">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <Checkbox
+                        checked={selectedIds.has(adj.id)}
+                        onCheckedChange={() => toggleSelect(adj.id)}
+                        className="mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <Badge variant="outline" className="font-mono">
+                            {adj.service_code}
+                          </Badge>
+                          {adj.class_code && (
+                            <Badge variant="secondary">{adj.class_code}</Badge>
+                          )}
+                          {getAdjustmentBadge(adj)}
+                        </div>
+                        {adj.service_event && (
+                          <p className="text-sm text-muted-foreground truncate">
+                            {adj.service_event.service_name}
+                          </p>
+                        )}
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Base</p>
+                            <p className="font-mono">${(adj.base_rate || 0).toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Adj</p>
+                            <p className={cn(
+                              'font-mono',
+                              (adj.effective_rate || 0) > (adj.base_rate || 0)
+                                ? 'text-red-600'
+                                : (adj.effective_rate || 0) < (adj.base_rate || 0)
+                                ? 'text-green-600'
+                                : ''
+                            )}>
+                              {formatAdjustment(adj)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Effective</p>
+                            <p className="font-mono font-medium">${(adj.effective_rate || 0).toFixed(2)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleEdit(adj)}
+                      >
+                        <MaterialIcon name="edit" size="sm" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() =>
+                          setDeleteConfirm({
+                            id: adj.id,
+                            name: `${adj.service_code}${adj.class_code ? ` (${adj.class_code})` : ''}`,
+                          })
+                        }
+                      >
+                        <MaterialIcon name="delete" size="sm" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       ) : (
         <div className="text-center py-12 border rounded-lg bg-muted/20">
           <MaterialIcon name="info" className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -388,6 +479,17 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
         onOpenChange={setHistoryDialogOpen}
         accountId={accountId}
         accountName={accountName}
+      />
+
+      {/* Add Charge Dialog */}
+      <AddAccountChargeDialog
+        open={chargeDialogOpen}
+        onOpenChange={setChargeDialogOpen}
+        accountId={accountId}
+        accountName={accountName}
+        onSuccess={() => {
+          setChargeDialogOpen(false);
+        }}
       />
 
       {/* Delete Confirmation */}
