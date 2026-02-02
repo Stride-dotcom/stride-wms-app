@@ -1,12 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -23,15 +32,407 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useAdminDev } from '@/hooks/useAdminDev';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useQATests, QATestRun, QATestResult } from '@/hooks/useQATests';
+import { supabase } from '@/integrations/supabase/client';
 import { QATestConsoleTab } from '@/components/settings/QATestConsoleTab';
+import { cn } from '@/lib/utils';
 
 // Lazy import of BotQA content (to avoid circular dependencies)
 import BotQAPage from '@/pages/admin/BotQA';
 // Lazy import of Diagnostics content
 import DiagnosticsPage from '@/pages/Diagnostics';
+
+// =============================================================================
+// Types
+// =============================================================================
+
+interface QASuiteStatus {
+  suite: string;
+  label: string;
+  icon: string;
+  lastRun?: QATestRun | null;
+  loading: boolean;
+}
+
+// Error codes for UI Visual QA failures
+const ERROR_CODES = {
+  SCROLL_LOCKED: 'SCROLL_LOCKED',
+  INSUFFICIENT_SCROLL_BUFFER: 'INSUFFICIENT_SCROLL_BUFFER',
+  PRIMARY_ACTION_NOT_REACHABLE: 'PRIMARY_ACTION_NOT_REACHABLE',
+  HORIZONTAL_OVERFLOW: 'HORIZONTAL_OVERFLOW',
+  BLANK_CONTENT: 'BLANK_CONTENT',
+  CONSOLE_ERROR: 'CONSOLE_ERROR',
+  UNCAUGHT_EXCEPTION: 'UNCAUGHT_EXCEPTION',
+  NETWORK_FAILURE: 'NETWORK_FAILURE',
+  AXE_CRITICAL: 'AXE_CRITICAL',
+  AXE_SERIOUS: 'AXE_SERIOUS',
+  TOUR_STEP_FAILED: 'TOUR_STEP_FAILED',
+} as const;
+
+type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
+
+const ERROR_CODE_LABELS: Record<ErrorCode, string> = {
+  SCROLL_LOCKED: 'Scroll Locked',
+  INSUFFICIENT_SCROLL_BUFFER: 'Insufficient Buffer',
+  PRIMARY_ACTION_NOT_REACHABLE: 'Action Not Reachable',
+  HORIZONTAL_OVERFLOW: 'Horizontal Overflow',
+  BLANK_CONTENT: 'Blank Content',
+  CONSOLE_ERROR: 'Console Error',
+  UNCAUGHT_EXCEPTION: 'Uncaught Exception',
+  NETWORK_FAILURE: 'Network Failure',
+  AXE_CRITICAL: 'A11y Critical',
+  AXE_SERIOUS: 'A11y Serious',
+  TOUR_STEP_FAILED: 'Tour Step Failed',
+};
+
+interface UIIssue {
+  code: ErrorCode;
+  message: string;
+  selector?: string;
+  measuredValue?: number;
+  expectedValue?: number;
+  screenshot?: string;
+}
+
+interface TourCoverageData {
+  totalRoutes: number;
+  routesWithTours: number;
+  routesWithoutTours: string[];
+  missingTestIds: { selector: string; route: string; count: number }[];
+  skippedSteps: { route: string; step: string; reason: string }[];
+  coveragePercent: number;
+  p0Count?: number;
+  p1Count?: number;
+  p2Count?: number;
+}
+
+interface SelectableIssue {
+  id: string;
+  runId: string;
+  route: string;
+  viewport: string;
+  testName: string;
+  priority: string;
+  issue: UIIssue;
+  fileHints: string[];
+  screenshot?: string;
+}
+
+// =============================================================================
+// QA Run Status Panel
+// =============================================================================
+
+interface QARunStatusPanelProps {
+  onRunUIVisual: () => void;
+  onTabChange: (tab: string) => void;
+}
+
+function QARunStatusPanel({ onRunUIVisual, onTabChange }: QARunStatusPanelProps) {
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  const [statuses, setStatuses] = useState<QASuiteStatus[]>([
+    { suite: 'ui_visual_qa', label: 'UI Visual QA', icon: 'screenshot_monitor', loading: true, lastRun: null },
+    { suite: 'workflow_qa', label: 'Workflow QA', icon: 'checklist', loading: true, lastRun: null },
+    { suite: 'bot_qa', label: 'Bot QA', icon: 'smart_toy', loading: true, lastRun: null },
+  ]);
+  const [showRunDialog, setShowRunDialog] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!profile?.tenant_id) return;
+    fetchLastRuns();
+  }, [profile?.tenant_id]);
+
+  const fetchLastRuns = async () => {
+    if (!profile?.tenant_id) return;
+
+    try {
+      // Fetch last run for each suite type
+      const suiteQueries = [
+        { suite: 'ui_visual_qa', filter: { column: 'suites_requested', value: 'ui_visual_qa' } },
+        { suite: 'workflow_qa', filter: { column: 'mode', value: 'create_cleanup', notMode: 'bot_qa' } },
+        { suite: 'bot_qa', filter: { column: 'mode', value: 'bot_qa' } },
+      ];
+
+      const results = await Promise.all(
+        suiteQueries.map(async ({ suite, filter }) => {
+          let query = supabase
+            .from('qa_test_runs')
+            .select('*')
+            .eq('tenant_id', profile.tenant_id)
+            .order('started_at', { ascending: false })
+            .limit(1);
+
+          if (filter.column === 'suites_requested') {
+            query = query.contains('suites_requested', [filter.value]);
+          } else if (filter.column === 'mode') {
+            query = query.eq('mode', filter.value);
+          }
+
+          const { data, error } = await query;
+          if (error) throw error;
+          return { suite, run: data?.[0] || null };
+        })
+      );
+
+      setStatuses(prev =>
+        prev.map(s => {
+          const result = results.find(r => r.suite === s.suite);
+          return { ...s, loading: false, lastRun: result?.run || null };
+        })
+      );
+    } catch (error) {
+      console.error('Error fetching last runs:', error);
+      setStatuses(prev => prev.map(s => ({ ...s, loading: false })));
+    }
+  };
+
+  const getStatusColor = (status: string | undefined) => {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-700 border-green-200';
+      case 'failed': return 'bg-red-100 text-red-700 border-red-200';
+      case 'running': return 'bg-blue-100 text-blue-700 border-blue-200';
+      default: return 'bg-gray-100 text-gray-600 border-gray-200';
+    }
+  };
+
+  const getStatusIcon = (status: string | undefined) => {
+    switch (status) {
+      case 'completed': return 'check_circle';
+      case 'failed': return 'error';
+      case 'running': return 'progress_activity';
+      default: return 'help_outline';
+    }
+  };
+
+  const formatTimeAgo = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) return `${diffDays}d ago`;
+    if (diffHours > 0) return `${diffHours}h ago`;
+    if (diffMins > 0) return `${diffMins}m ago`;
+    return 'just now';
+  };
+
+  const handleRunClick = (suite: string) => {
+    setShowRunDialog(suite);
+  };
+
+  const handleViewResults = (suite: string) => {
+    if (suite === 'ui_visual_qa') {
+      onTabChange('visual');
+    } else if (suite === 'workflow_qa') {
+      onTabChange('workflow');
+    } else if (suite === 'bot_qa') {
+      onTabChange('bot');
+    }
+  };
+
+  return (
+    <>
+      <Card className="mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <MaterialIcon name="monitoring" size="sm" />
+            QA Run Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            {statuses.map(status => (
+              <div
+                key={status.suite}
+                className={cn(
+                  "p-4 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50",
+                  status.lastRun?.status === 'failed' && "border-red-200 bg-red-50/50",
+                  status.lastRun?.status === 'completed' && status.lastRun.fail_count === 0 && "border-green-200 bg-green-50/50"
+                )}
+                onClick={() => handleViewResults(status.suite)}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <MaterialIcon name={status.icon} size="md" className="text-muted-foreground" />
+                    <span className="font-medium">{status.label}</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRunClick(status.suite);
+                    }}
+                  >
+                    <MaterialIcon name="play_arrow" size="sm" className="mr-1" />
+                    Run
+                  </Button>
+                </div>
+
+                {status.loading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
+                    <span className="text-sm">Loading...</span>
+                  </div>
+                ) : status.lastRun ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge className={cn("text-xs", getStatusColor(status.lastRun.status))}>
+                        <MaterialIcon
+                          name={getStatusIcon(status.lastRun.status)}
+                          size="sm"
+                          className={cn("mr-1", status.lastRun.status === 'running' && "animate-spin")}
+                        />
+                        {status.lastRun.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {formatTimeAgo(status.lastRun.started_at)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="text-green-600 font-medium">{status.lastRun.pass_count} pass</span>
+                      <span className="text-red-600 font-medium">{status.lastRun.fail_count} fail</span>
+                      <span className="text-gray-500">{status.lastRun.skip_count} skip</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    No runs yet
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Run Instructions Dialog */}
+      <Dialog open={showRunDialog !== null} onOpenChange={() => setShowRunDialog(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MaterialIcon name="play_circle" size="md" />
+              Run {statuses.find(s => s.suite === showRunDialog)?.label}
+            </DialogTitle>
+            <DialogDescription>
+              Follow these instructions to trigger a QA run
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {showRunDialog === 'ui_visual_qa' && (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  UI Visual QA tests run via GitHub Actions workflow. To trigger a run:
+                </p>
+                <ol className="list-decimal list-inside space-y-2 text-sm">
+                  <li>Go to the repository on GitHub</li>
+                  <li>Navigate to <strong>Actions</strong> tab</li>
+                  <li>Select <strong>UI Visual QA</strong> workflow</li>
+                  <li>Click <strong>Run workflow</strong></li>
+                  <li>Select the branch and click <strong>Run workflow</strong></li>
+                </ol>
+                <div className="p-3 bg-muted rounded-lg">
+                  <code className="text-xs">
+                    gh workflow run ui-visual-qa.yml -f branch=main
+                  </code>
+                </div>
+              </>
+            )}
+            {showRunDialog === 'workflow_qa' && (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Workflow QA tests can be run directly from this page:
+                </p>
+                <ol className="list-decimal list-inside space-y-2 text-sm">
+                  <li>Switch to the <strong>Workflow QA</strong> tab</li>
+                  <li>Select the test suites you want to run</li>
+                  <li>Click <strong>Run Tests</strong></li>
+                </ol>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    setShowRunDialog(null);
+                    onTabChange('workflow');
+                  }}
+                >
+                  <MaterialIcon name="arrow_forward" size="sm" className="mr-2" />
+                  Go to Workflow QA
+                </Button>
+              </>
+            )}
+            {showRunDialog === 'bot_qa' && (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Bot QA tests can be run from the Bot QA page:
+                </p>
+                <ol className="list-decimal list-inside space-y-2 text-sm">
+                  <li>Switch to the <strong>Bot QA</strong> tab</li>
+                  <li>Open the full Bot QA page</li>
+                  <li>Run tool-level or conversation tests</li>
+                </ol>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    setShowRunDialog(null);
+                    onTabChange('bot');
+                  }}
+                >
+                  <MaterialIcon name="arrow_forward" size="sm" className="mr-2" />
+                  Go to Bot QA
+                </Button>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRunDialog(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// =============================================================================
+// Status Badge Component
+// =============================================================================
+
+function StatusBadge({ status }: { status: string }) {
+  const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
+    running: { variant: 'default', label: 'Running' },
+    completed: { variant: 'secondary', label: 'Completed' },
+    failed: { variant: 'destructive', label: 'Failed' },
+    cancelled: { variant: 'outline', label: 'Cancelled' },
+    pass: { variant: 'secondary', label: 'Pass' },
+    fail: { variant: 'destructive', label: 'Fail' },
+    skip: { variant: 'outline', label: 'Skip' },
+    pending: { variant: 'outline', label: 'Pending' }
+  };
+
+  const config = variants[status] || { variant: 'outline', label: status };
+
+  return (
+    <Badge variant={config.variant} className={cn(
+      status === 'pass' && 'bg-green-100 text-green-800 hover:bg-green-100',
+      status === 'completed' && 'bg-green-100 text-green-800 hover:bg-green-100'
+    )}>
+      {config.label}
+    </Badge>
+  );
+}
 
 /**
  * QA Center - Consolidated internal QA tools
@@ -43,7 +444,7 @@ import DiagnosticsPage from '@/pages/Diagnostics';
  */
 export default function QACenter() {
   const { canAccessQACenter, isAdminDev, loading } = useAdminDev();
-  const [activeTab, setActiveTab] = useState('workflow');
+  const [activeTab, setActiveTab] = useState('visual');
 
   // Show loading state
   if (loading) {
@@ -81,9 +482,19 @@ export default function QACenter() {
           </Badge>
         </div>
 
+        {/* QA Run Status Panel */}
+        <QARunStatusPanel
+          onRunUIVisual={() => setActiveTab('visual')}
+          onTabChange={setActiveTab}
+        />
+
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} data-testid="qa-center-tabs">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="visual" className="flex items-center gap-2" data-testid="qa-tab-visual">
+              <MaterialIcon name="screenshot_monitor" size="sm" />
+              UI Visual QA
+            </TabsTrigger>
             <TabsTrigger value="workflow" className="flex items-center gap-2" data-testid="qa-tab-workflow">
               <MaterialIcon name="checklist" size="sm" />
               Workflow QA
@@ -101,6 +512,11 @@ export default function QACenter() {
               Access
             </TabsTrigger>
           </TabsList>
+
+          {/* UI Visual QA Tab */}
+          <TabsContent value="visual" className="mt-6">
+            <UIVisualQATab />
+          </TabsContent>
 
           {/* Workflow QA Tab */}
           <TabsContent value="workflow" className="mt-6">
@@ -124,6 +540,915 @@ export default function QACenter() {
         </Tabs>
       </div>
     </DashboardLayout>
+  );
+}
+
+// =============================================================================
+// UI Visual QA Tab
+// =============================================================================
+
+interface UIVisualResult {
+  id: string;
+  test_name: string;
+  route: string;
+  viewport: string;
+  status: 'pass' | 'fail' | 'skip';
+  error_message?: string;
+  details?: {
+    issues: UIIssue[];
+    suggestions: { type: string; message: string; priority: string }[];
+    overflow: boolean;
+    scrollable: boolean;
+    scrollBufferPx?: number;
+    primaryActionReachable?: boolean;
+    consoleErrors: string[];
+    exceptions: string[];
+    networkFailures: string[];
+    axeViolations: { id: string; impact: string; description: string; nodes: number }[];
+    artifacts: string[];
+    tourSteps: { step: string; action: string; status: string; error?: string; screenshot?: string }[];
+    fileHints: string[];
+  };
+}
+
+function UIVisualQATab() {
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  const [runs, setRuns] = useState<QATestRun[]>([]);
+  const [currentRun, setCurrentRun] = useState<QATestRun | null>(null);
+  const [currentResults, setCurrentResults] = useState<QATestResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedViewport, setSelectedViewport] = useState<string>('all');
+  const [selectedErrorCode, setSelectedErrorCode] = useState<string>('all');
+  const [selectedIssues, setSelectedIssues] = useState<Set<string>>(new Set());
+  const [showBulkFixDialog, setShowBulkFixDialog] = useState(false);
+  const [bulkFixPrompt, setBulkFixPrompt] = useState('');
+  const [showCoverage, setShowCoverage] = useState(false);
+  const [screenshotUrls, setScreenshotUrls] = useState<Record<string, string>>({});
+
+  // Fetch UI Visual QA runs
+  const fetchRuns = useCallback(async () => {
+    if (!profile?.tenant_id) return;
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('qa_test_runs')
+        .select(`
+          *,
+          executed_by_user:users!qa_test_runs_executed_by_fkey(first_name, last_name, email)
+        `)
+        .eq('tenant_id', profile.tenant_id)
+        .contains('suites_requested', ['ui_visual_qa'])
+        .order('started_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setRuns((data as unknown as QATestRun[]) || []);
+    } catch (error) {
+      console.error('Error fetching UI Visual QA runs:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to fetch UI Visual QA runs'
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [profile?.tenant_id, toast]);
+
+  // Fetch results for a specific run
+  const fetchRunResults = useCallback(async (runId: string) => {
+    if (!profile?.tenant_id) return;
+
+    setLoading(true);
+    try {
+      // Fetch run details
+      const { data: runData, error: runError } = await supabase
+        .from('qa_test_runs')
+        .select(`
+          *,
+          executed_by_user:users!qa_test_runs_executed_by_fkey(first_name, last_name, email)
+        `)
+        .eq('id', runId)
+        .single();
+
+      if (runError) throw runError;
+      setCurrentRun(runData as unknown as QATestRun);
+
+      // Fetch results
+      const { data: resultsData, error: resultsError } = await supabase
+        .from('qa_test_results')
+        .select('*')
+        .eq('run_id', runId)
+        .eq('suite', 'ui_visual_qa')
+        .order('created_at');
+
+      if (resultsError) throw resultsError;
+      setCurrentResults((resultsData as unknown as QATestResult[]) || []);
+
+      // Generate signed URLs for screenshots
+      await generateScreenshotUrls(runId, resultsData as unknown as QATestResult[]);
+    } catch (error) {
+      console.error('Error fetching run results:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to fetch test results'
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [profile?.tenant_id, toast]);
+
+  // Generate signed URLs for screenshots
+  const generateScreenshotUrls = async (runId: string, results: QATestResult[]) => {
+    const urls: Record<string, string> = {};
+
+    for (const result of results) {
+      const details = result.details as UIVisualResult['details'];
+      if (details?.artifacts) {
+        for (const artifact of details.artifacts) {
+          // Artifact path format: ui/<runId>/<viewport>/<route>/<step>.png
+          const storagePath = artifact.startsWith('ui/') ? artifact : `ui/${runId}/${artifact}`;
+
+          try {
+            const { data, error } = await supabase.storage
+              .from('qa-artifacts')
+              .createSignedUrl(storagePath, 3600); // 1 hour expiry
+
+            if (data?.signedUrl) {
+              urls[artifact] = data.signedUrl;
+            }
+          } catch (err) {
+            console.warn(`Failed to get signed URL for ${storagePath}:`, err);
+          }
+        }
+      }
+    }
+
+    setScreenshotUrls(urls);
+  };
+
+  useEffect(() => {
+    fetchRuns();
+  }, [fetchRuns]);
+
+  // Extract all selectable issues from results
+  const extractSelectableIssues = (): SelectableIssue[] => {
+    const issues: SelectableIssue[] = [];
+    const testResults = currentResults.filter(r => r.test_name !== 'tour_coverage');
+
+    testResults.forEach(result => {
+      const details = result.details as UIVisualResult['details'];
+      if (details?.issues && details.issues.length > 0) {
+        const priority = result.test_name.match(/^\[(P\d)\]/)?.[1] || 'P2';
+        const route = result.test_name.replace(/^\[P\d\]\s*/, '').split(' (')[0];
+        const viewport = result.test_name.match(/\((\w+)\)$/)?.[1] || 'unknown';
+
+        details.issues.forEach((issue, idx) => {
+          issues.push({
+            id: `${result.id}-${idx}`,
+            runId: currentRun?.id || '',
+            route,
+            viewport,
+            testName: result.test_name,
+            priority,
+            issue,
+            fileHints: details.fileHints || [],
+            screenshot: details.artifacts?.[0],
+          });
+        });
+      }
+    });
+
+    return issues;
+  };
+
+  const allSelectableIssues = extractSelectableIssues();
+
+  // Filter issues by error code and viewport
+  const filteredIssues = allSelectableIssues.filter(si => {
+    const matchesCode = selectedErrorCode === 'all' || si.issue.code === selectedErrorCode;
+    const matchesViewport = selectedViewport === 'all' || si.viewport === selectedViewport;
+    return matchesCode && matchesViewport;
+  });
+
+  // Get unique error codes present in results
+  const uniqueErrorCodes = [...new Set(allSelectableIssues.map(si => si.issue.code))];
+
+  // Selection handlers
+  const handleSelectIssue = (issueId: string) => {
+    setSelectedIssues(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(issueId)) {
+        newSet.delete(issueId);
+      } else {
+        newSet.add(issueId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    const filteredIds = filteredIssues.map(i => i.id);
+    setSelectedIssues(new Set(filteredIds));
+  };
+
+  const handleSelectNone = () => {
+    setSelectedIssues(new Set());
+  };
+
+  // Generate bulk fix prompt
+  const generateBulkFixPrompt = () => {
+    const selected = allSelectableIssues.filter(si => selectedIssues.has(si.id));
+    if (selected.length === 0) return;
+
+    const lines: string[] = [
+      '# UI Visual QA - Bulk Fix Request',
+      '',
+      `**Run ID:** ${currentRun?.id || 'unknown'}`,
+      `**Total Issues:** ${selected.length}`,
+      `**Generated:** ${new Date().toISOString()}`,
+      '',
+      '---',
+      '',
+    ];
+
+    // Group by error code for organization
+    const byErrorCode = selected.reduce((acc, si) => {
+      if (!acc[si.issue.code]) acc[si.issue.code] = [];
+      acc[si.issue.code].push(si);
+      return acc;
+    }, {} as Record<string, SelectableIssue[]>);
+
+    Object.entries(byErrorCode).forEach(([code, issues]) => {
+      lines.push(`## ${ERROR_CODE_LABELS[code as ErrorCode] || code} (${issues.length} issues)`);
+      lines.push('');
+
+      issues.forEach((si, idx) => {
+        lines.push(`### Issue ${idx + 1}: ${si.route} (${si.viewport})`);
+        lines.push('');
+        lines.push(`- **Route:** \`${si.route}\``);
+        lines.push(`- **Viewport:** ${si.viewport}`);
+        lines.push(`- **Priority:** ${si.priority}`);
+        lines.push(`- **Error Code:** \`${si.issue.code}\``);
+        lines.push(`- **Message:** ${si.issue.message}`);
+
+        if (si.issue.selector) {
+          lines.push(`- **Selector:** \`${si.issue.selector}\``);
+        }
+        if (si.issue.measuredValue !== undefined) {
+          lines.push(`- **Measured Value:** ${si.issue.measuredValue}px`);
+        }
+        if (si.issue.expectedValue !== undefined) {
+          lines.push(`- **Expected Value:** ${si.issue.expectedValue}px`);
+        }
+        if (si.fileHints.length > 0) {
+          lines.push(`- **Files to check:**`);
+          si.fileHints.forEach(f => lines.push(`  - \`${f}\``));
+        }
+        lines.push('');
+      });
+    });
+
+    lines.push('---');
+    lines.push('');
+    lines.push('## How to Fix');
+    lines.push('');
+    lines.push('Please analyze each issue above and provide fixes. For each fix:');
+    lines.push('1. Identify the root cause');
+    lines.push('2. Provide the code changes needed');
+    lines.push('3. Explain how the fix addresses the issue');
+    lines.push('');
+    lines.push('### Common Fixes by Error Code:');
+    lines.push('');
+    lines.push('- **SCROLL_LOCKED**: Check for `overflow: hidden` or missing scroll containers');
+    lines.push('- **INSUFFICIENT_SCROLL_BUFFER**: Add padding-bottom (80-120px) or use sticky footer');
+    lines.push('- **HORIZONTAL_OVERFLOW**: Add `overflow-x: auto` or fix fixed-width elements');
+    lines.push('- **CONSOLE_ERROR**: Debug the JavaScript error in browser console');
+    lines.push('- **AXE_CRITICAL/AXE_SERIOUS**: Fix accessibility issues (missing labels, contrast, etc.)');
+    lines.push('- **TOUR_STEP_FAILED**: Add missing data-testid attributes');
+
+    setBulkFixPrompt(lines.join('\n'));
+    setShowBulkFixDialog(true);
+  };
+
+  const handleCopyBulkPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(bulkFixPrompt);
+      toast({ title: 'Copied', description: 'Fix prompt copied to clipboard' });
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = bulkFixPrompt;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      toast({ title: 'Copied', description: 'Fix prompt copied to clipboard' });
+    }
+  };
+
+  const handleDownloadPrompt = () => {
+    const blob = new Blob([bulkFixPrompt], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ui-qa-fix-prompt-${currentRun?.id?.slice(0, 8) || 'unknown'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const clearCurrentRun = () => {
+    setCurrentRun(null);
+    setCurrentResults([]);
+    setSelectedIssues(new Set());
+    setScreenshotUrls({});
+  };
+
+  // Filter for test results (excluding coverage)
+  const testResults = currentResults.filter(r => r.test_name !== 'tour_coverage');
+  const coverageResult = currentResults.find(r => r.test_name === 'tour_coverage');
+  const coverageData = coverageResult?.details as TourCoverageData | undefined;
+
+  // Group by route for detail view
+  const resultsByRoute = testResults.reduce((acc, result) => {
+    const route = result.test_name.replace(/^\[P\d\]\s*/, '').split(' (')[0];
+    if (!acc[route]) acc[route] = [];
+    acc[route].push(result);
+    return acc;
+  }, {} as Record<string, QATestResult[]>);
+
+  // Run detail view
+  if (currentRun) {
+    return (
+      <div className="space-y-6" data-testid="ui-visual-qa-detail">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={clearCurrentRun}>
+            <MaterialIcon name="arrow_back" size="sm" className="mr-2" />
+            Back to Runs
+          </Button>
+        </div>
+
+        {/* Run Summary */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  UI Visual QA Results
+                  <StatusBadge status={currentRun.status} />
+                </CardTitle>
+                <CardDescription>
+                  Run ID: {currentRun.id.slice(0, 8)}... | {new Date(currentRun.started_at).toLocaleString()}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {testResults.filter(r => r.status === 'pass').length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Passed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-600">
+                    {testResults.filter(r => r.status === 'fail').length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Failed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-600">
+                    {testResults.filter(r => r.status === 'skip').length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Skipped</div>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+
+        {/* Tour Coverage Card */}
+        {coverageData && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <MaterialIcon name="pie_chart" size="md" />
+                  Tour Coverage Report
+                </CardTitle>
+                <Button variant="outline" size="sm" onClick={() => setShowCoverage(!showCoverage)}>
+                  {showCoverage ? 'Hide Details' : 'Show Details'}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-7 mb-4">
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-3xl font-bold text-primary">{coverageData.coveragePercent}%</div>
+                  <div className="text-sm text-muted-foreground">Coverage</div>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-3xl font-bold">{coverageData.routesWithTours}</div>
+                  <div className="text-sm text-muted-foreground">Routes with Tours</div>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-3xl font-bold">{coverageData.totalRoutes}</div>
+                  <div className="text-sm text-muted-foreground">Total Routes</div>
+                </div>
+                <div className="text-center p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="text-3xl font-bold text-red-600">{coverageData.p0Count || 0}</div>
+                  <div className="text-sm text-muted-foreground">P0 (Critical)</div>
+                </div>
+                <div className="text-center p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="text-3xl font-bold text-amber-600">{coverageData.p1Count || 0}</div>
+                  <div className="text-sm text-muted-foreground">P1 (Important)</div>
+                </div>
+                <div className="text-center p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="text-3xl font-bold text-gray-600">{coverageData.p2Count || 0}</div>
+                  <div className="text-sm text-muted-foreground">P2 (Info)</div>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-3xl font-bold text-amber-600">{coverageData.missingTestIds?.length || 0}</div>
+                  <div className="text-sm text-muted-foreground">Missing TestIDs</div>
+                </div>
+              </div>
+
+              {showCoverage && (
+                <div className="space-y-4 mt-4">
+                  {coverageData.routesWithoutTours?.length > 0 && (
+                    <div>
+                      <Label className="text-muted-foreground">Routes Without Tours</Label>
+                      <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div className="flex flex-wrap gap-2">
+                          {coverageData.routesWithoutTours.slice(0, 20).map(route => (
+                            <Badge key={route} variant="outline">{route}</Badge>
+                          ))}
+                          {coverageData.routesWithoutTours.length > 20 && (
+                            <Badge variant="secondary">+{coverageData.routesWithoutTours.length - 20} more</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {coverageData.missingTestIds?.length > 0 && (
+                    <div>
+                      <Label className="text-muted-foreground">Missing TestIDs (Top 20)</Label>
+                      <div className="mt-2">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Selector</TableHead>
+                              <TableHead>Route</TableHead>
+                              <TableHead>Occurrences</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {coverageData.missingTestIds.slice(0, 20).map((item, idx) => (
+                              <TableRow key={idx}>
+                                <TableCell className="font-mono text-sm">{item.selector}</TableCell>
+                                <TableCell>{item.route}</TableCell>
+                                <TableCell>{item.count}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Issues Selection & Bulk Fix Card */}
+        {allSelectableIssues.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <MaterialIcon name="error_outline" size="md" />
+                  Issues ({allSelectableIssues.length})
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectAll}
+                    disabled={filteredIssues.length === 0}
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectNone}
+                    disabled={selectedIssues.size === 0}
+                  >
+                    Select None
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={generateBulkFixPrompt}
+                    disabled={selectedIssues.size === 0}
+                  >
+                    <MaterialIcon name="auto_fix_high" size="sm" className="mr-2" />
+                    Generate Fix Prompt ({selectedIssues.size})
+                  </Button>
+                </div>
+              </div>
+              <CardDescription>
+                Select issues to generate a combined fix prompt for Claude/Lovable
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Filters */}
+              <div className="flex items-center gap-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <Label>Filter by Error Code:</Label>
+                  <Select value={selectedErrorCode} onValueChange={setSelectedErrorCode}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Error Codes ({allSelectableIssues.length})</SelectItem>
+                      {uniqueErrorCodes.map(code => (
+                        <SelectItem key={code} value={code}>
+                          {ERROR_CODE_LABELS[code] || code} ({allSelectableIssues.filter(i => i.issue.code === code).length})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label>Filter by Viewport:</Label>
+                  <Select value={selectedViewport} onValueChange={setSelectedViewport}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Viewports</SelectItem>
+                      <SelectItem value="desktop">Desktop</SelectItem>
+                      <SelectItem value="tablet">Tablet</SelectItem>
+                      <SelectItem value="mobile">Mobile</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Issues Table */}
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={filteredIssues.length > 0 && filteredIssues.every(i => selectedIssues.has(i.id))}
+                          onCheckedChange={(checked) => {
+                            if (checked) handleSelectAll();
+                            else handleSelectNone();
+                          }}
+                        />
+                      </TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Error Code</TableHead>
+                      <TableHead>Route</TableHead>
+                      <TableHead>Viewport</TableHead>
+                      <TableHead>Message</TableHead>
+                      <TableHead>Screenshot</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredIssues.slice(0, 50).map(si => (
+                      <TableRow
+                        key={si.id}
+                        className={cn(
+                          selectedIssues.has(si.id) && "bg-primary/5",
+                          si.priority === 'P0' && "border-l-4 border-l-red-500",
+                          si.priority === 'P1' && "border-l-4 border-l-amber-500",
+                          si.priority === 'P2' && "border-l-4 border-l-gray-300"
+                        )}
+                      >
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIssues.has(si.id)}
+                            onCheckedChange={() => handleSelectIssue(si.id)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={si.priority === 'P0' ? 'destructive' : si.priority === 'P1' ? 'default' : 'outline'}
+                          >
+                            {si.priority}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="font-mono text-xs">
+                            {si.issue.code}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{si.route}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{si.viewport}</Badge>
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate" title={si.issue.message}>
+                          {si.issue.message}
+                        </TableCell>
+                        <TableCell>
+                          {si.screenshot && screenshotUrls[si.screenshot] && (
+                            <a
+                              href={screenshotUrls[si.screenshot]}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-block"
+                            >
+                              <img
+                                src={screenshotUrls[si.screenshot]}
+                                alt="Screenshot"
+                                className="w-16 h-10 object-cover rounded border hover:opacity-80"
+                              />
+                            </a>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredIssues.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          No issues found matching the selected filters
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {filteredIssues.length > 50 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-2 text-muted-foreground text-sm">
+                          Showing first 50 of {filteredIssues.length} issues
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Bulk Fix Prompt Dialog */}
+        <Dialog open={showBulkFixDialog} onOpenChange={setShowBulkFixDialog}>
+          <DialogContent className="max-w-4xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MaterialIcon name="auto_fix_high" size="md" />
+                Bulk Fix Prompt
+              </DialogTitle>
+              <DialogDescription>
+                Copy this prompt and paste it to Claude/Lovable to fix {selectedIssues.size} selected issue(s)
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="h-[400px] w-full rounded-md border p-4">
+              <pre className="text-sm whitespace-pre-wrap font-mono">{bulkFixPrompt}</pre>
+            </ScrollArea>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={handleDownloadPrompt}>
+                <MaterialIcon name="download" size="sm" className="mr-2" />
+                Download as .txt
+              </Button>
+              <Button variant="outline" onClick={() => setShowBulkFixDialog(false)}>
+                Close
+              </Button>
+              <Button onClick={handleCopyBulkPrompt}>
+                <MaterialIcon name="content_copy" size="sm" className="mr-2" />
+                Copy to Clipboard
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Results by Route */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Test Results by Route</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="single" collapsible className="w-full">
+              {Object.entries(resultsByRoute).map(([route, results]) => {
+                const passCount = results.filter(r => r.status === 'pass').length;
+                const failCount = results.filter(r => r.status === 'fail').length;
+                const hasFailures = failCount > 0;
+
+                return (
+                  <AccordionItem key={route} value={route}>
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center gap-3 flex-1">
+                        <MaterialIcon
+                          name={hasFailures ? 'error' : 'check_circle'}
+                          size="sm"
+                          className={hasFailures ? 'text-red-500' : 'text-green-500'}
+                        />
+                        <span className="font-mono text-sm">{route}</span>
+                        <div className="flex items-center gap-2 ml-auto mr-4">
+                          {passCount > 0 && (
+                            <Badge variant="secondary" className="bg-green-100 text-green-800">
+                              {passCount} pass
+                            </Badge>
+                          )}
+                          {failCount > 0 && (
+                            <Badge variant="destructive">{failCount} fail</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-3 pl-8">
+                        {results.map(result => {
+                          const details = result.details as UIVisualResult['details'];
+                          const priority = result.test_name.match(/^\[(P\d)\]/)?.[1] || 'P2';
+                          const viewport = result.test_name.match(/\((\w+)\)$/)?.[1] || 'unknown';
+                          const screenshotPath = details?.artifacts?.[0];
+
+                          return (
+                            <div
+                              key={result.id}
+                              className={cn(
+                                "p-4 rounded-lg border",
+                                result.status === 'fail' && "border-red-200 bg-red-50",
+                                result.status === 'pass' && "border-green-200 bg-green-50"
+                              )}
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant={priority === 'P0' ? 'destructive' : priority === 'P1' ? 'default' : 'outline'}
+                                    className="text-xs"
+                                  >
+                                    {priority}
+                                  </Badge>
+                                  <StatusBadge status={result.status} />
+                                  <Badge variant="outline">{viewport}</Badge>
+                                </div>
+                                {screenshotPath && screenshotUrls[screenshotPath] && (
+                                  <a
+                                    href={screenshotUrls[screenshotPath]}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-block"
+                                  >
+                                    <img
+                                      src={screenshotUrls[screenshotPath]}
+                                      alt="Screenshot"
+                                      className="w-24 h-16 object-cover rounded border hover:opacity-80"
+                                    />
+                                  </a>
+                                )}
+                              </div>
+
+                              {/* Issues */}
+                              {details?.issues && details.issues.length > 0 && (
+                                <div className="mb-2">
+                                  <div className="flex flex-wrap gap-1 mb-2">
+                                    {details.issues.map((issue, idx) => (
+                                      <Badge key={idx} variant="secondary" className="font-mono text-xs">
+                                        {issue.code}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                  {details.issues.map((issue, idx) => (
+                                    <div key={idx} className="text-sm text-red-600 flex items-start gap-2">
+                                      <MaterialIcon name="error" size="sm" className="mt-0.5 flex-shrink-0" />
+                                      <span>{issue.message}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Scroll buffer info */}
+                              {details?.scrollBufferPx !== undefined && (
+                                <div className={cn(
+                                  "text-sm flex items-center gap-2 mb-2",
+                                  details.scrollBufferPx < 80 ? "text-red-600" : "text-green-600"
+                                )}>
+                                  <MaterialIcon name={details.scrollBufferPx < 80 ? "warning" : "check_circle"} size="sm" />
+                                  Scroll buffer: {details.scrollBufferPx}px {details.scrollBufferPx < 80 && "(min 80px required)"}
+                                </div>
+                              )}
+
+                              {details?.fileHints && details.fileHints.length > 0 && (
+                                <div className="mt-2 text-sm">
+                                  <span className="text-muted-foreground">Files to check: </span>
+                                  <span className="font-mono text-xs">{details.fileHints.join(', ')}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Runs list view
+  return (
+    <Card data-testid="ui-visual-qa-runs">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <MaterialIcon name="screenshot_monitor" size="md" />
+              UI Visual QA Runs
+            </CardTitle>
+            <CardDescription>
+              View visual regression test results and screenshots
+            </CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => fetchRuns()} disabled={loading}>
+            <MaterialIcon name="refresh" size="sm" className={cn("mr-2", loading && "animate-spin")} />
+            Refresh
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {loading && runs.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
+          </div>
+        ) : runs.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <MaterialIcon name="screenshot_monitor" size="lg" className="mx-auto mb-2 opacity-50" />
+            <p>No UI Visual QA runs yet</p>
+            <p className="text-sm">Run the UI Visual QA workflow from GitHub Actions</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Started</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Results</TableHead>
+                <TableHead>Viewports</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {runs.map(run => (
+                <TableRow key={run.id}>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">
+                        {new Date(run.started_at).toLocaleDateString()}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(run.started_at).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={run.status} />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-600 font-medium">{run.pass_count}</span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="text-red-600 font-medium">{run.fail_count}</span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="text-gray-600">{run.skip_count}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      {(run.metadata?.viewports as string[] || ['desktop', 'tablet', 'mobile']).map((vp: string) => (
+                        <Badge key={vp} variant="outline" className="text-xs">
+                          {vp}
+                        </Badge>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => fetchRunResults(run.id)}
+                    >
+                      <MaterialIcon name="visibility" size="sm" className="mr-1" />
+                      View
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
