@@ -127,8 +127,9 @@ const App = () => (
             <Route path="/quotes/new" element={<ProtectedRoute><RequireRole role="tenant_admin"><QuoteBuilder /></RequireRole></ProtectedRoute>} />
             <Route path="/quotes/:id" element={<ProtectedRoute><RequireRole role="tenant_admin"><QuoteBuilder /></RequireRole></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><RequireRole role="tenant_admin"><Settings /></RequireRole></ProtectedRoute>} />
-            <Route path="/diagnostics" element={<ProtectedRoute><RequireRole role="tenant_admin"><Diagnostics /></RequireRole></ProtectedRoute>} />
-            <Route path="/admin/bot-qa" element={<ProtectedRoute><RequireRole role="tenant_admin"><BotQA /></RequireRole></ProtectedRoute>} />
+            {/* QA/Dev tooling: allow system-level admin_dev access */}
+            <Route path="/diagnostics" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'admin_dev']}><Diagnostics /></RequireRole></ProtectedRoute>} />
+            <Route path="/admin/bot-qa" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'admin_dev']}><BotQA /></RequireRole></ProtectedRoute>} />
             <Route path="/qa" element={<ProtectedRoute><QACenter /></ProtectedRoute>} />
             <Route path="/repair-access" element={<RepairTechAccess />} />
             <Route path="/quote/tech" element={<TechQuoteSubmit />} />

@@ -94,6 +94,47 @@ export function usePermissions(): UsePermissionsReturn {
 
     const fetchRolesAndPermissions = async () => {
       try {
+        // Prefer SECURITY DEFINER RPC to avoid RLS blocking the roles join (roles: null).
+        // Falls back to the legacy join query if RPC is not present.
+        const { data: rpcRoles, error: rpcError } = await (supabase as any).rpc('get_my_roles');
+
+        if (!rpcError && Array.isArray(rpcRoles)) {
+          const fetchedRoles: Role[] = [];
+          const allPermissions: Set<string> = new Set();
+
+          rpcRoles.forEach((r: any) => {
+            const rolePermissions = Array.isArray(r?.permissions) ? r.permissions : [];
+            if (r?.id && r?.name) {
+              fetchedRoles.push({
+                id: String(r.id),
+                name: String(r.name),
+                permissions: rolePermissions,
+              });
+              rolePermissions.forEach((p: string) => allPermissions.add(p));
+            }
+          });
+
+          setRoles(fetchedRoles);
+          setPermissions(Array.from(allPermissions));
+          return;
+        }
+
+        // If RPC doesn't exist yet, silently fall back.
+        if (rpcError && rpcError.code !== '42883') {
+          // Suppress AbortError - happens during navigation/re-renders
+          if (rpcError.message?.includes('AbortError') || rpcError.code === '20') {
+            setLoading(false);
+            return;
+          }
+          console.error('[Permissions] Error fetching roles via get_my_roles RPC:', {
+            error: rpcError,
+            message: rpcError.message,
+            code: rpcError.code,
+          });
+          setLoading(false);
+          return;
+        }
+
         const { data: userRoles, error } = await supabase
           .from('user_roles')
           .select(`
@@ -126,7 +167,7 @@ export function usePermissions(): UsePermissionsReturn {
         const allPermissions: Set<string> = new Set();
 
         userRoles?.forEach((ur) => {
-          const role = ur.roles as unknown as { id: string; name: string; permissions: string[] };
+          const role = ur.roles as unknown as { id: string; name: string; permissions: any };
           if (role) {
             const rolePermissions = Array.isArray(role.permissions) ? role.permissions : [];
             fetchedRoles.push({
@@ -134,7 +175,6 @@ export function usePermissions(): UsePermissionsReturn {
               name: role.name,
               permissions: rolePermissions,
             });
-            
             rolePermissions.forEach((p: string) => allPermissions.add(p));
           }
         });
