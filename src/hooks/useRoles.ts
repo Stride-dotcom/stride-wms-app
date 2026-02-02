@@ -178,12 +178,15 @@ export function useUserAccounts(userId?: string) {
 export function useCurrentUserRole() {
   const { profile } = useAuth();
   const [role, setRole] = useState<string | null>(null);
+  const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [isAdminDev, setIsAdminDev] = useState(false);
 
   useEffect(() => {
     if (profile?.id) {
       fetchUserRole();
+      checkAdminDev();
     }
   }, [profile?.id]);
 
@@ -191,24 +194,36 @@ export function useCurrentUserRole() {
     if (!profile?.id) return;
 
     try {
+      // Fetch ALL roles for the user, not just one
       const { data, error } = await supabase
         .from('user_roles')
         .select(`
           role_id,
-          roles:role_id (name, permissions)
+          roles:role_id (name, permissions, is_system)
         `)
         .eq('user_id', profile.id)
-        .is('deleted_at', null)
-        .limit(1)
-        .single();
+        .is('deleted_at', null);
 
       if (error && error.code !== 'PGRST116') throw error;
 
-      if (data) {
-        const roleName = (data.roles as any)?.name;
-        const rolePerms = (data.roles as any)?.permissions;
+      if (data && data.length > 0) {
+        // Collect all role names
+        const roleNames = data.map(d => (d.roles as any)?.name).filter(Boolean);
+        setRoles(roleNames);
+
+        // Set primary role (prefer non-system roles for display)
+        const nonSystemRole = data.find(d => !(d.roles as any)?.is_system);
+        const primaryRole = nonSystemRole || data[0];
+        const roleName = (primaryRole?.roles as any)?.name;
+        const rolePerms = (primaryRole?.roles as any)?.permissions;
         setRole(roleName);
         setPermissions(Array.isArray(rolePerms) ? rolePerms : []);
+
+        // Check if any role is admin_dev
+        const hasAdminDevRole = roleNames.includes('admin_dev');
+        if (hasAdminDevRole) {
+          setIsAdminDev(true);
+        }
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
@@ -217,25 +232,52 @@ export function useCurrentUserRole() {
     }
   };
 
-  const isAdmin = role === 'admin' || role === 'tenant_admin';
-  const isManager = role === 'manager' || isAdmin;
-  const isWarehouse = role === 'warehouse' || isManager;
-  const isClientUser = role === 'client_user';
+  // Also check via RPC for admin_dev (handles system role with null tenant_id)
+  const checkAdminDev = async () => {
+    if (!profile?.id) return;
+
+    try {
+      const { data, error } = await (supabase as any).rpc('user_is_admin_dev', {
+        p_user_id: profile.id,
+      });
+
+      if (error) {
+        // Function might not exist yet
+        if (error.code === '42883') return;
+        throw error;
+      }
+
+      if (data === true) {
+        setIsAdminDev(true);
+      }
+    } catch (error) {
+      console.error('Error checking admin_dev status:', error);
+    }
+  };
+
+  // admin_dev has full admin access + more
+  const isAdmin = isAdminDev || role === 'admin' || role === 'tenant_admin' || roles.includes('admin') || roles.includes('tenant_admin');
+  const isManager = role === 'manager' || roles.includes('manager') || isAdmin;
+  const isWarehouse = role === 'warehouse' || roles.includes('warehouse') || isManager;
+  const isClientUser = role === 'client_user' || roles.includes('client_user');
 
   const hasPermission = (permission: string) => {
-    if (isAdmin) return true;
+    if (isAdminDev || isAdmin) return true;
     return permissions.includes(permission) || permissions.includes('*');
   };
 
-  const canAccessBilling = isAdmin || isManager;
-  const canAccessSettings = isAdmin;
-  const canManageUsers = isAdmin;
-  const canManageAccounts = isAdmin || isManager;
+  // admin_dev can access everything
+  const canAccessBilling = isAdminDev || isAdmin || isManager;
+  const canAccessSettings = isAdminDev || isAdmin;
+  const canManageUsers = isAdminDev || isAdmin;
+  const canManageAccounts = isAdminDev || isAdmin || isManager;
 
   return {
     role,
+    roles,
     loading,
     isAdmin,
+    isAdminDev,
     isManager,
     isWarehouse,
     isClientUser,

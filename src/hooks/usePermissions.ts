@@ -21,6 +21,7 @@ interface UsePermissionsReturn {
   hasAnyPermission: (permissions: string[]) => boolean;
   hasAllPermissions: (permissions: string[]) => boolean;
   isAdmin: boolean;
+  isAdminDev: boolean;
 }
 
 // ============================================
@@ -225,17 +226,51 @@ export function usePermissions(): UsePermissionsReturn {
     return perms.every(p => permissions.includes(p));
   }, [permissions]);
 
-  // Admin check using permissions, not role names
-  const isAdmin = permissions.includes(PERMISSIONS.WILDCARD);
+  // Check if user has admin_dev role (system role with highest privileges)
+  const isAdminDev = roles.some((role) => role.name === 'admin_dev');
+
+  // Admin check: wildcard permission OR admin_dev role OR admin/tenant_admin roles
+  const isAdmin = permissions.includes(PERMISSIONS.WILDCARD) ||
+                  isAdminDev ||
+                  roles.some((role) => ['admin', 'tenant_admin'].includes(role.name));
+
+  // Override hasPermission to grant all permissions to admin_dev
+  const hasPermissionWithAdminDev = useCallback((permission: string): boolean => {
+    if (isAdminDev) return true;
+    if (permissions.includes(PERMISSIONS.WILDCARD)) return true;
+    return permissions.includes(permission);
+  }, [permissions, isAdminDev]);
+
+  // Override hasAnyPermission for admin_dev
+  const hasAnyPermissionWithAdminDev = useCallback((perms: string[]): boolean => {
+    if (isAdminDev) return true;
+    if (permissions.includes(PERMISSIONS.WILDCARD)) return true;
+    return perms.some(p => permissions.includes(p));
+  }, [permissions, isAdminDev]);
+
+  // Override hasAllPermissions for admin_dev
+  const hasAllPermissionsWithAdminDev = useCallback((perms: string[]): boolean => {
+    if (isAdminDev) return true;
+    if (permissions.includes(PERMISSIONS.WILDCARD)) return true;
+    return perms.every(p => permissions.includes(p));
+  }, [permissions, isAdminDev]);
+
+  // Override hasRole to include admin_dev as having all roles for access purposes
+  const hasRoleWithAdminDev = useCallback((roleName: string): boolean => {
+    // admin_dev has all role access
+    if (isAdminDev) return true;
+    return roles.some((role) => role.name.toLowerCase() === roleName.toLowerCase());
+  }, [roles, isAdminDev]);
 
   return {
     roles,
     permissions,
     loading,
-    hasRole,
-    hasPermission,
-    hasAnyPermission,
-    hasAllPermissions,
+    hasRole: hasRoleWithAdminDev,
+    hasPermission: hasPermissionWithAdminDev,
+    hasAnyPermission: hasAnyPermissionWithAdminDev,
+    hasAllPermissions: hasAllPermissionsWithAdminDev,
     isAdmin,
+    isAdminDev,
   };
 }
