@@ -26,6 +26,15 @@ export interface OrganizationClaimSettings {
   // AI Analysis Settings
   enable_ai_analysis: boolean;
   auto_approval_threshold: number;
+  // SLA Settings
+  enable_sla_tracking: boolean;
+  sla_ack_minutes: number;
+  sla_initial_review_business_hours: number;
+  sla_manual_review_business_hours: number;
+  sla_auto_approved_payout_hours: number;
+  sla_shipping_damage_packet_business_hours: number;
+  sla_public_report_business_hours: number;
+  sla_missing_docs_pause: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -51,6 +60,15 @@ export interface OrganizationClaimSettingsUpdate {
   // AI Analysis Settings
   enable_ai_analysis?: boolean;
   auto_approval_threshold?: number;
+  // SLA Settings
+  enable_sla_tracking?: boolean;
+  sla_ack_minutes?: number;
+  sla_initial_review_business_hours?: number;
+  sla_manual_review_business_hours?: number;
+  sla_auto_approved_payout_hours?: number;
+  sla_shipping_damage_packet_business_hours?: number;
+  sla_public_report_business_hours?: number;
+  sla_missing_docs_pause?: boolean;
 }
 
 const DEFAULT_SETTINGS: Omit<OrganizationClaimSettings, 'id' | 'tenant_id' | 'created_at' | 'updated_at'> = {
@@ -74,6 +92,15 @@ const DEFAULT_SETTINGS: Omit<OrganizationClaimSettings, 'id' | 'tenant_id' | 'cr
   // AI Analysis Defaults
   enable_ai_analysis: true,
   auto_approval_threshold: 1000.00,
+  // SLA Defaults
+  enable_sla_tracking: true,
+  sla_ack_minutes: 0,
+  sla_initial_review_business_hours: 8,
+  sla_manual_review_business_hours: 16,
+  sla_auto_approved_payout_hours: 24,
+  sla_shipping_damage_packet_business_hours: 16,
+  sla_public_report_business_hours: 24,
+  sla_missing_docs_pause: true,
 };
 
 const DEFAULT_TERMS_TEMPLATE = `By accepting this settlement, you acknowledge and agree that:
