@@ -186,7 +186,18 @@ export function ShipmentCoverageDialog({
       const deductible = getDeductible();
       const premium = calculatePremium();
 
-      // Update shipment with coverage info
+      // STEP 1: Void/delete existing coverage billing events for this shipment
+      // This prevents double billing when changing coverage
+      if (profile?.tenant_id) {
+        await supabase
+          .from('billing_events')
+          .delete()
+          .eq('shipment_id', shipmentId)
+          .eq('event_type', 'coverage')
+          .eq('status', 'unbilled');
+      }
+
+      // STEP 2: Update shipment with coverage info
       const { error: shipmentError } = await (supabase as any)
         .from('shipments')
         .update({
@@ -203,7 +214,8 @@ export function ShipmentCoverageDialog({
 
       if (shipmentError) throw shipmentError;
 
-      // If apply to items is checked, update all items in the shipment
+      // STEP 3: If apply to items is checked, update all items in the shipment
+      // IMPORTANT: Set coverage_source='shipment' and do NOT overwrite declared_value
       if (applyToItems) {
         // Get all items linked to this shipment
         const { data: shipmentItems, error: itemsError } = await supabase
@@ -219,15 +231,13 @@ export function ShipmentCoverageDialog({
           .filter((id): id is string => id !== null);
 
         if (itemIds.length > 0) {
-          // Calculate per-item declared value (evenly distributed)
-          const perItemDV = itemIds.length > 0 ? dv / itemIds.length : 0;
-
-          // Update all items with coverage
+          // Update all items with coverage - set coverage_source='shipment'
+          // Do NOT overwrite declared_value - items keep their own declared values
           const { error: updateError } = await supabase
             .from('items')
             .update({
               coverage_type: coverageType,
-              declared_value: perItemDV || null,
+              coverage_source: 'shipment', // Attribution: covered via shipment
               coverage_rate: rate,
               coverage_deductible: deductible,
               coverage_selected_at: new Date().toISOString(),
@@ -239,8 +249,17 @@ export function ShipmentCoverageDialog({
         }
       }
 
-      // Create billing event for coverage if applicable
+      // STEP 4: Create ONE billing event for shipment-level coverage if applicable
       if (coverageType !== 'standard' && premium > 0 && profile?.tenant_id) {
+        // Get item count for metadata
+        const { data: shipmentItems } = await supabase
+          .from('shipment_items')
+          .select('item_id')
+          .eq('shipment_id', shipmentId)
+          .not('item_id', 'is', null);
+
+        const coveredItemCount = shipmentItems?.length || itemCount;
+
         await supabase.from('billing_events').insert([{
           tenant_id: profile.tenant_id,
           account_id: accountId,
@@ -255,10 +274,12 @@ export function ShipmentCoverageDialog({
           occurred_at: new Date().toISOString(),
           metadata: {
             coverage_type: coverageType,
+            coverage_source: 'shipment',
             rate: rate,
-            declared_value: dv,
+            declared_value_total: dv,
             shipment_number: shipmentNumber,
-            item_count: itemCount,
+            covered_item_count: coveredItemCount,
+            deductible: deductible,
             scope: applyToItems ? 'items' : 'shipment',
           },
           created_by: profile.id,

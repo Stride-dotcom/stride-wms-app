@@ -61,8 +61,17 @@ const COVERAGE_LABELS: Record<CoverageType, string> = {
   pending: 'Pending - Awaiting Selection',
 };
 
+// Coverage source type
+export type CoverageSource = 'item' | 'shipment' | null;
+
 // Coverage badge component for display in item lists
-export function CoverageBadge({ coverageType }: { coverageType: CoverageType | null | undefined }) {
+export function CoverageBadge({
+  coverageType,
+  coverageSource
+}: {
+  coverageType: CoverageType | null | undefined;
+  coverageSource?: CoverageSource;
+}) {
   if (!coverageType || coverageType === 'pending') {
     return (
       <Badge variant="outline" className="text-yellow-600 border-yellow-300 bg-yellow-50">
@@ -71,6 +80,10 @@ export function CoverageBadge({ coverageType }: { coverageType: CoverageType | n
       </Badge>
     );
   }
+
+  // Prefix for shipment-level coverage
+  const sourcePrefix = coverageSource === 'shipment' ? 'Via Shipment: ' : '';
+  const sourceIcon = coverageSource === 'shipment' ? 'local_shipping' : 'verified_user';
 
   if (coverageType === 'standard') {
     return (
@@ -84,8 +97,8 @@ export function CoverageBadge({ coverageType }: { coverageType: CoverageType | n
   if (coverageType === 'full_replacement_no_deductible') {
     return (
       <Badge className="bg-blue-600 hover:bg-blue-700">
-        <MaterialIcon name="verified_user" className="h-3 w-3 mr-1" />
-        Full (No Ded.)
+        <MaterialIcon name={sourceIcon} className="h-3 w-3 mr-1" />
+        {sourcePrefix}Full (No Ded.)
       </Badge>
     );
   }
@@ -93,8 +106,8 @@ export function CoverageBadge({ coverageType }: { coverageType: CoverageType | n
   if (coverageType === 'full_replacement_deductible') {
     return (
       <Badge className="bg-green-600 hover:bg-green-700">
-        <MaterialIcon name="verified_user" className="h-3 w-3 mr-1" />
-        Full ($300 Ded.)
+        <MaterialIcon name={sourceIcon} className="h-3 w-3 mr-1" />
+        {sourcePrefix}Full (w/ Ded.)
       </Badge>
     );
   }
