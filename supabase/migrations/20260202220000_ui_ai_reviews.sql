@@ -2,6 +2,51 @@
 -- Migration: Create ui_ai_reviews table for AI-based screenshot UI review
 -- =============================================================================
 
+-- =============================================================================
+-- 0. ENSURE HELPER FUNCTIONS EXIST (in case earlier migration not applied)
+-- =============================================================================
+
+-- Check if user has admin_dev system role
+CREATE OR REPLACE FUNCTION public.user_is_admin_dev(p_user_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.user_roles ur
+    JOIN public.roles r ON ur.role_id = r.id
+    WHERE ur.user_id = p_user_id
+      AND r.name = 'admin_dev'
+      AND r.is_system = true
+      AND ur.deleted_at IS NULL
+      AND r.deleted_at IS NULL
+  );
+END;
+$$;
+
+-- Check if current user has admin_dev system role
+CREATE OR REPLACE FUNCTION public.current_user_is_admin_dev()
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN public.user_is_admin_dev(auth.uid());
+END;
+$$;
+
+-- Grant execute permissions
+GRANT EXECUTE ON FUNCTION public.user_is_admin_dev(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.current_user_is_admin_dev() TO authenticated;
+
+-- =============================================================================
+-- 1. CREATE THE UI_AI_REVIEWS TABLE
+-- =============================================================================
+
 -- Create the ui_ai_reviews table
 CREATE TABLE IF NOT EXISTS ui_ai_reviews (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
