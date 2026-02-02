@@ -59,7 +59,7 @@ ALTER TABLE public.account_coverage_settings ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
 CREATE POLICY "tenant_isolation_account_coverage_settings" ON public.account_coverage_settings
-    FOR ALL USING (tenant_id = auth.jwt() ->> 'tenant_id'::text);
+    FOR ALL USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
 
 -- Add comments
 COMMENT ON TABLE public.account_coverage_settings IS 'Account-level overrides for valuation coverage rates';
