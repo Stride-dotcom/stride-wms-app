@@ -83,19 +83,19 @@ ALTER TABLE claim_ai_analysis ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view their tenant's claim analyses"
   ON claim_ai_analysis FOR SELECT
   USING (tenant_id IN (
-    SELECT tenant_id FROM profiles WHERE id = auth.uid()
+    SELECT tenant_id FROM users WHERE id = auth.uid()
   ));
 
 CREATE POLICY "Users can insert their tenant's claim analyses"
   ON claim_ai_analysis FOR INSERT
   WITH CHECK (tenant_id IN (
-    SELECT tenant_id FROM profiles WHERE id = auth.uid()
+    SELECT tenant_id FROM users WHERE id = auth.uid()
   ));
 
 CREATE POLICY "Users can update their tenant's claim analyses"
   ON claim_ai_analysis FOR UPDATE
   USING (tenant_id IN (
-    SELECT tenant_id FROM profiles WHERE id = auth.uid()
+    SELECT tenant_id FROM users WHERE id = auth.uid()
   ));
 
 -- 3) Add claim assistance settings to organization_claim_settings
