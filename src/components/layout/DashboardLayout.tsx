@@ -62,7 +62,7 @@ const navItems: NavItem[] = [
   { label: 'Claims', href: '/claims', icon: 'assignment_late', requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Accounts', href: '/accounts', icon: 'group', requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Settings', href: '/settings', icon: 'settings', requiredRole: ['admin', 'tenant_admin'] },
-  // Note: Diagnostics removed from sidebar - now accessible via QA Center or direct URL
+  // Note: Diagnostics and Bot QA removed from sidebar - now accessible via QA Center or direct URL
 ];
 
 interface DashboardLayoutProps {

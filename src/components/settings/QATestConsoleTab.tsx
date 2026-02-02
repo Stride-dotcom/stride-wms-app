@@ -41,6 +41,8 @@ import { useQATests, TEST_SUITES, QATestRun, QATestResult } from '@/hooks/useQAT
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { cn } from '@/lib/utils';
 
+type QAHook = ReturnType<typeof useQATests>;
+
 // =============================================================================
 // Status Badge Component
 // =============================================================================
@@ -73,8 +75,14 @@ function StatusBadge({ status }: { status: string }) {
 // Run Tests Tab
 // =============================================================================
 
-function RunTestsTab() {
-  const { runTests, runningTests, fetchRuns } = useQATests();
+function RunTestsTab({
+  qa,
+  onRunCompleted,
+}: {
+  qa: QAHook;
+  onRunCompleted?: (runId: string) => void;
+}) {
+  const { runTests, runningTests } = qa;
   const { warehouses } = useWarehouses();
   const [selectedSuites, setSelectedSuites] = useState<string[]>([]);
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>('');
@@ -122,6 +130,9 @@ function RunTestsTab() {
         `  Skip: ${result.summary.skip}`,
         `  Run ID: ${result.run_id}`
       ]);
+
+      // Jump straight to results and load the run so users don't have to hunt for it.
+      onRunCompleted?.(result.run_id);
     } else {
       setRunLog(prev => [...prev, `[${new Date().toISOString()}] Test run failed`]);
     }
@@ -144,12 +155,12 @@ function RunTestsTab() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Target Warehouse</Label>
-              <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
+              <Select value={selectedWarehouse || '__all__'} onValueChange={(v) => setSelectedWarehouse(v === '__all__' ? '' : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All warehouses (default)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All warehouses</SelectItem>
+                  <SelectItem value="__all__">All warehouses</SelectItem>
                   {warehouses.map(wh => (
                     <SelectItem key={wh.id} value={wh.id}>
                       {wh.name} ({wh.code})
@@ -288,7 +299,7 @@ function RunTestsTab() {
 // Error Results Tab
 // =============================================================================
 
-function ErrorResultsTab() {
+function ErrorResultsTab({ qa }: { qa: QAHook }) {
   const {
     runs,
     currentRun,
@@ -298,8 +309,8 @@ function ErrorResultsTab() {
     fetchRunResults,
     cleanupRun,
     generateFixPrompt,
-    clearCurrentRun
-  } = useQATests();
+    clearCurrentRun,
+  } = qa;
   const [selectedResult, setSelectedResult] = useState<QATestResult | null>(null);
   const [fixPromptDialogOpen, setFixPromptDialogOpen] = useState(false);
   const [fixPrompt, setFixPrompt] = useState('');
@@ -1597,6 +1608,12 @@ function UIVisualResultsTab() {
 
 export function QATestConsoleTab() {
   const [activeTab, setActiveTab] = useState('run');
+  const qa = useQATests();
+
+  const handleRunCompleted = async (runId: string) => {
+    setActiveTab('results');
+    await qa.fetchRunResults(runId);
+  };
 
   return (
     <div className="space-y-6" data-testid="settings-qa-console">
@@ -1627,11 +1644,11 @@ export function QATestConsoleTab() {
         </TabsList>
 
         <TabsContent value="run" className="mt-6">
-          <RunTestsTab />
+          <RunTestsTab qa={qa} onRunCompleted={handleRunCompleted} />
         </TabsContent>
 
         <TabsContent value="results" className="mt-6">
-          <ErrorResultsTab />
+          <ErrorResultsTab qa={qa} />
         </TabsContent>
 
         <TabsContent value="visual" className="mt-6">

@@ -120,13 +120,14 @@ export function CreateAdjustmentDialog({
   const preview = useMemo(() => {
     const numValue = parseFloat(adjustmentValue) || 0;
     return selectedServices.map((service) => {
-      let effectiveRate = service.rate;
+      const baseRate = service.rate ?? 0;
+      let effectiveRate = baseRate;
       switch (adjustmentType) {
         case 'fixed':
-          effectiveRate = service.rate + numValue;
+          effectiveRate = baseRate + numValue;
           break;
         case 'percentage':
-          effectiveRate = service.rate * (1 + numValue / 100);
+          effectiveRate = baseRate * (1 + numValue / 100);
           break;
         case 'override':
           effectiveRate = numValue;
@@ -134,7 +135,7 @@ export function CreateAdjustmentDialog({
       }
       return {
         service,
-        baseRate: service.rate,
+        baseRate,
         effectiveRate: Math.max(0, effectiveRate),
       };
     });
@@ -285,7 +286,7 @@ export function CreateAdjustmentDialog({
                                   )}
                                 </div>
                                 <span className="text-muted-foreground font-mono text-sm">
-                                  ${service.rate.toFixed(2)}
+                                  ${(service.rate ?? 0).toFixed(2)}
                                 </span>
                               </CommandItem>
                             );

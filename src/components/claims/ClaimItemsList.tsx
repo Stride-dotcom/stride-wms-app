@@ -35,6 +35,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useNavigate } from 'react-router-dom';
+import { AddClaimItemDialog } from './AddClaimItemDialog';
 
 interface ClaimItemsListProps {
   claimId: string;
@@ -42,15 +43,17 @@ interface ClaimItemsListProps {
   accountId?: string;
   sidemarkId?: string;
   onTotalsChange?: (totals: { requested: number; approved: number; deductible: number }) => void;
+  onItemsChange?: () => void;
 }
 
-export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, onTotalsChange }: ClaimItemsListProps) {
+export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, onTotalsChange, onItemsChange }: ClaimItemsListProps) {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { fetchClaimItems, updateClaimItem, removeClaimItem, calculateItemPayout, calculateClaimPayout } = useClaims();
   const { createWorkflowQuote } = useRepairQuoteWorkflow();
   const [items, setItems] = useState<ClaimItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     requested_amount: string;
@@ -241,34 +244,62 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
 
   if (items.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MaterialIcon name="inventory_2" size="md" />
-            Claim Items
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-4">
-            No items linked to this claim
-          </p>
-        </CardContent>
-      </Card>
+      <>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <MaterialIcon name="inventory_2" size="md" />
+              Claim Items
+            </CardTitle>
+            {canEdit && (
+              <Button size="sm" onClick={() => setAddItemDialogOpen(true)}>
+                <MaterialIcon name="add" size="sm" className="mr-1" />
+                Add Item
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No items linked to this claim. {canEdit && 'Click "Add Item" to add inventory or non-inventory items.'}
+            </p>
+          </CardContent>
+        </Card>
+        
+        <AddClaimItemDialog
+          open={addItemDialogOpen}
+          onOpenChange={setAddItemDialogOpen}
+          claimId={claimId}
+          accountId={accountId}
+          sidemarkId={sidemarkId}
+          onSuccess={() => {
+            loadItems();
+            onItemsChange?.();
+          }}
+        />
+      </>
     );
   }
 
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MaterialIcon name="inventory_2" size="md" />
-            Claim Items
-            <Badge variant="secondary">{items.length}</Badge>
-          </CardTitle>
-          <CardDescription>
-            Items included in this claim with coverage and valuation details
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <MaterialIcon name="inventory_2" size="md" />
+              Claim Items
+              <Badge variant="secondary">{items.length}</Badge>
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Items included in this claim with coverage and valuation details
+            </CardDescription>
+          </div>
+          {canEdit && (
+            <Button size="sm" onClick={() => setAddItemDialogOpen(true)}>
+              <MaterialIcon name="add" size="sm" className="mr-1" />
+              Add Item
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -277,7 +308,8 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
                 <TableRow>
                   <TableHead>Item</TableHead>
                   <TableHead>Coverage</TableHead>
-                  <TableHead className="text-right">Declared/Weight</TableHead>
+                  <TableHead>POP</TableHead>
+                  <TableHead className="text-right">Valuation</TableHead>
                   <TableHead className="text-right">Max Payout</TableHead>
                   <TableHead className="text-right">Requested</TableHead>
                   <TableHead className="text-right">Approved</TableHead>
@@ -313,39 +345,68 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
                         <Badge variant={getCoverageBadgeVariant(item.coverage_type)}>
                           {getCoverageLabel(item.coverage_type)}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {item.coverage_type === 'standard' ? (
-                          isEditing ? (
-                            <div className="flex items-center gap-1 justify-end">
-                              <Input
-                                type="number"
-                                step="0.1"
-                                placeholder="lbs"
-                                value={editForm.weight_lbs}
-                                onChange={(e) =>
-                                  setEditForm((f) => ({ ...f, weight_lbs: e.target.value }))
-                                }
-                                className="w-20 h-8 text-right"
-                              />
-                              <span className="text-xs text-muted-foreground">lbs</span>
-                            </div>
-                          ) : item.weight_lbs != null ? (
-                            <span className="flex items-center gap-1 justify-end">
-                              <MaterialIcon name="scale" className="!text-[12px] text-muted-foreground" />
-                              {item.weight_lbs} lbs
-                            </span>
-                          ) : (
-                            <span className="text-yellow-600 dark:text-yellow-400 flex items-center gap-1 justify-end text-xs">
-                              <MaterialIcon name="warning" className="!text-[12px]" />
-                              Need weight
-                            </span>
-                          )
-                        ) : item.declared_value != null ? (
-                          `$${item.declared_value.toLocaleString()}`
-                        ) : (
-                          '-'
+                        {item.coverage_source === 'shipment' && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            via Shipment
+                          </div>
                         )}
+                      </TableCell>
+                      {/* POP (Proof of Purchase) Column */}
+                      <TableCell>
+                        {item.pop_required ? (
+                          <div className="space-y-1">
+                            {item.pop_provided ? (
+                              <Badge className="bg-green-600">
+                                <MaterialIcon name="verified" className="h-3 w-3 mr-1" />
+                                Provided
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive">
+                                <MaterialIcon name="pending" className="h-3 w-3 mr-1" />
+                                Required
+                              </Badge>
+                            )}
+                            {item.pop_value != null && item.pop_provided && (
+                              <div className="text-xs text-muted-foreground">
+                                ${item.pop_value.toLocaleString()}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">N/A</span>
+                        )}
+                      </TableCell>
+                      {/* Valuation Column */}
+                      <TableCell className="text-right">
+                        <div className="space-y-1">
+                          <div className="text-xs uppercase text-muted-foreground">
+                            {item.valuation_method || 'standard'}
+                          </div>
+                          {item.valuation_basis != null ? (
+                            <div className="font-medium">${item.valuation_basis.toLocaleString()}</div>
+                          ) : item.coverage_type === 'standard' ? (
+                            item.weight_lbs != null ? (
+                              <span className="flex items-center gap-1 justify-end">
+                                <MaterialIcon name="scale" className="!text-[12px] text-muted-foreground" />
+                                {item.weight_lbs} lbs
+                              </span>
+                            ) : (
+                              <span className="text-yellow-600 dark:text-yellow-400 flex items-center gap-1 justify-end text-xs">
+                                <MaterialIcon name="warning" className="!text-[12px]" />
+                                Need weight
+                              </span>
+                            )
+                          ) : item.declared_value != null ? (
+                            <div>${item.declared_value.toLocaleString()}</div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                          {item.prorated_cap != null && item.coverage_source === 'shipment' && (
+                            <div className="text-xs text-muted-foreground">
+                              Cap: ${item.prorated_cap.toLocaleString()}
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
                         <span className={maxPayout.useRepairCost ? 'text-green-600' : ''}>
@@ -672,6 +733,19 @@ export function ClaimItemsList({ claimId, claimStatus, accountId, sidemarkId, on
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Item Dialog */}
+      <AddClaimItemDialog
+        open={addItemDialogOpen}
+        onOpenChange={setAddItemDialogOpen}
+        claimId={claimId}
+        accountId={accountId}
+        sidemarkId={sidemarkId}
+        onSuccess={() => {
+          loadItems();
+          onItemsChange?.();
+        }}
+      />
     </>
   );
 }

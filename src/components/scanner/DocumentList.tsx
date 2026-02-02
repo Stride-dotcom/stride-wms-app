@@ -3,7 +3,7 @@
  * Displays a list of documents for a given context
  */
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,8 @@ interface DocumentListProps {
   compact?: boolean;
   maxItems?: number;
   onViewDocument?: (document: Document) => void;
+  /** Change this value to trigger a refetch of documents */
+  refetchKey?: number;
 }
 
 export function DocumentList({
@@ -39,12 +41,20 @@ export function DocumentList({
   compact = false,
   maxItems,
   onViewDocument,
+  refetchKey,
 }: DocumentListProps) {
   const { documents, loading, error, getSignedUrl, deleteDocument, refetch } = useDocuments({
     contextType,
     contextId,
   });
   const { toast } = useToast();
+
+  // Refetch when refetchKey changes
+  useEffect(() => {
+    if (refetchKey !== undefined && refetchKey > 0) {
+      refetch();
+    }
+  }, [refetchKey, refetch]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [viewingDoc, setViewingDoc] = useState<Document | null>(null);
@@ -69,11 +79,24 @@ export function DocumentList({
       return;
     }
 
+    // Open a blank window immediately (in the trusted click context)
+    // This prevents popup blockers from blocking the window
+    const newWindow = window.open('about:blank', '_blank');
+
     setLoadingUrl(doc.id);
     try {
       const url = await getSignedUrl(doc.storage_key);
-      window.open(url, '_blank');
+      if (newWindow) {
+        newWindow.location.href = url;
+      } else {
+        // Fallback if popup was blocked - navigate in same tab
+        window.location.href = url;
+      }
     } catch (err) {
+      // Close the blank window if there was an error
+      if (newWindow) {
+        newWindow.close();
+      }
       toast({
         title: 'Error',
         description: 'Failed to open document',

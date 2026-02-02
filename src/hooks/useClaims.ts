@@ -12,7 +12,23 @@ type ClaimUpdate = Database['public']['Tables']['claims']['Update'];
 export type ClaimType = 'shipping_damage' | 'manufacture_defect' | 'handling_damage' | 'property_damage' | 'lost_item';
 export type ClaimStatus = 'initiated' | 'under_review' | 'pending_approval' | 'pending_acceptance' | 'accepted' | 'declined' | 'denied' | 'approved' | 'credited' | 'paid' | 'closed';
 export type CoverageType = 'standard' | 'full_replacement_deductible' | 'full_replacement_no_deductible' | 'pending' | null;
+export type CoverageSource = 'item' | 'shipment' | 'standard';
+export type ValuationMethod = 'proof' | 'prorated' | 'standard';
 export type PayoutMethod = 'credit' | 'check' | 'repair_vendor_pay';
+
+// Coverage snapshot stored at claim creation time
+export interface CoverageSnapshot {
+  coverage_source: CoverageSource;
+  coverage_type: CoverageType;
+  declared_value: number | null;
+  coverage_rate: number | null;
+  coverage_deductible: number | null;
+  shipment_total: number | null;
+  covered_item_count: number | null;
+  prorated_cap: number | null;
+  valuation_method: ValuationMethod;
+  valuation_basis: number | null;
+}
 
 // Claim item for multi-item claims
 export interface ClaimItem {
@@ -25,6 +41,7 @@ export interface ClaimItem {
   declared_value: number | null;
   weight_lbs: number | null;
   coverage_rate: number | null;
+  coverage_deductible: number | null; // Deductible from coverage snapshot
   requested_amount: number | null;
   calculated_amount: number | null;
   approved_amount: number | null;
@@ -42,6 +59,17 @@ export interface ClaimItem {
   item_notes: string | null;
   created_at: string;
   updated_at: string;
+  // POP (Proof of Purchase) fields
+  pop_required: boolean | null;
+  pop_provided: boolean | null;
+  pop_value: number | null;
+  pop_document_id: string | null;
+  // Valuation fields
+  valuation_method: ValuationMethod | null;
+  valuation_basis: number | null;
+  prorated_cap: number | null;
+  coverage_source: CoverageSource | null;
+  coverage_snapshot: CoverageSnapshot | null;
   // Joined data
   item?: {
     id: string;
@@ -251,26 +279,134 @@ export function useClaims(filters?: ClaimFilters) {
 
       if (error) throw error;
 
-      // Create claim_items for multi-item support
+      // Create claim_items for multi-item support with POP and proration logic
       if (itemIds.length > 0) {
-        // Fetch all item details for coverage snapshots
-        const { data: itemsData } = await supabase
+        // Fetch all item details including coverage_source
+        const { data: itemsData } = await (supabase as any)
           .from('items')
-          .select('id, coverage_type, declared_value, weight_lbs, coverage_rate')
+          .select('id, coverage_type, coverage_source, declared_value, weight_lbs, coverage_rate, coverage_deductible, shipment_items(shipment_id)')
           .in('id', itemIds);
 
-        const itemsMap = new Map(itemsData?.map(i => [i.id, i]) || []);
+        const itemsMap = new Map(itemsData?.map((i: any) => [i.id, i]) || []);
+
+        // Get shipment coverage data if any items are covered via shipment
+        const shipmentIds = new Set<string>();
+        for (const item of itemsData || []) {
+          if (item.coverage_source === 'shipment' && item.shipment_items?.length > 0) {
+            shipmentIds.add(item.shipment_items[0].shipment_id);
+          }
+        }
+
+        // Fetch shipment coverage data
+        const shipmentCoverageMap = new Map<string, { declared_value: number; covered_item_count: number }>();
+        if (shipmentIds.size > 0) {
+          const { data: shipmentsData } = await (supabase as any)
+            .from('shipments')
+            .select('id, coverage_declared_value')
+            .in('id', Array.from(shipmentIds));
+
+          for (const shipment of shipmentsData || []) {
+            // Count items covered via this shipment
+            const { count } = await supabase
+              .from('items')
+              .select('id', { count: 'exact', head: true })
+              .eq('coverage_source', 'shipment')
+              .in('id', (await supabase
+                .from('shipment_items')
+                .select('item_id')
+                .eq('shipment_id', shipment.id)
+                .not('item_id', 'is', null)).data?.map((si: any) => si.item_id) || []);
+
+            shipmentCoverageMap.set(shipment.id, {
+              declared_value: shipment.coverage_declared_value || 0,
+              covered_item_count: count || 1,
+            });
+          }
+        }
 
         const claimItemsInsert = itemIds.map(itemId => {
           const itemData = itemsMap.get(itemId);
+          if (!itemData) {
+            return {
+              tenant_id: profile.tenant_id,
+              claim_id: result.id,
+              item_id: itemId,
+            };
+          }
+
+          // Determine coverage source
+          const coverageSource: CoverageSource = itemData.coverage_source === 'shipment' ? 'shipment' :
+            (itemData.coverage_type && itemData.coverage_type !== 'standard' && itemData.coverage_type !== 'pending') ? 'item' : 'standard';
+
+          // POP is required for shipment coverage
+          const popRequired = coverageSource === 'shipment';
+
+          // Calculate proration for shipment coverage
+          let shipmentTotal: number | null = null;
+          let coveredItemCount: number | null = null;
+          let proratedCap: number | null = null;
+
+          if (coverageSource === 'shipment' && itemData.shipment_items?.length > 0) {
+            const shipmentId = itemData.shipment_items[0].shipment_id;
+            const shipmentCoverage = shipmentCoverageMap.get(shipmentId);
+            if (shipmentCoverage) {
+              shipmentTotal = shipmentCoverage.declared_value;
+              coveredItemCount = shipmentCoverage.covered_item_count;
+              proratedCap = coveredItemCount > 0 ? shipmentTotal / coveredItemCount : 0;
+            }
+          }
+
+          // Initial valuation method and basis
+          // Will be updated when POP is provided
+          let valuationMethod: ValuationMethod = 'standard';
+          let valuationBasis: number | null = null;
+
+          if (coverageSource === 'shipment') {
+            // Shipment coverage without POP uses proration
+            valuationMethod = 'prorated';
+            valuationBasis = proratedCap;
+          } else if (coverageSource === 'item') {
+            // Item coverage uses declared value
+            valuationMethod = 'proof';
+            valuationBasis = itemData.declared_value;
+          } else {
+            // Standard coverage uses weight-based calculation
+            valuationMethod = 'standard';
+            valuationBasis = (itemData.weight_lbs || 0) * (itemData.coverage_rate || 0.72);
+          }
+
+          // Create coverage snapshot
+          const coverageSnapshot: CoverageSnapshot = {
+            coverage_source: coverageSource,
+            coverage_type: itemData.coverage_type,
+            declared_value: itemData.declared_value,
+            coverage_rate: itemData.coverage_rate,
+            coverage_deductible: itemData.coverage_deductible,
+            shipment_total: shipmentTotal,
+            covered_item_count: coveredItemCount,
+            prorated_cap: proratedCap,
+            valuation_method: valuationMethod,
+            valuation_basis: valuationBasis,
+          };
+
           return {
             tenant_id: profile.tenant_id,
             claim_id: result.id,
             item_id: itemId,
-            coverage_type: itemData?.coverage_type || null,
-            declared_value: itemData?.declared_value || null,
-            weight_lbs: itemData?.weight_lbs || null,
-            coverage_rate: itemData?.coverage_rate || null,
+            coverage_type: itemData.coverage_type || null,
+            declared_value: itemData.declared_value || null,
+            weight_lbs: itemData.weight_lbs || null,
+            coverage_rate: itemData.coverage_rate || null,
+            coverage_deductible: itemData.coverage_deductible || null,
+            // POP fields
+            pop_required: popRequired,
+            pop_provided: false,
+            // Valuation fields
+            coverage_source: coverageSource,
+            valuation_method: valuationMethod,
+            valuation_basis: valuationBasis,
+            prorated_cap: proratedCap,
+            coverage_snapshot: coverageSnapshot,
           };
         });
 
@@ -742,7 +878,7 @@ export function useClaims(filters?: ClaimFilters) {
       // Get item coverage data
       const { data: itemData } = await supabase
         .from('items')
-        .select('coverage_type, declared_value, weight_lbs, coverage_rate')
+        .select('coverage_type, declared_value, weight_lbs, coverage_rate, coverage_deductible')
         .eq('id', itemId)
         .single();
 
@@ -756,6 +892,7 @@ export function useClaims(filters?: ClaimFilters) {
           declared_value: itemData?.declared_value || null,
           weight_lbs: itemData?.weight_lbs || null,
           coverage_rate: itemData?.coverage_rate || null,
+          coverage_deductible: itemData?.coverage_deductible || null,
           item_notes: notes || null,
         }])
         .select(`
@@ -824,51 +961,72 @@ export function useClaims(filters?: ClaimFilters) {
     }
   };
 
-  // Calculate payout based on coverage rules
-  // NOTE: Deductible is $300 PER CLAIM (not per item) - apply deductible once at claim level
+  // Calculate payout based on coverage rules and POP/proration
+  // NOTE: Deductible is PER CLAIM (not per item) - apply deductible once at claim level
   // Repair vs Replace: If item is repairable and has repair_cost, use the lower of repair vs replacement
+  // POP/Proration: Uses valuation_basis from snapshot if available
   const calculateItemPayout = (item: ClaimItem, applyDeductible: boolean = true): {
     maxPayout: number;
     deductible: number;
     useRepairCost: boolean;
+    valuationMethod: ValuationMethod | null;
+    valuationBasis: number | null;
+    proratedCap: number | null;
     repairVsReplace?: { repairCost: number; replacementCost: number };
   } => {
     const STANDARD_RATE = 0.72; // $0.72 per lb for standard coverage
-    const CLAIM_DEDUCTIBLE = 300; // $300 deductible per claim for full replacement with deductible
+    const DEFAULT_DEDUCTIBLE = 300; // Default deductible if not specified in coverage
 
-    // Calculate base replacement cost first
+    // Use valuation_basis from snapshot if available (respects POP and proration)
     let replacementCost = 0;
     let deductible = 0;
 
-    switch (item.coverage_type) {
-      case 'standard':
-        // $0.72 per lb, no deductible
-        const weight = item.weight_lbs || 0;
-        const rate = item.coverage_rate || STANDARD_RATE;
-        replacementCost = weight * rate;
-        deductible = 0;
-        break;
+    // If valuation_basis is set, use it (this respects POP/proration logic)
+    if (item.valuation_basis != null && item.valuation_basis > 0) {
+      replacementCost = item.valuation_basis;
 
-      case 'full_replacement_deductible':
-        // Declared value minus deductible (deductible applied once per claim)
-        const declaredValue = item.declared_value || 0;
-        deductible = applyDeductible ? CLAIM_DEDUCTIBLE : 0;
-        replacementCost = Math.max(0, declaredValue - deductible);
-        break;
+      // Apply deductible for full_replacement_deductible coverage
+      if (item.coverage_type === 'full_replacement_deductible') {
+        const itemDeductible = item.coverage_deductible ?? DEFAULT_DEDUCTIBLE;
+        deductible = applyDeductible ? itemDeductible : 0;
+      }
+    } else {
+      // Fallback to legacy calculation
+      switch (item.coverage_type) {
+        case 'standard':
+          // $0.72 per lb, no deductible
+          const weight = item.weight_lbs || 0;
+          const rate = item.coverage_rate || STANDARD_RATE;
+          replacementCost = weight * rate;
+          deductible = 0;
+          break;
 
-      case 'full_replacement_no_deductible':
-        // Full declared value
-        replacementCost = item.declared_value || 0;
-        deductible = 0;
-        break;
+        case 'full_replacement_deductible':
+          // Declared value minus deductible (deductible applied once per claim)
+          // Use coverage_deductible from item snapshot, fallback to default
+          const itemDeductible = item.coverage_deductible ?? DEFAULT_DEDUCTIBLE;
+          const declaredValue = item.declared_value || 0;
+          deductible = applyDeductible ? itemDeductible : 0;
+          replacementCost = Math.max(0, declaredValue - deductible);
+          break;
 
-      default:
-        // No coverage - no payout
-        return {
-          maxPayout: 0,
-          deductible: 0,
-          useRepairCost: false,
-        };
+        case 'full_replacement_no_deductible':
+          // Full declared value
+          replacementCost = item.declared_value || 0;
+          deductible = 0;
+          break;
+
+        default:
+          // No coverage - no payout
+          return {
+            maxPayout: 0,
+            deductible: 0,
+            useRepairCost: false,
+            valuationMethod: item.valuation_method,
+            valuationBasis: item.valuation_basis,
+            proratedCap: item.prorated_cap,
+          };
+      }
     }
 
     // Repair vs Replace logic: If item is repairable and has repair cost, use the lower amount
@@ -880,6 +1038,9 @@ export function useClaims(filters?: ClaimFilters) {
         maxPayout: useRepair ? repairCost : replacementCost,
         deductible,
         useRepairCost: useRepair,
+        valuationMethod: item.valuation_method,
+        valuationBasis: item.valuation_basis,
+        proratedCap: item.prorated_cap,
         repairVsReplace: {
           repairCost,
           replacementCost,
@@ -891,7 +1052,65 @@ export function useClaims(filters?: ClaimFilters) {
       maxPayout: replacementCost,
       deductible,
       useRepairCost: false,
+      valuationMethod: item.valuation_method,
+      valuationBasis: item.valuation_basis,
+      proratedCap: item.prorated_cap,
     };
+  };
+
+  // Update POP fields and recalculate valuation basis
+  const updateClaimItemPOP = async (
+    claimItemId: string,
+    popProvided: boolean,
+    popValue: number | null,
+    popDocumentId?: string | null
+  ): Promise<boolean> => {
+    try {
+      // Get current claim item to recalculate
+      const { data: claimItem, error: fetchError } = await supabase
+        .from('claim_items')
+        .select('*')
+        .eq('id', claimItemId)
+        .single();
+
+      if (fetchError || !claimItem) throw fetchError || new Error('Claim item not found');
+
+      // Recalculate valuation_basis based on POP
+      let valuationMethod: ValuationMethod = 'prorated';
+      let valuationBasis: number | null = claimItem.prorated_cap;
+
+      if (popProvided && popValue != null && popValue > 0) {
+        // POP provided - use proof method
+        valuationMethod = 'proof';
+        // Cap at prorated_cap or item declared_value
+        const cap = claimItem.declared_value || claimItem.prorated_cap || popValue;
+        valuationBasis = Math.min(popValue, cap);
+      }
+
+      const { error } = await supabase
+        .from('claim_items')
+        .update({
+          pop_provided: popProvided,
+          pop_value: popValue,
+          pop_document_id: popDocumentId || null,
+          valuation_method: valuationMethod,
+          valuation_basis: valuationBasis,
+        })
+        .eq('id', claimItemId);
+
+      if (error) throw error;
+
+      toast({ title: 'POP Updated', description: `Valuation method: ${valuationMethod}` });
+      return true;
+    } catch (error) {
+      console.error('Error updating POP:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update POP information',
+      });
+      return false;
+    }
   };
 
   // Calculate total claim payout with deductible applied once per claim
@@ -909,12 +1128,12 @@ export function useClaims(filters?: ClaimFilters) {
       repairVsReplace?: { repairCost: number; replacementCost: number };
     }>;
   } => {
-    const CLAIM_DEDUCTIBLE = 300;
+    const DEFAULT_DEDUCTIBLE = 300;
 
     let totalDeclaredValue = 0;
     let totalCalculatedPayout = 0;
     let repairSavings = 0;
-    let hasDeductibleCoverage = false;
+    let maxDeductible = 0; // Track highest deductible among items
     const itemBreakdown: Array<{
       itemId: string;
       payout: number;
@@ -935,9 +1154,10 @@ export function useClaims(filters?: ClaimFilters) {
         repairSavings += result.repairVsReplace.replacementCost - result.repairVsReplace.repairCost;
       }
 
-      // Track if any item has deductible coverage
+      // Track highest deductible among items with deductible coverage
       if (item.coverage_type === 'full_replacement_deductible') {
-        hasDeductibleCoverage = true;
+        const itemDeductible = item.coverage_deductible ?? DEFAULT_DEDUCTIBLE;
+        maxDeductible = Math.max(maxDeductible, itemDeductible);
       }
 
       itemBreakdown.push({
@@ -949,8 +1169,8 @@ export function useClaims(filters?: ClaimFilters) {
       });
     }
 
-    // Apply deductible once per claim if any item has deductible coverage
-    const deductibleApplied = hasDeductibleCoverage ? CLAIM_DEDUCTIBLE : 0;
+    // Apply deductible once per claim (use highest deductible among items)
+    const deductibleApplied = maxDeductible;
     const netPayout = Math.max(0, totalCalculatedPayout - deductibleApplied);
 
     return {
@@ -989,6 +1209,7 @@ export function useClaims(filters?: ClaimFilters) {
     fetchClaimItems,
     addClaimItem,
     updateClaimItem,
+    updateClaimItemPOP,
     removeClaimItem,
     calculateItemPayout,
     calculateClaimPayout,

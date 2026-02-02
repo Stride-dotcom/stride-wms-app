@@ -68,6 +68,80 @@ export type Database = {
           },
         ]
       }
+      account_coverage_settings: {
+        Row: {
+          account_id: string
+          coverage_deductible_amount: number | null
+          coverage_rate_full_deductible: number | null
+          coverage_rate_full_no_deductible: number | null
+          created_at: string | null
+          created_by: string | null
+          default_coverage_type: string | null
+          id: string
+          override_enabled: boolean | null
+          tenant_id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          coverage_deductible_amount?: number | null
+          coverage_rate_full_deductible?: number | null
+          coverage_rate_full_no_deductible?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          default_coverage_type?: string | null
+          id?: string
+          override_enabled?: boolean | null
+          tenant_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          coverage_deductible_amount?: number | null
+          coverage_rate_full_deductible?: number | null
+          coverage_rate_full_no_deductible?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          default_coverage_type?: string | null
+          id?: string
+          override_enabled?: boolean | null
+          tenant_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_coverage_settings_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_coverage_settings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_coverage_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_coverage_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_credits: {
         Row: {
           account_id: string
@@ -1277,6 +1351,7 @@ export type Database = {
           actor_type: string
           after_json: Json | null
           before_json: Json | null
+          changed_at: string
           changes_json: Json | null
           created_at: string
           entity_id: string
@@ -1292,6 +1367,7 @@ export type Database = {
           actor_type: string
           after_json?: Json | null
           before_json?: Json | null
+          changed_at?: string
           changes_json?: Json | null
           created_at?: string
           entity_id: string
@@ -1307,6 +1383,7 @@ export type Database = {
           actor_type?: string
           after_json?: Json | null
           before_json?: Json | null
+          changed_at?: string
           changes_json?: Json | null
           created_at?: string
           entity_id?: string
@@ -1470,8 +1547,8 @@ export type Database = {
           status: string
           task_id: string | null
           tenant_id: string
-          total_amount: number
-          unit_rate: number
+          total_amount: number | null
+          unit_rate: number | null
         }
         Insert: {
           account_id?: string | null
@@ -1500,8 +1577,8 @@ export type Database = {
           status?: string
           task_id?: string | null
           tenant_id: string
-          total_amount: number
-          unit_rate: number
+          total_amount?: number | null
+          unit_rate?: number | null
         }
         Update: {
           account_id?: string | null
@@ -1530,8 +1607,8 @@ export type Database = {
           status?: string
           task_id?: string | null
           tenant_id?: string
-          total_amount?: number
-          unit_rate?: number
+          total_amount?: number | null
+          unit_rate?: number | null
         }
         Relationships: [
           {
@@ -2273,6 +2350,197 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "classes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_chat_repair_quote_drafts: {
+        Row: {
+          account_id: string
+          confirmed_at: string | null
+          created_at: string | null
+          created_by: string
+          expires_at: string | null
+          id: string
+          item_ids: string[]
+          notes: string | null
+          status: string | null
+          subaccount_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          account_id: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          item_ids: string[]
+          notes?: string | null
+          status?: string | null
+          subaccount_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          account_id?: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          item_ids?: string[]
+          notes?: string | null
+          status?: string | null
+          subaccount_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_chat_repair_quote_drafts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_chat_repair_quote_drafts_subaccount_id_fkey"
+            columns: ["subaccount_id"]
+            isOneToOne: false
+            referencedRelation: "sidemarks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_chat_repair_quote_drafts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_chat_sessions: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          last_route: string | null
+          last_selected_items: string[] | null
+          pending_disambiguation: Json | null
+          pending_draft: Json | null
+          tenant_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          last_route?: string | null
+          last_selected_items?: string[] | null
+          pending_disambiguation?: Json | null
+          pending_draft?: Json | null
+          tenant_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          last_route?: string | null
+          last_selected_items?: string[] | null
+          pending_disambiguation?: Json | null
+          pending_draft?: Json | null
+          tenant_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_chat_sessions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_chat_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_chat_will_call_drafts: {
+        Row: {
+          account_id: string
+          confirmed_at: string | null
+          created_at: string | null
+          created_by: string
+          expires_at: string | null
+          id: string
+          item_ids: string[]
+          notes: string | null
+          release_type: string
+          released_to_name: string
+          status: string | null
+          subaccount_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          account_id: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          item_ids: string[]
+          notes?: string | null
+          release_type: string
+          released_to_name: string
+          status?: string | null
+          subaccount_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          account_id?: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          item_ids?: string[]
+          notes?: string | null
+          release_type?: string
+          released_to_name?: string
+          status?: string | null
+          subaccount_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_chat_will_call_drafts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_chat_will_call_drafts_subaccount_id_fkey"
+            columns: ["subaccount_id"]
+            isOneToOne: false
+            referencedRelation: "sidemarks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_chat_will_call_drafts_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -5708,6 +5976,13 @@ export type Database = {
           approval_required_above_threshold: boolean | null
           approval_threshold_amount: number | null
           auto_create_repair_task: boolean | null
+          coverage_allow_item: boolean | null
+          coverage_allow_shipment: boolean | null
+          coverage_deductible_amount: number | null
+          coverage_default_type: string | null
+          coverage_enabled: boolean | null
+          coverage_rate_full_deductible: number | null
+          coverage_rate_full_no_deductible: number | null
           created_at: string | null
           default_payout_method: string | null
           id: string
@@ -5720,6 +5995,13 @@ export type Database = {
           approval_required_above_threshold?: boolean | null
           approval_threshold_amount?: number | null
           auto_create_repair_task?: boolean | null
+          coverage_allow_item?: boolean | null
+          coverage_allow_shipment?: boolean | null
+          coverage_deductible_amount?: number | null
+          coverage_default_type?: string | null
+          coverage_enabled?: boolean | null
+          coverage_rate_full_deductible?: number | null
+          coverage_rate_full_no_deductible?: number | null
           created_at?: string | null
           default_payout_method?: string | null
           id?: string
@@ -5732,6 +6014,13 @@ export type Database = {
           approval_required_above_threshold?: boolean | null
           approval_threshold_amount?: number | null
           auto_create_repair_task?: boolean | null
+          coverage_allow_item?: boolean | null
+          coverage_allow_shipment?: boolean | null
+          coverage_deductible_amount?: number | null
+          coverage_default_type?: string | null
+          coverage_enabled?: boolean | null
+          coverage_rate_full_deductible?: number | null
+          coverage_rate_full_no_deductible?: number | null
           created_at?: string | null
           default_payout_method?: string | null
           id?: string
@@ -6141,6 +6430,151 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qa_test_results: {
+        Row: {
+          created_at: string
+          details: Json | null
+          entity_ids: Json | null
+          error_message: string | null
+          error_stack: string | null
+          finished_at: string | null
+          id: string
+          logs: string | null
+          run_id: string
+          started_at: string | null
+          status: string
+          suite: string
+          tenant_id: string
+          test_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          entity_ids?: Json | null
+          error_message?: string | null
+          error_stack?: string | null
+          finished_at?: string | null
+          id?: string
+          logs?: string | null
+          run_id: string
+          started_at?: string | null
+          status?: string
+          suite: string
+          tenant_id: string
+          test_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          entity_ids?: Json | null
+          error_message?: string | null
+          error_stack?: string | null
+          finished_at?: string | null
+          id?: string
+          logs?: string | null
+          run_id?: string
+          started_at?: string | null
+          status?: string
+          suite?: string
+          tenant_id?: string
+          test_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_test_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "qa_test_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qa_test_results_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qa_test_runs: {
+        Row: {
+          created_at: string
+          executed_by: string
+          fail_count: number
+          finished_at: string | null
+          id: string
+          metadata: Json | null
+          mode: string
+          pass_count: number
+          skip_count: number
+          started_at: string
+          status: string
+          suites_requested: string[]
+          tenant_id: string
+          updated_at: string
+          warehouse_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          executed_by: string
+          fail_count?: number
+          finished_at?: string | null
+          id?: string
+          metadata?: Json | null
+          mode?: string
+          pass_count?: number
+          skip_count?: number
+          started_at?: string
+          status?: string
+          suites_requested?: string[]
+          tenant_id: string
+          updated_at?: string
+          warehouse_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          executed_by?: string
+          fail_count?: number
+          finished_at?: string | null
+          id?: string
+          metadata?: Json | null
+          mode?: string
+          pass_count?: number
+          skip_count?: number
+          started_at?: string
+          status?: string
+          suites_requested?: string[]
+          tenant_id?: string
+          updated_at?: string
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_test_runs_executed_by_fkey"
+            columns: ["executed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qa_test_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qa_test_runs_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
         ]
@@ -7159,14 +7593,18 @@ export type Database = {
           client_response: string | null
           created_at: string
           created_by: string | null
+          customer_price: number | null
           customer_total: number | null
           expires_at: string | null
           flat_rate: number | null
           id: string
+          internal_cost: number | null
           item_id: string
           last_sent_at: string | null
           markup_applied: number | null
           notes: string | null
+          office_notes: string | null
+          pricing_locked: boolean | null
           sidemark_id: string | null
           source_task_id: string | null
           status:
@@ -7195,14 +7633,18 @@ export type Database = {
           client_response?: string | null
           created_at?: string
           created_by?: string | null
+          customer_price?: number | null
           customer_total?: number | null
           expires_at?: string | null
           flat_rate?: number | null
           id?: string
+          internal_cost?: number | null
           item_id: string
           last_sent_at?: string | null
           markup_applied?: number | null
           notes?: string | null
+          office_notes?: string | null
+          pricing_locked?: boolean | null
           sidemark_id?: string | null
           source_task_id?: string | null
           status?:
@@ -7231,14 +7673,18 @@ export type Database = {
           client_response?: string | null
           created_at?: string
           created_by?: string | null
+          customer_price?: number | null
           customer_total?: number | null
           expires_at?: string | null
           flat_rate?: number | null
           id?: string
+          internal_cost?: number | null
           item_id?: string
           last_sent_at?: string | null
           markup_applied?: number | null
           notes?: string | null
+          office_notes?: string | null
+          pricing_locked?: boolean | null
           sidemark_id?: string | null
           source_task_id?: string | null
           status?:
@@ -7793,6 +8239,7 @@ export type Database = {
           expected_vendor: string | null
           flags: string[] | null
           id: string
+          is_staged: boolean | null
           item_id: string | null
           item_type_id: string | null
           notes: string | null
@@ -7813,6 +8260,7 @@ export type Database = {
           expected_vendor?: string | null
           flags?: string[] | null
           id?: string
+          is_staged?: boolean | null
           item_id?: string | null
           item_type_id?: string | null
           notes?: string | null
@@ -7833,6 +8281,7 @@ export type Database = {
           expected_vendor?: string | null
           flags?: string[] | null
           id?: string
+          is_staged?: boolean | null
           item_id?: string | null
           item_type_id?: string | null
           notes?: string | null
@@ -7972,6 +8421,14 @@ export type Database = {
           carrier: string | null
           completed_at: string | null
           completed_by: string | null
+          coverage_declared_value: number | null
+          coverage_deductible: number | null
+          coverage_premium: number | null
+          coverage_rate: number | null
+          coverage_scope: string | null
+          coverage_selected_at: string | null
+          coverage_selected_by: string | null
+          coverage_type: string | null
           created_at: string
           created_by: string | null
           customer_authorized: boolean | null
@@ -8023,6 +8480,14 @@ export type Database = {
           carrier?: string | null
           completed_at?: string | null
           completed_by?: string | null
+          coverage_declared_value?: number | null
+          coverage_deductible?: number | null
+          coverage_premium?: number | null
+          coverage_rate?: number | null
+          coverage_scope?: string | null
+          coverage_selected_at?: string | null
+          coverage_selected_by?: string | null
+          coverage_type?: string | null
           created_at?: string
           created_by?: string | null
           customer_authorized?: boolean | null
@@ -8074,6 +8539,14 @@ export type Database = {
           carrier?: string | null
           completed_at?: string | null
           completed_by?: string | null
+          coverage_declared_value?: number | null
+          coverage_deductible?: number | null
+          coverage_premium?: number | null
+          coverage_rate?: number | null
+          coverage_scope?: string | null
+          coverage_selected_at?: string | null
+          coverage_selected_by?: string | null
+          coverage_type?: string | null
           created_at?: string
           created_by?: string | null
           customer_authorized?: boolean | null
@@ -8130,6 +8603,13 @@ export type Database = {
           {
             foreignKeyName: "shipments_completed_by_fkey"
             columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_coverage_selected_by_fkey"
+            columns: ["coverage_selected_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -9314,6 +9794,7 @@ export type Database = {
           is_system: boolean | null
           name: string
           requires_items: boolean | null
+          requires_manual_rate: boolean | null
           sort_order: number | null
           tenant_id: string
           updated_at: string | null
@@ -9332,6 +9813,7 @@ export type Database = {
           is_system?: boolean | null
           name: string
           requires_items?: boolean | null
+          requires_manual_rate?: boolean | null
           sort_order?: number | null
           tenant_id: string
           updated_at?: string | null
@@ -9350,6 +9832,7 @@ export type Database = {
           is_system?: boolean | null
           name?: string
           requires_items?: boolean | null
+          requires_manual_rate?: boolean | null
           sort_order?: number | null
           tenant_id?: string
           updated_at?: string | null
@@ -11917,6 +12400,8 @@ export type Database = {
         Returns: Database["public"]["Enums"]["canonical_task_type"]
       }
       check_past_due_tasks: { Args: never; Returns: undefined }
+      cleanup_expired_client_chat_data: { Args: never; Returns: undefined }
+      cleanup_qa_test_data: { Args: { p_run_id: string }; Returns: Json }
       complete_manifest: {
         Args: { p_manifest_id: string; p_user_id: string }
         Returns: {
@@ -12012,6 +12497,15 @@ export type Database = {
       get_client_sidemark_mode: {
         Args: { p_account_id: string }
         Returns: string
+      }
+      get_coverage_rates: {
+        Args: { p_account_id?: string; p_tenant_id: string }
+        Returns: {
+          deductible_amount: number
+          rate_full_deductible: number
+          rate_full_no_deductible: number
+          source: string
+        }[]
       }
       get_current_user_tenant_id: { Args: never; Returns: string }
       get_or_create_receiving_dock: {

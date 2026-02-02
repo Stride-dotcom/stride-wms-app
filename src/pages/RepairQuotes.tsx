@@ -47,7 +47,6 @@ import {
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { RepairQuoteDetailDialog } from '@/components/repair-quotes/RepairQuoteDetailDialog';
 
 export default function RepairQuotes() {
   const navigate = useNavigate();
@@ -70,8 +69,6 @@ export default function RepairQuotes() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedQuote, setSelectedQuote] = useState<RepairQuoteWorkflow | null>(null);
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
   // Filter quotes
   const filteredQuotes = quotes.filter(quote => {
@@ -97,8 +94,7 @@ export default function RepairQuotes() {
   );
 
   const handleViewQuote = (quote: RepairQuoteWorkflow) => {
-    setSelectedQuote(quote);
-    setDetailDialogOpen(true);
+    navigate(`/repair-quotes/${quote.id}`);
   };
 
   const handleSendToTech = async (quote: RepairQuoteWorkflow) => {
@@ -553,14 +549,6 @@ export default function RepairQuotes() {
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Quote Detail Dialog */}
-      <RepairQuoteDetailDialog
-        open={detailDialogOpen}
-        onOpenChange={setDetailDialogOpen}
-        quote={selectedQuote}
-        onRefresh={refetch}
-      />
     </DashboardLayout>
   );
 }

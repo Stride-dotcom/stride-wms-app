@@ -20,6 +20,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
 import { BillingCalculator } from '@/components/billing/BillingCalculator';
+import { ShipmentCoverageDialog } from '@/components/shipments/ShipmentCoverageDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,6 +35,7 @@ import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDia
 import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
 import { ShipmentHistoryTab } from '@/components/shipments/ShipmentHistoryTab';
+import { ShipmentCoverageDialog } from '@/components/shipments/ShipmentCoverageDialog';
 import { QRScanner } from '@/components/scan/QRScanner';
 import { useLocations } from '@/hooks/useLocations';
 import { hapticError, hapticSuccess } from '@/lib/haptics';
@@ -67,6 +69,8 @@ interface ShipmentItem {
     sidemark: string | null;
     room: string | null;
     class_id: string | null;
+    declared_value: number | null;
+    coverage_type: string | null;
     current_location?: { code: string } | null;
     account?: { account_name: string } | null;
     class?: { id: string; code: string; name: string } | null;
@@ -163,6 +167,7 @@ export default function ShipmentDetail() {
   const [editNotes, setEditNotes] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
+  const [coverageDialogOpen, setCoverageDialogOpen] = useState(false);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
@@ -174,6 +179,7 @@ export default function ShipmentDetail() {
   const [completingOutbound, setCompletingOutbound] = useState(false);
   const [classes, setClasses] = useState<{ id: string; code: string; name: string }[]>([]);
   const [billingRefreshKey, setBillingRefreshKey] = useState(0);
+  const [documentRefreshKey, setDocumentRefreshKey] = useState(0);
   const [pullSessionActive, setPullSessionActive] = useState(false);
   const [releaseSessionActive, setReleaseSessionActive] = useState(false);
   const [processingScan, setProcessingScan] = useState(false);
@@ -186,6 +192,10 @@ export default function ShipmentDetail() {
   const [sopValidationOpen, setSopValidationOpen] = useState(false);
   const [sopBlockers, setSopBlockers] = useState<SOPBlocker[]>([]);
   const [submittingPartialRelease, setSubmittingPartialRelease] = useState(false);
+  const [accountSettings, setAccountSettings] = useState<{
+    default_shipment_notes: string | null;
+    highlight_shipment_notes: boolean;
+  } | null>(null);
 
   // Receiving session hook
   const {
@@ -326,6 +336,8 @@ export default function ShipmentDetail() {
             sidemark,
             room,
             class_id,
+            declared_value,
+            coverage_type,
             current_location:locations(code),
             account:accounts(account_name)
           )
@@ -353,6 +365,22 @@ export default function ShipmentDetail() {
       setShipment(shipmentData as unknown as Shipment);
       setItems(mappedItems as unknown as ShipmentItem[]);
       setBillingRefreshKey(prev => prev + 1); // Trigger billing recalculation
+
+      // Fetch account settings for shipment notes
+      if (shipmentData.account_id) {
+        const { data: accSettings } = await supabase
+          .from('accounts')
+          .select('default_shipment_notes, highlight_shipment_notes')
+          .eq('id', shipmentData.account_id)
+          .single();
+
+        if (accSettings) {
+          setAccountSettings({
+            default_shipment_notes: accSettings.default_shipment_notes,
+            highlight_shipment_notes: accSettings.highlight_shipment_notes || false,
+          });
+        }
+      }
 
       // Initialize receiving photos/documents from shipment
       if (shipmentData.receiving_photos) {
@@ -1245,6 +1273,14 @@ export default function ShipmentDetail() {
               <span className="sm:hidden">Charge</span>
             </Button>
           )}
+          {/* Add Coverage button - only for inbound shipments with received items */}
+          {shipment.account_id && canSeeBilling && isInbound && items.some(i => i.item_id) && (
+            <Button variant="outline" size="sm" onClick={() => setCoverageDialogOpen(true)}>
+              <MaterialIcon name="verified_user" size="sm" className="mr-1 sm:mr-2 text-blue-600" />
+              <span className="hidden sm:inline">Add Coverage</span>
+              <span className="sm:hidden">Coverage</span>
+            </Button>
+          )}
           {/* Reassign Account */}
           {shipment.account_id && (
             <Button variant="outline" size="sm" onClick={() => setShowReassignDialog(true)}>
@@ -1533,6 +1569,21 @@ export default function ShipmentDetail() {
                 Cancel
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Account Default Shipment Notes - Full width, only show if highlight enabled AND notes not blank */}
+      {accountSettings?.highlight_shipment_notes && accountSettings?.default_shipment_notes?.trim() && (
+        <Card className="mb-6 bg-orange-50 dark:bg-orange-900/20 border-4 border-orange-500 dark:border-orange-400">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <span className="text-orange-600 dark:text-orange-400">⚠️</span>
+              Account Notes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm whitespace-pre-wrap font-bold text-orange-700 dark:text-orange-300">{accountSettings.default_shipment_notes}</p>
           </CardContent>
         </Card>
       )}
@@ -1843,7 +1894,7 @@ export default function ShipmentDetail() {
             <ScanDocumentButton
               context={{ type: 'shipment', shipmentId: shipment.id }}
               onSuccess={() => {
-                // Documents will auto-refresh via the DocumentList
+                setDocumentRefreshKey(prev => prev + 1);
               }}
               label="Scan"
               size="sm"
@@ -1852,7 +1903,7 @@ export default function ShipmentDetail() {
             <DocumentUploadButton
               context={{ type: 'shipment', shipmentId: shipment.id }}
               onSuccess={() => {
-                // Documents will auto-refresh via the DocumentList
+                setDocumentRefreshKey(prev => prev + 1);
               }}
               size="sm"
             />
@@ -1862,6 +1913,7 @@ export default function ShipmentDetail() {
           <DocumentList
             contextType="shipment"
             contextId={shipment.id}
+            refetchKey={documentRefreshKey}
           />
         </CardContent>
       </Card>
@@ -1969,6 +2021,22 @@ export default function ShipmentDetail() {
           shipmentId={shipment.id}
           onSuccess={() => {
             // Refresh both shipment data and billing calculator
+            fetchShipment();
+            setBillingRefreshKey(prev => prev + 1);
+          }}
+        />
+      )}
+
+      {/* Shipment Coverage Dialog - Manager/Admin Only */}
+      {shipment.account_id && canSeeBilling && (
+        <ShipmentCoverageDialog
+          open={coverageDialogOpen}
+          onOpenChange={setCoverageDialogOpen}
+          shipmentId={shipment.id}
+          accountId={shipment.account_id}
+          shipmentNumber={shipment.shipment_number}
+          itemCount={items.length}
+          onSuccess={() => {
             fetchShipment();
             setBillingRefreshKey(prev => prev + 1);
           }}

@@ -38,8 +38,9 @@ export async function getTaskTypeServiceCode(
     }
   }
 
-  // Fall back to hardcoded defaults
-  return TASK_TYPE_TO_SERVICE_CODE[taskTypeName] || 'INSP';
+  // Fall back to hardcoded defaults using normalized lookup
+  const { getServiceCodeForTaskType } = await import('./billingCalculation');
+  return getServiceCodeForTaskType(taskTypeName);
 }
 
 /**

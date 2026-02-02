@@ -542,9 +542,39 @@ export default function ItemDetail() {
               <MaterialIcon name="arrow_back" size="md" />
             </Button>
             <div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-3xl font-bold tracking-tight">{item.item_code}</h1>
                 {getStatusBadge(item.status)}
+                {/* Repair Status - bold colored text */}
+                {item.repair_status === 'completed' && (
+                  <span className="font-bold text-green-600 dark:text-green-400">REPAIRED</span>
+                )}
+                {item.repair_status === 'in_progress' && (
+                  <span className="font-bold text-orange-500 dark:text-orange-400">REPAIR IN PROGRESS</span>
+                )}
+                {item.needs_repair && !item.repair_status && (
+                  <span className="font-bold text-red-600 dark:text-red-400">NEEDS REPAIR</span>
+                )}
+                {item.repair_status === 'pending' && (
+                  <span className="font-bold text-red-600 dark:text-red-400">NEEDS REPAIR</span>
+                )}
+                {/* Coverage Badge */}
+                {item.coverage_type && item.coverage_type !== 'standard' && item.coverage_type !== 'pending' && (
+                  <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+                    <MaterialIcon name="verified_user" size="sm" className="mr-1" />
+                    {item.coverage_type === 'full_replacement_no_deductible' || item.coverage_type === 'full_no_deductible'
+                      ? 'Full Coverage'
+                      : item.coverage_type === 'full_replacement_deductible' || item.coverage_type === 'full_deductible'
+                      ? `Full Coverage ($${item.declared_value?.toLocaleString() || '0'})`
+                      : 'Covered'}
+                  </Badge>
+                )}
+                {item.coverage_type === 'pending' && (
+                  <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800">
+                    <MaterialIcon name="schedule" size="sm" className="mr-1" />
+                    Coverage Pending
+                  </Badge>
+                )}
               </div>
               <p className="text-muted-foreground">
                 {item.description || 'No description'}
@@ -688,23 +718,17 @@ export default function ItemDetail() {
           </TabsList>
 
           <TabsContent value="details" className="space-y-6 mt-6">
-            {/* Account Default Notes - Full width above details */}
-            {accountSettings?.default_item_notes && (
-              <Card className={cn(
-                accountSettings.highlight_item_notes
-                  ? "bg-orange-50 dark:bg-orange-900/20 border-4 border-orange-500 dark:border-orange-400"
-                  : "bg-card"
-              )}>
+            {/* Account Default Notes - Full width above details, only show if highlight enabled AND notes not blank */}
+            {accountSettings?.highlight_item_notes && accountSettings?.default_item_notes?.trim() && (
+              <Card className="bg-orange-50 dark:bg-orange-900/20 border-4 border-orange-500 dark:border-orange-400">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    {accountSettings.highlight_item_notes && (
-                      <span className="text-orange-600 dark:text-orange-400">⚠️</span>
-                    )}
+                    <span className="text-orange-600 dark:text-orange-400">⚠️</span>
                     Account Notes
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm whitespace-pre-wrap">{accountSettings.default_item_notes}</p>
+                  <p className="text-sm whitespace-pre-wrap font-bold text-orange-700 dark:text-orange-300">{accountSettings.default_item_notes}</p>
                 </CardContent>
               </Card>
             )}

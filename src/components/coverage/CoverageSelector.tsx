@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -26,7 +27,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCurrentUserRole } from '@/hooks/useRoles';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
-export type CoverageType = 'standard' | 'full_deductible' | 'full_no_deductible' | 'pending';
+// Canonical coverage types (matching database constraint)
+export type CoverageType = 'standard' | 'full_replacement_no_deductible' | 'full_replacement_deductible' | 'pending';
 
 interface CoverageSelectorProps {
   itemId: string;
@@ -42,26 +44,76 @@ interface CoverageSelectorProps {
   onUpdate?: (coverageType: CoverageType, declaredValue: number | null) => void;
 }
 
-const COVERAGE_RATES = {
+// Default rates - will be overridden by tenant/account settings
+const DEFAULT_RATES = {
   standard: 0,
-  full_deductible: 0.015, // 1.5% of declared value
-  full_no_deductible: 0.0188, // 1.88% of declared value
+  full_replacement_no_deductible: 0.0188, // 1.88% of declared value
+  full_replacement_deductible: 0.0142, // 1.42% of declared value
   pending: 0,
 };
 
-const COVERAGE_DEDUCTIBLES = {
-  standard: 0,
-  full_deductible: 300,
-  full_no_deductible: 0,
-  pending: 0,
-};
+const DEFAULT_DEDUCTIBLE = 300;
 
 const COVERAGE_LABELS: Record<CoverageType, string> = {
-  standard: 'Standard Coverage (No charge)',
-  full_deductible: 'Full Replacement ($300 deductible)',
-  full_no_deductible: 'Full Replacement (No deductible)',
-  pending: 'Pending - Awaiting Declared Value',
+  standard: 'Standard (60c/lb)',
+  full_replacement_no_deductible: 'Full Replacement (No Deductible)',
+  full_replacement_deductible: 'Full Replacement (With Deductible)',
+  pending: 'Pending - Awaiting Selection',
 };
+
+// Coverage source type
+export type CoverageSource = 'item' | 'shipment' | null;
+
+// Coverage badge component for display in item lists
+export function CoverageBadge({
+  coverageType,
+  coverageSource
+}: {
+  coverageType: CoverageType | null | undefined;
+  coverageSource?: CoverageSource;
+}) {
+  if (!coverageType || coverageType === 'pending') {
+    return (
+      <Badge variant="outline" className="text-yellow-600 border-yellow-300 bg-yellow-50">
+        <MaterialIcon name="schedule" className="h-3 w-3 mr-1" />
+        Pending
+      </Badge>
+    );
+  }
+
+  // Prefix for shipment-level coverage
+  const sourcePrefix = coverageSource === 'shipment' ? 'Via Shipment: ' : '';
+  const sourceIcon = coverageSource === 'shipment' ? 'local_shipping' : 'verified_user';
+
+  if (coverageType === 'standard') {
+    return (
+      <Badge variant="secondary" className="text-muted-foreground">
+        <MaterialIcon name="shield" className="h-3 w-3 mr-1" />
+        Standard
+      </Badge>
+    );
+  }
+
+  if (coverageType === 'full_replacement_no_deductible') {
+    return (
+      <Badge className="bg-blue-600 hover:bg-blue-700">
+        <MaterialIcon name={sourceIcon} className="h-3 w-3 mr-1" />
+        {sourcePrefix}Full (No Ded.)
+      </Badge>
+    );
+  }
+
+  if (coverageType === 'full_replacement_deductible') {
+    return (
+      <Badge className="bg-green-600 hover:bg-green-700">
+        <MaterialIcon name={sourceIcon} className="h-3 w-3 mr-1" />
+        {sourcePrefix}Full (w/ Ded.)
+      </Badge>
+    );
+  }
+
+  return null;
+}
 
 export function CoverageSelector({
   itemId,
@@ -79,7 +131,7 @@ export function CoverageSelector({
   const { toast } = useToast();
   const { profile } = useAuth();
   const { isAdmin } = useCurrentUserRole();
-  
+
   const [coverageType, setCoverageType] = useState<CoverageType>(currentCoverage || 'standard');
   const [declaredValue, setDeclaredValue] = useState(currentDeclaredValue?.toString() || '');
   const [weightLbs, setWeightLbs] = useState(currentWeight?.toString() || '');
@@ -91,15 +143,94 @@ export function CoverageSelector({
     delta: number;
   } | null>(null);
 
-  // Calculate coverage cost
+  // Coverage rates from tenant/account settings
+  const [rates, setRates] = useState({
+    full_replacement_no_deductible: DEFAULT_RATES.full_replacement_no_deductible,
+    full_replacement_deductible: DEFAULT_RATES.full_replacement_deductible,
+    deductible_amount: DEFAULT_DEDUCTIBLE,
+  });
+
+  // Fetch coverage rates from tenant/account settings
+  useEffect(() => {
+    async function fetchRates() {
+      if (!profile?.tenant_id) return;
+
+      try {
+        // First check for account-level override
+        if (accountId) {
+          const { data: accountSettings } = await (supabase as any)
+            .from('account_coverage_settings')
+            .select('*')
+            .eq('tenant_id', profile.tenant_id)
+            .eq('account_id', accountId)
+            .maybeSingle();
+
+          if (accountSettings?.override_enabled) {
+            setRates({
+              full_replacement_no_deductible: accountSettings.coverage_rate_full_no_deductible ?? DEFAULT_RATES.full_replacement_no_deductible,
+              full_replacement_deductible: accountSettings.coverage_rate_full_deductible ?? DEFAULT_RATES.full_replacement_deductible,
+              deductible_amount: accountSettings.coverage_deductible_amount ?? DEFAULT_DEDUCTIBLE,
+            });
+            return;
+          }
+        }
+
+        // Fall back to tenant-level settings
+        const { data: orgSettings } = await (supabase as any)
+          .from('organization_claim_settings')
+          .select('coverage_rate_full_no_deductible, coverage_rate_full_deductible, coverage_deductible_amount')
+          .eq('tenant_id', profile.tenant_id)
+          .maybeSingle();
+
+        if (orgSettings) {
+          setRates({
+            full_replacement_no_deductible: orgSettings.coverage_rate_full_no_deductible ?? DEFAULT_RATES.full_replacement_no_deductible,
+            full_replacement_deductible: orgSettings.coverage_rate_full_deductible ?? DEFAULT_RATES.full_replacement_deductible,
+            deductible_amount: orgSettings.coverage_deductible_amount ?? DEFAULT_DEDUCTIBLE,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching coverage rates:', error);
+      }
+    }
+
+    fetchRates();
+  }, [profile?.tenant_id, accountId]);
+
+  // Calculate coverage cost using configurable rates
   const calculateCost = (type: CoverageType, value: number): number => {
     if (type === 'standard' || type === 'pending') return 0;
-    return value * COVERAGE_RATES[type];
+    if (type === 'full_replacement_no_deductible') {
+      return value * rates.full_replacement_no_deductible;
+    }
+    if (type === 'full_replacement_deductible') {
+      return value * rates.full_replacement_deductible;
+    }
+    return 0;
+  };
+
+  // Get deductible for coverage type
+  const getDeductible = (type: CoverageType): number => {
+    if (type === 'full_replacement_deductible') {
+      return rates.deductible_amount;
+    }
+    return 0;
+  };
+
+  // Get rate for coverage type
+  const getRate = (type: CoverageType): number => {
+    if (type === 'full_replacement_no_deductible') {
+      return rates.full_replacement_no_deductible;
+    }
+    if (type === 'full_replacement_deductible') {
+      return rates.full_replacement_deductible;
+    }
+    return 0;
   };
 
   // Calculate maximum coverage for standard
   const calculateStandardCap = (weight: number): number => {
-    return weight * 0.72; // $0.72 per lb
+    return weight * 0.60; // $0.60 per lb (industry standard)
   };
 
   const currentCost = calculateCost(currentCoverage || 'standard', currentDeclaredValue || 0);
@@ -110,7 +241,7 @@ export function CoverageSelector({
     const dv = parseFloat(declaredValue);
 
     // Validation
-    if ((coverageType === 'full_deductible' || coverageType === 'full_no_deductible') && (!dv || dv <= 0)) {
+    if ((coverageType === 'full_replacement_deductible' || coverageType === 'full_replacement_no_deductible') && (!dv || dv <= 0)) {
       toast({
         variant: 'destructive',
         title: 'Declared Value Required',
@@ -149,8 +280,8 @@ export function CoverageSelector({
     try {
       const dv = parseFloat(declaredValue) || null;
       const weight = parseFloat(weightLbs) || null;
-      const rate = COVERAGE_RATES[coverageType];
-      const deductible = COVERAGE_DEDUCTIBLES[coverageType];
+      const rate = getRate(coverageType);
+      const deductible = getDeductible(coverageType);
 
       // Update item
       const { error: itemError } = await supabase
@@ -171,7 +302,7 @@ export function CoverageSelector({
       // Create billing event if applicable
       if (coverageType !== 'standard' && coverageType !== 'pending' && dv && profile?.tenant_id) {
         const cost = calculateCost(coverageType, dv);
-        
+
         // If there's a delta (modification), handle accordingly
         if (pendingChange && pendingChange.delta !== 0) {
           if (pendingChange.delta > 0) {
@@ -250,7 +381,7 @@ export function CoverageSelector({
     }
   };
 
-  const hasChanges = 
+  const hasChanges =
     coverageType !== (currentCoverage || 'standard') ||
     declaredValue !== (currentDeclaredValue?.toString() || '') ||
     weightLbs !== (currentWeight?.toString() || '');
@@ -264,13 +395,14 @@ export function CoverageSelector({
           onValueChange={(v) => setCoverageType(v as CoverageType)}
           disabled={readOnly}
         >
-          <SelectTrigger className="w-[160px] h-8 text-xs">
+          <SelectTrigger className="w-[180px] h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(COVERAGE_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value} className="text-xs">{label.split('(')[0].trim()}</SelectItem>
-            ))}
+            <SelectItem value="standard" className="text-xs">Standard (60c/lb)</SelectItem>
+            <SelectItem value="full_replacement_no_deductible" className="text-xs">Full (No Ded.)</SelectItem>
+            <SelectItem value="full_replacement_deductible" className="text-xs">Full (${rates.deductible_amount} Ded.)</SelectItem>
+            <SelectItem value="pending" className="text-xs">Pending</SelectItem>
           </SelectContent>
         </Select>
         <Input
@@ -295,11 +427,19 @@ export function CoverageSelector({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <MaterialIcon name="shield" size="md" />
-          Handling Coverage
+          <MaterialIcon name="verified_user" size="md" className="text-blue-600" />
+          Valuation Coverage
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Current Coverage Badge */}
+        {currentCoverage && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Current:</span>
+            <CoverageBadge coverageType={currentCoverage} />
+          </div>
+        )}
+
         {/* Coverage Type */}
         <div className="space-y-2">
           <Label>Coverage Type</Label>
@@ -312,9 +452,30 @@ export function CoverageSelector({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(COVERAGE_LABELS).map(([value, label]) => (
-                <SelectItem key={value} value={value}>{label}</SelectItem>
-              ))}
+              <SelectItem value="standard">
+                <div className="flex flex-col">
+                  <span>Standard (60c/lb)</span>
+                  <span className="text-xs text-muted-foreground">Basic carrier liability - no charge</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="full_replacement_no_deductible">
+                <div className="flex flex-col">
+                  <span>Full Replacement (No Deductible)</span>
+                  <span className="text-xs text-muted-foreground">{(rates.full_replacement_no_deductible * 100).toFixed(2)}% of declared value</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="full_replacement_deductible">
+                <div className="flex flex-col">
+                  <span>Full Replacement (${rates.deductible_amount} Deductible)</span>
+                  <span className="text-xs text-muted-foreground">{(rates.full_replacement_deductible * 100).toFixed(2)}% of declared value</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="pending">
+                <div className="flex flex-col">
+                  <span>Pending</span>
+                  <span className="text-xs text-muted-foreground">Awaiting client selection</span>
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -341,7 +502,7 @@ export function CoverageSelector({
         <div className="space-y-2">
           <Label>
             Declared Value ($)
-            {(coverageType === 'full_deductible' || coverageType === 'full_no_deductible') && (
+            {(coverageType === 'full_replacement_deductible' || coverageType === 'full_replacement_no_deductible') && (
               <span className="text-destructive ml-1">*</span>
             )}
           </Label>
@@ -351,10 +512,10 @@ export function CoverageSelector({
             value={declaredValue}
             onChange={(e) => setDeclaredValue(e.target.value)}
             placeholder="0.00"
-            required={coverageType === 'full_deductible' || coverageType === 'full_no_deductible'}
+            required={coverageType === 'full_replacement_deductible' || coverageType === 'full_replacement_no_deductible'}
             disabled={readOnly || (!isAdmin && currentDeclaredValue !== null && currentCoverage !== 'pending' && currentCoverage !== 'standard')}
           />
-          {(coverageType === 'full_deductible' || coverageType === 'full_no_deductible') && !declaredValue && (
+          {(coverageType === 'full_replacement_deductible' || coverageType === 'full_replacement_no_deductible') && !declaredValue && (
             <p className="text-xs text-destructive">
               Declared value is required for full replacement coverage.
             </p>
@@ -367,19 +528,19 @@ export function CoverageSelector({
         </div>
 
         {/* Coverage Cost Preview */}
-        {(coverageType === 'full_deductible' || coverageType === 'full_no_deductible') && declaredValue && (
-          <div className="p-3 bg-muted rounded-md space-y-1">
+        {(coverageType === 'full_replacement_deductible' || coverageType === 'full_replacement_no_deductible') && declaredValue && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md space-y-1">
             <div className="flex items-center justify-between text-sm">
               <span>Coverage Rate:</span>
-              <span>{(COVERAGE_RATES[coverageType] * 100).toFixed(2)}%</span>
+              <span className="font-mono">{(getRate(coverageType) * 100).toFixed(2)}%</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span>Deductible:</span>
-              <span>${COVERAGE_DEDUCTIBLES[coverageType].toFixed(2)}</span>
+              <span className="font-mono">${getDeductible(coverageType).toFixed(2)}</span>
             </div>
-            <div className="flex items-center justify-between font-medium">
-              <span>Coverage Cost:</span>
-              <span className="text-primary">
+            <div className="flex items-center justify-between font-medium pt-1 border-t">
+              <span>Coverage Premium:</span>
+              <span className="text-blue-600 font-mono">
                 ${calculateCost(coverageType, parseFloat(declaredValue) || 0).toFixed(2)}
               </span>
             </div>
@@ -388,10 +549,10 @@ export function CoverageSelector({
 
         {/* Pending Coverage Notice */}
         {coverageType === 'pending' && (
-          <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-md">
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
             <div className="flex items-start gap-2">
-              <MaterialIcon name="info" size="sm" className="text-yellow-500 mt-0.5" />
-              <p className="text-sm text-yellow-500">
+              <MaterialIcon name="schedule" size="sm" className="text-yellow-600 mt-0.5" />
+              <p className="text-sm text-yellow-700">
                 Coverage is pending. The client will be prompted to enter a declared value and select coverage.
               </p>
             </div>
@@ -402,7 +563,7 @@ export function CoverageSelector({
         {!readOnly && hasChanges && (
           <Button
             onClick={handleSave}
-            disabled={saving || ((coverageType === 'full_deductible' || coverageType === 'full_no_deductible') && (!declaredValue || parseFloat(declaredValue) <= 0))}
+            disabled={saving || ((coverageType === 'full_replacement_deductible' || coverageType === 'full_replacement_no_deductible') && (!declaredValue || parseFloat(declaredValue) <= 0))}
             className="w-full"
           >
             {saving && <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />}

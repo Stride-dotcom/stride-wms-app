@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DashboardLayout } from '@/components/DashboardLayout';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,10 +9,12 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-
+import { useBotQATests, BotQATestRun, BotQATestResult } from '@/hooks/useBotQATests';
 // ============================================================
 // TYPES
 // ============================================================
@@ -127,13 +129,13 @@ async function resolveEntityReference(
     }
 
     // Query the database
-    const { data: records } = await supabase
-      .from(tableName)
+    const { data: records } = await (supabase
+      .from(tableName as any)
       .select(`id, ${codeField}`)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .ilike(codeField, `%${queryNumeric}%`)
-      .limit(50);
+      .limit(50) as any);
 
     if (!records) continue;
 
@@ -210,16 +212,21 @@ export default function BotQA() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('tool-level');
 
+  // Persistence hook
+  const botQA = useBotQATests();
+
   // Tool-level test state
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<TestResult[]>([]);
   const [expandedTests, setExpandedTests] = useState<Set<string>>(new Set());
+  const [currentRunId, setCurrentRunId] = useState<string | null>(null);
 
   // Conversation test state
   const [isRunningConv, setIsRunningConv] = useState(false);
   const [convResults, setConvResults] = useState<ConversationScenarioResult[]>([]);
   const [expandedScenarios, setExpandedScenarios] = useState<Set<string>>(new Set());
   const [expandedTurns, setExpandedTurns] = useState<Set<string>>(new Set());
+  const [currentConvRunId, setCurrentConvRunId] = useState<string | null>(null);
 
   // Shipment selection for tests
   const [inboundShipments, setInboundShipments] = useState<Array<{ id: string; shipment_number: string; total_items: number }>>([]);
@@ -231,10 +238,15 @@ export default function BotQA() {
   const [qaRunId] = useState(() => crypto.randomUUID());
   const [createdTaskIds, setCreatedTaskIds] = useState<string[]>([]);
 
-  // Load shipments on mount
+  // Fix prompt dialog
+  const [fixPromptDialogOpen, setFixPromptDialogOpen] = useState(false);
+  const [fixPrompt, setFixPrompt] = useState('');
+
+  // Load shipments and runs on mount
   useEffect(() => {
     if (profile?.tenant_id) {
       loadShipments();
+      botQA.fetchRuns();
     }
   }, [profile?.tenant_id]);
 
@@ -247,7 +259,7 @@ export default function BotQA() {
     // Load inbound shipments
     const { data: inbound } = await supabase
       .from('shipments')
-      .select('id, shipment_number, total_items')
+      .select('id, shipment_number')
       .eq('tenant_id', profile.tenant_id)
       .eq('shipment_type', 'inbound')
       .gte('created_at', thirtyDaysAgo.toISOString())
@@ -255,7 +267,7 @@ export default function BotQA() {
       .order('created_at', { ascending: false })
       .limit(20);
 
-    setInboundShipments(inbound || []);
+    setInboundShipments((inbound as any) || []);
 
     // Load outbound shipments
     const { data: outbound } = await supabase
@@ -267,7 +279,7 @@ export default function BotQA() {
       .order('created_at', { ascending: false })
       .limit(20);
 
-    setOutboundShipments(outbound || []);
+    setOutboundShipments((outbound as any) || []);
   }
 
   function toggleExpanded(testName: string) {
@@ -332,6 +344,10 @@ export default function BotQA() {
     setResults([]);
     setCreatedTaskIds([]);
 
+    // Create a test run record
+    const runId = await botQA.createRun('tool_level');
+    setCurrentRunId(runId);
+
     try {
       // A) Partial ID Matching Tests
       await runPartialIdMatchingTests();
@@ -373,6 +389,37 @@ export default function BotQA() {
       setIsRunning(false);
     }
   }
+
+  // Save results after tests complete (triggered by results state change)
+  useEffect(() => {
+    if (!isRunning && results.length > 0 && currentRunId) {
+      const saveResults = async () => {
+        for (const result of results) {
+          if (result.status === 'running') continue; // Skip in-progress
+          const mappedStatus = result.status === 'pending' ? 'skip' : result.status;
+          await botQA.saveResult(currentRunId, {
+            suite: 'bot_tool_level',
+            test_name: result.name,
+            status: mappedStatus as 'pass' | 'fail' | 'skip' | 'error',
+            error_message: result.status === 'fail' || result.status === 'error' ? result.message : null,
+            details: result.details,
+            duration_ms: result.duration
+          });
+        }
+        
+        // Finalize the run
+        const summary = {
+          pass: results.filter(r => r.status === 'pass').length,
+          fail: results.filter(r => r.status === 'fail').length,
+          skip: results.filter(r => r.status === 'skip').length,
+          error: results.filter(r => r.status === 'error').length,
+        };
+        await botQA.finalizeRun(currentRunId, summary);
+        setCurrentRunId(null);
+      };
+      saveResults();
+    }
+  }, [isRunning, results.length, currentRunId]);
 
   // ==================== A) PARTIAL ID MATCHING TESTS ====================
 
@@ -659,11 +706,11 @@ export default function BotQA() {
     try {
       // Get items from the selected shipment
       const { data: items } = await supabase
-        .from('items')
+        .from('items' as any)
         .select('id, item_code, description, account_id, sidemark_id')
         .eq('shipment_id', selectedInboundId)
         .eq('tenant_id', tenantId)
-        .is('deleted_at', null);
+        .is('deleted_at', null) as { data: any[] | null };
 
       if (!items || items.length === 0) {
         updateResult({
@@ -681,7 +728,7 @@ export default function BotQA() {
       const errors: string[] = [];
 
       for (const item of items.slice(0, 5)) { // Limit to 5 for testing
-        const { data: task, error } = await supabase
+        const { data: task, error } = await (supabase
           .from('tasks')
           .insert({
             tenant_id: tenantId,
@@ -696,7 +743,7 @@ export default function BotQA() {
             notes: JSON.stringify({ qa_test: true, qa_run_id: qaRunId }),
           })
           .select('id, item_ids')
-          .single();
+          .single() as any);
 
         if (error) {
           errors.push(`Failed for ${item.item_code}: ${error.message}`);
@@ -712,11 +759,11 @@ export default function BotQA() {
       const validationDetails: any[] = [];
 
       for (const taskId of createdTasks) {
-        const { data: task } = await supabase
+        const { data: task } = await (supabase
           .from('tasks')
           .select('id, task_number, item_ids')
           .eq('id', taskId)
-          .single();
+          .single() as any);
 
         if (task) {
           const itemCount = Array.isArray(task.item_ids) ? task.item_ids.length : 0;
@@ -1020,12 +1067,12 @@ export default function BotQA() {
       const itemIds = (shipmentItems || []).map((si: any) => si.item_id).filter(Boolean);
 
       if (itemIds.length > 0) {
-        const { data: activeTasks } = await supabase
+        const { data: activeTasks } = await (supabase
           .from('tasks')
           .select('task_number, task_type, status')
           .eq('tenant_id', tenantId)
           .in('status', ['open', 'in_progress'])
-          .overlaps('item_ids', itemIds);
+          .overlaps('item_ids', itemIds) as any);
 
         if (activeTasks && activeTasks.length > 0) {
           for (const task of activeTasks) {
@@ -1078,6 +1125,10 @@ export default function BotQA() {
     setIsRunningConv(true);
     setConvResults([]);
 
+    // Create a test run record for conversation tests
+    const runId = await botQA.createRun('conversation');
+    setCurrentConvRunId(runId);
+
     try {
       // Get selected shipment info
       const selectedShipment = inboundShipments.find(s => s.id === selectedInboundId);
@@ -1092,14 +1143,48 @@ export default function BotQA() {
 
       if (data?.results) {
         setConvResults(data.results);
+        
+        // Save conversation results to database
+        if (runId) {
+          for (const scenario of data.results as ConversationScenarioResult[]) {
+            await botQA.saveResult(runId, {
+              suite: 'bot_conversation',
+              test_name: scenario.scenario_name,
+              status: scenario.status as 'pass' | 'fail' | 'skip' | 'error',
+              error_message: scenario.error || (scenario.status === 'fail' ? scenario.message : null),
+              details: {
+                scenario_id: scenario.scenario_id,
+                turns: scenario.turns.length,
+                db_assertions: scenario.db_assertions,
+              },
+              duration_ms: scenario.total_duration_ms
+            });
+          }
+          
+          // Finalize the run
+          const summary = {
+            pass: data.results.filter((r: any) => r.status === 'pass').length,
+            fail: data.results.filter((r: any) => r.status === 'fail').length,
+            skip: data.results.filter((r: any) => r.status === 'skip').length,
+            error: data.results.filter((r: any) => r.status === 'error').length,
+          };
+          await botQA.finalizeRun(runId, summary);
+        }
       } else {
         toast({ title: 'Error', description: 'No results returned from test runner', variant: 'destructive' });
+        if (runId) {
+          await botQA.finalizeRun(runId, { pass: 0, fail: 0, skip: 0, error: 1 });
+        }
       }
     } catch (error) {
       console.error('Conversation test error:', error);
       toast({ title: 'Error', description: 'Failed to run conversation tests', variant: 'destructive' });
+      if (runId) {
+        await botQA.finalizeRun(runId, { pass: 0, fail: 0, skip: 0, error: 1 });
+      }
     } finally {
       setIsRunningConv(false);
+      setCurrentConvRunId(null);
     }
   }
 
@@ -1235,14 +1320,18 @@ export default function BotQA() {
 
         {/* Test Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="tool-level" className="flex items-center gap-2">
               <MaterialIcon name="build" size="sm" />
-              Tool-Level Tests (A)
+              Tool-Level Tests
             </TabsTrigger>
             <TabsTrigger value="conversation" className="flex items-center gap-2">
               <MaterialIcon name="chat" size="sm" />
-              Conversation Tests (B)
+              Conversation Tests
+            </TabsTrigger>
+            <TabsTrigger value="previous-runs" className="flex items-center gap-2">
+              <MaterialIcon name="history" size="sm" />
+              Previous Runs
             </TabsTrigger>
           </TabsList>
 
@@ -1624,7 +1713,230 @@ export default function BotQA() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Previous Runs Tab */}
+          <TabsContent value="previous-runs" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-muted-foreground">
+                View and analyze previous Bot QA test runs
+              </p>
+              <Button variant="outline" onClick={() => botQA.fetchRuns()} disabled={botQA.loading}>
+                <MaterialIcon name="refresh" size="sm" className="mr-2" />
+                Refresh
+              </Button>
+            </div>
+
+            {botQA.currentRun ? (
+              // Show run details when a run is selected
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Button variant="ghost" size="sm" onClick={botQA.clearCurrentRun}>
+                    <MaterialIcon name="arrow_back" size="sm" className="mr-2" />
+                    Back to Runs
+                  </Button>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          Run Details
+                          <Badge 
+                            variant={botQA.currentRun.status === 'completed' ? 'secondary' : 'destructive'}
+                            className={botQA.currentRun.status === 'completed' ? 'bg-green-100 text-green-800' : ''}
+                          >
+                            {botQA.currentRun.status}
+                          </Badge>
+                        </CardTitle>
+                        <CardDescription>
+                          Started {new Date(botQA.currentRun.started_at).toLocaleString()}
+                          {botQA.currentRun.executed_by_user && (
+                            <> by {botQA.currentRun.executed_by_user.first_name} {botQA.currentRun.executed_by_user.last_name}</>
+                          )}
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">{botQA.currentRun.pass_count}</div>
+                          <div className="text-xs text-muted-foreground">Passed</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-red-600">{botQA.currentRun.fail_count}</div>
+                          <div className="text-xs text-muted-foreground">Failed</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-gray-600">{botQA.currentRun.skip_count}</div>
+                          <div className="text-xs text-muted-foreground">Skipped</div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                </Card>
+
+                {/* Results */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Test Results</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {botQA.currentResults.map((result) => (
+                        <div
+                          key={result.id}
+                          className={`flex items-center justify-between p-3 rounded-lg border ${
+                            result.status === 'fail' || result.status === 'error' ? 'border-red-200 bg-red-50' :
+                            result.status === 'pass' ? 'border-green-200 bg-green-50' :
+                            'border-gray-200 bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Badge 
+                              variant={result.status === 'pass' ? 'secondary' : result.status === 'fail' || result.status === 'error' ? 'destructive' : 'outline'}
+                              className={result.status === 'pass' ? 'bg-green-100 text-green-800' : ''}
+                            >
+                              {result.status}
+                            </Badge>
+                            <span className="font-medium">{result.test_name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {result.logs && (
+                              <span className="text-xs text-muted-foreground">{result.logs}</span>
+                            )}
+                            {(result.status === 'fail' || result.status === 'error') && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setFixPrompt(botQA.generateFixPrompt(result));
+                                  setFixPromptDialogOpen(true);
+                                }}
+                              >
+                                <MaterialIcon name="auto_fix" size="sm" className="mr-1" />
+                                Fix Prompt
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {botQA.currentResults.length === 0 && (
+                        <p className="text-center text-muted-foreground py-4">No results found for this run</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              // Show runs list
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Test Runs History</CardTitle>
+                  <CardDescription>Select a run to view details and fix errors</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {botQA.loading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <MaterialIcon name="progress_activity" className="animate-spin mr-2" />
+                      Loading...
+                    </div>
+                  ) : botQA.runs.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <MaterialIcon name="history" className="mx-auto mb-4" style={{ fontSize: '48px' }} />
+                      <p>No Bot QA test runs found</p>
+                      <p className="text-xs mt-2">Run some tests to see history here</p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-center">Pass</TableHead>
+                          <TableHead className="text-center">Fail</TableHead>
+                          <TableHead className="text-center">Skip</TableHead>
+                          <TableHead>By</TableHead>
+                          <TableHead></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {botQA.runs.map((run) => (
+                          <TableRow key={run.id}>
+                            <TableCell className="font-mono text-xs">
+                              {new Date(run.started_at).toLocaleDateString()}{' '}
+                              {new Date(run.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {run.suites_requested.includes('bot_tool_level') ? 'Tool' : 'Conv'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={run.status === 'completed' ? 'secondary' : 'destructive'}
+                                className={run.status === 'completed' ? 'bg-green-100 text-green-800' : ''}
+                              >
+                                {run.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center text-green-600 font-medium">{run.pass_count}</TableCell>
+                            <TableCell className="text-center text-red-600 font-medium">{run.fail_count}</TableCell>
+                            <TableCell className="text-center text-gray-600">{run.skip_count}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {run.executed_by_user?.first_name || 'Unknown'}
+                            </TableCell>
+                            <TableCell>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => botQA.fetchRunResults(run.id)}
+                              >
+                                <MaterialIcon name="visibility" size="sm" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
         </Tabs>
+
+        {/* Fix Prompt Dialog */}
+        <Dialog open={fixPromptDialogOpen} onOpenChange={setFixPromptDialogOpen}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Fix Prompt for AI Assistant</DialogTitle>
+              <DialogDescription>
+                Copy this prompt and paste it in chat to get help fixing the failing test
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <ScrollArea className="h-[400px] w-full rounded-md border p-4 bg-muted/30">
+                <pre className="text-sm whitespace-pre-wrap">{fixPrompt}</pre>
+              </ScrollArea>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setFixPromptDialogOpen(false)}>
+                  Close
+                </Button>
+                <Button onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(fixPrompt);
+                    toast({ title: 'Copied!', description: 'Fix prompt copied to clipboard' });
+                  } catch {
+                    toast({ title: 'Error', description: 'Failed to copy to clipboard', variant: 'destructive' });
+                  }
+                }}>
+                  <MaterialIcon name="content_copy" size="sm" className="mr-2" />
+                  Copy to Clipboard
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
