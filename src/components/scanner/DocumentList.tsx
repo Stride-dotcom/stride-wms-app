@@ -69,11 +69,24 @@ export function DocumentList({
       return;
     }
 
+    // Open a blank window immediately (in the trusted click context)
+    // This prevents popup blockers from blocking the window
+    const newWindow = window.open('about:blank', '_blank');
+
     setLoadingUrl(doc.id);
     try {
       const url = await getSignedUrl(doc.storage_key);
-      window.open(url, '_blank');
+      if (newWindow) {
+        newWindow.location.href = url;
+      } else {
+        // Fallback if popup was blocked - navigate in same tab
+        window.location.href = url;
+      }
     } catch (err) {
+      // Close the blank window if there was an error
+      if (newWindow) {
+        newWindow.close();
+      }
       toast({
         title: 'Error',
         description: 'Failed to open document',
