@@ -235,8 +235,11 @@ export default function QuoteBuilder() {
 
   // Sync class lines with available classes from price list
   // This ensures new classes added to the price list automatically appear in quotes
+  // IMPORTANT: Don't run until quote data is loaded (for existing quotes) to avoid overwriting saved quantities
   useEffect(() => {
     if (classes.length === 0) return;
+    // For existing quotes, wait until quote data is loaded before syncing
+    if (!isNew && loading) return;
 
     setFormData((prev) => {
       const existingClassIds = new Set(prev.class_lines.map(l => l.class_id));
@@ -270,7 +273,7 @@ export default function QuoteBuilder() {
         class_lines: newClassLines,
       };
     });
-  }, [classes]);
+  }, [classes, isNew, loading]);
 
   // Calculate totals
   const calculation = useMemo(() => {
