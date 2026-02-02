@@ -558,6 +558,23 @@ export default function ItemDetail() {
                 {item.repair_status === 'pending' && (
                   <span className="font-bold text-red-600 dark:text-red-400">NEEDS REPAIR</span>
                 )}
+                {/* Coverage Badge */}
+                {item.coverage_type && item.coverage_type !== 'standard' && item.coverage_type !== 'pending' && (
+                  <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+                    <MaterialIcon name="verified_user" size="sm" className="mr-1" />
+                    {item.coverage_type === 'full_replacement_no_deductible' || item.coverage_type === 'full_no_deductible'
+                      ? 'Full Coverage'
+                      : item.coverage_type === 'full_replacement_deductible' || item.coverage_type === 'full_deductible'
+                      ? `Full Coverage ($${item.declared_value?.toLocaleString() || '0'})`
+                      : 'Covered'}
+                  </Badge>
+                )}
+                {item.coverage_type === 'pending' && (
+                  <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800">
+                    <MaterialIcon name="schedule" size="sm" className="mr-1" />
+                    Coverage Pending
+                  </Badge>
+                )}
               </div>
               <p className="text-muted-foreground">
                 {item.description || 'No description'}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrentUserRole } from '@/hooks/useRoles';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { useCoverageSettings } from '@/hooks/useCoverageSettings';
 
 export type CoverageType = 'standard' | 'full_deductible' | 'full_no_deductible' | 'pending';
 
@@ -42,27 +43,6 @@ interface CoverageSelectorProps {
   onUpdate?: (coverageType: CoverageType, declaredValue: number | null) => void;
 }
 
-const COVERAGE_RATES = {
-  standard: 0,
-  full_deductible: 0.015, // 1.5% of declared value
-  full_no_deductible: 0.0188, // 1.88% of declared value
-  pending: 0,
-};
-
-const COVERAGE_DEDUCTIBLES = {
-  standard: 0,
-  full_deductible: 300,
-  full_no_deductible: 0,
-  pending: 0,
-};
-
-const COVERAGE_LABELS: Record<CoverageType, string> = {
-  standard: 'Standard Coverage (No charge)',
-  full_deductible: 'Full Replacement ($300 deductible)',
-  full_no_deductible: 'Full Replacement (No deductible)',
-  pending: 'Pending - Awaiting Declared Value',
-};
-
 export function CoverageSelector({
   itemId,
   accountId,
@@ -79,7 +59,12 @@ export function CoverageSelector({
   const { toast } = useToast();
   const { profile } = useAuth();
   const { isAdmin } = useCurrentUserRole();
-  
+
+  // Get configurable coverage rates from tenant/account settings
+  const { effectiveRates, loading: ratesLoading, getCoverageLabel } = useCoverageSettings({
+    accountId: accountId || undefined,
+  });
+
   const [coverageType, setCoverageType] = useState<CoverageType>(currentCoverage || 'standard');
   const [declaredValue, setDeclaredValue] = useState(currentDeclaredValue?.toString() || '');
   const [weightLbs, setWeightLbs] = useState(currentWeight?.toString() || '');
@@ -91,10 +76,32 @@ export function CoverageSelector({
     delta: number;
   } | null>(null);
 
-  // Calculate coverage cost
+  // Get dynamic rates and deductibles from settings
+  const coverageRates = useMemo(() => ({
+    standard: 0,
+    full_deductible: effectiveRates.full_replacement_deductible_rate,
+    full_no_deductible: effectiveRates.full_replacement_no_deductible_rate,
+    pending: 0,
+  }), [effectiveRates]);
+
+  const coverageDeductibles = useMemo(() => ({
+    standard: 0,
+    full_deductible: effectiveRates.deductible_amount,
+    full_no_deductible: 0,
+    pending: 0,
+  }), [effectiveRates]);
+
+  const coverageLabels = useMemo((): Record<CoverageType, string> => ({
+    standard: 'Standard Coverage (No charge)',
+    full_deductible: `Full Replacement ($${effectiveRates.deductible_amount} deductible)`,
+    full_no_deductible: 'Full Replacement (No deductible)',
+    pending: 'Pending - Awaiting Declared Value',
+  }), [effectiveRates]);
+
+  // Calculate coverage cost using configurable rates
   const calculateCost = (type: CoverageType, value: number): number => {
     if (type === 'standard' || type === 'pending') return 0;
-    return value * COVERAGE_RATES[type];
+    return value * coverageRates[type];
   };
 
   // Calculate maximum coverage for standard
@@ -149,8 +156,8 @@ export function CoverageSelector({
     try {
       const dv = parseFloat(declaredValue) || null;
       const weight = parseFloat(weightLbs) || null;
-      const rate = COVERAGE_RATES[coverageType];
-      const deductible = COVERAGE_DEDUCTIBLES[coverageType];
+      const rate = coverageRates[coverageType];
+      const deductible = coverageDeductibles[coverageType];
 
       // Update item
       const { error: itemError } = await supabase
@@ -184,7 +191,7 @@ export function CoverageSelector({
               item_id: itemId,
               event_type: 'coverage',
               charge_type: 'handling_coverage',
-              description: `Coverage adjustment: ${COVERAGE_LABELS[coverageType]}`,
+              description: `Coverage adjustment: ${coverageLabels[coverageType]}`,
               quantity: 1,
               unit_rate: pendingChange.delta,
               total_amount: pendingChange.delta,
@@ -218,7 +225,7 @@ export function CoverageSelector({
             item_id: itemId,
             event_type: 'coverage',
             charge_type: 'handling_coverage',
-            description: `Coverage: ${COVERAGE_LABELS[coverageType]} on declared value $${dv.toFixed(2)}`,
+            description: `Coverage: ${coverageLabels[coverageType]} on declared value $${dv.toFixed(2)}`,
             quantity: 1,
             unit_rate: cost,
             total_amount: cost,
@@ -268,7 +275,7 @@ export function CoverageSelector({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(COVERAGE_LABELS).map(([value, label]) => (
+            {Object.entries(coverageLabels).map(([value, label]) => (
               <SelectItem key={value} value={value} className="text-xs">{label.split('(')[0].trim()}</SelectItem>
             ))}
           </SelectContent>
@@ -312,7 +319,7 @@ export function CoverageSelector({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(COVERAGE_LABELS).map(([value, label]) => (
+              {Object.entries(coverageLabels).map(([value, label]) => (
                 <SelectItem key={value} value={value}>{label}</SelectItem>
               ))}
             </SelectContent>
@@ -371,11 +378,11 @@ export function CoverageSelector({
           <div className="p-3 bg-muted rounded-md space-y-1">
             <div className="flex items-center justify-between text-sm">
               <span>Coverage Rate:</span>
-              <span>{(COVERAGE_RATES[coverageType] * 100).toFixed(2)}%</span>
+              <span>{(coverageRates[coverageType] * 100).toFixed(2)}%</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span>Deductible:</span>
-              <span>${COVERAGE_DEDUCTIBLES[coverageType].toFixed(2)}</span>
+              <span>${coverageDeductibles[coverageType].toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between font-medium">
               <span>Coverage Cost:</span>

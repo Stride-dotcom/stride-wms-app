@@ -25,6 +25,7 @@ export interface ClaimItem {
   declared_value: number | null;
   weight_lbs: number | null;
   coverage_rate: number | null;
+  coverage_deductible: number | null; // Deductible from coverage snapshot
   requested_amount: number | null;
   calculated_amount: number | null;
   approved_amount: number | null;
@@ -256,7 +257,7 @@ export function useClaims(filters?: ClaimFilters) {
         // Fetch all item details for coverage snapshots
         const { data: itemsData } = await supabase
           .from('items')
-          .select('id, coverage_type, declared_value, weight_lbs, coverage_rate')
+          .select('id, coverage_type, declared_value, weight_lbs, coverage_rate, coverage_deductible')
           .in('id', itemIds);
 
         const itemsMap = new Map(itemsData?.map(i => [i.id, i]) || []);
@@ -271,6 +272,7 @@ export function useClaims(filters?: ClaimFilters) {
             declared_value: itemData?.declared_value || null,
             weight_lbs: itemData?.weight_lbs || null,
             coverage_rate: itemData?.coverage_rate || null,
+            coverage_deductible: itemData?.coverage_deductible || null,
           };
         });
 
@@ -742,7 +744,7 @@ export function useClaims(filters?: ClaimFilters) {
       // Get item coverage data
       const { data: itemData } = await supabase
         .from('items')
-        .select('coverage_type, declared_value, weight_lbs, coverage_rate')
+        .select('coverage_type, declared_value, weight_lbs, coverage_rate, coverage_deductible')
         .eq('id', itemId)
         .single();
 
@@ -756,6 +758,7 @@ export function useClaims(filters?: ClaimFilters) {
           declared_value: itemData?.declared_value || null,
           weight_lbs: itemData?.weight_lbs || null,
           coverage_rate: itemData?.coverage_rate || null,
+          coverage_deductible: itemData?.coverage_deductible || null,
           item_notes: notes || null,
         }])
         .select(`
@@ -834,7 +837,7 @@ export function useClaims(filters?: ClaimFilters) {
     repairVsReplace?: { repairCost: number; replacementCost: number };
   } => {
     const STANDARD_RATE = 0.72; // $0.72 per lb for standard coverage
-    const CLAIM_DEDUCTIBLE = 300; // $300 deductible per claim for full replacement with deductible
+    const DEFAULT_DEDUCTIBLE = 300; // Default deductible if not specified in coverage
 
     // Calculate base replacement cost first
     let replacementCost = 0;
@@ -851,8 +854,10 @@ export function useClaims(filters?: ClaimFilters) {
 
       case 'full_replacement_deductible':
         // Declared value minus deductible (deductible applied once per claim)
+        // Use coverage_deductible from item snapshot, fallback to default
+        const itemDeductible = item.coverage_deductible ?? DEFAULT_DEDUCTIBLE;
         const declaredValue = item.declared_value || 0;
-        deductible = applyDeductible ? CLAIM_DEDUCTIBLE : 0;
+        deductible = applyDeductible ? itemDeductible : 0;
         replacementCost = Math.max(0, declaredValue - deductible);
         break;
 
@@ -909,12 +914,12 @@ export function useClaims(filters?: ClaimFilters) {
       repairVsReplace?: { repairCost: number; replacementCost: number };
     }>;
   } => {
-    const CLAIM_DEDUCTIBLE = 300;
+    const DEFAULT_DEDUCTIBLE = 300;
 
     let totalDeclaredValue = 0;
     let totalCalculatedPayout = 0;
     let repairSavings = 0;
-    let hasDeductibleCoverage = false;
+    let maxDeductible = 0; // Track highest deductible among items
     const itemBreakdown: Array<{
       itemId: string;
       payout: number;
@@ -935,9 +940,10 @@ export function useClaims(filters?: ClaimFilters) {
         repairSavings += result.repairVsReplace.replacementCost - result.repairVsReplace.repairCost;
       }
 
-      // Track if any item has deductible coverage
+      // Track highest deductible among items with deductible coverage
       if (item.coverage_type === 'full_replacement_deductible') {
-        hasDeductibleCoverage = true;
+        const itemDeductible = item.coverage_deductible ?? DEFAULT_DEDUCTIBLE;
+        maxDeductible = Math.max(maxDeductible, itemDeductible);
       }
 
       itemBreakdown.push({
@@ -949,8 +955,8 @@ export function useClaims(filters?: ClaimFilters) {
       });
     }
 
-    // Apply deductible once per claim if any item has deductible coverage
-    const deductibleApplied = hasDeductibleCoverage ? CLAIM_DEDUCTIBLE : 0;
+    // Apply deductible once per claim (use highest deductible among items)
+    const deductibleApplied = maxDeductible;
     const netPayout = Math.max(0, totalCalculatedPayout - deductibleApplied);
 
     return {

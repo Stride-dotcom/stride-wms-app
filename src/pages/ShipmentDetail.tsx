@@ -34,6 +34,7 @@ import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDia
 import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
 import { ShipmentHistoryTab } from '@/components/shipments/ShipmentHistoryTab';
+import { ShipmentCoverageDialog } from '@/components/shipments/ShipmentCoverageDialog';
 import { QRScanner } from '@/components/scan/QRScanner';
 import { useLocations } from '@/hooks/useLocations';
 import { hapticError, hapticSuccess } from '@/lib/haptics';
@@ -67,6 +68,8 @@ interface ShipmentItem {
     sidemark: string | null;
     room: string | null;
     class_id: string | null;
+    declared_value: number | null;
+    coverage_type: string | null;
     current_location?: { code: string } | null;
     account?: { account_name: string } | null;
     class?: { id: string; code: string; name: string } | null;
@@ -163,6 +166,7 @@ export default function ShipmentDetail() {
   const [editNotes, setEditNotes] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
+  const [coverageDialogOpen, setCoverageDialogOpen] = useState(false);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
@@ -330,6 +334,8 @@ export default function ShipmentDetail() {
             sidemark,
             room,
             class_id,
+            declared_value,
+            coverage_type,
             current_location:locations(code),
             account:accounts(account_name)
           )
@@ -1265,6 +1271,14 @@ export default function ShipmentDetail() {
               <span className="sm:hidden">Charge</span>
             </Button>
           )}
+          {/* Add Coverage button - only for inbound shipments with received items */}
+          {shipment.account_id && canSeeBilling && isInbound && items.some(i => i.item_id) && (
+            <Button variant="secondary" size="sm" onClick={() => setCoverageDialogOpen(true)}>
+              <MaterialIcon name="verified_user" size="sm" className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Add Coverage</span>
+              <span className="sm:hidden">Coverage</span>
+            </Button>
+          )}
           {/* Reassign Account */}
           {shipment.account_id && (
             <Button variant="outline" size="sm" onClick={() => setShowReassignDialog(true)}>
@@ -2004,6 +2018,22 @@ export default function ShipmentDetail() {
           shipmentId={shipment.id}
           onSuccess={() => {
             // Refresh both shipment data and billing calculator
+            fetchShipment();
+            setBillingRefreshKey(prev => prev + 1);
+          }}
+        />
+      )}
+
+      {/* Add Coverage Dialog */}
+      {shipment.account_id && canSeeBilling && (
+        <ShipmentCoverageDialog
+          open={coverageDialogOpen}
+          onOpenChange={setCoverageDialogOpen}
+          shipmentId={shipment.id}
+          shipmentNumber={shipment.shipment_number}
+          accountId={shipment.account_id}
+          items={items}
+          onSuccess={() => {
             fetchShipment();
             setBillingRefreshKey(prev => prev + 1);
           }}
