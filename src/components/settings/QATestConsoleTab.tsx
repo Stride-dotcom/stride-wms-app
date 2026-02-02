@@ -1021,7 +1021,7 @@ function UIVisualResultsTab() {
         ]).filter(([_, results]) => results.length > 0)
       );
 
-  const coverageData = coverageResult?.details as TourCoverageData | undefined;
+  const coverageData = coverageResult?.details as unknown as TourCoverageData | undefined;
 
   if (currentRun && visualResults.length > 0) {
     return (
@@ -1359,8 +1359,9 @@ function UIVisualResultsTab() {
           <CardContent>
             <Accordion type="single" collapsible className="w-full">
               {Object.entries(filteredRoutes).map(([route, results]) => {
-                const passCount = results.filter(r => r.status === 'pass').length;
-                const failCount = results.filter(r => r.status === 'fail').length;
+                const resultsArray = results as any[];
+                const passCount = resultsArray.filter(r => r.status === 'pass').length;
+                const failCount = resultsArray.filter(r => r.status === 'fail').length;
                 const hasFailures = failCount > 0;
 
                 return (
@@ -1387,7 +1388,7 @@ function UIVisualResultsTab() {
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-3 pl-8">
-                        {results.map(result => {
+                        {resultsArray.map((result: any) => {
                           const details = result.details as UIVisualResult['details'];
                           const priority = result.test_name.match(/^\[(P\d)\]/)?.[1] || 'P2';
                           return (
@@ -1566,7 +1567,7 @@ function UIVisualResultsTab() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      {(run.metadata?.viewports || ['desktop', 'tablet', 'mobile']).map((vp: string) => (
+                      {((run.metadata as any)?.viewports || ['desktop', 'tablet', 'mobile']).map((vp: string) => (
                         <Badge key={vp} variant="outline" className="text-xs">
                           {vp}
                         </Badge>

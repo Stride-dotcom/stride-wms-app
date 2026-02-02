@@ -83,7 +83,7 @@ export default function Claims() {
   });
 
   // Check if user is admin (for SOP/Settings visibility)
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'owner';
+  const isAdmin = (profile as any)?.role === 'admin' || (profile as any)?.role === 'owner';
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);

@@ -289,8 +289,12 @@ export function ClaimCreateDialog({
 
     setIsSubmitting(true);
     try {
+      // Determine claim category based on type
+      const claimCategory = claimType === 'shipping_damage' ? 'shipping_damage' : 'liability';
+      
       const claim = await createClaim({
         claim_type: claimType,
+        claim_category: claimCategory,
         account_id: selectedAccountId,
         sidemark_id: selectedSidemarkId || null,
         shipment_id: context === 'shipment' ? selectedShipmentId : null,

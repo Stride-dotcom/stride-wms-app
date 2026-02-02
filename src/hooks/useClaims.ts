@@ -349,7 +349,7 @@ export function useClaims(filters?: ClaimFilters) {
         }
 
         const claimItemsInsert = itemIds.map(itemId => {
-          const itemData = itemsMap.get(itemId);
+          const itemData = itemsMap.get(itemId) as any;
           if (!itemData) {
             return {
               tenant_id: profile.tenant_id,
@@ -434,7 +434,7 @@ export function useClaims(filters?: ClaimFilters) {
           };
         });
 
-        await supabase.from('claim_items').insert(claimItemsInsert);
+        await (supabase as any).from('claim_items').insert(claimItemsInsert);
       }
 
       // Create claim assistance billing event for shipping_damage claims

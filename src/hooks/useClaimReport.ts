@@ -104,10 +104,10 @@ export function useClaimReport() {
 
         return {
           claim: claim as Claim,
-          items: (items || []) as ClaimItem[],
-          attachments: (attachments || []) as ClaimAttachment[],
+          items: (items || []) as unknown as ClaimItem[],
+          attachments: (attachments || []) as unknown as ClaimAttachment[],
           account: claim.account as ClaimReportData['account'],
-          organization: orgSettings as ClaimReportData['organization'],
+          organization: orgSettings as unknown as ClaimReportData['organization'],
         };
       } catch (error) {
         console.error('Error fetching claim report data:', error);
@@ -305,12 +305,13 @@ export function useClaimReport() {
               y = 20;
             }
 
-            const itemName = item.item_description || item.item_id || 'Unknown Item';
+            const itemAny = item as any;
+            const itemName = itemAny.item_description || itemAny.item?.item_code || item.item_id || 'Unknown Item';
             const truncatedName = itemName.length > 40 ? itemName.substring(0, 37) + '...' : itemName;
             doc.text(truncatedName, 20, y);
-            doc.text(String(item.quantity_affected || 1), 100, y);
+            doc.text(String(itemAny.quantity_affected || 1), 100, y);
             doc.text(item.declared_value ? `$${item.declared_value.toFixed(2)}` : 'N/A', 130, y);
-            doc.text(item.damage_type || 'N/A', 170, y);
+            doc.text(itemAny.damage_type || 'N/A', 170, y);
             y += 5;
           }
         }
@@ -455,17 +456,20 @@ export function useClaimReport() {
               created_at: reportData.claim.created_at,
             },
             account: reportData.account,
-            items: reportData.items.map((item) => ({
-              item_description: item.item_description,
-              quantity_affected: item.quantity_affected,
-              declared_value: item.declared_value,
-              damage_type: item.damage_type,
-              damage_description: item.damage_description,
-              coverage_type: item.coverage_type,
-              coverage_source: item.coverage_source,
-              pop_provided: item.pop_provided,
-              valuation_method: item.valuation_method,
-            })),
+            items: reportData.items.map((item) => {
+              const itemAny = item as any;
+              return {
+                item_description: itemAny.item_description || itemAny.item?.item_code,
+                quantity_affected: itemAny.quantity_affected || 1,
+                declared_value: item.declared_value,
+                damage_type: itemAny.damage_type,
+                damage_description: itemAny.damage_description || item.determination_notes,
+                coverage_type: item.coverage_type,
+                coverage_source: item.coverage_source,
+                pop_provided: item.pop_provided,
+                valuation_method: item.valuation_method,
+              };
+            }),
           },
           null,
           2
