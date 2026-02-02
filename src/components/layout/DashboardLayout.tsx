@@ -91,16 +91,21 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Generate testid from href (e.g., /shipments -> nav-shipments)
+  const testId = `nav-${item.href.replace(/\//g, '').replace(/-/g, '_') || 'dashboard'}`;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className="relative group"
+      data-testid={testId}
     >
       <Link
         to={item.href}
         onClick={onNavigate}
         title={sidebarCollapsed ? item.label : undefined}
+        data-testid={`${testId}-link`}
         className={cn(
           'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
           isActive

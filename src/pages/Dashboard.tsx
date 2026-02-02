@@ -231,8 +231,9 @@ export default function Dashboard() {
             primaryText="Command"
             accentText="Center"
             description={`Welcome back${profile?.first_name ? `, ${profile.first_name}` : ''}.`}
+            data-testid="page-header"
           />
-          <Button variant="outline" size="sm" onClick={refetch} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={refetch} disabled={loading} data-testid="refresh-button">
             <MaterialIcon name={loading ? "sync" : "refresh"} size="sm" className={cn("mr-2", loading && "animate-spin")} />
             Refresh
           </Button>
@@ -250,12 +251,13 @@ export default function Dashboard() {
               const timeStr = t.timeEstimate ? formatTimeEstimate(t.timeEstimate) : '';
 
               return (
-                <Card key={t.key} className="hover:shadow-lg transition-shadow relative">
+                <Card key={t.key} className="hover:shadow-lg transition-shadow relative" data-testid={`dashboard-tile-${t.key}`}>
                   {/* Expand/Collapse Button */}
                   <Button
                     variant="ghost"
                     size="icon"
                     className="absolute top-2 right-2 h-6 w-6 z-10"
+                    data-testid={`dashboard-expand-${t.key}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleCard(t.key);

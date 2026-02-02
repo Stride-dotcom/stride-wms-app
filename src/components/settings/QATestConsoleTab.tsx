@@ -700,6 +700,430 @@ function ErrorResultsTab() {
 }
 
 // =============================================================================
+// UI Visual QA Results Tab
+// =============================================================================
+
+interface UIVisualResult {
+  id: string;
+  test_name: string;
+  route: string;
+  viewport: string;
+  status: 'pass' | 'fail' | 'skip';
+  error_message?: string;
+  details?: {
+    overflow: boolean;
+    consoleErrors: string[];
+    exceptions: string[];
+    networkFailures: string[];
+    axeViolations: { id: string; impact: string; description: string; nodes: number }[];
+    artifacts: string[];
+    tourSteps: { step: string; action: string; status: string; error?: string; screenshot?: string }[];
+    fileHints: string[];
+  };
+}
+
+interface TourCoverageData {
+  totalRoutes: number;
+  routesWithTours: number;
+  routesWithoutTours: string[];
+  missingTestIds: { selector: string; route: string; count: number }[];
+  skippedSteps: { route: string; step: string; reason: string }[];
+  coveragePercent: number;
+}
+
+function UIVisualResultsTab() {
+  const { runs, fetchRuns, fetchRunResults, currentRun, currentResults, loading, clearCurrentRun } = useQATests();
+  const [selectedViewport, setSelectedViewport] = useState<string>('all');
+  const [showCoverage, setShowCoverage] = useState(false);
+  const [expandedRoute, setExpandedRoute] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchRuns();
+  }, [fetchRuns]);
+
+  // Filter for UI visual QA runs
+  const visualRuns = runs.filter(run =>
+    run.suites_requested?.includes('ui_visual_qa') ||
+    run.metadata?.viewports
+  );
+
+  // Filter current results for UI visual QA
+  const visualResults = currentResults.filter(r => r.suite === 'ui_visual_qa');
+  const coverageResult = visualResults.find(r => r.test_name === 'tour_coverage');
+  const testResults = visualResults.filter(r => r.test_name !== 'tour_coverage');
+
+  // Group by route
+  const resultsByRoute = testResults.reduce((acc, result) => {
+    const route = (result.details as any)?.route || result.test_name.split(' (')[0];
+    if (!acc[route]) acc[route] = [];
+    acc[route].push(result);
+    return acc;
+  }, {} as Record<string, typeof testResults>);
+
+  // Filter by viewport
+  const filteredRoutes = selectedViewport === 'all'
+    ? resultsByRoute
+    : Object.fromEntries(
+        Object.entries(resultsByRoute).map(([route, results]) => [
+          route,
+          results.filter(r => r.test_name.includes(`(${selectedViewport})`))
+        ]).filter(([_, results]) => results.length > 0)
+      );
+
+  const coverageData = coverageResult?.details as TourCoverageData | undefined;
+
+  if (currentRun && visualResults.length > 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={clearCurrentRun}>
+            <MaterialIcon name="arrow_back" size="sm" className="mr-2" />
+            Back to Runs
+          </Button>
+        </div>
+
+        {/* Run Summary */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  UI Visual QA Results
+                  <StatusBadge status={currentRun.status} />
+                </CardTitle>
+                <CardDescription>
+                  Run ID: {currentRun.id.slice(0, 8)}... | {new Date(currentRun.started_at).toLocaleString()}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {testResults.filter(r => r.status === 'pass').length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Passed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-600">
+                    {testResults.filter(r => r.status === 'fail').length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Failed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-600">
+                    {testResults.filter(r => r.status === 'skip').length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Skipped</div>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+
+        {/* Tour Coverage Card */}
+        {coverageData && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <MaterialIcon name="coverage" size="md" />
+                  Tour Coverage Report
+                </CardTitle>
+                <Button variant="outline" size="sm" onClick={() => setShowCoverage(!showCoverage)}>
+                  {showCoverage ? 'Hide Details' : 'Show Details'}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-4 mb-4">
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-3xl font-bold text-primary">{coverageData.coveragePercent}%</div>
+                  <div className="text-sm text-muted-foreground">Coverage</div>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-3xl font-bold">{coverageData.routesWithTours}</div>
+                  <div className="text-sm text-muted-foreground">Routes with Tours</div>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-3xl font-bold">{coverageData.totalRoutes}</div>
+                  <div className="text-sm text-muted-foreground">Total Routes</div>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-3xl font-bold text-amber-600">{coverageData.missingTestIds?.length || 0}</div>
+                  <div className="text-sm text-muted-foreground">Missing TestIDs</div>
+                </div>
+              </div>
+
+              {showCoverage && (
+                <div className="space-y-4 mt-4">
+                  {coverageData.routesWithoutTours?.length > 0 && (
+                    <div>
+                      <Label className="text-muted-foreground">Routes Without Tours</Label>
+                      <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div className="flex flex-wrap gap-2">
+                          {coverageData.routesWithoutTours.slice(0, 20).map(route => (
+                            <Badge key={route} variant="outline">{route}</Badge>
+                          ))}
+                          {coverageData.routesWithoutTours.length > 20 && (
+                            <Badge variant="secondary">+{coverageData.routesWithoutTours.length - 20} more</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {coverageData.missingTestIds?.length > 0 && (
+                    <div>
+                      <Label className="text-muted-foreground">Missing TestIDs (Top 20)</Label>
+                      <div className="mt-2">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Selector</TableHead>
+                              <TableHead>Route</TableHead>
+                              <TableHead>Occurrences</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {coverageData.missingTestIds.slice(0, 20).map((item, idx) => (
+                              <TableRow key={idx}>
+                                <TableCell className="font-mono text-sm">{item.selector}</TableCell>
+                                <TableCell>{item.route}</TableCell>
+                                <TableCell>{item.count}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Viewport Filter */}
+        <div className="flex items-center gap-4">
+          <Label>Filter by Viewport:</Label>
+          <Select value={selectedViewport} onValueChange={setSelectedViewport}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Viewports</SelectItem>
+              <SelectItem value="desktop">Desktop</SelectItem>
+              <SelectItem value="tablet">Tablet</SelectItem>
+              <SelectItem value="mobile">Mobile</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Results by Route */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Test Results by Route</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="single" collapsible className="w-full">
+              {Object.entries(filteredRoutes).map(([route, results]) => {
+                const passCount = results.filter(r => r.status === 'pass').length;
+                const failCount = results.filter(r => r.status === 'fail').length;
+                const hasFailures = failCount > 0;
+
+                return (
+                  <AccordionItem key={route} value={route}>
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center gap-3 flex-1">
+                        <MaterialIcon
+                          name={hasFailures ? 'error' : 'check_circle'}
+                          size="sm"
+                          className={hasFailures ? 'text-red-500' : 'text-green-500'}
+                        />
+                        <span className="font-mono text-sm">{route}</span>
+                        <div className="flex items-center gap-2 ml-auto mr-4">
+                          {passCount > 0 && (
+                            <Badge variant="secondary" className="bg-green-100 text-green-800">
+                              {passCount} pass
+                            </Badge>
+                          )}
+                          {failCount > 0 && (
+                            <Badge variant="destructive">{failCount} fail</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-3 pl-8">
+                        {results.map(result => {
+                          const details = result.details as UIVisualResult['details'];
+                          return (
+                            <div
+                              key={result.id}
+                              className={cn(
+                                "p-4 rounded-lg border",
+                                result.status === 'fail' && "border-red-200 bg-red-50",
+                                result.status === 'pass' && "border-green-200 bg-green-50"
+                              )}
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <StatusBadge status={result.status} />
+                                  <span className="font-medium">{result.test_name}</span>
+                                </div>
+                              </div>
+
+                              {result.error_message && (
+                                <div className="text-sm text-red-600 mb-2">
+                                  {result.error_message}
+                                </div>
+                              )}
+
+                              {details && (
+                                <div className="grid gap-2 text-sm">
+                                  {details.overflow && (
+                                    <div className="flex items-center gap-2 text-red-600">
+                                      <MaterialIcon name="warning" size="sm" />
+                                      Horizontal overflow detected
+                                    </div>
+                                  )}
+                                  {details.consoleErrors?.length > 0 && (
+                                    <div className="flex items-center gap-2 text-red-600">
+                                      <MaterialIcon name="error" size="sm" />
+                                      {details.consoleErrors.length} console error(s)
+                                    </div>
+                                  )}
+                                  {details.axeViolations?.length > 0 && (
+                                    <div className="flex items-center gap-2 text-amber-600">
+                                      <MaterialIcon name="accessibility" size="sm" />
+                                      {details.axeViolations.length} accessibility violation(s)
+                                    </div>
+                                  )}
+                                  {details.artifacts?.length > 0 && (
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                      <MaterialIcon name="image" size="sm" />
+                                      {details.artifacts.length} screenshot(s)
+                                    </div>
+                                  )}
+                                  {details.fileHints?.length > 0 && (
+                                    <div className="mt-2">
+                                      <span className="text-muted-foreground">Files to check: </span>
+                                      <span className="font-mono text-xs">{details.fileHints.join(', ')}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // List of UI Visual QA runs
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <MaterialIcon name="screenshot_monitor" size="md" />
+              UI Visual QA Runs
+            </CardTitle>
+            <CardDescription>
+              View visual regression test results and screenshots
+            </CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => fetchRuns()} disabled={loading}>
+            <MaterialIcon name="refresh" size="sm" className={cn("mr-2", loading && "animate-spin")} />
+            Refresh
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {loading && visualRuns.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
+          </div>
+        ) : visualRuns.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <MaterialIcon name="screenshot_monitor" size="lg" className="mx-auto mb-2 opacity-50" />
+            <p>No UI Visual QA runs yet</p>
+            <p className="text-sm">Run the UI Visual QA workflow from GitHub Actions</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Started</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Viewports</TableHead>
+                <TableHead>Results</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visualRuns.map(run => (
+                <TableRow key={run.id}>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">
+                        {new Date(run.started_at).toLocaleDateString()}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(run.started_at).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={run.status} />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      {(run.metadata?.viewports || ['desktop', 'tablet', 'mobile']).map((vp: string) => (
+                        <Badge key={vp} variant="outline" className="text-xs">
+                          {vp}
+                        </Badge>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-600 font-medium">{run.pass_count}</span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="text-red-600 font-medium">{run.fail_count}</span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="text-gray-600">{run.skip_count}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => fetchRunResults(run.id)}
+                    >
+                      <MaterialIcon name="visibility" size="sm" className="mr-1" />
+                      View
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// =============================================================================
 // Main Component
 // =============================================================================
 
@@ -707,7 +1131,7 @@ export function QATestConsoleTab() {
   const [activeTab, setActiveTab] = useState('run');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="settings-qa-console">
       <div>
         <h3 className="text-lg font-medium flex items-center gap-2">
           <MaterialIcon name="bug_report" size="md" />
@@ -718,15 +1142,19 @@ export function QATestConsoleTab() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} data-testid="qa-console-tabs">
         <TabsList>
-          <TabsTrigger value="run" className="flex items-center gap-2">
+          <TabsTrigger value="run" className="flex items-center gap-2" data-testid="qa-tab-run">
             <MaterialIcon name="play_circle" size="sm" />
             Run Tests
           </TabsTrigger>
-          <TabsTrigger value="results" className="flex items-center gap-2">
+          <TabsTrigger value="results" className="flex items-center gap-2" data-testid="qa-tab-results">
             <MaterialIcon name="checklist" size="sm" />
             Error Results
+          </TabsTrigger>
+          <TabsTrigger value="visual" className="flex items-center gap-2" data-testid="qa-tab-visual">
+            <MaterialIcon name="screenshot_monitor" size="sm" />
+            UI Visual QA
           </TabsTrigger>
         </TabsList>
 
@@ -736,6 +1164,10 @@ export function QATestConsoleTab() {
 
         <TabsContent value="results" className="mt-6">
           <ErrorResultsTab />
+        </TabsContent>
+
+        <TabsContent value="visual" className="mt-6">
+          <UIVisualResultsTab />
         </TabsContent>
       </Tabs>
     </div>
