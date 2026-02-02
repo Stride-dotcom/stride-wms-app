@@ -47,10 +47,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { QATestConsoleTab } from '@/components/settings/QATestConsoleTab';
 import { cn } from '@/lib/utils';
 
-// Lazy import of BotQA content (to avoid circular dependencies)
-import BotQAPage from '@/pages/admin/BotQA';
-// Lazy import of Diagnostics content
-import DiagnosticsPage from '@/pages/Diagnostics';
+// Note: BotQAPage and DiagnosticsPage are accessed via navigation links, not embedded
 
 // =============================================================================
 // Types
