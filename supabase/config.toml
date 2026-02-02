@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.log-app-issue]
 verify_jwt = false
+
+[functions.dev-admin-login]
+verify_jwt = false
