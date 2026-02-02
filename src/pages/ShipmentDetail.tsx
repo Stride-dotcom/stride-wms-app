@@ -35,7 +35,6 @@ import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDia
 import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
 import { ShipmentHistoryTab } from '@/components/shipments/ShipmentHistoryTab';
-import { ShipmentCoverageDialog } from '@/components/shipments/ShipmentCoverageDialog';
 import { QRScanner } from '@/components/scan/QRScanner';
 import { useLocations } from '@/hooks/useLocations';
 import { hapticError, hapticSuccess } from '@/lib/haptics';

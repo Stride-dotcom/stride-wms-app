@@ -481,7 +481,7 @@ function QARunStatusPanel({ onRunUIVisual, onTabChange }: QARunStatusPanelProps)
       setStatuses(prev =>
         prev.map(s => {
           const result = results.find(r => r.suite === s.suite);
-          return { ...s, loading: false, lastRun: result?.run || null };
+          return { ...s, loading: false, lastRun: result?.run || null } as QASuiteStatus;
         })
       );
     } catch (error) {
@@ -1181,7 +1181,7 @@ function UIVisualQATab() {
   // Filter for test results (excluding coverage)
   const testResults = currentResults.filter(r => r.test_name !== 'tour_coverage');
   const coverageResult = currentResults.find(r => r.test_name === 'tour_coverage');
-  const coverageData = coverageResult?.details as TourCoverageData | undefined;
+  const coverageData = coverageResult?.details as unknown as TourCoverageData | undefined;
 
   // Generate heuristic suggestions
   const heuristicSuggestions = generateHeuristicSuggestions(currentResults);

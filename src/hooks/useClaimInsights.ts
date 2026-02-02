@@ -109,7 +109,7 @@ export function useClaimInsights(dateRangeDays: number = 30) {
       const startDateStr = startDate.toISOString();
 
       // Fetch KPIs - claims in date range
-      const { data: recentClaims, error: claimsError } = await supabase
+      const { data: recentClaims, error: claimsError } = await (supabase as any)
         .from('claims')
         .select('id, status, claim_category, auto_approved, approved_payout_amount, created_at, resolved_at, sla_status, sla_total_paused_minutes')
         .eq('tenant_id', profile.tenant_id)
@@ -128,7 +128,7 @@ export function useClaimInsights(dateRangeDays: number = 30) {
       if (billingError) throw billingError;
 
       // Fetch AI feedback for performance metrics
-      const { data: feedbackData, error: feedbackError } = await supabase
+      const { data: feedbackData, error: feedbackError } = await (supabase as any)
         .from('claim_ai_feedback')
         .select('decision_source, override_reason_code, delta_amount, final_status')
         .eq('tenant_id', profile.tenant_id)
@@ -137,7 +137,7 @@ export function useClaimInsights(dateRangeDays: number = 30) {
       if (feedbackError) throw feedbackError;
 
       // Fetch operational queue counts
-      const { data: queueCounts, error: queueError } = await supabase
+      const { data: queueCounts, error: queueError } = await (supabase as any)
         .from('claims')
         .select('id, status, sla_status, claim_category')
         .eq('tenant_id', profile.tenant_id)
