@@ -36,6 +36,12 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import {
+  ClaimNotice,
+  ClaimAssistanceNotice,
+  ClaimAutoApprovedNotice,
+  ClaimDocumentationNotice,
+} from '@/components/claims/ClaimNotice';
 
 const statusColors: Record<string, string> = {
   initiated: 'bg-blue-100 text-blue-800',
@@ -69,6 +75,20 @@ const claimTypeLabels: Record<string, string> = {
   handling_damage: 'Handling Damage',
   property_damage: 'Property Damage',
   lost_item: 'Lost Item',
+};
+
+const claimCategoryLabels: Record<string, string> = {
+  liability: 'Liability Claim (Warehouse)',
+  shipping_damage: 'Shipping Damage (Carrier)',
+};
+
+// Map claim types to categories
+const claimTypeToCategory: Record<string, 'liability' | 'shipping_damage'> = {
+  shipping_damage: 'shipping_damage',
+  manufacture_defect: 'liability',
+  handling_damage: 'liability',
+  property_damage: 'liability',
+  lost_item: 'liability',
 };
 
 export default function ClientClaims() {
@@ -117,11 +137,15 @@ export default function ClientClaims() {
       // Generate claim number
       const claimNumber = `CLM-${Math.floor(Math.random() * 900 + 100)}-${Math.floor(Math.random() * 9000 + 1000)}`;
 
+      // Determine claim category based on type
+      const claimCategory = claimTypeToCategory[newClaim.claim_type] || 'liability';
+
       const { error } = await supabase.from('claims').insert({
         tenant_id: portalUser.tenant_id,
         account_id: portalUser.account_id,
         claim_number: claimNumber,
         claim_type: newClaim.claim_type,
+        claim_category: claimCategory,
         description: newClaim.description,
         incident_date: newClaim.incident_date || null,
         status: 'initiated',
@@ -286,6 +310,11 @@ export default function ClientClaims() {
               </div>
               <p className="text-muted-foreground">
                 {claimTypeLabels[claimDetail.claim_type] || claimDetail.claim_type}
+                {claimDetail.claim_category && (
+                  <span className="ml-2 text-sm">
+                    ({claimCategoryLabels[claimDetail.claim_category] || claimDetail.claim_category})
+                  </span>
+                )}
               </p>
             </div>
 
@@ -299,6 +328,19 @@ export default function ClientClaims() {
               </Link>
             )}
           </div>
+
+          {/* Claim Processing Notice */}
+          <ClaimNotice context="portal_detail" compact />
+
+          {/* Shipping Damage Assistance Notice */}
+          {claimDetail.claim_category === 'shipping_damage' && (
+            <ClaimAssistanceNotice fee={150} />
+          )}
+
+          {/* Auto-Approved Notice */}
+          {claimDetail.auto_approved && claimDetail.approved_payout_amount != null && (
+            <ClaimAutoApprovedNotice amount={claimDetail.approved_payout_amount} />
+          )}
 
           <div className="grid gap-6 md:grid-cols-3">
             {/* Main Content */}
@@ -609,13 +651,17 @@ export default function ClientClaims() {
                 File New Claim
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>File New Claim</DialogTitle>
                 <DialogDescription>
                   Submit a new damage or loss claim for review.
                 </DialogDescription>
               </DialogHeader>
+
+              {/* Claims Processing Notice */}
+              <ClaimNotice context="portal_submission" compact />
+
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Claim Type *</Label>
@@ -634,6 +680,14 @@ export default function ClientClaims() {
                       <SelectItem value="lost_item">Lost Item</SelectItem>
                     </SelectContent>
                   </Select>
+
+                  {/* Show shipping damage assistance info */}
+                  {newClaim.claim_type === 'shipping_damage' && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Shipping damage claims are filed with the carrier. We will assist with the
+                      claim process on your behalf. A claim assistance fee may apply.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Incident Date</Label>

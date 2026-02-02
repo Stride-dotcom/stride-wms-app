@@ -14,14 +14,32 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
 import { DocumentList } from '@/components/scanner/DocumentList';
 import { useClaims, CLAIM_TYPE_LABELS, CLAIM_STATUS_LABELS, type Claim, type ClaimAudit, type ClaimItem } from '@/hooks/useClaims';
+import { useClaimAnalysis } from '@/hooks/useClaimAnalysis';
+import { useClaimReport } from '@/hooks/useClaimReport';
 import { ClaimAttachments } from '@/components/claims/ClaimAttachments';
 import { ClaimNotes } from '@/components/claims/ClaimNotes';
 import { ClaimStatusActions } from '@/components/claims/ClaimStatusActions';
 import { ClaimItemsList } from '@/components/claims/ClaimItemsList';
 import { ClaimEditDialog } from '@/components/claims/ClaimEditDialog';
+import {
+  ClaimNotice,
+  ClaimAssistanceNotice,
+  ClaimAutoApprovedNotice,
+} from '@/components/claims/ClaimNotice';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+const CLAIM_CATEGORY_LABELS: Record<string, string> = {
+  liability: 'Liability Claim',
+  shipping_damage: 'Shipping Damage (Assistance)',
+};
 
 const statusColors: Record<string, string> = {
   initiated: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
@@ -47,6 +65,22 @@ export default function ClaimDetail() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { claims, loading, fetchAuditLog, fetchClaimItems, refetch } = useClaims();
+  const {
+    analyzing,
+    analysis,
+    fetchAnalysis,
+    analyzeCliam,
+    getActionLabel,
+    getConfidenceColor,
+    getActionColor,
+  } = useClaimAnalysis();
+  const {
+    generating,
+    downloadPdfReport,
+    downloadClaimPackage,
+    copyPublicReportUrl,
+  } = useClaimReport();
+
   const [claim, setClaim] = useState<Claim | null>(null);
   const [claimItems, setClaimItems] = useState<ClaimItem[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogWithUser[]>([]);
@@ -115,8 +149,9 @@ export default function ClaimDetail() {
     if (id) {
       fetchAuditLogWithUsers(id);
       fetchClaimItems(id).then(setClaimItems);
+      fetchAnalysis(id);
     }
-  }, [id, fetchClaimItems]);
+  }, [id, fetchClaimItems, fetchAnalysis]);
 
   // Refetch claim items when claim is refetched
   const handleRefetch = async () => {
@@ -124,9 +159,17 @@ export default function ClaimDetail() {
     if (id) {
       const items = await fetchClaimItems(id);
       setClaimItems(items);
-      // Also refetch audit log to show changes
+      // Also refetch audit log and analysis to show changes
       fetchAuditLogWithUsers(id);
+      fetchAnalysis(id);
     }
+  };
+
+  // Run AI analysis on the claim
+  const handleAnalyzeClaim = async () => {
+    if (!id) return;
+    await analyzeCliam(id);
+    await handleRefetch();
   };
 
   if (loading) {
@@ -174,11 +217,73 @@ export default function ClaimDetail() {
               </div>
               <p className="text-muted-foreground">
                 {CLAIM_TYPE_LABELS[claim.claim_type as keyof typeof CLAIM_TYPE_LABELS] || claim.claim_type}
+                {claim.claim_category && (
+                  <span className="ml-2 text-sm">
+                    ({CLAIM_CATEGORY_LABELS[claim.claim_category] || claim.claim_category})
+                  </span>
+                )}
               </p>
             </div>
           </div>
-          <ClaimStatusActions claim={claim} claimItems={claimItems} onUpdate={handleRefetch} />
+
+          <div className="flex items-center gap-2">
+            {/* Export Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={generating}>
+                  {generating ? (
+                    <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />
+                  ) : (
+                    <MaterialIcon name="download" size="sm" className="mr-2" />
+                  )}
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => downloadPdfReport(claim.id, claim.claim_number)}>
+                  <MaterialIcon name="picture_as_pdf" size="sm" className="mr-2" />
+                  Download PDF Report
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadClaimPackage(claim.id, claim.claim_number)}>
+                  <MaterialIcon name="folder_zip" size="sm" className="mr-2" />
+                  Download Full Package
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => copyPublicReportUrl(claim.id)}>
+                  <MaterialIcon name="link" size="sm" className="mr-2" />
+                  Copy Public Link
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Analyze Button (only for liability claims) */}
+            {claim.claim_category !== 'shipping_damage' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAnalyzeClaim}
+                disabled={analyzing}
+              >
+                {analyzing ? (
+                  <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />
+                ) : (
+                  <MaterialIcon name="analytics" size="sm" className="mr-2" />
+                )}
+                {analysis ? 'Re-Analyze' : 'Analyze'}
+              </Button>
+            )}
+
+            <ClaimStatusActions claim={claim} claimItems={claimItems} onUpdate={handleRefetch} />
+          </div>
         </div>
+
+        {/* Notices */}
+        {claim.auto_approved && claim.approved_payout_amount != null && (
+          <ClaimAutoApprovedNotice amount={claim.approved_payout_amount} />
+        )}
+
+        {claim.claim_category === 'shipping_damage' && (
+          <ClaimAssistanceNotice fee={150} />
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
@@ -413,6 +518,99 @@ export default function ClaimDetail() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* System Analysis (only for liability claims) */}
+            {claim.claim_category !== 'shipping_damage' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MaterialIcon name="analytics" size="md" />
+                    System Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {analysis ? (
+                    <>
+                      {/* Recommendation */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Recommendation</span>
+                        <Badge className={getActionColor(analysis.recommended_action)}>
+                          {getActionLabel(analysis.recommended_action)}
+                        </Badge>
+                      </div>
+
+                      {/* Amount */}
+                      {analysis.recommendation_amount != null && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Suggested Amount</span>
+                          <span className="font-bold text-primary">
+                            ${analysis.recommendation_amount.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Confidence */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Confidence</span>
+                        <Badge variant="outline" className={getConfidenceColor(analysis.confidence_level)}>
+                          {analysis.confidence_level.charAt(0).toUpperCase() + analysis.confidence_level.slice(1)}
+                        </Badge>
+                      </div>
+
+                      {/* Flags */}
+                      {analysis.flags && analysis.flags.length > 0 && (
+                        <div>
+                          <span className="text-sm text-muted-foreground block mb-2">Flags</span>
+                          <div className="flex flex-wrap gap-1">
+                            {analysis.flags.map((flag, idx) => (
+                              <Badge key={idx} variant="secondary" className="text-xs">
+                                {flag.replace(/_/g, ' ')}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Reasoning */}
+                      {analysis.reasoning && (
+                        <div>
+                          <span className="text-sm text-muted-foreground block mb-1">Reasoning</span>
+                          <p className="text-sm bg-muted p-2 rounded">
+                            {analysis.reasoning}
+                          </p>
+                        </div>
+                      )}
+
+                      <Separator />
+
+                      <p className="text-xs text-muted-foreground">
+                        Analysis performed using standardized rules (v{analysis.model_version || '1'})
+                      </p>
+                    </>
+                  ) : (
+                    <div className="text-center py-4">
+                      <MaterialIcon name="analytics" className="mx-auto text-muted-foreground mb-2" style={{ fontSize: '32px' }} />
+                      <p className="text-sm text-muted-foreground mb-3">
+                        No analysis available yet
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAnalyzeClaim}
+                        disabled={analyzing}
+                      >
+                        {analyzing ? (
+                          <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />
+                        ) : (
+                          <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
+                        )}
+                        Run Analysis
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Valuation */}
             <Card>
               <CardHeader>
