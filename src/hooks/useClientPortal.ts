@@ -34,7 +34,10 @@ export function useClientPortalContext(): ClientPortalContext {
     queryFn: async () => {
       if (!user?.id) return null;
 
-      const { data: portalUser, error } = await (supabase
+      // NOTE: Do not use .single() here.
+      // PostgREST returns 406 when 0 rows match, which can create noisy retries and
+      // destabilize app startup for non-client users.
+      const { data: portalUsers, error } = await (supabase
         .from('client_portal_users') as any)
         .select(`
           id,
@@ -56,7 +59,9 @@ export function useClientPortalContext(): ClientPortalContext {
         `)
         .eq('auth_user_id', user.id)
         .eq('is_active', true)
-        .single();
+        .limit(1);
+
+      const portalUser = portalUsers?.[0] ?? null;
 
       if (error || !portalUser) return null;
 

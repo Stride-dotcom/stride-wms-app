@@ -357,7 +357,8 @@ export default function Auth() {
                                       description: 'Signed in with admin_dev system privileges',
                                     });
 
-                                    navigate('/');
+                                     // Admin Dev users are primarily meant to access QA Center.
+                                     navigate('/qa');
                                   } catch (err) {
                                     console.error('Admin dev login error:', err);
                                     toast({

@@ -56,6 +56,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setProfile(null);
         }
+
+        // IMPORTANT: always clear loading after an auth transition.
+        // In some flows (e.g., quick-login), getSession() can lag behind the auth event,
+        // leaving the app stuck on the ProtectedRoute spinner.
+        setLoading(false);
       }
     );
 
