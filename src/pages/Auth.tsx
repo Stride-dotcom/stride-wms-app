@@ -9,8 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 // Dev-only quick login users - only visible in development mode
 interface DevUser {
@@ -300,7 +302,7 @@ export default function Auth() {
                   </Button>
 
                   {/* Dev Quick Login - Only visible in development */}
-                  {import.meta.env.DEV && (
+                  {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_QUICK_LOGIN === 'true') && (
                     <div className="mt-6">
                       <div className="relative mb-4">
                         <div className="absolute inset-0 flex items-center">
@@ -310,8 +312,69 @@ export default function Auth() {
                           <span className="bg-card px-2 text-orange-500 font-semibold">Dev Quick Login</span>
                         </div>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-2">
+                        {/* Admin Dev Button - System access, placed at top */}
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs border-purple-300 bg-purple-50 hover:bg-purple-100 hover:border-purple-500 dark:border-purple-700 dark:bg-purple-950 dark:hover:bg-purple-900 col-span-2"
+                                onClick={async () => {
+                                  setIsLoading(true);
+                                  try {
+                                    // Call the dev-admin-login edge function
+                                    const { data, error } = await supabase.functions.invoke('dev-admin-login');
+
+                                    if (error) {
+                                      throw new Error(error.message || 'Failed to invoke dev-admin-login');
+                                    }
+
+                                    if (!data?.success) {
+                                      throw new Error(data?.error || 'Dev admin login failed');
+                                    }
+
+                                    // Set the session from the edge function response
+                                    if (data.session) {
+                                      await supabase.auth.setSession({
+                                        access_token: data.session.access_token,
+                                        refresh_token: data.session.refresh_token,
+                                      });
+                                    }
+
+                                    toast({
+                                      title: 'Admin Dev Login',
+                                      description: 'Signed in with admin_dev system privileges',
+                                    });
+
+                                    navigate('/');
+                                  } catch (err) {
+                                    console.error('Admin dev login error:', err);
+                                    toast({
+                                      variant: 'destructive',
+                                      title: 'Admin Dev Login Failed',
+                                      description: err instanceof Error ? err.message : 'Could not sign in as Admin Dev',
+                                    });
+                                  } finally {
+                                    setIsLoading(false);
+                                  }
+                                }}
+                                disabled={isLoading}
+                              >
+                                <MaterialIcon name="developer_mode" size="sm" className="mr-1" />
+                                Admin Dev
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">Admin Dev — internal system access</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+
+                        {/* Standard dev login buttons */}
                         {DEV_USERS.map((devUser) => {
                           return (
                             <Button
