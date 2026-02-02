@@ -10,6 +10,8 @@ const corsHeaders = {
 const DEV_ADMIN_EMAIL = "admin-dev@dev.local";
 const DEV_ADMIN_PASSWORD = "devadmin123!";
 const ADMIN_DEV_ROLE_ID = "a0000000-0000-0000-0000-000000000001";
+// Demo tenant ID for admin-dev user (required for app to function)
+const DEMO_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 /**
  * Edge function to provision and sign in a dev admin user.
@@ -66,6 +68,26 @@ const handler = async (req: Request): Promise<Response> => {
     if (existingUser) {
       userId = existingUser.id;
       console.log(`Found existing dev admin user: ${userId}`);
+      
+      // Ensure profile exists for existing user (might be missing due to previous RLS issues)
+      const { error: profileError } = await adminClient
+        .from('users')
+        .upsert({
+          id: userId,
+          email: DEV_ADMIN_EMAIL,
+          first_name: 'Admin',
+          last_name: 'Dev',
+          status: 'active',
+          tenant_id: DEMO_TENANT_ID,
+        }, {
+          onConflict: 'id',
+        });
+
+      if (profileError) {
+        console.warn(`Note: Could not ensure user profile: ${profileError.message}`);
+      } else {
+        console.log(`Ensured user profile exists for ${userId}`);
+      }
     } else {
       // Step 2: Create the user if doesn't exist
       const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
@@ -85,7 +107,7 @@ const handler = async (req: Request): Promise<Response> => {
       userId = newUser.user.id;
       console.log(`Created new dev admin user: ${userId}`);
 
-      // Create user profile in users table (without tenant_id for system user)
+      // Create user profile in users table with demo tenant
       const { error: profileError } = await adminClient
         .from('users')
         .upsert({
@@ -94,7 +116,7 @@ const handler = async (req: Request): Promise<Response> => {
           first_name: 'Admin',
           last_name: 'Dev',
           status: 'active',
-          tenant_id: null, // System user - no tenant
+          tenant_id: DEMO_TENANT_ID, // Use demo tenant for app access
         }, {
           onConflict: 'id',
         });
@@ -102,6 +124,8 @@ const handler = async (req: Request): Promise<Response> => {
       if (profileError) {
         console.warn(`Note: Could not create user profile: ${profileError.message}`);
         // Don't fail - user profile might be created by trigger
+      } else {
+        console.log(`Created user profile for ${userId} with tenant ${DEMO_TENANT_ID}`);
       }
     }
 
