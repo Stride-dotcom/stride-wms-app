@@ -75,6 +75,7 @@ const handler = async (req: Request): Promise<Response> => {
         .upsert({
           id: userId,
           email: DEV_ADMIN_EMAIL,
+          password_hash: 'supabase_auth_managed',
           first_name: 'Admin',
           last_name: 'Dev',
           status: 'active',
@@ -113,6 +114,7 @@ const handler = async (req: Request): Promise<Response> => {
         .upsert({
           id: userId,
           email: DEV_ADMIN_EMAIL,
+          password_hash: 'supabase_auth_managed',
           first_name: 'Admin',
           last_name: 'Dev',
           status: 'active',
