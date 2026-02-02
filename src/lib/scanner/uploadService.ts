@@ -197,23 +197,41 @@ export async function uploadDocument(
     created_by: user.id,
   };
   
-  const { data: document, error: dbError } = await supabase
-    .from('documents')
-    .insert(documentData)
-    .select()
-    .single();
-  
-  if (dbError) {
+  // Create document record via Edge Function.
+  // This avoids client-side RLS insert failures while still enforcing tenant/user on the server.
+  const { data: createData, error: createError } = await supabase.functions.invoke(
+    'create-document',
+    {
+      body: {
+        context_type: documentData.context_type,
+        context_id: documentData.context_id,
+        file_name: documentData.file_name,
+        storage_key: documentData.storage_key,
+        file_size: documentData.file_size,
+        page_count: documentData.page_count,
+        mime_type: documentData.mime_type,
+        ocr_text: documentData.ocr_text,
+        ocr_pages: documentData.ocr_pages,
+        ocr_status: documentData.ocr_status,
+        label: documentData.label,
+        notes: documentData.notes,
+        is_sensitive: documentData.is_sensitive,
+      },
+    }
+  );
+
+  if (createError || !createData?.ok || !createData?.document?.id) {
     // Try to clean up the uploaded file
     await supabase.storage.from('documents-private').remove([storageKey]);
-    console.error('Database insert error:', dbError);
-    throw new Error(`Failed to save document record: ${dbError.message}`);
+    console.error('Database insert error:', createError || createData);
+    const message = createError?.message || createData?.error || 'Failed to create document record';
+    throw new Error(`Failed to save document record: ${message}`);
   }
   
   onProgress?.({ stage: 'complete', percentage: 100 });
   
   return {
-    documentId: document.id,
+    documentId: createData.document.id,
     storageKey,
   };
 }
