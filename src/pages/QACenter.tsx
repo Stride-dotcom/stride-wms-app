@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -2185,6 +2185,7 @@ function UIVisualQATab() {
  * Bot QA Content - Extracted from BotQA page
  */
 function BotQAContent() {
+  const navigate = useNavigate();
   // We need to render BotQAPage content without the DashboardLayout wrapper
   // Since BotQAPage is a full page component, we'll extract its inner content
   return (
@@ -2203,11 +2204,9 @@ function BotQAContent() {
           <p className="text-muted-foreground mb-4">
             Navigate to the full Bot QA page for comprehensive testing tools.
           </p>
-          <Button asChild>
-            <a href="/admin/bot-qa">
-              <MaterialIcon name="open_in_new" size="sm" className="mr-2" />
-              Open Bot QA
-            </a>
+          <Button type="button" onClick={() => navigate('/admin/bot-qa')}>
+            <MaterialIcon name="open_in_new" size="sm" />
+            Open Bot QA
           </Button>
         </CardContent>
       </Card>
@@ -2219,6 +2218,7 @@ function BotQAContent() {
  * Diagnostics Content - Extracted from Diagnostics page
  */
 function DiagnosticsContent() {
+  const navigate = useNavigate();
   return (
     <div className="space-y-6">
       <Card>
@@ -2235,11 +2235,9 @@ function DiagnosticsContent() {
           <p className="text-muted-foreground mb-4">
             Navigate to the full Diagnostics page for comprehensive error monitoring.
           </p>
-          <Button asChild>
-            <a href="/diagnostics">
-              <MaterialIcon name="open_in_new" size="sm" className="mr-2" />
-              Open Diagnostics
-            </a>
+          <Button type="button" onClick={() => navigate('/diagnostics')}>
+            <MaterialIcon name="open_in_new" size="sm" />
+            Open Diagnostics
           </Button>
         </CardContent>
       </Card>
