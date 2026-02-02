@@ -129,6 +129,300 @@ interface SelectableIssue {
 }
 
 // =============================================================================
+// Heuristic Suggestions Types & Generator
+// =============================================================================
+
+interface HeuristicSuggestion {
+  id: string;
+  category: 'accessibility' | 'layout' | 'scrolling' | 'mobile' | 'performance' | 'general';
+  severity: 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  affectedRoutes: string[];
+  affectedViewports: string[];
+  recommendation: string;
+}
+
+interface AISuggestion {
+  route: string;
+  viewport: string;
+  category: string;
+  severity: 'high' | 'medium' | 'low';
+  description: string;
+  recommendation: string;
+}
+
+interface UIAIReview {
+  id: string;
+  run_id: string;
+  created_at: string;
+  created_by: string;
+  summary: string;
+  suggestions: AISuggestion[];
+  status: 'pending' | 'completed' | 'failed';
+  error?: string;
+}
+
+const SUGGESTION_CATEGORIES: Record<string, { label: string; icon: string; color: string }> = {
+  accessibility: { label: 'Accessibility', icon: 'accessibility', color: 'text-purple-600' },
+  layout: { label: 'Layout', icon: 'view_quilt', color: 'text-blue-600' },
+  scrolling: { label: 'Scrolling', icon: 'swap_vert', color: 'text-amber-600' },
+  mobile: { label: 'Mobile', icon: 'phone_android', color: 'text-green-600' },
+  performance: { label: 'Performance', icon: 'speed', color: 'text-red-600' },
+  general: { label: 'General', icon: 'lightbulb', color: 'text-gray-600' },
+};
+
+/**
+ * Generate heuristic suggestions from test results.
+ * Prefers existing suggestions from qa_test_results.details.suggestions[]
+ * Falls back to generating suggestions from failure signals.
+ */
+function generateHeuristicSuggestions(results: QATestResult[]): HeuristicSuggestion[] {
+  const suggestions: HeuristicSuggestion[] = [];
+  const suggestionMap = new Map<string, HeuristicSuggestion>();
+
+  // First, collect any existing suggestions from results
+  results.forEach(result => {
+    const details = result.details as UIVisualResult['details'];
+    if (details?.suggestions) {
+      details.suggestions.forEach((s, idx) => {
+        const key = `existing-${s.type}-${s.message}`;
+        if (!suggestionMap.has(key)) {
+          const route = result.test_name.replace(/^\[P\d\]\s*/, '').split(' (')[0];
+          const viewport = result.test_name.match(/\((\w+)\)$/)?.[1] || 'unknown';
+          suggestionMap.set(key, {
+            id: `existing-${result.id}-${idx}`,
+            category: mapSuggestionType(s.type),
+            severity: mapPriority(s.priority),
+            title: s.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+            description: s.message,
+            affectedRoutes: [route],
+            affectedViewports: [viewport],
+            recommendation: s.message,
+          });
+        } else {
+          const existing = suggestionMap.get(key)!;
+          const route = result.test_name.replace(/^\[P\d\]\s*/, '').split(' (')[0];
+          const viewport = result.test_name.match(/\((\w+)\)$/)?.[1] || 'unknown';
+          if (!existing.affectedRoutes.includes(route)) existing.affectedRoutes.push(route);
+          if (!existing.affectedViewports.includes(viewport)) existing.affectedViewports.push(viewport);
+        }
+      });
+    }
+  });
+
+  // Generate suggestions from failure signals
+  const failedResults = results.filter(r => r.status === 'fail' && r.test_name !== 'tour_coverage');
+
+  // Group failures by error code
+  const failuresByCode: Record<string, { routes: Set<string>; viewports: Set<string>; count: number }> = {};
+  const mobileFailures: { routes: Set<string>; count: number } = { routes: new Set(), count: 0 };
+  const axeViolations: { routes: Set<string>; types: Set<string>; count: number } = { routes: new Set(), types: new Set(), count: 0 };
+
+  failedResults.forEach(result => {
+    const details = result.details as UIVisualResult['details'];
+    const route = result.test_name.replace(/^\[P\d\]\s*/, '').split(' (')[0];
+    const viewport = result.test_name.match(/\((\w+)\)$/)?.[1] || 'unknown';
+
+    if (details?.issues) {
+      details.issues.forEach(issue => {
+        if (!failuresByCode[issue.code]) {
+          failuresByCode[issue.code] = { routes: new Set(), viewports: new Set(), count: 0 };
+        }
+        failuresByCode[issue.code].routes.add(route);
+        failuresByCode[issue.code].viewports.add(viewport);
+        failuresByCode[issue.code].count++;
+      });
+    }
+
+    // Track mobile-specific failures
+    if (viewport === 'mobile') {
+      mobileFailures.routes.add(route);
+      mobileFailures.count++;
+    }
+
+    // Track axe violations
+    if (details?.axeViolations) {
+      details.axeViolations.forEach(v => {
+        axeViolations.routes.add(route);
+        axeViolations.types.add(v.id);
+        axeViolations.count += v.nodes;
+      });
+    }
+  });
+
+  // Generate suggestions based on failure patterns
+
+  // Scroll-related issues
+  const scrollCodes = ['SCROLL_LOCKED', 'INSUFFICIENT_SCROLL_BUFFER', 'PRIMARY_ACTION_NOT_REACHABLE'];
+  const scrollIssues = scrollCodes.filter(code => failuresByCode[code]);
+  if (scrollIssues.length > 0) {
+    const routes = new Set<string>();
+    const viewports = new Set<string>();
+    scrollIssues.forEach(code => {
+      failuresByCode[code].routes.forEach(r => routes.add(r));
+      failuresByCode[code].viewports.forEach(v => viewports.add(v));
+    });
+
+    const key = 'scroll-issues';
+    if (!suggestionMap.has(key)) {
+      suggestionMap.set(key, {
+        id: key,
+        category: 'scrolling',
+        severity: 'high',
+        title: 'Scrolling & Content Accessibility',
+        description: `${scrollIssues.length} scroll-related issue type(s) detected across ${routes.size} route(s). Users may not be able to reach important content or actions.`,
+        affectedRoutes: Array.from(routes),
+        affectedViewports: Array.from(viewports),
+        recommendation: 'Review pages for: (1) Remove overflow:hidden or height:100vh traps, (2) Add minimum 80-120px bottom padding, (3) Consider sticky action bars for primary CTAs, (4) Ensure content is scrollable on all viewports.',
+      });
+    }
+  }
+
+  // Horizontal overflow
+  if (failuresByCode['HORIZONTAL_OVERFLOW']) {
+    const data = failuresByCode['HORIZONTAL_OVERFLOW'];
+    const key = 'horizontal-overflow';
+    if (!suggestionMap.has(key)) {
+      suggestionMap.set(key, {
+        id: key,
+        category: 'layout',
+        severity: 'medium',
+        title: 'Horizontal Overflow Issues',
+        description: `Horizontal overflow detected on ${data.routes.size} route(s). This causes unwanted horizontal scrolling and poor UX.`,
+        affectedRoutes: Array.from(data.routes),
+        affectedViewports: Array.from(data.viewports),
+        recommendation: 'Check container widths, padding, and fixed-width elements. Use max-width with overflow-x:auto where needed. Review responsive breakpoints for smaller screens.',
+      });
+    }
+  }
+
+  // Accessibility (axe) issues
+  if (failuresByCode['AXE_CRITICAL'] || failuresByCode['AXE_SERIOUS'] || axeViolations.count > 0) {
+    const criticalData = failuresByCode['AXE_CRITICAL'];
+    const seriousData = failuresByCode['AXE_SERIOUS'];
+    const routes = new Set<string>();
+    const viewports = new Set<string>();
+
+    if (criticalData) {
+      criticalData.routes.forEach(r => routes.add(r));
+      criticalData.viewports.forEach(v => viewports.add(v));
+    }
+    if (seriousData) {
+      seriousData.routes.forEach(r => routes.add(r));
+      seriousData.viewports.forEach(v => viewports.add(v));
+    }
+    axeViolations.routes.forEach(r => routes.add(r));
+
+    const key = 'accessibility-issues';
+    if (!suggestionMap.has(key)) {
+      suggestionMap.set(key, {
+        id: key,
+        category: 'accessibility',
+        severity: criticalData ? 'high' : 'medium',
+        title: 'Accessibility Violations',
+        description: `Accessibility issues found: ${axeViolations.types.size} violation type(s) with ${axeViolations.count} affected element(s) across ${routes.size} route(s).`,
+        affectedRoutes: Array.from(routes),
+        affectedViewports: Array.from(viewports),
+        recommendation: 'Review axe violation details. Common fixes: (1) Add missing labels to form controls, (2) Improve color contrast ratios, (3) Add alt text to images, (4) Ensure interactive elements are keyboard accessible.',
+      });
+    }
+  }
+
+  // Contrast issues (from axe violations)
+  const contrastViolations = failedResults.filter(r => {
+    const details = r.details as UIVisualResult['details'];
+    return details?.axeViolations?.some(v => v.id.includes('contrast'));
+  });
+  if (contrastViolations.length > 0) {
+    const routes = new Set<string>();
+    contrastViolations.forEach(r => {
+      routes.add(r.test_name.replace(/^\[P\d\]\s*/, '').split(' (')[0]);
+    });
+
+    const key = 'contrast-issues';
+    if (!suggestionMap.has(key)) {
+      suggestionMap.set(key, {
+        id: key,
+        category: 'accessibility',
+        severity: 'medium',
+        title: 'Color Contrast Issues',
+        description: `Text/background contrast issues on ${routes.size} route(s). Low contrast makes content hard to read for users with visual impairments.`,
+        affectedRoutes: Array.from(routes),
+        affectedViewports: ['all'],
+        recommendation: 'Increase contrast ratios. WCAG AA requires 4.5:1 for normal text and 3:1 for large text. Use tools like WebAIM contrast checker to verify.',
+      });
+    }
+  }
+
+  // Mobile-specific issues
+  if (mobileFailures.count >= 3) {
+    const key = 'mobile-issues';
+    if (!suggestionMap.has(key)) {
+      suggestionMap.set(key, {
+        id: key,
+        category: 'mobile',
+        severity: mobileFailures.count >= 5 ? 'high' : 'medium',
+        title: 'Mobile Layout Patterns',
+        description: `${mobileFailures.count} failure(s) on mobile viewport across ${mobileFailures.routes.size} route(s). Mobile users may have degraded experience.`,
+        affectedRoutes: Array.from(mobileFailures.routes),
+        affectedViewports: ['mobile'],
+        recommendation: 'Review mobile layouts: (1) Ensure touch targets are at least 44x44px, (2) Add adequate spacing between interactive elements, (3) Consider "glove-friendly" design with larger buttons, (4) Test with actual mobile devices.',
+      });
+    }
+  }
+
+  // Console errors
+  if (failuresByCode['CONSOLE_ERROR'] || failuresByCode['UNCAUGHT_EXCEPTION']) {
+    const errorData = failuresByCode['CONSOLE_ERROR'];
+    const exceptionData = failuresByCode['UNCAUGHT_EXCEPTION'];
+    const routes = new Set<string>();
+
+    if (errorData) errorData.routes.forEach(r => routes.add(r));
+    if (exceptionData) exceptionData.routes.forEach(r => routes.add(r));
+
+    const key = 'js-errors';
+    if (!suggestionMap.has(key)) {
+      suggestionMap.set(key, {
+        id: key,
+        category: 'performance',
+        severity: exceptionData ? 'high' : 'medium',
+        title: 'JavaScript Errors',
+        description: `Console errors or uncaught exceptions detected on ${routes.size} route(s). These may cause features to break.`,
+        affectedRoutes: Array.from(routes),
+        affectedViewports: ['all'],
+        recommendation: 'Debug JavaScript errors in browser console. Check for: (1) Undefined variables, (2) API response handling, (3) Missing null checks, (4) Race conditions in async code.',
+      });
+    }
+  }
+
+  return Array.from(suggestionMap.values()).sort((a, b) => {
+    const severityOrder = { high: 0, medium: 1, low: 2 };
+    return severityOrder[a.severity] - severityOrder[b.severity];
+  });
+}
+
+function mapSuggestionType(type: string): HeuristicSuggestion['category'] {
+  const typeMap: Record<string, HeuristicSuggestion['category']> = {
+    contrast: 'accessibility',
+    tap_target: 'mobile',
+    spacing: 'layout',
+    sticky_footer: 'scrolling',
+    layout: 'layout',
+  };
+  return typeMap[type] || 'general';
+}
+
+function mapPriority(priority: string): HeuristicSuggestion['severity'] {
+  const priorityMap: Record<string, HeuristicSuggestion['severity']> = {
+    high: 'high',
+    medium: 'medium',
+    low: 'low',
+  };
+  return priorityMap[priority] || 'medium';
+}
+
+// =============================================================================
 // QA Run Status Panel
 // =============================================================================
 
@@ -574,6 +868,7 @@ interface UIVisualResult {
 function UIVisualQATab() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const { isAdminDev } = useAdminDev();
   const [runs, setRuns] = useState<QATestRun[]>([]);
   const [currentRun, setCurrentRun] = useState<QATestRun | null>(null);
   const [currentResults, setCurrentResults] = useState<QATestResult[]>([]);
@@ -585,6 +880,18 @@ function UIVisualQATab() {
   const [bulkFixPrompt, setBulkFixPrompt] = useState('');
   const [showCoverage, setShowCoverage] = useState(false);
   const [screenshotUrls, setScreenshotUrls] = useState<Record<string, string>>({});
+
+  // Suggestions state
+  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [expandedSuggestions, setExpandedSuggestions] = useState<Set<string>>(new Set());
+  const [suggestionsCopied, setSuggestionsCopied] = useState(false);
+
+  // AI Review state (gated by VITE_ENABLE_UI_AI_REVIEW)
+  const aiReviewEnabled = import.meta.env.VITE_ENABLE_UI_AI_REVIEW === 'true';
+  const [aiReview, setAIReview] = useState<UIAIReview | null>(null);
+  const [aiReviewLoading, setAIReviewLoading] = useState(false);
+  const [showAIReview, setShowAIReview] = useState(false);
+  const [aiReviewMode, setAIReviewMode] = useState<'all' | 'failed'>('failed');
 
   // Fetch UI Visual QA runs
   const fetchRuns = useCallback(async () => {
@@ -866,12 +1173,18 @@ function UIVisualQATab() {
     setCurrentResults([]);
     setSelectedIssues(new Set());
     setScreenshotUrls({});
+    setAIReview(null);
+    setShowAIReview(false);
+    setExpandedSuggestions(new Set());
   };
 
   // Filter for test results (excluding coverage)
   const testResults = currentResults.filter(r => r.test_name !== 'tour_coverage');
   const coverageResult = currentResults.find(r => r.test_name === 'tour_coverage');
   const coverageData = coverageResult?.details as TourCoverageData | undefined;
+
+  // Generate heuristic suggestions
+  const heuristicSuggestions = generateHeuristicSuggestions(currentResults);
 
   // Group by route for detail view
   const resultsByRoute = testResults.reduce((acc, result) => {
@@ -880,6 +1193,163 @@ function UIVisualQATab() {
     acc[route].push(result);
     return acc;
   }, {} as Record<string, QATestResult[]>);
+
+  // Toggle suggestion expansion
+  const toggleSuggestionExpand = (id: string) => {
+    setExpandedSuggestions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  // Copy suggestions summary to clipboard
+  const handleCopySuggestions = async () => {
+    const lines: string[] = [
+      '# UI Visual QA - Suggestions Summary',
+      '',
+      `**Run ID:** ${currentRun?.id || 'unknown'}`,
+      `**Total Suggestions:** ${heuristicSuggestions.length}`,
+      `**Generated:** ${new Date().toISOString()}`,
+      '',
+      '---',
+      '',
+    ];
+
+    heuristicSuggestions.forEach((suggestion, idx) => {
+      lines.push(`## ${idx + 1}. ${suggestion.title}`);
+      lines.push('');
+      lines.push(`**Category:** ${SUGGESTION_CATEGORIES[suggestion.category]?.label || suggestion.category}`);
+      lines.push(`**Severity:** ${suggestion.severity.toUpperCase()}`);
+      lines.push(`**Affected Routes:** ${suggestion.affectedRoutes.join(', ')}`);
+      lines.push(`**Affected Viewports:** ${suggestion.affectedViewports.join(', ')}`);
+      lines.push('');
+      lines.push(`**Description:** ${suggestion.description}`);
+      lines.push('');
+      lines.push(`**Recommendation:** ${suggestion.recommendation}`);
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+    });
+
+    const text = lines.join('\n');
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setSuggestionsCopied(true);
+      setTimeout(() => setSuggestionsCopied(false), 2000);
+      toast({ title: 'Copied', description: 'Suggestions summary copied to clipboard' });
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setSuggestionsCopied(true);
+      setTimeout(() => setSuggestionsCopied(false), 2000);
+      toast({ title: 'Copied', description: 'Suggestions summary copied to clipboard' });
+    }
+  };
+
+  // Fetch existing AI review for this run
+  const fetchAIReview = useCallback(async (runId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('ui_ai_reviews')
+        .select('*')
+        .eq('run_id', runId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data) {
+        setAIReview(data as unknown as UIAIReview);
+      }
+    } catch (error) {
+      console.warn('No existing AI review found:', error);
+    }
+  }, []);
+
+  // Trigger AI review via Edge Function
+  const handleGenerateAIReview = async () => {
+    if (!currentRun || !profile?.id) return;
+
+    setAIReviewLoading(true);
+    try {
+      // Collect screenshots to send
+      const resultsToReview = aiReviewMode === 'failed'
+        ? testResults.filter(r => r.status === 'fail')
+        : testResults;
+
+      // Get representative screenshots (limit to 60)
+      const screenshots: { route: string; viewport: string; path: string; url: string }[] = [];
+      const routeViewportSeen = new Set<string>();
+
+      for (const result of resultsToReview) {
+        const details = result.details as UIVisualResult['details'];
+        if (!details?.artifacts?.length) continue;
+
+        const route = result.test_name.replace(/^\[P\d\]\s*/, '').split(' (')[0];
+        const viewport = result.test_name.match(/\((\w+)\)$/)?.[1] || 'desktop';
+        const key = `${route}-${viewport}`;
+
+        // Only take first screenshot per route-viewport combo
+        if (!routeViewportSeen.has(key)) {
+          routeViewportSeen.add(key);
+          const artifactPath = details.artifacts[0];
+          const signedUrl = screenshotUrls[artifactPath];
+          if (signedUrl) {
+            screenshots.push({ route, viewport, path: artifactPath, url: signedUrl });
+          }
+        }
+
+        if (screenshots.length >= 60) break;
+      }
+
+      if (screenshots.length === 0) {
+        toast({ title: 'No screenshots', description: 'No screenshots available for AI review', variant: 'destructive' });
+        setAIReviewLoading(false);
+        return;
+      }
+
+      // Call Edge Function
+      const { data, error } = await supabase.functions.invoke('ui-ai-review', {
+        body: {
+          run_id: currentRun.id,
+          tenant_id: profile.tenant_id,
+          user_id: profile.id,
+          mode: aiReviewMode,
+          screenshots: screenshots.map(s => ({ route: s.route, viewport: s.viewport, url: s.url })),
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.review) {
+        setAIReview(data.review);
+        setShowAIReview(true);
+        toast({ title: 'AI Review Complete', description: `Generated ${data.review.suggestions?.length || 0} suggestions` });
+      }
+    } catch (error) {
+      console.error('Error generating AI review:', error);
+      toast({ title: 'Error', description: 'Failed to generate AI review. Check Edge Function logs.', variant: 'destructive' });
+    } finally {
+      setAIReviewLoading(false);
+    }
+  };
+
+  // Fetch AI review when run changes
+  useEffect(() => {
+    if (currentRun?.id && aiReviewEnabled) {
+      fetchAIReview(currentRun.id);
+    }
+  }, [currentRun?.id, aiReviewEnabled, fetchAIReview]);
 
   // Run detail view
   if (currentRun) {
@@ -1021,6 +1491,268 @@ function UIVisualQATab() {
                 </div>
               )}
             </CardContent>
+          </Card>
+        )}
+
+        {/* Heuristic Suggestions Panel */}
+        {heuristicSuggestions.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <MaterialIcon name="lightbulb" size="md" className="text-amber-500" />
+                  Suggestions ({heuristicSuggestions.length})
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowSuggestions(!showSuggestions)}
+                  >
+                    {showSuggestions ? 'Collapse' : 'Expand'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopySuggestions}
+                  >
+                    <MaterialIcon name={suggestionsCopied ? 'check' : 'content_copy'} size="sm" className="mr-2" />
+                    {suggestionsCopied ? 'Copied!' : 'Copy Summary'}
+                  </Button>
+                </div>
+              </div>
+              <CardDescription>
+                Advisory suggestions based on test failures (does not affect pass/fail status)
+              </CardDescription>
+            </CardHeader>
+            {showSuggestions && (
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Summary by category */}
+                  <div className="flex flex-wrap gap-3 mb-4">
+                    {Object.entries(
+                      heuristicSuggestions.reduce((acc, s) => {
+                        acc[s.category] = (acc[s.category] || 0) + 1;
+                        return acc;
+                      }, {} as Record<string, number>)
+                    ).map(([category, count]) => {
+                      const cat = SUGGESTION_CATEGORIES[category];
+                      return (
+                        <Badge key={category} variant="outline" className="px-3 py-1">
+                          <MaterialIcon name={cat?.icon || 'info'} size="sm" className={cn("mr-1", cat?.color)} />
+                          {cat?.label || category}: {count}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+
+                  {/* Individual suggestions */}
+                  <Accordion type="multiple" value={Array.from(expandedSuggestions)} className="space-y-2">
+                    {heuristicSuggestions.map((suggestion) => {
+                      const cat = SUGGESTION_CATEGORIES[suggestion.category];
+                      return (
+                        <AccordionItem
+                          key={suggestion.id}
+                          value={suggestion.id}
+                          className={cn(
+                            "border rounded-lg px-4",
+                            suggestion.severity === 'high' && "border-red-200 bg-red-50/50",
+                            suggestion.severity === 'medium' && "border-amber-200 bg-amber-50/50",
+                            suggestion.severity === 'low' && "border-gray-200"
+                          )}
+                        >
+                          <AccordionTrigger
+                            className="hover:no-underline py-3"
+                            onClick={() => toggleSuggestionExpand(suggestion.id)}
+                          >
+                            <div className="flex items-center gap-3 flex-1 text-left">
+                              <MaterialIcon name={cat?.icon || 'info'} size="sm" className={cat?.color} />
+                              <span className="font-medium">{suggestion.title}</span>
+                              <Badge
+                                variant={suggestion.severity === 'high' ? 'destructive' : suggestion.severity === 'medium' ? 'default' : 'outline'}
+                                className="ml-auto mr-2"
+                              >
+                                {suggestion.severity}
+                              </Badge>
+                              <Badge variant="secondary">
+                                {suggestion.affectedRoutes.length} route(s)
+                              </Badge>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="pb-4">
+                            <div className="space-y-3 pt-2">
+                              <p className="text-sm text-muted-foreground">{suggestion.description}</p>
+
+                              <div className="grid gap-3 md:grid-cols-2">
+                                <div>
+                                  <Label className="text-xs text-muted-foreground">Affected Routes</Label>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {suggestion.affectedRoutes.slice(0, 10).map(route => (
+                                      <Badge key={route} variant="outline" className="text-xs font-mono">
+                                        {route}
+                                      </Badge>
+                                    ))}
+                                    {suggestion.affectedRoutes.length > 10 && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        +{suggestion.affectedRoutes.length - 10} more
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground">Viewports</Label>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {suggestion.affectedViewports.map(vp => (
+                                      <Badge key={vp} variant="outline" className="text-xs">
+                                        {vp}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="p-3 bg-muted rounded-lg">
+                                <Label className="text-xs text-muted-foreground mb-1 block">Recommendation</Label>
+                                <p className="text-sm">{suggestion.recommendation}</p>
+                              </div>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        )}
+
+        {/* AI UI Review Panel (gated) */}
+        {aiReviewEnabled && isAdminDev && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <MaterialIcon name="auto_awesome" size="md" className="text-purple-500" />
+                  AI UI Review
+                  <Badge variant="outline" className="ml-2 text-xs">Beta</Badge>
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {!aiReview && (
+                    <>
+                      <Select value={aiReviewMode} onValueChange={(v: 'all' | 'failed') => setAIReviewMode(v)}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="failed">Failed pages only</SelectItem>
+                          <SelectItem value="all">All pages</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        onClick={handleGenerateAIReview}
+                        disabled={aiReviewLoading}
+                      >
+                        {aiReviewLoading ? (
+                          <>
+                            <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <MaterialIcon name="auto_awesome" size="sm" className="mr-2" />
+                            Generate AI Review
+                          </>
+                        )}
+                      </Button>
+                    </>
+                  )}
+                  {aiReview && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAIReview(!showAIReview)}
+                    >
+                      {showAIReview ? 'Hide' : 'Show'} Review
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <CardDescription>
+                Vision-based UI critique using AI (server-side, gated feature)
+              </CardDescription>
+            </CardHeader>
+            {showAIReview && aiReview && (
+              <CardContent>
+                <div className="space-y-4">
+                  {/* AI Review Summary */}
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                    <Label className="text-xs text-muted-foreground mb-2 block">AI Summary</Label>
+                    <p className="text-sm">{aiReview.summary}</p>
+                    <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                      <MaterialIcon name="schedule" size="sm" />
+                      Generated {new Date(aiReview.created_at).toLocaleString()}
+                    </div>
+                  </div>
+
+                  {/* AI Suggestions */}
+                  {aiReview.suggestions && aiReview.suggestions.length > 0 && (
+                    <div className="space-y-3">
+                      <Label className="text-sm font-medium">AI Suggestions ({aiReview.suggestions.length})</Label>
+                      <Accordion type="single" collapsible className="space-y-2">
+                        {aiReview.suggestions.map((suggestion, idx) => (
+                          <AccordionItem
+                            key={idx}
+                            value={`ai-${idx}`}
+                            className={cn(
+                              "border rounded-lg px-4",
+                              suggestion.severity === 'high' && "border-red-200 bg-red-50/50",
+                              suggestion.severity === 'medium' && "border-amber-200 bg-amber-50/50"
+                            )}
+                          >
+                            <AccordionTrigger className="hover:no-underline py-3">
+                              <div className="flex items-center gap-3 flex-1 text-left">
+                                <Badge variant="outline">{suggestion.category}</Badge>
+                                <span className="font-medium truncate flex-1">{suggestion.description.slice(0, 60)}...</span>
+                                <Badge
+                                  variant={suggestion.severity === 'high' ? 'destructive' : suggestion.severity === 'medium' ? 'default' : 'outline'}
+                                  className="ml-2"
+                                >
+                                  {suggestion.severity}
+                                </Badge>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="pb-4">
+                              <div className="space-y-3 pt-2">
+                                <div className="flex gap-2">
+                                  <Badge variant="outline" className="font-mono text-xs">{suggestion.route}</Badge>
+                                  <Badge variant="outline" className="text-xs">{suggestion.viewport}</Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">{suggestion.description}</p>
+                                <div className="p-3 bg-muted rounded-lg">
+                                  <Label className="text-xs text-muted-foreground mb-1 block">Recommendation</Label>
+                                  <p className="text-sm">{suggestion.recommendation}</p>
+                                </div>
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        ))}
+                      </Accordion>
+                    </div>
+                  )}
+
+                  {aiReview.status === 'failed' && aiReview.error && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-center gap-2 text-red-600">
+                        <MaterialIcon name="error" size="sm" />
+                        <span className="font-medium">Review Failed</span>
+                      </div>
+                      <p className="text-sm text-red-600 mt-1">{aiReview.error}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            )}
           </Card>
         )}
 
