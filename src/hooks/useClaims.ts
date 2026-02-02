@@ -434,7 +434,17 @@ export function useClaims(filters?: ClaimFilters) {
           };
         });
 
-        await supabase.from('claim_items').insert(claimItemsInsert);
+        const { error: claimItemsError } = await supabase.from('claim_items').insert(claimItemsInsert);
+
+        if (claimItemsError) {
+          console.error('Error inserting claim items:', claimItemsError);
+          // Still continue - the claim was created, but log the error
+          toast({
+            variant: 'destructive',
+            title: 'Warning',
+            description: 'Claim created but items may not have been linked. Please add items manually.',
+          });
+        }
       }
 
       // Create claim assistance billing event for shipping_damage claims

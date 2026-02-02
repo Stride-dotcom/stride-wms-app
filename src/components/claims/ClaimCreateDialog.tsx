@@ -291,6 +291,7 @@ export function ClaimCreateDialog({
     try {
       const claim = await createClaim({
         claim_type: claimType,
+        claim_category: 'liability', // Default to liability claims
         account_id: selectedAccountId,
         sidemark_id: selectedSidemarkId || null,
         shipment_id: context === 'shipment' ? selectedShipmentId : null,
@@ -523,7 +524,16 @@ export function ClaimCreateDialog({
                               )}
                             >
                               <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <span className="font-mono">{item.item_code}</span>
+                                <Button
+                                  type="button"
+                                  variant="link"
+                                  size="sm"
+                                  className="h-auto p-0 font-mono text-sm"
+                                  onClick={() => window.open(`/inventory/${item.id}?tab=coverage`, '_blank')}
+                                  title="Open item coverage tab"
+                                >
+                                  {item.item_code}
+                                </Button>
                                 {item.description && (
                                   <span className="text-muted-foreground truncate">
                                     - {item.description.slice(0, 30)}
@@ -563,8 +573,28 @@ export function ClaimCreateDialog({
                         <div>
                           <p className="font-medium">Weight required for standard coverage</p>
                           <p className="text-xs mt-1 text-yellow-600/80 dark:text-yellow-400/80">
-                            Some items have standard coverage ($0.72/lb) but no weight recorded.
-                            Weight must be captured on the claim items after filing.
+                            The following items need weight recorded before claim value can be calculated:
+                          </p>
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {selectedItems
+                              .filter(i => i.coverage_type === 'standard' && !i.weight_lbs)
+                              .map((item) => (
+                                <Button
+                                  key={item.id}
+                                  type="button"
+                                  variant="link"
+                                  size="sm"
+                                  className="h-auto p-0 text-yellow-700 dark:text-yellow-300 underline font-mono text-xs"
+                                  onClick={() => {
+                                    window.open(`/inventory/${item.id}?tab=coverage`, '_blank');
+                                  }}
+                                >
+                                  {item.item_code}
+                                </Button>
+                              ))}
+                          </div>
+                          <p className="text-xs mt-2 text-yellow-600/60 dark:text-yellow-400/60">
+                            Click an item code to open its coverage tab and enter weight.
                           </p>
                         </div>
                       </div>
