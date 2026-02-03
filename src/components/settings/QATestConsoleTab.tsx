@@ -714,6 +714,55 @@ function ErrorResultsTab({ qa }: { qa: QAHook }) {
 // UI Visual QA Results Tab
 // =============================================================================
 
+/**
+ * Error codes for UI Visual QA failures (must match qa/ui/tours.ts)
+ */
+const ERROR_CODES = {
+  SCROLL_LOCKED: 'SCROLL_LOCKED',
+  INSUFFICIENT_SCROLL_BUFFER: 'INSUFFICIENT_SCROLL_BUFFER',
+  PRIMARY_ACTION_NOT_REACHABLE: 'PRIMARY_ACTION_NOT_REACHABLE',
+  HORIZONTAL_OVERFLOW: 'HORIZONTAL_OVERFLOW',
+  BLANK_CONTENT: 'BLANK_CONTENT',
+  CONSOLE_ERROR: 'CONSOLE_ERROR',
+  UNCAUGHT_EXCEPTION: 'UNCAUGHT_EXCEPTION',
+  NETWORK_FAILURE: 'NETWORK_FAILURE',
+  AXE_CRITICAL: 'AXE_CRITICAL',
+  AXE_SERIOUS: 'AXE_SERIOUS',
+  TOUR_STEP_FAILED: 'TOUR_STEP_FAILED',
+} as const;
+
+type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
+
+const ERROR_CODE_LABELS: Record<ErrorCode, string> = {
+  SCROLL_LOCKED: 'Scroll Locked',
+  INSUFFICIENT_SCROLL_BUFFER: 'Insufficient Buffer',
+  PRIMARY_ACTION_NOT_REACHABLE: 'Action Not Reachable',
+  HORIZONTAL_OVERFLOW: 'Horizontal Overflow',
+  BLANK_CONTENT: 'Blank Content',
+  CONSOLE_ERROR: 'Console Error',
+  UNCAUGHT_EXCEPTION: 'Uncaught Exception',
+  NETWORK_FAILURE: 'Network Failure',
+  AXE_CRITICAL: 'A11y Critical',
+  AXE_SERIOUS: 'A11y Serious',
+  TOUR_STEP_FAILED: 'Tour Step Failed',
+};
+
+interface UIIssue {
+  code: ErrorCode;
+  message: string;
+  selector?: string;
+  measuredValue?: number;
+  expectedValue?: number;
+  screenshot?: string;
+}
+
+interface UISuggestion {
+  type: 'contrast' | 'tap_target' | 'spacing' | 'sticky_footer' | 'layout';
+  message: string;
+  selector?: string;
+  priority: 'low' | 'medium' | 'high';
+}
+
 interface UIVisualResult {
   id: string;
   test_name: string;
@@ -722,7 +771,12 @@ interface UIVisualResult {
   status: 'pass' | 'fail' | 'skip';
   error_message?: string;
   details?: {
+    issues: UIIssue[];
+    suggestions: UISuggestion[];
     overflow: boolean;
+    scrollable: boolean;
+    scrollBufferPx?: number;
+    primaryActionReachable?: boolean;
     consoleErrors: string[];
     exceptions: string[];
     networkFailures: string[];
@@ -740,6 +794,21 @@ interface TourCoverageData {
   missingTestIds: { selector: string; route: string; count: number }[];
   skippedSteps: { route: string; step: string; reason: string }[];
   coveragePercent: number;
+  p0Count?: number;
+  p1Count?: number;
+  p2Count?: number;
+}
+
+interface SelectableIssue {
+  id: string;
+  runId: string;
+  route: string;
+  viewport: string;
+  testName: string;
+  priority: string;
+  issue: UIIssue;
+  fileHints: string[];
+  screenshot?: string;
 }
 
 function UIVisualResultsTab() {
@@ -747,10 +816,181 @@ function UIVisualResultsTab() {
   const [selectedViewport, setSelectedViewport] = useState<string>('all');
   const [showCoverage, setShowCoverage] = useState(false);
   const [expandedRoute, setExpandedRoute] = useState<string | null>(null);
+  const [selectedErrorCode, setSelectedErrorCode] = useState<string>('all');
+  const [selectedIssues, setSelectedIssues] = useState<Set<string>>(new Set());
+  const [showBulkFixDialog, setShowBulkFixDialog] = useState(false);
+  const [bulkFixPrompt, setBulkFixPrompt] = useState('');
 
   useEffect(() => {
     fetchRuns();
   }, [fetchRuns]);
+
+  // Extract all selectable issues from results
+  const extractSelectableIssues = (): SelectableIssue[] => {
+    const issues: SelectableIssue[] = [];
+    const testResults = currentResults.filter(r => r.suite === 'ui_visual_qa' && r.test_name !== 'tour_coverage');
+
+    testResults.forEach(result => {
+      const details = result.details as UIVisualResult['details'];
+      if (details?.issues && details.issues.length > 0) {
+        const priority = result.test_name.match(/^\[(P\d)\]/)?.[1] || 'P2';
+        const route = result.test_name.replace(/^\[P\d\]\s*/, '').split(' (')[0];
+        const viewport = result.test_name.match(/\((\w+)\)$/)?.[1] || 'unknown';
+
+        details.issues.forEach((issue, idx) => {
+          issues.push({
+            id: `${result.id}-${idx}`,
+            runId: currentRun?.id || '',
+            route,
+            viewport,
+            testName: result.test_name,
+            priority,
+            issue,
+            fileHints: details.fileHints || [],
+            screenshot: details.artifacts?.[0],
+          });
+        });
+      }
+    });
+
+    return issues;
+  };
+
+  const allSelectableIssues = extractSelectableIssues();
+
+  // Filter issues by error code
+  const filteredIssues = selectedErrorCode === 'all'
+    ? allSelectableIssues
+    : allSelectableIssues.filter(si => si.issue.code === selectedErrorCode);
+
+  // Get unique error codes present in results
+  const uniqueErrorCodes = [...new Set(allSelectableIssues.map(si => si.issue.code))];
+
+  // Selection handlers
+  const handleSelectIssue = (issueId: string) => {
+    setSelectedIssues(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(issueId)) {
+        newSet.delete(issueId);
+      } else {
+        newSet.add(issueId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    const filteredIds = filteredIssues.map(i => i.id);
+    setSelectedIssues(new Set(filteredIds));
+  };
+
+  const handleSelectNone = () => {
+    setSelectedIssues(new Set());
+  };
+
+  // Generate bulk fix prompt
+  const generateBulkFixPrompt = () => {
+    const selected = allSelectableIssues.filter(si => selectedIssues.has(si.id));
+    if (selected.length === 0) return;
+
+    const lines: string[] = [
+      '# UI Visual QA - Bulk Fix Request',
+      '',
+      `**Run ID:** ${currentRun?.id || 'unknown'}`,
+      `**Total Issues:** ${selected.length}`,
+      `**Generated:** ${new Date().toISOString()}`,
+      '',
+      '---',
+      '',
+    ];
+
+    // Group by error code for organization
+    const byErrorCode = selected.reduce((acc, si) => {
+      if (!acc[si.issue.code]) acc[si.issue.code] = [];
+      acc[si.issue.code].push(si);
+      return acc;
+    }, {} as Record<string, SelectableIssue[]>);
+
+    Object.entries(byErrorCode).forEach(([code, issues]) => {
+      lines.push(`## ${ERROR_CODE_LABELS[code as ErrorCode] || code} (${issues.length} issues)`);
+      lines.push('');
+
+      issues.forEach((si, idx) => {
+        lines.push(`### Issue ${idx + 1}: ${si.route} (${si.viewport})`);
+        lines.push('');
+        lines.push(`- **Suite:** ui_visual_qa`);
+        lines.push(`- **Route:** \`${si.route}\``);
+        lines.push(`- **Viewport:** ${si.viewport}`);
+        lines.push(`- **Priority:** ${si.priority}`);
+        lines.push(`- **Error Code:** \`${si.issue.code}\``);
+        lines.push(`- **Message:** ${si.issue.message}`);
+
+        if (si.issue.selector) {
+          lines.push(`- **Selector:** \`${si.issue.selector}\``);
+        }
+        if (si.issue.measuredValue !== undefined) {
+          lines.push(`- **Measured Value:** ${si.issue.measuredValue}px`);
+        }
+        if (si.issue.expectedValue !== undefined) {
+          lines.push(`- **Expected Value:** ${si.issue.expectedValue}px`);
+        }
+        if (si.screenshot) {
+          lines.push(`- **Screenshot:** \`${si.screenshot}\``);
+        }
+        if (si.fileHints.length > 0) {
+          lines.push(`- **Files to check:**`);
+          si.fileHints.forEach(f => lines.push(`  - \`${f}\``));
+        }
+        lines.push('');
+      });
+    });
+
+    lines.push('---');
+    lines.push('');
+    lines.push('## How to Fix');
+    lines.push('');
+    lines.push('Please analyze each issue above and provide fixes. For each fix:');
+    lines.push('1. Identify the root cause');
+    lines.push('2. Provide the code changes needed');
+    lines.push('3. Explain how the fix addresses the issue');
+    lines.push('');
+    lines.push('### Common Fixes by Error Code:');
+    lines.push('');
+    lines.push('- **SCROLL_LOCKED**: Check for `overflow: hidden` or missing scroll containers');
+    lines.push('- **INSUFFICIENT_SCROLL_BUFFER**: Add padding-bottom (80-120px) or use sticky footer');
+    lines.push('- **HORIZONTAL_OVERFLOW**: Add `overflow-x: auto` or fix fixed-width elements');
+    lines.push('- **CONSOLE_ERROR**: Debug the JavaScript error in browser console');
+    lines.push('- **AXE_CRITICAL/AXE_SERIOUS**: Fix accessibility issues (missing labels, contrast, etc.)');
+    lines.push('- **TOUR_STEP_FAILED**: Add missing data-testid attributes');
+
+    setBulkFixPrompt(lines.join('\n'));
+    setShowBulkFixDialog(true);
+  };
+
+  const handleCopyBulkPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(bulkFixPrompt);
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = bulkFixPrompt;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+    }
+  };
+
+  const handleDownloadPrompt = () => {
+    const blob = new Blob([bulkFixPrompt], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ui-qa-fix-prompt-${currentRun?.id?.slice(0, 8) || 'unknown'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   // Filter for UI visual QA runs
   const visualRuns = runs.filter(run =>
@@ -781,7 +1021,7 @@ function UIVisualResultsTab() {
         ]).filter(([_, results]) => results.length > 0)
       );
 
-  const coverageData = coverageResult?.details as TourCoverageData | undefined;
+  const coverageData = coverageResult?.details as unknown as TourCoverageData | undefined;
 
   if (currentRun && visualResults.length > 0) {
     return (
@@ -845,7 +1085,7 @@ function UIVisualResultsTab() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-4 mb-4">
+              <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-7 mb-4">
                 <div className="text-center p-4 bg-muted rounded-lg">
                   <div className="text-3xl font-bold text-primary">{coverageData.coveragePercent}%</div>
                   <div className="text-sm text-muted-foreground">Coverage</div>
@@ -857,6 +1097,18 @@ function UIVisualResultsTab() {
                 <div className="text-center p-4 bg-muted rounded-lg">
                   <div className="text-3xl font-bold">{coverageData.totalRoutes}</div>
                   <div className="text-sm text-muted-foreground">Total Routes</div>
+                </div>
+                <div className="text-center p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="text-3xl font-bold text-red-600">{coverageData.p0Count || 0}</div>
+                  <div className="text-sm text-muted-foreground">P0 (Critical)</div>
+                </div>
+                <div className="text-center p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="text-3xl font-bold text-amber-600">{coverageData.p1Count || 0}</div>
+                  <div className="text-sm text-muted-foreground">P1 (Important)</div>
+                </div>
+                <div className="text-center p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="text-3xl font-bold text-gray-600">{coverageData.p2Count || 0}</div>
+                  <div className="text-sm text-muted-foreground">P2 (Info)</div>
                 </div>
                 <div className="text-center p-4 bg-muted rounded-lg">
                   <div className="text-3xl font-bold text-amber-600">{coverageData.missingTestIds?.length || 0}</div>
@@ -913,21 +1165,191 @@ function UIVisualResultsTab() {
           </Card>
         )}
 
-        {/* Viewport Filter */}
-        <div className="flex items-center gap-4">
-          <Label>Filter by Viewport:</Label>
-          <Select value={selectedViewport} onValueChange={setSelectedViewport}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Viewports</SelectItem>
-              <SelectItem value="desktop">Desktop</SelectItem>
-              <SelectItem value="tablet">Tablet</SelectItem>
-              <SelectItem value="mobile">Mobile</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Issues Selection & Bulk Fix Card */}
+        {allSelectableIssues.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <MaterialIcon name="error_outline" size="md" />
+                  Issues ({allSelectableIssues.length})
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectAll}
+                    disabled={filteredIssues.length === 0}
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectNone}
+                    disabled={selectedIssues.size === 0}
+                  >
+                    Select None
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={generateBulkFixPrompt}
+                    disabled={selectedIssues.size === 0}
+                  >
+                    <MaterialIcon name="auto_fix_high" size="sm" className="mr-2" />
+                    Generate Fix Prompt ({selectedIssues.size})
+                  </Button>
+                </div>
+              </div>
+              <CardDescription>
+                Select issues to generate a combined fix prompt for Claude/Lovable
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Filters */}
+              <div className="flex items-center gap-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <Label>Filter by Error Code:</Label>
+                  <Select value={selectedErrorCode} onValueChange={setSelectedErrorCode}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Error Codes ({allSelectableIssues.length})</SelectItem>
+                      {uniqueErrorCodes.map(code => (
+                        <SelectItem key={code} value={code}>
+                          {ERROR_CODE_LABELS[code] || code} ({allSelectableIssues.filter(i => i.issue.code === code).length})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label>Filter by Viewport:</Label>
+                  <Select value={selectedViewport} onValueChange={setSelectedViewport}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Viewports</SelectItem>
+                      <SelectItem value="desktop">Desktop</SelectItem>
+                      <SelectItem value="tablet">Tablet</SelectItem>
+                      <SelectItem value="mobile">Mobile</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Issues Table */}
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={filteredIssues.length > 0 && filteredIssues.every(i => selectedIssues.has(i.id))}
+                          onCheckedChange={(checked) => {
+                            if (checked) handleSelectAll();
+                            else handleSelectNone();
+                          }}
+                        />
+                      </TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Error Code</TableHead>
+                      <TableHead>Route</TableHead>
+                      <TableHead>Viewport</TableHead>
+                      <TableHead>Message</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredIssues.slice(0, 50).map(si => (
+                      <TableRow
+                        key={si.id}
+                        className={cn(
+                          selectedIssues.has(si.id) && "bg-primary/5",
+                          si.priority === 'P0' && "border-l-4 border-l-red-500",
+                          si.priority === 'P1' && "border-l-4 border-l-amber-500",
+                          si.priority === 'P2' && "border-l-4 border-l-gray-300"
+                        )}
+                      >
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIssues.has(si.id)}
+                            onCheckedChange={() => handleSelectIssue(si.id)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={si.priority === 'P0' ? 'destructive' : si.priority === 'P1' ? 'default' : 'outline'}
+                          >
+                            {si.priority}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="font-mono text-xs">
+                            {si.issue.code}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{si.route}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{si.viewport}</Badge>
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate" title={si.issue.message}>
+                          {si.issue.message}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredIssues.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          No issues found matching the selected filters
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {filteredIssues.length > 50 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-2 text-muted-foreground text-sm">
+                          Showing first 50 of {filteredIssues.length} issues
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Bulk Fix Prompt Dialog */}
+        <Dialog open={showBulkFixDialog} onOpenChange={setShowBulkFixDialog}>
+          <DialogContent className="max-w-4xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MaterialIcon name="auto_fix_high" size="md" />
+                Bulk Fix Prompt
+              </DialogTitle>
+              <DialogDescription>
+                Copy this prompt and paste it to Claude/Lovable to fix {selectedIssues.size} selected issue(s)
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="h-[400px] w-full rounded-md border p-4">
+              <pre className="text-sm whitespace-pre-wrap font-mono">{bulkFixPrompt}</pre>
+            </ScrollArea>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={handleDownloadPrompt}>
+                <MaterialIcon name="download" size="sm" className="mr-2" />
+                Download as .txt
+              </Button>
+              <Button variant="outline" onClick={() => setShowBulkFixDialog(false)}>
+                Close
+              </Button>
+              <Button onClick={handleCopyBulkPrompt}>
+                <MaterialIcon name="content_copy" size="sm" className="mr-2" />
+                Copy to Clipboard
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Results by Route */}
         <Card>
@@ -937,8 +1359,9 @@ function UIVisualResultsTab() {
           <CardContent>
             <Accordion type="single" collapsible className="w-full">
               {Object.entries(filteredRoutes).map(([route, results]) => {
-                const passCount = results.filter(r => r.status === 'pass').length;
-                const failCount = results.filter(r => r.status === 'fail').length;
+                const resultsArray = results as any[];
+                const passCount = resultsArray.filter(r => r.status === 'pass').length;
+                const failCount = resultsArray.filter(r => r.status === 'fail').length;
                 const hasFailures = failCount > 0;
 
                 return (
@@ -965,27 +1388,73 @@ function UIVisualResultsTab() {
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-3 pl-8">
-                        {results.map(result => {
+                        {resultsArray.map((result: any) => {
                           const details = result.details as UIVisualResult['details'];
+                          const priority = result.test_name.match(/^\[(P\d)\]/)?.[1] || 'P2';
                           return (
                             <div
                               key={result.id}
                               className={cn(
                                 "p-4 rounded-lg border",
                                 result.status === 'fail' && "border-red-200 bg-red-50",
-                                result.status === 'pass' && "border-green-200 bg-green-50"
+                                result.status === 'pass' && "border-green-200 bg-green-50",
+                                priority === 'P0' && "border-l-4 border-l-red-500",
+                                priority === 'P1' && "border-l-4 border-l-amber-500"
                               )}
                             >
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant={priority === 'P0' ? 'destructive' : priority === 'P1' ? 'default' : 'outline'}
+                                    className="text-xs"
+                                  >
+                                    {priority}
+                                  </Badge>
                                   <StatusBadge status={result.status} />
-                                  <span className="font-medium">{result.test_name}</span>
+                                  <span className="font-medium">{result.test_name.replace(/^\[P\d\]\s*/, '')}</span>
                                 </div>
                               </div>
 
-                              {result.error_message && (
-                                <div className="text-sm text-red-600 mb-2">
-                                  {result.error_message}
+                              {/* Issues */}
+                              {details?.issues && details.issues.length > 0 && (
+                                <div className="mb-2">
+                                  <div className="flex flex-wrap gap-1 mb-2">
+                                    {details.issues.map((issue, idx) => (
+                                      <Badge key={idx} variant="secondary" className="font-mono text-xs">
+                                        {issue.code}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                  {details.issues.map((issue, idx) => (
+                                    <div key={idx} className="text-sm text-red-600 flex items-start gap-2">
+                                      <MaterialIcon name="error" size="sm" className="mt-0.5 flex-shrink-0" />
+                                      <span>{issue.message}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Scroll/Buffer info */}
+                              {details?.scrollBufferPx !== undefined && (
+                                <div className={cn(
+                                  "text-sm flex items-center gap-2 mb-2",
+                                  details.scrollBufferPx < 80 ? "text-red-600" : "text-green-600"
+                                )}>
+                                  <MaterialIcon name={details.scrollBufferPx < 80 ? "warning" : "check_circle"} size="sm" />
+                                  Scroll buffer: {details.scrollBufferPx}px {details.scrollBufferPx < 80 && "(min 80px required)"}
+                                </div>
+                              )}
+
+                              {/* Suggestions (advisory) */}
+                              {details?.suggestions && details.suggestions.length > 0 && (
+                                <div className="mb-2 p-2 bg-blue-50 rounded border border-blue-200">
+                                  <div className="text-xs font-medium text-blue-700 mb-1">Suggestions (advisory)</div>
+                                  {details.suggestions.map((s, idx) => (
+                                    <div key={idx} className="text-sm text-blue-600 flex items-start gap-2">
+                                      <MaterialIcon name="lightbulb" size="sm" className="mt-0.5 flex-shrink-0" />
+                                      <span>{s.message}</span>
+                                    </div>
+                                  ))}
                                 </div>
                               )}
 
@@ -1098,7 +1567,7 @@ function UIVisualResultsTab() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      {(run.metadata?.viewports || ['desktop', 'tablet', 'mobile']).map((vp: string) => (
+                      {((run.metadata as any)?.viewports || ['desktop', 'tablet', 'mobile']).map((vp: string) => (
                         <Badge key={vp} variant="outline" className="text-xs">
                           {vp}
                         </Badge>

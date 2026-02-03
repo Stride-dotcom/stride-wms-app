@@ -38,6 +38,7 @@ import { OrganizationSettingsTab } from '@/components/settings/OrganizationSetti
 import { SidemarksSettingsTab } from '@/components/settings/SidemarksSettingsTab';
 import { ServiceEventsPricingTab } from '@/components/settings/ServiceEventsPricingTab';
 import { ServiceCategoriesSettingsTab } from '@/components/settings/ServiceCategoriesSettingsTab';
+import { PricingSettingsTab } from '@/components/settings/PricingSettingsTab';
 
 import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
 import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
@@ -327,6 +328,7 @@ export default function Settings() {
             {isAdmin && <TabsTrigger value="prompts">Prompts</TabsTrigger>}
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
             {isAdmin && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="legacy-pricing">Legacy Pricing</TabsTrigger>}
             {isAdmin && <TabsTrigger value="categories">Categories</TabsTrigger>}
             {isAdmin && <TabsTrigger value="templates">Templates</TabsTrigger>}
             {isAdmin && <TabsTrigger value="audit">Audit Log</TabsTrigger>}
@@ -418,6 +420,18 @@ export default function Settings() {
 
           {isAdmin && (
             <TabsContent value="pricing">
+              <PricingSettingsTab />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="legacy-pricing">
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-950 dark:border-amber-800">
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  <MaterialIcon name="info" size="sm" className="inline mr-1" />
+                  This is the legacy pricing system. Use the new "Pricing" tab for charge types and pricing rules.
+                </p>
+              </div>
               <ServiceEventsPricingTab />
             </TabsContent>
           )}

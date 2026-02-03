@@ -1779,6 +1779,151 @@ export type Database = {
           },
         ]
       }
+      claim_ai_analysis: {
+        Row: {
+          claim_id: string
+          confidence_level: string
+          created_at: string | null
+          flags: string[] | null
+          id: string
+          input_snapshot: Json
+          model_version: string | null
+          reasoning: string | null
+          recommendation_amount: number | null
+          recommended_action: string
+          tenant_id: string
+        }
+        Insert: {
+          claim_id: string
+          confidence_level: string
+          created_at?: string | null
+          flags?: string[] | null
+          id?: string
+          input_snapshot: Json
+          model_version?: string | null
+          reasoning?: string | null
+          recommendation_amount?: number | null
+          recommended_action: string
+          tenant_id: string
+        }
+        Update: {
+          claim_id?: string
+          confidence_level?: string
+          created_at?: string | null
+          flags?: string[] | null
+          id?: string
+          input_snapshot?: Json
+          model_version?: string | null
+          reasoning?: string | null
+          recommendation_amount?: number | null
+          recommended_action?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_ai_analysis_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: true
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_ai_analysis_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: true
+            referencedRelation: "v_claims_with_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_ai_analysis_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claim_ai_feedback: {
+        Row: {
+          analysis_id: string | null
+          claim_id: string
+          created_at: string | null
+          decided_by: string | null
+          decision_source: string
+          delta_amount: number | null
+          final_payout_amount: number | null
+          final_status: string
+          id: string
+          override_notes: string | null
+          override_reason_code: string | null
+          tenant_id: string
+        }
+        Insert: {
+          analysis_id?: string | null
+          claim_id: string
+          created_at?: string | null
+          decided_by?: string | null
+          decision_source: string
+          delta_amount?: number | null
+          final_payout_amount?: number | null
+          final_status: string
+          id?: string
+          override_notes?: string | null
+          override_reason_code?: string | null
+          tenant_id: string
+        }
+        Update: {
+          analysis_id?: string | null
+          claim_id?: string
+          created_at?: string | null
+          decided_by?: string | null
+          decision_source?: string
+          delta_amount?: number | null
+          final_payout_amount?: number | null
+          final_status?: string
+          id?: string
+          override_notes?: string | null
+          override_reason_code?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_ai_feedback_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "claim_ai_analysis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_ai_feedback_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_ai_feedback_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "v_claims_with_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_ai_feedback_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_ai_feedback_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claim_attachments: {
         Row: {
           category: string | null
@@ -1887,6 +2032,8 @@ export type Database = {
           calculated_amount: number | null
           claim_id: string
           coverage_rate: number | null
+          coverage_snapshot: Json | null
+          coverage_source: string | null
           coverage_type: string | null
           created_at: string | null
           declared_value: number | null
@@ -1901,6 +2048,11 @@ export type Database = {
           payout_method: string | null
           payout_processed: boolean | null
           payout_processed_at: string | null
+          pop_document_id: string | null
+          pop_provided: boolean | null
+          pop_required: boolean | null
+          pop_value: number | null
+          prorated_cap: number | null
           repair_cost: number | null
           repair_quote_id: string | null
           repairable: boolean | null
@@ -1908,6 +2060,8 @@ export type Database = {
           tenant_id: string
           updated_at: string | null
           use_repair_cost: boolean | null
+          valuation_basis: number | null
+          valuation_method: string | null
           weight_lbs: number | null
         }
         Insert: {
@@ -1915,6 +2069,8 @@ export type Database = {
           calculated_amount?: number | null
           claim_id: string
           coverage_rate?: number | null
+          coverage_snapshot?: Json | null
+          coverage_source?: string | null
           coverage_type?: string | null
           created_at?: string | null
           declared_value?: number | null
@@ -1929,6 +2085,11 @@ export type Database = {
           payout_method?: string | null
           payout_processed?: boolean | null
           payout_processed_at?: string | null
+          pop_document_id?: string | null
+          pop_provided?: boolean | null
+          pop_required?: boolean | null
+          pop_value?: number | null
+          prorated_cap?: number | null
           repair_cost?: number | null
           repair_quote_id?: string | null
           repairable?: boolean | null
@@ -1936,6 +2097,8 @@ export type Database = {
           tenant_id: string
           updated_at?: string | null
           use_repair_cost?: boolean | null
+          valuation_basis?: number | null
+          valuation_method?: string | null
           weight_lbs?: number | null
         }
         Update: {
@@ -1943,6 +2106,8 @@ export type Database = {
           calculated_amount?: number | null
           claim_id?: string
           coverage_rate?: number | null
+          coverage_snapshot?: Json | null
+          coverage_source?: string | null
           coverage_type?: string | null
           created_at?: string | null
           declared_value?: number | null
@@ -1957,6 +2122,11 @@ export type Database = {
           payout_method?: string | null
           payout_processed?: boolean | null
           payout_processed_at?: string | null
+          pop_document_id?: string | null
+          pop_provided?: boolean | null
+          pop_required?: boolean | null
+          pop_value?: number | null
+          prorated_cap?: number | null
           repair_cost?: number | null
           repair_quote_id?: string | null
           repairable?: boolean | null
@@ -1964,6 +2134,8 @@ export type Database = {
           tenant_id?: string
           updated_at?: string | null
           use_repair_cost?: boolean | null
+          valuation_basis?: number | null
+          valuation_method?: string | null
           weight_lbs?: number | null
         }
         Relationships: [
@@ -1996,6 +2168,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "claim_items_pop_document_id_fkey"
+            columns: ["pop_document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "claim_items_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -2013,8 +2192,12 @@ export type Database = {
           admin_approved_at: string | null
           admin_approved_by: string | null
           approved_amount: number | null
+          approved_by_system: boolean | null
           approved_payout_amount: number | null
           assigned_to: string | null
+          assistance_fee_billed: boolean | null
+          auto_approved: boolean | null
+          claim_category: string | null
           claim_number: string
           claim_type: string
           claim_value_calculated: number | null
@@ -2048,6 +2231,7 @@ export type Database = {
           payout_reference: string | null
           photos: Json | null
           public_notes: string | null
+          public_report_token: string | null
           repair_task_created_id: string | null
           requires_admin_approval: boolean | null
           requires_manager_approval: boolean
@@ -2066,6 +2250,12 @@ export type Database = {
           settlement_terms_version: string | null
           shipment_id: string | null
           sidemark_id: string | null
+          sla_due_at: string | null
+          sla_pause_reason: string | null
+          sla_paused_at: string | null
+          sla_stage: string | null
+          sla_status: string | null
+          sla_total_paused_minutes: number | null
           status: string
           status_before_acceptance: string | null
           tenant_id: string
@@ -2082,8 +2272,12 @@ export type Database = {
           admin_approved_at?: string | null
           admin_approved_by?: string | null
           approved_amount?: number | null
+          approved_by_system?: boolean | null
           approved_payout_amount?: number | null
           assigned_to?: string | null
+          assistance_fee_billed?: boolean | null
+          auto_approved?: boolean | null
+          claim_category?: string | null
           claim_number: string
           claim_type?: string
           claim_value_calculated?: number | null
@@ -2117,6 +2311,7 @@ export type Database = {
           payout_reference?: string | null
           photos?: Json | null
           public_notes?: string | null
+          public_report_token?: string | null
           repair_task_created_id?: string | null
           requires_admin_approval?: boolean | null
           requires_manager_approval?: boolean
@@ -2135,6 +2330,12 @@ export type Database = {
           settlement_terms_version?: string | null
           shipment_id?: string | null
           sidemark_id?: string | null
+          sla_due_at?: string | null
+          sla_pause_reason?: string | null
+          sla_paused_at?: string | null
+          sla_stage?: string | null
+          sla_status?: string | null
+          sla_total_paused_minutes?: number | null
           status?: string
           status_before_acceptance?: string | null
           tenant_id: string
@@ -2151,8 +2352,12 @@ export type Database = {
           admin_approved_at?: string | null
           admin_approved_by?: string | null
           approved_amount?: number | null
+          approved_by_system?: boolean | null
           approved_payout_amount?: number | null
           assigned_to?: string | null
+          assistance_fee_billed?: boolean | null
+          auto_approved?: boolean | null
+          claim_category?: string | null
           claim_number?: string
           claim_type?: string
           claim_value_calculated?: number | null
@@ -2186,6 +2391,7 @@ export type Database = {
           payout_reference?: string | null
           photos?: Json | null
           public_notes?: string | null
+          public_report_token?: string | null
           repair_task_created_id?: string | null
           requires_admin_approval?: boolean | null
           requires_manager_approval?: boolean
@@ -2204,6 +2410,12 @@ export type Database = {
           settlement_terms_version?: string | null
           shipment_id?: string | null
           sidemark_id?: string | null
+          sla_due_at?: string | null
+          sla_pause_reason?: string | null
+          sla_paused_at?: string | null
+          sla_stage?: string | null
+          sla_status?: string | null
+          sla_total_paused_minutes?: number | null
           status?: string
           status_before_acceptance?: string | null
           tenant_id?: string
@@ -5301,6 +5513,7 @@ export type Database = {
           coverage_rate: number | null
           coverage_selected_at: string | null
           coverage_selected_by: string | null
+          coverage_source: string | null
           coverage_type: string | null
           created_at: string
           current_location_id: string | null
@@ -5359,6 +5572,7 @@ export type Database = {
           coverage_rate?: number | null
           coverage_selected_at?: string | null
           coverage_selected_by?: string | null
+          coverage_source?: string | null
           coverage_type?: string | null
           created_at?: string
           current_location_id?: string | null
@@ -5417,6 +5631,7 @@ export type Database = {
           coverage_rate?: number | null
           coverage_selected_at?: string | null
           coverage_selected_by?: string | null
+          coverage_source?: string | null
           coverage_type?: string | null
           created_at?: string
           current_location_id?: string | null
@@ -5975,7 +6190,9 @@ export type Database = {
           acceptance_token_expiry_days: number | null
           approval_required_above_threshold: boolean | null
           approval_threshold_amount: number | null
+          auto_approval_threshold: number | null
           auto_create_repair_task: boolean | null
+          claim_assistance_flat_fee: number | null
           coverage_allow_item: boolean | null
           coverage_allow_shipment: boolean | null
           coverage_deductible_amount: number | null
@@ -5985,8 +6202,18 @@ export type Database = {
           coverage_rate_full_no_deductible: number | null
           created_at: string | null
           default_payout_method: string | null
+          enable_ai_analysis: boolean | null
+          enable_claim_assistance: boolean | null
+          enable_sla_tracking: boolean | null
           id: string
           settlement_terms_template: string | null
+          sla_ack_minutes: number | null
+          sla_auto_approved_payout_hours: number | null
+          sla_initial_review_business_hours: number | null
+          sla_manual_review_business_hours: number | null
+          sla_missing_docs_pause: boolean | null
+          sla_public_report_business_hours: number | null
+          sla_shipping_damage_packet_business_hours: number | null
           tenant_id: string
           updated_at: string | null
         }
@@ -5994,7 +6221,9 @@ export type Database = {
           acceptance_token_expiry_days?: number | null
           approval_required_above_threshold?: boolean | null
           approval_threshold_amount?: number | null
+          auto_approval_threshold?: number | null
           auto_create_repair_task?: boolean | null
+          claim_assistance_flat_fee?: number | null
           coverage_allow_item?: boolean | null
           coverage_allow_shipment?: boolean | null
           coverage_deductible_amount?: number | null
@@ -6004,8 +6233,18 @@ export type Database = {
           coverage_rate_full_no_deductible?: number | null
           created_at?: string | null
           default_payout_method?: string | null
+          enable_ai_analysis?: boolean | null
+          enable_claim_assistance?: boolean | null
+          enable_sla_tracking?: boolean | null
           id?: string
           settlement_terms_template?: string | null
+          sla_ack_minutes?: number | null
+          sla_auto_approved_payout_hours?: number | null
+          sla_initial_review_business_hours?: number | null
+          sla_manual_review_business_hours?: number | null
+          sla_missing_docs_pause?: boolean | null
+          sla_public_report_business_hours?: number | null
+          sla_shipping_damage_packet_business_hours?: number | null
           tenant_id: string
           updated_at?: string | null
         }
@@ -6013,7 +6252,9 @@ export type Database = {
           acceptance_token_expiry_days?: number | null
           approval_required_above_threshold?: boolean | null
           approval_threshold_amount?: number | null
+          auto_approval_threshold?: number | null
           auto_create_repair_task?: boolean | null
+          claim_assistance_flat_fee?: number | null
           coverage_allow_item?: boolean | null
           coverage_allow_shipment?: boolean | null
           coverage_deductible_amount?: number | null
@@ -6023,8 +6264,18 @@ export type Database = {
           coverage_rate_full_no_deductible?: number | null
           created_at?: string | null
           default_payout_method?: string | null
+          enable_ai_analysis?: boolean | null
+          enable_claim_assistance?: boolean | null
+          enable_sla_tracking?: boolean | null
           id?: string
           settlement_terms_template?: string | null
+          sla_ack_minutes?: number | null
+          sla_auto_approved_payout_hours?: number | null
+          sla_initial_review_business_hours?: number | null
+          sla_manual_review_business_hours?: number | null
+          sla_missing_docs_pause?: boolean | null
+          sla_public_report_business_hours?: number | null
+          sla_shipping_damage_packet_business_hours?: number | null
           tenant_id?: string
           updated_at?: string | null
         }
@@ -6430,6 +6681,50 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qa_artifacts: {
+        Row: {
+          created_at: string
+          id: string
+          route: string
+          run_id: string | null
+          step_name: string | null
+          storage_path: string
+          suite: string
+          tenant_id: string
+          viewport: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          route: string
+          run_id?: string | null
+          step_name?: string | null
+          storage_path: string
+          suite?: string
+          tenant_id: string
+          viewport: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          route?: string
+          run_id?: string | null
+          step_name?: string | null
+          storage_path?: string
+          suite?: string
+          tenant_id?: string
+          viewport?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_artifacts_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "qa_test_runs"
             referencedColumns: ["id"]
           },
         ]
@@ -7997,7 +8292,7 @@ export type Database = {
           is_system: boolean
           name: string
           permissions: Json
-          tenant_id: string
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -8008,7 +8303,7 @@ export type Database = {
           is_system?: boolean
           name: string
           permissions?: Json
-          tenant_id: string
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -8019,7 +8314,7 @@ export type Database = {
           is_system?: boolean
           name?: string
           permissions?: Json
-          tenant_id?: string
+          tenant_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -10823,6 +11118,76 @@ export type Database = {
         }
         Relationships: []
       }
+      ui_ai_reviews: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          mode: string | null
+          model_used: string | null
+          run_id: string
+          screenshot_count: number | null
+          status: string
+          suggestions: Json | null
+          summary: string | null
+          tenant_id: string
+          tokens_used: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          mode?: string | null
+          model_used?: string | null
+          run_id: string
+          screenshot_count?: number | null
+          status?: string
+          suggestions?: Json | null
+          summary?: string | null
+          tenant_id: string
+          tokens_used?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          mode?: string | null
+          model_used?: string | null
+          run_id?: string
+          screenshot_count?: number | null
+          status?: string
+          suggestions?: Json | null
+          summary?: string | null
+          tenant_id?: string
+          tokens_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ui_ai_reviews_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ui_ai_reviews_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "qa_test_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ui_ai_reviews_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_accounts: {
         Row: {
           access_level: string | null
@@ -12427,6 +12792,7 @@ export type Database = {
         Returns: string
       }
       current_user_id: { Args: never; Returns: string }
+      current_user_is_admin_dev: { Args: never; Returns: boolean }
       decline_claim_settlement: {
         Args: {
           p_counter_offer_amount?: number
@@ -12508,11 +12874,25 @@ export type Database = {
         }[]
       }
       get_current_user_tenant_id: { Args: never; Returns: string }
+      get_my_roles: {
+        Args: never
+        Returns: {
+          id: string
+          is_system: boolean
+          name: string
+          permissions: Json
+          tenant_id: string
+        }[]
+      }
       get_or_create_receiving_dock: {
         Args: { p_warehouse_id: string }
         Returns: string
       }
       get_pricing_export_data: { Args: { p_tenant_id: string }; Returns: Json }
+      get_qa_artifact_signed_url: {
+        Args: { p_storage_path: string }
+        Returns: string
+      }
       get_service_rate: {
         Args: {
           p_class_code?: string
@@ -12677,6 +13057,7 @@ export type Database = {
         Args: { p_user_id: string; p_warehouse_id: string }
         Returns: boolean
       }
+      user_is_admin_dev: { Args: { p_user_id: string }; Returns: boolean }
       user_tenant_id: { Args: never; Returns: string }
       validate_movement_event: {
         Args: { p_destination_location_id: string; p_item_ids: string[] }

@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { UpgradeNotificationBanner } from '@/components/prompts';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useSidebar } from '@/contexts/SidebarContext';
+import { useAdminDev } from '@/hooks/useAdminDev';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AvatarWithPresence } from '@/components/ui/online-indicator';
@@ -46,6 +47,7 @@ interface NavItem {
   requiredRole?: string[];
 }
 
+// Base navigation items (excluding special items like QA which has custom gating)
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: 'dashboard' },
   { label: 'Shipments', href: '/shipments', icon: 'local_shipping' },
@@ -60,8 +62,7 @@ const navItems: NavItem[] = [
   { label: 'Claims', href: '/claims', icon: 'assignment_late', requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Accounts', href: '/accounts', icon: 'group', requiredRole: ['admin', 'tenant_admin'] },
   { label: 'Settings', href: '/settings', icon: 'settings', requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Diagnostics', href: '/diagnostics', icon: 'bug_report', requiredRole: ['admin', 'tenant_admin'] },
-  { label: 'Bot QA', href: '/admin/bot-qa', icon: 'smart_toy', requiredRole: ['admin', 'tenant_admin'] },
+  // Note: Diagnostics and Bot QA removed from sidebar - now accessible via QA Center or direct URL
 ];
 
 interface DashboardLayoutProps {
@@ -163,6 +164,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const lastScrollY = useRef(0);
   const { profile, signOut } = useAuth();
   const { hasRole, isAdmin } = usePermissions();
+  const { canAccessQACenter } = useAdminDev();
   const { getUserStatus } = usePresence();
   const location = useLocation();
   const navigate = useNavigate();
@@ -355,11 +357,22 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
 
     // Normal role-based filtering for other users
-    return navItems.filter((item) => {
+    const baseItems = navItems.filter((item) => {
       if (!item.requiredRole) return true;
       return item.requiredRole.some((role) => hasRole(role)) || isAdmin;
     });
-  }, [isTechnician, hasRole, isAdmin]);
+
+    // Add QA Center item for admin_dev users
+    if (canAccessQACenter) {
+      baseItems.push({
+        label: 'QA Center',
+        href: '/qa',
+        icon: 'science',
+      });
+    }
+
+    return baseItems;
+  }, [isTechnician, hasRole, isAdmin, canAccessQACenter]);
 
   // Sort nav items based on saved order
   const sortedNavItems = useMemo(() => {

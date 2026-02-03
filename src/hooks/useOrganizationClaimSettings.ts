@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
+export type CoverageTypeValue = 'standard' | 'full_replacement_no_deductible' | 'full_replacement_deductible';
+
 export interface OrganizationClaimSettings {
   id: string;
   tenant_id: string;
@@ -14,12 +16,19 @@ export interface OrganizationClaimSettings {
   auto_create_repair_task: boolean;
   // Valuation Coverage Settings
   coverage_enabled: boolean;
-  coverage_default_type: 'standard' | 'full_replacement_no_deductible' | 'full_replacement_deductible';
+  coverage_default_type: CoverageTypeValue;
   coverage_rate_full_no_deductible: number;
   coverage_rate_full_deductible: number;
   coverage_deductible_amount: number;
   coverage_allow_shipment: boolean;
   coverage_allow_item: boolean;
+  // Aliases for AccountCoverageOverrideSection compatibility
+  full_replacement_no_deductible_rate: number;
+  full_replacement_deductible_rate: number;
+  deductible_amount: number;
+  default_coverage_type: CoverageTypeValue;
+  allow_item_level_coverage: boolean;
+  allow_shipment_level_coverage: boolean;
   // Claim Assistance Settings (for shipping_damage claims)
   enable_claim_assistance: boolean;
   claim_assistance_flat_fee: number;
@@ -86,6 +95,13 @@ const DEFAULT_SETTINGS: Omit<OrganizationClaimSettings, 'id' | 'tenant_id' | 'cr
   coverage_deductible_amount: 300,
   coverage_allow_shipment: true,
   coverage_allow_item: true,
+  // Aliases for AccountCoverageOverrideSection compatibility
+  full_replacement_no_deductible_rate: 0.0188,
+  full_replacement_deductible_rate: 0.0142,
+  deductible_amount: 300,
+  default_coverage_type: 'standard',
+  allow_item_level_coverage: true,
+  allow_shipment_level_coverage: true,
   // Claim Assistance Defaults
   enable_claim_assistance: true,
   claim_assistance_flat_fee: 150.00,
@@ -132,7 +148,17 @@ export function useOrganizationClaimSettings() {
       if (error) throw error;
 
       if (data) {
-        setSettings(data as OrganizationClaimSettings);
+        // Merge data with alias mappings for compatibility
+        const mergedData = {
+          ...data,
+          full_replacement_no_deductible_rate: data.coverage_rate_full_no_deductible ?? 0.0188,
+          full_replacement_deductible_rate: data.coverage_rate_full_deductible ?? 0.0142,
+          deductible_amount: data.coverage_deductible_amount ?? 300,
+          default_coverage_type: data.coverage_default_type ?? 'standard',
+          allow_item_level_coverage: data.coverage_allow_item ?? true,
+          allow_shipment_level_coverage: data.coverage_allow_shipment ?? true,
+        };
+        setSettings(mergedData as OrganizationClaimSettings);
       } else {
         // Create default settings if none exist
         const { data: newSettings, error: insertError } = await supabase
@@ -146,7 +172,17 @@ export function useOrganizationClaimSettings() {
           .single();
 
         if (insertError) throw insertError;
-        setSettings(newSettings as OrganizationClaimSettings);
+        // Merge newSettings with alias mappings
+        const mergedNewSettings = {
+          ...newSettings,
+          full_replacement_no_deductible_rate: newSettings.coverage_rate_full_no_deductible ?? 0.0188,
+          full_replacement_deductible_rate: newSettings.coverage_rate_full_deductible ?? 0.0142,
+          deductible_amount: newSettings.coverage_deductible_amount ?? 300,
+          default_coverage_type: newSettings.coverage_default_type ?? 'standard',
+          allow_item_level_coverage: newSettings.coverage_allow_item ?? true,
+          allow_shipment_level_coverage: newSettings.coverage_allow_shipment ?? true,
+        };
+        setSettings(mergedNewSettings as OrganizationClaimSettings);
       }
     } catch (error) {
       console.error('Error fetching claim settings:', error);
@@ -178,7 +214,17 @@ export function useOrganizationClaimSettings() {
 
       if (error) throw error;
 
-      setSettings(data as OrganizationClaimSettings);
+      // Merge data with alias mappings for compatibility
+      const mergedData = {
+        ...data,
+        full_replacement_no_deductible_rate: data.coverage_rate_full_no_deductible ?? 0.0188,
+        full_replacement_deductible_rate: data.coverage_rate_full_deductible ?? 0.0142,
+        deductible_amount: data.coverage_deductible_amount ?? 300,
+        default_coverage_type: data.coverage_default_type ?? 'standard',
+        allow_item_level_coverage: data.coverage_allow_item ?? true,
+        allow_shipment_level_coverage: data.coverage_allow_shipment ?? true,
+      };
+      setSettings(mergedData as OrganizationClaimSettings);
       toast({
         title: 'Settings Saved',
         description: 'Claim settings have been updated.',

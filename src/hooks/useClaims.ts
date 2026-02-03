@@ -349,7 +349,7 @@ export function useClaims(filters?: ClaimFilters) {
         }
 
         const claimItemsInsert = itemIds.map(itemId => {
-          const itemData = itemsMap.get(itemId);
+          const itemData = itemsMap.get(itemId) as any;
           if (!itemData) {
             return {
               tenant_id: profile.tenant_id,
@@ -434,7 +434,7 @@ export function useClaims(filters?: ClaimFilters) {
           };
         });
 
-        const { error: claimItemsError } = await supabase.from('claim_items').insert(claimItemsInsert);
+        const { error: claimItemsError } = await (supabase as any).from('claim_items').insert(claimItemsInsert);
 
         if (claimItemsError) {
           console.error('Error inserting claim items:', claimItemsError);

@@ -1,6 +1,9 @@
 import { ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePermissions } from '@/hooks/usePermissions';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface RequireRoleProps {
   role: string | string[];
@@ -10,6 +13,8 @@ interface RequireRoleProps {
 
 export function RequireRole({ role, children, fallback = null }: RequireRoleProps) {
   const { hasRole, loading } = usePermissions();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
 
   if (loading) {
     return (
@@ -23,7 +28,41 @@ export function RequireRole({ role, children, fallback = null }: RequireRoleProp
   const hasAnyRole = roles.some((r) => hasRole(r));
 
   if (!hasAnyRole) {
-    return <>{fallback}</>;
+    if (fallback !== null) return <>{fallback}</>;
+
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="w-full max-w-md rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5">
+              <MaterialIcon name="lock" size="md" className="text-muted-foreground" />
+            </div>
+            <div className="flex-1">
+              <h1 className="text-lg font-semibold">Access denied</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Your account doesn’t have permission to view this page.
+              </p>
+              <div className="mt-4 flex flex-col gap-2">
+                <Button type="button" variant="outline" onClick={() => navigate('/qa')}
+                >
+                  Go to QA Center
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={async () => {
+                    await signOut();
+                    navigate('/auth');
+                  }}
+                >
+                  Sign out
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;

@@ -21,6 +21,7 @@ interface UsePermissionsReturn {
   hasAnyPermission: (permissions: string[]) => boolean;
   hasAllPermissions: (permissions: string[]) => boolean;
   isAdmin: boolean;
+  isAdminDev: boolean;
 }
 
 // ============================================
@@ -94,6 +95,47 @@ export function usePermissions(): UsePermissionsReturn {
 
     const fetchRolesAndPermissions = async () => {
       try {
+        // Prefer SECURITY DEFINER RPC to avoid RLS blocking the roles join (roles: null).
+        // Falls back to the legacy join query if RPC is not present.
+        const { data: rpcRoles, error: rpcError } = await (supabase as any).rpc('get_my_roles');
+
+        if (!rpcError && Array.isArray(rpcRoles)) {
+          const fetchedRoles: Role[] = [];
+          const allPermissions: Set<string> = new Set();
+
+          rpcRoles.forEach((r: any) => {
+            const rolePermissions = Array.isArray(r?.permissions) ? r.permissions : [];
+            if (r?.id && r?.name) {
+              fetchedRoles.push({
+                id: String(r.id),
+                name: String(r.name),
+                permissions: rolePermissions,
+              });
+              rolePermissions.forEach((p: string) => allPermissions.add(p));
+            }
+          });
+
+          setRoles(fetchedRoles);
+          setPermissions(Array.from(allPermissions));
+          return;
+        }
+
+        // If RPC doesn't exist yet, silently fall back.
+        if (rpcError && rpcError.code !== '42883') {
+          // Suppress AbortError - happens during navigation/re-renders
+          if (rpcError.message?.includes('AbortError') || rpcError.code === '20') {
+            setLoading(false);
+            return;
+          }
+          console.error('[Permissions] Error fetching roles via get_my_roles RPC:', {
+            error: rpcError,
+            message: rpcError.message,
+            code: rpcError.code,
+          });
+          setLoading(false);
+          return;
+        }
+
         const { data: userRoles, error } = await supabase
           .from('user_roles')
           .select(`
@@ -126,7 +168,7 @@ export function usePermissions(): UsePermissionsReturn {
         const allPermissions: Set<string> = new Set();
 
         userRoles?.forEach((ur) => {
-          const role = ur.roles as unknown as { id: string; name: string; permissions: string[] };
+          const role = ur.roles as unknown as { id: string; name: string; permissions: any };
           if (role) {
             const rolePermissions = Array.isArray(role.permissions) ? role.permissions : [];
             fetchedRoles.push({
@@ -134,7 +176,6 @@ export function usePermissions(): UsePermissionsReturn {
               name: role.name,
               permissions: rolePermissions,
             });
-            
             rolePermissions.forEach((p: string) => allPermissions.add(p));
           }
         });
@@ -185,17 +226,51 @@ export function usePermissions(): UsePermissionsReturn {
     return perms.every(p => permissions.includes(p));
   }, [permissions]);
 
-  // Admin check using permissions, not role names
-  const isAdmin = permissions.includes(PERMISSIONS.WILDCARD);
+  // Check if user has admin_dev role (system role with highest privileges)
+  const isAdminDev = roles.some((role) => role.name === 'admin_dev');
+
+  // Admin check: wildcard permission OR admin_dev role OR admin/tenant_admin roles
+  const isAdmin = permissions.includes(PERMISSIONS.WILDCARD) ||
+                  isAdminDev ||
+                  roles.some((role) => ['admin', 'tenant_admin'].includes(role.name));
+
+  // Override hasPermission to grant all permissions to admin_dev
+  const hasPermissionWithAdminDev = useCallback((permission: string): boolean => {
+    if (isAdminDev) return true;
+    if (permissions.includes(PERMISSIONS.WILDCARD)) return true;
+    return permissions.includes(permission);
+  }, [permissions, isAdminDev]);
+
+  // Override hasAnyPermission for admin_dev
+  const hasAnyPermissionWithAdminDev = useCallback((perms: string[]): boolean => {
+    if (isAdminDev) return true;
+    if (permissions.includes(PERMISSIONS.WILDCARD)) return true;
+    return perms.some(p => permissions.includes(p));
+  }, [permissions, isAdminDev]);
+
+  // Override hasAllPermissions for admin_dev
+  const hasAllPermissionsWithAdminDev = useCallback((perms: string[]): boolean => {
+    if (isAdminDev) return true;
+    if (permissions.includes(PERMISSIONS.WILDCARD)) return true;
+    return perms.every(p => permissions.includes(p));
+  }, [permissions, isAdminDev]);
+
+  // Override hasRole to include admin_dev as having all roles for access purposes
+  const hasRoleWithAdminDev = useCallback((roleName: string): boolean => {
+    // admin_dev has all role access
+    if (isAdminDev) return true;
+    return roles.some((role) => role.name.toLowerCase() === roleName.toLowerCase());
+  }, [roles, isAdminDev]);
 
   return {
     roles,
     permissions,
     loading,
-    hasRole,
-    hasPermission,
-    hasAnyPermission,
-    hasAllPermissions,
+    hasRole: hasRoleWithAdminDev,
+    hasPermission: hasPermissionWithAdminDev,
+    hasAnyPermission: hasAnyPermissionWithAdminDev,
+    hasAllPermissions: hasAllPermissionsWithAdminDev,
     isAdmin,
+    isAdminDev,
   };
 }

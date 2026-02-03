@@ -1792,13 +1792,14 @@ async function runRepairQuotesFlowTests(ctx: TestContext): Promise<TestResult[]>
       log(ctx, `Running test: ${testName}`);
 
       // Create repair quote directly (simulating client request)
+      // Note: 'draft' is the initial status in repair_quote_workflow_status enum
       const { data: quote, error } = await ctx.supabase
         .from('repair_quotes')
         .insert({
           tenant_id: ctx.tenantId,
           item_id: itemId,
           account_id: accountId,
-          status: 'pending',
+          status: 'draft',
           notes: 'QA Test - Client requested repair quote'
         })
         .select()
@@ -1843,12 +1844,13 @@ async function runRepairQuotesFlowTests(ctx: TestContext): Promise<TestResult[]>
 
       log(ctx, `Running test: ${testName}`);
 
-      // Check if a pending quote already exists for this item
+      // Check if a pending/open quote already exists for this item
+      // Valid open statuses from repair_quote_workflow_status enum
       const { data: existingQuotes } = await ctx.supabase
         .from('repair_quotes')
         .select('id')
         .eq('item_id', itemId)
-        .in('status', ['pending', 'sent_to_client'])
+        .in('status', ['draft', 'awaiting_assignment', 'sent_to_tech', 'tech_submitted', 'under_review', 'sent_to_client'])
         .limit(1);
 
       if (existingQuotes && existingQuotes.length > 0) {
@@ -1861,7 +1863,7 @@ async function runRepairQuotesFlowTests(ctx: TestContext): Promise<TestResult[]>
             tenant_id: ctx.tenantId,
             item_id: itemId,
             account_id: accountId,
-            status: 'pending',
+            status: 'draft',
             notes: 'QA Test - Duplicate request'
           })
           .select()

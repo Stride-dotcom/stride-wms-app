@@ -172,15 +172,15 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => setChargeDialogOpen(true)}>
+          <Button type="button" variant="outline" size="sm" onClick={() => setChargeDialogOpen(true)}>
             <MaterialIcon name="attach_money" size="sm" className="mr-1" />
             Add Charge
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setHistoryDialogOpen(true)}>
+          <Button type="button" variant="outline" size="sm" onClick={() => setHistoryDialogOpen(true)}>
             <MaterialIcon name="history" size="sm" className="mr-1" />
             History
           </Button>
-          <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+          <Button type="button" size="sm" onClick={() => setCreateDialogOpen(true)}>
             <MaterialIcon name="add" size="sm" className="mr-1" />
             Adjustment
           </Button>
@@ -421,7 +421,7 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
           <p className="text-muted-foreground mb-4">
             This account uses the default price list. Create an adjustment to override specific service rates.
           </p>
-          <Button onClick={() => setCreateDialogOpen(true)}>
+          <Button type="button" onClick={() => setCreateDialogOpen(true)}>
             <MaterialIcon name="add" size="sm" className="mr-1" />
             Create First Adjustment
           </Button>

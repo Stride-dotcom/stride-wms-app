@@ -310,9 +310,9 @@ export default function ClientClaims() {
               </div>
               <p className="text-muted-foreground">
                 {claimTypeLabels[claimDetail.claim_type] || claimDetail.claim_type}
-                {claimDetail.claim_category && (
+                {(claimDetail as any).claim_category && (
                   <span className="ml-2 text-sm">
-                    ({claimCategoryLabels[claimDetail.claim_category] || claimDetail.claim_category})
+                    ({claimCategoryLabels[(claimDetail as any).claim_category] || (claimDetail as any).claim_category})
                   </span>
                 )}
               </p>
@@ -333,13 +333,13 @@ export default function ClientClaims() {
           <ClaimNotice context="portal_detail" compact />
 
           {/* Shipping Damage Assistance Notice */}
-          {claimDetail.claim_category === 'shipping_damage' && (
+          {(claimDetail as any).claim_category === 'shipping_damage' && (
             <ClaimAssistanceNotice fee={150} />
           )}
 
           {/* Auto-Approved Notice */}
-          {claimDetail.auto_approved && claimDetail.approved_payout_amount != null && (
-            <ClaimAutoApprovedNotice amount={claimDetail.approved_payout_amount} />
+          {(claimDetail as any).auto_approved && (claimDetail as any).approved_payout_amount != null && (
+            <ClaimAutoApprovedNotice amount={(claimDetail as any).approved_payout_amount} />
           )}
 
           <div className="grid gap-6 md:grid-cols-3">

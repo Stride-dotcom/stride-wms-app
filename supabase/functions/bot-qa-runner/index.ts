@@ -531,7 +531,8 @@ serve(async (req) => {
       .is("deleted_at", null);
 
     const roleNames = (userRoles || []).map((ur: any) => ur.roles?.name?.toLowerCase());
-    const isAdmin = roleNames.includes('admin') || roleNames.includes('tenant_admin');
+    // Allow admin, tenant_admin, or the system-level admin_dev role
+    const isAdmin = roleNames.includes('admin') || roleNames.includes('tenant_admin') || roleNames.includes('admin_dev');
 
     if (!isAdmin) {
       return new Response(

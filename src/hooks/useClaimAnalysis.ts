@@ -28,7 +28,7 @@ export function useClaimAnalysis() {
     if (!profile?.tenant_id) return null;
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('claim_ai_analysis')
         .select('*')
         .eq('claim_id', claimId)
