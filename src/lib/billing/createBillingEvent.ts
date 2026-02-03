@@ -10,7 +10,7 @@ export interface CreateBillingEventParams {
   item_id?: string | null;
   task_id?: string | null;
   shipment_id?: string | null;
-  event_type: 'receiving' | 'returns_processing' | 'task_completion' | 'flag' | 'storage' | 'will_call' | 'disposal' | 'addon' | 'outbound_shipment';
+  event_type: 'receiving' | 'returns_processing' | 'task_completion' | 'flag_change' | 'storage' | 'will_call' | 'disposal' | 'addon' | 'outbound_shipment';
   charge_type: string;
   description?: string;
   quantity?: number;

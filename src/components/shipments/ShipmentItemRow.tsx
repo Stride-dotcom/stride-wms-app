@@ -182,8 +182,8 @@ export function ShipmentItemRow({
         .from('billing_events') as any)
         .select('charge_type')
         .eq('item_id', item.item_id)
-        .eq('event_type', 'flag')
-        .in('status', ['flagged', 'unbilled']);
+        .eq('event_type', 'flag_change')
+        .eq('status', 'unbilled');
 
       if (!error && data) {
         setEnabledFlags(new Set(data.map((d: any) => d.charge_type)));
@@ -374,8 +374,8 @@ export function ShipmentItemRow({
           .delete()
           .eq('item_id', item.item_id)
           .eq('charge_type', service.service_code)
-          .eq('event_type', 'flag')
-          .in('status', ['flagged', 'unbilled']);
+          .eq('event_type', 'flag_change')
+          .eq('status', 'unbilled');
 
         setEnabledFlags(prev => {
           const next = new Set(prev);
@@ -398,7 +398,7 @@ export function ShipmentItemRow({
             account_id: itemData?.account_id,
             item_id: item.item_id,
             sidemark_id: itemData?.sidemark_id || null,
-            event_type: 'flag',
+            event_type: 'flag_change',
             charge_type: service.service_code,
             description: service.service_name,
             quantity: 1,

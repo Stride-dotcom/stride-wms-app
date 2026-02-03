@@ -139,7 +139,7 @@ export function BillingCalculator({
         .select('id, charge_type, description, quantity, unit_rate, total_amount, event_type, status')
         .eq('tenant_id', profile.tenant_id)
         // Include void for audit integrity (reversals and voided charges should still be visible)
-        .in('status', ['unbilled', 'flagged', 'billed', 'void']);
+        .in('status', ['unbilled', 'invoiced', 'void']);
 
       // Filter by context
       if (shipmentId) {
@@ -467,7 +467,7 @@ export function BillingCalculator({
                       <div className="flex items-center gap-2">
                         <span className="truncate">{event.charge_type}</span>
                         <Badge
-                          variant={event.status === 'billed' ? 'default' : 'secondary'}
+                          variant={event.status === 'invoiced' ? 'default' : 'secondary'}
                           className="text-[10px] px-1"
                         >
                           {event.status}

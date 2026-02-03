@@ -43,7 +43,7 @@ export function ItemFlagsSection({
   // Fetch flags from Price List (service_events with add_flag = true)
   const { flagServiceEvents, getServiceRate, loading: serviceEventsLoading } = useServiceEvents();
 
-  // Fetch which flags are enabled for this item (via billing_events with event_type = 'flag')
+  // Fetch which flags are enabled for this item (via billing_events with event_type = 'flag_change')
   const fetchEnabledFlags = useCallback(async () => {
     if (!profile?.tenant_id) return;
 
@@ -52,8 +52,8 @@ export function ItemFlagsSection({
         .from('billing_events') as any)
         .select('charge_type')
         .eq('item_id', itemId)
-        .eq('event_type', 'flag')
-        .in('status', ['flagged', 'unbilled']); // Include both statuses
+        .eq('event_type', 'flag_change')
+        .eq('status', 'unbilled');
 
       if (error) {
         console.error('[ItemFlagsSection] Error fetching enabled flags:', error);
@@ -90,8 +90,8 @@ export function ItemFlagsSection({
           .delete()
           .eq('item_id', itemId)
           .eq('charge_type', service.service_code)
-          .eq('event_type', 'flag')
-          .in('status', ['flagged', 'unbilled']);
+          .eq('event_type', 'flag_change')
+          .eq('status', 'unbilled');
 
         if (error) throw error;
 
@@ -136,7 +136,7 @@ export function ItemFlagsSection({
             account_id: itemAccountId,
             item_id: itemId,
             sidemark_id: itemData?.sidemark_id || null,
-            event_type: 'flag',
+            event_type: 'flag_change',
             charge_type: service.service_code,
             description: `${service.service_name}`,
             quantity: 1,

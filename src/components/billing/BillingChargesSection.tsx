@@ -260,7 +260,7 @@ export function BillingChargesSection({
       let query = (supabase.from('billing_events') as any)
         .select('id, charge_type, description, quantity, unit_rate, total_amount, status, event_type')
         .eq('tenant_id', profile.tenant_id)
-        .in('status', ['unbilled', 'flagged']);
+        .eq('status', 'unbilled');
 
       if (taskId) {
         query = query.eq('task_id', taskId);

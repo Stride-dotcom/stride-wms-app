@@ -524,7 +524,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
                     shipment_id: session.shipment_id,
                     class_id: newItem?.class_id || null,
                     item_id: newItem?.id,
-                    event_type: 'flag',
+                    event_type: 'flag_change',
                     charge_type: 'RECEIVED_WITHOUT_ID',
                     description: `Received Without ID: ${item.description}`,
                     quantity: 1,
