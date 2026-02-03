@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams, Link, Navigate } from 'react-router-dom';
+import { useNavigate, useParams, Link, Navigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -154,8 +154,14 @@ export default function ItemDetail() {
 
   // Now we know id is a valid UUID - safe to use hooks
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { profile } = useAuth();
+
+  // Tab state - initialize from URL param if provided
+  const initialTab = searchParams.get('tab') || 'details';
+  const validTabs = ['details', 'photos', 'documents', 'notes', 'coverage', 'history', 'advanced', 'repair'];
+  const [activeTab, setActiveTab] = useState(validTabs.includes(initialTab) ? initialTab : 'details');
 
   const [item, setItem] = useState<ItemDetail | null>(null);
   const [movements, setMovements] = useState<Movement[]>([]);
@@ -680,7 +686,7 @@ export default function ItemDetail() {
 
         {/* Status Badges Row - Removed per UI update */}
 
-        <Tabs defaultValue="details" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList>
             <TabsTrigger value="details">📋 Details</TabsTrigger>
             <TabsTrigger value="photos" className="relative">
