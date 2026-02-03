@@ -68,6 +68,79 @@ export type Database = {
           },
         ]
       }
+      account_charge_adjustments: {
+        Row: {
+          account_id: string
+          adjustment_type: string
+          charge_type_id: string
+          class_code: string | null
+          created_at: string
+          deleted_at: string | null
+          fixed_add_amount: number | null
+          id: string
+          is_enabled: boolean
+          notes: string | null
+          override_rate: number | null
+          percentage_adjust: number | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          adjustment_type?: string
+          charge_type_id: string
+          class_code?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          fixed_add_amount?: number | null
+          id?: string
+          is_enabled?: boolean
+          notes?: string | null
+          override_rate?: number | null
+          percentage_adjust?: number | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          adjustment_type?: string
+          charge_type_id?: string
+          class_code?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          fixed_add_amount?: number | null
+          id?: string
+          is_enabled?: boolean
+          notes?: string | null
+          override_rate?: number | null
+          percentage_adjust?: number | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_charge_adjustments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_charge_adjustments_charge_type_id_fkey"
+            columns: ["charge_type_id"]
+            isOneToOne: false
+            referencedRelation: "charge_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_charge_adjustments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_coverage_settings: {
         Row: {
           account_id: string
@@ -1651,6 +1724,89 @@ export type Database = {
             columns: ["sidemark_id"]
             isOneToOne: false
             referencedRelation: "sidemarks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      charge_types: {
+        Row: {
+          add_flag: boolean
+          add_to_scan: boolean
+          alert_rule: string | null
+          category: string
+          charge_code: string
+          charge_name: string
+          created_at: string
+          created_by: string | null
+          default_trigger: string
+          deleted_at: string | null
+          id: string
+          input_mode: string
+          is_active: boolean
+          is_taxable: boolean
+          legacy_service_code: string | null
+          min_minutes: number | null
+          min_qty: number | null
+          notes: string | null
+          qty_step: number | null
+          tenant_id: string
+          time_unit_default: string | null
+          updated_at: string
+        }
+        Insert: {
+          add_flag?: boolean
+          add_to_scan?: boolean
+          alert_rule?: string | null
+          category?: string
+          charge_code: string
+          charge_name: string
+          created_at?: string
+          created_by?: string | null
+          default_trigger?: string
+          deleted_at?: string | null
+          id?: string
+          input_mode?: string
+          is_active?: boolean
+          is_taxable?: boolean
+          legacy_service_code?: string | null
+          min_minutes?: number | null
+          min_qty?: number | null
+          notes?: string | null
+          qty_step?: number | null
+          tenant_id: string
+          time_unit_default?: string | null
+          updated_at?: string
+        }
+        Update: {
+          add_flag?: boolean
+          add_to_scan?: boolean
+          alert_rule?: string | null
+          category?: string
+          charge_code?: string
+          charge_name?: string
+          created_at?: string
+          created_by?: string | null
+          default_trigger?: string
+          deleted_at?: string | null
+          id?: string
+          input_mode?: string
+          is_active?: boolean
+          is_taxable?: boolean
+          legacy_service_code?: string | null
+          min_minutes?: number | null
+          min_qty?: number | null
+          notes?: string | null
+          qty_step?: number | null
+          tenant_id?: string
+          time_unit_default?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "charge_types_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -6339,6 +6495,65 @@ export type Database = {
           },
         ]
       }
+      pricing_rules: {
+        Row: {
+          charge_type_id: string
+          class_code: string | null
+          created_at: string | null
+          deleted_at: string | null
+          id: string
+          is_default: boolean
+          minimum_charge: number | null
+          notes: string | null
+          pricing_method: string
+          rate: number
+          service_time_minutes: number | null
+          tenant_id: string
+          unit: string
+          updated_at: string | null
+        }
+        Insert: {
+          charge_type_id: string
+          class_code?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_default?: boolean
+          minimum_charge?: number | null
+          notes?: string | null
+          pricing_method?: string
+          rate?: number
+          service_time_minutes?: number | null
+          tenant_id: string
+          unit?: string
+          updated_at?: string | null
+        }
+        Update: {
+          charge_type_id?: string
+          class_code?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_default?: boolean
+          minimum_charge?: number | null
+          notes?: string | null
+          pricing_method?: string
+          rate?: number
+          service_time_minutes?: number | null
+          tenant_id?: string
+          unit?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       promo_code_usages: {
         Row: {
           billing_event_id: string | null
@@ -10059,6 +10274,51 @@ export type Database = {
         }
         Relationships: []
       }
+      task_type_charge_links: {
+        Row: {
+          charge_type_id: string
+          created_at: string | null
+          deleted_at: string | null
+          id: string
+          task_type_id: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          charge_type_id: string
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string
+          task_type_id: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          charge_type_id?: string
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string
+          task_type_id?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_type_charge_links_task_type_id_fkey"
+            columns: ["task_type_id"]
+            isOneToOne: true
+            referencedRelation: "task_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_type_charge_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_type_map: {
         Row: {
           canonical_type: Database["public"]["Enums"]["canonical_task_type"]
@@ -12874,6 +13134,32 @@ export type Database = {
         }[]
       }
       get_current_user_tenant_id: { Args: never; Returns: string }
+      get_effective_rate: {
+        Args: {
+          p_account_id?: string
+          p_charge_code: string
+          p_class_code?: string
+          p_tenant_id: string
+        }
+        Returns: {
+          add_flag: boolean
+          add_to_scan: boolean
+          adjustment_applied: boolean
+          adjustment_type: string
+          base_rate: number
+          category: string
+          charge_code: string
+          charge_name: string
+          charge_type_id: string
+          default_trigger: string
+          effective_rate: number
+          error_message: string
+          input_mode: string
+          is_taxable: boolean
+          service_time_minutes: number
+          unit: string
+        }[]
+      }
       get_my_roles: {
         Args: never
         Returns: {

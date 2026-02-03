@@ -293,7 +293,7 @@ async function getEffectiveRateFromNewSystem(params: GetEffectiveRateParams): Pr
       .maybeSingle();
 
     if (classRule) {
-      pricingRule = classRule;
+      pricingRule = classRule as PricingRule;
     }
   }
 
@@ -308,7 +308,7 @@ async function getEffectiveRateFromNewSystem(params: GetEffectiveRateParams): Pr
       .maybeSingle();
 
     if (defaultRule) {
-      pricingRule = defaultRule;
+      pricingRule = defaultRule as PricingRule;
     }
   }
 
@@ -324,7 +324,7 @@ async function getEffectiveRateFromNewSystem(params: GetEffectiveRateParams): Pr
       .maybeSingle();
 
     if (anyRule) {
-      pricingRule = anyRule;
+      pricingRule = anyRule as PricingRule;
     }
   }
 
@@ -544,7 +544,7 @@ export async function getChargeTypes(tenantId: string): Promise<ChargeType[]> {
     return [];
   }
 
-  return data || [];
+  return (data || []) as ChargeType[];
 }
 
 /**
@@ -565,7 +565,7 @@ export async function getScanChargeTypes(tenantId: string): Promise<ChargeType[]
     return [];
   }
 
-  return data || [];
+  return (data || []) as ChargeType[];
 }
 
 /**
@@ -586,7 +586,7 @@ export async function getFlagChargeTypes(tenantId: string): Promise<ChargeType[]
     return [];
   }
 
-  return data || [];
+  return (data || []) as ChargeType[];
 }
 
 /**
@@ -605,19 +605,16 @@ export async function getPricingRules(chargeTypeId: string): Promise<PricingRule
     return [];
   }
 
-  return data || [];
+  return (data || []) as PricingRule[];
 }
 
 /**
  * Get charge types linked to a task type
  */
 export async function getTaskTypeCharges(taskTypeId: string): Promise<ChargeType[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('task_type_charge_links')
-    .select(`
-      charge_type_id,
-      charge_types (*)
-    `)
+    .select('charge_type_id, charge_types(*)')
     .eq('task_type_id', taskTypeId)
     .eq('is_active', true)
     .is('deleted_at', null)

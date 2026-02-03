@@ -29,7 +29,7 @@ export interface ServiceEvent {
   class_code: string | null;
   service_code: string;
   service_name: string;
-  billing_unit: 'Day' | 'Item' | 'Task';
+  billing_unit: string;
   service_time_minutes: number | null;
   rate: number;
   taxable: boolean;
@@ -176,7 +176,7 @@ export function useServiceEvents() {
   const getServiceRate = useCallback((serviceCode: string, classCode?: string | null, accountId?: string | null): {
     rate: number;
     serviceName: string;
-    billingUnit: 'Day' | 'Item' | 'Task';
+    billingUnit: string;
     alertRule: string;
     hasError: boolean;
     errorMessage: string | null;
@@ -252,7 +252,7 @@ export function useServiceEvents() {
   ): Promise<{
     rate: number;
     serviceName: string;
-    billingUnit: 'Day' | 'Item' | 'Task';
+    billingUnit: string;
     alertRule: string;
     hasError: boolean;
     errorMessage: string | null;
