@@ -51,7 +51,7 @@ export function ItemBillingEventsSection({
         .select('id, charge_type, description, quantity, unit_rate, total_amount, status, event_type, created_at')
         .eq('tenant_id', profile.tenant_id)
         .eq('item_id', itemId)
-        .in('status', ['unbilled', 'flagged', 'billed'])
+        .in('status', ['unbilled', 'invoiced', 'void'])
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -72,11 +72,11 @@ export function ItemBillingEventsSection({
 
   // Calculate totals
   const unbilledTotal = events
-    .filter(e => e.status === 'unbilled' || e.status === 'flagged')
+    .filter(e => e.status === 'unbilled')
     .reduce((sum, e) => sum + (e.total_amount || e.unit_rate * e.quantity), 0);
 
   const billedTotal = events
-    .filter(e => e.status === 'billed')
+    .filter(e => e.status === 'invoiced')
     .reduce((sum, e) => sum + (e.total_amount || e.unit_rate * e.quantity), 0);
 
   const grandTotal = unbilledTotal + billedTotal;

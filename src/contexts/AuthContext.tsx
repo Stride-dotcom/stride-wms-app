@@ -129,10 +129,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setProfile(data);
 
-      // Cache profile for error tracking (includes tenant_id)
+      // Cache profile for error tracking (includes tenant_id and role)
       try {
+        let userRole: string | undefined;
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('roles:role_id(name)')
+          .eq('user_id', userId)
+          .is('deleted_at', null)
+          .limit(1)
+          .maybeSingle();
+        if (roleData && (roleData as any).roles?.name) {
+          userRole = (roleData as any).roles.name;
+        }
         localStorage.setItem('user_profile_cache', JSON.stringify({
           tenant_id: data.tenant_id,
+          role: userRole,
+          account_id: (data as any).account_id,
         }));
       } catch {
         // Ignore localStorage errors
