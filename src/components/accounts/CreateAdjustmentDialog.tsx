@@ -211,7 +211,12 @@ export function CreateAdjustmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Create Pricing Adjustment</DialogTitle>
           <DialogDescription>
@@ -223,7 +228,7 @@ export function CreateAdjustmentDialog({
           {/* Service Selection */}
           <div className="space-y-2">
             <Label>Services *</Label>
-            <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+            <Popover open={searchOpen} onOpenChange={setSearchOpen} modal={true}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
