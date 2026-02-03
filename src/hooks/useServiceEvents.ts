@@ -1,5 +1,10 @@
 /**
  * useServiceEvents - Hook for service events pricing and billing
+ *
+ * COMPATIBILITY LAYER: This hook now reads from the new charge_types + pricing_rules
+ * system when available, falling back to legacy service_events.
+ *
+ * The returned interface remains unchanged for backward compatibility.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -7,6 +12,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { queueBillingEventAlert } from '@/lib/alertQueue';
+import {
+  getEffectiveRate,
+  mapUnitToLegacy,
+  mapTriggerToLegacy,
+  createBillingMetadata,
+  type ChargeType,
+  type PricingRule,
+  type EffectiveRateResult,
+} from '@/lib/billing/chargeTypeUtils';
 
 export interface ServiceEvent {
   id: string;
@@ -27,6 +41,11 @@ export interface ServiceEvent {
   billing_trigger: string;
   created_at: string;
   updated_at: string;
+  // New fields from charge_types (optional for compatibility)
+  charge_type_id?: string;
+  category?: string;
+  default_trigger?: string;
+  input_mode?: string;
 }
 
 export interface ServiceEventForScan {
@@ -36,6 +55,8 @@ export interface ServiceEventForScan {
   billing_unit: string;
   uses_class_pricing: boolean;
   notes: string | null;
+  // New fields
+  charge_type_id?: string;
 }
 
 export function useServiceEvents() {
@@ -43,10 +64,11 @@ export function useServiceEvents() {
   const [scanServiceEvents, setScanServiceEvents] = useState<ServiceEventForScan[]>([]);
   const [flagServiceEvents, setFlagServiceEvents] = useState<ServiceEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [usingNewSystem, setUsingNewSystem] = useState(false);
   const { toast } = useToast();
   const { profile } = useAuth();
 
-  // Fetch all service events
+  // Fetch service events - tries new system first, falls back to legacy
   const fetchServiceEvents = useCallback(async () => {
     if (!profile?.tenant_id) {
       setServiceEvents([]);
@@ -57,6 +79,38 @@ export function useServiceEvents() {
     try {
       setLoading(true);
 
+      // Try new system first (charge_types + pricing_rules)
+      const newSystemData = await fetchFromNewSystem(profile.tenant_id);
+
+      if (newSystemData && newSystemData.length > 0) {
+        setUsingNewSystem(true);
+        setServiceEvents(newSystemData);
+
+        // Extract scan services
+        const scanServices = newSystemData
+          .filter((se: ServiceEvent) => se.add_to_service_event_scan)
+          .reduce((acc: ServiceEventForScan[], se: ServiceEvent) => {
+            if (!acc.find(s => s.service_code === se.service_code)) {
+              acc.push({
+                service_code: se.service_code,
+                service_name: se.service_name,
+                rate: se.rate,
+                billing_unit: se.billing_unit,
+                uses_class_pricing: se.uses_class_pricing,
+                notes: se.notes,
+                charge_type_id: se.charge_type_id,
+              });
+            }
+            return acc;
+          }, []);
+
+        setScanServiceEvents(scanServices);
+        setFlagServiceEvents(newSystemData.filter((se: ServiceEvent) => se.add_flag));
+        return;
+      }
+
+      // Fall back to legacy service_events
+      setUsingNewSystem(false);
       const { data, error } = await (supabase
         .from('service_events') as any)
         .select('*')
@@ -117,14 +171,20 @@ export function useServiceEvents() {
   }, [fetchServiceEvents]);
 
   // Get rate for a specific service and class
-  const getServiceRate = useCallback((serviceCode: string, classCode?: string | null): {
+  // Uses getEffectiveRate from chargeTypeUtils for lookup
+  const getServiceRate = useCallback((serviceCode: string, classCode?: string | null, accountId?: string | null): {
     rate: number;
     serviceName: string;
     billingUnit: 'Day' | 'Item' | 'Task';
     alertRule: string;
     hasError: boolean;
     errorMessage: string | null;
+    chargeTypeId?: string;
+    rateResult?: EffectiveRateResult;
   } => {
+    // Synchronous lookup from cached serviceEvents (for backward compatibility)
+    // For async lookup with account adjustments, use getServiceRateAsync
+
     // First try class-specific rate
     if (classCode) {
       const classSpecific = serviceEvents.find(
@@ -138,6 +198,7 @@ export function useServiceEvents() {
           alertRule: classSpecific.alert_rule || 'none',
           hasError: false,
           errorMessage: null,
+          chargeTypeId: classSpecific.charge_type_id,
         };
       }
     }
@@ -157,6 +218,7 @@ export function useServiceEvents() {
           alertRule: general.alert_rule || 'none',
           hasError: true,
           errorMessage: 'Item has no class assigned - using default rate',
+          chargeTypeId: general.charge_type_id,
         };
       }
       return {
@@ -166,6 +228,7 @@ export function useServiceEvents() {
         alertRule: general.alert_rule || 'none',
         hasError: false,
         errorMessage: null,
+        chargeTypeId: general.charge_type_id,
       };
     }
 
@@ -179,6 +242,70 @@ export function useServiceEvents() {
       errorMessage: `Service not found: ${serviceCode}`,
     };
   }, [serviceEvents]);
+
+  // Async version of getServiceRate that includes account adjustments
+  const getServiceRateAsync = useCallback(async (
+    serviceCode: string,
+    classCode?: string | null,
+    accountId?: string | null
+  ): Promise<{
+    rate: number;
+    serviceName: string;
+    billingUnit: 'Day' | 'Item' | 'Task';
+    alertRule: string;
+    hasError: boolean;
+    errorMessage: string | null;
+    chargeTypeId?: string;
+    rateResult: EffectiveRateResult;
+  }> => {
+    if (!profile?.tenant_id) {
+      return {
+        rate: 0,
+        serviceName: serviceCode,
+        billingUnit: 'Item',
+        alertRule: 'none',
+        hasError: true,
+        errorMessage: 'Not authenticated',
+        rateResult: {
+          charge_type_id: null,
+          charge_code: serviceCode,
+          charge_name: null,
+          category: null,
+          is_taxable: false,
+          default_trigger: 'manual',
+          input_mode: 'qty',
+          service_time_minutes: 0,
+          add_to_scan: false,
+          add_flag: false,
+          unit: 'each',
+          base_rate: 0,
+          effective_rate: 0,
+          adjustment_type: null,
+          adjustment_applied: false,
+          has_error: true,
+          error_message: 'Not authenticated',
+        },
+      };
+    }
+
+    const rateResult = await getEffectiveRate({
+      tenantId: profile.tenant_id,
+      chargeCode: serviceCode,
+      accountId: accountId || undefined,
+      classCode: classCode || undefined,
+    });
+
+    return {
+      rate: rateResult.effective_rate,
+      serviceName: rateResult.charge_name || serviceCode,
+      billingUnit: mapUnitToLegacy(rateResult.unit),
+      alertRule: 'none', // Alert rules are handled differently in new system
+      hasError: rateResult.has_error,
+      errorMessage: rateResult.error_message,
+      chargeTypeId: rateResult.charge_type_id || undefined,
+      rateResult,
+    };
+  }, [profile?.tenant_id]);
 
   // Create billing events for items with selected services
   const createBillingEvents = useCallback(async (
@@ -199,8 +326,17 @@ export function useServiceEvents() {
 
     for (const item of items) {
       for (const serviceCode of serviceCodes) {
-        const rateInfo = getServiceRate(serviceCode, item.class_code);
+        // Use async rate lookup to get account adjustments
+        const rateInfo = await getServiceRateAsync(serviceCode, item.class_code, item.account_id);
         const description = `${rateInfo.serviceName} - ${item.item_code}`;
+
+        // Create metadata for provenance tracking
+        const metadata = createBillingMetadata(
+          'scan',
+          item.id,
+          rateInfo.rateResult,
+          { item_code: item.item_code }
+        );
 
         const { data: billingEvent, error } = await (supabase
           .from('billing_events') as any)
@@ -218,6 +354,7 @@ export function useServiceEvents() {
             created_by: profile.id,
             has_rate_error: rateInfo.hasError,
             rate_error_message: rateInfo.errorMessage,
+            calculation_metadata: metadata,
           })
           .select('id')
           .single();
@@ -258,7 +395,7 @@ export function useServiceEvents() {
     }
 
     return { success: errorCount === 0, count: successCount, errors: errorCount };
-  }, [profile, getServiceRate, toast]);
+  }, [profile, getServiceRateAsync, toast]);
 
   // Seed service events for tenant
   const seedServiceEvents = useCallback(async () => {
@@ -291,9 +428,114 @@ export function useServiceEvents() {
     scanServiceEvents,
     flagServiceEvents,
     loading,
+    usingNewSystem,
     refetch: fetchServiceEvents,
     getServiceRate,
+    getServiceRateAsync,
     createBillingEvents,
     seedServiceEvents,
+  };
+}
+
+
+// =============================================================================
+// HELPER: Fetch from new charge_types + pricing_rules system
+// =============================================================================
+
+async function fetchFromNewSystem(tenantId: string): Promise<ServiceEvent[] | null> {
+  try {
+    // Check if charge_types table exists and has data
+    const { data: chargeTypes, error: ctError } = await supabase
+      .from('charge_types')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .order('charge_name');
+
+    // If table doesn't exist or query fails, fall back to legacy
+    if (ctError) {
+      if (ctError.code === '42P01') {
+        // Table doesn't exist yet
+        return null;
+      }
+      console.warn('[useServiceEvents] Error fetching charge_types:', ctError);
+      return null;
+    }
+
+    if (!chargeTypes || chargeTypes.length === 0) {
+      // No data in new system, fall back to legacy
+      return null;
+    }
+
+    // Fetch all pricing rules for these charge types
+    const chargeTypeIds = chargeTypes.map(ct => ct.id);
+    const { data: pricingRules, error: prError } = await supabase
+      .from('pricing_rules')
+      .select('*')
+      .in('charge_type_id', chargeTypeIds)
+      .is('deleted_at', null);
+
+    if (prError) {
+      console.warn('[useServiceEvents] Error fetching pricing_rules:', prError);
+      return null;
+    }
+
+    // Convert to ServiceEvent format for backward compatibility
+    const serviceEvents: ServiceEvent[] = [];
+
+    for (const ct of chargeTypes) {
+      const rules = (pricingRules || []).filter(pr => pr.charge_type_id === ct.id);
+
+      if (rules.length === 0) {
+        // Charge type with no pricing rules - create placeholder
+        serviceEvents.push(chargeTypeToServiceEvent(ct, null));
+      } else {
+        // Create one ServiceEvent per pricing rule (to match legacy behavior)
+        for (const rule of rules) {
+          serviceEvents.push(chargeTypeToServiceEvent(ct, rule));
+        }
+      }
+    }
+
+    return serviceEvents;
+
+  } catch (error) {
+    console.error('[useServiceEvents] Error in fetchFromNewSystem:', error);
+    return null;
+  }
+}
+
+/**
+ * Convert ChargeType + PricingRule to legacy ServiceEvent format
+ */
+function chargeTypeToServiceEvent(ct: any, pr: any | null): ServiceEvent {
+  const unit = pr?.unit || 'each';
+  const billingUnit = mapUnitToLegacy(unit);
+
+  return {
+    id: pr?.id || ct.id,
+    tenant_id: ct.tenant_id,
+    class_code: pr?.class_code || null,
+    service_code: ct.charge_code,
+    service_name: ct.charge_name,
+    billing_unit: billingUnit as 'Day' | 'Item' | 'Task',
+    service_time_minutes: pr?.service_time_minutes || 0,
+    rate: pr?.rate || 0,
+    taxable: ct.is_taxable || false,
+    uses_class_pricing: pr?.pricing_method === 'class_based' || (pr?.class_code !== null),
+    is_active: ct.is_active,
+    notes: ct.notes,
+    add_flag: ct.add_flag || false,
+    add_to_service_event_scan: ct.add_to_scan || false,
+    alert_rule: ct.alert_rule || 'none',
+    billing_trigger: mapTriggerToLegacy(ct.default_trigger),
+    created_at: ct.created_at,
+    updated_at: ct.updated_at,
+    // New fields
+    charge_type_id: ct.id,
+    category: ct.category,
+    default_trigger: ct.default_trigger,
+    input_mode: ct.input_mode,
   };
 }
