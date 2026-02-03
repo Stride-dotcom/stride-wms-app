@@ -102,7 +102,7 @@ export const CHARGE_CATEGORIES = [
   { value: 'handling', label: 'Handling' },
   { value: 'task', label: 'Task/Labor' },
   { value: 'shipping', label: 'Shipping' },
-  { value: 'general', label: 'General' },
+  { value: 'service', label: 'Service' },
 ] as const;
 
 export const TRIGGER_OPTIONS = [
@@ -162,7 +162,6 @@ export function useChargeTypes() {
         .from('charge_types')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
-        .is('deleted_at', null)
         .order('charge_name');
 
       if (error) {
@@ -205,7 +204,7 @@ export function useChargeTypes() {
           tenant_id: profile.tenant_id,
           charge_code: input.charge_code,
           charge_name: input.charge_name,
-          category: input.category || 'general',
+          category: input.category || 'service',
           is_active: input.is_active ?? true,
           is_taxable: input.is_taxable ?? false,
           default_trigger: input.default_trigger || 'manual',
@@ -218,7 +217,6 @@ export function useChargeTypes() {
           add_flag: input.add_flag ?? false,
           alert_rule: input.alert_rule,
           notes: input.notes,
-          created_by: profile.id,
         })
         .select()
         .single();
@@ -265,12 +263,12 @@ export function useChargeTypes() {
     }
   }, [toast, fetchChargeTypes]);
 
-  // Delete charge type (soft delete)
+  // Delete charge type
   const deleteChargeType = useCallback(async (id: string): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from('charge_types')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id);
 
       if (error) throw error;
@@ -325,7 +323,6 @@ export function usePricingRules(chargeTypeId?: string) {
         .from('pricing_rules')
         .select('*')
         .eq('charge_type_id', targetId)
-        .is('deleted_at', null)
         .order('class_code', { ascending: true, nullsFirst: true });
 
       if (error) {
@@ -423,12 +420,12 @@ export function usePricingRules(chargeTypeId?: string) {
     }
   }, [toast, fetchPricingRules]);
 
-  // Delete pricing rule (soft delete)
+  // Delete pricing rule
   const deletePricingRule = useCallback(async (id: string, chargeTypeIdForRefresh?: string): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from('pricing_rules')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id);
 
       if (error) throw error;
@@ -485,7 +482,6 @@ export function useChargeTypesWithRules() {
         .from('charge_types')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
-        .is('deleted_at', null)
         .order('charge_name');
 
       if (ctError) {
@@ -506,8 +502,7 @@ export function useChargeTypesWithRules() {
       const { data: pricingRules, error: prError } = await supabase
         .from('pricing_rules')
         .select('*')
-        .in('charge_type_id', chargeTypeIds)
-        .is('deleted_at', null);
+        .in('charge_type_id', chargeTypeIds);
 
       if (prError && prError.code !== '42P01') {
         throw prError;
