@@ -410,17 +410,17 @@ BEGIN
   -- Now create pricing_rules for each service_event (including class-specific ones)
   FOR se IN
     SELECT
-      se.tenant_id,
-      se.service_code,
-      se.class_code,
-      se.rate,
-      se.billing_unit,
-      se.service_time_minutes,
-      se.uses_class_pricing,
+      sev.tenant_id,
+      sev.service_code,
+      sev.class_code,
+      sev.rate,
+      sev.billing_unit,
+      sev.service_time_minutes,
+      sev.uses_class_pricing,
       ct.id AS charge_type_id
-    FROM public.service_events se
-    JOIN public.charge_types ct ON ct.tenant_id = se.tenant_id AND ct.charge_code = se.service_code
-    WHERE se.tenant_id IS NOT NULL
+    FROM public.service_events sev
+    JOIN public.charge_types ct ON ct.tenant_id = sev.tenant_id AND ct.charge_code = sev.service_code
+    WHERE sev.tenant_id IS NOT NULL
       AND ct.deleted_at IS NULL
   LOOP
     -- Map billing_unit to new unit format
