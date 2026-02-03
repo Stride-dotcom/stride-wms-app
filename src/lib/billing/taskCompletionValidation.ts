@@ -98,11 +98,10 @@ export async function getTaskItemsWithClass(
     }
 
     // Collect unique class_ids to look up class codes
-    const classIds = [...new Set(
-      (data || [])
-        .map((ti: any) => ti.items?.class_id)
-        .filter(Boolean)
-    )];
+    const rawClassIds: string[] = (data || [])
+      .map((ti: any) => ti.items?.class_id as string | undefined)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    const classIds = Array.from(new Set(rawClassIds));
 
     // Fetch class codes from classes table
     let classMap = new Map<string, string>();
