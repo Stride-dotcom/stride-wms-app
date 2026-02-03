@@ -642,19 +642,54 @@ export async function getPricingRules(chargeTypeId: string): Promise<PricingRule
 
 /**
  * Get charge types linked to a task type
+ * 
+ * Note: If task_type_charge_links table or relationship doesn't exist,
+ * this returns an empty array gracefully.
  */
 export async function getTaskTypeCharges(taskTypeId: string): Promise<ChargeType[]> {
-  const { data, error } = await (supabase as any)
-    .from('task_type_charge_links')
-    .select('charge_type_id, charge_types(*)')
-    .eq('task_type_id', taskTypeId);
+  try {
+    // First get the charge_type_ids from the linking table
+    const { data: links, error: linksError } = await (supabase as any)
+      .from('task_type_charge_links')
+      .select('charge_type_id')
+      .eq('task_type_id', taskTypeId);
 
-  if (error) {
-    console.error('[chargeTypeUtils] Error fetching task type charges:', error);
+    if (linksError) {
+      // Table might not exist or relationship error - silently return empty
+      if (linksError.code === 'PGRST200' || linksError.code === '42P01') {
+        return [];
+      }
+      console.error('[chargeTypeUtils] Error fetching task type charge links:', linksError);
+      return [];
+    }
+
+    if (!links || links.length === 0) {
+      return [];
+    }
+
+    // Extract unique charge_type_ids
+    const chargeTypeIds = [...new Set(links.map((l: any) => l.charge_type_id).filter(Boolean))] as string[];
+    
+    if (chargeTypeIds.length === 0) {
+      return [];
+    }
+
+    // Fetch the actual charge types
+    const { data: chargeTypes, error: ctError } = await supabase
+      .from('charge_types')
+      .select('*')
+      .in('id', chargeTypeIds);
+
+    if (ctError) {
+      console.error('[chargeTypeUtils] Error fetching charge types:', ctError);
+      return [];
+    }
+
+    return (chargeTypes || []) as ChargeType[];
+  } catch (error) {
+    console.error('[chargeTypeUtils] Error in getTaskTypeCharges:', error);
     return [];
   }
-
-  return (data || []).map(d => d.charge_types as unknown as ChargeType).filter(Boolean);
 }
 
 
