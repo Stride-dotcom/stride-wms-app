@@ -673,7 +673,7 @@ function ChargeTypeDialog({ open, onOpenChange, chargeType, onSave }: ChargeType
 function PricingRulesPanel() {
   const { chargeTypesWithRules, loading, refetch } = useChargeTypesWithRules();
   const { createPricingRule, updatePricingRule, deletePricingRule } = usePricingRules();
-  const [expandedChargeType, setExpandedChargeType] = useState<string | undefined>();
+  const [expandedChargeType, setExpandedChargeType] = useState<string>('');
   const [showAddRuleDialog, setShowAddRuleDialog] = useState<string | null>(null);
   const [editingRule, setEditingRule] = useState<{ rule: PricingRule; chargeTypeId: string } | null>(null);
   const { toast } = useToast();
