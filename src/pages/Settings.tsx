@@ -39,6 +39,7 @@ import { SidemarksSettingsTab } from '@/components/settings/SidemarksSettingsTab
 import { ServiceEventsPricingTab } from '@/components/settings/ServiceEventsPricingTab';
 import { ServiceCategoriesSettingsTab } from '@/components/settings/ServiceCategoriesSettingsTab';
 import { PricingSettingsTab } from '@/components/settings/PricingSettingsTab';
+import { ClassesSettingsTab } from '@/components/settings/ClassesSettingsTab';
 
 import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
 import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
@@ -61,6 +62,7 @@ const TAB_OPTIONS = [
   { value: 'alerts', label: 'Alerts' },
   { value: 'prompts', label: 'Prompts', adminOnly: true },
   { value: 'labor', label: 'Labor', adminOnly: true },
+  { value: 'classes', label: 'Classes', adminOnly: true },
   { value: 'pricing', label: 'Pricing', adminOnly: true },
   { value: 'legacy-pricing', label: 'Legacy Pricing', adminOnly: true },
   { value: 'categories', label: 'Categories', adminOnly: true },
@@ -326,6 +328,7 @@ export default function Settings() {
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
             {isAdmin && <TabsTrigger value="prompts">Prompts</TabsTrigger>}
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="classes">Classes</TabsTrigger>}
             {isAdmin && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
             {isAdmin && <TabsTrigger value="legacy-pricing">Legacy Pricing</TabsTrigger>}
             {isAdmin && <TabsTrigger value="categories">Categories</TabsTrigger>}
@@ -414,6 +417,12 @@ export default function Settings() {
           {isAdmin && (
             <TabsContent value="labor">
               <LaborSettingsTab />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="classes">
+              <ClassesSettingsTab />
             </TabsContent>
           )}
 

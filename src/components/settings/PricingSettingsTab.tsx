@@ -44,6 +44,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
+import { useClasses } from '@/hooks/useClasses';
 import {
   useChargeTypes,
   usePricingRules,
@@ -53,7 +54,6 @@ import {
   INPUT_MODE_OPTIONS,
   UNIT_OPTIONS,
   PRICING_METHOD_OPTIONS,
-  CLASS_CODES,
   type ChargeType,
   type PricingRule,
   type CreateChargeTypeInput,
@@ -862,6 +862,7 @@ interface PricingRuleDialogProps {
 }
 
 function PricingRuleDialog({ open, onOpenChange, chargeTypeId, rule, onSave }: PricingRuleDialogProps) {
+  const { classes } = useClasses();
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<CreatePricingRuleInput>({
     charge_type_id: chargeTypeId,
@@ -911,7 +912,7 @@ function PricingRuleDialog({ open, onOpenChange, chargeTypeId, rule, onSave }: P
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="class_code">Class Code</Label>
+              <Label htmlFor="class_code">Class</Label>
               <Select
                 value={formData.class_code || '_none'}
                 onValueChange={(value) => setFormData({ ...formData, class_code: value === '_none' ? null : value })}
@@ -921,8 +922,10 @@ function PricingRuleDialog({ open, onOpenChange, chargeTypeId, rule, onSave }: P
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_none">Any (Default)</SelectItem>
-                  {CLASS_CODES.map(code => (
-                    <SelectItem key={code} value={code}>{code}</SelectItem>
+                  {classes.map(cls => (
+                    <SelectItem key={cls.id} value={cls.code}>
+                      {cls.code} - {cls.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
