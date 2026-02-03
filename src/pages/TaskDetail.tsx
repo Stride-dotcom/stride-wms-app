@@ -49,6 +49,10 @@ import { TaskCompletionBlockedDialog } from '@/components/tasks/TaskCompletionBl
 import { HelpButton } from '@/components/prompts';
 import { PromptWorkflow } from '@/types/guidedPrompts';
 import { validateTaskCompletion, TaskCompletionValidationResult } from '@/lib/billing/taskCompletionValidation';
+import { useTaskServiceLines } from '@/hooks/useTaskServiceLines';
+import { TaskServiceChips, ChargeTypeOption } from '@/components/tasks/TaskServiceChips';
+import { TaskCompletionPanel, CompletionLineValues } from '@/components/tasks/TaskCompletionPanel';
+import { getChargeTypes, getTaskTypeCharges } from '@/lib/billing/chargeTypeUtils';
 
 interface TaskDetail {
   id: string;
@@ -176,10 +180,26 @@ export default function TaskDetailPage() {
   const [savingRate, setSavingRate] = useState(false);
 
 
+  // Service lines state
+  const [completionPanelOpen, setCompletionPanelOpen] = useState(false);
+  const [completionLoading, setCompletionLoading] = useState(false);
+  const [availableServices, setAvailableServices] = useState<ChargeTypeOption[]>([]);
+  const [suggestedChargeTypeIds, setSuggestedChargeTypeIds] = useState<string[]>([]);
+
   const { activeTechnicians } = useTechnicians();
   const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
   const { hasRole } = usePermissions();
-  const { completeTask, startTask: startTaskHook } = useTasks();
+  const { completeTask, completeTaskWithServices, startTask: startTaskHook } = useTasks();
+
+  // Service lines hook
+  const {
+    serviceLines,
+    loading: serviceLinesLoading,
+    fetchServiceLines,
+    addServiceLine,
+    removeServiceLine,
+    loadFromTemplate,
+  } = useTaskServiceLines(id);
 
   // Only managers and admins can see billing
   const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
@@ -376,7 +396,46 @@ export default function TaskDetailPage() {
   useEffect(() => {
     fetchTask();
     fetchTaskItems();
-  }, [fetchTask, fetchTaskItems]);
+    fetchServiceLines();
+  }, [fetchTask, fetchTaskItems, fetchServiceLines]);
+
+  // Fetch available charge types and template suggestions
+  useEffect(() => {
+    if (!profile?.tenant_id || !task) return;
+
+    const loadServices = async () => {
+      try {
+        const chargeTypes = await getChargeTypes(profile.tenant_id);
+        const options: ChargeTypeOption[] = chargeTypes.map((ct: any) => ({
+          id: ct.id,
+          charge_code: ct.charge_code,
+          charge_name: ct.charge_name,
+          category: ct.category || 'service',
+          input_mode: ct.input_mode || 'qty',
+          notes: ct.notes || null,
+        }));
+        setAvailableServices(options);
+
+        // Fetch template suggestions from task_type_charge_links
+        const { data: taskTypeData } = await (supabase
+          .from('task_types') as any)
+          .select('id')
+          .eq('tenant_id', profile.tenant_id)
+          .eq('name', task.task_type)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (taskTypeData?.id) {
+          const suggested = await getTaskTypeCharges(taskTypeData.id);
+          setSuggestedChargeTypeIds(suggested.map((s: any) => s.id));
+        }
+      } catch (error) {
+        console.error('Error loading available services:', error);
+      }
+    };
+
+    loadServices();
+  }, [profile?.tenant_id, task?.task_type]);
 
   // Fetch pending-rate events when task loads and is completed (for Safety Billing)
   useEffect(() => {
@@ -404,6 +463,16 @@ export default function TaskDetailPage() {
 
   const handleCompleteTask = async () => {
     if (!id || !profile?.id || !task || !profile?.tenant_id) return;
+
+    // Phase 2: Validate at least 1 service exists
+    if (serviceLines.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Services Required',
+        description: 'Add at least one service before completing this task.',
+      });
+      return;
+    }
 
     // Validate Assembly and Repair tasks require billing quantity > 0
     if (task.task_type === 'Assembly' || task.task_type === 'Repair') {
@@ -468,17 +537,29 @@ export default function TaskDetailPage() {
         return;
       }
 
-      // All validations passed - continue with completion
-      const success = await completeTask(id);
-      if (success) {
-        fetchTask();
-        fetchTaskItems();
-      }
+      // All validations passed — show completion panel with service line qty/time inputs
+      setCompletionPanelOpen(true);
+      setActionLoading(false);
     } catch (error) {
       console.error('Error completing task:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to complete task' });
-    } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Handle completion panel confirm
+  const handleCompletionConfirm = async (values: CompletionLineValues[]) => {
+    if (!id) return;
+    setCompletionLoading(true);
+    try {
+      const success = await completeTaskWithServices(id, values);
+      if (success) {
+        setCompletionPanelOpen(false);
+        fetchTask();
+        fetchTaskItems();
+      }
+    } finally {
+      setCompletionLoading(false);
     }
   };
 
@@ -1185,6 +1266,39 @@ export default function TaskDetailPage() {
               </CardContent>
             </Card>
 
+            {/* Services Card (Phase 2) */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <MaterialIcon name="build" size="sm" />
+                  Services ({serviceLines.length})
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Services determine billing for this task.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TaskServiceChips
+                  serviceLines={serviceLines}
+                  availableServices={availableServices}
+                  suggestedChargeTypeIds={suggestedChargeTypeIds}
+                  onAdd={(service) => {
+                    addServiceLine({
+                      charge_code: service.charge_code,
+                      charge_name: service.charge_name,
+                      charge_type_id: service.id,
+                      input_mode: service.input_mode,
+                      qty: 1,
+                      minutes: 0,
+                    });
+                  }}
+                  onRemove={removeServiceLine}
+                  disabled={task.status === 'completed' || task.status === 'unable_to_complete'}
+                  loading={serviceLinesLoading}
+                />
+              </CardContent>
+            </Card>
+
             {/* Safety Billing: Set Task Rate Card - Shows when there are pending-rate billing events */}
             {canSeeBilling && task.status === 'completed' && pendingRateBillingEvents.length > 0 && (
               <Card className="border-red-300 bg-red-50 dark:bg-red-950/30">
@@ -1487,6 +1601,18 @@ export default function TaskDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Task Completion Panel (Phase 2 — service line qty/time confirmation) */}
+      {task && (
+        <TaskCompletionPanel
+          open={completionPanelOpen}
+          onOpenChange={setCompletionPanelOpen}
+          taskTitle={task.title}
+          taskType={task.task_type}
+          serviceLines={serviceLines}
+          onConfirm={handleCompletionConfirm}
+          loading={completionLoading}
+        />
+      )}
     </DashboardLayout>
   );
 }
