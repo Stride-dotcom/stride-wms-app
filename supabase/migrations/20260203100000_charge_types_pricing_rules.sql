@@ -54,6 +54,28 @@ CREATE TABLE IF NOT EXISTS public.charge_types (
   CONSTRAINT uq_charge_types_tenant_code UNIQUE (tenant_id, charge_code)
 );
 
+-- Ensure columns exist (handles pre-existing table from partial migration)
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS charge_code TEXT;
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS charge_name TEXT;
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'general';
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS is_taxable BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS default_trigger TEXT NOT NULL DEFAULT 'manual';
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS input_mode TEXT NOT NULL DEFAULT 'qty';
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS qty_step NUMERIC(10,2) DEFAULT 1;
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS min_qty NUMERIC(10,2) DEFAULT 1;
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS time_unit_default TEXT DEFAULT 'minutes';
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS min_minutes INTEGER DEFAULT 0;
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS add_to_scan BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS add_flag BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS alert_rule TEXT DEFAULT 'none';
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS legacy_service_code TEXT;
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS created_by UUID;
+ALTER TABLE public.charge_types ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
 -- Indexes for charge_types
 CREATE INDEX IF NOT EXISTS idx_charge_types_tenant ON public.charge_types(tenant_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_charge_types_category ON public.charge_types(tenant_id, category) WHERE deleted_at IS NULL AND is_active = true;
@@ -116,6 +138,18 @@ CREATE TABLE IF NOT EXISTS public.pricing_rules (
   CONSTRAINT uq_pricing_rules_charge_class UNIQUE (charge_type_id, class_code)
 );
 
+-- Ensure columns exist (handles pre-existing table from partial migration)
+ALTER TABLE public.pricing_rules ADD COLUMN IF NOT EXISTS pricing_method TEXT NOT NULL DEFAULT 'flat';
+ALTER TABLE public.pricing_rules ADD COLUMN IF NOT EXISTS class_code TEXT;
+ALTER TABLE public.pricing_rules ADD COLUMN IF NOT EXISTS unit TEXT NOT NULL DEFAULT 'each';
+ALTER TABLE public.pricing_rules ADD COLUMN IF NOT EXISTS rate NUMERIC(10,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.pricing_rules ADD COLUMN IF NOT EXISTS minimum_charge NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE public.pricing_rules ADD COLUMN IF NOT EXISTS is_default BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.pricing_rules ADD COLUMN IF NOT EXISTS service_time_minutes INTEGER DEFAULT 0;
+ALTER TABLE public.pricing_rules ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE public.pricing_rules ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE public.pricing_rules ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
 -- Indexes for pricing_rules
 CREATE INDEX IF NOT EXISTS idx_pricing_rules_charge_type ON public.pricing_rules(charge_type_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_pricing_rules_tenant ON public.pricing_rules(tenant_id) WHERE deleted_at IS NULL;
@@ -163,6 +197,12 @@ CREATE TABLE IF NOT EXISTS public.task_type_charge_links (
   -- One link per task_type + charge_type
   CONSTRAINT uq_task_type_charge_links UNIQUE (task_type_id, charge_type_id)
 );
+
+-- Ensure columns exist (handles pre-existing table from partial migration)
+ALTER TABLE public.task_type_charge_links ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE public.task_type_charge_links ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE public.task_type_charge_links ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE public.task_type_charge_links ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
 -- Indexes for task_type_charge_links
 CREATE INDEX IF NOT EXISTS idx_task_type_charge_links_task ON public.task_type_charge_links(task_type_id) WHERE deleted_at IS NULL AND is_active = true;
@@ -222,6 +262,18 @@ CREATE TABLE IF NOT EXISTS public.account_charge_adjustments (
   -- One adjustment per account + charge + class combination
   CONSTRAINT uq_account_charge_adjustments UNIQUE (account_id, charge_type_id, class_code)
 );
+
+-- Ensure columns exist (handles pre-existing table from partial migration)
+ALTER TABLE public.account_charge_adjustments ADD COLUMN IF NOT EXISTS class_code TEXT;
+ALTER TABLE public.account_charge_adjustments ADD COLUMN IF NOT EXISTS adjustment_type TEXT NOT NULL DEFAULT 'override';
+ALTER TABLE public.account_charge_adjustments ADD COLUMN IF NOT EXISTS override_rate NUMERIC(10,2);
+ALTER TABLE public.account_charge_adjustments ADD COLUMN IF NOT EXISTS percentage_adjust NUMERIC(5,2);
+ALTER TABLE public.account_charge_adjustments ADD COLUMN IF NOT EXISTS fixed_add_amount NUMERIC(10,2);
+ALTER TABLE public.account_charge_adjustments ADD COLUMN IF NOT EXISTS is_enabled BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE public.account_charge_adjustments ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE public.account_charge_adjustments ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE public.account_charge_adjustments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE public.account_charge_adjustments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_account_charge_adj_account ON public.account_charge_adjustments(account_id) WHERE deleted_at IS NULL;
