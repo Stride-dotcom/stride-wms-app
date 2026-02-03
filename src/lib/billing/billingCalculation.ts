@@ -185,6 +185,8 @@ export async function getRateByCategoryAndClass(
         .eq('category_id', categoryId)
         .eq('class_code', classCode)
         .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (classError) {
@@ -213,6 +215,8 @@ export async function getRateByCategoryAndClass(
       .is('class_code', null)
       .eq('uses_class_pricing', false)
       .eq('is_active', true)
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (flatError) {
