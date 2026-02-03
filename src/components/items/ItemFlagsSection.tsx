@@ -14,6 +14,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useServiceEvents, ServiceEvent } from '@/hooks/useServiceEvents';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface ItemFlagsSectionProps {
@@ -111,6 +112,21 @@ export function ItemFlagsSection({
         const classCode = itemData?.class?.code || null;
         const rateInfo = getServiceRate(service.service_code, classCode);
         const itemAccountId = itemData?.account_id || accountId || null;
+
+        // Check account_service_settings for is_enabled before creating billing event
+        if (itemAccountId) {
+          const { data: accountSetting } = await supabase
+            .from('account_service_settings')
+            .select('is_enabled')
+            .eq('account_id', itemAccountId)
+            .eq('service_code', service.service_code)
+            .maybeSingle();
+
+          if (accountSetting && accountSetting.is_enabled === false) {
+            toast.error(BILLING_DISABLED_ERROR);
+            return;
+          }
+        }
 
         // Create a billing event for this flag
         const { error } = await (supabase

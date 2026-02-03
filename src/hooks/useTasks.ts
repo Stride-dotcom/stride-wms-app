@@ -6,6 +6,7 @@ import { queueTaskCreatedAlert, queueTaskAssignedAlert, queueTaskCompletedAlert,
 import { createBillingEventsBatch, CreateBillingEventParams } from '@/lib/billing/createBillingEvent';
 import { TASK_TYPE_TO_SERVICE_CODE, getRateFromPriceList } from '@/lib/billing/billingCalculation';
 import { getTaskTypeServiceCode } from '@/lib/billing/taskServiceLookup';
+import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
 
 export interface Task {
   id: string;
@@ -284,7 +285,7 @@ export function useTasks(filters?: {
       }
 
       // Check if this service uses task-level billing (e.g., Assembly, Repair)
-      const serviceInfo = await getRateFromPriceList(profile.tenant_id, serviceCode, null);
+      const serviceInfo = await getRateFromPriceList(profile.tenant_id, serviceCode, null, accountId);
       const isTaskLevelBilling = serviceInfo.billingUnit === 'Task' || isPerTaskBilling;
 
       // Fetch all classes to map class_id to code
@@ -429,7 +430,8 @@ export function useTasks(filters?: {
             rateResult = await getRateFromPriceList(
               profile.tenant_id,
               serviceCode,
-              classCode
+              classCode,
+              itemAccountId
             );
             unitRate = rateResult.rate;
           }
@@ -496,8 +498,13 @@ export function useTasks(filters?: {
           }
         }
       }
-    } catch (error) {
-      console.error('Error creating task billing events:', error);
+    } catch (error: any) {
+      if (error?.message === BILLING_DISABLED_ERROR) {
+        console.warn(`[useTasks] Billing disabled for service on this account, skipping billing events`);
+        toast({ variant: 'destructive', title: 'Billing Disabled', description: BILLING_DISABLED_ERROR });
+      } else {
+        console.error('Error creating task billing events:', error);
+      }
       // Don't throw - billing event creation shouldn't block task completion
     }
   };

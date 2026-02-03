@@ -85,6 +85,13 @@ export type LegacyBillingUnit = 'Day' | 'Item' | 'Task' | 'Hour' | 'Minute' | 'M
 // Legacy billing_trigger display values
 export type LegacyBillingTrigger = 'SCAN EVENT' | 'AUTOCALCULATE' | 'Flag' | 'Manual' | 'Task Completion' | 'Shipment';
 
+/**
+ * Error message thrown when billing is disabled for a service on an account.
+ * Callers that create billing events MUST catch this and prevent event creation.
+ */
+export const BILLING_DISABLED_ERROR =
+  'Billing for this service is disabled for this account. Please update account pricing settings to continue.';
+
 
 // =============================================================================
 // UNIT MAPPING
@@ -170,7 +177,7 @@ export function mapLegacyToTrigger(billingTrigger: string): string {
  *    - if classCode and a class_based rule exists -> use it
  *    - else use is_default=true rule
  *    - else use first rule
- * 3) Apply account adjustments from account_charge_adjustments
+ * 3) Apply account adjustments from account_service_settings
  * 4) Return effective rate and metadata
  */
 export async function getEffectiveRate(params: GetEffectiveRateParams): Promise<EffectiveRateResult> {
@@ -330,59 +337,29 @@ async function getEffectiveRateFromNewSystem(params: GetEffectiveRateParams): Pr
   let adjustmentType: string | null = null;
   let adjustmentApplied = false;
 
-  // Step 3: Apply account adjustments
+  // Step 3: Apply account adjustments from account_service_settings
   if (accountId) {
-    // Try class-specific adjustment first
-    let adjustment = null;
+    const { data: accountSetting } = await supabase
+      .from('account_service_settings')
+      .select('*')
+      .eq('account_id', accountId)
+      .eq('service_code', chargeCode)
+      .maybeSingle();
 
-    if (classCode) {
-      const { data: classAdj } = await supabase
-        .from('account_charge_adjustments')
-        .select('*')
-        .eq('account_id', accountId)
-        .eq('charge_type_id', chargeType.id)
-        .eq('class_code', classCode)
-        .eq('is_enabled', true)
-        .is('deleted_at', null)
-        .maybeSingle();
-
-      if (classAdj) {
-        adjustment = classAdj;
+    if (accountSetting) {
+      // Check if billing is disabled for this account + service
+      if (accountSetting.is_enabled === false) {
+        throw new Error(BILLING_DISABLED_ERROR);
       }
-    }
 
-    // Fall back to general adjustment
-    if (!adjustment) {
-      const { data: genAdj } = await supabase
-        .from('account_charge_adjustments')
-        .select('*')
-        .eq('account_id', accountId)
-        .eq('charge_type_id', chargeType.id)
-        .is('class_code', null)
-        .eq('is_enabled', true)
-        .is('deleted_at', null)
-        .maybeSingle();
-
-      if (genAdj) {
-        adjustment = genAdj;
-      }
-    }
-
-    // Apply adjustment
-    if (adjustment) {
       adjustmentApplied = true;
-      adjustmentType = adjustment.adjustment_type;
 
-      switch (adjustment.adjustment_type) {
-        case 'override':
-          effectiveRate = adjustment.override_rate ?? baseRate;
-          break;
-        case 'percentage':
-          effectiveRate = baseRate * (1 + (adjustment.percentage_adjust || 0) / 100);
-          break;
-        case 'fixed_add':
-          effectiveRate = baseRate + (adjustment.fixed_add_amount || 0);
-          break;
+      if (accountSetting.custom_rate !== null && accountSetting.custom_rate !== undefined) {
+        effectiveRate = accountSetting.custom_rate;
+        adjustmentType = 'override';
+      } else if (accountSetting.custom_percent_adjust !== null && accountSetting.custom_percent_adjust !== undefined) {
+        effectiveRate = baseRate * (1 + accountSetting.custom_percent_adjust / 100);
+        adjustmentType = 'percentage';
       }
     }
   }
@@ -504,6 +481,11 @@ async function getEffectiveRateFromLegacy(params: GetEffectiveRateParams): Promi
       .maybeSingle();
 
     if (accountSetting) {
+      // Check if billing is disabled for this account + service
+      if (accountSetting.is_enabled === false) {
+        throw new Error(BILLING_DISABLED_ERROR);
+      }
+
       adjustmentApplied = true;
 
       if (accountSetting.custom_rate !== null && accountSetting.custom_rate !== undefined) {
