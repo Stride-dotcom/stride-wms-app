@@ -64,6 +64,7 @@ CREATE INDEX IF NOT EXISTS idx_charge_types_flag ON public.charge_types(tenant_i
 -- RLS for charge_types
 ALTER TABLE public.charge_types ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "charge_types_tenant_isolation" ON public.charge_types;
 CREATE POLICY "charge_types_tenant_isolation" ON public.charge_types
   FOR ALL
   USING (
@@ -118,6 +119,7 @@ CREATE INDEX IF NOT EXISTS idx_pricing_rules_class ON public.pricing_rules(charg
 -- RLS for pricing_rules
 ALTER TABLE public.pricing_rules ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "pricing_rules_tenant_isolation" ON public.pricing_rules;
 CREATE POLICY "pricing_rules_tenant_isolation" ON public.pricing_rules
   FOR ALL
   USING (
@@ -157,6 +159,7 @@ CREATE INDEX IF NOT EXISTS idx_task_type_charge_links_charge ON public.task_type
 -- RLS for task_type_charge_links
 ALTER TABLE public.task_type_charge_links ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "task_type_charge_links_tenant_isolation" ON public.task_type_charge_links;
 CREATE POLICY "task_type_charge_links_tenant_isolation" ON public.task_type_charge_links
   FOR ALL
   USING (
@@ -209,6 +212,7 @@ CREATE INDEX IF NOT EXISTS idx_account_charge_adj_charge ON public.account_charg
 -- RLS
 ALTER TABLE public.account_charge_adjustments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "account_charge_adjustments_tenant_isolation" ON public.account_charge_adjustments;
 CREATE POLICY "account_charge_adjustments_tenant_isolation" ON public.account_charge_adjustments
   FOR ALL
   USING (
