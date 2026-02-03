@@ -465,18 +465,14 @@ export default function TaskDetailPage() {
     if (!id || !profile?.id || !task || !profile?.tenant_id) return;
 
     // Phase 2: Validate at least 1 service exists
-    // Only require services if the task type has explicitly configured charge links
-    // OR if the task is a service-type task (non-inspection, non-assembly tasks may skip this)
-    // For now, allow tasks without services since the linking table may not be set up
-    // This can be made stricter once task_type_charge_links is properly configured
-    // if (serviceLines.length === 0) {
-    //   toast({
-    //     variant: 'destructive',
-    //     title: 'Services Required',
-    //     description: 'Add at least one service before completing this task.',
-    //   });
-    //   return;
-    // }
+    if (serviceLines.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Services Required',
+        description: 'Add at least one service before completing this task.',
+      });
+      return;
+    }
 
     // Validate Assembly and Repair tasks require billing quantity > 0
     if (task.task_type === 'Assembly' || task.task_type === 'Repair') {
