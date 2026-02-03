@@ -164,7 +164,8 @@ export default function ShipmentCreate() {
         const classesRes = await (supabase.from("classes") as any)
           .select("id, code, name")
           .eq("tenant_id", profile.tenant_id)
-          .order("code");
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true });
 
         if (accountsRes.error) {
           console.error("[ShipmentCreate] accounts fetch:", accountsRes.error);

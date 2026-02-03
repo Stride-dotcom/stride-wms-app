@@ -62,13 +62,12 @@ const TAB_OPTIONS = [
   { value: 'prompts', label: 'Prompts', adminOnly: true },
   { value: 'labor', label: 'Labor', adminOnly: true },
   { value: 'pricing', label: 'Pricing', adminOnly: true },
+  { value: 'legacy-pricing', label: 'Legacy Pricing', adminOnly: true },
   { value: 'categories', label: 'Categories', adminOnly: true },
   { value: 'templates', label: 'Templates', adminOnly: true },
   { value: 'audit', label: 'Audit Log', adminOnly: true },
   { value: 'integrations', label: 'Integrations', adminOnly: true },
   { value: 'sidemarks', label: 'Sidemarks' },
-  // Removed: Services, Rate Sheets, Classes tabs - now using unified service_events pricing system
-  // Removed: Employees tab - consolidated into Users tab
   { value: 'warehouses', label: 'Warehouses' },
   { value: 'locations', label: 'Locations' },
   { value: 'users', label: 'Users' },
