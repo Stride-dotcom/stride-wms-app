@@ -263,8 +263,6 @@ async function getEffectiveRateFromNewSystem(params: GetEffectiveRateParams): Pr
     .select('*')
     .eq('tenant_id', tenantId)
     .eq('charge_code', chargeCode)
-    .eq('is_active', true)
-    .is('deleted_at', null)
     .maybeSingle();
 
   if (ctError) {
@@ -289,7 +287,6 @@ async function getEffectiveRateFromNewSystem(params: GetEffectiveRateParams): Pr
       .select('*')
       .eq('charge_type_id', chargeType.id)
       .eq('class_code', classCode)
-      .is('deleted_at', null)
       .maybeSingle();
 
     if (classRule) {
@@ -304,7 +301,6 @@ async function getEffectiveRateFromNewSystem(params: GetEffectiveRateParams): Pr
       .select('*')
       .eq('charge_type_id', chargeType.id)
       .eq('is_default', true)
-      .is('deleted_at', null)
       .maybeSingle();
 
     if (defaultRule) {
@@ -318,7 +314,6 @@ async function getEffectiveRateFromNewSystem(params: GetEffectiveRateParams): Pr
       .from('pricing_rules')
       .select('*')
       .eq('charge_type_id', chargeType.id)
-      .is('deleted_at', null)
       .order('class_code', { ascending: true, nullsFirst: true })
       .limit(1)
       .maybeSingle();
@@ -339,12 +334,7 @@ async function getEffectiveRateFromNewSystem(params: GetEffectiveRateParams): Pr
 
   // Step 3: Apply account adjustments from account_service_settings
   if (accountId) {
-    const { data: accountSetting } = await supabase
-      .from('account_service_settings')
-      .select('*')
-      .eq('account_id', accountId)
-      .eq('service_code', chargeCode)
-      .maybeSingle();
+    const accountSetting = await lookupAccountServiceSetting(accountId, chargeCode, classCode);
 
     if (accountSetting) {
       // Check if billing is disabled for this account + service
@@ -473,12 +463,7 @@ async function getEffectiveRateFromLegacy(params: GetEffectiveRateParams): Promi
 
   // Check account_service_settings for adjustments
   if (accountId) {
-    const { data: accountSetting } = await supabase
-      .from('account_service_settings')
-      .select('*')
-      .eq('account_id', accountId)
-      .eq('service_code', chargeCode)
-      .maybeSingle();
+    const accountSetting = await lookupAccountServiceSetting(accountId, chargeCode, classCode);
 
     if (accountSetting) {
       // Check if billing is disabled for this account + service
@@ -504,7 +489,7 @@ async function getEffectiveRateFromLegacy(params: GetEffectiveRateParams): Promi
     charge_type_id: null, // Legacy system doesn't have this
     charge_code: serviceEvent.service_code,
     charge_name: serviceEvent.service_name,
-    category: 'general', // Legacy doesn't have category
+    category: 'service', // Legacy doesn't have category
     is_taxable: serviceEvent.taxable || false,
     default_trigger: mapLegacyToTrigger(serviceEvent.billing_trigger),
     input_mode: serviceEvent.billing_unit?.toLowerCase().includes('hour') ||
@@ -524,6 +509,60 @@ async function getEffectiveRateFromLegacy(params: GetEffectiveRateParams): Promi
 
 
 // =============================================================================
+// ACCOUNT SERVICE SETTINGS LOOKUP
+// =============================================================================
+
+/**
+ * Lookup account_service_settings for a given account + service_code.
+ *
+ * Logic:
+ * 1) Query by account_id + service_code (charge_code)
+ * 2) If classCode is provided:
+ *    - First try exact match where class_code = classCode
+ *    - If not found, fallback to row where class_code IS NULL
+ * 3) If no classCode, use row where class_code IS NULL (or first row)
+ */
+async function lookupAccountServiceSetting(
+  accountId: string,
+  serviceCode: string,
+  classCode?: string | null,
+): Promise<any | null> {
+  const { data: rows, error } = await supabase
+    .from('account_service_settings')
+    .select('*')
+    .eq('account_id', accountId)
+    .eq('service_code', serviceCode);
+
+  if (error || !rows || rows.length === 0) {
+    return null;
+  }
+
+  // Single row — return it directly
+  if (rows.length === 1) {
+    return rows[0];
+  }
+
+  // Multiple rows — pick best match based on class_code
+  if (classCode) {
+    // Try exact class_code match first
+    const exactMatch = rows.find((r: any) => r.class_code === classCode);
+    if (exactMatch) return exactMatch;
+
+    // Fallback to row with class_code IS NULL
+    const nullMatch = rows.find((r: any) => !r.class_code);
+    if (nullMatch) return nullMatch;
+  } else {
+    // No classCode — prefer row with class_code IS NULL
+    const nullMatch = rows.find((r: any) => !r.class_code);
+    if (nullMatch) return nullMatch;
+  }
+
+  // Last resort: return first row
+  return rows[0];
+}
+
+
+// =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
 
@@ -535,8 +574,6 @@ export async function getChargeTypes(tenantId: string): Promise<ChargeType[]> {
     .from('charge_types')
     .select('*')
     .eq('tenant_id', tenantId)
-    .eq('is_active', true)
-    .is('deleted_at', null)
     .order('charge_name');
 
   if (error) {
@@ -555,9 +592,7 @@ export async function getScanChargeTypes(tenantId: string): Promise<ChargeType[]
     .from('charge_types')
     .select('*')
     .eq('tenant_id', tenantId)
-    .eq('is_active', true)
     .eq('add_to_scan', true)
-    .is('deleted_at', null)
     .order('charge_name');
 
   if (error) {
@@ -576,9 +611,7 @@ export async function getFlagChargeTypes(tenantId: string): Promise<ChargeType[]
     .from('charge_types')
     .select('*')
     .eq('tenant_id', tenantId)
-    .eq('is_active', true)
     .eq('add_flag', true)
-    .is('deleted_at', null)
     .order('charge_name');
 
   if (error) {
@@ -597,7 +630,6 @@ export async function getPricingRules(chargeTypeId: string): Promise<PricingRule
     .from('pricing_rules')
     .select('*')
     .eq('charge_type_id', chargeTypeId)
-    .is('deleted_at', null)
     .order('class_code', { ascending: true, nullsFirst: true });
 
   if (error) {
@@ -615,10 +647,7 @@ export async function getTaskTypeCharges(taskTypeId: string): Promise<ChargeType
   const { data, error } = await (supabase as any)
     .from('task_type_charge_links')
     .select('charge_type_id, charge_types(*)')
-    .eq('task_type_id', taskTypeId)
-    .eq('is_active', true)
-    .is('deleted_at', null)
-    .order('sort_order');
+    .eq('task_type_id', taskTypeId);
 
   if (error) {
     console.error('[chargeTypeUtils] Error fetching task type charges:', error);

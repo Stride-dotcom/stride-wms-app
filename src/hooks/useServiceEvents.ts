@@ -463,8 +463,6 @@ async function fetchFromNewSystem(tenantId: string): Promise<ServiceEvent[] | nu
       .from('charge_types')
       .select('*')
       .eq('tenant_id', tenantId)
-      .eq('is_active', true)
-      .is('deleted_at', null)
       .order('charge_name');
 
     // If table doesn't exist or query fails, fall back to legacy
@@ -487,8 +485,7 @@ async function fetchFromNewSystem(tenantId: string): Promise<ServiceEvent[] | nu
     const { data: pricingRules, error: prError } = await supabase
       .from('pricing_rules')
       .select('*')
-      .in('charge_type_id', chargeTypeIds)
-      .is('deleted_at', null);
+      .in('charge_type_id', chargeTypeIds);
 
     if (prError) {
       console.warn('[useServiceEvents] Error fetching pricing_rules:', prError);
