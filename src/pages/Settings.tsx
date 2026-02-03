@@ -48,6 +48,7 @@ import { PromptsSettingsTab } from '@/components/settings/PromptsSettingsTab';
 import { TenantTemplatesTab } from '@/components/settings/TenantTemplatesTab';
 import { AuditLogTab } from '@/components/settings/AuditLogTab';
 import { QATestConsoleTab } from '@/components/settings/QATestConsoleTab';
+import packageJson from '../../package.json';
 
 interface TenantInfo {
   id: string;
@@ -298,11 +299,19 @@ export default function Settings() {
   return (
     <DashboardLayout>
       <div className="space-y-6 px-2 sm:px-0">
-        <PageHeader
-          primaryText="System"
-          accentText="Config"
-          description="Manage your account and organization settings"
-        />
+        <div className="flex items-start justify-between">
+          <PageHeader
+            primaryText="System"
+            accentText="Config"
+            description="Manage your account and organization settings"
+          />
+          {/* TEMPORARY: Build stamp for mobile confirmation */}
+          <div className="text-[10px] text-muted-foreground/60 text-right leading-tight shrink-0 mt-1 font-mono">
+            <div>v{packageJson.version}</div>
+            <div>{typeof __BUILD_TIMESTAMP__ !== 'undefined' ? __BUILD_TIMESTAMP__.replace('T', ' ').slice(0, 19) : 'dev'}</div>
+            {typeof __COMMIT_HASH__ !== 'undefined' && __COMMIT_HASH__ && <div>{__COMMIT_HASH__}</div>}
+          </div>
+        </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {/* Mobile: Dropdown navigation */}

@@ -22,3 +22,7 @@ interface BarcodeDetectorConstructor {
 }
 
 declare const BarcodeDetector: BarcodeDetectorConstructor | undefined;
+
+// Build-time constants injected by vite.config.ts (TEMPORARY - build stamp)
+declare const __BUILD_TIMESTAMP__: string;
+declare const __COMMIT_HASH__: string;
