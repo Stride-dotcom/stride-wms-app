@@ -328,7 +328,7 @@ export default function ShipmentCreate() {
         errs.description = "Description is required";
         hasItemErrors = true;
       }
-      if (!item.classCode?.trim()) {
+      if (!item.classId) {
         errs.classCode = "Class is required";
         hasItemErrors = true;
       }

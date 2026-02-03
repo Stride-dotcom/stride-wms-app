@@ -80,8 +80,8 @@ export function AddShipmentItemDialog({
 
     setSaving(true);
     try {
-      // Find the class ID from the selected code
-      const matchedClass = classes.find(c => c.code === selectedClass);
+      // Find the class by code or ID
+      const matchedClass = classes.find(c => c.code === selectedClass || c.id === selectedClass);
       if (!matchedClass) {
         toast({ title: 'Invalid class', description: `Class "${selectedClass}" not found. Select a valid class.`, variant: 'destructive' });
         setSaving(false);
