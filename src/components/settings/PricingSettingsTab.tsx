@@ -4,7 +4,7 @@
  * New pricing system management interface.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -97,17 +97,36 @@ export function PricingSettingsTab() {
 
 function ChargeTypesPanel() {
   const { chargeTypes, loading, createChargeType, updateChargeType, deleteChargeType, refetch } = useChargeTypes();
+  const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingChargeType, setEditingChargeType] = useState<ChargeType | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>(() => {
+    return localStorage.getItem('pricing_category_filter') || 'all';
+  });
+  const [statusFilter, setStatusFilter] = useState<string>(() => {
+    return localStorage.getItem('pricing_status_filter') || 'active';
+  });
+  const [showImportDialog, setShowImportDialog] = useState(false);
+
+  // Persist filters to localStorage
+  useEffect(() => {
+    localStorage.setItem('pricing_category_filter', categoryFilter);
+  }, [categoryFilter]);
+
+  useEffect(() => {
+    localStorage.setItem('pricing_status_filter', statusFilter);
+  }, [statusFilter]);
 
   const filteredChargeTypes = chargeTypes.filter(ct => {
     const matchesSearch =
       ct.charge_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ct.charge_name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || ct.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'active' && ct.is_active) ||
+      (statusFilter === 'inactive' && !ct.is_active);
+    return matchesSearch && matchesCategory && matchesStatus;
   });
 
   const handleDelete = async (ct: ChargeType) => {
@@ -125,11 +144,88 @@ function ChargeTypesPanel() {
     );
   }
 
+  // CSV template download
+  const handleDownloadTemplate = () => {
+    const headers = ['charge_code', 'charge_name', 'category', 'is_active', 'is_taxable', 'default_trigger', 'input_mode', 'add_to_scan', 'add_flag', 'notes'];
+    const sampleRow = ['INSP', 'Inspection', 'task', 'true', 'false', 'task', 'qty', 'true', 'false', 'Sample charge type'];
+    const csv = [headers.join(','), sampleRow.join(',')].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'charge_types_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // CSV import handler
+  const handleImportCSV = async (file: File) => {
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      if (lines.length < 2) {
+        toast({ variant: 'destructive', title: 'Error', description: 'CSV file must have a header row and at least one data row' });
+        return;
+      }
+
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const requiredHeaders = ['charge_code', 'charge_name'];
+      const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+      if (missingHeaders.length > 0) {
+        toast({ variant: 'destructive', title: 'Error', description: `Missing required columns: ${missingHeaders.join(', ')}` });
+        return;
+      }
+
+      let imported = 0;
+      let errors = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        const row: Record<string, string> = {};
+        headers.forEach((h, idx) => {
+          row[h] = values[idx] || '';
+        });
+
+        if (!row.charge_code || !row.charge_name) {
+          errors++;
+          continue;
+        }
+
+        try {
+          await createChargeType({
+            charge_code: row.charge_code.toUpperCase(),
+            charge_name: row.charge_name,
+            category: row.category || 'general',
+            is_active: row.is_active !== 'false',
+            is_taxable: row.is_taxable === 'true',
+            default_trigger: (row.default_trigger as any) || 'manual',
+            input_mode: (row.input_mode as any) || 'qty',
+            add_to_scan: row.add_to_scan === 'true',
+            add_flag: row.add_flag === 'true',
+            notes: row.notes || undefined,
+          });
+          imported++;
+        } catch {
+          errors++;
+        }
+      }
+
+      toast({
+        title: 'Import Complete',
+        description: `Imported ${imported} charge types. ${errors > 0 ? `${errors} errors.` : ''}`,
+      });
+      setShowImportDialog(false);
+      refetch();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Import Failed', description: error.message });
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 flex-1">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2 flex-1">
           <Input
             placeholder="Search charge types..."
             value={searchQuery}
@@ -147,11 +243,31 @@ function ChargeTypesPanel() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <MaterialIcon name="add" size="sm" className="mr-1" />
-          Add Charge Type
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+            <MaterialIcon name="download" size="sm" className="mr-1" />
+            Template
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+            <MaterialIcon name="upload" size="sm" className="mr-1" />
+            Import
+          </Button>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <MaterialIcon name="add" size="sm" className="mr-1" />
+            Add Charge Type
+          </Button>
+        </div>
       </div>
 
       {/* Table */}
@@ -261,6 +377,52 @@ function ChargeTypesPanel() {
           }
         }}
       />
+
+      {/* Import CSV Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Charge Types</DialogTitle>
+            <DialogDescription>
+              Upload a CSV file with charge types. Download the template first to see the required format.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="border-2 border-dashed rounded-lg p-8 text-center">
+              <input
+                type="file"
+                accept=".csv"
+                id="csv-import"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImportCSV(file);
+                }}
+              />
+              <label
+                htmlFor="csv-import"
+                className="cursor-pointer flex flex-col items-center gap-2"
+              >
+                <MaterialIcon name="upload_file" size="xl" className="text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  Click to select a CSV file
+                </span>
+              </label>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              <p><strong>Required columns:</strong> charge_code, charge_name</p>
+              <p><strong>Optional columns:</strong> category, is_active, is_taxable, default_trigger, input_mode, add_to_scan, add_flag, notes</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowImportDialog(false)}>Cancel</Button>
+            <Button variant="outline" onClick={handleDownloadTemplate}>
+              <MaterialIcon name="download" size="sm" className="mr-1" />
+              Download Template
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -293,40 +455,42 @@ function ChargeTypeDialog({ open, onOpenChange, chargeType, onSave }: ChargeType
   });
 
   // Reset form when dialog opens/closes or chargeType changes
-  useState(() => {
-    if (chargeType) {
-      setFormData({
-        charge_code: chargeType.charge_code,
-        charge_name: chargeType.charge_name,
-        category: chargeType.category,
-        is_active: chargeType.is_active,
-        is_taxable: chargeType.is_taxable,
-        default_trigger: chargeType.default_trigger,
-        input_mode: chargeType.input_mode,
-        qty_step: chargeType.qty_step || undefined,
-        min_qty: chargeType.min_qty || undefined,
-        time_unit_default: chargeType.time_unit_default || undefined,
-        min_minutes: chargeType.min_minutes || undefined,
-        add_to_scan: chargeType.add_to_scan,
-        add_flag: chargeType.add_flag,
-        alert_rule: chargeType.alert_rule || undefined,
-        notes: chargeType.notes || '',
-      });
-    } else {
-      setFormData({
-        charge_code: '',
-        charge_name: '',
-        category: 'general',
-        is_active: true,
-        is_taxable: false,
-        default_trigger: 'manual',
-        input_mode: 'qty',
-        add_to_scan: false,
-        add_flag: false,
-        notes: '',
-      });
+  useEffect(() => {
+    if (open) {
+      if (chargeType) {
+        setFormData({
+          charge_code: chargeType.charge_code,
+          charge_name: chargeType.charge_name,
+          category: chargeType.category,
+          is_active: chargeType.is_active,
+          is_taxable: chargeType.is_taxable,
+          default_trigger: chargeType.default_trigger,
+          input_mode: chargeType.input_mode,
+          qty_step: chargeType.qty_step || undefined,
+          min_qty: chargeType.min_qty || undefined,
+          time_unit_default: chargeType.time_unit_default || undefined,
+          min_minutes: chargeType.min_minutes || undefined,
+          add_to_scan: chargeType.add_to_scan,
+          add_flag: chargeType.add_flag,
+          alert_rule: chargeType.alert_rule || undefined,
+          notes: chargeType.notes || '',
+        });
+      } else {
+        setFormData({
+          charge_code: '',
+          charge_name: '',
+          category: 'general',
+          is_active: true,
+          is_taxable: false,
+          default_trigger: 'manual',
+          input_mode: 'qty',
+          add_to_scan: false,
+          add_flag: false,
+          notes: '',
+        });
+      }
     }
-  });
+  }, [open, chargeType]);
 
   const handleSave = async () => {
     setSaving(true);
