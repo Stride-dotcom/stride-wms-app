@@ -3,14 +3,30 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { queueShipmentReceivedAlert, queueShipmentCompletedAlert } from '@/lib/alertQueue';
+import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
 
 // Helper to get rate from Price List (service_events table)
 async function getRateFromPriceList(
   tenantId: string,
   serviceCode: string,
-  classCode: string | null
+  classCode: string | null,
+  accountId?: string | null
 ): Promise<{ rate: number; hasError: boolean; errorMessage?: string }> {
   try {
+    // Check account_service_settings for is_enabled
+    if (accountId) {
+      const { data: accountSetting } = await supabase
+        .from('account_service_settings')
+        .select('is_enabled')
+        .eq('account_id', accountId)
+        .eq('service_code', serviceCode)
+        .maybeSingle();
+
+      if (accountSetting && accountSetting.is_enabled === false) {
+        throw new Error(BILLING_DISABLED_ERROR);
+      }
+    }
+
     // Try class-specific rate first
     if (classCode) {
       const { data: classRate } = await (supabase
@@ -47,7 +63,10 @@ async function getRateFromPriceList(
       hasError: true,
       errorMessage: `No rate found in Price List for service: ${serviceCode}`,
     };
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.message === BILLING_DISABLED_ERROR) {
+      throw error; // Re-throw billing disabled errors for caller to handle
+    }
     console.error('[getRateFromPriceList] Error:', error);
     return {
       rate: 0,
@@ -457,43 +476,17 @@ export function useReceivingSession(shipmentId: string | undefined) {
             }
 
             // Get rate from Price List
-            const rateResult = await getRateFromPriceList(
-              profile.tenant_id,
-              serviceCode,
-              classCode
-            );
-
-            const totalAmount = rateResult.rate * item.quantity;
-
-            // Create billing event for receiving/returns processing with actual rates
-            await (supabase
-              .from('billing_events') as any)
-              .insert({
-                tenant_id: profile.tenant_id,
-                account_id: shipment.account_id,
-                shipment_id: session.shipment_id,
-                class_id: newItem?.class_id || null,
-                item_id: newItem?.id,
-                event_type: isReturnShipment ? 'returns_processing' : 'receiving',
-                charge_type: serviceCode,
-                description: `${chargeDescription}: ${item.description}`,
-                quantity: item.quantity,
-                unit_rate: rateResult.rate,
-                total_amount: totalAmount,
-                created_by: profile.id,
-                has_rate_error: rateResult.hasError,
-                rate_error_message: rateResult.errorMessage,
-                metadata: { shipment_id: session.shipment_id },
-              });
-
-            // Create billing event for "Received Without ID" if flag is set
-            if (item.receivedWithoutId && newItem) {
-              const noIdRateResult = await getRateFromPriceList(
+            try {
+              const rateResult = await getRateFromPriceList(
                 profile.tenant_id,
-                'RECEIVED_WITHOUT_ID', // Flag service in Price List
-                null // No class-based pricing for this flag
+                serviceCode,
+                classCode,
+                shipment.account_id
               );
 
+              const totalAmount = rateResult.rate * item.quantity;
+
+              // Create billing event for receiving/returns processing with actual rates
               await (supabase
                 .from('billing_events') as any)
                 .insert({
@@ -502,17 +495,54 @@ export function useReceivingSession(shipmentId: string | undefined) {
                   shipment_id: session.shipment_id,
                   class_id: newItem?.class_id || null,
                   item_id: newItem?.id,
-                  event_type: 'flag',
-                  charge_type: 'RECEIVED_WITHOUT_ID',
-                  description: `Received Without ID: ${item.description}`,
-                  quantity: 1,
-                  unit_rate: noIdRateResult.rate,
-                  total_amount: noIdRateResult.rate,
+                  event_type: isReturnShipment ? 'returns_processing' : 'receiving',
+                  charge_type: serviceCode,
+                  description: `${chargeDescription}: ${item.description}`,
+                  quantity: item.quantity,
+                  unit_rate: rateResult.rate,
+                  total_amount: totalAmount,
                   created_by: profile.id,
-                  has_rate_error: noIdRateResult.hasError,
-                  rate_error_message: noIdRateResult.errorMessage,
+                  has_rate_error: rateResult.hasError,
+                  rate_error_message: rateResult.errorMessage,
                   metadata: { shipment_id: session.shipment_id },
                 });
+
+              // Create billing event for "Received Without ID" if flag is set
+              if (item.receivedWithoutId && newItem) {
+                const noIdRateResult = await getRateFromPriceList(
+                  profile.tenant_id,
+                  'RECEIVED_WITHOUT_ID', // Flag service in Price List
+                  null, // No class-based pricing for this flag
+                  shipment.account_id
+                );
+
+                await (supabase
+                  .from('billing_events') as any)
+                  .insert({
+                    tenant_id: profile.tenant_id,
+                    account_id: shipment.account_id,
+                    shipment_id: session.shipment_id,
+                    class_id: newItem?.class_id || null,
+                    item_id: newItem?.id,
+                    event_type: 'flag',
+                    charge_type: 'RECEIVED_WITHOUT_ID',
+                    description: `Received Without ID: ${item.description}`,
+                    quantity: 1,
+                    unit_rate: noIdRateResult.rate,
+                    total_amount: noIdRateResult.rate,
+                    created_by: profile.id,
+                    has_rate_error: noIdRateResult.hasError,
+                    rate_error_message: noIdRateResult.errorMessage,
+                    metadata: { shipment_id: session.shipment_id },
+                  });
+              }
+            } catch (billingErr: any) {
+              if (billingErr?.message === BILLING_DISABLED_ERROR) {
+                console.warn(`[useReceivingSession] Billing disabled for ${serviceCode} on account ${shipment.account_id}, skipping billing event`);
+                toast({ variant: 'destructive', title: 'Billing Disabled', description: BILLING_DISABLED_ERROR });
+              } else {
+                console.error('[useReceivingSession] Error creating billing event:', billingErr);
+              }
             }
           }
         }

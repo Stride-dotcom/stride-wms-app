@@ -17,6 +17,7 @@ import {
   mapUnitToLegacy,
   mapTriggerToLegacy,
   createBillingMetadata,
+  BILLING_DISABLED_ERROR,
   type ChargeType,
   type PricingRule,
   type EffectiveRateResult,
@@ -326,57 +327,70 @@ export function useServiceEvents() {
 
     for (const item of items) {
       for (const serviceCode of serviceCodes) {
-        // Use async rate lookup to get account adjustments
-        const rateInfo = await getServiceRateAsync(serviceCode, item.class_code, item.account_id);
-        const description = `${rateInfo.serviceName} - ${item.item_code}`;
+        try {
+          // Use async rate lookup to get account adjustments
+          const rateInfo = await getServiceRateAsync(serviceCode, item.class_code, item.account_id);
+          const description = `${rateInfo.serviceName} - ${item.item_code}`;
 
-        // Create metadata for provenance tracking
-        const metadata = createBillingMetadata(
-          'scan',
-          item.id,
-          rateInfo.rateResult,
-          { item_code: item.item_code }
-        );
+          // Create metadata for provenance tracking
+          const metadata = createBillingMetadata(
+            'scan',
+            item.id,
+            rateInfo.rateResult,
+            { item_code: item.item_code }
+          );
 
-        const { data: billingEvent, error } = await (supabase
-          .from('billing_events') as any)
-          .insert({
-            tenant_id: profile.tenant_id,
-            account_id: item.account_id,
-            item_id: item.id,
-            sidemark_id: item.sidemark_id,
-            event_type: 'service_scan',
-            charge_type: serviceCode,
-            description,
-            quantity: 1,
-            unit_rate: rateInfo.rate,
-            status: 'unbilled',
-            created_by: profile.id,
-            has_rate_error: rateInfo.hasError,
-            rate_error_message: rateInfo.errorMessage,
-            calculation_metadata: metadata,
-          })
-          .select('id')
-          .single();
+          const { data: billingEvent, error } = await (supabase
+            .from('billing_events') as any)
+            .insert({
+              tenant_id: profile.tenant_id,
+              account_id: item.account_id,
+              item_id: item.id,
+              sidemark_id: item.sidemark_id,
+              event_type: 'service_scan',
+              charge_type: serviceCode,
+              description,
+              quantity: 1,
+              unit_rate: rateInfo.rate,
+              status: 'unbilled',
+              created_by: profile.id,
+              has_rate_error: rateInfo.hasError,
+              rate_error_message: rateInfo.errorMessage,
+              calculation_metadata: metadata,
+            })
+            .select('id')
+            .single();
 
-        if (error) {
-          console.error('[useServiceEvents] Failed to create billing event:', error);
-          errorCount++;
-        } else {
-          successCount++;
+          if (error) {
+            console.error('[useServiceEvents] Failed to create billing event:', error);
+            errorCount++;
+          } else {
+            successCount++;
 
-          // Queue alert if service has email_office alert rule
-          if (rateInfo.alertRule === 'email_office' && billingEvent?.id) {
-            await queueBillingEventAlert(
-              profile.tenant_id,
-              billingEvent.id,
-              rateInfo.serviceName,
-              item.item_code,
-              item.account_name || 'Unknown Account',
-              rateInfo.rate,
-              description
-            );
+            // Queue alert if service has email_office alert rule
+            if (rateInfo.alertRule === 'email_office' && billingEvent?.id) {
+              await queueBillingEventAlert(
+                profile.tenant_id,
+                billingEvent.id,
+                rateInfo.serviceName,
+                item.item_code,
+                item.account_name || 'Unknown Account',
+                rateInfo.rate,
+                description
+              );
+            }
           }
+        } catch (err: any) {
+          if (err?.message === BILLING_DISABLED_ERROR) {
+            toast({
+              variant: 'destructive',
+              title: 'Billing Disabled',
+              description: BILLING_DISABLED_ERROR,
+            });
+            return { success: false, count: successCount, errors: errorCount + 1 };
+          }
+          console.error('[useServiceEvents] Unexpected error creating billing event:', err);
+          errorCount++;
         }
       }
     }

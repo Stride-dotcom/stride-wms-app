@@ -78,6 +78,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
 
 // ============================================================================
 // LEGACY SERVICE CODE MAPPINGS (for backward compatibility)
@@ -280,9 +281,24 @@ export async function getRateByCategoryAndClass(
 export async function getRateFromPriceList(
   tenantId: string,
   serviceCode: string,
-  classCode: string | null
+  classCode: string | null,
+  accountId?: string | null
 ): Promise<RateLookupResult> {
   try {
+    // Step 0: Check account_service_settings for is_enabled
+    if (accountId) {
+      const { data: accountSetting } = await supabase
+        .from('account_service_settings')
+        .select('is_enabled')
+        .eq('account_id', accountId)
+        .eq('service_code', serviceCode)
+        .maybeSingle();
+
+      if (accountSetting && accountSetting.is_enabled === false) {
+        throw new Error(BILLING_DISABLED_ERROR);
+      }
+    }
+
     // Step 1: Try class-specific rate first if classCode is provided
     if (classCode) {
       const { data: classRate } = await supabase

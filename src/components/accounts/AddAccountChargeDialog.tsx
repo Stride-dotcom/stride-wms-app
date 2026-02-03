@@ -28,6 +28,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { createBillingEvent } from '@/lib/billing/createBillingEvent';
+import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
 
 interface ServiceEvent {
   id: string;
@@ -132,6 +133,20 @@ export function AddAccountChargeDialog({
 
     setLoading(true);
     try {
+      // Check account_service_settings for is_enabled before creating billing event
+      if (accountId && chargeName) {
+        const { data: accountSetting } = await supabase
+          .from('account_service_settings')
+          .select('is_enabled')
+          .eq('account_id', accountId)
+          .eq('service_code', chargeName)
+          .maybeSingle();
+
+        if (accountSetting && accountSetting.is_enabled === false) {
+          throw new Error(BILLING_DISABLED_ERROR);
+        }
+      }
+
       const result = await createBillingEvent({
         tenant_id: profile.tenant_id,
         account_id: accountId,

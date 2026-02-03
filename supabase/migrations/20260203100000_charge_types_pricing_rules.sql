@@ -478,45 +478,37 @@ BEGIN
 
   v_effective_rate := v_base_rate;
 
-  -- Step 3: Apply account adjustments if account_id provided
+  -- Step 3: Apply account adjustments from account_service_settings
   IF p_account_id IS NOT NULL AND v_pricing_rule.id IS NOT NULL THEN
-    -- Try class-specific adjustment first
-    IF p_class_code IS NOT NULL THEN
-      SELECT * INTO v_adjustment
-      FROM public.account_charge_adjustments aca
-      WHERE aca.account_id = p_account_id
-        AND aca.charge_type_id = v_charge_type.id
-        AND aca.class_code = p_class_code
-        AND aca.is_enabled = true
-        AND aca.deleted_at IS NULL;
-    END IF;
+    SELECT * INTO v_adjustment
+    FROM public.account_service_settings ass
+    WHERE ass.account_id = p_account_id
+      AND ass.service_code = p_charge_code;
 
-    -- Fall back to general adjustment (no class)
-    IF v_adjustment.id IS NULL THEN
-      SELECT * INTO v_adjustment
-      FROM public.account_charge_adjustments aca
-      WHERE aca.account_id = p_account_id
-        AND aca.charge_type_id = v_charge_type.id
-        AND aca.class_code IS NULL
-        AND aca.is_enabled = true
-        AND aca.deleted_at IS NULL;
-    END IF;
-
-    -- Apply adjustment
     IF v_adjustment.id IS NOT NULL THEN
-      v_adjustment_applied := true;
-      v_adjustment_type := v_adjustment.adjustment_type;
+      -- Check if billing is disabled for this account + service
+      IF v_adjustment.is_enabled = false THEN
+        v_error_message := 'Billing for this service is disabled for this account. Please update account pricing settings to continue.';
+        RETURN QUERY SELECT
+          v_charge_type.id, v_charge_type.charge_code, v_charge_type.charge_name,
+          v_charge_type.category, v_charge_type.is_taxable, v_charge_type.default_trigger,
+          v_charge_type.input_mode, COALESCE(v_pricing_rule.service_time_minutes, 0),
+          v_charge_type.add_to_scan, v_charge_type.add_flag,
+          COALESCE(v_pricing_rule.unit, 'each'), v_base_rate, 0::NUMERIC,
+          NULL::TEXT, false, v_error_message;
+        RETURN;
+      END IF;
 
-      CASE v_adjustment.adjustment_type
-        WHEN 'override' THEN
-          v_effective_rate := COALESCE(v_adjustment.override_rate, v_base_rate);
-        WHEN 'percentage' THEN
-          v_effective_rate := v_base_rate * (1 + COALESCE(v_adjustment.percentage_adjust, 0) / 100);
-        WHEN 'fixed_add' THEN
-          v_effective_rate := v_base_rate + COALESCE(v_adjustment.fixed_add_amount, 0);
-        ELSE
-          v_effective_rate := v_base_rate;
-      END CASE;
+      -- Apply custom_rate (override) or custom_percent_adjust (percentage)
+      IF v_adjustment.custom_rate IS NOT NULL THEN
+        v_adjustment_applied := true;
+        v_adjustment_type := 'override';
+        v_effective_rate := v_adjustment.custom_rate;
+      ELSIF v_adjustment.custom_percent_adjust IS NOT NULL THEN
+        v_adjustment_applied := true;
+        v_adjustment_type := 'percentage';
+        v_effective_rate := v_base_rate * (1 + v_adjustment.custom_percent_adjust / 100);
+      END IF;
     END IF;
   END IF;
 

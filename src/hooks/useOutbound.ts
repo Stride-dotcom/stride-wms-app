@@ -4,14 +4,30 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { createBillingEventsBatch, CreateBillingEventParams } from '@/lib/billing/createBillingEvent';
 import { queueBillingEventAlert } from '@/lib/alertQueue';
+import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
 
 // Helper to get rate from Price List (service_events table)
 async function getRateFromPriceList(
   tenantId: string,
   serviceCode: string,
-  classCode: string | null
+  classCode: string | null,
+  accountId?: string | null
 ): Promise<{ rate: number; serviceName: string; alertRule: string; hasError: boolean; errorMessage?: string }> {
   try {
+    // Check account_service_settings for is_enabled
+    if (accountId) {
+      const { data: accountSetting } = await supabase
+        .from('account_service_settings')
+        .select('is_enabled')
+        .eq('account_id', accountId)
+        .eq('service_code', serviceCode)
+        .maybeSingle();
+
+      if (accountSetting && accountSetting.is_enabled === false) {
+        throw new Error(BILLING_DISABLED_ERROR);
+      }
+    }
+
     // Try class-specific rate first
     if (classCode) {
       const { data: classRate } = await (supabase
@@ -60,7 +76,10 @@ async function getRateFromPriceList(
       hasError: true,
       errorMessage: `No rate found in Price List for service: ${serviceCode}`,
     };
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.message === BILLING_DISABLED_ERROR) {
+      throw error; // Re-throw billing disabled errors for caller to handle
+    }
     console.error('[getRateFromPriceList] Error:', error);
     return {
       rate: 0,
@@ -525,7 +544,8 @@ export function useOutboundShipments(filters?: {
         const rateResult = await getRateFromPriceList(
           profile.tenant_id,
           'Will_Call',
-          classCode
+          classCode,
+          accountId
         );
 
         const quantity = si.expected_quantity || 1;
@@ -589,8 +609,13 @@ export function useOutboundShipments(filters?: {
           }
         }
       }
-    } catch (error) {
-      console.error('Error creating outbound billing events:', error);
+    } catch (error: any) {
+      if (error?.message === BILLING_DISABLED_ERROR) {
+        console.warn('[useOutbound] Billing disabled for Will_Call on this account, skipping billing events');
+        toast({ variant: 'destructive', title: 'Billing Disabled', description: BILLING_DISABLED_ERROR });
+      } else {
+        console.error('Error creating outbound billing events:', error);
+      }
       // Don't throw - billing shouldn't block completion
     }
   };

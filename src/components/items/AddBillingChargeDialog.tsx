@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
@@ -160,6 +161,20 @@ export function AddBillingChargeDialog({
         },
         created_by: profile.id,
       };
+
+      // Check account_service_settings for is_enabled before creating billing event
+      if (accountId && formData.charge_name.trim()) {
+        const { data: accountSetting } = await supabase
+          .from('account_service_settings')
+          .select('is_enabled')
+          .eq('account_id', accountId)
+          .eq('service_code', formData.charge_name.trim())
+          .maybeSingle();
+
+        if (accountSetting && accountSetting.is_enabled === false) {
+          throw new Error(BILLING_DISABLED_ERROR);
+        }
+      }
 
       const { error } = await supabase.from('billing_events' as any).insert(payload);
       if (error) throw error;
