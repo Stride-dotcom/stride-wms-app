@@ -32,6 +32,7 @@ import { useTasks, useTaskTypes, Task } from '@/hooks/useTasks';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useToast } from '@/hooks/use-toast';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { UnableToCompleteDialog } from '@/components/tasks/UnableToCompleteDialog';
 import { WillCallCompletionDialog } from '@/components/tasks/WillCallCompletionDialog';
@@ -39,6 +40,7 @@ import { TaskCompletionBlockedDialog } from '@/components/tasks/TaskCompletionBl
 import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { validateTaskCompletion, TaskCompletionValidationResult } from '@/lib/billing/taskCompletionValidation';
+import { fetchTaskServiceLinesStatic } from '@/hooks/useTaskServiceLines';
 
 // Status text classes for bold colored text without background
 const getStatusTextClass = (status: string) => {
@@ -90,6 +92,7 @@ const priorityColors: Record<string, string> = {
 export default function Tasks() {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { toast } = useToast();
   const { hasRole, isAdmin } = usePermissions();
   const { warehouses } = useWarehouses();
   const { taskTypes } = useTaskTypes();
@@ -273,6 +276,19 @@ export default function Tasks() {
         setCompletionBlockedOpen(true);
         return;
       }
+
+      // Phase 2: Validate at least 1 service line exists
+      const serviceLineCount = (await fetchTaskServiceLinesStatic(task.id, profile.tenant_id)).length;
+      if (serviceLineCount === 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Services Required',
+          description: 'Open this task to add services before completing.',
+        });
+        // Navigate to task detail page where they can add services
+        navigate(`/tasks/${task.id}`);
+        return;
+      }
     }
 
     if (task.task_type === 'Will Call') {
@@ -281,8 +297,8 @@ export default function Tasks() {
       setWillCallItems(items);
       setWillCallTask(task);
     } else {
-      // Normal completion
-      completeTask(task.id);
+      // Navigate to task detail for completion panel (service line qty/time confirmation)
+      navigate(`/tasks/${task.id}`);
     }
   };
 

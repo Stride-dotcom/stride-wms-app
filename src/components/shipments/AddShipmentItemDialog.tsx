@@ -82,6 +82,11 @@ export function AddShipmentItemDialog({
     try {
       // Find the class ID from the selected code
       const matchedClass = classes.find(c => c.code === selectedClass);
+      if (!matchedClass) {
+        toast({ title: 'Invalid class', description: `Class "${selectedClass}" not found. Select a valid class.`, variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
       const itemQuantity = parseInt(quantity) || 1;
 
       let itemId: string | null = null;
@@ -95,7 +100,7 @@ export function AddShipmentItemDialog({
           description: description.trim(),
           vendor: vendor.trim() || null,
           quantity: itemQuantity,
-          class_id: matchedClass?.id || null,
+          class_id: matchedClass.id,
           sidemark_id: sidemarkId || null,
           receiving_shipment_id: shipmentId,
           status: 'pending_receipt',
@@ -121,7 +126,7 @@ export function AddShipmentItemDialog({
         expected_description: description.trim(),
         expected_vendor: vendor.trim() || null,
         expected_sidemark: sidemark.trim() || null,
-        expected_class_id: matchedClass?.id || null,
+        expected_class_id: matchedClass.id,
         expected_quantity: itemQuantity,
         status: 'pending',
       });

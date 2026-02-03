@@ -6,7 +6,9 @@ import { queueTaskCreatedAlert, queueTaskAssignedAlert, queueTaskCompletedAlert,
 import { createBillingEventsBatch, CreateBillingEventParams } from '@/lib/billing/createBillingEvent';
 import { TASK_TYPE_TO_SERVICE_CODE, getRateFromPriceList } from '@/lib/billing/billingCalculation';
 import { getTaskTypeServiceCode } from '@/lib/billing/taskServiceLookup';
-import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
+import { BILLING_DISABLED_ERROR, getEffectiveRate } from '@/lib/billing/chargeTypeUtils';
+import { fetchTaskServiceLinesStatic, isServiceLineRow } from '@/hooks/useTaskServiceLines';
+import type { CompletionLineValues } from '@/components/tasks/TaskCompletionPanel';
 
 export interface Task {
   id: string;
@@ -525,6 +527,10 @@ export function useTasks(filters?: {
 
       if (!customCharges || customCharges.length === 0) return;
 
+      // Filter out service lines — those are handled by createServiceLineBillingEvents
+      const regularCharges = customCharges.filter((c: any) => !isServiceLineRow(c));
+      if (regularCharges.length === 0) return;
+
       // Get task items to link charges to items if possible
       const { data: taskItems } = await (supabase
         .from('task_items') as any)
@@ -536,8 +542,8 @@ export function useTasks(filters?: {
       const sidemarkId = firstItem?.items?.sidemark_id || null;
       const itemId = firstItem?.item_id || null;
 
-      // Build billing events for each custom charge
-      const billingEvents: CreateBillingEventParams[] = customCharges.map((charge: any) => ({
+      // Build billing events for each custom charge (excluding service lines)
+      const billingEvents: CreateBillingEventParams[] = regularCharges.map((charge: any) => ({
         tenant_id: profile.tenant_id,
         account_id: accountId,
         sidemark_id: sidemarkId,
@@ -1167,6 +1173,275 @@ export function useTasks(filters?: {
     }
   };
 
+  // =========================================================================
+  // SERVICE-LINE BASED BILLING (Phase 2)
+  // =========================================================================
+
+  /**
+   * Create billing events from service lines (task_custom_charges with is_service_line flag).
+   * Each service line becomes a billing event with rate looked up from the pricing system.
+   */
+  const createServiceLineBillingEvents = async (
+    taskId: string,
+    taskType: string,
+    accountId: string | null,
+    completionValues: CompletionLineValues[],
+  ) => {
+    if (!profile?.tenant_id || !profile?.id || !accountId) return;
+
+    try {
+      // Fetch all classes to map class_id to code
+      const { data: allClasses } = await supabase
+        .from('classes')
+        .select('id, code')
+        .eq('tenant_id', profile.tenant_id);
+      const classMap = new Map((allClasses || []).map((c: any) => [c.id, c.code]));
+
+      // Get task items for sidemark/class info
+      const { data: taskItems } = await (supabase
+        .from('task_items') as any)
+        .select(`
+          item_id,
+          items:item_id(id, class_id, sidemark_id, account_id, item_code)
+        `)
+        .eq('task_id', taskId);
+
+      const firstItem = taskItems?.[0]?.items;
+      const sidemarkId = firstItem?.sidemark_id || null;
+      const classCode = firstItem?.class_id ? classMap.get(firstItem.class_id) : null;
+
+      const billingEvents: CreateBillingEventParams[] = [];
+
+      for (const lineVal of completionValues) {
+        const quantity = lineVal.input_mode === 'time'
+          ? (lineVal.minutes / 60) // Convert minutes to hours for time-based
+          : lineVal.qty;
+
+        if (quantity <= 0) continue;
+
+        // Look up rate for this charge code
+        let unitRate = 0;
+        let hasRateError = false;
+        let rateErrorMessage: string | null = null;
+
+        try {
+          const rateResult = await getEffectiveRate({
+            tenantId: profile.tenant_id,
+            chargeCode: lineVal.charge_code,
+            accountId,
+            classCode,
+          });
+          unitRate = rateResult.effective_rate;
+          hasRateError = rateResult.has_error;
+          rateErrorMessage = rateResult.error_message;
+        } catch (rateError: any) {
+          if (rateError?.message === BILLING_DISABLED_ERROR) {
+            // Skip this service — billing disabled for account
+            continue;
+          }
+          // Rate lookup failed — create with error flag
+          hasRateError = true;
+          rateErrorMessage = rateError?.message || 'Rate lookup failed';
+        }
+
+        const totalAmount = unitRate * quantity;
+        const description = `${lineVal.charge_name}: ${taskType}`;
+
+        billingEvents.push({
+          tenant_id: profile.tenant_id,
+          account_id: accountId,
+          sidemark_id: sidemarkId,
+          class_id: firstItem?.class_id || null,
+          item_id: firstItem?.id || null,
+          task_id: taskId,
+          event_type: 'task_completion',
+          charge_type: lineVal.charge_code,
+          description,
+          quantity,
+          unit_rate: unitRate,
+          total_amount: totalAmount,
+          status: 'unbilled',
+          occurred_at: new Date().toISOString(),
+          metadata: {
+            task_type: taskType,
+            service_line_id: lineVal.lineId,
+            charge_type_id: lineVal.charge_type_id,
+            input_mode: lineVal.input_mode,
+            minutes: lineVal.minutes,
+          },
+          created_by: profile.id,
+          has_rate_error: hasRateError,
+          rate_error_message: rateErrorMessage,
+        });
+      }
+
+      if (billingEvents.length > 0) {
+        await createBillingEventsBatch(billingEvents);
+      }
+    } catch (error: any) {
+      console.error('[createServiceLineBillingEvents] Error:', error);
+      // Don't throw — billing shouldn't block task completion
+    }
+  };
+
+  /**
+   * Complete a task using service lines (Phase 2 flow).
+   * Called from TaskCompletionPanel after user confirms qty/time values.
+   */
+  const completeTaskWithServices = async (
+    taskId: string,
+    completionValues: CompletionLineValues[],
+  ): Promise<boolean> => {
+    if (!profile?.id || !profile?.tenant_id) return false;
+
+    try {
+      // Get task info
+      const { data: taskData } = await (supabase
+        .from('tasks') as any)
+        .select('task_type, account_id')
+        .eq('id', taskId)
+        .single();
+
+      if (!taskData) {
+        throw new Error('Task not found');
+      }
+
+      const taskType = taskData.task_type;
+      const accountId = taskData.account_id;
+
+      // Handle Will Call special completion
+      if (taskType === SPECIAL_TASK_TYPES.WILL_CALL) {
+        // Will Call still needs pickup name — delegate to standard completeTask
+        return false;
+      }
+
+      // Handle Disposal special completion
+      if (taskType === SPECIAL_TASK_TYPES.DISPOSAL) {
+        const { error: taskError } = await (supabase
+          .from('tasks') as any)
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            completed_by: profile.id,
+            billing_charge_date: new Date().toISOString(),
+          })
+          .eq('id', taskId);
+
+        if (taskError) throw taskError;
+
+        const { data: taskItems } = await (supabase
+          .from('task_items') as any)
+          .select('item_id')
+          .eq('task_id', taskId);
+
+        if (taskItems && taskItems.length > 0) {
+          const itemIds = taskItems.map((ti: any) => ti.item_id);
+          await (supabase
+            .from('items') as any)
+            .update({
+              status: 'disposed',
+              deleted_at: new Date().toISOString(),
+            })
+            .in('id', itemIds);
+        }
+
+        // Still create service line billing events for disposal
+        if (completionValues.length > 0) {
+          await createServiceLineBillingEvents(taskId, taskType, accountId, completionValues);
+        }
+        await convertTaskCustomChargesToBillingEvents(taskId, accountId);
+
+        toast({
+          title: 'Disposal Completed',
+          description: 'Items have been marked as disposed.',
+        });
+
+        await queueTaskCompletedAlert(profile.tenant_id, taskId, 'Disposal');
+        fetchTasks();
+        return true;
+      }
+
+      // Normal task completion
+      const { error } = await (supabase
+        .from('tasks') as any)
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          completed_by: profile.id,
+          billing_charge_date: new Date().toISOString(),
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      // Update inventory status
+      await updateInventoryStatus(taskId, taskType, 'completed');
+
+      // Create billing events from service lines
+      if (completionValues.length > 0) {
+        await createServiceLineBillingEvents(taskId, taskType, accountId, completionValues);
+      } else {
+        // Fallback to legacy billing if no service lines
+        await createTaskBillingEvents(taskId, taskType, accountId);
+      }
+
+      // Convert remaining custom charges
+      await convertTaskCustomChargesToBillingEvents(taskId, accountId);
+
+      toast({
+        title: 'Task Completed',
+        description: 'Task has been marked as completed.',
+      });
+
+      // Queue alerts
+      await queueTaskCompletedAlert(profile.tenant_id, taskId, taskType);
+
+      if (taskType === 'Inspection') {
+        const { data: firstTaskItem } = await (supabase
+          .from('task_items') as any)
+          .select(`
+            item_id,
+            items:item_id(item_code, has_damage, account_id, accounts!items_account_id_fkey(alerts_contact_email, primary_contact_email))
+          `)
+          .eq('task_id', taskId)
+          .limit(1)
+          .maybeSingle();
+
+        if (firstTaskItem?.items) {
+          const accountEmail = (firstTaskItem.items.accounts as any)?.alerts_contact_email ||
+                               (firstTaskItem.items.accounts as any)?.primary_contact_email || undefined;
+          await queueInspectionCompletedAlert(
+            profile.tenant_id,
+            taskId,
+            firstTaskItem.items.item_code || 'Unknown',
+            firstTaskItem.items.has_damage || false,
+            accountEmail
+          );
+        }
+      }
+
+      fetchTasks();
+      return true;
+    } catch (error) {
+      console.error('Error completing task with services:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to complete task',
+      });
+      return false;
+    }
+  };
+
+  /**
+   * Check if a task has service lines (for validation before completion).
+   */
+  const getTaskServiceLineCount = async (taskId: string): Promise<number> => {
+    if (!profile?.tenant_id) return 0;
+    const lines = await fetchTaskServiceLinesStatic(taskId, profile.tenant_id);
+    return lines.length;
+  };
+
   return {
     tasks,
     loading,
@@ -1176,6 +1451,8 @@ export function useTasks(filters?: {
     updateTask,
     startTask,
     completeTask,
+    completeTaskWithServices,
+    getTaskServiceLineCount,
     markUnableToComplete,
     claimTask,
     updateTaskStatus,
