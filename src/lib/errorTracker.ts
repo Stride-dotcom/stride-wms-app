@@ -162,6 +162,7 @@ async function sendToServer(params: {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4a3N0bHNmeG9jYXN3cXdsbWVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1Mjk1NTQsImV4cCI6MjA4NDEwNTU1NH0.p-X92RJdzgSrfSsVY_qC-Bxnr7hEWhvGj41Lf97RYtE',
       },
       body: JSON.stringify(payload),
     }).catch(() => {
