@@ -169,28 +169,43 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Swipe to close sidebar on mobile
+  // Swipe to close sidebar on mobile - with finger-following physics
   const touchStartX = useRef<number | null>(null);
   const sidebarRef = useRef<HTMLElement>(null);
+  const [sidebarTranslateX, setSidebarTranslateX] = useState(0);
+  const [isGesturing, setIsGesturing] = useState(false);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    setIsGesturing(true);
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
+    if (touchStartX.current === null || !sidebarOpen) return;
     const currentX = e.touches[0].clientX;
     const diff = touchStartX.current - currentX;
-    // If swiped left more than 50px, close the sidebar
-    if (diff > 50) {
-      setSidebarOpen(false);
-      touchStartX.current = null;
+    
+    // Only track left swipe (negative translateX), clamp to sidebar width
+    if (diff > 0) {
+      const sidebarWidth = sidebarRef.current?.offsetWidth || 256;
+      const clampedDiff = Math.min(diff, sidebarWidth);
+      setSidebarTranslateX(-clampedDiff);
     }
-  }, []);
+  }, [sidebarOpen]);
 
   const handleTouchEnd = useCallback(() => {
+    const sidebarWidth = sidebarRef.current?.offsetWidth || 256;
+    
+    // If swiped more than 40% of sidebar width, close it
+    if (Math.abs(sidebarTranslateX) > sidebarWidth * 0.4) {
+      setSidebarOpen(false);
+    }
+    
+    // Reset transform (CSS transition will animate back)
+    setSidebarTranslateX(0);
+    setIsGesturing(false);
     touchStartX.current = null;
-  }, []);
+  }, [sidebarTranslateX]);
 
   // Apply theme
   useEffect(() => {
@@ -405,13 +420,23 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        style={{
+          // Apply finger-following transform during active gesture
+          transform: sidebarOpen && isGesturing && sidebarTranslateX !== 0
+            ? `translateX(${sidebarTranslateX}px)`
+            : undefined,
+          willChange: isGesturing ? 'transform' : 'auto',
+        }}
         className={cn(
-          'fixed top-0 left-0 z-50 h-full border-r transform transition-all duration-300 ease-bounce lg:translate-x-0 flex flex-col',
+          'fixed top-0 left-0 z-50 h-full border-r flex flex-col',
           // Light mode: white background
           'bg-white border-gray-200',
           // Dark mode: keep dark gradient
           'dark:bg-gradient-to-b dark:from-slate-800 dark:via-slate-900 dark:to-slate-950 dark:border-slate-700',
+          // Only apply CSS transition when NOT actively gesturing
+          !isGesturing && 'transform transition-all duration-300 ease-bounce',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+          'lg:translate-x-0', // Always visible on desktop
           sidebarCollapsed ? 'lg:w-16' : 'lg:w-52',
           'w-64' // Mobile always full width when open
         )}
