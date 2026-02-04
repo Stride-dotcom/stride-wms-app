@@ -637,24 +637,23 @@ export default function ShipmentDetail() {
       setShowFinishDialog(false);
       setCreatedItemIds(result.createdItemIds);
       
-      // Fetch created items for label printing (include location code)
+      // Fetch created items for label printing
       if (result.createdItemIds.length > 0) {
-        const { data: createdItems } = await (supabase
-          .from('items') as any)
-          .select('id, item_code, description, vendor, sidemark_id, room, current_location_id, locations:current_location_id(code)')
+        const { data: createdItems } = await supabase
+          .from('items')
+          .select('id, item_code, description, vendor, sidemark_id, room')
           .in('id', result.createdItemIds);
 
         if (createdItems) {
-          const labelData: ItemLabelData[] = createdItems.map((item: any) => ({
+          const labelData: ItemLabelData[] = createdItems.map(item => ({
             id: item.id,
             itemCode: item.item_code || '',
             description: item.description || '',
             vendor: item.vendor || '',
             account: shipment?.accounts?.account_name || '',
             sidemark: '',
-            room: item.room || '',
+            room: (item as any).room || '',
             warehouseName: shipment?.warehouses?.name || '',
-            locationCode: item.locations?.code || '',
           }));
           setCreatedItemsForLabels(labelData);
           setShowPrintLabelsDialog(true);

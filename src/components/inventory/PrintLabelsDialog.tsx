@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { generateItemLabelsPDF, downloadPDF, printLabels, PrintPopupBlockedError, ItemLabelData } from '@/lib/labelGenerator';
 import { useToast } from '@/hooks/use-toast';
+import { useTenantPreferences, DEFAULT_LABEL_CONFIG } from '@/hooks/useTenantPreferences';
+import type { LabelConfig } from '@/hooks/useTenantPreferences';
 
 interface PrintLabelsDialogProps {
   open: boolean;
@@ -29,14 +31,18 @@ export function PrintLabelsDialog({
 }: PrintLabelsDialogProps) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
+  const { preferences } = useTenantPreferences();
+
+  const labelConfig: LabelConfig = (preferences?.label_config as LabelConfig | null) ?? DEFAULT_LABEL_CONFIG;
+  const enabledFields = labelConfig.fields.filter(f => f.enabled);
 
   const handlePrint = async () => {
     if (items.length === 0) return;
-    
+
     setGenerating(true);
     try {
-      const blob = await generateItemLabelsPDF(items);
-      const filename = items.length === 1 
+      const blob = await generateItemLabelsPDF(items, labelConfig);
+      const filename = items.length === 1
         ? `label-${items[0].itemCode}.pdf`
         : `labels-${items.length}-items.pdf`;
       await printLabels(blob, filename);
@@ -63,11 +69,11 @@ export function PrintLabelsDialog({
 
   const handleDownload = async () => {
     if (items.length === 0) return;
-    
+
     setGenerating(true);
     try {
-      const blob = await generateItemLabelsPDF(items);
-      const filename = items.length === 1 
+      const blob = await generateItemLabelsPDF(items, labelConfig);
+      const filename = items.length === 1
         ? `label-${items[0].itemCode}.pdf`
         : `labels-${items.length}-items.pdf`;
       downloadPDF(blob, filename);
@@ -97,13 +103,18 @@ export function PrintLabelsDialog({
           <div className="rounded-lg border p-4 bg-muted/50">
             <h4 className="font-medium mb-2">Label Contents:</h4>
             <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• QR Code (links to item detail page)</li>
-              <li>• Item Code</li>
-              <li>• Account Name</li>
-              <li>• Vendor</li>
-              <li>• Description</li>
-              <li>• Current Location</li>
+              {enabledFields.map(f => (
+                <li key={f.key}>
+                  &bull; {f.label} ({f.fontSize}pt{f.bold ? ', bold' : ''})
+                </li>
+              ))}
+              {labelConfig.showQR && (
+                <li>&bull; QR Code (links to item detail page)</li>
+              )}
             </ul>
+            <p className="text-xs text-muted-foreground mt-2">
+              Customize in Settings &gt; Organization &gt; Preferences
+            </p>
           </div>
 
           {items.length > 1 && (

@@ -3,6 +3,37 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
+export interface LabelFieldConfig {
+  key: string;
+  label: string;
+  enabled: boolean;
+  fontSize: number;
+  bold: boolean;
+}
+
+export interface LabelConfig {
+  fields: LabelFieldConfig[];
+  qrSize: number;
+  showQR: boolean;
+  showBorder: boolean;
+}
+
+export const DEFAULT_LABEL_CONFIG: LabelConfig = {
+  fields: [
+    { key: 'account', label: 'Account', enabled: true, fontSize: 22, bold: true },
+    { key: 'sidemark', label: 'Sidemark', enabled: true, fontSize: 18, bold: true },
+    { key: 'room', label: 'Room', enabled: true, fontSize: 14, bold: false },
+    { key: 'itemCode', label: 'Item Code', enabled: true, fontSize: 28, bold: true },
+    { key: 'vendor', label: 'Vendor', enabled: true, fontSize: 14, bold: false },
+    { key: 'description', label: 'Description', enabled: true, fontSize: 14, bold: false },
+    { key: 'warehouseName', label: 'Warehouse', enabled: false, fontSize: 12, bold: false },
+    { key: 'locationCode', label: 'Location', enabled: false, fontSize: 12, bold: false },
+  ],
+  qrSize: 160,
+  showQR: true,
+  showBorder: true,
+};
+
 export interface TenantPreferences {
   id: string;
   tenant_id: string;
@@ -62,6 +93,8 @@ export interface TenantPreferences {
   privacy_policy_url: string | null;
   // Display Settings
   show_warehouse_in_location: boolean;
+  // Label Customization
+  label_config: LabelConfig | null;
   // Timestamps
   created_at: string;
   updated_at: string;
