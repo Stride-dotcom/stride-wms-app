@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { PhotoIndicatorChip } from '@/components/ui/PhotoIndicatorChip';
+import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -141,17 +143,15 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
   const renderPhotoGrid = (photosToRender: ItemPhoto[]) => (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
       {photosToRender.map((photo) => {
-        // Determine border color: red for attention, green for repair, transparent otherwise
-        const borderClass = photo.needs_attention
-          ? 'border-red-500'
-          : photo.is_repair
-          ? 'border-green-500'
-          : 'border-transparent';
-
         return (
           <div
             key={photo.id}
-            className={`relative aspect-square rounded-lg border-2 overflow-hidden bg-muted cursor-pointer group ${borderClass} ${photo.is_primary ? 'ring-2 ring-primary' : ''}`}
+            className={cn(
+              'relative aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer group',
+              photo.needs_attention && 'ring-2 ring-offset-2 ring-offset-background ring-red-500/50 shadow-[0_0_12px_rgba(239,68,68,0.3)]',
+              photo.is_repair && !photo.needs_attention && 'ring-2 ring-offset-2 ring-offset-background ring-purple-500/50 shadow-[0_0_12px_rgba(168,85,247,0.3)]',
+              photo.is_primary && !photo.needs_attention && !photo.is_repair && 'ring-2 ring-offset-2 ring-offset-background ring-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.3)]',
+            )}
             onClick={() => setLightboxPhoto(photo)}
           >
           <img
@@ -160,7 +160,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
             className="w-full h-full object-cover"
           />
 
-          {/* Overlay badges - High contrast styling */}
+          {/* Overlay badges - Glassmorphism chips */}
           <div className="absolute top-1 left-1 flex gap-1 flex-wrap max-w-[calc(100%-2rem)]">
             {isTaskPhoto(photo) && (
               <Badge className="h-6 text-xs bg-blue-600 text-white px-2 shadow-md border border-blue-700">
@@ -169,22 +169,13 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
               </Badge>
             )}
             {photo.is_primary && !isTaskPhoto(photo) && (
-              <Badge className="h-6 text-xs bg-amber-500 text-white px-2 shadow-md border border-amber-600">
-                <MaterialIcon name="star" className="text-[12px] mr-1" />
-                Primary
-              </Badge>
+              <PhotoIndicatorChip type="primary" />
             )}
             {photo.needs_attention && (
-              <Badge className="h-6 text-xs bg-red-600 text-white px-2 shadow-md border border-red-700">
-                <MaterialIcon name="warning" className="text-[12px] mr-1" />
-                Attention
-              </Badge>
+              <PhotoIndicatorChip type="attention" />
             )}
             {photo.is_repair && (
-              <Badge className="h-6 text-xs bg-green-600 text-white px-2 shadow-md border border-green-700">
-                <MaterialIcon name="build" className="text-[12px] mr-1" />
-                Repair
-              </Badge>
+              <PhotoIndicatorChip type="repair" />
             )}
           </div>
 
@@ -422,17 +413,13 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                 </Badge>
               )}
               {lightboxPhoto?.is_primary && !lightboxPhoto?.is_from_task && (
-                <Badge className="bg-amber-500 text-white"><MaterialIcon name="star" className="text-[12px] mr-1" />Primary</Badge>
+                <PhotoIndicatorChip type="primary" />
               )}
               {lightboxPhoto?.needs_attention && (
-                <Badge className="bg-red-600 text-white">
-                  <MaterialIcon name="warning" className="text-[12px] mr-1" />Needs Attention
-                </Badge>
+                <PhotoIndicatorChip type="attention" />
               )}
               {lightboxPhoto?.is_repair && (
-                <Badge className="bg-green-600 text-white">
-                  <MaterialIcon name="build" className="text-[12px] mr-1" />Repair
-                </Badge>
+                <PhotoIndicatorChip type="repair" />
               )}
             </DialogTitle>
           </DialogHeader>

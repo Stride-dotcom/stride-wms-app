@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from 'react';
+import { registerBannerFunction } from '@/lib/toastShim';
 
 type BannerType = 'success' | 'info' | 'warning' | 'error' | 'destructive';
 
@@ -106,6 +107,12 @@ export function AppleBannerProvider({ children }: { children: ReactNode }) {
       setBanner(newBanner);
     }
   }, [clearTimers]);
+
+  // Register shim so all toast() calls route through AppleBanner
+  useEffect(() => {
+    registerBannerFunction(showBanner);
+    return () => registerBannerFunction(null);
+  }, [showBanner]);
 
   // Clean up timers on unmount
   useEffect(() => {

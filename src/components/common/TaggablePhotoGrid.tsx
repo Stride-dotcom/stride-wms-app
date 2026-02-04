@@ -8,6 +8,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { PhotoIndicatorChip } from '@/components/ui/PhotoIndicatorChip';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -160,19 +162,15 @@ export function TaggablePhotoGrid({
     <>
       <div className={`grid ${gridCols} gap-2`}>
         {normalizedPhotos.map((photo, index) => {
-          // Determine border color based on tags
-          const borderClass = photo.needsAttention
-            ? 'border-red-500 border-2'
-            : photo.isRepair
-            ? 'border-green-500 border-2'
-            : photo.isPrimary
-            ? 'border-primary border-2'
-            : 'border';
-
           return (
             <div
               key={photo.url}
-              className={`relative aspect-square rounded-lg overflow-hidden bg-muted group cursor-pointer ${borderClass}`}
+              className={cn(
+                'relative aspect-square rounded-lg overflow-hidden bg-muted group cursor-pointer',
+                photo.needsAttention && 'ring-2 ring-offset-2 ring-offset-background ring-red-500/50 shadow-[0_0_12px_rgba(239,68,68,0.3)]',
+                photo.isRepair && !photo.needsAttention && 'ring-2 ring-offset-2 ring-offset-background ring-purple-500/50 shadow-[0_0_12px_rgba(168,85,247,0.3)]',
+                photo.isPrimary && !photo.needsAttention && !photo.isRepair && 'ring-2 ring-offset-2 ring-offset-background ring-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.3)]',
+              )}
               onClick={() => setLightboxPhoto(photo)}
             >
               <img
@@ -181,26 +179,17 @@ export function TaggablePhotoGrid({
                 className="w-full h-full object-cover"
               />
 
-              {/* Tag badges - visible overlay */}
+              {/* Tag badges - Glassmorphism chips */}
               {enableTagging && (photo.isPrimary || photo.needsAttention || photo.isRepair) && (
                 <div className="absolute top-1 left-1 flex gap-1 flex-wrap">
                   {photo.isPrimary && (
-                    <Badge className="h-5 text-[10px] bg-amber-500 text-white px-1.5 shadow-md">
-                      <MaterialIcon name="star" className="text-[10px] mr-0.5" />
-                      Primary
-                    </Badge>
+                    <PhotoIndicatorChip type="primary" />
                   )}
                   {photo.needsAttention && (
-                    <Badge className="h-5 text-[10px] bg-red-600 text-white px-1.5 shadow-md">
-                      <MaterialIcon name="warning" className="text-[10px] mr-0.5" />
-                      Attention
-                    </Badge>
+                    <PhotoIndicatorChip type="attention" />
                   )}
                   {photo.isRepair && (
-                    <Badge className="h-5 text-[10px] bg-green-600 text-white px-1.5 shadow-md">
-                      <MaterialIcon name="build" className="text-[10px] mr-0.5" />
-                      Repair
-                    </Badge>
+                    <PhotoIndicatorChip type="repair" />
                   )}
                 </div>
               )}
@@ -285,22 +274,13 @@ export function TaggablePhotoGrid({
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               Photo
               {lightboxPhoto?.isPrimary && (
-                <Badge className="bg-amber-500 text-white">
-                  <MaterialIcon name="star" className="text-[12px] mr-1" />
-                  Primary
-                </Badge>
+                <PhotoIndicatorChip type="primary" />
               )}
               {lightboxPhoto?.needsAttention && (
-                <Badge className="bg-red-600 text-white">
-                  <MaterialIcon name="warning" className="text-[12px] mr-1" />
-                  Needs Attention
-                </Badge>
+                <PhotoIndicatorChip type="attention" />
               )}
               {lightboxPhoto?.isRepair && (
-                <Badge className="bg-green-600 text-white">
-                  <MaterialIcon name="build" className="text-[12px] mr-1" />
-                  Repair
-                </Badge>
+                <PhotoIndicatorChip type="repair" />
               )}
             </DialogTitle>
           </DialogHeader>

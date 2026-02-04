@@ -22,6 +22,7 @@ import {
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ScanModeIcon } from '@/components/scan/ScanModeIcon';
 import { HelpButton } from '@/components/prompts';
 import { SOPValidationDialog, SOPBlocker } from '@/components/common/SOPValidationDialog';
 import {
@@ -688,14 +689,9 @@ export default function ScanHub() {
                 "hover:border-primary hover:shadow-xl hover:shadow-primary/10"
               )}
             >
-              {/* Background watermark emoji */}
-              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300 text-[10rem]">
-                ↔️
-              </div>
-
-              {/* Large emoji container */}
-              <div className="w-24 h-28 rounded-3xl bg-primary flex items-center justify-center flex-shrink-0 text-5xl group-hover:scale-110 transition-transform duration-200">
-                ↔️
+              {/* Large icon container */}
+              <div className="w-24 h-28 rounded-3xl bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200">
+                <ScanModeIcon mode="move" size={64} />
               </div>
 
               {/* Text on right */}
@@ -703,7 +699,8 @@ export default function ScanHub() {
                 <span className="text-2xl font-bold text-foreground">Move</span>
                 <span className="text-sm text-muted-foreground mt-1">Scan item, then scan destination</span>
                 <span className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wide mt-3">
-                  LAUNCH SCANNER ➡️
+                  LAUNCH SCANNER
+                  <MaterialIcon name="arrow_forward" size="sm" />
                 </span>
               </div>
             </button>
@@ -715,25 +712,21 @@ export default function ScanHub() {
                 "group relative overflow-hidden flex items-center gap-6 p-6",
                 "rounded-3xl bg-card border-2 border-transparent",
                 "transition-all duration-300 text-left",
-                "hover:border-muted-foreground/50 hover:shadow-xl hover:shadow-muted/20"
+                "hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-500/10"
               )}
             >
-              {/* Background watermark emoji */}
-              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300 text-[10rem]">
-                📚
-              </div>
-
-              {/* Large emoji container */}
-              <div className="w-24 h-28 rounded-3xl bg-secondary flex items-center justify-center flex-shrink-0 text-5xl group-hover:scale-110 transition-transform duration-200">
-                📚
+              {/* Large icon container */}
+              <div className="w-24 h-28 rounded-3xl bg-purple-500/10 dark:bg-purple-500/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200">
+                <ScanModeIcon mode="batch-move" size={64} />
               </div>
 
               {/* Text on right */}
               <div className="flex flex-col items-start flex-1">
                 <span className="text-2xl font-bold text-foreground">Batch Move</span>
                 <span className="text-sm text-muted-foreground mt-1">Scan multiple items, then scan destination</span>
-                <span className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wide mt-3">
-                  LAUNCH SCANNER ➡️
+                <span className="flex items-center gap-2 text-purple-600 dark:text-purple-400 text-xs font-semibold uppercase tracking-wide mt-3">
+                  LAUNCH SCANNER
+                  <MaterialIcon name="arrow_forward" size="sm" />
                 </span>
               </div>
             </button>
@@ -745,25 +738,21 @@ export default function ScanHub() {
                 "group relative overflow-hidden flex items-center gap-6 p-6",
                 "rounded-3xl bg-card border-2 border-transparent",
                 "transition-all duration-300 text-left",
-                "hover:border-info hover:shadow-xl hover:shadow-info/10"
+                "hover:border-emerald-500/50 hover:shadow-xl hover:shadow-emerald-500/10"
               )}
             >
-              {/* Background watermark emoji */}
-              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300 text-[10rem]">
-                🔍
-              </div>
-
-              {/* Large emoji container */}
-              <div className="w-24 h-28 rounded-3xl bg-info flex items-center justify-center flex-shrink-0 text-5xl group-hover:scale-110 transition-transform duration-200">
-                🔍
+              {/* Large icon container */}
+              <div className="w-24 h-28 rounded-3xl bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200">
+                <ScanModeIcon mode="lookup" size={64} />
               </div>
 
               {/* Text on right */}
               <div className="flex flex-col items-start flex-1">
                 <span className="text-2xl font-bold text-foreground">Look Up</span>
                 <span className="text-sm text-muted-foreground mt-1">Scan to view item details</span>
-                <span className="flex items-center gap-2 text-info text-xs font-semibold uppercase tracking-wide mt-3">
-                  LAUNCH SCANNER ➡️
+                <span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-semibold uppercase tracking-wide mt-3">
+                  LAUNCH SCANNER
+                  <MaterialIcon name="arrow_forward" size="sm" />
                 </span>
               </div>
             </button>
@@ -775,25 +764,21 @@ export default function ScanHub() {
                 "group relative overflow-hidden flex items-center gap-6 p-6",
                 "rounded-3xl bg-card border-2 border-transparent",
                 "transition-all duration-300 text-left",
-                "hover:border-success hover:shadow-xl hover:shadow-success/10"
+                "hover:border-amber-500/50 hover:shadow-xl hover:shadow-amber-500/10"
               )}
             >
-              {/* Background watermark emoji */}
-              <div className="absolute -top-4 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-300 text-[10rem]">
-                ⚡
-              </div>
-
-              {/* Large emoji container */}
-              <div className="w-24 h-28 rounded-3xl bg-success flex items-center justify-center flex-shrink-0 text-5xl group-hover:scale-110 transition-transform duration-200">
-                ⚡
+              {/* Large icon container */}
+              <div className="w-24 h-28 rounded-3xl bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200">
+                <ScanModeIcon mode="service-event" size={64} />
               </div>
 
               {/* Text on right */}
               <div className="flex flex-col items-start flex-1">
                 <span className="text-2xl font-bold text-foreground">Service Event</span>
                 <span className="text-sm text-muted-foreground mt-1">Scan items, select services, create billing</span>
-                <span className="flex items-center gap-2 text-success text-xs font-semibold uppercase tracking-wide mt-3">
-                  LAUNCH SCANNER ➡️
+                <span className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-xs font-semibold uppercase tracking-wide mt-3">
+                  LAUNCH SCANNER
+                  <MaterialIcon name="arrow_forward" size="sm" />
                 </span>
               </div>
             </button>

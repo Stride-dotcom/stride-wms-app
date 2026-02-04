@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -121,9 +122,11 @@ export default function Claims() {
   };
 
   const getStatusBadge = (status: string) => (
-    <Badge className={statusColors[status as ClaimStatus] || statusColors.initiated}>
-      {CLAIM_STATUS_LABELS[status as ClaimStatus] || status}
-    </Badge>
+    <StatusIndicator
+      status={status}
+      label={CLAIM_STATUS_LABELS[status as ClaimStatus] || status}
+      size="sm"
+    />
   );
 
   return (

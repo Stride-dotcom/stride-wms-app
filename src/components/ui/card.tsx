@@ -3,13 +3,15 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+  ({ className, onClick, ...props }, ref) => (
     <div
       ref={ref}
+      data-pressable={onClick ? "true" : undefined}
       className={cn(
         "rounded-2xl border border-border/50 bg-gradient-to-b from-white to-[#fafafa] text-card-foreground shadow-gloss-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-gloss-card-hover group dark:from-slate-800 dark:to-slate-900 dark:shadow-gloss-dark-card",
         className
       )}
+      onClick={onClick}
       {...props}
     />
   )

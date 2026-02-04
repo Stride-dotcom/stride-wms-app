@@ -467,3 +467,67 @@ a:hover svg,
 .dark .stoplight-maximize {
   background: linear-gradient(180deg, #32D74B 0%, #1EAD2E 100%);
 }
+
+/* ===== GLOBAL SCROLL FIX ===== */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+[data-radix-dialog-content],
+[data-radix-sheet-content],
+[role="dialog"] {
+  max-height: 85vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.page-content,
+.form-container,
+main > div {
+  min-height: 0;
+}
+
+/* ===== APPLE BOUNCE-BACK SCROLLING ===== */
+html, body {
+  overscroll-behavior-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+main,
+[role="main"],
+.page-content {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: auto;
+}
+
+/* ===== CARD PRESS STATES ===== */
+[data-pressable="true"] {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.3s ease;
+}
+
+[data-pressable="true"]:active {
+  transform: scale(0.98);
+}
+
+.cursor-pointer[class*="rounded"] {
+  transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cursor-pointer[class*="rounded"]:active {
+  transform: scale(0.98);
+}
+
+/* ===== FAB SPRING-IN ANIMATION ===== */
+@keyframes fab-spring-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

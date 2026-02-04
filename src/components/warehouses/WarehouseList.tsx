@@ -3,6 +3,7 @@ import { Warehouse } from '@/hooks/useWarehouses';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import {
   Table,
   TableBody,
@@ -81,18 +82,9 @@ export function WarehouseList({ warehouses, loading, onEdit, onRefresh }: Wareho
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge variant="default" className="bg-green-600">Active</Badge>;
-      case 'inactive':
-        return <Badge variant="secondary">Inactive</Badge>;
-      case 'maintenance':
-        return <Badge variant="outline" className="border-amber-500 text-amber-500">Maintenance</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
+  const getStatusBadge = (status: string) => (
+    <StatusIndicator status={status} size="sm" />
+  );
 
   const formatAddress = (warehouse: Warehouse) => {
     const parts = [warehouse.city, warehouse.state, warehouse.country].filter(Boolean);

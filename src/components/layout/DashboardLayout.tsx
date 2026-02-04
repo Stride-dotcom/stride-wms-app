@@ -113,11 +113,14 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
         className={cn(
           'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
           isActive
-            ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
+            ? 'bg-gradient-to-r from-primary/15 to-primary/5 text-primary dark:from-primary/25 dark:to-primary/10 dark:text-primary'
             : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-white/60 dark:hover:text-white dark:hover:bg-white/5',
           sidebarCollapsed && 'lg:justify-center lg:px-2'
         )}
       >
+        {isActive && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary" />
+        )}
         <MaterialIcon
           name={item.icon}
           size="md"
@@ -603,16 +606,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* Right side controls */}
           <div className="flex items-center gap-1">
-            {/* Theme toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
+            {/* Theme toggle pill */}
+            <button
               onClick={() => setIsDark(!isDark)}
               title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="relative flex items-center h-8 w-16 rounded-full bg-gray-200 dark:bg-slate-700 p-1 transition-colors duration-300"
             >
-              <MaterialIcon name={isDark ? 'light_mode' : 'dark_mode'} size="md" />
-            </Button>
+              <span
+                className={cn(
+                  "absolute h-6 w-6 rounded-full bg-white dark:bg-slate-300 shadow-md flex items-center justify-center transition-transform duration-300",
+                  isDark ? "translate-x-8" : "translate-x-0"
+                )}
+              >
+                <MaterialIcon name={isDark ? 'dark_mode' : 'light_mode'} className="text-[14px] text-gray-700" />
+              </span>
+            </button>
 
             {/* Notifications */}
             <Button

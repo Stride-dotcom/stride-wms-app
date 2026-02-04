@@ -44,7 +44,7 @@ import { ClientPortalLayout } from '@/components/client-portal/ClientPortalLayou
 import { useClientPortalContext, useClientQuotes } from '@/hooks/useClientPortal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toastShim';
 import { formatDistanceToNow, format } from 'date-fns';
 
 export default function ClientQuotes() {

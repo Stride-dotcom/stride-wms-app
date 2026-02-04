@@ -39,6 +39,7 @@ import { WillCallCompletionDialog } from '@/components/tasks/WillCallCompletionD
 import { TaskCompletionBlockedDialog } from '@/components/tasks/TaskCompletionBlockedDialog';
 import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { validateTaskCompletion, TaskCompletionValidationResult } from '@/lib/billing/taskCompletionValidation';
 import { fetchTaskServiceLinesStatic } from '@/hooks/useTaskServiceLines';
 
@@ -582,20 +583,18 @@ export default function Tasks() {
                         <Badge variant="outline">{task.task_type}</Badge>
                       </TableCell>
                       <TableCell>
-                        <span className={getStatusTextClass(task.status)}>
-                          {statusLabels[task.status]?.toUpperCase() || task.status.replace('_', ' ').toUpperCase()}
-                        </span>
+                        <StatusIndicator
+                          status={task.status}
+                          label={statusLabels[task.status]}
+                          size="sm"
+                        />
                       </TableCell>
                       <TableCell>
-                        {task.priority === 'urgent' ? (
-                          <span className="font-bold text-red-500 dark:text-red-400">
-                            URGENT
-                          </span>
-                        ) : (
-                          <span className="font-bold text-blue-500 dark:text-blue-400">
-                            NORMAL
-                          </span>
-                        )}
+                        <StatusIndicator
+                          status={task.priority === 'urgent' ? 'failed' : 'in_progress'}
+                          label={task.priority === 'urgent' ? 'Urgent' : 'Normal'}
+                          size="sm"
+                        />
                       </TableCell>
                       <TableCell>
                         {task.due_date ? (
