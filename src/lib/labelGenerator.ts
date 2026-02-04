@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
+import type { LabelConfig, LabelFieldConfig } from '@/hooks/useTenantPreferences';
 
 interface LocationLabelData {
   code: string;
@@ -19,6 +20,7 @@ export interface ItemLabelData {
   room?: string;
   warehouseName?: string;
   locationCode?: string;
+  [key: string]: string | undefined;
 }
 
 interface QRPayload {
@@ -187,7 +189,7 @@ export async function generateLocationLabelsPDF(locations: LocationLabelData[]):
   return doc.output('blob');
 }
 
-export async function generateItemLabelsPDF(items: ItemLabelData[]): Promise<Blob> {
+export async function generateItemLabelsPDF(items: ItemLabelData[], config?: LabelConfig): Promise<Blob> {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'pt',
@@ -195,6 +197,10 @@ export async function generateItemLabelsPDF(items: ItemLabelData[]): Promise<Blo
   });
 
   const maxTextWidth = LABEL_WIDTH - MARGIN * 2 - 20;
+  const showBorder = config?.showBorder ?? true;
+  const showQR = config?.showQR ?? true;
+  const qrSize = config?.qrSize ?? 160;
+  const enabledFields = config?.fields?.filter(f => f.enabled) ?? null;
 
   for (let i = 0; i < items.length; i++) {
     if (i > 0) {
@@ -203,100 +209,146 @@ export async function generateItemLabelsPDF(items: ItemLabelData[]): Promise<Blo
 
     const item = items[i];
     const qrPayload = createItemQRPayload(item);
-    const qrDataUrl = await generateQRDataUrl(qrPayload);
+    const qrDataUrl = showQR ? await generateQRDataUrl(qrPayload) : null;
 
     // Background
     doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, LABEL_WIDTH, LABEL_HEIGHT, 'F');
 
     // Border
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(2);
-    doc.rect(MARGIN / 2, MARGIN / 2, LABEL_WIDTH - MARGIN, LABEL_HEIGHT - MARGIN, 'S');
+    if (showBorder) {
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(2);
+      doc.rect(MARGIN / 2, MARGIN / 2, LABEL_WIDTH - MARGIN, LABEL_HEIGHT - MARGIN, 'S');
+    }
 
     let yPos = MARGIN + 15;
 
-    // 1. Account (large, prominent at top)
-    if (item.account) {
-      doc.setFontSize(22);
+    if (enabledFields) {
+      // Configurable field rendering
+      let drewDivider = false;
+      for (const field of enabledFields) {
+        const value = getFieldValue(item, field.key);
+        if (!value) continue;
+
+        // Insert a divider after the header fields (account, sidemark, room) before item code
+        if (!drewDivider && (field.key === 'itemCode' || field.key === 'vendor' || field.key === 'description' || field.key === 'warehouseName' || field.key === 'locationCode')) {
+          if (yPos > MARGIN + 20) {
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(1);
+            doc.line(MARGIN + 20, yPos, LABEL_WIDTH - MARGIN - 20, yPos);
+            yPos += 12;
+          }
+          drewDivider = true;
+        }
+
+        doc.setFontSize(field.fontSize);
+        doc.setFont('helvetica', field.bold ? 'bold' : 'normal');
+        doc.setTextColor(field.bold ? 0 : 60, field.bold ? 0 : 60, field.bold ? 0 : 60);
+
+        // Description gets word-wrap treatment
+        if (field.key === 'description') {
+          const descLines = wrapText(doc, value, maxTextWidth, 2);
+          for (const line of descLines) {
+            doc.text(line, LABEL_WIDTH / 2, yPos + field.fontSize * 0.8, { align: 'center' });
+            yPos += field.fontSize + 4;
+          }
+        } else {
+          const displayText = truncateText(doc, value, maxTextWidth);
+          doc.text(displayText, LABEL_WIDTH / 2, yPos + field.fontSize * 0.8, { align: 'center' });
+          yPos += field.fontSize + 8;
+        }
+      }
+    } else {
+      // Default layout (backward compatible)
+      if (item.account) {
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(0, 0, 0);
+        const accountText = truncateText(doc, item.account, maxTextWidth);
+        doc.text(accountText, LABEL_WIDTH / 2, yPos + 18, { align: 'center' });
+        yPos += 35;
+      }
+
+      if (item.sidemark) {
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(40, 40, 40);
+        const sidemarkText = truncateText(doc, item.sidemark, maxTextWidth);
+        doc.text(sidemarkText, LABEL_WIDTH / 2, yPos, { align: 'center' });
+        yPos += 28;
+      }
+
+      if (item.room) {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(60, 60, 60);
+        const roomText = truncateText(doc, `Room: ${item.room}`, maxTextWidth);
+        doc.text(roomText, LABEL_WIDTH / 2, yPos, { align: 'center' });
+        yPos += 22;
+      }
+
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(1);
+      doc.line(MARGIN + 20, yPos, LABEL_WIDTH - MARGIN - 20, yPos);
+      yPos += 18;
+
+      doc.setFontSize(28);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
-      const accountText = truncateText(doc, item.account, maxTextWidth);
-      doc.text(accountText, LABEL_WIDTH / 2, yPos + 18, { align: 'center' });
-      yPos += 35;
-    }
+      doc.text(item.itemCode, LABEL_WIDTH / 2, yPos + 20, { align: 'center' });
+      yPos += 42;
 
-    // 2. Sidemark (prominent)
-    if (item.sidemark) {
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(40, 40, 40);
-      const sidemarkText = truncateText(doc, item.sidemark, maxTextWidth);
-      doc.text(sidemarkText, LABEL_WIDTH / 2, yPos, { align: 'center' });
-      yPos += 28;
-    }
+      if (item.vendor) {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(60, 60, 60);
+        const vendorText = truncateText(doc, item.vendor, maxTextWidth);
+        doc.text(vendorText, LABEL_WIDTH / 2, yPos, { align: 'center' });
+        yPos += 22;
+      }
 
-    // 2b. Room (if present)
-    if (item.room) {
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(60, 60, 60);
-      const roomText = truncateText(doc, `Room: ${item.room}`, maxTextWidth);
-      doc.text(roomText, LABEL_WIDTH / 2, yPos, { align: 'center' });
-      yPos += 22;
-    }
-
-    // Horizontal line after account/sidemark/room
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(1);
-    doc.line(MARGIN + 20, yPos, LABEL_WIDTH - MARGIN - 20, yPos);
-    yPos += 18;
-
-    // 3. Item Code (large, bold)
-    doc.setFontSize(28);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text(item.itemCode, LABEL_WIDTH / 2, yPos + 20, { align: 'center' });
-    yPos += 42;
-
-    // 4. Vendor
-    if (item.vendor) {
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(60, 60, 60);
-      const vendorText = truncateText(doc, item.vendor, maxTextWidth);
-      doc.text(vendorText, LABEL_WIDTH / 2, yPos, { align: 'center' });
-      yPos += 22;
-    }
-
-    // 5. Description (wrapped, 2 lines max) - increased font size
-    if (item.description) {
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(80, 80, 80);
-      const descLines = wrapText(doc, item.description, maxTextWidth, 2);
-      for (const line of descLines) {
-        doc.text(line, LABEL_WIDTH / 2, yPos, { align: 'center' });
-        yPos += 18;
+      if (item.description) {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(80, 80, 80);
+        const descLines = wrapText(doc, item.description, maxTextWidth, 2);
+        for (const line of descLines) {
+          doc.text(line, LABEL_WIDTH / 2, yPos, { align: 'center' });
+          yPos += 18;
+        }
       }
     }
 
-    // Add extra spacing before QR code
-    yPos += 15;
+    // QR Code
+    if (showQR && qrDataUrl) {
+      yPos += 15;
+      const qrX = (LABEL_WIDTH - qrSize) / 2;
+      const qrY = yPos;
+      doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
-    // 6. QR Code (centered, large for easy scanning) - moved down
-    const qrSize = 160; // Slightly smaller to fit better after larger text
-    const qrX = (LABEL_WIDTH - qrSize) / 2;
-    const qrY = yPos;
-    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
-
-    // Scan instruction at bottom
-    doc.setFontSize(9);
-    doc.setTextColor(120, 120, 120);
-    doc.text('Scan QR to view item details', LABEL_WIDTH / 2, LABEL_HEIGHT - MARGIN - 8, { align: 'center' });
+      // Scan instruction at bottom
+      doc.setFontSize(9);
+      doc.setTextColor(120, 120, 120);
+      doc.text('Scan QR to view item details', LABEL_WIDTH / 2, LABEL_HEIGHT - MARGIN - 8, { align: 'center' });
+    }
   }
 
   return doc.output('blob');
+}
+
+function getFieldValue(item: ItemLabelData, key: string): string {
+  switch (key) {
+    case 'account': return item.account || '';
+    case 'sidemark': return item.sidemark || '';
+    case 'room': return item.room ? `Room: ${item.room}` : '';
+    case 'itemCode': return item.itemCode || '';
+    case 'vendor': return item.vendor || '';
+    case 'description': return item.description || '';
+    case 'warehouseName': return item.warehouseName || '';
+    case 'locationCode': return item.locationCode || '';
+    default: return (item as any)[key] || '';
+  }
 }
 
 /**

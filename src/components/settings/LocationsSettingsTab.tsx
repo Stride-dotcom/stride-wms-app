@@ -54,6 +54,7 @@ interface LocationsSettingsTabProps {
   onRefresh: () => void;
   onPrintSelected: (locations: Location[]) => void;
   onImportCSV: (file: File) => void;
+  onWarehouseRefresh?: () => void;
 }
 
 export function LocationsSettingsTab({
@@ -67,6 +68,7 @@ export function LocationsSettingsTab({
   onRefresh,
   onPrintSelected,
   onImportCSV,
+  onWarehouseRefresh,
 }: LocationsSettingsTabProps) {
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -86,6 +88,50 @@ export function LocationsSettingsTab({
   const [fastAddLoading, setFastAddLoading] = useState(false);
   const [autoUppercase, setAutoUppercase] = useState(true);
   const fastAddInputRef = useRef<HTMLInputElement>(null);
+
+  // Default receiving location state
+  const [defaultRecvLocationId, setDefaultRecvLocationId] = useState<string>('');
+  const [savingDefaultLocation, setSavingDefaultLocation] = useState(false);
+
+  // Sync default receiving location when warehouse selection changes
+  useEffect(() => {
+    if (selectedWarehouse && selectedWarehouse !== 'all') {
+      const wh = warehouses.find(w => w.id === selectedWarehouse);
+      setDefaultRecvLocationId((wh as any)?.default_receiving_location_id || '');
+    } else {
+      setDefaultRecvLocationId('');
+    }
+  }, [selectedWarehouse, warehouses]);
+
+  const handleSaveDefaultReceivingLocation = async () => {
+    if (!selectedWarehouse || selectedWarehouse === 'all') return;
+
+    setSavingDefaultLocation(true);
+    try {
+      const { error } = await (supabase.from('warehouses') as any)
+        .update({ default_receiving_location_id: defaultRecvLocationId || null })
+        .eq('id', selectedWarehouse);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Default location saved',
+        description: defaultRecvLocationId
+          ? `Default receiving location updated for this warehouse.`
+          : 'Default receiving location cleared.',
+      });
+      onWarehouseRefresh?.();
+    } catch (error: any) {
+      console.error('Error saving default receiving location:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save default receiving location.',
+      });
+    } finally {
+      setSavingDefaultLocation(false);
+    }
+  };
 
   // Debounce search
   useEffect(() => {
@@ -427,6 +473,57 @@ export function LocationsSettingsTab({
             </div>
           </CardContent>
         </Card>
+
+        {/* Default Receiving Location Card - only visible when a specific warehouse is selected */}
+        {selectedWarehouse && selectedWarehouse !== 'all' && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MaterialIcon name="pin_drop" size="sm" />
+                Default Receiving Location
+              </CardTitle>
+              <CardDescription>
+                Items received into this warehouse will be auto-assigned to this location during receiving.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-3 items-end">
+                <div className="flex-1 space-y-1">
+                  <Label htmlFor="default-recv-location">Location</Label>
+                  <Select
+                    value={defaultRecvLocationId || '_none_'}
+                    onValueChange={(val) => setDefaultRecvLocationId(val === '_none_' ? '' : val)}
+                  >
+                    <SelectTrigger id="default-recv-location">
+                      <SelectValue placeholder="Select a location..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">None (no default)</SelectItem>
+                      {locations
+                        .filter(l => (l as any).is_active !== false)
+                        .map((loc) => (
+                          <SelectItem key={loc.id} value={loc.id}>
+                            {loc.code}{loc.name ? ` — ${loc.name}` : ''}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handleSaveDefaultReceivingLocation}
+                  disabled={savingDefaultLocation}
+                >
+                  {savingDefaultLocation ? (
+                    <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                  ) : (
+                    <MaterialIcon name="save" size="sm" className="mr-2" />
+                  )}
+                  Save
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Bays List Card */}
         <Card>

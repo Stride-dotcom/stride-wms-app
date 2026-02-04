@@ -534,10 +534,41 @@ export default function ShipmentDetail() {
         return;
       }
 
-      const result = validationResult as { ok: boolean; blockers: SOPBlocker[] };
-      const blockers = (result?.blockers || []).filter(
+      let result = validationResult as { ok: boolean; blockers: SOPBlocker[] };
+      let blockers = (result?.blockers || []).filter(
         (b: SOPBlocker) => b.severity === 'blocking' || !b.severity
       );
+
+      // If ITEMS_WITHOUT_LOCATION blocker fires, attempt auto-assign then re-validate
+      const hasLocationBlocker = blockers.some(b => b.code === 'ITEMS_WITHOUT_LOCATION');
+      if (hasLocationBlocker && shipment.id) {
+        try {
+          const { data: assignResult } = await supabase.rpc(
+            'rpc_assign_receiving_location_for_shipment',
+            { p_shipment_id: shipment.id, p_note: 'Auto-assigned on Finish Receiving validation' }
+          );
+          const assignRes = assignResult as any;
+          if (assignRes?.ok && assignRes.updated_count > 0) {
+            toast({
+              title: 'Location Assigned',
+              description: `${assignRes.updated_count} item(s) assigned to ${assignRes.effective_location_code}.`,
+            });
+            // Re-validate after assignment
+            const { data: revalidation } = await (supabase as any).rpc(
+              'validate_shipment_receiving_completion',
+              { p_shipment_id: shipment.id }
+            );
+            if (revalidation) {
+              result = revalidation as { ok: boolean; blockers: SOPBlocker[] };
+              blockers = (result?.blockers || []).filter(
+                (b: SOPBlocker) => b.severity === 'blocking' || !b.severity
+              );
+            }
+          }
+        } catch {
+          // If auto-assign fails, continue with original blockers
+        }
+      }
 
       if (!result?.ok && blockers.length > 0) {
         setSopBlockers(result.blockers);
@@ -620,10 +651,9 @@ export default function ShipmentDetail() {
             description: item.description || '',
             vendor: item.vendor || '',
             account: shipment?.accounts?.account_name || '',
-            sidemark: '', // Would need to join sidemark table
+            sidemark: '',
             room: (item as any).room || '',
             warehouseName: shipment?.warehouses?.name || '',
-            locationCode: 'RECV-DOCK',
           }));
           setCreatedItemsForLabels(labelData);
           setShowPrintLabelsDialog(true);

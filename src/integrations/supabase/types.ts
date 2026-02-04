@@ -11942,6 +11942,7 @@ export type Database = {
           code: string
           country: string | null
           created_at: string
+          default_receiving_location_id: string | null
           deleted_at: string | null
           id: string
           name: string
@@ -11961,6 +11962,7 @@ export type Database = {
           code: string
           country?: string | null
           created_at?: string
+          default_receiving_location_id?: string | null
           deleted_at?: string | null
           id?: string
           name: string
@@ -11980,6 +11982,7 @@ export type Database = {
           code?: string
           country?: string | null
           created_at?: string
+          default_receiving_location_id?: string | null
           deleted_at?: string | null
           id?: string
           name?: string
@@ -11997,6 +12000,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouses_default_receiving_location_id_fkey"
+            columns: ["default_receiving_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
@@ -13197,6 +13207,21 @@ export type Database = {
       get_or_create_receiving_dock: {
         Args: { p_warehouse_id: string }
         Returns: string
+      }
+      rpc_assign_receiving_location_for_shipment: {
+        Args: {
+          p_shipment_id: string
+          p_location_id?: string | null
+          p_note?: string
+        }
+        Returns: Json
+      }
+      rpc_resolve_receiving_location: {
+        Args: {
+          p_warehouse_id: string
+          p_account_id?: string | null
+        }
+        Returns: Json
       }
       get_pricing_export_data: { Args: { p_tenant_id: string }; Returns: Json }
       get_qa_artifact_signed_url: {

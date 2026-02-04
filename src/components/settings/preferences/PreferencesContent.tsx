@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { useTenantPreferences, TenantPreferencesUpdate } from '@/hooks/useTenantPreferences';
+import { useTenantPreferences, TenantPreferencesUpdate, DEFAULT_LABEL_CONFIG } from '@/hooks/useTenantPreferences';
+import type { LabelConfig } from '@/hooks/useTenantPreferences';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { StorageInspectionSection } from './StorageInspectionSection';
 import { FlagSettingsSection } from './FlagSettingsSection';
@@ -10,6 +11,7 @@ import { DefaultNotesSection } from './DefaultNotesSection';
 import { ComingSoonSection } from './ComingSoonSection';
 import { ClaimSettingsSection } from './ClaimSettingsSection';
 import { DisplaySettingsSection } from './DisplaySettingsSection';
+import { LabelCustomizationSection } from './LabelCustomizationSection';
 import { AccountTypesSection } from './AccountTypesSection';
 import { SortableCard } from './SortableCard';
 import { Label } from '@/components/ui/label';
@@ -36,6 +38,7 @@ const DEFAULT_CARD_ORDER = [
   'storage-inspection',
   'flag-settings',
   'display-settings',
+  'label-customization',
   'account-types',
   'claim-settings',
   'custom-field-labels',
@@ -75,6 +78,7 @@ export function PreferencesContent() {
     terms_of_service_url: '',
     privacy_policy_url: '',
     show_warehouse_in_location: true,
+    label_config: DEFAULT_LABEL_CONFIG as LabelConfig,
   });
 
   // Sync from preferences when loaded
@@ -93,6 +97,7 @@ export function PreferencesContent() {
         terms_of_service_url: preferences.terms_of_service_url || '',
         privacy_policy_url: preferences.privacy_policy_url || '',
         show_warehouse_in_location: preferences.show_warehouse_in_location ?? true,
+        label_config: (preferences.label_config as LabelConfig | null) ?? DEFAULT_LABEL_CONFIG,
       });
     }
   }, [preferences]);
@@ -141,6 +146,7 @@ export function PreferencesContent() {
       terms_of_service_url: formData.terms_of_service_url || null,
       privacy_policy_url: formData.privacy_policy_url || null,
       show_warehouse_in_location: formData.show_warehouse_in_location,
+      label_config: formData.label_config,
     };
     await updatePreferences(updates);
   };
@@ -181,6 +187,14 @@ export function PreferencesContent() {
         <DisplaySettingsSection
           showWarehouseInLocation={formData.show_warehouse_in_location}
           onShowWarehouseInLocationChange={(value) => setFormData(prev => ({ ...prev, show_warehouse_in_location: value }))}
+        />
+      </SortableCard>
+    ),
+    'label-customization': (
+      <SortableCard id="label-customization" key="label-customization">
+        <LabelCustomizationSection
+          config={formData.label_config}
+          onChange={(config) => setFormData(prev => ({ ...prev, label_config: config }))}
         />
       </SortableCard>
     ),

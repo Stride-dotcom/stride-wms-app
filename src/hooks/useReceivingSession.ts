@@ -138,12 +138,38 @@ export function useReceivingSession(shipmentId: string | undefined) {
 
       if (shipmentError) throw shipmentError;
 
-      setSession(data as any);
-      toast({
-        title: 'Receiving Started',
-        description: 'You can now receive items for this shipment.',
-      });
+      // Auto-assign receiving location to items that are missing one
+      try {
+        const { data: assignResult } = await supabase.rpc(
+          'rpc_assign_receiving_location_for_shipment',
+          { p_shipment_id: shipmentId, p_note: 'Auto-assigned on Start Receiving' }
+        );
+        const result = assignResult as any;
+        if (result?.ok && result.updated_count > 0) {
+          toast({
+            title: 'Receiving Started',
+            description: `Assigned ${result.updated_count} item(s) to ${result.effective_location_code}.`,
+          });
+        } else if (result?.error_code === 'NO_DEFAULT_LOCATION') {
+          toast({
+            title: 'Receiving Started',
+            description: 'No default receiving location set for this warehouse. Items will need a location before finishing.',
+          });
+        } else {
+          toast({
+            title: 'Receiving Started',
+            description: 'You can now receive items for this shipment.',
+          });
+        }
+      } catch {
+        // Non-blocking: proceed even if auto-assign fails
+        toast({
+          title: 'Receiving Started',
+          description: 'You can now receive items for this shipment.',
+        });
+      }
 
+      setSession(data as any);
       return data;
     } catch (error: any) {
       console.error('Error starting session:', error);
@@ -216,12 +242,19 @@ export function useReceivingSession(shipmentId: string | undefined) {
           .single();
 
         if (shipment) {
-          // Get receiving dock location for this warehouse
-          const { data: receivingDockId, error: dockError } = await supabase
-            .rpc('get_or_create_receiving_dock', { p_warehouse_id: shipment.warehouse_id });
-
-          if (dockError) {
-            console.error('Error getting receiving dock:', dockError);
+          // Resolve default receiving location for this warehouse
+          let receivingDockId: string | null = null;
+          try {
+            const { data: resolveResult } = await supabase.rpc(
+              'rpc_resolve_receiving_location',
+              { p_warehouse_id: shipment.warehouse_id, p_account_id: shipment.account_id }
+            );
+            const resolved = resolveResult as any;
+            if (resolved?.ok) {
+              receivingDockId = resolved.location_id;
+            }
+          } catch (resolveErr) {
+            console.error('Error resolving receiving location:', resolveErr);
           }
 
           // Get the account to check auto_inspection and auto_assembly settings
@@ -510,6 +543,24 @@ export function useReceivingSession(shipmentId: string | undefined) {
             }
           }
         }
+      }
+
+      // Safety-net: auto-assign receiving location to any items still missing one
+      // This uses the atomic RPC which handles movements in a single transaction
+      try {
+        const { data: assignResult } = await supabase.rpc(
+          'rpc_assign_receiving_location_for_shipment',
+          { p_shipment_id: session.shipment_id, p_note: 'Auto-assigned on Finish Receiving' }
+        );
+        const assignRes = assignResult as any;
+        if (assignRes?.ok && assignRes.updated_count > 0) {
+          toast({
+            title: 'Location Assigned',
+            description: `${assignRes.updated_count} item(s) assigned to ${assignRes.effective_location_code}.`,
+          });
+        }
+      } catch {
+        // Non-blocking
       }
 
       // Queue shipment.received alert
