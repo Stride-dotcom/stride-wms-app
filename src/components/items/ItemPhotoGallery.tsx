@@ -17,6 +17,7 @@ import { useItemPhotos, ItemPhoto } from '@/hooks/useItemPhotos';
 import { PhotoScanner } from '@/components/common/PhotoScanner';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ItemPhotoGalleryProps {
   itemId: string;
@@ -24,6 +25,7 @@ interface ItemPhotoGalleryProps {
 }
 
 export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGalleryProps) {
+  const { profile } = useAuth();
   const {
     photos,
     taskPhotos,
@@ -404,8 +406,8 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
       <Dialog open={!!lightboxPhoto} onOpenChange={() => setLightboxPhoto(null)}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 flex-wrap">
-              {lightboxPhoto?.file_name}
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
+              Photo
               {lightboxPhoto && isTaskPhoto(lightboxPhoto) && (
                 <Badge className="bg-blue-600 text-white">
                   <MaterialIcon name="assignment" className="text-[12px] mr-1" />
@@ -415,10 +417,34 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
               {lightboxPhoto?.is_primary && !lightboxPhoto?.is_from_task && (
                 <PhotoIndicatorChip type="primary" />
               )}
-              {lightboxPhoto?.needs_attention && (
+              {/* Tappable attention chip - click to toggle for staff */}
+              {lightboxPhoto?.needs_attention && !isClientUser && !isTaskPhoto(lightboxPhoto) && (
+                <span
+                  className="cursor-pointer"
+                  onClick={() => {
+                    handleToggleAttention(lightboxPhoto.id, lightboxPhoto.needs_attention);
+                    setLightboxPhoto(null);
+                  }}
+                >
+                  <PhotoIndicatorChip type="attention" />
+                </span>
+              )}
+              {lightboxPhoto?.needs_attention && (isClientUser || isTaskPhoto(lightboxPhoto)) && (
                 <PhotoIndicatorChip type="attention" />
               )}
-              {lightboxPhoto?.is_repair && (
+              {/* Tappable repair chip - click to toggle for staff */}
+              {lightboxPhoto?.is_repair && !isClientUser && !isTaskPhoto(lightboxPhoto) && (
+                <span
+                  className="cursor-pointer"
+                  onClick={() => {
+                    handleToggleRepair(lightboxPhoto.id, lightboxPhoto.is_repair);
+                    setLightboxPhoto(null);
+                  }}
+                >
+                  <PhotoIndicatorChip type="repair" />
+                </span>
+              )}
+              {lightboxPhoto?.is_repair && (isClientUser || isTaskPhoto(lightboxPhoto)) && (
                 <PhotoIndicatorChip type="repair" />
               )}
             </DialogTitle>
@@ -467,27 +493,31 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
                         Set as Primary
                       </Button>
                     )}
-                    <Button
-                      variant={lightboxPhoto.needs_attention ? 'secondary' : 'outline'}
-                      onClick={() => {
-                        handleToggleAttention(lightboxPhoto.id, lightboxPhoto.needs_attention);
-                        setLightboxPhoto(null);
-                      }}
-                    >
-                      <MaterialIcon name="warning" size="sm" className="mr-2" />
-                      {lightboxPhoto.needs_attention ? 'Remove Attention Flag' : 'Mark Needs Attention'}
-                    </Button>
-                    <Button
-                      variant={lightboxPhoto.is_repair ? 'secondary' : 'outline'}
-                      className={lightboxPhoto.is_repair ? 'bg-green-100 hover:bg-green-200 text-green-700' : ''}
-                      onClick={() => {
-                        handleToggleRepair(lightboxPhoto.id, lightboxPhoto.is_repair);
-                        setLightboxPhoto(null);
-                      }}
-                    >
-                      <MaterialIcon name="build" size="sm" className="mr-2" />
-                      {lightboxPhoto.is_repair ? 'Remove Repair Tag' : 'Mark as Repair'}
-                    </Button>
+                    {/* Add flag buttons only shown when flags are NOT set */}
+                    {!lightboxPhoto.needs_attention && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          handleToggleAttention(lightboxPhoto.id, false);
+                          setLightboxPhoto(null);
+                        }}
+                      >
+                        <MaterialIcon name="warning" size="sm" className="mr-2" />
+                        attention
+                      </Button>
+                    )}
+                    {!lightboxPhoto.is_repair && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          handleToggleRepair(lightboxPhoto.id, false);
+                          setLightboxPhoto(null);
+                        }}
+                      >
+                        <MaterialIcon name="build" size="sm" className="mr-2" />
+                        repair
+                      </Button>
+                    )}
                     <Button
                       variant="destructive"
                       onClick={() => {
@@ -512,6 +542,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
         onOpenChange={setScannerOpen}
         entityType="item"
         entityId={itemId}
+        tenantId={profile?.tenant_id}
         existingPhotos={photos.map(p => p.storage_url || '')}
         maxPhotos={50}
         onPhotosSaved={handleScannerPhotosSaved}

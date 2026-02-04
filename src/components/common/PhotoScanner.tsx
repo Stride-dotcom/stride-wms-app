@@ -262,13 +262,9 @@ export function PhotoScanner({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
-        {/* Header */}
+      <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden [&>button]:hidden">
+        {/* Header - no dialog close button */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
-          <Button variant="ghost" size="sm" onClick={handleCancel} disabled={saving}>
-            <MaterialIcon name="close" size="sm" className="mr-1" />
-            Cancel
-          </Button>
           <span className="font-medium">
             Photos ({existingPhotos.length + capturedPhotos.length})
           </span>
