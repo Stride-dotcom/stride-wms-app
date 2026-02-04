@@ -525,17 +525,10 @@ async function getEffectiveRateFromLegacy(params: GetEffectiveRateParams): Promi
 
 /**
  * Log a pricing fallback event. Best-effort: failure to log must NOT break the user flow.
+ * Note: Logs to console only since pricing_fallback_log table may not exist
  */
 function logPricingFallback(tenantId: string, serviceCode: string, context: string): void {
-  supabase
-    .from('pricing_fallback_log')
-    .insert({ tenant_id: tenantId, service_code: serviceCode, context })
-    .then(({ error }) => {
-      if (error) {
-        // Best-effort — swallow errors silently (table may not exist yet)
-        console.warn('[pricing-fallback] Failed to write log row:', error.message);
-      }
-    });
+  console.warn(`[pricing-fallback] tenant=${tenantId} service=${serviceCode} context=${context}`);
 }
 
 /**

@@ -6495,6 +6495,30 @@ export type Database = {
           },
         ]
       }
+      pricing_fallback_log: {
+        Row: {
+          context: string | null
+          created_at: string
+          id: string
+          service_code: string
+          tenant_id: string
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string
+          id?: string
+          service_code: string
+          tenant_id: string
+        }
+        Update: {
+          context?: string | null
+          created_at?: string
+          id?: string
+          service_code?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       pricing_rules: {
         Row: {
           charge_type_id: string
