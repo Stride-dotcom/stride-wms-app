@@ -264,19 +264,35 @@ export function useTaskServiceLines(taskId: string | undefined) {
     if (!taskId || !profile?.tenant_id || !profile?.id) return;
 
     try {
-      // Fetch linked charge types for this task type
+      // Fetch linked charge type IDs (no relationship joins)
       const { data: links, error } = await (supabase as any)
         .from('task_type_charge_links')
-        .select('charge_type_id, charge_types(*)')
+        .select('charge_type_id')
         .eq('task_type_id', taskTypeId);
 
-      if (error || !links || links.length === 0) return;
+      if (error) {
+        if (error.code === 'PGRST200' || error.code === '42P01') {
+          return;
+        }
+        console.error('[useTaskServiceLines] loadFromTemplate links error:', error);
+        return;
+      }
+
+      const chargeTypeIds = [...new Set((links || []).map((link: any) => link.charge_type_id).filter(Boolean))] as string[];
+      if (chargeTypeIds.length === 0) return;
+
+      const { data: chargeTypes, error: chargeTypesError } = await supabase
+        .from('charge_types')
+        .select('*')
+        .in('id', chargeTypeIds);
+
+      if (chargeTypesError || !chargeTypes) {
+        console.error('[useTaskServiceLines] loadFromTemplate charge types error:', chargeTypesError);
+        return;
+      }
 
       // Add each linked charge type as a service line (skip duplicates)
-      for (const link of links) {
-        const ct = link.charge_types;
-        if (!ct) continue;
-
+      for (const ct of chargeTypes) {
         const existing = serviceLines.find(sl => sl.charge_code === ct.charge_code);
         if (existing) continue;
 

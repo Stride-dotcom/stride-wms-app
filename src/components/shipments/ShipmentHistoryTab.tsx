@@ -132,7 +132,7 @@ export function ShipmentHistoryTab({ shipmentId }: ShipmentHistoryTabProps) {
         .select(`
           id,
           started_at,
-          completed_at,
+          finished_at,
           user:started_by(first_name, last_name)
         `)
         .eq('shipment_id', shipmentId)
@@ -149,13 +149,13 @@ export function ShipmentHistoryTab({ shipmentId }: ShipmentHistoryTabProps) {
             user: session.user ? `${session.user.first_name} ${session.user.last_name}` : undefined,
           });
 
-          if (session.completed_at) {
+          if (session.finished_at) {
             allEvents.push({
               id: `session-end-${session.id}`,
               type: 'receiving',
               title: 'Receiving Session Completed',
               description: 'Receiving session finished',
-              timestamp: session.completed_at,
+              timestamp: session.finished_at,
               user: session.user ? `${session.user.first_name} ${session.user.last_name}` : undefined,
             });
           }
