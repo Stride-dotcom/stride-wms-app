@@ -401,3 +401,69 @@ a:hover svg,
   background: linear-gradient(135deg, #2C2C2E, #1C1C1E);
   border-color: rgba(255, 255, 255, 0.08);
 }
+
+/* Mac Stoplight Controls */
+.stoplight-dot {
+  border-radius: 50%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stoplight-dot::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+.stoplight-dot:hover {
+  filter: brightness(1.1);
+}
+
+.stoplight-dot:active {
+  filter: brightness(0.9);
+}
+
+.stoplight-dot[disabled],
+.stoplight-dot[aria-disabled="true"] {
+  opacity: 0.35;
+  cursor: default;
+  filter: none;
+}
+
+.stoplight-sm { width: 10px; height: 10px; }
+.stoplight-md { width: 12px; height: 12px; }
+.stoplight-lg { width: 14px; height: 14px; }
+
+.stoplight-close {
+  background: linear-gradient(180deg, #FF6058 0%, #E7483B 100%);
+  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0.5px 1px rgba(0, 0, 0, 0.1);
+}
+
+.stoplight-minimize {
+  background: linear-gradient(180deg, #FFBD2E 0%, #DFA218 100%);
+  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0.5px 1px rgba(0, 0, 0, 0.1);
+}
+
+.stoplight-maximize {
+  background: linear-gradient(180deg, #28C940 0%, #1EAD2E 100%);
+  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0.5px 1px rgba(0, 0, 0, 0.1);
+}
+
+.dark .stoplight-close {
+  background: linear-gradient(180deg, #FF6B63 0%, #E7483B 100%);
+}
+.dark .stoplight-minimize {
+  background: linear-gradient(180deg, #FFC73A 0%, #DFA218 100%);
+}
+.dark .stoplight-maximize {
+  background: linear-gradient(180deg, #32D74B 0%, #1EAD2E 100%);
+}

@@ -255,9 +255,6 @@ export function EditAdjustmentDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
           <Button onClick={handleSave} disabled={saving || !adjustmentValue}>
             {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
             Save Changes

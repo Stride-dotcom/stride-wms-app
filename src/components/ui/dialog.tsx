@@ -1,6 +1,6 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { StoplightControls } from './StoplightControls';
 
 import { cn } from "@/lib/utils";
 
@@ -42,9 +42,10 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-accent data-[state=open]:text-muted-foreground hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none z-10">
-        <MaterialIcon name="close" size="sm" />
-        <span className="sr-only">Close</span>
+      <DialogPrimitive.Close asChild>
+        <div className="absolute left-4 top-4 z-10">
+          <StoplightControls onClose={() => {}} showMinimize={false} showMaximize={false} size="sm" />
+        </div>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal>

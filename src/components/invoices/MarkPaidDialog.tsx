@@ -170,9 +170,6 @@ export function MarkPaidDialog({ open, onOpenChange, invoice, onSuccess }: MarkP
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
           <Button onClick={handleSave} disabled={saving || numericAmount <= 0}>
             {saving ? (
               <>

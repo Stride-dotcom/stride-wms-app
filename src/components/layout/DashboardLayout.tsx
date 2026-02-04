@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { AppleBanner } from '@/components/ui/AppleBanner';
+import { useMessageNotifications } from '@/hooks/useMessageNotifications';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -147,6 +148,7 @@ function SortableNavItem({ item, isActive, sidebarCollapsed, onNavigate }: Sorta
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
+  useMessageNotifications();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { sidebarCollapsed, setSidebarCollapsed } = useSidebar();
   const [isDark, setIsDark] = useState(() => {

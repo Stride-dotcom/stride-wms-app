@@ -479,13 +479,6 @@ export function ItemEditDialog({
         </div>
 
         <DialogFooter className="flex-shrink-0 pt-4 border-t">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
           <Button onClick={form.handleSubmit(onSubmit)} disabled={loading}>
             {loading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
             Save Changes
