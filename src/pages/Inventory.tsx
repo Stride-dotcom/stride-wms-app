@@ -317,7 +317,15 @@ export default function Inventory() {
     XLSX.writeFile(wb, `inventory-export-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   };
 
-  const handleTaskSuccess = () => { setSelectedItems(new Set()); setPreSelectedTaskType(''); fetchItems(); };
+  const handleTaskSuccess = (createdTaskId?: string) => { 
+    setSelectedItems(new Set()); 
+    setPreSelectedTaskType(''); 
+    if (createdTaskId) {
+      navigate(`/tasks/${createdTaskId}`);
+    } else {
+      fetchItems(); 
+    }
+  };
   const handleReleaseSuccess = () => { setSelectedItems(new Set()); fetchItems(); };
   const handleImportClick = () => { fileInputRef.current?.click(); };
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setImportFile(file); setImportDialogOpen(true); } e.target.value = ''; };
