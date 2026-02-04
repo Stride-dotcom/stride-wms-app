@@ -34,6 +34,8 @@ interface ReassignAccountDialogProps {
   currentAccountId?: string | null;
   currentAccountName?: string | null;
   onSuccess: () => void;
+  tenantId?: string;
+  userId?: string;
 }
 
 export function ReassignAccountDialog({
@@ -44,6 +46,8 @@ export function ReassignAccountDialog({
   currentAccountId,
   currentAccountName,
   onSuccess,
+  tenantId,
+  userId,
 }: ReassignAccountDialogProps) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
@@ -95,6 +99,26 @@ export function ReassignAccountDialog({
           .in('id', entityIds);
 
         if (error) throw error;
+
+        // Log to audit log if tenantId and userId are provided
+        if (tenantId && userId) {
+          for (const entityId of entityIds) {
+            await supabase.from('admin_audit_log').insert({
+              tenant_id: tenantId,
+              actor_id: userId,
+              entity_type: 'shipment',
+              entity_id: entityId,
+              action: 'account_reassigned',
+              changes_json: {
+                previous_account_id: currentAccountId,
+                previous_account_name: currentAccountName,
+                new_account_id: selectedAccountId,
+                new_account_name: selectedAccount?.account_name,
+              },
+            });
+          }
+        }
+
         toast.success(`Shipment reassigned to ${selectedAccount?.account_name}`);
       } else {
         // Update items account (single or bulk)
@@ -104,6 +128,25 @@ export function ReassignAccountDialog({
           .in('id', entityIds);
 
         if (error) throw error;
+
+        // Log to audit log if tenantId and userId are provided
+        if (tenantId && userId) {
+          for (const entityId of entityIds) {
+            await supabase.from('admin_audit_log').insert({
+              tenant_id: tenantId,
+              actor_id: userId,
+              entity_type: 'item',
+              entity_id: entityId,
+              action: 'account_reassigned',
+              changes_json: {
+                previous_account_id: currentAccountId,
+                previous_account_name: currentAccountName,
+                new_account_id: selectedAccountId,
+                new_account_name: selectedAccount?.account_name,
+              },
+            });
+          }
+        }
 
         const itemCount = entityIds.length;
         toast.success(

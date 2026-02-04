@@ -244,11 +244,13 @@ export default function ShipmentDetail() {
         contextType: 'shipment',
         contextId: id,
       });
-      // If prompt is shown, it will block; if not shown (advanced user), continue
+      // If prompt is not shown (advanced user or no prompt configured), start immediately
       if (!shown) {
         await rawStartSession();
+      } else {
+        // Prompt is shown - still start the session (prompt is informational only)
+        await rawStartSession();
       }
-      // If prompt is shown, user will confirm and we proceed after
     } else {
       await rawStartSession();
     }
@@ -1215,7 +1217,7 @@ export default function ShipmentDetail() {
               )}
             </div>
             <p className="text-muted-foreground text-sm truncate">
-              {shipment.accounts?.name || 'No account'} • {shipment.warehouses?.name || 'No warehouse'}
+              {(shipment.accounts as any)?.account_name || 'No account'} • {shipment.warehouses?.name || 'No warehouse'}
             </p>
           </div>
         </div>
@@ -2198,8 +2200,10 @@ export default function ShipmentDetail() {
           entityType="shipment"
           entityIds={[shipment.id]}
           currentAccountId={shipment.account_id}
-          currentAccountName={shipment.accounts?.name}
+          currentAccountName={(shipment.accounts as any)?.account_name}
           onSuccess={fetchShipment}
+          tenantId={profile?.tenant_id}
+          userId={profile?.id}
         />
       )}
 
