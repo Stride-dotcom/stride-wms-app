@@ -402,6 +402,7 @@ function IssueGroupRow({
   getLevelBadge,
   getStatusBadge,
 }: IssueGroupRowProps) {
+  const { toast } = useToast();
   return (
     <>
       <TableRow className="cursor-pointer hover:bg-muted/50" onClick={onToggle}>
@@ -485,7 +486,24 @@ function IssueGroupRow({
           <TableCell colSpan={10} className="p-4">
             <div className="space-y-4">
               <div>
-                <h4 className="font-medium mb-2">Full Error Message</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium">Full Error Message</h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(group.error_message);
+                      toast({
+                        title: 'Copied',
+                        description: 'Error message copied to clipboard',
+                      });
+                    }}
+                    className="h-7 gap-1"
+                  >
+                    <MaterialIcon name="content_copy" size="sm" />
+                    Copy
+                  </Button>
+                </div>
                 <pre className="bg-background p-3 rounded-md text-sm overflow-x-auto">
                   {group.error_message}
                 </pre>

@@ -244,11 +244,17 @@ export default function Tasks() {
     setDialogOpen(true);
   };
 
-  const handleDialogSuccess = () => {
+  const handleDialogSuccess = (createdTaskId?: string) => {
     setDialogOpen(false);
     setEditingTask(null);
     setPreSelectedTaskType(undefined);
-    refetch();
+    
+    // Navigate to task detail if a new task was created
+    if (createdTaskId) {
+      navigate(`/tasks/${createdTaskId}`);
+    } else {
+      refetch();
+    }
   };
 
   const handleUnableToComplete = async (note: string) => {

@@ -48,7 +48,7 @@ interface TaskDialogProps {
   task?: Task | null;
   selectedItemIds?: string[];
   preSelectedTaskType?: string;
-  onSuccess: () => void;
+  onSuccess: (createdTaskId?: string) => void;
 }
 
 interface Account {
@@ -430,6 +430,11 @@ export function TaskDialog({
           title: `${allItemIds.length} Tasks Created`,
           description: `Created one ${formData.task_type} task per item.`,
         });
+
+        // For multiple tasks, navigate to first one
+        onSuccess(newTasks?.[0]?.id);
+        onOpenChange(false);
+        return;
       } else {
         // Original logic: create single task with all items
         const taskData = {
@@ -493,9 +498,15 @@ export function TaskDialog({
             title: 'Task Created',
             description: 'Your task is now in the queue.',
           });
+
+          // Pass the new task ID to navigate to it
+          onSuccess(newTask?.id);
+          onOpenChange(false);
+          return;
         }
       }
 
+      // For updates (editing), just call onSuccess without ID
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
