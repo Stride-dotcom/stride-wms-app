@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { queueInvoiceCreatedAlert } from '@/lib/alertQueue';
+import { getEffectiveRate } from '@/lib/billing/chargeTypeUtils';
 
 export interface Invoice {
   id: string;
@@ -315,36 +316,19 @@ export function useBillableCharges(
                 const serviceCode = taskTypeToServiceCode[task.task_type.toLowerCase()] || null;
                 let rate = 0;
 
-                // Look up rate from service_events (Price List) based on service code and class
+                // Look up rate via unified pricing (new system first, legacy fallback)
                 if (serviceCode) {
-                  // Try class-specific rate first
-                  if (classCode) {
-                    const { data: classRate } = await supabase
-                      .from('service_events')
-                      .select('rate')
-                      .eq('tenant_id', profile.tenant_id)
-                      .eq('service_code', serviceCode)
-                      .eq('class_code', classCode)
-                      .eq('is_active', true)
-                      .maybeSingle();
-                    if (classRate) {
-                      rate = classRate.rate || 0;
+                  try {
+                    const rateResult = await getEffectiveRate({
+                      tenantId: profile.tenant_id,
+                      chargeCode: serviceCode,
+                      classCode: classCode || undefined,
+                    });
+                    if (!rateResult.has_error) {
+                      rate = rateResult.effective_rate || 0;
                     }
-                  }
-
-                  // Fall back to general rate if no class-specific rate
-                  if (rate === 0) {
-                    const { data: generalRate } = await supabase
-                      .from('service_events')
-                      .select('rate')
-                      .eq('tenant_id', profile.tenant_id)
-                      .eq('service_code', serviceCode)
-                      .is('class_code', null)
-                      .eq('is_active', true)
-                      .maybeSingle();
-                    if (generalRate) {
-                      rate = generalRate.rate || 0;
-                    }
+                  } catch {
+                    // Swallow — rate stays 0
                   }
                 }
 
@@ -416,35 +400,19 @@ export function useBillableCharges(
           for (const item of items) {
             const classCode = item.class_id ? storageClassMap.get(item.class_id) : null;
 
-            // Look up storage rate from service_events (Price List)
+            // Look up storage rate via unified pricing (new system first, legacy fallback)
             let dailyRate = 0;
-            if (classCode) {
-              const { data: classRate } = await supabase
-                .from('service_events')
-                .select('rate')
-                .eq('tenant_id', profile.tenant_id)
-                .eq('service_code', 'STORAGE')
-                .eq('class_code', classCode)
-                .eq('is_active', true)
-                .maybeSingle();
-              if (classRate) {
-                dailyRate = classRate.rate || 0;
+            try {
+              const storageResult = await getEffectiveRate({
+                tenantId: profile.tenant_id,
+                chargeCode: 'STORAGE',
+                classCode: classCode || undefined,
+              });
+              if (!storageResult.has_error) {
+                dailyRate = storageResult.effective_rate || 0;
               }
-            }
-
-            // Fall back to general storage rate if no class-specific rate
-            if (dailyRate === 0) {
-              const { data: generalRate } = await supabase
-                .from('service_events')
-                .select('rate')
-                .eq('tenant_id', profile.tenant_id)
-                .eq('service_code', 'STORAGE')
-                .is('class_code', null)
-                .eq('is_active', true)
-                .maybeSingle();
-              if (generalRate) {
-                dailyRate = generalRate.rate || 0;
-              }
+            } catch {
+              // Swallow — dailyRate stays 0
             }
 
             if (dailyRate <= 0) continue;

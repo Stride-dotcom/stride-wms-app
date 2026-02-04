@@ -58,6 +58,9 @@ export interface EffectiveRateResult {
   add_to_scan: boolean;
   add_flag: boolean;
 
+  // Alert rule
+  alert_rule: string;
+
   // Rate info
   unit: string;
   base_rate: number;
@@ -195,6 +198,7 @@ export async function getEffectiveRate(params: GetEffectiveRateParams): Promise<
     service_time_minutes: 0,
     add_to_scan: false,
     add_flag: false,
+    alert_rule: 'none',
     unit: 'each',
     base_rate: 0,
     effective_rate: 0,
@@ -216,6 +220,9 @@ export async function getEffectiveRate(params: GetEffectiveRateParams): Promise<
     const legacyResult = await getEffectiveRateFromLegacy(params);
 
     if (!legacyResult.has_error) {
+      // Log fallback occurrence
+      console.warn(`[pricing-fallback] tenant=${tenantId} service=${chargeCode} — new system failed, used legacy service_events`);
+      logPricingFallback(tenantId, chargeCode, 'rate_lookup');
       return legacyResult;
     }
 
@@ -248,6 +255,7 @@ async function getEffectiveRateFromNewSystem(params: GetEffectiveRateParams): Pr
     service_time_minutes: 0,
     add_to_scan: false,
     add_flag: false,
+    alert_rule: 'none',
     unit: 'each',
     base_rate: 0,
     effective_rate: 0,
@@ -365,6 +373,7 @@ async function getEffectiveRateFromNewSystem(params: GetEffectiveRateParams): Pr
     service_time_minutes: pricingRule.service_time_minutes || 0,
     add_to_scan: chargeType.add_to_scan || false,
     add_flag: chargeType.add_flag || false,
+    alert_rule: chargeType.alert_rule || 'none',
     unit: pricingRule.unit || 'each',
     base_rate: baseRate,
     effective_rate: effectiveRate,
@@ -392,6 +401,7 @@ async function getEffectiveRateFromLegacy(params: GetEffectiveRateParams): Promi
     service_time_minutes: 0,
     add_to_scan: false,
     add_flag: false,
+    alert_rule: 'none',
     unit: 'each',
     base_rate: 0,
     effective_rate: 0,
@@ -497,6 +507,7 @@ async function getEffectiveRateFromLegacy(params: GetEffectiveRateParams): Promi
     service_time_minutes: serviceEvent.service_time_minutes || 0,
     add_to_scan: serviceEvent.add_to_service_event_scan || false,
     add_flag: serviceEvent.add_flag || false,
+    alert_rule: serviceEvent.alert_rule || 'none',
     unit: mapLegacyToUnit(serviceEvent.billing_unit || 'Item'),
     base_rate: baseRate,
     effective_rate: effectiveRate,
@@ -504,6 +515,64 @@ async function getEffectiveRateFromLegacy(params: GetEffectiveRateParams): Promi
     adjustment_applied: adjustmentApplied,
     has_error: false,
     error_message: null,
+  };
+}
+
+
+// =============================================================================
+// PRICING FALLBACK LOG
+// =============================================================================
+
+/**
+ * Log a pricing fallback event. Best-effort: failure to log must NOT break the user flow.
+ */
+function logPricingFallback(tenantId: string, serviceCode: string, context: string): void {
+  supabase
+    .from('pricing_fallback_log')
+    .insert({ tenant_id: tenantId, service_code: serviceCode, context })
+    .then(({ error }) => {
+      if (error) {
+        // Best-effort — swallow errors silently (table may not exist yet)
+        console.warn('[pricing-fallback] Failed to write log row:', error.message);
+      }
+    });
+}
+
+/**
+ * Explicitly log a pricing fallback from an external caller.
+ * Use this when a caller bypasses getEffectiveRate() (e.g. category_id lookup).
+ */
+export function logPricingFallbackExternal(tenantId: string, serviceCode: string, context: string): void {
+  console.warn(`[pricing-fallback] tenant=${tenantId} service=${serviceCode} context=${context} — used legacy service_events`);
+  logPricingFallback(tenantId, serviceCode, context);
+}
+
+
+// =============================================================================
+// RATE RESULT ADAPTER
+// =============================================================================
+
+/**
+ * Convert EffectiveRateResult to the legacy RateLookupResult shape
+ * used by billingCalculation.ts and other callers.
+ */
+export function toRateLookupResult(r: EffectiveRateResult): {
+  rate: number;
+  serviceName: string;
+  serviceCode: string;
+  billingUnit: string;
+  alertRule: string;
+  hasError: boolean;
+  errorMessage?: string;
+} {
+  return {
+    rate: r.effective_rate,
+    serviceName: r.charge_name || r.charge_code,
+    serviceCode: r.charge_code,
+    billingUnit: mapUnitToLegacy(r.unit),
+    alertRule: r.alert_rule,
+    hasError: r.has_error,
+    errorMessage: r.error_message || undefined,
   };
 }
 

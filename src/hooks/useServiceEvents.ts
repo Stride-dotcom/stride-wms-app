@@ -300,7 +300,7 @@ export function useServiceEvents() {
       rate: rateResult.effective_rate,
       serviceName: rateResult.charge_name || serviceCode,
       billingUnit: mapUnitToLegacy(rateResult.unit),
-      alertRule: 'none', // Alert rules are handled differently in new system
+      alertRule: rateResult.alert_rule || 'none',
       hasError: rateResult.has_error,
       errorMessage: rateResult.error_message,
       chargeTypeId: rateResult.charge_type_id || undefined,
