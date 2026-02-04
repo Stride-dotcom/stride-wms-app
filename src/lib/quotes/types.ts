@@ -4,7 +4,7 @@ export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined' | 'expired'
 
 export type QuoteBillingUnit = 'flat' | 'per_piece' | 'per_line_item' | 'per_class' | 'per_hour' | 'per_day';
 
-export type DiscountType = 'percent' | 'fixed';
+export type DiscountType = 'percentage' | 'flat_rate';
 
 export type QuoteEventType =
   | 'created'

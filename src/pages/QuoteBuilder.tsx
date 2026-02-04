@@ -102,7 +102,7 @@ export default function QuoteBuilder() {
   // UI state
   const [expandedClasses, setExpandedClasses] = useState<Set<string>>(new Set());
   const [showDiscountDialog, setShowDiscountDialog] = useState(false);
-  const [discountType, setDiscountType] = useState<DiscountType>('percent');
+  const [discountType, setDiscountType] = useState<DiscountType>('percentage');
   const [discountValue, setDiscountValue] = useState('');
   const [showSendDialog, setShowSendDialog] = useState(false);
   const [sendEmail, setSendEmail] = useState('');
@@ -676,7 +676,7 @@ export default function QuoteBuilder() {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
               <MaterialIcon name="arrow_back" size="md" />
@@ -686,7 +686,7 @@ export default function QuoteBuilder() {
                 {isNew ? 'New Quote' : quote?.quote_number || 'Quote'}
               </h1>
               {quote && (
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <Badge variant={QUOTE_STATUS_CONFIG[quote.status].variant as any}>
                     {QUOTE_STATUS_CONFIG[quote.status].label}
                   </Badge>
@@ -706,13 +706,13 @@ export default function QuoteBuilder() {
               )}
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap justify-end">
             {!isNew && quote && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline">
-                    <MaterialIcon name="download" size="sm" className="mr-2" />
-                    Export
+                  <Button variant="outline" size="sm" className="sm:size-default">
+                    <MaterialIcon name="download" size="sm" className="sm:mr-2" />
+                    <span className="hidden sm:inline">Export</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -728,19 +728,20 @@ export default function QuoteBuilder() {
               </DropdownMenu>
             )}
             {!isNew && quote && quote.status === 'draft' && (
-              <Button variant="outline" onClick={openSendDialog}>
-                <MaterialIcon name="send" size="sm" className="mr-2" />
-                Send Quote
+              <Button variant="outline" size="sm" className="sm:size-default" onClick={openSendDialog}>
+                <MaterialIcon name="send" size="sm" className="sm:mr-2" />
+                <span className="hidden sm:inline">Send Quote</span>
               </Button>
             )}
             {canEdit && (
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={handleSave} disabled={saving} size="sm" className="sm:size-default">
                 {saving ? (
-                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                  <MaterialIcon name="progress_activity" size="sm" className="sm:mr-2 animate-spin" />
                 ) : (
-                  <MaterialIcon name="save" size="sm" className="mr-2" />
+                  <MaterialIcon name="save" size="sm" className="sm:mr-2" />
                 )}
-                {isNew ? 'Create Quote' : 'Save Changes'}
+                <span className="hidden sm:inline">{isNew ? 'Create Quote' : 'Save Changes'}</span>
+                <span className="sm:hidden">Save</span>
               </Button>
             )}
           </div>
@@ -1323,7 +1324,7 @@ export default function QuoteBuilder() {
                     {formData.quote_discount_value && formData.quote_discount_value > 0 && (
                       <div className="flex justify-between text-green-600">
                         <span>
-                          Discount ({formData.quote_discount_type === 'percent'
+                          Discount ({formData.quote_discount_type === 'percentage'
                             ? `${formData.quote_discount_value}%`
                             : formatCurrency(formData.quote_discount_value)}
                           )
@@ -1440,8 +1441,8 @@ export default function QuoteBuilder() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="percent">Percentage (%)</SelectItem>
-                  <SelectItem value="fixed">Fixed Amount ($)</SelectItem>
+                  <SelectItem value="percentage">Percentage (%)</SelectItem>
+                  <SelectItem value="flat_rate">Fixed Amount ($)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1450,10 +1451,10 @@ export default function QuoteBuilder() {
               <Input
                 type="number"
                 min="0"
-                step={discountType === 'percent' ? '1' : '0.01'}
+                step={discountType === 'percentage' ? '1' : '0.01'}
                 value={discountValue}
                 onChange={(e) => setDiscountValue(e.target.value)}
-                placeholder={discountType === 'percent' ? '10' : '50.00'}
+                placeholder={discountType === 'percentage' ? '10' : '50.00'}
               />
             </div>
           </div>
