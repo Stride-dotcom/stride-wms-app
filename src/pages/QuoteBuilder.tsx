@@ -213,7 +213,7 @@ export default function QuoteBuilder() {
               service_id: ss.service_id,
               is_selected: ss.is_selected,
               hours_input: ss.hours_input,
-              qty_input: null,
+              qty_input: ss.hours_input, // Load from hours_input for persistence
             })),
             rate_overrides: data.rate_overrides.map((override) => ({
               service_id: override.service_id,
