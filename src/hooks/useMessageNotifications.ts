@@ -55,7 +55,7 @@ export function useMessageNotifications() {
           // Don't notify for own messages
           if (message.sender_id === profile.id) return;
 
-          const sender = message.sender as { first_name: string | null; last_name: string | null } | null;
+          const sender = message.sender as unknown as { first_name: string | null; last_name: string | null } | null;
           const senderName = sender
             ? `${sender.first_name || ''} ${sender.last_name || ''}`.trim()
             : 'New Message';
