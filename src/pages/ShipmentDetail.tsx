@@ -114,7 +114,7 @@ interface Shipment {
   sidemark_id: string | null;
   sidemark: string | null;
   created_at: string;
-  accounts?: { id: string; name: string } | null;
+  accounts?: { id: string; account_name: string; account_code: string } | null;
   warehouses?: { id: string; name: string } | null;
 }
 
@@ -236,25 +236,7 @@ export default function ShipmentDetail() {
   // Prompt context for guided prompts
   const promptContext = usePromptContextSafe();
 
-  // Wrapped startSession with prompt trigger
-  const startSession = useCallback(async () => {
-    // Show pre-task prompt if available
-    if (promptContext?.showPrompt) {
-      const shown = promptContext.showPrompt('receiving_pre_task', {
-        contextType: 'shipment',
-        contextId: id,
-      });
-      // If prompt is not shown (advanced user or no prompt configured), start immediately
-      if (!shown) {
-        await rawStartSession();
-      } else {
-        // Prompt is shown - still start the session (prompt is informational only)
-        await rawStartSession();
-      }
-    } else {
-      await rawStartSession();
-    }
-  }, [rawStartSession, promptContext, id]);
+  // startSession is defined after fetchShipment below
 
   // Wrapped finishSession with prompt trigger and competency tracking
   const finishSession = useCallback(async (
@@ -403,6 +385,34 @@ export default function ShipmentDetail() {
   useEffect(() => {
     fetchShipment();
   }, [fetchShipment]);
+
+  // Wrapped startSession with prompt trigger and audit logging
+  const startSession = useCallback(async () => {
+    // Show pre-task prompt if available (non-blocking, informational only)
+    if (promptContext?.showPrompt) {
+      promptContext.showPrompt('receiving_pre_task', {
+        contextType: 'shipment',
+        contextId: id,
+      });
+    }
+    
+    // Always start the session regardless of prompt
+    const result = await rawStartSession();
+    
+    // Log status change to audit if session started successfully
+    if (result && profile?.tenant_id && profile?.id) {
+      await logShipmentAudit('status_changed', {
+        previous_status: shipment?.status || 'incoming',
+        new_status: 'receiving',
+        action: 'Started receiving session',
+      });
+    }
+    
+    // Refetch shipment to reflect status change in UI
+    await fetchShipment();
+    
+    return result;
+  }, [rawStartSession, promptContext, id, logShipmentAudit, profile?.tenant_id, profile?.id, shipment?.status, fetchShipment]);
 
   const outboundItems = items.filter(item => item.item?.id);
   const activeOutboundItems = outboundItems.filter(item => item.status !== 'cancelled');
@@ -609,7 +619,7 @@ export default function ShipmentDetail() {
             itemCode: item.item_code || '',
             description: item.description || '',
             vendor: item.vendor || '',
-            account: shipment?.accounts?.name || '',
+            account: shipment?.accounts?.account_name || '',
             sidemark: '', // Would need to join sidemark table
             room: (item as any).room || '',
             warehouseName: shipment?.warehouses?.name || '',
@@ -1217,7 +1227,7 @@ export default function ShipmentDetail() {
               )}
             </div>
             <p className="text-muted-foreground text-sm truncate">
-              {(shipment.accounts as any)?.account_name || 'No account'} • {shipment.warehouses?.name || 'No warehouse'}
+              {shipment.accounts?.account_name || 'No account'} • {shipment.warehouses?.name || 'No warehouse'}
             </p>
           </div>
         </div>
@@ -2018,7 +2028,7 @@ export default function ShipmentDetail() {
           open={addAddonDialogOpen}
           onOpenChange={setAddAddonDialogOpen}
           accountId={shipment.account_id}
-          accountName={shipment.accounts?.name}
+          accountName={shipment.accounts?.account_name}
           shipmentId={shipment.id}
           onSuccess={() => {
             // Refresh both shipment data and billing calculator
@@ -2200,7 +2210,7 @@ export default function ShipmentDetail() {
           entityType="shipment"
           entityIds={[shipment.id]}
           currentAccountId={shipment.account_id}
-          currentAccountName={(shipment.accounts as any)?.account_name}
+          currentAccountName={shipment.accounts?.account_name}
           onSuccess={fetchShipment}
           tenantId={profile?.tenant_id}
           userId={profile?.id}
