@@ -718,6 +718,7 @@ export default function ShipmentDetail() {
           expected_vendor: itemToDuplicate.expected_vendor,
           expected_sidemark: itemToDuplicate.expected_sidemark,
           expected_quantity: itemToDuplicate.expected_quantity,
+          expected_class_id: itemToDuplicate.expected_class_id,
           status: 'pending',
         });
 

@@ -207,6 +207,8 @@ export default function ShipmentCreate() {
       description: itemToDuplicate.description,
       vendor: itemToDuplicate.vendor,
       quantity: itemToDuplicate.quantity,
+      classId: itemToDuplicate.classId,
+      classCode: itemToDuplicate.classCode,
     };
     // Insert the duplicate right after the original item
     const index = expectedItems.findIndex((item) => item.id === itemToDuplicate.id);
