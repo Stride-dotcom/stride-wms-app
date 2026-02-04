@@ -143,7 +143,7 @@ function applyDiscount(
   }
 
   let discountAmount: number;
-  if (discountType === 'percent') {
+  if (discountType === 'percentage') {
     discountAmount = amount * (discountValue / 100);
   } else {
     discountAmount = discountValue;

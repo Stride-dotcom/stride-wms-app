@@ -169,18 +169,17 @@ export function AppleBanner() {
               e.stopPropagation();
               handleDismiss();
             }}
-            className="shrink-0 stoplight-dot stoplight-close stoplight-sm min-w-[48px] min-h-[48px] flex items-center justify-center -mr-2 -mt-1"
+            className="shrink-0 w-7 h-7 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
             aria-label="Dismiss notification"
             type="button"
           >
             <svg
-              className="opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-              width={5}
-              height={5}
+              width={8}
+              height={8}
               viewBox="0 0 6 6"
               fill="none"
-              stroke="#4D0000"
-              strokeWidth="1.2"
+              stroke="white"
+              strokeWidth="1.5"
               strokeLinecap="round"
             >
               <line x1="0.5" y1="0.5" x2="5.5" y2="5.5" />
@@ -242,18 +241,17 @@ export function AppleBanner() {
             e.stopPropagation();
             handleDismiss();
           }}
-          className="shrink-0 stoplight-dot stoplight-close stoplight-sm min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 -mt-1"
+          className="shrink-0 w-7 h-7 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
           aria-label="Dismiss notification"
           type="button"
         >
           <svg
-            className="opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-            width={5}
-            height={5}
+            width={8}
+            height={8}
             viewBox="0 0 6 6"
             fill="none"
-            stroke="#4D0000"
-            strokeWidth="1.2"
+            stroke="white"
+            strokeWidth="1.5"
             strokeLinecap="round"
           >
             <line x1="0.5" y1="0.5" x2="5.5" y2="5.5" />
