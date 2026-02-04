@@ -505,7 +505,7 @@ export function useQuotes() {
               quote_id: quote.id,
               service_id: ss.service_id,
               is_selected: true,
-              hours_input: ss.hours_input,
+              hours_input: ss.qty_input ?? ss.hours_input,
             }));
 
           if (serviceInserts.length > 0) {
@@ -666,7 +666,7 @@ export function useQuotes() {
               quote_id: quoteId,
               service_id: ss.service_id,
               is_selected: true,
-              hours_input: ss.hours_input,
+              hours_input: ss.qty_input ?? ss.hours_input,
             }));
 
           if (serviceInserts.length > 0) {
