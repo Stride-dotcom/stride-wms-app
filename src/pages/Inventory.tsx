@@ -233,7 +233,9 @@ export default function Inventory() {
         item.description?.toLowerCase().includes(searchLower) ||
         item.client_account?.toLowerCase().includes(searchLower) ||
         item.sidemark?.toLowerCase().includes(searchLower) ||
-        item.vendor?.toLowerCase().includes(searchLower);
+        item.vendor?.toLowerCase().includes(searchLower) ||
+        item.location_code?.toLowerCase().includes(searchLower) ||
+        item.location_name?.toLowerCase().includes(searchLower);
 
       // Status filter
       let matchesStatus = true;
@@ -360,7 +362,7 @@ export default function Inventory() {
           <CardHeader><CardTitle>Items</CardTitle><CardDescription>{filteredAndSortedItems.length} items found{selectedItems.size > 0 && ` • ${selectedItems.size} selected`}</CardDescription></CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
-              <div className="relative flex-1"><MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input placeholder="Search item code, description, vendor, sidemark, client..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" /></div>
+              <div className="relative flex-1"><MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input placeholder="Search item code, description, vendor, sidemark, client, location..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" /></div>
               <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="all">All</SelectItem><SelectItem value="released">Released</SelectItem><SelectItem value="disposed">Disposed</SelectItem></SelectContent></Select>
               <InventoryFiltersSheet filters={filters} onFiltersChange={setFilters} />
             </div>

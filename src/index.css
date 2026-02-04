@@ -380,3 +380,24 @@ a:hover svg,
     flex-shrink: 0;
   }
 }
+
+/* Badge gradient classes */
+.badge-gradient-default {
+  background: linear-gradient(135deg, #007AFF, #0055CC);
+}
+.badge-gradient-destructive {
+  background: linear-gradient(135deg, #FF3B30, #CC2D26);
+}
+.badge-gradient-success {
+  background: linear-gradient(135deg, #34C759, #28A745);
+}
+.badge-gradient-warning {
+  background: linear-gradient(135deg, #FF9F0A, #E8900A);
+}
+.badge-gradient-secondary {
+  background: linear-gradient(135deg, #F5F5F7, #E8E8ED);
+}
+.dark .badge-gradient-secondary {
+  background: linear-gradient(135deg, #2C2C2E, #1C1C1E);
+  border-color: rgba(255, 255, 255, 0.08);
+}
