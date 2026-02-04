@@ -714,13 +714,6 @@ export function EmployeeDialog({
             <Separator />
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
               <Button type="submit" disabled={loading}>
                 {loading ? (
                   <>

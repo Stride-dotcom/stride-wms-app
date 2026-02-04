@@ -4,7 +4,7 @@ import { SearchableSelect, SelectOption } from "@/components/ui/searchable-selec
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { toast } from "sonner";
+import { toast } from "@/lib/toastShim";
 
 /**
  * Demo page for mobile-safe form components

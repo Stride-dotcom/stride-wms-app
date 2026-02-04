@@ -1592,14 +1592,6 @@ export function AccountDialog({
                     Add Charge
                   </Button>
                 )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
                 <Button type="submit" disabled={loading}>
                   {loading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
                   {isEditing ? 'Update Account' : 'Create Account'}

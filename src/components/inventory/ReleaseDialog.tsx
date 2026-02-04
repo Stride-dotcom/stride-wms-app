@@ -365,9 +365,6 @@ export function ReleaseDialog({ open, onOpenChange, selectedItems, onSuccess }: 
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
-            Cancel
-          </Button>
           <Button onClick={handleSubmit} disabled={submitting || loading}>
             {submitting && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
             Create {releaseType === 'will_call' ? 'Will Call' : 'Disposal'}

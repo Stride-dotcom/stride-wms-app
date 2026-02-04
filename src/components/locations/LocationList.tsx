@@ -4,6 +4,7 @@ import { Warehouse } from '@/hooks/useWarehouses';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
@@ -123,18 +124,9 @@ export function LocationList({
     onPrintSelected(selected);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge variant="default" className="bg-green-600">Active</Badge>;
-      case 'inactive':
-        return <Badge variant="secondary">Inactive</Badge>;
-      case 'full':
-        return <Badge variant="outline" className="border-amber-500 text-amber-500">Full</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
+  const getStatusBadge = (status: string) => (
+    <StatusIndicator status={status} size="sm" />
+  );
 
   const getTypeBadge = (type: string) => {
     const colors: Record<string, string> = {

@@ -326,13 +326,14 @@ export function AIClientBot() {
         onClick={() => !isDragging && setIsOpen(true)}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
-        className={`fixed h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center z-50 transition-shadow duration-200 ${
-          isDragging ? 'shadow-2xl scale-110 cursor-grabbing' : 'hover:shadow-xl cursor-grab'
+        className={`fixed h-14 w-14 rounded-full flex items-center justify-center z-50 backdrop-blur-xl bg-white/70 dark:bg-black/50 border border-white/30 dark:border-white/10 text-primary shadow-[0_8px_32px_rgba(0,0,0,0.12)] ${
+          isDragging ? 'shadow-2xl scale-110 cursor-grabbing' : 'hover:shadow-xl hover:scale-105 cursor-grab'
         }`}
         style={{
           right: position.x,
           bottom: position.y,
           transition: isDragging ? 'none' : 'box-shadow 0.2s, transform 0.2s',
+          animation: isDragging ? 'none' : 'fab-spring-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both',
         }}
       >
         <MaterialIcon name="smart_toy" size="md" />

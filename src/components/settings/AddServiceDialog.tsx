@@ -734,9 +734,6 @@ export function AddServiceDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
           <Button onClick={handleSave} disabled={saving}>
             {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
             {duplicateFrom ? 'Create Duplicate' : 'Create Service'}

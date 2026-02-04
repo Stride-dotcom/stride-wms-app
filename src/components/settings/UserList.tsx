@@ -3,6 +3,7 @@ import { UserWithRoles, Role } from '@/hooks/useUsers';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -158,20 +159,9 @@ export function UserList({
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge variant="default" className="bg-green-600">Active</Badge>;
-      case 'pending':
-        return <Badge variant="outline" className="border-amber-500 text-amber-600">Pending</Badge>;
-      case 'inactive':
-        return <Badge variant="secondary">Inactive</Badge>;
-      case 'suspended':
-        return <Badge variant="destructive">Suspended</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
+  const getStatusBadge = (status: string) => (
+    <StatusIndicator status={status} size="sm" />
+  );
 
   const getPromptLevelBadge = (level?: PromptLevel) => {
     switch (level) {

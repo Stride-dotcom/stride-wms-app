@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useMessages, MessageRecipient, InAppNotification } from '@/hooks/useMessages';
+import { useAppleBanner } from '@/hooks/useAppleBanner';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useUsers } from '@/hooks/useUsers';
 import { usePresence } from '@/hooks/usePresence';
@@ -35,6 +36,15 @@ import { MessageInputBar } from '@/components/messages/MessageInputBar';
 
 export default function Messages() {
   const { profile } = useAuth();
+  const { banner, hideBanner } = useAppleBanner();
+
+  // Auto-dismiss persistent message banners when landing on Messages page
+  useEffect(() => {
+    if (banner?.persistent && banner?.type === 'info') {
+      hideBanner();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const {
     messages,
     notifications,

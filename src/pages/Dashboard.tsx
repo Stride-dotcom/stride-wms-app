@@ -10,6 +10,13 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardStats, PutAwayItem, TaskItem, ShipmentItem } from '@/hooks/useDashboardStats';
+import { useCountUp } from '@/hooks/useCountUp';
+
+/** Animated count display for dashboard tiles */
+function AnimatedCount({ value, delay = 0, className }: { value: number; delay?: number; className?: string }) {
+  const animated = useCountUp(value, 600, delay);
+  return <span className={className}>{animated}</span>;
+}
 
 /**
  * Format minutes to a readable time string
@@ -245,7 +252,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {tiles.map((t) => {
+            {tiles.map((t, tileIndex) => {
               const isExpanded = expandedCard === t.key;
               const items = getExpandedItems(t.key);
               const timeStr = t.timeEstimate ? formatTimeEstimate(t.timeEstimate) : '';
@@ -291,7 +298,7 @@ export default function Dashboard() {
                       onClick={t.onClick}
                       role="button"
                     >
-                      <span className={`text-3xl font-bold ${t.countColor}`}>{t.count ?? 0}</span>
+                      <AnimatedCount value={t.count ?? 0} delay={tileIndex * 80} className={`text-3xl font-bold ${t.countColor}`} />
                       {timeStr && t.count > 0 && (
                         <span className="text-sm text-muted-foreground">
                           ⏱️ ~{timeStr}

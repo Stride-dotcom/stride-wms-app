@@ -765,9 +765,6 @@ export function ClaimCreateDialog({
         </div>
 
         <DialogFooter className="pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
           <Button
             onClick={handleSubmit}
             disabled={

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from 'react';
+import { registerBannerFunction } from '@/lib/toastShim';
 
 type BannerType = 'success' | 'info' | 'warning' | 'error' | 'destructive';
 
@@ -9,6 +10,10 @@ interface BannerState {
   icon?: string;
   type: BannerType;
   navigateTo?: string;
+  persistent?: boolean;
+  senderAvatar?: string;
+  messagePreview?: string;
+  onDismiss?: () => void;
 }
 
 interface AppleBannerContextType {
@@ -21,8 +26,15 @@ const AppleBannerContext = createContext<AppleBannerContextType | undefined>(und
 
 export function AppleBannerProvider({ children }: { children: ReactNode }) {
   const [banner, setBanner] = useState<BannerState | null>(null);
+  const [bannerQueue, setBannerQueue] = useState<BannerState[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bannerRef = useRef<BannerState | null>(null);
+
+  // Keep ref in sync with state for use in callbacks
+  useEffect(() => {
+    bannerRef.current = banner;
+  }, [banner]);
 
   const clearTimers = useCallback(() => {
     if (timerRef.current) {
@@ -37,24 +49,70 @@ export function AppleBannerProvider({ children }: { children: ReactNode }) {
 
   const hideBanner = useCallback(() => {
     clearTimers();
-    setBanner(null);
+
+    // Call onDismiss callback if present
+    if (bannerRef.current?.onDismiss) {
+      bannerRef.current.onDismiss();
+    }
+
+    // Check queue for next persistent banner
+    setBannerQueue(prev => {
+      if (prev.length > 0) {
+        const [next, ...rest] = prev;
+        setBanner(next);
+        if (!next.persistent) {
+          timerRef.current = setTimeout(() => {
+            setBanner(currentBanner => {
+              if (currentBanner?.id === next.id) {
+                return null;
+              }
+              return currentBanner;
+            });
+          }, 3000);
+        }
+        return rest;
+      }
+      setBanner(null);
+      return prev;
+    });
   }, [clearTimers]);
 
   const showBanner = useCallback((config: Omit<BannerState, 'id'>) => {
     clearTimers();
 
-    // Debounce rapid calls within 100ms
-    debounceRef.current = setTimeout(() => {
-      const id = Date.now().toString() + Math.random().toString(36).slice(2, 9);
-      const newBanner: BannerState = { ...config, id };
-      setBanner(newBanner);
+    const id = Date.now().toString() + Math.random().toString(36).slice(2, 9);
+    const newBanner: BannerState = { ...config, id };
 
-      // Auto-dismiss after 3000ms
-      timerRef.current = setTimeout(() => {
-        setBanner(null);
-      }, 3000);
-    }, 100);
+    // If a persistent banner is already showing and new one is also persistent, queue it
+    if (config.persistent && bannerRef.current?.persistent) {
+      setBannerQueue(prev => [...prev, newBanner]);
+      return;
+    }
+
+    // Debounce rapid calls within 100ms for non-persistent banners
+    if (!config.persistent) {
+      debounceRef.current = setTimeout(() => {
+        setBanner(newBanner);
+        timerRef.current = setTimeout(() => {
+          setBanner(currentBanner => {
+            if (currentBanner?.id === newBanner.id) {
+              return null;
+            }
+            return currentBanner;
+          });
+        }, 3000);
+      }, 100);
+    } else {
+      // Persistent banners show immediately, no auto-dismiss
+      setBanner(newBanner);
+    }
   }, [clearTimers]);
+
+  // Register shim so all toast() calls route through AppleBanner
+  useEffect(() => {
+    registerBannerFunction(showBanner);
+    return () => registerBannerFunction(null);
+  }, [showBanner]);
 
   // Clean up timers on unmount
   useEffect(() => {

@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toastShim';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 interface ClientPortalLayoutProps {
