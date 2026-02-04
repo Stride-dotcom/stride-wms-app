@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { AppleBanner } from '@/components/ui/AppleBanner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -583,9 +584,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       )}>
         {/* Header - Auto-hides on scroll */}
         <header className={cn(
-          "sticky top-0 z-30 shrink-0 bg-card border-b flex items-center px-4 lg:px-6 pt-safe h-[calc(3rem+env(safe-area-inset-top,0px))] transition-transform duration-300",
+          "sticky top-0 z-30 shrink-0 bg-card border-b flex items-center px-4 lg:px-6 pt-safe h-[calc(3rem+env(safe-area-inset-top,0px))] transition-transform duration-300 relative",
           !headerVisible && "-translate-y-full"
         )}>
+          <AppleBanner />
           <Button
             variant="ghost"
             size="icon"

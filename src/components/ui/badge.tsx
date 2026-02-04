@@ -4,17 +4,23 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded-full border text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-gradient-to-b from-primary to-primary/90 text-primary-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] hover:from-primary/90 hover:to-primary/80",
-        secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive: "border-transparent bg-gradient-to-b from-red-500 to-red-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] hover:from-red-400 hover:to-red-500",
-        outline: "text-foreground",
-        success: "border-transparent bg-gradient-to-b from-emerald-400 to-emerald-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]",
-        warning: "border-transparent bg-gradient-to-b from-amber-400 to-amber-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]",
-        info: "border-transparent bg-gradient-to-b from-blue-400 to-blue-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]",
+        default:
+          "border-blue-500/20 text-white badge-gradient-default",
+        secondary:
+          "border-gray-300/40 text-gray-700 dark:text-gray-200 badge-gradient-secondary",
+        destructive:
+          "border-red-500/20 text-white badge-gradient-destructive",
+        outline:
+          "border-gray-300 dark:border-gray-600 bg-transparent text-foreground",
+        success:
+          "border-green-500/20 text-white badge-gradient-success",
+        warning:
+          "border-amber-500/20 text-white badge-gradient-warning",
+        info: "border-blue-500/20 text-white badge-gradient-default",
       },
     },
     defaultVariants: {
@@ -28,11 +34,24 @@ export interface BadgeProps
     VariantProps<typeof badgeVariants> {}
 
 const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
-  ({ className, variant, ...props }, ref) => {
+  ({ className, variant, style, ...props }, ref) => {
+    const isOutline = variant === "outline";
+
+    const gradientStyle: React.CSSProperties = isOutline
+      ? {}
+      : {
+          boxShadow:
+            "0 1px 2px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.15)",
+          fontSize: "12px",
+          letterSpacing: "0.01em",
+          padding: "2px 10px",
+        };
+
     return (
       <div
         ref={ref}
         className={cn(badgeVariants({ variant }), className)}
+        style={{ ...gradientStyle, ...style }}
         {...props}
       />
     );

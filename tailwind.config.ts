@@ -81,6 +81,10 @@ export default {
         md: "0.375rem",
         DEFAULT: "0.25rem",
         sm: "0.125rem",
+        "apple-sm": "10px",
+        "apple-md": "16px",
+        "apple-lg": "22px",
+        "apple-xl": "28px",
       },
       backgroundImage: {
         'gloss-light': 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
@@ -206,6 +210,16 @@ export default {
             transform: "scaleY(1)",
           },
         },
+        // Banner roll-down/up animations
+        "banner-roll-down": {
+          "0%": { transform: "translateX(-50%) translateY(-100%)", opacity: "0" },
+          "60%": { transform: "translateX(-50%) translateY(5%)", opacity: "1" },
+          "100%": { transform: "translateX(-50%) translateY(0)", opacity: "1" },
+        },
+        "banner-roll-up": {
+          "0%": { transform: "translateX(-50%) translateY(0)", opacity: "1" },
+          "100%": { transform: "translateX(-50%) translateY(-100%)", opacity: "0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -218,6 +232,8 @@ export default {
         "slide-in-bottom": "slide-in-from-bottom 0.3s ease-out forwards",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "indicator-bounce": "indicator-bounce 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "banner-roll-down": "banner-roll-down 400ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+        "banner-roll-up": "banner-roll-up 250ms ease-out forwards",
       },
       transitionTimingFunction: {
         bounce: "cubic-bezier(0.34, 1.56, 0.64, 1)",
