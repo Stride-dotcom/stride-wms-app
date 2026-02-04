@@ -753,19 +753,7 @@ export default function BillingReports() {
       if (result.success > 0) {
         toast({
           title: 'Invoices Created',
-          description: (
-            <div className="flex flex-col gap-2">
-              <span>{result.success} invoice(s) created as drafts</span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-fit"
-                onClick={() => navigate('/invoices')}
-              >
-                View Invoices
-              </Button>
-            </div>
-          ),
+          description: `${result.success} invoice(s) created as drafts. View them on the Invoices page.`,
         });
       }
     } finally {

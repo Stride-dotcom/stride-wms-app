@@ -21,6 +21,7 @@ interface SelectedServiceInput {
   service_id: string;
   is_selected: boolean;
   hours_input: number | null;
+  qty_input: number | null;
 }
 
 interface ClassServiceSelectionInput {
@@ -104,7 +105,8 @@ function calculateBillableQty(
   service: QuoteService,
   classLines: ClassLineInput[],
   storageDays: number,
-  hoursInput: number | null
+  hoursInput: number | null,
+  qtyInput: number | null
 ): number {
   const totalPieces = classLines.reduce((sum, line) => sum + (line.qty || 0), 0);
   const lineItemCount = classLines.filter((line) => (line.qty || 0) > 0).length;
@@ -119,7 +121,8 @@ function calculateBillableQty(
     case 'per_class':
       return totalPieces; // Calculated per class in class line totals
     case 'per_hour':
-      return hoursInput ?? 0;
+      // Use qty_input first (for assembly/task services), then hours_input
+      return qtyInput ?? hoursInput ?? 0;
     case 'per_day':
       return service.is_storage_service ? storageDays : 1;
     default:
@@ -190,7 +193,8 @@ export function calculateQuote(params: CalculateQuoteParams): QuoteCalculation {
       service,
       classLines,
       storageDays,
-      selectedService.hours_input
+      selectedService.hours_input,
+      selectedService.qty_input
     );
 
     // For per_class and per_piece services with class-specific rates,
