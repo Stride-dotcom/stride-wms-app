@@ -303,76 +303,73 @@ END $$;
 -- =============================================================================
 DO $$
 DECLARE
-  se RECORD;
+  rec_ct RECORD;
+  rec_pr RECORD;
   ct_id UUID;
   mapped_trigger TEXT;
   mapped_unit TEXT;
   mapped_category TEXT;
   mapped_input_mode TEXT;
 BEGIN
-  -- Process each unique service_code per tenant (ignoring class variations for charge_types)
-  FOR se IN
-    SELECT DISTINCT ON (tenant_id, service_code)
-      tenant_id,
-      service_code,
-      service_name,
-      billing_unit,
-      billing_trigger,
-      service_time_minutes,
-      taxable,
-      is_active,
-      add_flag,
-      add_to_service_event_scan,
-      alert_rule,
-      notes,
-      uses_class_pricing
-    FROM public.service_events
-    WHERE tenant_id IS NOT NULL
-      AND service_code IS NOT NULL
-    ORDER BY tenant_id, service_code, (class_code IS NULL) DESC, created_at
+  -- ---------------------------------------------------------------------------
+  -- 1) Create/Upsert charge_types from unique (tenant_id, service_code)
+  -- ---------------------------------------------------------------------------
+  FOR rec_ct IN
+    SELECT DISTINCT ON (sv.tenant_id, sv.service_code)
+      sv.tenant_id,
+      sv.service_code,
+      sv.service_name,
+      sv.billing_unit,
+      sv.billing_trigger,
+      sv.service_time_minutes,
+      sv.taxable,
+      sv.is_active,
+      sv.add_flag,
+      sv.add_to_service_event_scan,
+      sv.alert_rule,
+      sv.notes
+    FROM public.service_events sv
+    WHERE sv.tenant_id IS NOT NULL
+      AND sv.service_code IS NOT NULL
+    ORDER BY sv.tenant_id, sv.service_code, (sv.class_code IS NULL) DESC, sv.created_at
   LOOP
-    -- Map billing_trigger to default_trigger (ONE WORD ONLY)
     mapped_trigger := CASE
-      WHEN se.billing_trigger ILIKE '%auto%' OR se.billing_trigger ILIKE '%calculate%' THEN 'auto'
-      WHEN se.billing_trigger ILIKE '%task%' OR se.billing_trigger ILIKE '%completion%' THEN 'task'
-      WHEN se.billing_trigger ILIKE '%ship%' OR se.billing_trigger ILIKE '%receive%' OR se.billing_trigger ILIKE '%inbound%' OR se.billing_trigger ILIKE '%outbound%' THEN 'shipment'
-      WHEN se.billing_trigger ILIKE '%storage%' OR se.billing_trigger ILIKE '%day%' OR se.billing_trigger ILIKE '%month%' THEN 'storage'
+      WHEN rec_ct.billing_trigger ILIKE '%auto%' OR rec_ct.billing_trigger ILIKE '%calculate%' THEN 'auto'
+      WHEN rec_ct.billing_trigger ILIKE '%task%' OR rec_ct.billing_trigger ILIKE '%completion%' THEN 'task'
+      WHEN rec_ct.billing_trigger ILIKE '%ship%' OR rec_ct.billing_trigger ILIKE '%receive%' OR rec_ct.billing_trigger ILIKE '%inbound%' OR rec_ct.billing_trigger ILIKE '%outbound%' THEN 'shipment'
+      WHEN rec_ct.billing_trigger ILIKE '%storage%' OR rec_ct.billing_trigger ILIKE '%day%' OR rec_ct.billing_trigger ILIKE '%month%' THEN 'storage'
       ELSE 'manual'
     END;
 
-    -- Map billing_unit to new unit format
     mapped_unit := CASE
-      WHEN se.billing_unit ILIKE '%day%' THEN 'per_day'
-      WHEN se.billing_unit ILIKE '%month%' THEN 'per_month'
-      WHEN se.billing_unit ILIKE '%hour%' THEN 'per_hour'
-      WHEN se.billing_unit ILIKE '%minute%' THEN 'per_minute'
-      WHEN se.billing_unit ILIKE '%task%' THEN 'per_task'
-      WHEN se.billing_unit ILIKE '%item%' THEN 'per_item'
+      WHEN rec_ct.billing_unit ILIKE '%day%' THEN 'per_day'
+      WHEN rec_ct.billing_unit ILIKE '%month%' THEN 'per_month'
+      WHEN rec_ct.billing_unit ILIKE '%hour%' THEN 'per_hour'
+      WHEN rec_ct.billing_unit ILIKE '%minute%' THEN 'per_minute'
+      WHEN rec_ct.billing_unit ILIKE '%task%' THEN 'per_task'
+      WHEN rec_ct.billing_unit ILIKE '%item%' THEN 'per_item'
       ELSE 'each'
     END;
 
-    -- Map to category based on service_code patterns
     mapped_category := CASE
-      WHEN se.service_code ILIKE '%recv%' OR se.service_code ILIKE '%rcvg%' OR se.service_code ILIKE '%receive%' THEN 'receiving'
-      WHEN se.service_code ILIKE '%stor%' THEN 'storage'
-      WHEN se.service_code ILIKE '%ship%' OR se.service_code ILIKE '%outbound%' OR se.service_code ILIKE '%will_call%' THEN 'shipping'
-      WHEN se.service_code ILIKE '%insp%' OR se.service_code ILIKE '%assy%' OR se.service_code ILIKE '%repair%' THEN 'task'
+      WHEN rec_ct.service_code ILIKE '%recv%' OR rec_ct.service_code ILIKE '%rcvg%' OR rec_ct.service_code ILIKE '%receive%' THEN 'receiving'
+      WHEN rec_ct.service_code ILIKE '%stor%' THEN 'storage'
+      WHEN rec_ct.service_code ILIKE '%ship%' OR rec_ct.service_code ILIKE '%outbound%' OR rec_ct.service_code ILIKE '%will_call%' THEN 'shipping'
+      WHEN rec_ct.service_code ILIKE '%insp%' OR rec_ct.service_code ILIKE '%assy%' OR rec_ct.service_code ILIKE '%repair%' THEN 'task'
       ELSE 'general'
     END;
 
-    -- Map input_mode based on billing_unit
     mapped_input_mode := CASE
       WHEN mapped_unit IN ('per_hour', 'per_minute') THEN 'time'
-      WHEN se.service_code ILIKE '%labor%' OR se.service_code ILIKE '%hr%' THEN 'time'
+      WHEN rec_ct.service_code ILIKE '%labor%' OR rec_ct.service_code ILIKE '%hr%' THEN 'time'
       ELSE 'qty'
     END;
 
-    -- Check if charge_type already exists
     SELECT id INTO ct_id
     FROM public.charge_types
-    WHERE tenant_id = se.tenant_id AND charge_code = se.service_code;
+    WHERE tenant_id = rec_ct.tenant_id
+      AND charge_code = rec_ct.service_code;
 
-    -- Insert charge_type if not exists
     IF ct_id IS NULL THEN
       INSERT INTO public.charge_types (
         tenant_id,
@@ -389,52 +386,54 @@ BEGIN
         notes,
         legacy_service_code
       ) VALUES (
-        se.tenant_id,
-        se.service_code,
-        se.service_name,
+        rec_ct.tenant_id,
+        rec_ct.service_code,
+        rec_ct.service_name,
         mapped_category,
-        se.is_active,
-        COALESCE(se.taxable, false),
+        rec_ct.is_active,
+        COALESCE(rec_ct.taxable, false),
         mapped_trigger,
         mapped_input_mode,
-        COALESCE(se.add_to_service_event_scan, false),
-        COALESCE(se.add_flag, false),
-        COALESCE(se.alert_rule, 'none'),
-        se.notes,
-        se.service_code
+        COALESCE(rec_ct.add_to_service_event_scan, false),
+        COALESCE(rec_ct.add_flag, false),
+        COALESCE(rec_ct.alert_rule, 'none'),
+        rec_ct.notes,
+        rec_ct.service_code
       )
       RETURNING id INTO ct_id;
     END IF;
   END LOOP;
 
-  -- Now create pricing_rules for each service_event (including class-specific ones)
-  FOR se IN
+  -- ---------------------------------------------------------------------------
+  -- 2) Create/Upsert pricing_rules for each service_events row (class + flat)
+  -- ---------------------------------------------------------------------------
+  FOR rec_pr IN
     SELECT
-      se.tenant_id,
-      se.service_code,
-      se.class_code,
-      se.rate,
-      se.billing_unit,
-      se.service_time_minutes,
-      se.uses_class_pricing,
-      ct.id AS charge_type_id
-    FROM public.service_events se
-    JOIN public.charge_types ct ON ct.tenant_id = se.tenant_id AND ct.charge_code = se.service_code
-    WHERE se.tenant_id IS NOT NULL
-      AND ct.deleted_at IS NULL
+      sv2.tenant_id,
+      sv2.service_code,
+      sv2.class_code,
+      sv2.rate,
+      sv2.billing_unit,
+      sv2.service_time_minutes,
+      ct2.id AS charge_type_id
+    FROM public.service_events sv2
+    JOIN public.charge_types ct2
+      ON ct2.tenant_id = sv2.tenant_id
+     AND ct2.charge_code = sv2.service_code
+    WHERE sv2.tenant_id IS NOT NULL
+      AND sv2.service_code IS NOT NULL
+      AND (ct2.deleted_at IS NULL OR ct2.deleted_at IS NULL) -- harmless if column exists; remove if not
   LOOP
-    -- Map billing_unit to new unit format
     mapped_unit := CASE
-      WHEN se.billing_unit ILIKE '%day%' THEN 'per_day'
-      WHEN se.billing_unit ILIKE '%month%' THEN 'per_month'
-      WHEN se.billing_unit ILIKE '%hour%' THEN 'per_hour'
-      WHEN se.billing_unit ILIKE '%minute%' THEN 'per_minute'
-      WHEN se.billing_unit ILIKE '%task%' THEN 'per_task'
-      WHEN se.billing_unit ILIKE '%item%' THEN 'per_item'
+      WHEN rec_pr.billing_unit ILIKE '%day%' THEN 'per_day'
+      WHEN rec_pr.billing_unit ILIKE '%month%' THEN 'per_month'
+      WHEN rec_pr.billing_unit ILIKE '%hour%' THEN 'per_hour'
+      WHEN rec_pr.billing_unit ILIKE '%minute%' THEN 'per_minute'
+      WHEN rec_pr.billing_unit ILIKE '%task%' THEN 'per_task'
+      WHEN rec_pr.billing_unit ILIKE '%item%' THEN 'per_item'
       ELSE 'each'
     END;
 
-    -- Insert pricing_rule if not exists
     INSERT INTO public.pricing_rules (
       tenant_id,
       charge_type_id,
@@ -445,14 +444,14 @@ BEGIN
       is_default,
       service_time_minutes
     ) VALUES (
-      se.tenant_id,
-      se.charge_type_id,
-      CASE WHEN se.class_code IS NOT NULL THEN 'class_based' ELSE 'flat' END,
-      se.class_code,
+      rec_pr.tenant_id,
+      rec_pr.charge_type_id,
+      CASE WHEN rec_pr.class_code IS NOT NULL THEN 'class_based' ELSE 'flat' END,
+      rec_pr.class_code,
       mapped_unit,
-      COALESCE(se.rate, 0),
-      CASE WHEN se.class_code IS NULL THEN true ELSE false END,
-      COALESCE(se.service_time_minutes, 0)
+      COALESCE(rec_pr.rate, 0),
+      CASE WHEN rec_pr.class_code IS NULL THEN true ELSE false END,
+      COALESCE(rec_pr.service_time_minutes, 0)
     )
     ON CONFLICT (charge_type_id, class_code) DO UPDATE SET
       rate = EXCLUDED.rate,
