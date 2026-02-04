@@ -184,9 +184,20 @@ export function initErrorTracker(cfg: ErrorTrackerConfig): void {
   
   // Capture uncaught exceptions
   window.onerror = (message, source, lineno, colno, error) => {
+    const messageStr = String(message);
+    
+    // Skip known noise
+    if (
+      messageStr.includes('ResizeObserver loop') ||
+      messageStr.includes('cdn.tailwindcss.com') ||
+      messageStr.includes('Script error.')
+    ) {
+      return false;
+    }
+    
     sendToServer({
       level: 'error',
-      error_message: String(message),
+      error_message: messageStr,
       stack_trace: error?.stack || `at ${source}:${lineno}:${colno}`,
       component_name: extractComponentFromStack(error?.stack),
     });
@@ -244,11 +255,14 @@ export function initErrorTracker(cfg: ErrorTrackerConfig): void {
       try { return JSON.stringify(a); } catch { return String(a); }
     }).join(' ');
     
-    // Skip React warnings and common noise
+    // Skip React warnings, common noise, and CDN warnings
     if (
       message.includes('Warning:') ||
       message.includes('validateDOMNesting') ||
-      message.includes('React does not recognize')
+      message.includes('React does not recognize') ||
+      message.includes('cdn.tailwindcss.com') ||
+      message.includes('ResizeObserver loop') ||
+      message.includes('DialogTitle')
     ) {
       return;
     }

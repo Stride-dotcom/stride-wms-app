@@ -130,10 +130,10 @@ export function useReceivingSession(shipmentId: string | undefined) {
 
       if (error) throw error;
 
-      // Update shipment status
+      // Update shipment status - use 'in_progress' (valid constraint value)
       const { error: shipmentError } = await supabase
         .from('shipments')
-        .update({ status: 'receiving' })
+        .update({ status: 'in_progress' })
         .eq('id', shipmentId);
 
       if (shipmentError) throw shipmentError;

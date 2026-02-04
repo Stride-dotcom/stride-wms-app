@@ -22,11 +22,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -408,158 +403,154 @@ function IssueGroupRow({
   getStatusBadge,
 }: IssueGroupRowProps) {
   return (
-    <Collapsible open={expanded} onOpenChange={onToggle} asChild>
-      <>
-        <TableRow className="cursor-pointer hover:bg-muted/50" onClick={onToggle}>
-          <TableCell>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
-                {expanded ? (
-                  <MaterialIcon name="expand_more" size="sm" />
-                ) : (
-                  <MaterialIcon name="chevron_right" size="sm" />
-                )}
+    <>
+      <TableRow className="cursor-pointer hover:bg-muted/50" onClick={onToggle}>
+        <TableCell>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onToggle(); }}>
+            {expanded ? (
+              <MaterialIcon name="expand_more" size="sm" />
+            ) : (
+              <MaterialIcon name="chevron_right" size="sm" />
+            )}
+          </Button>
+        </TableCell>
+        <TableCell>
+          <Badge variant="outline">{group.count}</Badge>
+        </TableCell>
+        <TableCell className="text-sm text-muted-foreground">
+          {formatDistanceToNow(new Date(group.last_seen), { addSuffix: true })}
+        </TableCell>
+        <TableCell>
+          <div className="max-w-md">
+            <p className="truncate font-mono text-sm">{group.error_message}</p>
+            {group.component_name && (
+              <p className="text-xs text-muted-foreground">
+                Component: {group.component_name}
+              </p>
+            )}
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="flex flex-wrap gap-1">
+            {group.affected_routes.slice(0, 2).map((route) => (
+              <Badge key={route} variant="outline" className="text-xs">
+                {route}
+              </Badge>
+            ))}
+            {group.affected_routes.length > 2 && (
+              <Badge variant="outline" className="text-xs">
+                +{group.affected_routes.length - 2}
+              </Badge>
+            )}
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="flex flex-wrap gap-1">
+            {group.affected_roles.map((role) => (
+              <Badge key={role} variant="secondary" className="text-xs capitalize">
+                {role.replace('_', ' ')}
+              </Badge>
+            ))}
+          </div>
+        </TableCell>
+        <TableCell>{getLevelBadge(group.level)}</TableCell>
+        <TableCell>{getSeverityBadge(group.severity)}</TableCell>
+        <TableCell>{getStatusBadge(group.status)}</TableCell>
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MaterialIcon name="more_horiz" size="sm" />
               </Button>
-            </CollapsibleTrigger>
-          </TableCell>
-          <TableCell>
-            <Badge variant="outline">{group.count}</Badge>
-          </TableCell>
-          <TableCell className="text-sm text-muted-foreground">
-            {formatDistanceToNow(new Date(group.last_seen), { addSuffix: true })}
-          </TableCell>
-          <TableCell>
-            <div className="max-w-md">
-              <p className="truncate font-mono text-sm">{group.error_message}</p>
-              {group.component_name && (
-                <p className="text-xs text-muted-foreground">
-                  Component: {group.component_name}
-                </p>
-              )}
-            </div>
-          </TableCell>
-          <TableCell>
-            <div className="flex flex-wrap gap-1">
-              {group.affected_routes.slice(0, 2).map((route) => (
-                <Badge key={route} variant="outline" className="text-xs">
-                  {route}
-                </Badge>
-              ))}
-              {group.affected_routes.length > 2 && (
-                <Badge variant="outline" className="text-xs">
-                  +{group.affected_routes.length - 2}
-                </Badge>
-              )}
-            </div>
-          </TableCell>
-          <TableCell>
-            <div className="flex flex-wrap gap-1">
-              {group.affected_roles.map((role) => (
-                <Badge key={role} variant="secondary" className="text-xs capitalize">
-                  {role.replace('_', ' ')}
-                </Badge>
-              ))}
-            </div>
-          </TableCell>
-          <TableCell>{getLevelBadge(group.level)}</TableCell>
-          <TableCell>{getSeverityBadge(group.severity)}</TableCell>
-          <TableCell>{getStatusBadge(group.status)}</TableCell>
-          <TableCell onClick={(e) => e.stopPropagation()}>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MaterialIcon name="more_horiz" size="sm" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onStatusChange(group.fingerprint, 'acknowledged')}>
-                  <MaterialIcon name="visibility" size="sm" className="mr-2" />
-                  Acknowledge
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onStatusChange(group.fingerprint, 'fixed')}>
-                  <MaterialIcon name="check_circle" size="sm" className="mr-2" />
-                  Mark Fixed
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onStatusChange(group.fingerprint, 'ignored')}>
-                  <MaterialIcon name="cancel" size="sm" className="mr-2" />
-                  Ignore
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </TableCell>
-        </TableRow>
-        <CollapsibleContent asChild>
-          <TableRow className="bg-muted/30">
-            <TableCell colSpan={10} className="p-4">
-              <div className="space-y-4">
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onStatusChange(group.fingerprint, 'acknowledged')}>
+                <MaterialIcon name="visibility" size="sm" className="mr-2" />
+                Acknowledge
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onStatusChange(group.fingerprint, 'fixed')}>
+                <MaterialIcon name="check_circle" size="sm" className="mr-2" />
+                Mark Fixed
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onStatusChange(group.fingerprint, 'ignored')}>
+                <MaterialIcon name="cancel" size="sm" className="mr-2" />
+                Ignore
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </TableCell>
+      </TableRow>
+      {expanded && (
+        <TableRow className="bg-muted/30">
+          <TableCell colSpan={10} className="p-4">
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-medium mb-2">Full Error Message</h4>
+                <pre className="bg-background p-3 rounded-md text-sm overflow-x-auto">
+                  {group.error_message}
+                </pre>
+              </div>
+
+              {group.issues[0]?.stack_trace && (
                 <div>
-                  <h4 className="font-medium mb-2">Full Error Message</h4>
-                  <pre className="bg-background p-3 rounded-md text-sm overflow-x-auto">
-                    {group.error_message}
+                  <h4 className="font-medium mb-2">Stack Trace</h4>
+                  <pre className="bg-background p-3 rounded-md text-xs overflow-x-auto max-h-48">
+                    {group.issues[0].stack_trace}
                   </pre>
                 </div>
+              )}
 
-                {group.issues[0]?.stack_trace && (
-                  <div>
-                    <h4 className="font-medium mb-2">Stack Trace</h4>
-                    <pre className="bg-background p-3 rounded-md text-xs overflow-x-auto max-h-48">
-                      {group.issues[0].stack_trace}
-                    </pre>
-                  </div>
-                )}
-
-                <div>
-                  <h4 className="font-medium mb-2">
-                    Occurrences ({group.issues.length})
-                  </h4>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {group.issues.slice(0, 20).map((issue) => (
-                      <div
-                        key={issue.id}
-                        className="bg-background p-3 rounded-md text-sm flex items-center gap-4"
-                      >
-                        <span className="text-muted-foreground whitespace-nowrap">
-                          {format(new Date(issue.created_at), 'MMM d, HH:mm:ss')}
-                        </span>
-                        <Badge variant="outline" className="whitespace-nowrap">
-                          {issue.route}
+              <div>
+                <h4 className="font-medium mb-2">
+                  Occurrences ({group.issues.length})
+                </h4>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {group.issues.slice(0, 20).map((issue) => (
+                    <div
+                      key={issue.id}
+                      className="bg-background p-3 rounded-md text-sm flex items-center gap-4"
+                    >
+                      <span className="text-muted-foreground whitespace-nowrap">
+                        {format(new Date(issue.created_at), 'MMM d, HH:mm:ss')}
+                      </span>
+                      <Badge variant="outline" className="whitespace-nowrap">
+                        {issue.route}
+                      </Badge>
+                      {issue.user_role && (
+                        <Badge variant="secondary" className="capitalize whitespace-nowrap">
+                          {issue.user_role.replace('_', ' ')}
                         </Badge>
-                        {issue.user_role && (
-                          <Badge variant="secondary" className="capitalize whitespace-nowrap">
-                            {issue.user_role.replace('_', ' ')}
-                          </Badge>
-                        )}
-                        {issue.action_context && (
-                          <span className="text-muted-foreground truncate">
-                            Action: {issue.action_context}
-                          </span>
-                        )}
-                        {issue.http_status && (
-                          <Badge
-                            variant={issue.http_status >= 500 ? 'destructive' : 'outline'}
-                          >
-                            HTTP {issue.http_status}
-                          </Badge>
-                        )}
-                        {issue.supabase_error_code && (
-                          <Badge variant="outline">
-                            {issue.supabase_error_code}
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
-                    {group.issues.length > 20 && (
-                      <p className="text-sm text-muted-foreground text-center py-2">
-                        +{group.issues.length - 20} more occurrences
-                      </p>
-                    )}
-                  </div>
+                      )}
+                      {issue.action_context && (
+                        <span className="text-muted-foreground truncate">
+                          Action: {issue.action_context}
+                        </span>
+                      )}
+                      {issue.http_status && (
+                        <Badge
+                          variant={issue.http_status >= 500 ? 'destructive' : 'outline'}
+                        >
+                          HTTP {issue.http_status}
+                        </Badge>
+                      )}
+                      {issue.supabase_error_code && (
+                        <Badge variant="outline">
+                          {issue.supabase_error_code}
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                  {group.issues.length > 20 && (
+                    <p className="text-sm text-muted-foreground text-center py-2">
+                      +{group.issues.length - 20} more occurrences
+                    </p>
+                  )}
                 </div>
               </div>
-            </TableCell>
-          </TableRow>
-        </CollapsibleContent>
-      </>
-    </Collapsible>
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 }
