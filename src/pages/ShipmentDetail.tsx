@@ -534,10 +534,41 @@ export default function ShipmentDetail() {
         return;
       }
 
-      const result = validationResult as { ok: boolean; blockers: SOPBlocker[] };
-      const blockers = (result?.blockers || []).filter(
+      let result = validationResult as { ok: boolean; blockers: SOPBlocker[] };
+      let blockers = (result?.blockers || []).filter(
         (b: SOPBlocker) => b.severity === 'blocking' || !b.severity
       );
+
+      // If ITEMS_WITHOUT_LOCATION blocker fires, attempt auto-assign then re-validate
+      const hasLocationBlocker = blockers.some(b => b.code === 'ITEMS_WITHOUT_LOCATION');
+      if (hasLocationBlocker && shipment.id) {
+        try {
+          const { data: assignResult } = await supabase.rpc(
+            'rpc_assign_receiving_location_for_shipment',
+            { p_shipment_id: shipment.id, p_note: 'Auto-assigned on Finish Receiving validation' }
+          );
+          const assignRes = assignResult as any;
+          if (assignRes?.ok && assignRes.updated_count > 0) {
+            toast({
+              title: 'Location Assigned',
+              description: `${assignRes.updated_count} item(s) assigned to ${assignRes.effective_location_code}.`,
+            });
+            // Re-validate after assignment
+            const { data: revalidation } = await (supabase as any).rpc(
+              'validate_shipment_receiving_completion',
+              { p_shipment_id: shipment.id }
+            );
+            if (revalidation) {
+              result = revalidation as { ok: boolean; blockers: SOPBlocker[] };
+              blockers = (result?.blockers || []).filter(
+                (b: SOPBlocker) => b.severity === 'blocking' || !b.severity
+              );
+            }
+          }
+        } catch {
+          // If auto-assign fails, continue with original blockers
+        }
+      }
 
       if (!result?.ok && blockers.length > 0) {
         setSopBlockers(result.blockers);
@@ -606,24 +637,24 @@ export default function ShipmentDetail() {
       setShowFinishDialog(false);
       setCreatedItemIds(result.createdItemIds);
       
-      // Fetch created items for label printing
+      // Fetch created items for label printing (include location code)
       if (result.createdItemIds.length > 0) {
-        const { data: createdItems } = await supabase
-          .from('items')
-          .select('id, item_code, description, vendor, sidemark_id, room')
+        const { data: createdItems } = await (supabase
+          .from('items') as any)
+          .select('id, item_code, description, vendor, sidemark_id, room, current_location_id, locations:current_location_id(code)')
           .in('id', result.createdItemIds);
 
         if (createdItems) {
-          const labelData: ItemLabelData[] = createdItems.map(item => ({
+          const labelData: ItemLabelData[] = createdItems.map((item: any) => ({
             id: item.id,
             itemCode: item.item_code || '',
             description: item.description || '',
             vendor: item.vendor || '',
             account: shipment?.accounts?.account_name || '',
-            sidemark: '', // Would need to join sidemark table
-            room: (item as any).room || '',
+            sidemark: '',
+            room: item.room || '',
             warehouseName: shipment?.warehouses?.name || '',
-            locationCode: 'RECV-DOCK',
+            locationCode: item.locations?.code || '',
           }));
           setCreatedItemsForLabels(labelData);
           setShowPrintLabelsDialog(true);

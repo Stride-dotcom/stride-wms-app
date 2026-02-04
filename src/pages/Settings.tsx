@@ -521,6 +521,7 @@ export default function Settings() {
               onRefresh={refetchLocations}
               onPrintSelected={handlePrintSelected}
               onImportCSV={handleImportCSV}
+              onWarehouseRefresh={refetchWarehouses}
             />
           </TabsContent>
 
