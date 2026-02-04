@@ -79,12 +79,12 @@ export function ItemSearchOverlay({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+    <div className="fixed inset-0 z-[60] bg-background flex flex-col pt-safe">
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b">
+      <div className="flex items-center gap-3 p-4 border-b bg-background">
         <button
           onClick={onClose}
-          className="p-2 hover:bg-muted rounded-lg transition-colors"
+          className="p-2 hover:bg-muted rounded-xl transition-colors"
         >
           <MaterialIcon name="close" size="lg" />
         </button>
@@ -199,12 +199,12 @@ export function LocationSearchOverlay({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+    <div className="fixed inset-0 z-[60] bg-background flex flex-col pt-safe">
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b">
+      <div className="flex items-center gap-3 p-4 border-b bg-background">
         <button
           onClick={onClose}
-          className="p-2 hover:bg-muted rounded-lg transition-colors"
+          className="p-2 hover:bg-muted rounded-xl transition-colors"
         >
           <MaterialIcon name="close" size="lg" />
         </button>

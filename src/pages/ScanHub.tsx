@@ -1369,21 +1369,32 @@ export default function ScanHub() {
             <Card className="w-full max-w-md mt-4">
               <CardContent className="py-4">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="font-medium">Batch: {batchItems.length} items</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Batch: {batchItems.length} items</span>
+                    {/* Add item button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowItemSearch(true)}
+                      className="h-7 w-7 p-0 rounded-full bg-primary/10 hover:bg-primary/20"
+                    >
+                      <MaterialIcon name="add" size="sm" className="text-primary" />
+                    </Button>
+                  </div>
                   <button
                     onClick={() => setBatchItems([])}
                     className="text-sm text-destructive hover:underline"
                   >
-                    Clear
+                    Clear All
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {batchItems.map((item) => (
-                    <Badge key={item.id} variant="secondary" className="text-sm">
+                    <Badge key={item.id} variant="secondary" className="text-sm pl-2.5 pr-1 py-1 gap-1">
                       {item.item_code}
                       <button
                         onClick={() => setBatchItems(prev => prev.filter(i => i.id !== item.id))}
-                        className="ml-1 hover:text-destructive"
+                        className="ml-0.5 p-0.5 rounded-full hover:bg-destructive/20 hover:text-destructive transition-colors"
                       >
                         <MaterialIcon name="close" size="sm" />
                       </button>
