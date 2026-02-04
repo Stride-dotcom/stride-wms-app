@@ -1,92 +1,123 @@
 
+# Fix: Services Disappearing & Assembly Rates Showing $0.00
 
-# Fix Coverage-Related Build Errors and Dialog Scrolling
+## Summary of Issues Found
 
-## Summary
-This plan fixes **34 TypeScript build errors** caused by Supabase types being out of sync with the database, and adds proper scrolling to the ShipmentCoverageDialog.
+After investigation, I found **two separate issues**:
 
-## Root Cause
-The database has tables and columns that aren't reflected in the auto-generated `types.ts` file:
-- **`account_coverage_settings`** table - exists in DB but missing from types
-- **`organization_claim_settings`** - missing coverage-related columns
-- **`shipments`** - missing coverage-related columns
+1. **"No classes found" message** - This was a **temporary build/deployment state**. The browser session confirms classes are now loading correctly (Extra Small, Small, Medium, Large, Extra Large all display properly).
 
-## Solution Approach
-Use the established project pattern: **cast `supabase` as `any`** to bypass TypeScript's type checking for these tables. This is already used throughout the codebase (58 instances found) as a standard workaround when types are out of sync.
+2. **Assembly services showing $0.00** - This is the **real underlying issue** caused by:
+   - The UI stores assembly quantities in a client-side `qty_input` field
+   - The database `quote_selected_services` table only has `hours_input` column (no `qty_input`)
+   - When quotes are saved, only `hours_input` is persisted
+   - When quotes are loaded, `qty_input` is always `null`, resulting in `0 * $250 = $0.00`
 
 ---
 
-## Implementation Steps
+## Root Cause Analysis
 
-### Step 1: Fix CoverageSelector.tsx
-Update the database queries to use `(supabase as any).from()` pattern:
-
-**Lines 148-176** - Account settings and org settings queries:
-```typescript
-// Before:
-const { data: accountSettings } = await supabase
-  .from('account_coverage_settings')
-  
-// After:
-const { data: accountSettings } = await (supabase as any)
-  .from('account_coverage_settings')
+```text
+Database Schema (quote_selected_services):
+┌────────────────────────────┐
+│ id                         │
+│ quote_id                   │
+│ service_id                 │
+│ is_selected                │
+│ hours_input        ← exists│
+│ computed_billable_qty      │
+│ applied_rate_amount        │
+│ line_total                 │
+│ created_at                 │
+│ updated_at                 │
+│                            │
+│ qty_input          ← MISSING│
+└────────────────────────────┘
 ```
 
-Same pattern for `organization_claim_settings` query.
+**The Problem Flow:**
+1. User enters "1" for Assembly 120m in the Qty field
+2. UI stores this in `formData.selected_services[x].qty_input = 1`
+3. Save operation runs: `hours_input: ss.hours_input` (line 508)
+4. `qty_input` is **never saved** to database
+5. Quote reloads: `qty_input` comes back as `null`
+6. Calculator: `qtyInput ?? hoursInput ?? 0` = `null ?? null ?? 0` = `0`
+7. Result: `0 * $250 = $0.00`
 
 ---
 
-### Step 2: Fix ShipmentCoverageDialog.tsx
+## Solution
 
-**Part A: Fix database queries (lines 96-124)**
-Apply the same `(supabase as any)` casting pattern.
+Use the existing `hours_input` column to store the quantity value for all service types. This avoids a database schema migration while solving the problem.
 
-**Part B: Add scroll support**
-Wrap the form content in `DialogBody` component:
+### Changes Required
+
+**File: `src/hooks/useQuotes.ts`**
+
+1. **Update CREATE quote logic** (around line 505-509):
+   - When inserting selected services, use `qty_input` value if available, fall back to `hours_input`
+   
+2. **Update UPDATE quote logic** (around line 650-660):
+   - Same pattern: persist `qty_input` into the `hours_input` database column
+
+3. **Update LOAD quote logic** (around line 212-217):
+   - When loading a quote, map `hours_input` from DB to `qty_input` for assembly/per_hour services
+
+**File: `src/pages/QuoteBuilder.tsx`**
+
+4. **Update form data loading** (around line 212-217):
+   - Ensure when loading an existing quote, the `qty_input` is populated from the stored `hours_input` value
+
+### Technical Implementation
+
+**In useQuotes.ts - Insert logic (line ~505):**
 ```typescript
-import { DialogBody } from '@/components/ui/dialog';
+// Before (current):
+hours_input: ss.hours_input,
 
-// In the JSX:
-<DialogContent className="max-w-md">
-  <DialogHeader>...</DialogHeader>
-  <DialogBody>
-    <div className="space-y-4 py-4">
-      {/* form content */}
-    </div>
-  </DialogBody>
-  <DialogFooter>...</DialogFooter>
-</DialogContent>
+// After (fixed):
+hours_input: ss.qty_input ?? ss.hours_input,
 ```
 
----
+**In QuoteBuilder.tsx - Load logic (line ~212-217):**
+```typescript
+// Before (current):
+selected_services: data.selected_services.map((ss) => ({
+  service_id: ss.service_id,
+  is_selected: ss.is_selected,
+  hours_input: ss.hours_input,
+  qty_input: null,  // ← Always null!
+})),
 
-### Step 3: Fix useAccountCoverageSettings.ts
-
-Update all 5 database query locations (lines 59-63, 73-74, 107-108, 122-123, 162) to use `(supabase as any).from()`.
+// After (fixed):
+selected_services: data.selected_services.map((ss) => ({
+  service_id: ss.service_id,
+  is_selected: ss.is_selected,
+  hours_input: ss.hours_input,
+  qty_input: ss.hours_input,  // ← Use hours_input for both
+})),
+```
 
 ---
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `src/components/coverage/CoverageSelector.tsx` | Cast supabase queries to `any` for account/org settings |
-| `src/components/shipments/ShipmentCoverageDialog.tsx` | Cast queries + add DialogBody for scrolling |
-| `src/hooks/useAccountCoverageSettings.ts` | Cast all supabase queries to `any` |
+| File | Change |
+|------|--------|
+| `src/hooks/useQuotes.ts` | Save `qty_input` into `hours_input` column when creating/updating quotes |
+| `src/pages/QuoteBuilder.tsx` | Load `hours_input` into `qty_input` when fetching existing quotes |
 
 ---
 
-## Why This Approach?
+## Expected Result After Fix
 
-1. **Established Pattern**: 58 existing uses of `(supabase as any)` in the codebase
-2. **No Database Changes**: Types will auto-sync eventually; this is a temporary bypass
-3. **Minimal Risk**: The data exists in the database, we're just telling TypeScript to trust us
-4. **Quick Fix**: Can be implemented in one PR without regenerating types
+When opening an existing quote with assembly services:
+- Assembly 120m with Qty=1 will calculate: 1 × $250.00 = $250.00
+- Assembly 60m with Qty=2 will calculate: 2 × $140.00 = $280.00
+- Values persist correctly across save/reload cycles
 
 ---
 
-## Expected Outcome
-- All 34 build errors resolved
-- ShipmentCoverageDialog scrolls properly on mobile/tablet
-- Coverage features work as designed
+## Technical Note
 
+The `hours_input` column is repurposed as a generic "quantity input" field. This is semantically imprecise (hours vs quantity) but avoids requiring a database migration. The calculator logic already handles this correctly since it prioritizes `qty_input` over `hours_input` - we just need to ensure the value is persisted and loaded properly.
