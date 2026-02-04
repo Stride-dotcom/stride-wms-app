@@ -278,6 +278,7 @@ export function useServiceEvents() {
           service_time_minutes: 0,
           add_to_scan: false,
           add_flag: false,
+          alert_rule: 'none',
           unit: 'each',
           base_rate: 0,
           effective_rate: 0,

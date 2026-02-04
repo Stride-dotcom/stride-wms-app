@@ -205,7 +205,7 @@ export function LocationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Location' : 'Add Location'}</DialogTitle>
           <DialogDescription>
@@ -221,7 +221,7 @@ export function LocationDialog({
           </div>
         ) : (
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 overflow-y-auto space-y-4 pr-2">
               <FormField
                 control={form.control}
                 name="warehouse_id"
@@ -387,22 +387,25 @@ export function LocationDialog({
                 />
               </div>
 
-              <DialogFooter className="pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
-                  {isEditing ? 'Update Location' : 'Create Location'}
-                </Button>
-              </DialogFooter>
             </form>
           </Form>
+        )}
+        
+        {!fetching && (
+          <DialogFooter className="pt-4 border-t mt-4 flex-shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading} onClick={form.handleSubmit(onSubmit)}>
+              {loading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
+              {isEditing ? 'Update Location' : 'Create Location'}
+            </Button>
+          </DialogFooter>
         )}
       </DialogContent>
     </Dialog>
