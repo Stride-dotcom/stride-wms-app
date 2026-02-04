@@ -10,6 +10,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { getEffectiveRate } from '@/lib/billing/chargeTypeUtils';
 
 // ============================================================================
 // TYPES
@@ -127,8 +128,9 @@ export async function getTaskItemsWithClass(
 }
 
 /**
- * Check if a rate exists for a service code + class code combination
- * Returns true if rate exists and is NOT NULL
+ * Check if a rate exists for a service code + class code combination.
+ * Uses unified pricing (new system first, legacy fallback).
+ * Returns true if a non-zero rate can be resolved.
  */
 export async function checkRateExists(
   tenantId: string,
@@ -136,35 +138,13 @@ export async function checkRateExists(
   classCode: string | null
 ): Promise<boolean> {
   try {
-    // Try class-specific rate first
-    if (classCode) {
-      const { data: classRate } = await supabase
-        .from('service_events')
-        .select('rate')
-        .eq('tenant_id', tenantId)
-        .eq('service_code', serviceCode)
-        .eq('class_code', classCode)
-        .eq('is_active', true)
-        .not('rate', 'is', null)
-        .maybeSingle();
+    const result = await getEffectiveRate({
+      tenantId,
+      chargeCode: serviceCode,
+      classCode: classCode || undefined,
+    });
 
-      if (classRate) {
-        return true;
-      }
-    }
-
-    // Fall back to general rate (no class_code)
-    const { data: generalRate } = await supabase
-      .from('service_events')
-      .select('rate')
-      .eq('tenant_id', tenantId)
-      .eq('service_code', serviceCode)
-      .is('class_code', null)
-      .eq('is_active', true)
-      .not('rate', 'is', null)
-      .maybeSingle();
-
-    return !!generalRate;
+    return !result.has_error && result.effective_rate > 0;
   } catch (error) {
     console.error('[checkRateExists] Error:', error);
     return false;

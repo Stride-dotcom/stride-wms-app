@@ -78,7 +78,12 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
+import {
+  BILLING_DISABLED_ERROR,
+  getEffectiveRate,
+  toRateLookupResult,
+  logPricingFallbackExternal,
+} from '@/lib/billing/chargeTypeUtils';
 
 // ============================================================================
 // LEGACY SERVICE CODE MAPPINGS (for backward compatibility)
@@ -194,6 +199,7 @@ export async function getRateByCategoryAndClass(
       }
 
       if (classService) {
+        logPricingFallbackExternal(tenantId, classService.service_code || 'UNKNOWN', 'category_rate_lookup');
         return {
           rate: classService.rate ?? 0,
           serviceName: classService.service_name || 'Unknown',
@@ -233,6 +239,7 @@ export async function getRateByCategoryAndClass(
     }
 
     if (flatRateService) {
+      logPricingFallbackExternal(tenantId, flatRateService.service_code || 'UNKNOWN', 'category_rate_lookup');
       return {
         rate: flatRateService.rate ?? 0,
         serviceName: flatRateService.service_name || 'Unknown',
@@ -273,14 +280,9 @@ export async function getRateByCategoryAndClass(
 }
 
 /**
- * @deprecated Use getRateByCategoryAndClass for new billing
- * Get rate from Price List (service_events table)
- *
- * Supports two service types:
- * 1. Class-based (uses_class_pricing=true): Try class-specific rate first
- * 2. Flat-rate (uses_class_pricing=false): Use the single row with class_code IS NULL
- *
- * Kept for backward compatibility with legacy billing (service_code based lookup)
+ * Get rate from the unified pricing system.
+ * Delegates to getEffectiveRate() which tries new system (charge_types + pricing_rules)
+ * first, then falls back to legacy service_events.
  */
 export async function getRateFromPriceList(
   tenantId: string,
@@ -289,99 +291,14 @@ export async function getRateFromPriceList(
   accountId?: string | null
 ): Promise<RateLookupResult> {
   try {
-    // Step 0: Check account_service_settings for is_enabled
-    if (accountId) {
-      const { data: accountSetting } = await supabase
-        .from('account_service_settings')
-        .select('is_enabled')
-        .eq('account_id', accountId)
-        .eq('service_code', serviceCode)
-        .maybeSingle();
+    const result = await getEffectiveRate({
+      tenantId,
+      chargeCode: serviceCode,
+      accountId: accountId || undefined,
+      classCode: classCode || undefined,
+    });
 
-      if (accountSetting && accountSetting.is_enabled === false) {
-        throw new Error(BILLING_DISABLED_ERROR);
-      }
-    }
-
-    // Step 1: Try class-specific rate first if classCode is provided
-    if (classCode) {
-      const { data: classRate } = await supabase
-        .from('service_events')
-        .select('rate, service_name, billing_unit, alert_rule, uses_class_pricing')
-        .eq('tenant_id', tenantId)
-        .eq('service_code', serviceCode)
-        .eq('class_code', classCode)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (classRate) {
-        return {
-          rate: classRate.rate ?? 0,
-          serviceName: classRate.service_name || serviceCode,
-          serviceCode,
-          billingUnit: classRate.billing_unit || 'Item',
-          alertRule: classRate.alert_rule || 'none',
-          hasError: classRate.rate === null,
-          errorMessage: classRate.rate === null ? 'Rate not configured for this service' : undefined,
-        };
-      }
-    }
-
-    // Step 2: Fall back to flat-rate service (class_code IS NULL, uses_class_pricing=false)
-    const { data: flatRate } = await supabase
-      .from('service_events')
-      .select('rate, service_name, billing_unit, alert_rule, uses_class_pricing')
-      .eq('tenant_id', tenantId)
-      .eq('service_code', serviceCode)
-      .is('class_code', null)
-      .eq('uses_class_pricing', false)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    if (flatRate) {
-      return {
-        rate: flatRate.rate ?? 0,
-        serviceName: flatRate.service_name || serviceCode,
-        serviceCode,
-        billingUnit: flatRate.billing_unit || 'Item',
-        alertRule: flatRate.alert_rule || 'none',
-        hasError: flatRate.rate === null,
-        errorMessage: flatRate.rate === null ? 'Rate not configured for this service' : undefined,
-      };
-    }
-
-    // Step 3: Try any service with class_code IS NULL (for legacy data without uses_class_pricing flag)
-    const { data: legacyFlatRate } = await supabase
-      .from('service_events')
-      .select('rate, service_name, billing_unit, alert_rule')
-      .eq('tenant_id', tenantId)
-      .eq('service_code', serviceCode)
-      .is('class_code', null)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    if (legacyFlatRate) {
-      return {
-        rate: legacyFlatRate.rate ?? 0,
-        serviceName: legacyFlatRate.service_name || serviceCode,
-        serviceCode,
-        billingUnit: legacyFlatRate.billing_unit || 'Item',
-        alertRule: legacyFlatRate.alert_rule || 'none',
-        hasError: legacyFlatRate.rate === null,
-        errorMessage: legacyFlatRate.rate === null ? 'Rate not configured for this service' : undefined,
-      };
-    }
-
-    // No rate found
-    return {
-      rate: 0,
-      serviceName: serviceCode,
-      serviceCode,
-      billingUnit: 'Item',
-      alertRule: 'none',
-      hasError: true,
-      errorMessage: `No rate found for service: ${serviceCode}`,
-    };
+    return toRateLookupResult(result);
   } catch (error) {
     console.error('[getRateFromPriceList] Error:', error);
     return {

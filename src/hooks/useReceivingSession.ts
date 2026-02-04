@@ -3,9 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { queueShipmentReceivedAlert, queueShipmentCompletedAlert } from '@/lib/alertQueue';
-import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
+import { BILLING_DISABLED_ERROR, getEffectiveRate } from '@/lib/billing/chargeTypeUtils';
 
-// Helper to get rate from Price List (service_events table)
+// Helper to get rate via unified pricing (new system first, legacy fallback)
 async function getRateFromPriceList(
   tenantId: string,
   serviceCode: string,
@@ -13,59 +13,21 @@ async function getRateFromPriceList(
   accountId?: string | null
 ): Promise<{ rate: number; hasError: boolean; errorMessage?: string }> {
   try {
-    // Check account_service_settings for is_enabled
-    if (accountId) {
-      const { data: accountSetting } = await supabase
-        .from('account_service_settings')
-        .select('is_enabled')
-        .eq('account_id', accountId)
-        .eq('service_code', serviceCode)
-        .maybeSingle();
+    const result = await getEffectiveRate({
+      tenantId,
+      chargeCode: serviceCode,
+      accountId: accountId || undefined,
+      classCode: classCode || undefined,
+    });
 
-      if (accountSetting && accountSetting.is_enabled === false) {
-        throw new Error(BILLING_DISABLED_ERROR);
-      }
-    }
-
-    // Try class-specific rate first
-    if (classCode) {
-      const { data: classRate } = await (supabase
-        .from('service_events') as any)
-        .select('rate')
-        .eq('tenant_id', tenantId)
-        .eq('service_code', serviceCode)
-        .eq('class_code', classCode)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (classRate) {
-        return { rate: classRate.rate, hasError: false };
-      }
-    }
-
-    // Fall back to general rate (no class_code)
-    const { data: generalRate } = await (supabase
-      .from('service_events') as any)
-      .select('rate')
-      .eq('tenant_id', tenantId)
-      .eq('service_code', serviceCode)
-      .is('class_code', null)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    if (generalRate) {
-      return { rate: generalRate.rate, hasError: false };
-    }
-
-    // No rate found
     return {
-      rate: 0,
-      hasError: true,
-      errorMessage: `No rate found in Price List for service: ${serviceCode}`,
+      rate: result.effective_rate,
+      hasError: result.has_error,
+      errorMessage: result.error_message || undefined,
     };
   } catch (error: any) {
     if (error?.message === BILLING_DISABLED_ERROR) {
-      throw error; // Re-throw billing disabled errors for caller to handle
+      throw error;
     }
     console.error('[getRateFromPriceList] Error:', error);
     return {
