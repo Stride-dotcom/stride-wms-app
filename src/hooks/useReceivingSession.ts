@@ -169,10 +169,12 @@ export function useReceivingSession(shipmentId: string | undefined) {
       if (error) throw error;
 
       // Update shipment status
-      await supabase
+      const { error: shipmentError } = await supabase
         .from('shipments')
         .update({ status: 'receiving' })
         .eq('id', shipmentId);
+
+      if (shipmentError) throw shipmentError;
 
       setSession(data as any);
       toast({
