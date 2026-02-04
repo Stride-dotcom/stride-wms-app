@@ -224,10 +224,25 @@ export function ShipmentHistoryTab({ shipmentId }: ShipmentHistoryTabProps) {
       if (auditEntries) {
         auditEntries.forEach((entry: any) => {
           const actionLabel = String(entry.action || 'Audit Event');
-          const detail = entry.changes_json?.message
-            || entry.changes_json?.note
-            || entry.changes_json?.scan_value
-            || 'Shipment activity recorded';
+          
+          // Format description based on action type
+          let detail = '';
+          if (entry.action === 'account_reassigned') {
+            const fromName = entry.changes_json?.previous_account_name || 'Unknown';
+            const toName = entry.changes_json?.new_account_name || 'Unknown';
+            detail = `Account changed from "${fromName}" to "${toName}"`;
+          } else if (entry.action === 'status_changed') {
+            const prevStatus = entry.changes_json?.previous_status || 'unknown';
+            const newStatus = entry.changes_json?.new_status || 'unknown';
+            const actionNote = entry.changes_json?.action || '';
+            detail = actionNote || `Status changed from ${prevStatus} to ${newStatus}`;
+          } else {
+            detail = entry.changes_json?.message
+              || entry.changes_json?.note
+              || entry.changes_json?.scan_value
+              || 'Shipment activity recorded';
+          }
+          
           allEvents.push({
             id: `audit-${entry.id}`,
             type: 'audit',
