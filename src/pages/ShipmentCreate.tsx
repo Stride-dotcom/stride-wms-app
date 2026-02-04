@@ -4,24 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useFieldSuggestions } from "@/hooks/useFieldSuggestions";
-import { useSidemarks } from "@/hooks/useSidemarks";
+import { useAccountSidemarks } from "@/hooks/useAccountSidemarks";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect, SelectOption } from "@/components/ui/searchable-select";
 import { ExpectedItemCard, ExpectedItemData, ExpectedItemErrors } from "@/components/shipments/ExpectedItemCard";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 // ============================================
@@ -77,24 +67,15 @@ export default function ShipmentCreate() {
   // Shipment fields
   const [accountId, setAccountId] = useState<string>("");
   const [warehouseId, setWarehouseId] = useState<string>("");
-  const [sidemarkId, setSidemarkId] = useState<string>("");
+  const [sidemark, setSidemark] = useState<string>("");
   const [carrier, setCarrier] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [poNumber, setPoNumber] = useState("");
   const [expectedArrivalDate, setExpectedArrivalDate] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Fetch sidemarks filtered by selected account
-  const { sidemarks, loading: sidemarksLoading, createSidemark, refetch: refetchSidemarks } = useSidemarks(accountId || undefined);
-
-  // New sidemark dialog state
-  const [newSidemarkDialogOpen, setNewSidemarkDialogOpen] = useState(false);
-  const [newSidemarkData, setNewSidemarkData] = useState({
-    sidemark_name: '',
-    sidemark_code: '',
-    description: '',
-  });
-  const [creatingSidemark, setCreatingSidemark] = useState(false);
+  // Fetch account sidemarks for autocomplete suggestions
+  const { sidemarks: accountSidemarks, addSidemark: addAccountSidemark } = useAccountSidemarks(accountId || undefined);
 
   // Expected items
   const [expectedItems, setExpectedItems] = useState<ExpectedItemData[]>([
@@ -128,13 +109,10 @@ export default function ShipmentCreate() {
     [warehouses],
   );
 
-  const sidemarkOptions: SelectOption[] = useMemo(
-    () => sidemarks.map((s) => ({ 
-      value: s.id, 
-      label: s.sidemark_name,
-      subtitle: s.sidemark_code || undefined,
-    })),
-    [sidemarks],
+  // Sidemark autocomplete suggestions from account_sidemarks
+  const sidemarkSuggestions = useMemo(
+    () => accountSidemarks.map((s) => ({ value: s.sidemark, label: s.sidemark })),
+    [accountSidemarks],
   );
 
   // ------------------------------------------
@@ -201,61 +179,6 @@ export default function ShipmentCreate() {
 
     fetchData();
   }, [profile?.tenant_id]);
-
-  // ------------------------------------------
-  // Sidemark creation
-  // ------------------------------------------
-  const handleOpenNewSidemarkDialog = () => {
-    setNewSidemarkData({
-      sidemark_name: '',
-      sidemark_code: '',
-      description: '',
-    });
-    setNewSidemarkDialogOpen(true);
-  };
-
-  const handleCreateSidemark = async () => {
-    if (!newSidemarkData.sidemark_name || !accountId) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Sidemark name is required.",
-      });
-      return;
-    }
-
-    setCreatingSidemark(true);
-    try {
-      const created = await createSidemark({
-        sidemark_name: newSidemarkData.sidemark_name,
-        sidemark_code: newSidemarkData.sidemark_code || null,
-        account_id: accountId,
-        notes: newSidemarkData.description || null,
-      });
-
-      toast({
-        title: "Sidemark Created",
-        description: `"${newSidemarkData.sidemark_name}" has been created.`,
-      });
-
-      // Auto-select the new sidemark
-      if (created?.id) {
-        setSidemarkId(created.id);
-      }
-
-      setNewSidemarkDialogOpen(false);
-      await refetchSidemarks();
-    } catch (error: any) {
-      console.error("Error creating sidemark:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to create sidemark.",
-      });
-    } finally {
-      setCreatingSidemark(false);
-    }
-  };
 
   // ------------------------------------------
   // Item management
@@ -368,12 +291,29 @@ export default function ShipmentCreate() {
     setSaving(true);
 
     try {
+      // Refresh session to prevent stale JWT / RLS failures
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        toast({
+          variant: "destructive",
+          title: "Session Expired",
+          description: "Please refresh the page and try again.",
+        });
+        setSaving(false);
+        return;
+      }
+
+      // If sidemark text was entered, ensure it exists in account_sidemarks
+      if (sidemark.trim() && accountId) {
+        await addAccountSidemark(sidemark.trim());
+      }
+
       // Create shipment
       const shipmentPayload = {
         tenant_id: profile.tenant_id,
         account_id: accountId,
         warehouse_id: warehouseId,
-        sidemark_id: sidemarkId || null,
+        sidemark: sidemark.trim() || null,
         shipment_type: isReturn ? "return" : "inbound",
         status: "expected" as const,
         carrier: carrier || null,
@@ -406,7 +346,7 @@ export default function ShipmentCreate() {
           vendor: expectedItem.vendor || null,
           quantity: expectedItem.quantity,
           class_id: expectedItem.classId || null,
-          sidemark_id: sidemarkId || null,
+          sidemark: sidemark.trim() || null,
           receiving_shipment_id: shipment.id,
           status: "pending_receipt",
         };
@@ -452,10 +392,15 @@ export default function ShipmentCreate() {
       navigate(`/shipments/${shipment.id}`);
     } catch (err: any) {
       console.error("[ShipmentCreate] submit error:", err);
+      const isRlsError =
+        err?.message?.includes("row-level security") ||
+        err?.code === "42501";
       toast({
         variant: "destructive",
-        title: "Error",
-        description: err.message || "Failed to create shipment",
+        title: isRlsError ? "Permission Error" : "Error",
+        description: isRlsError
+          ? "Session may have expired. Please refresh and try again."
+          : err.message || "Failed to create shipment",
       });
     } finally {
       setSaving(false);
@@ -508,7 +453,7 @@ export default function ShipmentCreate() {
                   value={accountId}
                   onChange={(v) => {
                     setAccountId(v);
-                    setSidemarkId(""); // Reset sidemark when account changes
+                    setSidemark(""); // Reset sidemark when account changes
                     if (errors.account) setErrors({ ...errors, account: undefined });
                   }}
                   placeholder="Select account..."
@@ -519,34 +464,16 @@ export default function ShipmentCreate() {
                 />
               </div>
 
-              {/* Sidemark (filtered by account) */}
+              {/* Sidemark (text autocomplete, filtered by account) */}
               {accountId && (
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Sidemark / Project</label>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <SearchableSelect
-                        options={sidemarkOptions}
-                        value={sidemarkId}
-                        onChange={setSidemarkId}
-                        placeholder={sidemarksLoading ? "Loading..." : "Select sidemark (optional)..."}
-                        searchPlaceholder="Search sidemarks..."
-                        emptyText="No sidemarks for this account"
-                        disabled={sidemarksLoading}
-                        clearable
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={handleOpenNewSidemarkDialog}
-                      title="Add new sidemark"
-                      className="shrink-0"
-                    >
-                      <MaterialIcon name="add" size="sm" />
-                    </Button>
-                  </div>
+                  <AutocompleteInput
+                    value={sidemark}
+                    onChange={setSidemark}
+                    suggestions={sidemarkSuggestions}
+                    placeholder="e.g., Living Room Set"
+                  />
                 </div>
               )}
 
@@ -669,58 +596,6 @@ export default function ShipmentCreate() {
           </div>
         </form>
 
-        {/* New Sidemark Dialog */}
-        <Dialog open={newSidemarkDialogOpen} onOpenChange={setNewSidemarkDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Sidemark</DialogTitle>
-              <DialogDescription>
-                Add a new sidemark/project for this account.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>
-                  Sidemark Name <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  value={newSidemarkData.sidemark_name}
-                  onChange={(e) => setNewSidemarkData((d) => ({ ...d, sidemark_name: e.target.value }))}
-                  placeholder="e.g., Project Alpha, Living Room Set"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Code (optional)</Label>
-                <Input
-                  value={newSidemarkData.sidemark_code}
-                  onChange={(e) => setNewSidemarkData((d) => ({ ...d, sidemark_code: e.target.value }))}
-                  placeholder="e.g., PA-001"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Description (optional)</Label>
-                <Textarea
-                  value={newSidemarkData.description}
-                  onChange={(e) => setNewSidemarkData((d) => ({ ...d, description: e.target.value }))}
-                  placeholder="Optional notes about this sidemark..."
-                  rows={2}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setNewSidemarkDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCreateSidemark}
-                disabled={creatingSidemark || !newSidemarkData.sidemark_name}
-              >
-                {creatingSidemark && <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />}
-                Create Sidemark
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </DashboardLayout>
   );

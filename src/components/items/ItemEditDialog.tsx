@@ -32,10 +32,10 @@ import {
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { SidemarkSelect } from '@/components/ui/sidemark-select';
 import { ClassSelect } from '@/components/ui/class-select';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
+import { useAccountSidemarks } from '@/hooks/useAccountSidemarks';
 
 const itemSchema = z.object({
   description: z.string().optional(),
@@ -114,7 +114,7 @@ export function ItemEditDialog({
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
 
-  // Field suggestions for room
+  // Field suggestions for room and sidemark
   const { suggestions: roomSuggestions, addOrUpdateSuggestion: addRoomSuggestion } = useFieldSuggestions('room');
 
   // Fetch accounts
@@ -153,6 +153,10 @@ export function ItemEditDialog({
   // Track selected account for sidemark filtering
   const selectedAccountId = form.watch('account_id');
 
+  // Account sidemarks for autocomplete
+  const { sidemarks: accountSidemarks, addSidemark: addAccountSidemark } = useAccountSidemarks(selectedAccountId || undefined);
+  const sidemarkSuggestions = accountSidemarks.map((s) => ({ value: s.sidemark, label: s.sidemark }));
+
   useEffect(() => {
     if (open && item) {
       form.reset({
@@ -178,11 +182,15 @@ export function ItemEditDialog({
 
     setLoading(true);
     try {
+      // If sidemark text was entered, ensure it exists in account_sidemarks
+      if (data.sidemark?.trim() && data.account_id) {
+        await addAccountSidemark(data.sidemark.trim());
+      }
+
       const updateData = {
         description: data.description || null,
         quantity: data.quantity,
         sidemark: data.sidemark || null,
-        sidemark_id: data.sidemark_id || null,
         class_id: data.class_id || null,
         account_id: data.account_id || null,
         vendor: data.vendor || null,
@@ -347,12 +355,12 @@ export function ItemEditDialog({
                         if (val === '_none_') {
                           field.onChange('');
                           form.setValue('client_account', '');
-                          form.setValue('sidemark_id', ''); // Clear sidemark when account changes
+                          form.setValue('sidemark', ''); // Clear sidemark when account changes
                         } else {
                           field.onChange(val);
                           const account = accounts.find(a => a.id === val);
                           form.setValue('client_account', account?.account_name || '');
-                          form.setValue('sidemark_id', ''); // Clear sidemark when account changes
+                          form.setValue('sidemark', ''); // Clear sidemark when account changes
                         }
                       }}
                       value={field.value || '_none_'}
@@ -380,17 +388,16 @@ export function ItemEditDialog({
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="sidemark_id"
+                  name="sidemark"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Sidemark (Project)</FormLabel>
                       <FormControl>
-                        <SidemarkSelect
-                          accountId={selectedAccountId}
-                          value={field.value}
+                        <AutocompleteInput
+                          value={field.value || ''}
                           onChange={field.onChange}
-                          placeholder="Select sidemark..."
-                          allowCreate={true}
+                          suggestions={sidemarkSuggestions}
+                          placeholder="e.g., Living Room Set"
                         />
                       </FormControl>
                       <FormMessage />

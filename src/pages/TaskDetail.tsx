@@ -19,6 +19,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -181,6 +189,7 @@ export default function TaskDetailPage() {
 
 
   // Service lines state
+  const [noServicesDialogOpen, setNoServicesDialogOpen] = useState(false);
   const [completionPanelOpen, setCompletionPanelOpen] = useState(false);
   const [completionLoading, setCompletionLoading] = useState(false);
   const [availableServices, setAvailableServices] = useState<ChargeTypeOption[]>([]);
@@ -445,7 +454,7 @@ export default function TaskDetailPage() {
   }, [task?.status, fetchPendingRateBillingEvents]);
 
   const handleStartTask = async () => {
-    if (!id || !profile?.id) return;
+    if (!id || !profile?.id || !profile?.tenant_id) return;
     setActionLoading(true);
     try {
       const { error } = await (supabase.from('tasks') as any)
@@ -454,6 +463,27 @@ export default function TaskDetailPage() {
       if (error) throw error;
       toast({ title: 'Task Started' });
       fetchTask();
+
+      // Auto-load template services (non-blocking)
+      if (task?.task_type) {
+        try {
+          const { data: taskTypeData } = await (supabase
+            .from('task_types') as any)
+            .select('id')
+            .eq('tenant_id', profile.tenant_id)
+            .eq('name', task.task_type)
+            .eq('is_active', true)
+            .maybeSingle();
+
+          if (taskTypeData?.id) {
+            await loadFromTemplate(taskTypeData.id);
+            await fetchServiceLines();
+          }
+        } catch (templateError) {
+          // Non-blocking: template load failure should not prevent task start
+          console.error('Template auto-load failed (non-blocking):', templateError);
+        }
+      }
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to start task' });
     } finally {
@@ -464,13 +494,9 @@ export default function TaskDetailPage() {
   const handleCompleteTask = async () => {
     if (!id || !profile?.id || !task || !profile?.tenant_id) return;
 
-    // Phase 2: Validate at least 1 service exists
+    // If no service lines, show soft confirmation dialog (Option C)
     if (serviceLines.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Services Required',
-        description: 'Add at least one service before completing this task.',
-      });
+      setNoServicesDialogOpen(true);
       return;
     }
 
@@ -544,6 +570,22 @@ export default function TaskDetailPage() {
       console.error('Error completing task:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to complete task' });
       setActionLoading(false);
+    }
+  };
+
+  // Handle "Continue Without Services" (Option C legacy fallback)
+  const handleContinueWithoutServices = async () => {
+    if (!id) return;
+    setNoServicesDialogOpen(false);
+    setCompletionLoading(true);
+    try {
+      const success = await completeTaskWithServices(id, []);
+      if (success) {
+        fetchTask();
+        fetchTaskItems();
+      }
+    } finally {
+      setCompletionLoading(false);
     }
   };
 
@@ -1613,6 +1655,29 @@ export default function TaskDetailPage() {
           loading={completionLoading}
         />
       )}
+
+      {/* No Services Confirmation Dialog (Option C) */}
+      <AlertDialog open={noServicesDialogOpen} onOpenChange={setNoServicesDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>No Services Added</AlertDialogTitle>
+            <AlertDialogDescription>
+              This task has no services assigned. Completing now will use legacy billing
+              instead of service-line billing. You can add services using the Services
+              panel, or continue without them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setNoServicesDialogOpen(false)}>
+              Add Services
+            </Button>
+            <Button onClick={handleContinueWithoutServices} disabled={completionLoading}>
+              {completionLoading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
+              Continue Without Services
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }

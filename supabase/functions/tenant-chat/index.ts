@@ -137,7 +137,7 @@ const TOOLS = [
   // ==================== SEARCH TOOLS ====================
   {
     name: "tool_search_items",
-    description: "Search for items by item code, description, location, or account. Supports partial ID matching.",
+    description: "Search for items by item code, description, vendor, sidemark, room, location, or account. Supports partial ID matching.",
     parameters: {
       type: "object",
       properties: {
@@ -510,8 +510,9 @@ async function toolSearchItems(supabase: any, params: any, scope: TenantScope) {
     .from("items")
     .select(`
       id, item_code, description, status, condition, received_at,
+      vendor, sidemark, room,
       account:accounts(id, account_name, account_code),
-      sidemark:sidemarks(id, sidemark_name),
+      sidemark_rel:sidemarks(id, sidemark_name),
       location:locations(id, code, name),
       warehouse:warehouses(id, name)
     `)
@@ -526,7 +527,7 @@ async function toolSearchItems(supabase: any, params: any, scope: TenantScope) {
     const numericPart = extractNumericPortion(query);
     queryBuilder = queryBuilder.ilike("item_code", `%${numericPart}%`);
   } else {
-    queryBuilder = queryBuilder.or(`description.ilike.%${query}%,item_code.ilike.%${query}%`);
+    queryBuilder = queryBuilder.or(`description.ilike.%${query}%,item_code.ilike.%${query}%,vendor.ilike.%${query}%,sidemark.ilike.%${query}%,room.ilike.%${query}%`);
   }
 
   const { data: items, error } = await queryBuilder.limit(50);
@@ -547,8 +548,10 @@ async function toolSearchItems(supabase: any, params: any, scope: TenantScope) {
     description: item.description,
     status: item.status,
     condition: item.condition,
+    vendor: item.vendor,
     account: item.account?.account_name,
-    job: item.sidemark?.sidemark_name,
+    job: item.sidemark || item.sidemark_rel?.sidemark_name,
+    room: item.room,
     location: item.location?.code || item.location?.name,
     warehouse: item.warehouse?.name,
   }));
@@ -753,8 +756,9 @@ async function toolGetItemDetails(supabase: any, params: any, scope: TenantScope
     .select(`
       id, item_code, description, status, condition, quantity,
       received_at, weight_lbs, dimensions,
+      vendor, sidemark, room,
       account:accounts(id, account_name, account_code),
-      sidemark:sidemarks(id, sidemark_name),
+      sidemark_rel:sidemarks(id, sidemark_name),
       location:locations(id, code, name),
       warehouse:warehouses(id, name),
       shipment:shipments!items_shipment_id_fkey(id, shipment_number),
@@ -798,8 +802,10 @@ async function toolGetItemDetails(supabase: any, params: any, scope: TenantScope
         received_at: item.received_at,
         weight_lbs: item.weight_lbs,
         dimensions: item.dimensions,
+        vendor: item.vendor,
         account: item.account?.account_name,
-        job: item.sidemark?.sidemark_name,
+        job: item.sidemark || item.sidemark_rel?.sidemark_name,
+        room: item.room,
         location: item.location ? `${item.location.code} (${item.location.name})` : null,
         warehouse: item.warehouse?.name,
         shipment: item.shipment?.shipment_number,
