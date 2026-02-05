@@ -1025,11 +1025,11 @@ export function BillingReportTab() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "unbilled":
-        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Unbilled</Badge>;
+        return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">Unbilled</Badge>;
       case "invoiced":
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Invoiced</Badge>;
+        return <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">Invoiced</Badge>;
       case "void":
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Void</Badge>;
+        return <Badge variant="outline" className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20">Void</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }

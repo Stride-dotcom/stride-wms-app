@@ -65,7 +65,7 @@ export function ScanModeIcon({ mode, className, size = 48 }: ScanModeIconProps) 
           <g>
             <rect x="22" y="4" width="4" height="40" rx="2" fill={`url(#${grad.id})`} />
             <path
-              d="M 14 16 C 14 10, 22 8, 28 10 C 34 12, 36 16, 30 20 L 18 26 C 12 30, 14 36, 20 38 C 26 40, 34 38, 34 32"
+              d="M 34 16 C 34 10, 26 8, 20 10 C 14 12, 12 16, 18 20 L 30 26 C 36 30, 34 36, 28 38 C 22 40, 14 38, 14 32"
               fill="none"
               stroke={`url(#${grad.id})`}
               strokeWidth="3.5"

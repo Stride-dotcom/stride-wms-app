@@ -1097,13 +1097,13 @@ export default function TaskDetailPage() {
                   <div className="flex items-center gap-4">
                     <span className="text-sm font-medium">Inspection Summary:</span>
                     <div className="flex items-center gap-2">
-                      <Badge className="bg-green-100 text-green-800">
+                      <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">
                         {taskItems.filter(ti => ti.item?.inspection_status === 'pass').length} Passed
                       </Badge>
-                      <Badge className="bg-red-100 text-red-800">
+                      <Badge variant="outline" className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20">
                         {taskItems.filter(ti => ti.item?.inspection_status === 'fail').length} Failed
                       </Badge>
-                      <Badge variant="outline">
+                      <Badge variant="outline" className="text-muted-foreground">
                         {taskItems.filter(ti => !ti.item?.inspection_status).length} Pending
                       </Badge>
                     </div>
@@ -1167,12 +1167,12 @@ export default function TaskDetailPage() {
                             <>
                               <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                                 {ti.item?.inspection_status === 'pass' ? (
-                                  <Badge className="bg-green-100 text-green-800">PASSED</Badge>
+                                  <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">PASSED</Badge>
                                 ) : (
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="border-green-500 text-green-700 hover:bg-green-50 h-7 px-2"
+                                    className="border-green-500/30 text-green-600 dark:text-green-400 hover:bg-green-500/10 h-7 px-2"
                                     onClick={() => ti.item_id && handleItemInspectionResult(ti.item_id, 'pass')}
                                     disabled={task.status !== 'in_progress'}
                                   >
@@ -1182,12 +1182,12 @@ export default function TaskDetailPage() {
                               </TableCell>
                               <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                                 {ti.item?.inspection_status === 'fail' ? (
-                                  <Badge className="bg-red-100 text-red-800">FAILED</Badge>
+                                  <Badge variant="outline" className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20">FAILED</Badge>
                                 ) : (
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="border-red-500 text-red-700 hover:bg-red-50 h-7 px-2"
+                                    className="border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 h-7 px-2"
                                     onClick={() => ti.item_id && handleItemInspectionResult(ti.item_id, 'fail')}
                                     disabled={task.status !== 'in_progress'}
                                   >
