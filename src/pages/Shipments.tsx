@@ -22,7 +22,6 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { getShipmentStatusClasses } from '@/lib/statusColors';
 import { format } from 'date-fns';
-import { getShipmentStatusClasses } from '@/lib/statusColors';
 
 interface ShipmentCounts {
   incoming: number;
