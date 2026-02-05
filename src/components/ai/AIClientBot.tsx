@@ -26,7 +26,7 @@ export function AIClientBot() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const { portalUser, isClientPortalUser } = useClientPortalContext();
   const { toast } = useToast();
   const location = useLocation();
@@ -132,7 +132,7 @@ export function AIClientBot() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
           message: userMessage.content,

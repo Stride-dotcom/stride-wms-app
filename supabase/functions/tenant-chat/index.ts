@@ -127,7 +127,32 @@ Pattern: Preview -> Summarize -> Ask "Confirm?" -> Execute
 - All data is scoped to the current tenant
 - You may show employee names and audit information
 - You may show movement history and internal notes
-- Write actions are permission-checked server-side`;
+- Write actions are permission-checked server-side
+
+## Tool Workflow Rules
+- You can call multiple tools in sequence - the system supports multi-round tool calls
+- When a user mentions a shipment number, item number, or location code, the system will automatically resolve human-readable IDs to UUIDs
+- Chain tool calls as needed: search → get details → take action
+- If a search returns exactly one result, proceed automatically
+- If a search returns multiple results, present options and ask user to choose
+- For complex operations (e.g., "move items from shipment X to location Y"), break into steps:
+  1. First search for the shipment to get details
+  2. Get the items from that shipment
+  3. Search for the destination location
+  4. Preview the move, then execute after confirmation
+
+## Error Recovery
+- If a tool returns "not found", the ID may need resolution - try searching with the original text
+- If the user provides a partial number, search for it - don't say you can't find it
+- Always attempt to help before giving up
+- If blocked by stocktake or outbound allocation, explain clearly why the operation cannot proceed
+
+## Entity References
+When mentioning entities in your responses, include both the display number and UUID for linking:
+- Items: "ITM-12345 [id:uuid-here]"
+- Shipments: "SHP-001044 [id:uuid-here]"
+- Tasks: "TSK-1043 [id:uuid-here]"
+The frontend will render these as clickable links.`;
 
 // ============================================================
 // TOOL DEFINITIONS
@@ -383,6 +408,91 @@ const TOOLS = [
     },
   },
 
+  // ==================== ACCOUNT TOOLS ====================
+  {
+    name: "tool_search_accounts",
+    description: "Search for client accounts by name or code",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Account name or code" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "tool_get_account_summary",
+    description: "Get a summary of an account including active item count, open tasks, recent shipments, and outstanding balance",
+    parameters: {
+      type: "object",
+      properties: {
+        account_id: { type: "string", description: "Account ID" },
+      },
+      required: ["account_id"],
+    },
+  },
+
+  // ==================== DISPOSAL TOOLS ====================
+  {
+    name: "tool_create_disposal_order_draft",
+    description: "Create a draft disposal order for items - requires confirmation",
+    parameters: {
+      type: "object",
+      properties: {
+        item_ids: { type: "array", items: { type: "string" }, description: "Item IDs to dispose" },
+        reason: { type: "string", description: "Disposal reason" },
+      },
+      required: ["item_ids"],
+    },
+  },
+
+  // ==================== ANALYTICS TOOLS ====================
+  {
+    name: "tool_get_warehouse_snapshot",
+    description: "Get current warehouse stats: total items in storage, items received today/this week, pending outbound, open tasks by type",
+    parameters: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "tool_get_recent_activity",
+    description: "Get recent warehouse activity - shipments received, items moved, tasks completed in the last N hours",
+    parameters: {
+      type: "object",
+      properties: {
+        hours: { type: "number", description: "Hours to look back (default 24)" },
+      },
+    },
+  },
+
+  // ==================== CLAIMS TOOLS ====================
+  {
+    name: "tool_search_claims",
+    description: "Search for claims by number, account, or status",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Claim number or account name" },
+        status: { type: "string", description: "Filter by status" },
+      },
+    },
+  },
+
+  // ==================== NOTES TOOLS ====================
+  {
+    name: "tool_add_note_to_item",
+    description: "Add a note to an item for internal tracking",
+    parameters: {
+      type: "object",
+      properties: {
+        item_id: { type: "string", description: "Item ID" },
+        note: { type: "string", description: "Note content" },
+      },
+      required: ["item_id", "note"],
+    },
+  },
+
   // ==================== UTILITY TOOLS ====================
   {
     name: "tool_resolve_disambiguation",
@@ -444,6 +554,114 @@ function prioritizeMatches<T>(
 }
 
 // ============================================================
+// ID RESOLUTION HELPERS
+// ============================================================
+
+function isUUID(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
+async function resolveHumanIds(
+  supabase: any,
+  toolName: string,
+  params: any,
+  scope: TenantScope
+): Promise<any> {
+  const resolved = { ...params };
+
+  // Resolve shipment_id if it looks like a shipment number, not a UUID
+  if (resolved.shipment_id && !isUUID(resolved.shipment_id)) {
+    const numericPart = extractNumericPortion(resolved.shipment_id);
+    const { data } = await supabase
+      .from("shipments")
+      .select("id")
+      .eq("tenant_id", scope.tenant_id)
+      .ilike("shipment_number", `%${numericPart}%`)
+      .is("deleted_at", null)
+      .limit(1)
+      .single();
+    if (data) resolved.shipment_id = data.id;
+  }
+
+  // Resolve item_id if it looks like an item code, not a UUID
+  if (resolved.item_id && !isUUID(resolved.item_id)) {
+    const numericPart = extractNumericPortion(resolved.item_id);
+    const { data } = await supabase
+      .from("items")
+      .select("id")
+      .eq("tenant_id", scope.tenant_id)
+      .ilike("item_code", `%${numericPart}%`)
+      .is("deleted_at", null)
+      .limit(1)
+      .single();
+    if (data) resolved.item_id = data.id;
+  }
+
+  // Resolve item_ids array
+  if (resolved.item_ids && Array.isArray(resolved.item_ids)) {
+    const resolvedIds: string[] = [];
+    for (const id of resolved.item_ids) {
+      if (isUUID(id)) {
+        resolvedIds.push(id);
+      } else {
+        const numericPart = extractNumericPortion(id);
+        const { data } = await supabase
+          .from("items")
+          .select("id")
+          .eq("tenant_id", scope.tenant_id)
+          .ilike("item_code", `%${numericPart}%`)
+          .is("deleted_at", null)
+          .limit(1)
+          .single();
+        if (data) resolvedIds.push(data.id);
+      }
+    }
+    resolved.item_ids = resolvedIds;
+  }
+
+  // Resolve to_location_id by location code
+  if (resolved.to_location_id && !isUUID(resolved.to_location_id)) {
+    const { data } = await supabase
+      .from("locations")
+      .select("id")
+      .eq("tenant_id", scope.tenant_id)
+      .ilike("code", `%${resolved.to_location_id}%`)
+      .is("deleted_at", null)
+      .limit(1)
+      .single();
+    if (data) resolved.to_location_id = data.id;
+  }
+
+  // Resolve stocktake_id
+  if (resolved.stocktake_id && !isUUID(resolved.stocktake_id)) {
+    const numericPart = extractNumericPortion(resolved.stocktake_id);
+    const { data } = await supabase
+      .from("stocktakes")
+      .select("id")
+      .eq("tenant_id", scope.tenant_id)
+      .ilike("stocktake_number", `%${numericPart}%`)
+      .limit(1)
+      .single();
+    if (data) resolved.stocktake_id = data.id;
+  }
+
+  // Resolve account_id by account name or code
+  if (resolved.account_id && !isUUID(resolved.account_id)) {
+    const { data } = await supabase
+      .from("accounts")
+      .select("id")
+      .eq("tenant_id", scope.tenant_id)
+      .or(`account_name.ilike.%${resolved.account_id}%,account_code.ilike.%${resolved.account_id}%`)
+      .is("deleted_at", null)
+      .limit(1)
+      .single();
+    if (data) resolved.account_id = data.id;
+  }
+
+  return resolved;
+}
+
+// ============================================================
 // TOOL HANDLERS
 // ============================================================
 
@@ -454,47 +672,64 @@ async function handleTool(
   scope: TenantScope,
   sessionState: SessionState
 ): Promise<{ result: any; newSessionState?: Partial<SessionState> }> {
+  // Resolve human-readable IDs to UUIDs before executing
+  const resolvedParams = await resolveHumanIds(supabase, toolName, params, scope);
+
   switch (toolName) {
     case "tool_search_items":
-      return await toolSearchItems(supabase, params, scope);
+      return await toolSearchItems(supabase, resolvedParams, scope);
     case "tool_search_shipments":
-      return await toolSearchShipments(supabase, params, scope);
+      return await toolSearchShipments(supabase, resolvedParams, scope);
     case "tool_search_tasks":
-      return await toolSearchTasks(supabase, params, scope);
+      return await toolSearchTasks(supabase, resolvedParams, scope);
     case "tool_search_locations":
-      return await toolSearchLocations(supabase, params, scope);
+      return await toolSearchLocations(supabase, resolvedParams, scope);
     case "tool_get_item_details":
-      return await toolGetItemDetails(supabase, params, scope);
+      return await toolGetItemDetails(supabase, resolvedParams, scope);
     case "tool_get_item_movement_history":
-      return await toolGetItemMovementHistory(supabase, params, scope);
+      return await toolGetItemMovementHistory(supabase, resolvedParams, scope);
     case "tool_get_item_outbound_history":
-      return await toolGetItemOutboundHistory(supabase, params, scope);
+      return await toolGetItemOutboundHistory(supabase, resolvedParams, scope);
     case "tool_get_shipment_details":
-      return await toolGetShipmentDetails(supabase, params, scope);
+      return await toolGetShipmentDetails(supabase, resolvedParams, scope);
     case "tool_get_shipment_items":
-      return await toolGetShipmentItems(supabase, params, scope);
+      return await toolGetShipmentItems(supabase, resolvedParams, scope);
     case "tool_validate_shipment_outbound":
-      return await toolValidateShipmentOutbound(supabase, params, scope);
+      return await toolValidateShipmentOutbound(supabase, resolvedParams, scope);
     case "tool_create_task_single":
-      return await toolCreateTaskSingle(supabase, params, scope);
+      return await toolCreateTaskSingle(supabase, resolvedParams, scope);
     case "tool_create_tasks_bulk_preview":
-      return await toolCreateTasksBulkPreview(supabase, params, scope);
+      return await toolCreateTasksBulkPreview(supabase, resolvedParams, scope);
     case "tool_create_tasks_bulk_execute":
-      return await toolCreateTasksBulkExecute(supabase, params, scope);
+      return await toolCreateTasksBulkExecute(supabase, resolvedParams, scope);
     case "tool_move_item":
-      return await toolMoveItem(supabase, params, scope);
+      return await toolMoveItem(supabase, resolvedParams, scope);
     case "tool_move_items_preview":
-      return await toolMoveItemsPreview(supabase, params, scope);
+      return await toolMoveItemsPreview(supabase, resolvedParams, scope);
     case "tool_move_items_execute":
-      return await toolMoveItemsExecute(supabase, params, scope);
+      return await toolMoveItemsExecute(supabase, resolvedParams, scope);
     case "tool_search_stocktakes":
-      return await toolSearchStocktakes(supabase, params, scope);
+      return await toolSearchStocktakes(supabase, resolvedParams, scope);
     case "tool_validate_stocktake_completion":
-      return await toolValidateStocktakeCompletion(supabase, params, scope);
+      return await toolValidateStocktakeCompletion(supabase, resolvedParams, scope);
     case "tool_close_stocktake":
-      return await toolCloseStocktake(supabase, params, scope);
+      return await toolCloseStocktake(supabase, resolvedParams, scope);
+    case "tool_search_accounts":
+      return await toolSearchAccounts(supabase, resolvedParams, scope);
+    case "tool_get_account_summary":
+      return await toolGetAccountSummary(supabase, resolvedParams, scope);
+    case "tool_create_disposal_order_draft":
+      return await toolCreateDisposalOrderDraft(supabase, resolvedParams, scope);
+    case "tool_get_warehouse_snapshot":
+      return await toolGetWarehouseSnapshot(supabase, scope);
+    case "tool_get_recent_activity":
+      return await toolGetRecentActivity(supabase, resolvedParams, scope);
+    case "tool_search_claims":
+      return await toolSearchClaims(supabase, resolvedParams, scope);
+    case "tool_add_note_to_item":
+      return await toolAddNoteToItem(supabase, resolvedParams, scope);
     case "tool_resolve_disambiguation":
-      return await toolResolveDisambiguation(params, sessionState);
+      return await toolResolveDisambiguation(resolvedParams, sessionState);
     default:
       return { result: { error: `Unknown tool: ${toolName}` } };
   }
@@ -1718,6 +1953,409 @@ async function toolCloseStocktake(supabase: any, params: any, scope: TenantScope
   };
 }
 
+// ==================== ACCOUNT TOOLS ====================
+
+async function toolSearchAccounts(supabase: any, params: any, scope: TenantScope) {
+  const { query } = params;
+
+  const { data: accounts, error } = await supabase
+    .from("accounts")
+    .select("id, account_name, account_code, email, phone, status")
+    .eq("tenant_id", scope.tenant_id)
+    .is("deleted_at", null)
+    .or(`account_name.ilike.%${query}%,account_code.ilike.%${query}%`)
+    .limit(20);
+
+  if (error) {
+    return { result: { error: "Failed to search accounts", accounts: [] } };
+  }
+
+  return {
+    result: {
+      accounts: (accounts || []).map((a: any) => ({
+        id: a.id,
+        name: a.account_name,
+        code: a.account_code,
+        email: a.email,
+        phone: a.phone,
+        status: a.status,
+      })),
+    },
+  };
+}
+
+async function toolGetAccountSummary(supabase: any, params: any, scope: TenantScope) {
+  const { account_id } = params;
+
+  // Get account info
+  const { data: account } = await supabase
+    .from("accounts")
+    .select("id, account_name, account_code, email, phone")
+    .eq("id", account_id)
+    .eq("tenant_id", scope.tenant_id)
+    .single();
+
+  if (!account) {
+    return { result: { error: "Account not found" } };
+  }
+
+  // Count items by status
+  const { data: itemCounts } = await supabase
+    .from("items")
+    .select("status")
+    .eq("tenant_id", scope.tenant_id)
+    .eq("account_id", account_id)
+    .is("deleted_at", null);
+
+  const statusCounts: Record<string, number> = {};
+  (itemCounts || []).forEach((item: any) => {
+    statusCounts[item.status] = (statusCounts[item.status] || 0) + 1;
+  });
+
+  // Count open tasks
+  const { count: openTaskCount } = await supabase
+    .from("tasks")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", scope.tenant_id)
+    .eq("account_id", account_id)
+    .in("status", ["open", "in_progress"])
+    .is("deleted_at", null);
+
+  // Get recent shipments
+  const { data: recentShipments } = await supabase
+    .from("shipments")
+    .select("id, shipment_number, shipment_type, status, received_at, released_at")
+    .eq("tenant_id", scope.tenant_id)
+    .eq("account_id", account_id)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  // Count unbilled events
+  const { data: unbilledEvents } = await supabase
+    .from("billing_events")
+    .select("total_amount")
+    .eq("tenant_id", scope.tenant_id)
+    .eq("account_id", account_id)
+    .is("invoice_id", null);
+
+  const unbilledTotal = (unbilledEvents || []).reduce((sum: number, e: any) => sum + (e.total_amount || 0), 0);
+
+  return {
+    result: {
+      account: {
+        id: account.id,
+        name: account.account_name,
+        code: account.account_code,
+        email: account.email,
+        phone: account.phone,
+      },
+      items: {
+        total: itemCounts?.length || 0,
+        by_status: statusCounts,
+      },
+      open_tasks: openTaskCount || 0,
+      recent_shipments: (recentShipments || []).map((s: any) => ({
+        number: s.shipment_number,
+        type: s.shipment_type,
+        status: s.status,
+        date: s.received_at || s.released_at,
+      })),
+      unbilled_amount: unbilledTotal,
+    },
+  };
+}
+
+// ==================== DISPOSAL TOOLS ====================
+
+async function toolCreateDisposalOrderDraft(supabase: any, params: any, scope: TenantScope) {
+  const { item_ids, reason } = params;
+
+  // Validate items
+  const { data: items } = await supabase
+    .from("items")
+    .select("id, item_code, description, status, account:accounts(account_name)")
+    .in("id", item_ids)
+    .eq("tenant_id", scope.tenant_id)
+    .is("deleted_at", null);
+
+  if (!items || items.length === 0) {
+    return { result: { ok: false, error: "No valid items found" } };
+  }
+
+  // Check for items that can't be disposed
+  const blockedItems = items.filter((i: any) =>
+    ["allocated", "released"].includes(i.status)
+  );
+
+  if (blockedItems.length > 0) {
+    return {
+      result: {
+        ok: false,
+        error: "Some items cannot be disposed",
+        blocked_items: blockedItems.map((i: any) => ({
+          item_code: i.item_code,
+          status: i.status,
+          reason: i.status === "allocated" ? "Allocated for outbound" : "Already released",
+        })),
+      },
+    };
+  }
+
+  const summary = `
+**Disposal Order Draft**
+
+Items to dispose (${items.length}):
+${items.map((i: any) => `- ${i.item_code}: ${i.description || "No description"} (${i.account?.account_name || "No account"})`).join("\n")}
+
+Reason: ${reason || "Not specified"}
+
+Confirm to create disposal order?
+  `.trim();
+
+  return {
+    result: {
+      ok: true,
+      preview: true,
+      item_count: items.length,
+      summary,
+      needs_confirmation: true,
+    },
+    newSessionState: {
+      pending_draft: {
+        type: "disposal",
+        summary,
+        data: { item_ids, reason },
+      },
+    },
+  };
+}
+
+// ==================== ANALYTICS TOOLS ====================
+
+async function toolGetWarehouseSnapshot(supabase: any, scope: TenantScope) {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Total items in storage
+  const { count: totalItems } = await supabase
+    .from("items")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", scope.tenant_id)
+    .eq("status", "active")
+    .is("deleted_at", null);
+
+  // Items received today
+  const { count: receivedToday } = await supabase
+    .from("items")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", scope.tenant_id)
+    .gte("received_at", todayStart)
+    .is("deleted_at", null);
+
+  // Items received this week
+  const { count: receivedWeek } = await supabase
+    .from("items")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", scope.tenant_id)
+    .gte("received_at", weekAgo)
+    .is("deleted_at", null);
+
+  // Pending outbound shipments
+  const { count: pendingOutbound } = await supabase
+    .from("shipments")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", scope.tenant_id)
+    .eq("shipment_type", "outbound")
+    .in("status", ["pending", "processing"])
+    .is("deleted_at", null);
+
+  // Open tasks by type
+  const { data: openTasks } = await supabase
+    .from("tasks")
+    .select("task_type")
+    .eq("tenant_id", scope.tenant_id)
+    .in("status", ["open", "in_progress"])
+    .is("deleted_at", null);
+
+  const tasksByType: Record<string, number> = {};
+  (openTasks || []).forEach((t: any) => {
+    tasksByType[t.task_type] = (tasksByType[t.task_type] || 0) + 1;
+  });
+
+  // In-progress stocktakes
+  const { count: activeStocktakes } = await supabase
+    .from("stocktakes")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", scope.tenant_id)
+    .in("status", ["draft", "in_progress"]);
+
+  return {
+    result: {
+      snapshot_time: now.toISOString(),
+      items_in_storage: totalItems || 0,
+      received_today: receivedToday || 0,
+      received_this_week: receivedWeek || 0,
+      pending_outbound_shipments: pendingOutbound || 0,
+      open_tasks: {
+        total: openTasks?.length || 0,
+        by_type: tasksByType,
+      },
+      active_stocktakes: activeStocktakes || 0,
+    },
+  };
+}
+
+async function toolGetRecentActivity(supabase: any, params: any, scope: TenantScope) {
+  const hours = params.hours || 24;
+  const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+  // Recent inbound shipments
+  const { data: recentInbound } = await supabase
+    .from("shipments")
+    .select("id, shipment_number, received_at, total_items, account:accounts(account_name)")
+    .eq("tenant_id", scope.tenant_id)
+    .eq("shipment_type", "inbound")
+    .gte("received_at", since)
+    .is("deleted_at", null)
+    .order("received_at", { ascending: false })
+    .limit(10);
+
+  // Recent completed tasks
+  const { data: recentTasks } = await supabase
+    .from("tasks")
+    .select("id, task_number, task_type, title, completed_at")
+    .eq("tenant_id", scope.tenant_id)
+    .eq("status", "completed")
+    .gte("completed_at", since)
+    .is("deleted_at", null)
+    .order("completed_at", { ascending: false })
+    .limit(10);
+
+  // Recent item movements
+  const { data: recentMovements } = await supabase
+    .from("item_movements")
+    .select(`
+      id, movement_type, created_at,
+      item:items(item_code),
+      to_location:locations!item_movements_to_location_id_fkey(code)
+    `)
+    .eq("tenant_id", scope.tenant_id)
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  return {
+    result: {
+      period: `Last ${hours} hours`,
+      shipments_received: (recentInbound || []).map((s: any) => ({
+        number: s.shipment_number,
+        received_at: s.received_at,
+        items: s.total_items,
+        account: s.account?.account_name,
+      })),
+      tasks_completed: (recentTasks || []).map((t: any) => ({
+        number: t.task_number,
+        type: t.task_type,
+        title: t.title,
+        completed_at: t.completed_at,
+      })),
+      items_moved: (recentMovements || []).map((m: any) => ({
+        item_code: m.item?.item_code,
+        type: m.movement_type,
+        to_location: m.to_location?.code,
+        timestamp: m.created_at,
+      })),
+    },
+  };
+}
+
+// ==================== CLAIMS TOOLS ====================
+
+async function toolSearchClaims(supabase: any, params: any, scope: TenantScope) {
+  const { query, status } = params;
+
+  let queryBuilder = supabase
+    .from("claims")
+    .select(`
+      id, claim_number, status, claim_type, created_at,
+      account:accounts(id, account_name)
+    `)
+    .eq("tenant_id", scope.tenant_id)
+    .is("deleted_at", null);
+
+  if (status) {
+    queryBuilder = queryBuilder.eq("status", status);
+  }
+
+  if (query) {
+    queryBuilder = queryBuilder.or(`claim_number.ilike.%${query}%`);
+  }
+
+  const { data: claims, error } = await queryBuilder
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    return { result: { error: "Failed to search claims", claims: [] } };
+  }
+
+  return {
+    result: {
+      claims: (claims || []).map((c: any) => ({
+        id: c.id,
+        number: c.claim_number,
+        type: c.claim_type,
+        status: c.status,
+        account: c.account?.account_name,
+        created_at: c.created_at,
+      })),
+    },
+  };
+}
+
+// ==================== NOTES TOOLS ====================
+
+async function toolAddNoteToItem(supabase: any, params: any, scope: TenantScope) {
+  const { item_id, note } = params;
+
+  // Verify item exists
+  const { data: item } = await supabase
+    .from("items")
+    .select("id, item_code, notes")
+    .eq("id", item_id)
+    .eq("tenant_id", scope.tenant_id)
+    .single();
+
+  if (!item) {
+    return { result: { ok: false, error: "Item not found" } };
+  }
+
+  // Append note with timestamp
+  const timestamp = new Date().toISOString();
+  const newNote = `[${timestamp}] ${scope.user_name || "System"}: ${note}`;
+  const updatedNotes = item.notes ? `${item.notes}\n${newNote}` : newNote;
+
+  const { error } = await supabase
+    .from("items")
+    .update({ notes: updatedNotes })
+    .eq("id", item_id)
+    .eq("tenant_id", scope.tenant_id);
+
+  if (error) {
+    return { result: { ok: false, error: "Failed to add note" } };
+  }
+
+  return {
+    result: {
+      ok: true,
+      message: `Note added to ${item.item_code}`,
+      item_code: item.item_code,
+    },
+  };
+}
+
 // ==================== UTILITY TOOLS ====================
 
 async function toolResolveDisambiguation(
@@ -1919,67 +2557,87 @@ serve(async (req) => {
       contextAddition += `\n\n## Pending Confirmation\nThere is a ${session.state.pending_draft.type} operation awaiting confirmation. If user confirms (yes, confirm, proceed), execute it. If they decline, acknowledge and cancel.`;
     }
 
-    // First API call
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: TENANT_SYSTEM_PROMPT + contextAddition },
-          ...messages,
-        ],
-        tools: TOOLS.map((t) => ({
-          type: "function",
-          function: {
-            name: t.name,
-            description: t.description,
-            parameters: t.parameters,
-          },
-        })),
-        tool_choice: "auto",
-        stream: false,
-      }),
-    });
+    // Build initial messages for the conversation
+    let currentMessages: Array<{ role: string; content?: string; tool_calls?: any; tool_call_id?: string }> = [
+      { role: "system", content: TENANT_SYSTEM_PROMPT + contextAddition },
+      ...messages,
+    ];
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limited. Try again shortly." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Payment required." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const t = await response.text();
-      console.error("AI error:", response.status, t);
-      return new Response(
-        JSON.stringify({ error: "AI gateway error" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const aiResponse = await response.json();
-    const choice = aiResponse.choices?.[0];
-
-    if (!choice) {
-      throw new Error("No response from AI");
-    }
-
-    const toolCalls = choice.message?.tool_calls;
-    let finalContent = choice.message?.content || "";
+    const MAX_TOOL_ROUNDS = 6; // Safety limit for multi-step operations
+    let round = 0;
+    let finalContent = "";
     let sessionUpdates: Partial<SessionState> = {};
 
-    if (toolCalls && toolCalls.length > 0) {
-      const toolResults: Array<{ tool_call_id: string; content: string }> = [];
+    // Tool-call loop - continues until AI stops requesting tools or we hit the limit
+    while (round < MAX_TOOL_ROUNDS) {
+      round++;
 
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: currentMessages,
+          tools: TOOLS.map((t) => ({
+            type: "function",
+            function: {
+              name: t.name,
+              description: t.description,
+              parameters: t.parameters,
+            },
+          })),
+          tool_choice: "auto",
+          stream: false, // Don't stream intermediate rounds
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(
+            JSON.stringify({ error: "Rate limited. Try again shortly." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (response.status === 402) {
+          return new Response(
+            JSON.stringify({ error: "Payment required." }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const t = await response.text();
+        console.error("AI error:", response.status, t);
+        return new Response(
+          JSON.stringify({ error: "AI gateway error" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const aiResponse = await response.json();
+      const choice = aiResponse.choices?.[0];
+
+      if (!choice) {
+        break;
+      }
+
+      const toolCalls = choice.message?.tool_calls;
+
+      // If no tool calls, we have our final answer
+      if (!toolCalls || toolCalls.length === 0) {
+        finalContent = choice.message?.content || "";
+        break;
+      }
+
+      // Add assistant message with tool calls to conversation
+      currentMessages.push({
+        role: "assistant",
+        content: choice.message.content || "",
+        tool_calls: toolCalls,
+      });
+
+      // Execute each tool call
       for (const toolCall of toolCalls) {
         const toolName = toolCall.function.name;
         let toolParams = {};
@@ -2001,52 +2659,24 @@ serve(async (req) => {
           sessionUpdates = { ...sessionUpdates, ...newSessionState };
         }
 
-        toolResults.push({
+        // Add tool result to conversation
+        currentMessages.push({
+          role: "tool",
           tool_call_id: toolCall.id,
           content: JSON.stringify(result),
         });
       }
-
-      if (Object.keys(sessionUpdates).length > 0) {
-        await updateSessionState(supabase, session.id, sessionUpdates);
-      }
-
-      // Follow-up with tool results
-      const followUpMessages = [
-        { role: "system", content: TENANT_SYSTEM_PROMPT + contextAddition },
-        ...messages,
-        { role: "assistant", content: choice.message.content || "", tool_calls: toolCalls },
-        ...toolResults.map((tr) => ({
-          role: "tool",
-          tool_call_id: tr.tool_call_id,
-          content: tr.content,
-        })),
-      ];
-
-      const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: followUpMessages,
-          stream: true,
-        }),
-      });
-
-      if (!followUpResponse.ok) {
-        finalContent = "Found information but had trouble formatting. Please try again.";
-      } else {
-        return new Response(followUpResponse.body, {
-          headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-        });
-      }
+      // Loop continues - AI gets tool results and decides what to do next
     }
 
-    // No tool calls - return content
-    if (choice.finish_reason === "stop" && finalContent) {
+    // Update session state if needed
+    if (Object.keys(sessionUpdates).length > 0) {
+      await updateSessionState(supabase, session.id, sessionUpdates);
+    }
+
+    // Return the final response
+    if (finalContent) {
+      // We have content from the loop - format as SSE
       const sseData = `data: ${JSON.stringify({
         choices: [{ delta: { content: finalContent } }],
       })}\n\ndata: [DONE]\n\n`;
@@ -2054,12 +2684,32 @@ serve(async (req) => {
       return new Response(sseData, {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
-    }
+    } else {
+      // Do one final streaming call for potentially long responses
+      const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: currentMessages,
+          stream: true,
+        }),
+      });
 
-    return new Response(
-      JSON.stringify({ content: finalContent || "I'm not sure how to help with that." }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+      if (!streamResponse.ok) {
+        return new Response(
+          JSON.stringify({ content: "I had trouble generating a response. Please try again." }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(streamResponse.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    }
   } catch (e) {
     console.error("tenant-chat error:", e);
     return new Response(

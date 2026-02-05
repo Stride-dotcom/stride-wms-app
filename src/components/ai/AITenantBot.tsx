@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,13 +11,25 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  suggestions?: string[];
 }
 
 interface UIContext {
   route?: string;
   selected_item_ids?: string[];
   selected_shipment_id?: string;
+  selected_task_id?: string;
+  selected_account_id?: string;
 }
+
+// Entity link patterns for clickable references
+const ENTITY_PATTERNS = {
+  // Format: "ITM-12345 [id:uuid]" or just "ITM-12345"
+  item: /ITM-\d+(?:\s*\[id:([a-f0-9-]+)\])?/gi,
+  shipment: /SHP-\d+(?:\s*\[id:([a-f0-9-]+)\])?/gi,
+  task: /TSK-\d+(?:\s*\[id:([a-f0-9-]+)\])?/gi,
+  stocktake: /STK-\d+(?:\s*\[id:([a-f0-9-]+)\])?/gi,
+};
 
 export function AITenantBot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,9 +38,10 @@ export function AITenantBot() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const { toast } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Dragging state
   const [position, setPosition] = useState({ x: 24, y: 24 });
@@ -36,12 +49,22 @@ export function AITenantBot() {
   const dragRef = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null);
 
   const getUIContext = useCallback((): UIContext => {
+    const path = location.pathname;
+    const params = new URLSearchParams(location.search);
+
     return {
-      route: location.pathname,
-      selected_item_ids: undefined,
-      selected_shipment_id: undefined,
+      route: path,
+      // Extract entity context from URL
+      selected_shipment_id: path.includes('/shipments/')
+        ? path.split('/shipments/')[1]?.split('/')[0]
+        : params.get('shipment') || undefined,
+      selected_item_ids: params.get('item') ? [params.get('item')!] : undefined,
+      selected_task_id: path.includes('/tasks/')
+        ? path.split('/tasks/')[1]?.split('/')[0]
+        : params.get('task') || undefined,
+      selected_account_id: params.get('account') || undefined,
     };
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
   const handleDragStart = (e: React.TouchEvent | React.MouseEvent) => {
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -122,7 +145,7 @@ export function AITenantBot() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
           message: userMessage.content,
@@ -235,6 +258,138 @@ export function AITenantBot() {
     setMessages([]);
   };
 
+  // Handle entity link clicks
+  const handleEntityClick = (type: string, id: string | null, displayNumber: string) => {
+    if (!id) {
+      // If no UUID provided, just search for the entity
+      setInput(`Where is ${displayNumber}?`);
+      return;
+    }
+
+    // Navigate to the appropriate page based on entity type
+    switch (type) {
+      case 'item':
+        navigate(`/inventory?item=${id}`);
+        break;
+      case 'shipment':
+        navigate(`/shipments?id=${id}`);
+        break;
+      case 'task':
+        navigate(`/tasks?id=${id}`);
+        break;
+      case 'stocktake':
+        navigate(`/stocktakes?id=${id}`);
+        break;
+    }
+    setIsMinimized(true);
+  };
+
+  // Parse text and replace entity references with clickable elements
+  const parseEntityLinks = (text: string, keyPrefix: string): (string | JSX.Element)[] => {
+    const result: (string | JSX.Element)[] = [];
+    let lastIndex = 0;
+
+    // Combined regex for all entity types
+    const combinedRegex = /(ITM-\d+|SHP-\d+|TSK-\d+|STK-\d+)(?:\s*\[id:([a-f0-9-]+)\])?/gi;
+    let match;
+
+    while ((match = combinedRegex.exec(text)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        result.push(text.slice(lastIndex, match.index));
+      }
+
+      const displayNumber = match[1];
+      const uuid = match[2] || null;
+      const prefix = displayNumber.substring(0, 3).toUpperCase();
+
+      let type: string;
+      switch (prefix) {
+        case 'ITM': type = 'item'; break;
+        case 'SHP': type = 'shipment'; break;
+        case 'TSK': type = 'task'; break;
+        case 'STK': type = 'stocktake'; break;
+        default: type = 'item';
+      }
+
+      result.push(
+        <button
+          key={`${keyPrefix}-entity-${match.index}`}
+          onClick={() => handleEntityClick(type, uuid, displayNumber)}
+          className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer font-semibold"
+          title={uuid ? `Click to view ${displayNumber}` : `Search for ${displayNumber}`}
+        >
+          {displayNumber}
+        </button>
+      );
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < text.length) {
+      result.push(text.slice(lastIndex));
+    }
+
+    return result.length > 0 ? result : [text];
+  };
+
+  // Generate context-aware suggestions based on message content
+  const generateSuggestions = (content: string): string[] => {
+    const suggestions: string[] = [];
+    const contentLower = content.toLowerCase();
+
+    // Detect shipment mentions and suggest related actions
+    if (contentLower.includes('shipment') || /SHP-\d+/i.test(content)) {
+      if (contentLower.includes('inbound') || contentLower.includes('received')) {
+        suggestions.push('Create inspections for all items');
+        suggestions.push('Move items to receiving');
+      }
+      if (contentLower.includes('outbound')) {
+        suggestions.push('Validate outbound');
+        suggestions.push('Check blockers');
+      }
+      suggestions.push('Show shipment items');
+    }
+
+    // Detect item mentions and suggest related actions
+    if (/ITM-\d+/i.test(content)) {
+      suggestions.push('Move this item');
+      suggestions.push('Show movement history');
+      suggestions.push('Add a note');
+    }
+
+    // Detect task mentions
+    if (/TSK-\d+/i.test(content) || contentLower.includes('task')) {
+      suggestions.push('Mark task complete');
+      suggestions.push('Show task details');
+    }
+
+    // Detect stocktake mentions
+    if (/STK-\d+/i.test(content) || contentLower.includes('stocktake')) {
+      suggestions.push('Validate completion');
+      suggestions.push('Show variances');
+    }
+
+    // Detect account mentions
+    if (contentLower.includes('account') || contentLower.includes('client')) {
+      suggestions.push('Show account summary');
+      suggestions.push('View open tasks');
+    }
+
+    // If showing warehouse stats
+    if (contentLower.includes('warehouse') || contentLower.includes('snapshot')) {
+      suggestions.push('Show recent activity');
+      suggestions.push('View pending outbound');
+    }
+
+    return suggestions.slice(0, 3); // Limit to 3 suggestions
+  };
+
+  // Handle suggestion click
+  const handleSuggestionClick = (suggestion: string) => {
+    setInput(suggestion);
+  };
+
   const renderMessageContent = (message: Message) => {
     if (!message.content) {
       return isLoading ? <MaterialIcon name="progress_activity" size="sm" className="animate-spin" /> : null;
@@ -246,32 +401,43 @@ export function AITenantBot() {
     return (
       <div className="whitespace-pre-wrap font-mono text-xs">
         {lines.map((line, idx) => {
-          // Bold text
-          const boldRegex = /\*\*(.*?)\*\*/g;
-          const parts: (string | JSX.Element)[] = [];
-          let lastIndex = 0;
-          let match;
+          // First, parse entity links
+          const withEntityLinks = parseEntityLinks(line, `line-${idx}`);
 
-          while ((match = boldRegex.exec(line)) !== null) {
-            if (match.index > lastIndex) {
-              parts.push(line.slice(lastIndex, match.index));
+          // Then process bold text within each text segment
+          const processedParts: (string | JSX.Element)[] = [];
+          withEntityLinks.forEach((part, partIdx) => {
+            if (typeof part === 'string') {
+              // Process bold text
+              const boldRegex = /\*\*(.*?)\*\*/g;
+              let lastBoldIndex = 0;
+              let boldMatch;
+
+              while ((boldMatch = boldRegex.exec(part)) !== null) {
+                if (boldMatch.index > lastBoldIndex) {
+                  processedParts.push(part.slice(lastBoldIndex, boldMatch.index));
+                }
+                processedParts.push(
+                  <strong key={`bold-${idx}-${partIdx}-${boldMatch.index}`}>{boldMatch[1]}</strong>
+                );
+                lastBoldIndex = boldMatch.index + boldMatch[0].length;
+              }
+
+              if (lastBoldIndex < part.length) {
+                processedParts.push(part.slice(lastBoldIndex));
+              }
+            } else {
+              processedParts.push(part);
             }
-            parts.push(<strong key={`bold-${idx}-${match.index}`}>{match[1]}</strong>);
-            lastIndex = match.index + match[0].length;
-          }
-
-          if (lastIndex < line.length) {
-            parts.push(line.slice(lastIndex));
-          }
+          });
 
           // List items
           const isListItem = line.trim().startsWith('- ') || line.trim().startsWith('* ');
           if (isListItem) {
-            const listContent = line.replace(/^[\s]*[-*]\s*/, '');
             return (
               <div key={idx} className="flex items-start gap-1 pl-2">
                 <span className="text-muted-foreground">-</span>
-                <span>{listContent}</span>
+                <span>{processedParts.slice(1)}</span>
               </div>
             );
           }
@@ -282,14 +448,14 @@ export function AITenantBot() {
             return (
               <div key={idx} className="flex items-start gap-2 pl-2">
                 <span className="text-muted-foreground min-w-[1.25rem]">{numberedMatch[1]}.</span>
-                <span>{numberedMatch[2]}</span>
+                <span>{processedParts}</span>
               </div>
             );
           }
 
           return (
             <div key={idx}>
-              {parts.length > 0 ? parts : line}
+              {processedParts.length > 0 ? processedParts : line}
             </div>
           );
         })}
@@ -381,26 +547,47 @@ export function AITenantBot() {
           </div>
         ) : (
           <div className="space-y-3">
-            {messages.map((msg, idx) => (
-              <div key={idx} className={`flex items-start gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div className={`p-1.5 rounded shrink-0 ${
-                  msg.role === 'user' ? 'bg-blue-600' : 'bg-slate-700'
-                }`}>
-                  {msg.role === 'user' ? (
-                    <MaterialIcon name="person" size="sm" className="text-white" />
-                  ) : (
-                    <MaterialIcon name="terminal" size="sm" className="text-green-400" />
+            {messages.map((msg, idx) => {
+              const isLastAssistant = msg.role === 'assistant' && idx === messages.length - 1;
+              const suggestions = isLastAssistant && !isLoading ? generateSuggestions(msg.content) : [];
+
+              return (
+                <div key={idx}>
+                  <div className={`flex items-start gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                    <div className={`p-1.5 rounded shrink-0 ${
+                      msg.role === 'user' ? 'bg-blue-600' : 'bg-slate-700'
+                    }`}>
+                      {msg.role === 'user' ? (
+                        <MaterialIcon name="person" size="sm" className="text-white" />
+                      ) : (
+                        <MaterialIcon name="terminal" size="sm" className="text-green-400" />
+                      )}
+                    </div>
+                    <div className={`rounded p-2.5 max-w-[85%] ${
+                      msg.role === 'user'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-slate-800 text-slate-100'
+                    }`}>
+                      {renderMessageContent(msg)}
+                    </div>
+                  </div>
+                  {/* Suggested actions */}
+                  {suggestions.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2 ml-9">
+                      {suggestions.map((suggestion, sIdx) => (
+                        <button
+                          key={sIdx}
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          className="px-2 py-1 text-[10px] font-medium rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700 transition-colors"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
-                <div className={`rounded p-2.5 max-w-[85%] ${
-                  msg.role === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-800 text-slate-100'
-                }`}>
-                  {renderMessageContent(msg)}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </ScrollArea>
