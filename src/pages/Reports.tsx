@@ -22,7 +22,6 @@ import {
 import { LaborCostsTab } from '@/components/reports/LaborCostsTab';
 import { BillingReportTab } from '@/components/reports/BillingReportTab';
 import { RevenueLedgerTab } from '@/components/reports/RevenueLedgerTab';
-import { AddChargeTab } from '@/components/reports/AddChargeTab';
 import { ReportBuilderTab } from '@/components/reports/ReportBuilderTab';
 import { InvoiceTemplateTab } from '@/components/invoices/InvoiceTemplateTab';
 import { SavedInvoicesTab } from '@/components/invoices/SavedInvoicesTab';
@@ -156,12 +155,6 @@ export default function Reports() {
               <TabsTrigger value="billing" className="gap-2">
                 <MaterialIcon name="description" size="sm" />
                 Billing Report
-              </TabsTrigger>
-            )}
-            {isAdmin && (
-              <TabsTrigger value="add-charge" className="gap-2">
-                <MaterialIcon name="add_circle" size="sm" />
-                Add Charge
               </TabsTrigger>
             )}
             {isAdmin && (
@@ -334,12 +327,6 @@ export default function Reports() {
           {isAdmin && (
             <TabsContent value="billing" className="mt-6">
               <BillingReportTab />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="add-charge" className="mt-6">
-              <AddChargeTab />
             </TabsContent>
           )}
 

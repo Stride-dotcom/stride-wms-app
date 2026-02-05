@@ -5,6 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { getShipmentStatusClasses, getShipmentTypeBadgeClasses } from '@/lib/statusColors';
 import {
   Tooltip,
   TooltipContent,
@@ -162,7 +163,7 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
               title: s.shipment_type === 'inbound' ? 'Received in Shipment' : 'Released in Shipment',
               description: `Shipment ${s.shipment_number}`,
               timestamp: s.received_at || si.created_at,
-              metadata: { shipmentId: s.id, status: s.status },
+              metadata: { shipmentId: s.id, status: s.status, shipmentType: s.shipment_type },
             });
           }
         });
@@ -324,6 +325,23 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">{event.description}</p>
+
+                    {/* Shipment Status and Type Badges */}
+                    {event.type === 'shipment' && event.metadata && (
+                      <div className="flex items-center gap-2 mt-1">
+                        {event.metadata.shipmentType && (
+                          <Badge className={getShipmentTypeBadgeClasses(event.metadata.shipmentType)}>
+                            {event.metadata.shipmentType.charAt(0).toUpperCase() + event.metadata.shipmentType.slice(1)}
+                          </Badge>
+                        )}
+                        {event.metadata.status && (
+                          <Badge className={getShipmentStatusClasses(event.metadata.status)}>
+                            {event.metadata.status.charAt(0).toUpperCase() + event.metadata.status.slice(1).replace(/_/g, ' ')}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+
                     <p className="text-xs text-muted-foreground mt-1">
                       {format(new Date(event.timestamp), 'MMM d, yyyy h:mm a')}
                     </p>

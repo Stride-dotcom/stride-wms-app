@@ -943,22 +943,22 @@ export function useRepairQuoteWorkflow() {
   // Get status display info
   const getStatusInfo = (status: RepairQuoteWorkflowStatus | string) => {
     const statusMap: Record<string, { label: string; color: string }> = {
-      draft: { label: 'Draft', color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
-      awaiting_assignment: { label: 'Awaiting Assignment', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
-      sent_to_tech: { label: 'Sent to Tech', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
-      tech_declined: { label: 'Tech Declined', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
-      tech_submitted: { label: 'Tech Submitted', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
-      under_review: { label: 'Under Review', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
-      sent_to_client: { label: 'Sent to Client', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200' },
-      accepted: { label: 'Accepted', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-      declined: { label: 'Declined', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
-      expired: { label: 'Expired', color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
-      closed: { label: 'Closed', color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200' },
+      draft: { label: 'Draft', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' },
+      awaiting_assignment: { label: 'Awaiting Assignment', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' },
+      sent_to_tech: { label: 'Sent to Tech', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
+      tech_declined: { label: 'Tech Declined', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' },
+      tech_submitted: { label: 'Tech Submitted', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' },
+      under_review: { label: 'Under Review', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' },
+      sent_to_client: { label: 'Sent to Client', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
+      accepted: { label: 'Accepted', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' },
+      declined: { label: 'Declined', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' },
+      expired: { label: 'Expired', color: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' },
+      closed: { label: 'Closed', color: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' },
       // Legacy statuses
-      pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
-      approved: { label: 'Approved', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+      pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' },
+      approved: { label: 'Approved', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' },
     };
-    return statusMap[status] || { label: status, color: 'bg-gray-100 text-gray-800' };
+    return statusMap[status] || { label: status, color: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' };
   };
 
   return {

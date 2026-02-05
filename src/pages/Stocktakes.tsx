@@ -49,10 +49,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 const statusColors: Record<StocktakeStatus, string> = {
-  draft: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-  active: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-  closed: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
-  cancelled: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20',
+  draft: 'font-bold text-orange-500 dark:text-orange-400',
+  active: 'font-bold text-yellow-500 dark:text-yellow-400',
+  closed: 'font-bold text-green-500 dark:text-green-400',
+  cancelled: 'font-bold text-red-500 dark:text-red-400',
 };
 
 const statusLabels: Record<StocktakeStatus, string> = {
@@ -185,8 +185,8 @@ export default function Stocktakes() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            <span className="text-foreground">Stock</span>{' '}
-            <span className="text-primary">take</span>
+            <span className="text-foreground">Cycle</span>{' '}
+            <span className="text-primary">Count</span>
           </h1>
           <p className="text-muted-foreground">Schedule and manage inventory cycle counts</p>
         </div>

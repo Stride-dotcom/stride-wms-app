@@ -43,6 +43,7 @@ import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
 import { IntegrationsSettingsTab } from '@/components/settings/IntegrationsSettingsTab';
 import { PromptsSettingsTab } from '@/components/settings/PromptsSettingsTab';
 import { AuditLogTab } from '@/components/settings/AuditLogTab';
+import { OperationsSettingsTab } from '@/components/settings/OperationsSettingsTab';
 import { QATestConsoleTab } from '@/components/settings/QATestConsoleTab';
 import packageJson from '../../package.json';
 
@@ -57,15 +58,11 @@ const TAB_OPTIONS = [
   { value: 'profile', label: 'Profile' },
   { value: 'organization', label: 'Organization' },
   { value: 'alerts', label: 'Alerts' },
-  { value: 'prompts', label: 'Prompts', adminOnly: true },
-  { value: 'labor', label: 'Labor', adminOnly: true },
+  { value: 'operations', label: 'Operations', adminOnly: true },
   { value: 'service-rates', label: 'Service Rates', adminOnly: true },
-  { value: 'audit', label: 'Audit Log', adminOnly: true },
   { value: 'integrations', label: 'Integrations', adminOnly: true },
-  { value: 'sidemarks', label: 'Sidemarks' },
   { value: 'warehouses', label: 'Warehouses' },
   { value: 'locations', label: 'Locations' },
-  { value: 'users', label: 'Users' },
   { value: 'qa', label: 'QA Tests', adminOnly: true },
 ];
 
@@ -327,15 +324,11 @@ export default function Settings() {
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="organization">Organization</TabsTrigger>
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
-            {isAdmin && <TabsTrigger value="prompts">Prompts</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="operations">Operations</TabsTrigger>}
             {isAdmin && <TabsTrigger value="service-rates">Service Rates</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="audit">Audit Log</TabsTrigger>}
             {isAdmin && <TabsTrigger value="integrations">Integrations</TabsTrigger>}
-            <TabsTrigger value="sidemarks">Sidemarks</TabsTrigger>
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
             {isAdmin && <TabsTrigger value="qa">QA Tests</TabsTrigger>}
           </TabsList>
 
@@ -404,28 +397,45 @@ export default function Settings() {
           </TabsContent>
 
           {isAdmin && (
-            <TabsContent value="prompts">
-              <PromptsSettingsTab />
+            <TabsContent value="operations">
+              <OperationsSettingsTab
+                usersContent={
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-lg font-medium flex items-center gap-2">
+                          <MaterialIcon name="group" size="md" />
+                          Users
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Manage users and their roles in your organization
+                        </p>
+                      </div>
+                    </div>
+                    <UserList
+                      users={users}
+                      roles={roles}
+                      loading={usersLoading}
+                      currentUserId={profile?.id}
+                      onEdit={(userId) => {
+                        setEditingUser(userId);
+                        setUserDialogOpen(true);
+                      }}
+                      onDelete={deleteUser}
+                      onRefresh={refetchUsers}
+                      onInvite={() => setInviteDialogOpen(true)}
+                    />
+                  </div>
+                }
+              />
             </TabsContent>
           )}
 
           {/* Billing tab removed - charge templates moved to Rate Sheets */}
 
           {isAdmin && (
-            <TabsContent value="labor">
-              <LaborSettingsTab />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
             <TabsContent value="service-rates">
               <ServiceRatesConsole />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="audit">
-              <AuditLogTab />
             </TabsContent>
           )}
 
@@ -435,11 +445,7 @@ export default function Settings() {
             </TabsContent>
           )}
 
-          <TabsContent value="sidemarks">
-            <SidemarksSettingsTab />
-          </TabsContent>
-
-          {/* Removed: Services, Rate Sheets, Classes tabs - now using unified service_events pricing system */}
+          {/* Removed: Sidemarks, Services, Rate Sheets, Classes tabs - consolidated or using unified service_events pricing system */}
 
           <TabsContent value="warehouses">
             <div className="space-y-4">
@@ -481,35 +487,6 @@ export default function Settings() {
               onImportCSV={handleImportCSV}
               onWarehouseRefresh={refetchWarehouses}
             />
-          </TabsContent>
-
-          <TabsContent value="users">
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-lg font-medium flex items-center gap-2">
-                    <MaterialIcon name="group" size="md" />
-                    Users
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Manage users and their roles in your organization
-                  </p>
-                </div>
-              </div>
-              <UserList
-                users={users}
-                roles={roles}
-                loading={usersLoading}
-                currentUserId={profile?.id}
-                onEdit={(userId) => {
-                  setEditingUser(userId);
-                  setUserDialogOpen(true);
-                }}
-                onDelete={deleteUser}
-                onRefresh={refetchUsers}
-                onInvite={() => setInviteDialogOpen(true)}
-              />
-            </div>
           </TabsContent>
 
           {isAdmin && (

@@ -343,7 +343,15 @@ export function BillingReportTab() {
         query = query.in("status", selectedStatuses);
       }
       if (selectedServices.length > 0) {
-        query = query.in("charge_type", selectedServices);
+        const hasAddon = selectedServices.includes('addon');
+        const serviceFilters = selectedServices.filter(s => s !== 'addon');
+        if (hasAddon && serviceFilters.length > 0) {
+          query = query.or(`charge_type.in.(${serviceFilters.join(',')}),event_type.eq.addon`);
+        } else if (hasAddon) {
+          query = query.eq("event_type", "addon");
+        } else {
+          query = query.in("charge_type", serviceFilters);
+        }
       }
 
       const { data, error } = await query;
@@ -1195,10 +1203,13 @@ export function BillingReportTab() {
             <div className="space-y-1">
               <label className="text-sm font-medium">Service Type</label>
               <MultiSelect
-                options={services.map((s) => ({
-                  value: s.service_code,
-                  label: s.service_name || s.service_code,
-                }))}
+                options={[
+                  ...services.map((s) => ({
+                    value: s.service_code,
+                    label: s.service_name || s.service_code,
+                  })),
+                  { value: 'addon', label: 'Add Charge' },
+                ]}
                 selected={selectedServices}
                 onChange={setSelectedServices}
                 placeholder="All services"
