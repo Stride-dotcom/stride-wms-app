@@ -401,45 +401,10 @@ export async function calculateTaskBillingPreview(
   let serviceName = 'Unknown';
   let serviceCode = overrideServiceCode || TASK_TYPE_TO_SERVICE_CODE[taskType] || 'UNKNOWN';
 
-  // For Assembly/Repair with override quantity, treat as single line item (legacy behavior)
-  const normalizedType = normalizeTaskType(taskType);
-  const isPerTaskBilling = normalizedType === 'Assembly' || normalizedType === 'Repair';
-
-  if (isPerTaskBilling && overrideQuantity !== null && overrideQuantity !== undefined) {
-    // Get the rate (use override if provided, otherwise look up)
-    let rate = overrideRate;
-    let rateError = false;
-    let errorMessage: string | undefined;
-
-    if (rate === null || rate === undefined) {
-      const legacyServiceCode = overrideServiceCode || getServiceCodeForTaskType(taskType);
-      const rateResult = await getRateFromPriceList(tenantId, legacyServiceCode, null);
-      rate = rateResult.rate;
-      serviceName = rateResult.serviceName;
-      serviceCode = rateResult.serviceCode;
-      rateError = rateResult.hasError;
-      errorMessage = rateResult.errorMessage;
-    }
-
-    const totalAmount = (overrideQuantity || 0) * (rate || 0);
-
-    lineItems.push({
-      itemId: null,
-      itemCode: null,
-      classCode: null,
-      className: null,
-      serviceCode,
-      serviceName,
-      quantity: overrideQuantity || 0,
-      unitRate: rate || 0,
-      totalAmount,
-      hasRateError: rateError,
-      errorMessage,
-    });
-
-    subtotal = totalAmount;
-    hasErrors = rateError;
-  } else {
+  // Note: Assembly/Repair are no longer hardcoded special cases.
+  // Per-task billing is handled via service lines with explicit quantities.
+  // This function now always uses per-item billing for the legacy path.
+  {
     // Per-item billing - calculate for each item based on class
     // Use category-based lookup if category_id is provided (new model)
     // Otherwise fall back to legacy service code lookup
@@ -653,6 +618,8 @@ export async function calculateShipmentBillingPreview(
 
 /**
  * Get assembly services from Price List for dropdown
+ * @deprecated Assembly services are now managed through charge_types and service lines.
+ * This function is kept for backward compatibility but will be removed in a future release.
  */
 export async function getAssemblyServices(tenantId: string): Promise<Array<{
   serviceCode: string;
@@ -698,6 +665,8 @@ export async function getAssemblyServices(tenantId: string): Promise<Array<{
 
 /**
  * Get repair service rate from Price List
+ * @deprecated Repair services are now managed through charge_types and service lines.
+ * This function is kept for backward compatibility but will be removed in a future release.
  */
 export async function getRepairServiceRate(tenantId: string): Promise<{
   serviceCode: string;

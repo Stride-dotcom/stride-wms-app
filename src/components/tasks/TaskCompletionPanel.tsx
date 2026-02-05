@@ -90,12 +90,9 @@ export function TaskCompletionPanel({
     onConfirm(lineValues);
   };
 
-  // Validate: every line must have qty > 0 or minutes > 0 (depending on input_mode)
-  const isValid = lineValues.every(lv => {
-    if (lv.input_mode === 'time') return lv.minutes > 0;
-    if (lv.input_mode === 'both') return lv.qty > 0 || lv.minutes > 0;
-    return lv.qty > 0;
-  });
+  // Validate: every line must have qty > 0 for all input modes
+  // (quantity is just quantity - no special minutes handling)
+  const isValid = lineValues.every(lv => lv.qty > 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -124,39 +121,20 @@ export function TaskCompletionPanel({
               </div>
 
               <div className="flex gap-3">
-                {/* Qty input - shown for qty and both modes */}
-                {(lv.input_mode === 'qty' || lv.input_mode === 'both') && (
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-xs text-muted-foreground">Quantity</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={lv.qty || ''}
-                      onChange={e =>
-                        updateLine(lv.lineId, 'qty', parseFloat(e.target.value) || 0)
-                      }
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                )}
-
-                {/* Time input - shown for time and both modes */}
-                {(lv.input_mode === 'time' || lv.input_mode === 'both') && (
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-xs text-muted-foreground">Minutes</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      step={15}
-                      value={lv.minutes || ''}
-                      onChange={e =>
-                        updateLine(lv.lineId, 'minutes', parseFloat(e.target.value) || 0)
-                      }
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                )}
+                {/* Qty input - shown for ALL modes (quantity is always just quantity) */}
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs text-muted-foreground">Quantity</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.25}
+                    value={lv.qty || ''}
+                    onChange={e =>
+                      updateLine(lv.lineId, 'qty', parseFloat(e.target.value) || 0)
+                    }
+                    className="h-8 text-sm"
+                  />
+                </div>
               </div>
             </div>
           ))}

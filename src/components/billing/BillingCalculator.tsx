@@ -54,6 +54,16 @@ interface ExistingBillingEvent {
   status: string;
 }
 
+// Service line preview data for task billing
+interface ServiceLinePreviewItem {
+  chargeCode: string;
+  chargeName: string;
+  quantity: number;
+  unitRate: number;
+  totalAmount: number;
+  hasError: boolean;
+}
+
 interface BillingCalculatorProps {
   // Context - provide ONE of these
   taskId?: string;
@@ -65,14 +75,13 @@ interface BillingCalculatorProps {
   taskType?: string;
   shipmentDirection?: 'inbound' | 'outbound' | 'return';
 
-  // For Assembly/Repair - billing parameters (read-only display)
-  selectedServiceCode?: string | null;
-  billingQuantity?: number | null;
-  billingRate?: number | null;
+  // Service line preview (NEW - takes precedence over legacy task billing preview)
+  // When provided, displays these as "Pending Charges" instead of calculated preview
+  serviceLinePreview?: ServiceLinePreviewItem[];
 
   // Refresh trigger
   refreshKey?: number;
-  
+
   // Callback when charges change (e.g., after voiding)
   onChargesChange?: () => void;
 
@@ -92,9 +101,7 @@ export function BillingCalculator({
   accountId,
   taskType,
   shipmentDirection = 'inbound',
-  selectedServiceCode,
-  billingQuantity,
-  billingRate,
+  serviceLinePreview,
   refreshKey = 0,
   onChargesChange,
   title = 'Billing Charges',
@@ -205,9 +212,8 @@ export function BillingCalculator({
         if (taskTypeData) {
           categoryId = taskTypeData.category_id;
           // Check if this task type requires manual rate entry (Safety Billing)
-          requiresManualRate = taskTypeData.requires_manual_rate === true ||
-                               taskType === 'Assembly' ||
-                               taskType === 'Repair';
+          // Only use database flag - no hardcoded task type names
+          requiresManualRate = taskTypeData.requires_manual_rate === true;
 
           // Only use legacy service code lookup if no category is set
           if (!categoryId && !effectiveServiceCode) {
@@ -218,13 +224,12 @@ export function BillingCalculator({
         } else if (!effectiveServiceCode) {
           // Fallback to legacy hardcoded lookup
           effectiveServiceCode = await getTaskTypeServiceCode(profile.tenant_id, taskType);
-          // Also check by name for manual rate
-          requiresManualRate = taskType === 'Assembly' || taskType === 'Repair';
+          // requiresManualRate stays false - no hardcoded task type checks
         }
 
-        // SAFETY BILLING: For manual-rate task types without a locked rate,
-        // show "Rate required" instead of attempting price list lookup
-        if (requiresManualRate && !billingRate) {
+        // SAFETY BILLING: For manual-rate task types, show rate required banner
+        // This only applies when serviceLinePreview is NOT provided (legacy path)
+        if (requiresManualRate) {
           result = {
             lineItems: [],
             subtotal: 0,
@@ -239,8 +244,8 @@ export function BillingCalculator({
             taskId,
             taskType,
             effectiveServiceCode,
-            billingQuantity,
-            billingRate,
+            null, // overrideQuantity - not used when serviceLinePreview is provided
+            null, // overrideRate - not used when serviceLinePreview is provided
             categoryId  // Pass category_id for new billing model
           );
         }
@@ -282,9 +287,6 @@ export function BillingCalculator({
     shipmentId,
     taskType,
     shipmentDirection,
-    selectedServiceCode,
-    billingQuantity,
-    billingRate,
     fetchExistingEvents,
   ]);
 
@@ -337,17 +339,23 @@ export function BillingCalculator({
 
   // Calculate totals - existing events from DB + preview
   const existingEventsTotal = existingEvents.reduce((sum, e) => sum + (e.total_amount || e.unit_rate * e.quantity), 0);
-  const previewTotal = preview?.subtotal || 0;
-  
+
+  // Calculate service line preview total when provided
+  const serviceLinePreviewTotal = serviceLinePreview?.reduce((sum, item) => sum + item.totalAmount, 0) ?? 0;
+  const hasServiceLinePreview = serviceLinePreview !== undefined;
+
+  // Use serviceLinePreview total if provided, otherwise use calculated preview total
+  const previewTotal = hasServiceLinePreview ? serviceLinePreviewTotal : (preview?.subtotal || 0);
+
   // For shipments that are already received, don't show preview (events already exist)
   // For tasks, check if task_completion event exists
   // For items/accounts, never show preview
-  const showPreview = isTask 
+  const showPreview = isTask
     ? !existingEvents.some(e => e.event_type === 'task_completion')
-    : (isShipment && existingEvents.filter(e => 
+    : (isShipment && existingEvents.filter(e =>
         e.event_type === 'receiving' || e.event_type === 'returns_processing'
       ).length === 0);
-  
+
   const grandTotal = existingEventsTotal + (showPreview ? previewTotal : 0);
 
   // Format currency
@@ -387,8 +395,46 @@ export function BillingCalculator({
         </CardHeader>
         <CardContent className={compact ? 'px-4 pb-3 space-y-3' : 'space-y-4'}>
 
-          {/* Safety Billing: Rate Required Banner */}
-          {showPreview && preview && preview.errorMessage && preview.lineItems.length === 0 && (
+          {/* Service Line Preview (NEW - takes precedence over legacy preview) */}
+          {showPreview && hasServiceLinePreview && serviceLinePreview.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                <MaterialIcon name="schedule" size="sm" />
+                Pending Charges (Preview)
+              </p>
+              {serviceLinePreview.map((item, idx) => (
+                <div key={`${item.chargeCode}-${idx}`} className="flex items-center justify-between py-1.5 text-sm">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="truncate">{item.chargeName}</span>
+                    <Badge variant="outline" className="text-xs shrink-0">{item.chargeCode}</Badge>
+                    <span className="text-muted-foreground shrink-0">×{item.quantity}</span>
+                    {item.hasError && (
+                      <MaterialIcon name="warning" size="sm" className="text-amber-500 shrink-0" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {item.hasError ? (
+                      <span className="text-muted-foreground italic text-xs">No rate</span>
+                    ) : (
+                      <>
+                        <span className="text-muted-foreground">{formatCurrency(item.unitRate)}</span>
+                        <span className="font-medium min-w-[70px] text-right">{formatCurrency(item.totalAmount)}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {serviceLinePreview.some(item => item.hasError) && (
+                <p className="text-xs text-amber-600 flex items-center gap-1 mt-2">
+                  <MaterialIcon name="info" size="sm" />
+                  Some services have no rate defined in Price List
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Safety Billing: Rate Required Banner (only for legacy path without serviceLinePreview) */}
+          {showPreview && !hasServiceLinePreview && preview && preview.errorMessage && preview.lineItems.length === 0 && (
             <div className="p-3 border border-amber-300 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
               <div className="flex items-start gap-2">
                 <MaterialIcon name="info" size="sm" className="text-amber-600 mt-0.5" />
@@ -404,8 +450,8 @@ export function BillingCalculator({
             </div>
           )}
 
-          {/* Per-Item Billing Preview (Shipments, Tasks, etc.) */}
-          {showPreview && preview && preview.lineItems.length > 0 && (
+          {/* Per-Item Billing Preview - Legacy (Shipments, non-service-line Tasks) */}
+          {showPreview && !hasServiceLinePreview && preview && preview.lineItems.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                 <MaterialIcon name="schedule" size="sm" />
@@ -519,8 +565,11 @@ export function BillingCalculator({
             </div>
           )}
 
-          {/* Empty State - but don't show if we have Rate Required message */}
-          {existingEvents.length === 0 && (!showPreview || !preview || (preview.lineItems.length === 0 && !preview.errorMessage)) && (
+          {/* Empty State - but don't show if we have Rate Required message or service line preview */}
+          {existingEvents.length === 0 &&
+            (!showPreview ||
+              (hasServiceLinePreview && serviceLinePreview.length === 0) ||
+              (!hasServiceLinePreview && (!preview || (preview.lineItems.length === 0 && !preview.errorMessage)))) && (
             <div className="text-center py-4 text-sm text-muted-foreground">
               No billing charges yet
             </div>
