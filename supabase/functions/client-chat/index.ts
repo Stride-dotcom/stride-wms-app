@@ -122,7 +122,24 @@ Avoid: "Item ITM-00142 status=active, location_id=LOC-089, received_at=2024-01-1
 
 Good: "I'd be happy to help you schedule a pickup! I'll need to know: who will be picking up the items, and would you like them ready for a specific date?"
 
-Avoid: "Initiating will_call_draft creation sequence. Please provide released_to_name parameter."`;
+Avoid: "Initiating will_call_draft creation sequence. Please provide released_to_name parameter."
+
+## Tool Workflow Rules
+- You can call multiple tools in sequence - the system supports multi-round tool calls
+- When a user mentions an item number, job name, or shipment number, the system will automatically resolve human-readable IDs to UUIDs
+- Chain tool calls as needed: search → get details → take action
+- If a search returns exactly one result, proceed automatically with the action
+- If a search returns multiple results, present friendly options and ask which one they meant
+- For complex operations (e.g., "create a will call for my dining table"), break into steps:
+  1. First search for the item by description
+  2. Get the item details to confirm it's the right one
+  3. Create the will call draft and ask for confirmation
+
+## Error Recovery
+- If you can't find an item, try different search terms (description words, job name, etc.)
+- If the user provides a partial item number, search for it - don't say you can't find it
+- Always try to help before giving up
+- Suggest alternatives if something isn't possible (e.g., "That item is already allocated for pickup. Would you like to check on that pickup instead?")`;
 
 // ============================================================
 // TOOL DEFINITIONS
@@ -286,7 +303,165 @@ const TOOLS = [
       properties: {},
     },
   },
+  // ==================== ENHANCED CLIENT TOOLS ====================
+  {
+    name: "tool_search_items_natural",
+    description: "Search items using natural language descriptions like 'blue sofa', 'Smith dining table', or job/project names",
+    parameters: {
+      type: "object",
+      properties: {
+        description: { type: "string", description: "Natural language description of the item" },
+        job_name: { type: "string", description: "Job/project name if mentioned" },
+      },
+      required: ["description"],
+    },
+  },
+  {
+    name: "tool_check_delivery_status",
+    description: "Check if items have arrived or when a delivery is expected",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "What the client is asking about (item description, shipment number, tracking number)" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "tool_request_disposal",
+    description: "Submit a request to dispose of items in storage",
+    parameters: {
+      type: "object",
+      properties: {
+        item_ids: { type: "array", items: { type: "string" }, description: "Item IDs to dispose" },
+        reason: { type: "string", description: "Reason for disposal" },
+      },
+      required: ["item_ids"],
+    },
+  },
+  {
+    name: "tool_get_my_storage_summary",
+    description: "Get a summary of everything the client has in storage - total items, by job, by status",
+    parameters: {
+      type: "object",
+      properties: {},
+    },
+  },
 ];
+
+// ============================================================
+// ID RESOLUTION HELPERS
+// ============================================================
+
+function isUUID(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
+async function resolveHumanIds(
+  supabase: any,
+  toolName: string,
+  params: any,
+  scope: ChatScope
+): Promise<any> {
+  const resolved = { ...params };
+
+  // Resolve shipment_id if it looks like a shipment number, not a UUID
+  if (resolved.shipment_id && !isUUID(resolved.shipment_id)) {
+    const numericPart = extractNumericPortion(resolved.shipment_id);
+    const { data } = await supabase
+      .from("shipments")
+      .select("id")
+      .eq("tenant_id", scope.tenant_id)
+      .eq("account_id", scope.account_id)
+      .ilike("shipment_number", `%${numericPart}%`)
+      .is("deleted_at", null)
+      .limit(1)
+      .single();
+    if (data) resolved.shipment_id = data.id;
+  }
+
+  // Resolve item_id if it looks like an item code, not a UUID
+  if (resolved.item_id && !isUUID(resolved.item_id)) {
+    const numericPart = extractNumericPortion(resolved.item_id);
+    const { data } = await supabase
+      .from("items")
+      .select("id")
+      .eq("tenant_id", scope.tenant_id)
+      .eq("account_id", scope.account_id)
+      .ilike("item_code", `%${numericPart}%`)
+      .is("deleted_at", null)
+      .limit(1)
+      .single();
+    if (data) resolved.item_id = data.id;
+  }
+
+  // Resolve item_ids array
+  if (resolved.item_ids && Array.isArray(resolved.item_ids)) {
+    const resolvedIds: string[] = [];
+    for (const id of resolved.item_ids) {
+      if (isUUID(id)) {
+        resolvedIds.push(id);
+      } else {
+        const numericPart = extractNumericPortion(id);
+        const { data } = await supabase
+          .from("items")
+          .select("id")
+          .eq("tenant_id", scope.tenant_id)
+          .eq("account_id", scope.account_id)
+          .ilike("item_code", `%${numericPart}%`)
+          .is("deleted_at", null)
+          .limit(1)
+          .single();
+        if (data) resolvedIds.push(data.id);
+      }
+    }
+    resolved.item_ids = resolvedIds;
+  }
+
+  // Resolve subaccount_id by sidemark name
+  if (resolved.subaccount_id && !isUUID(resolved.subaccount_id)) {
+    const { data } = await supabase
+      .from("sidemarks")
+      .select("id")
+      .eq("tenant_id", scope.tenant_id)
+      .eq("account_id", scope.account_id)
+      .ilike("sidemark_name", `%${resolved.subaccount_id}%`)
+      .is("deleted_at", null)
+      .limit(1)
+      .single();
+    if (data) resolved.subaccount_id = data.id;
+  }
+
+  // Resolve from_subaccount_id by sidemark name
+  if (resolved.from_subaccount_id && !isUUID(resolved.from_subaccount_id)) {
+    const { data } = await supabase
+      .from("sidemarks")
+      .select("id")
+      .eq("tenant_id", scope.tenant_id)
+      .eq("account_id", scope.account_id)
+      .ilike("sidemark_name", `%${resolved.from_subaccount_id}%`)
+      .is("deleted_at", null)
+      .limit(1)
+      .single();
+    if (data) resolved.from_subaccount_id = data.id;
+  }
+
+  // Resolve to_subaccount_id by sidemark name
+  if (resolved.to_subaccount_id && !isUUID(resolved.to_subaccount_id)) {
+    const { data } = await supabase
+      .from("sidemarks")
+      .select("id")
+      .eq("tenant_id", scope.tenant_id)
+      .eq("account_id", scope.account_id)
+      .ilike("sidemark_name", `%${resolved.to_subaccount_id}%`)
+      .is("deleted_at", null)
+      .limit(1)
+      .single();
+    if (data) resolved.to_subaccount_id = data.id;
+  }
+
+  return resolved;
+}
 
 // ============================================================
 // TOOL HANDLERS
@@ -299,45 +474,60 @@ async function handleTool(
   scope: ChatScope,
   sessionState: SessionState
 ): Promise<{ result: any; newSessionState?: Partial<SessionState> }> {
+  // Resolve human-readable IDs to UUIDs before executing
+  const resolvedParams = await resolveHumanIds(supabase, toolName, params, scope);
+
   switch (toolName) {
     case "tool_search_items":
-      return await toolSearchItems(supabase, params, scope);
+      return await toolSearchItems(supabase, resolvedParams, scope);
 
     case "tool_get_last_inbound_shipment":
       return await toolGetLastInboundShipment(supabase, scope);
 
     case "tool_get_shipment_items":
-      return await toolGetShipmentItems(supabase, params, scope);
+      return await toolGetShipmentItems(supabase, resolvedParams, scope);
 
     case "tool_get_item_status":
-      return await toolGetItemStatus(supabase, params, scope);
+      return await toolGetItemStatus(supabase, resolvedParams, scope);
 
     case "tool_get_inspection_reports":
-      return await toolGetInspectionReports(supabase, params, scope);
+      return await toolGetInspectionReports(supabase, resolvedParams, scope);
 
     case "tool_create_will_call_draft":
-      return await toolCreateWillCallDraft(supabase, params, scope);
+      return await toolCreateWillCallDraft(supabase, resolvedParams, scope);
 
     case "tool_submit_will_call":
-      return await toolSubmitWillCall(supabase, params, scope);
+      return await toolSubmitWillCall(supabase, resolvedParams, scope);
 
     case "tool_create_repair_quote_request_draft":
-      return await toolCreateRepairQuoteDraft(supabase, params, scope);
+      return await toolCreateRepairQuoteDraft(supabase, resolvedParams, scope);
 
     case "tool_submit_repair_quote_request":
-      return await toolSubmitRepairQuoteRequest(supabase, params, scope);
+      return await toolSubmitRepairQuoteRequest(supabase, resolvedParams, scope);
 
     case "tool_reallocate_items_preview":
-      return await toolReallocateItemsPreview(supabase, params, scope);
+      return await toolReallocateItemsPreview(supabase, resolvedParams, scope);
 
     case "tool_reallocate_items_execute":
-      return await toolReallocateItemsExecute(supabase, params, scope);
+      return await toolReallocateItemsExecute(supabase, resolvedParams, scope);
 
     case "tool_resolve_disambiguation":
-      return await toolResolveDisambiguation(params, sessionState);
+      return await toolResolveDisambiguation(resolvedParams, sessionState);
 
     case "tool_get_subaccounts":
       return await toolGetSubaccounts(supabase, scope);
+
+    case "tool_search_items_natural":
+      return await toolSearchItemsNatural(supabase, resolvedParams, scope);
+
+    case "tool_check_delivery_status":
+      return await toolCheckDeliveryStatus(supabase, resolvedParams, scope);
+
+    case "tool_request_disposal":
+      return await toolRequestDisposal(supabase, resolvedParams, scope);
+
+    case "tool_get_my_storage_summary":
+      return await toolGetMyStorageSummary(supabase, scope);
 
     default:
       return { result: { error: `Unknown tool: ${toolName}` } };
@@ -1213,6 +1403,356 @@ async function toolGetSubaccounts(supabase: any, scope: ChatScope) {
 }
 
 // ============================================================
+// ENHANCED CLIENT TOOLS
+// ============================================================
+
+// Tool: Search Items Natural Language
+async function toolSearchItemsNatural(
+  supabase: any,
+  params: { description: string; job_name?: string },
+  scope: ChatScope
+) {
+  const { description, job_name } = params;
+
+  // Split description into search terms
+  const searchTerms = description.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+
+  // Build search query
+  let query = supabase
+    .from("items")
+    .select(`
+      id,
+      item_code,
+      description,
+      status,
+      received_at,
+      sidemark:sidemarks(id, sidemark_name),
+      location:locations(id, code, name),
+      shipment:shipments!items_shipment_id_fkey(id, shipment_number)
+    `)
+    .eq("tenant_id", scope.tenant_id)
+    .eq("account_id", scope.account_id)
+    .is("deleted_at", null);
+
+  // If job_name provided, filter by sidemark
+  if (job_name) {
+    const { data: sidemarks } = await supabase
+      .from("sidemarks")
+      .select("id")
+      .eq("tenant_id", scope.tenant_id)
+      .eq("account_id", scope.account_id)
+      .ilike("sidemark_name", `%${job_name}%`);
+
+    if (sidemarks && sidemarks.length > 0) {
+      query = query.in("sidemark_id", sidemarks.map((s: any) => s.id));
+    }
+  }
+
+  const { data: items, error } = await query.limit(50);
+
+  if (error) {
+    return { result: { error: "Failed to search items", candidates: [] } };
+  }
+
+  // Score items by how many search terms they match
+  const scoredItems = (items || []).map((item: any) => {
+    const desc = (item.description || "").toLowerCase();
+    const jobName = (item.sidemark?.sidemark_name || "").toLowerCase();
+    let score = 0;
+
+    for (const term of searchTerms) {
+      if (desc.includes(term)) score += 2;
+      if (jobName.includes(term)) score += 1;
+    }
+
+    return { ...item, score };
+  }).filter((item: any) => item.score > 0)
+    .sort((a: any, b: any) => b.score - a.score)
+    .slice(0, 10);
+
+  if (scoredItems.length === 0) {
+    return {
+      result: {
+        found: false,
+        message: "No items matching that description were found. Try different words or check the job name.",
+        candidates: [],
+      },
+    };
+  }
+
+  const candidates = scoredItems.map((item: any, i: number) => ({
+    index: i + 1,
+    id: item.id,
+    label: item.description || item.item_code,
+    item_number: item.item_code,
+    job_name: item.sidemark?.sidemark_name || null,
+    status: item.status,
+    received_at: item.received_at,
+  }));
+
+  if (candidates.length === 1) {
+    return {
+      result: {
+        found: true,
+        single_match: true,
+        item: candidates[0],
+      },
+    };
+  }
+
+  return {
+    result: {
+      found: true,
+      multiple_matches: true,
+      count: candidates.length,
+      candidates,
+      message: "Found multiple items matching your description. Which one did you mean?",
+    },
+    newSessionState: {
+      pending_disambiguation: {
+        type: "items" as const,
+        candidates: candidates.map((c: any) => ({ id: c.id, label: c.label, index: c.index })),
+        original_query: description,
+      },
+    },
+  };
+}
+
+// Tool: Check Delivery Status
+async function toolCheckDeliveryStatus(
+  supabase: any,
+  params: { query: string },
+  scope: ChatScope
+) {
+  const { query } = params;
+
+  // Search recent shipments by tracking number, shipment number, or items
+  const { data: shipments, error } = await supabase
+    .from("shipments")
+    .select(`
+      id, shipment_number, tracking_number, status, received_at, expected_date,
+      shipment_type, carrier, notes,
+      items:shipment_items(
+        item:items(id, item_code, description)
+      )
+    `)
+    .eq("tenant_id", scope.tenant_id)
+    .eq("account_id", scope.account_id)
+    .eq("shipment_type", "inbound")
+    .is("deleted_at", null)
+    .or(`shipment_number.ilike.%${query}%,tracking_number.ilike.%${query}%`)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (error) {
+    return { result: { error: "Failed to check delivery status" } };
+  }
+
+  // Also search items by description to find their shipment
+  const { data: itemMatches } = await supabase
+    .from("items")
+    .select(`
+      id, item_code, description, received_at, status,
+      shipment:shipments!items_shipment_id_fkey(
+        id, shipment_number, status, received_at, tracking_number
+      )
+    `)
+    .eq("tenant_id", scope.tenant_id)
+    .eq("account_id", scope.account_id)
+    .ilike("description", `%${query}%`)
+    .is("deleted_at", null)
+    .limit(10);
+
+  if (shipments && shipments.length > 0) {
+    const shipment = shipments[0];
+    const isReceived = shipment.status === "received" || shipment.received_at;
+
+    return {
+      result: {
+        found: true,
+        type: "shipment",
+        shipment: {
+          number: shipment.shipment_number,
+          tracking: shipment.tracking_number,
+          status: shipment.status,
+          carrier: shipment.carrier,
+          received_at: shipment.received_at,
+          expected_date: shipment.expected_date,
+          is_received: isReceived,
+          item_count: shipment.items?.length || 0,
+        },
+        message: isReceived
+          ? `Your shipment ${shipment.shipment_number} has been received!`
+          : `Shipment ${shipment.shipment_number} is ${shipment.status}. ${shipment.expected_date ? `Expected: ${shipment.expected_date}` : ''}`,
+      },
+    };
+  }
+
+  if (itemMatches && itemMatches.length > 0) {
+    const receivedItems = itemMatches.filter((i: any) => i.received_at);
+    const pendingItems = itemMatches.filter((i: any) => !i.received_at);
+
+    return {
+      result: {
+        found: true,
+        type: "items",
+        received: receivedItems.map((i: any) => ({
+          item_number: i.item_code,
+          description: i.description,
+          received_at: i.received_at,
+          shipment: i.shipment?.shipment_number,
+        })),
+        pending: pendingItems.map((i: any) => ({
+          item_number: i.item_code,
+          description: i.description,
+        })),
+        message: receivedItems.length > 0
+          ? `Found ${receivedItems.length} item(s) matching "${query}" that have arrived.`
+          : `No items matching "${query}" have arrived yet.`,
+      },
+    };
+  }
+
+  return {
+    result: {
+      found: false,
+      message: `No shipments or items found matching "${query}". Try checking with the shipment number or tracking number.`,
+    },
+  };
+}
+
+// Tool: Request Disposal
+async function toolRequestDisposal(
+  supabase: any,
+  params: { item_ids: string[]; reason?: string },
+  scope: ChatScope
+) {
+  const { item_ids, reason } = params;
+
+  // Validate items belong to this account and can be disposed
+  const { data: items } = await supabase
+    .from("items")
+    .select("id, item_code, description, status")
+    .in("id", item_ids)
+    .eq("tenant_id", scope.tenant_id)
+    .eq("account_id", scope.account_id)
+    .is("deleted_at", null);
+
+  if (!items || items.length === 0) {
+    return { result: { ok: false, error: "No valid items found" } };
+  }
+
+  // Check for items that can't be disposed
+  const unavailableItems = items.filter((i: any) =>
+    ["allocated", "released", "disposed"].includes(i.status)
+  );
+
+  if (unavailableItems.length > 0) {
+    return {
+      result: {
+        ok: false,
+        error: "Some items cannot be disposed",
+        unavailable_items: unavailableItems.map((i: any) => ({
+          item_number: i.item_code,
+          status: i.status,
+          reason: i.status === "allocated" ? "Already scheduled for pickup" :
+                  i.status === "released" ? "Already released" : "Already disposed",
+        })),
+      },
+    };
+  }
+
+  const summary = `
+**Disposal Request**
+
+Items to be disposed (${items.length}):
+${items.map((i: any) => `- ${i.description || i.item_code}`).join("\n")}
+
+${reason ? `Reason: ${reason}` : ""}
+
+Would you like me to submit this disposal request?
+  `.trim();
+
+  return {
+    result: {
+      ok: true,
+      preview: true,
+      item_count: items.length,
+      summary,
+      needs_confirmation: true,
+    },
+    newSessionState: {
+      pending_draft: {
+        type: "disposal" as const,
+        draft_id: "pending",
+        summary,
+      },
+    },
+  };
+}
+
+// Tool: Get My Storage Summary
+async function toolGetMyStorageSummary(supabase: any, scope: ChatScope) {
+  // Get all items for this account
+  const { data: items } = await supabase
+    .from("items")
+    .select(`
+      id, status,
+      sidemark:sidemarks(id, sidemark_name)
+    `)
+    .eq("tenant_id", scope.tenant_id)
+    .eq("account_id", scope.account_id)
+    .is("deleted_at", null);
+
+  if (!items) {
+    return { result: { error: "Failed to get storage summary" } };
+  }
+
+  // Count by status
+  const statusCounts: Record<string, number> = {};
+  (items || []).forEach((item: any) => {
+    const status = item.status || "unknown";
+    statusCounts[status] = (statusCounts[status] || 0) + 1;
+  });
+
+  // Count by job/sidemark
+  const jobCounts: Record<string, { id: string; name: string; count: number }> = {};
+  (items || []).forEach((item: any) => {
+    const jobId = item.sidemark?.id || "unassigned";
+    const jobName = item.sidemark?.sidemark_name || "Unassigned";
+    if (!jobCounts[jobId]) {
+      jobCounts[jobId] = { id: jobId, name: jobName, count: 0 };
+    }
+    jobCounts[jobId].count++;
+  });
+
+  // Get recent shipments
+  const { data: recentShipments } = await supabase
+    .from("shipments")
+    .select("id, shipment_number, shipment_type, status, received_at, released_at")
+    .eq("tenant_id", scope.tenant_id)
+    .eq("account_id", scope.account_id)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(3);
+
+  return {
+    result: {
+      total_items: items.length,
+      items_in_storage: statusCounts["active"] || 0,
+      by_status: statusCounts,
+      by_job: Object.values(jobCounts).sort((a, b) => b.count - a.count),
+      recent_activity: (recentShipments || []).map((s: any) => ({
+        type: s.shipment_type,
+        number: s.shipment_number,
+        status: s.status,
+        date: s.received_at || s.released_at,
+      })),
+    },
+  };
+}
+
+// ============================================================
 // SESSION STATE MANAGEMENT
 // ============================================================
 
@@ -1375,68 +1915,87 @@ serve(async (req) => {
       contextAddition += `\n\n## Pending Confirmation\nThere is a ${session.state.pending_draft.type} draft awaiting confirmation (draft_id: ${session.state.pending_draft.draft_id}). If the user confirms (yes, sure, go ahead, etc.), submit it. If they decline, acknowledge and offer alternatives.`;
     }
 
-    // First API call - potentially with tool use
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: CLIENT_SYSTEM_PROMPT + contextAddition },
-          ...messages,
-        ],
-        tools: TOOLS.map((t) => ({
-          type: "function",
-          function: {
-            name: t.name,
-            description: t.description,
-            parameters: t.parameters,
-          },
-        })),
-        tool_choice: "auto",
-        stream: false,
-      }),
-    });
+    // Build initial messages for the conversation
+    let currentMessages: Array<{ role: string; content?: string; tool_calls?: any; tool_call_id?: string }> = [
+      { role: "system", content: CLIENT_SYSTEM_PROMPT + contextAddition },
+      ...messages,
+    ];
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limits exceeded, please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Payment required, please add funds to your Lovable AI workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(
-        JSON.stringify({ error: "AI gateway error" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const aiResponse = await response.json();
-    const choice = aiResponse.choices?.[0];
-
-    if (!choice) {
-      throw new Error("No response from AI");
-    }
-
-    // Check for tool calls
-    const toolCalls = choice.message?.tool_calls;
-    let finalContent = choice.message?.content || "";
+    const MAX_TOOL_ROUNDS = 6; // Safety limit for multi-step operations
+    let round = 0;
+    let finalContent = "";
     let sessionUpdates: Partial<SessionState> = {};
 
-    if (toolCalls && toolCalls.length > 0) {
-      const toolResults: Array<{ tool_call_id: string; content: string }> = [];
+    // Tool-call loop - continues until AI stops requesting tools or we hit the limit
+    while (round < MAX_TOOL_ROUNDS) {
+      round++;
 
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: currentMessages,
+          tools: TOOLS.map((t) => ({
+            type: "function",
+            function: {
+              name: t.name,
+              description: t.description,
+              parameters: t.parameters,
+            },
+          })),
+          tool_choice: "auto",
+          stream: false, // Don't stream intermediate rounds
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(
+            JSON.stringify({ error: "Rate limits exceeded, please try again later." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (response.status === 402) {
+          return new Response(
+            JSON.stringify({ error: "Payment required, please add funds to your Lovable AI workspace." }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        return new Response(
+          JSON.stringify({ error: "AI gateway error" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const aiResponse = await response.json();
+      const choice = aiResponse.choices?.[0];
+
+      if (!choice) {
+        break;
+      }
+
+      const toolCalls = choice.message?.tool_calls;
+
+      // If no tool calls, we have our final answer
+      if (!toolCalls || toolCalls.length === 0) {
+        finalContent = choice.message?.content || "";
+        break;
+      }
+
+      // Add assistant message with tool calls to conversation
+      currentMessages.push({
+        role: "assistant",
+        content: choice.message.content || "",
+        tool_calls: toolCalls,
+      });
+
+      // Execute each tool call
       for (const toolCall of toolCalls) {
         const toolName = toolCall.function.name;
         let toolParams = {};
@@ -1458,60 +2017,24 @@ serve(async (req) => {
           sessionUpdates = { ...sessionUpdates, ...newSessionState };
         }
 
-        toolResults.push({
+        // Add tool result to conversation
+        currentMessages.push({
+          role: "tool",
           tool_call_id: toolCall.id,
           content: JSON.stringify(result),
         });
       }
-
-      // Update session state
-      if (Object.keys(sessionUpdates).length > 0) {
-        await updateSessionState(supabase, session.id, sessionUpdates);
-      }
-
-      // Follow-up call with tool results
-      const followUpMessages = [
-        { role: "system", content: CLIENT_SYSTEM_PROMPT + contextAddition },
-        ...messages,
-        {
-          role: "assistant",
-          content: choice.message.content || "",
-          tool_calls: toolCalls,
-        },
-        ...toolResults.map((tr) => ({
-          role: "tool",
-          tool_call_id: tr.tool_call_id,
-          content: tr.content,
-        })),
-      ];
-
-      const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: followUpMessages,
-          stream: true,
-        }),
-      });
-
-      if (!followUpResponse.ok) {
-        // Fallback to non-streamed response
-        finalContent = "I found some information but had trouble formatting it. Please try again.";
-      } else {
-        // Stream the follow-up response
-        return new Response(followUpResponse.body, {
-          headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-        });
-      }
+      // Loop continues - AI gets tool results and decides what to do next
     }
 
-    // No tool calls - stream the initial response or return content
-    if (choice.finish_reason === "stop" && finalContent) {
-      // Convert to SSE format for consistency
+    // Update session state if needed
+    if (Object.keys(sessionUpdates).length > 0) {
+      await updateSessionState(supabase, session.id, sessionUpdates);
+    }
+
+    // Return the final response
+    if (finalContent) {
+      // We have content from the loop - format as SSE
       const sseData = `data: ${JSON.stringify({
         choices: [{ delta: { content: finalContent } }],
       })}\n\ndata: [DONE]\n\n`;
@@ -1519,13 +2042,32 @@ serve(async (req) => {
       return new Response(sseData, {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
-    }
+    } else {
+      // Do one final streaming call for potentially long responses
+      const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: currentMessages,
+          stream: true,
+        }),
+      });
 
-    // Fallback
-    return new Response(
-      JSON.stringify({ content: finalContent || "I'm not sure how to help with that. Could you try rephrasing?" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+      if (!streamResponse.ok) {
+        return new Response(
+          JSON.stringify({ content: "I had trouble generating a response. Please try again." }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(streamResponse.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    }
   } catch (e) {
     console.error("client-chat error:", e);
     return new Response(
