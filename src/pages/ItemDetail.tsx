@@ -52,6 +52,7 @@ import { ItemLabelData } from '@/lib/labelGenerator';
 import { ScanDocumentButton, DocumentList } from '@/components/scanner';
 import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { getShipmentStatusClasses, getShipmentTypeClasses } from '@/utils/statusColors';
 import { QuickReleaseDialog } from '@/components/inventory/QuickReleaseDialog';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
 
@@ -953,10 +954,10 @@ export default function ItemDetail() {
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
-                        <Badge className="bg-green-100 text-green-800">inbound</Badge>
+                        <Badge className={getShipmentTypeClasses('inbound')}>inbound</Badge>
                         <span className="font-medium text-lg">{item.receiving_shipment.shipment_number}</span>
                       </div>
-                      <Badge variant="secondary">{item.receiving_shipment.status}</Badge>
+                      <Badge className={getShipmentStatusClasses(item.receiving_shipment.status)}>{item.receiving_shipment.status}</Badge>
                       {item.receiving_shipment.received_at && (
                         <span className="text-sm text-muted-foreground">
                           Received: {format(new Date(item.receiving_shipment.received_at), 'MMM d, yyyy')}
