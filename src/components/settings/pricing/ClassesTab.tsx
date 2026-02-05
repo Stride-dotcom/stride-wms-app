@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +42,36 @@ import { useClasses, type ItemClass } from '@/hooks/useClasses';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
+// =============================================================================
+// CODE GENERATOR — derive class code from name
+// =============================================================================
+
+function generateClassCode(name: string): string {
+  if (!name.trim()) return '';
+  const trimmed = name.trim().toUpperCase();
+  const words = trimmed.split(/\s+/);
+
+  // Common abbreviations
+  const abbreviations: Record<string, string> = {
+    'EXTRA SMALL': 'XS',
+    'EXTRA LARGE': 'XL',
+    'EXTRA-SMALL': 'XS',
+    'EXTRA-LARGE': 'XL',
+  };
+  const joined = words.join(' ');
+  if (abbreviations[joined]) return abbreviations[joined];
+
+  if (words.length === 1) {
+    return words[0].substring(0, Math.min(3, words[0].length));
+  }
+
+  return words.map(w => w[0]).join('').substring(0, 4);
+}
+
+// =============================================================================
+// CLASSES TAB
+// =============================================================================
+
 export function ClassesTab() {
   const { classes, loading, createClass, updateClass, deleteClass } = useClasses({ includeInactive: true });
   const { toast } = useToast();
@@ -60,6 +90,16 @@ export function ClassesTab() {
       toast({ variant: 'destructive', title: 'Error', description: message });
     }
     setDeleteConfirm(null);
+  };
+
+  const handleToggleActive = async (cls: ItemClass) => {
+    try {
+      await updateClass(cls.id, { is_active: !cls.is_active });
+      toast({ title: cls.is_active ? 'Class deactivated' : 'Class activated' });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'An error occurred';
+      toast({ variant: 'destructive', title: 'Error', description: message });
+    }
   };
 
   if (loading) {
@@ -148,7 +188,7 @@ export function ClassesTab() {
         </Card>
       </Collapsible>
 
-      {/* Classes list */}
+      {/* Classes list — removed Sort Order, Min/Max Cubic Feet; added Active status */}
       {classes.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -168,18 +208,25 @@ export function ClassesTab() {
           {classes.map((cls) => (
             <Card key={cls.id} className={cn(!cls.is_active && 'opacity-60')}>
               <CardContent className="flex items-center gap-3 py-3 px-4">
-                <Badge variant="outline" className="text-xs shrink-0">{cls.sort_order || '-'}</Badge>
-                <Badge variant="outline" className="font-mono text-xs shrink-0">{cls.code}</Badge>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-sm">{cls.name}</span>
-                    {!cls.is_active && <Badge variant="secondary" className="text-xs">Inactive</Badge>}
+                    <Badge variant="outline" className="font-mono text-xs shrink-0">{cls.code}</Badge>
+                    {cls.is_active ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-green-600">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+                        Inactive
+                      </span>
+                    )}
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    {cls.min_cubic_feet !== null || cls.max_cubic_feet !== null
-                      ? `${cls.min_cubic_feet ?? 0} – ${cls.max_cubic_feet ?? '∞'} cu ft`
-                      : ''}
-                  </span>
+                  {cls.notes && (
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">{cls.notes}</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <TooltipProvider delayDuration={200}>
@@ -190,6 +237,25 @@ export function ClassesTab() {
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Edit</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleToggleActive(cls)}
+                        >
+                          <MaterialIcon
+                            name={cls.is_active ? 'visibility_off' : 'visibility'}
+                            size="sm"
+                          />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{cls.is_active ? 'Deactivate' : 'Activate'}</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
 
@@ -276,7 +342,7 @@ export function ClassesTab() {
 }
 
 // =============================================================================
-// CLASS DIALOG
+// CLASS DIALOG — Name first, Code auto-generated, Active toggle, no Sort/MinMax
 // =============================================================================
 
 interface ClassDialogProps {
@@ -286,43 +352,66 @@ interface ClassDialogProps {
   onSave: (data: {
     code: string;
     name: string;
-    min_cubic_feet: number | null;
-    max_cubic_feet: number | null;
-    sort_order: number | null;
+    is_active?: boolean | null;
     notes?: string | null;
   }) => Promise<void>;
 }
 
 function ClassDialog({ open, onOpenChange, itemClass, onSave }: ClassDialogProps) {
   const [saving, setSaving] = useState(false);
+  const [codeManual, setCodeManual] = useState(!!itemClass);
   const [formData, setFormData] = useState({
-    code: itemClass?.code || '',
     name: itemClass?.name || '',
-    min_cubic_feet: itemClass?.min_cubic_feet ?? '',
-    max_cubic_feet: itemClass?.max_cubic_feet ?? '',
-    sort_order: itemClass?.sort_order ?? '',
+    code: itemClass?.code || '',
+    isActive: itemClass?.is_active ?? true,
     notes: itemClass?.notes ?? '',
   });
+
+  // Sync form state when dialog opens with a different class
+  useEffect(() => {
+    if (open && itemClass) {
+      setFormData({
+        name: itemClass.name,
+        code: itemClass.code,
+        isActive: itemClass.is_active ?? true,
+        notes: itemClass.notes ?? '',
+      });
+      setCodeManual(true);
+    } else if (open && !itemClass) {
+      setFormData({
+        name: '',
+        code: '',
+        isActive: true,
+        notes: '',
+      });
+      setCodeManual(false);
+    }
+  }, [open, itemClass]);
+
+  // Auto-generate code from name
+  useEffect(() => {
+    if (!codeManual && formData.name) {
+      setFormData(prev => ({ ...prev, code: generateClassCode(prev.name) }));
+    }
+  }, [formData.name, codeManual]);
 
   const handleOpenChange = (isOpen: boolean) => {
     if (isOpen && itemClass) {
       setFormData({
-        code: itemClass.code,
         name: itemClass.name,
-        min_cubic_feet: itemClass.min_cubic_feet ?? '',
-        max_cubic_feet: itemClass.max_cubic_feet ?? '',
-        sort_order: itemClass.sort_order ?? '',
+        code: itemClass.code,
+        isActive: itemClass.is_active ?? true,
         notes: itemClass.notes ?? '',
       });
+      setCodeManual(true);
     } else if (isOpen) {
       setFormData({
-        code: '',
         name: '',
-        min_cubic_feet: '',
-        max_cubic_feet: '',
-        sort_order: '',
+        code: '',
+        isActive: true,
         notes: '',
       });
+      setCodeManual(false);
     }
     onOpenChange(isOpen);
   };
@@ -333,9 +422,7 @@ function ClassDialog({ open, onOpenChange, itemClass, onSave }: ClassDialogProps
       await onSave({
         code: formData.code.toUpperCase(),
         name: formData.name,
-        min_cubic_feet: formData.min_cubic_feet !== '' ? Number(formData.min_cubic_feet) : null,
-        max_cubic_feet: formData.max_cubic_feet !== '' ? Number(formData.max_cubic_feet) : null,
-        sort_order: formData.sort_order !== '' ? Number(formData.sort_order) : null,
+        is_active: formData.isActive,
         notes: formData.notes || null,
       });
     } finally {
@@ -356,78 +443,53 @@ function ClassDialog({ open, onOpenChange, itemClass, onSave }: ClassDialogProps
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <LabelWithTooltip htmlFor="clsCode" tooltip={fieldDescriptions.classCode} required>
-                Code
-              </LabelWithTooltip>
-              <Input
-                id="clsCode"
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                placeholder="e.g., SM, LG"
-                maxLength={10}
-              />
-            </div>
-            <div className="space-y-2">
-              <LabelWithTooltip htmlFor="clsName" tooltip={fieldDescriptions.className} required>
-                Name
-              </LabelWithTooltip>
-              <Input
-                id="clsName"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., Small"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <LabelWithTooltip htmlFor="clsMin" tooltip={fieldDescriptions.classMinCubicFeet}>
-                Min Cubic Feet
-              </LabelWithTooltip>
-              <Input
-                id="clsMin"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.min_cubic_feet}
-                onChange={(e) => setFormData({ ...formData, min_cubic_feet: e.target.value })}
-                placeholder="0.00"
-              />
-            </div>
-            <div className="space-y-2">
-              <LabelWithTooltip htmlFor="clsMax" tooltip={fieldDescriptions.classMaxCubicFeet}>
-                Max Cubic Feet
-              </LabelWithTooltip>
-              <Input
-                id="clsMax"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.max_cubic_feet}
-                onChange={(e) => setFormData({ ...formData, max_cubic_feet: e.target.value })}
-                placeholder="No limit"
-              />
-            </div>
-          </div>
-
+          {/* Name first */}
           <div className="space-y-2">
-            <LabelWithTooltip htmlFor="clsSort" tooltip={fieldDescriptions.classSortOrder}>
-              Sort Order
+            <LabelWithTooltip htmlFor="clsName" tooltip={fieldDescriptions.className} required>
+              Name
             </LabelWithTooltip>
             <Input
-              id="clsSort"
-              type="number"
-              min="0"
-              value={formData.sort_order}
-              onChange={(e) => setFormData({ ...formData, sort_order: e.target.value })}
-              placeholder="Display order (lower = first)"
-              className="max-w-[120px]"
+              id="clsName"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g., Small, Large, High Value"
+              autoFocus
             />
           </div>
 
+          {/* Code with auto-generation */}
+          <div className="space-y-2">
+            <LabelWithTooltip htmlFor="clsCode" tooltip={fieldDescriptions.classCode} required>
+              Code
+            </LabelWithTooltip>
+            <div className="relative">
+              <Input
+                id="clsCode"
+                value={formData.code}
+                onChange={(e) => {
+                  setFormData({ ...formData, code: e.target.value.toUpperCase() });
+                  setCodeManual(true);
+                }}
+                placeholder="Auto-generated"
+                maxLength={10}
+                className={cn('font-mono', !codeManual && formData.code && 'text-muted-foreground')}
+              />
+              {codeManual && !itemClass && (
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setCodeManual(false)}
+                >
+                  Auto
+                </button>
+              )}
+            </div>
+            {!codeManual && !formData.code && (
+              <p className="text-xs text-muted-foreground">Auto-generated from class name</p>
+            )}
+          </div>
+
+          {/* Notes */}
           <div className="space-y-2">
             <Label htmlFor="clsNotes" className="text-sm font-medium">Notes</Label>
             <Textarea
@@ -437,6 +499,21 @@ function ClassDialog({ open, onOpenChange, itemClass, onSave }: ClassDialogProps
               placeholder="Optional notes..."
               rows={2}
             />
+          </div>
+
+          {/* Active toggle */}
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">Active</Label>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="clsActive"
+                checked={formData.isActive}
+                onCheckedChange={(v) => setFormData({ ...formData, isActive: v })}
+              />
+              <Label htmlFor="clsActive" className="cursor-pointer text-sm">
+                {formData.isActive ? 'Active' : 'Inactive'}
+              </Label>
+            </div>
           </div>
         </div>
 

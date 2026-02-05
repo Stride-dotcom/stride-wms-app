@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -25,24 +25,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { LabelWithTooltip } from '@/components/ui/label-with-tooltip';
 import { fieldDescriptions } from '@/lib/pricing/fieldDescriptions';
@@ -50,6 +37,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useChargeTypes, type ChargeType } from '@/hooks/useChargeTypes';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 // =============================================================================
 // TYPES
@@ -80,27 +68,35 @@ interface TaskTemplateWithLinks extends TaskType {
 }
 
 // =============================================================================
-// HOOK
+// HOOK — with stable dependencies to avoid infinite loops
 // =============================================================================
 
 function useTaskTemplates() {
   const [templates, setTemplates] = useState<TaskTemplateWithLinks[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { profile } = useAuth();
   const { toast } = useToast();
   const { chargeTypes } = useChargeTypes();
+
+  // Use refs to avoid stale closures without adding to dependency arrays
+  const chargeTypesRef = useRef(chargeTypes);
+  chargeTypesRef.current = chargeTypes;
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
 
   const fetchTemplates = useCallback(async () => {
     if (!profile?.tenant_id) return;
 
     try {
       setLoading(true);
+      setError(null);
 
       const { data: taskTypes, error: ttError } = await (supabase as any)
         .from('task_types')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
-        .order('sort_order')
+        .order('sort_order', { ascending: true, nullsFirst: false })
         .order('name');
 
       if (ttError) {
@@ -117,38 +113,61 @@ function useTaskTemplates() {
       }
 
       const taskTypeIds = taskTypes.map((tt: TaskType) => tt.id);
-      const { data: links, error: linksError } = await (supabase as any)
-        .from('task_type_charge_links')
-        .select('*')
-        .in('task_type_id', taskTypeIds)
-        .order('sort_order');
+      let links: TaskTypeChargeLink[] = [];
 
-      if (linksError && linksError.code !== '42P01') {
-        throw linksError;
+      try {
+        const { data: linksData, error: linksError } = await (supabase as any)
+          .from('task_type_charge_links')
+          .select('*')
+          .in('task_type_id', taskTypeIds)
+          .order('sort_order');
+
+        if (linksError && linksError.code !== '42P01') {
+          throw linksError;
+        }
+        links = (linksData || []) as TaskTypeChargeLink[];
+      } catch {
+        links = [];
       }
 
+      const currentChargeTypes = chargeTypesRef.current;
       const combined: TaskTemplateWithLinks[] = (taskTypes as TaskType[]).map(tt => ({
         ...tt,
-        links: ((links || []) as TaskTypeChargeLink[])
+        links: links
           .filter(l => l.task_type_id === tt.id)
           .map(l => ({
             ...l,
-            charge_type: chargeTypes.find(ct => ct.id === l.charge_type_id),
+            charge_type: currentChargeTypes.find(ct => ct.id === l.charge_type_id),
           })),
       }));
 
       setTemplates(combined);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'An error occurred';
-      toast({ variant: 'destructive', title: 'Error loading templates', description: message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      setError(message);
+      toastRef.current({ variant: 'destructive', title: 'Error loading templates', description: message });
     } finally {
       setLoading(false);
     }
-  }, [profile?.tenant_id, chargeTypes, toast]);
+  }, [profile?.tenant_id]);
 
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
+
+  // Re-merge charge types when they load (without re-fetching from DB)
+  useEffect(() => {
+    if (chargeTypes.length > 0 && templates.length > 0) {
+      setTemplates(prev => prev.map(tt => ({
+        ...tt,
+        links: tt.links.map(l => ({
+          ...l,
+          charge_type: chargeTypes.find(ct => ct.id === l.charge_type_id),
+        })),
+      })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chargeTypes.length]);
 
   const createTemplate = async (data: {
     name: string;
@@ -171,12 +190,12 @@ function useTaskTemplates() {
         .single();
 
       if (error) throw error;
-      toast({ title: 'Template created', description: `Created "${data.name}"` });
+      toastRef.current({ title: 'Template created', description: `Created "${data.name}"` });
       await fetchTemplates();
       return result;
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'An error occurred';
-      toast({ variant: 'destructive', title: 'Error', description: message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      toastRef.current({ variant: 'destructive', title: 'Error', description: message });
       return null;
     }
   };
@@ -193,69 +212,67 @@ function useTaskTemplates() {
         .update(data)
         .eq('id', id);
       if (error) throw error;
-      toast({ title: 'Template updated' });
+      toastRef.current({ title: 'Template updated' });
       await fetchTemplates();
       return true;
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'An error occurred';
-      toast({ variant: 'destructive', title: 'Error', description: message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      toastRef.current({ variant: 'destructive', title: 'Error', description: message });
       return false;
     }
   };
 
   const deleteTemplate = async (id: string): Promise<boolean> => {
     try {
+      // Delete links first
+      await (supabase as any)
+        .from('task_type_charge_links')
+        .delete()
+        .eq('task_type_id', id);
+
       const { error } = await (supabase as any)
         .from('task_types')
         .delete()
         .eq('id', id);
       if (error) throw error;
-      toast({ title: 'Template deleted' });
+      toastRef.current({ title: 'Template deleted' });
       await fetchTemplates();
       return true;
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'An error occurred';
-      toast({ variant: 'destructive', title: 'Error', description: message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      toastRef.current({ variant: 'destructive', title: 'Error', description: message });
       return false;
     }
   };
 
-  const addLink = async (taskTypeId: string, chargeTypeId: string, scope: string = 'per_item', autoCalculate: boolean = true): Promise<boolean> => {
+  const replaceLinks = async (taskTypeId: string, chargeTypeIds: string[]): Promise<boolean> => {
     if (!profile?.tenant_id) return false;
     try {
-      const maxSort = templates.find(t => t.id === taskTypeId)?.links.length ?? 0;
-      const { error } = await (supabase as any)
-        .from('task_type_charge_links')
-        .insert({
-          tenant_id: profile.tenant_id,
-          task_type_id: taskTypeId,
-          charge_type_id: chargeTypeId,
-          scope,
-          auto_calculate: autoCalculate,
-          sort_order: maxSort + 1,
-        });
-      if (error) throw error;
-      await fetchTemplates();
-      return true;
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'An error occurred';
-      toast({ variant: 'destructive', title: 'Error', description: message });
-      return false;
-    }
-  };
-
-  const removeLink = async (linkId: string): Promise<boolean> => {
-    try {
-      const { error } = await (supabase as any)
+      await (supabase as any)
         .from('task_type_charge_links')
         .delete()
-        .eq('id', linkId);
-      if (error) throw error;
+        .eq('task_type_id', taskTypeId);
+
+      if (chargeTypeIds.length > 0) {
+        const inserts = chargeTypeIds.map((ctId, idx) => ({
+          tenant_id: profile.tenant_id,
+          task_type_id: taskTypeId,
+          charge_type_id: ctId,
+          scope: 'per_item',
+          auto_calculate: true,
+          sort_order: idx + 1,
+        }));
+        const { error } = await (supabase as any)
+          .from('task_type_charge_links')
+          .insert(inserts);
+        if (error) throw error;
+      }
+
       await fetchTemplates();
       return true;
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'An error occurred';
-      toast({ variant: 'destructive', title: 'Error', description: message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      toastRef.current({ variant: 'destructive', title: 'Error saving services', description: message });
       return false;
     }
   };
@@ -263,12 +280,12 @@ function useTaskTemplates() {
   return {
     templates,
     loading,
+    error,
     refetch: fetchTemplates,
     createTemplate,
     updateTemplate,
     deleteTemplate,
-    addLink,
-    removeLink,
+    replaceLinks,
   };
 }
 
@@ -282,11 +299,11 @@ export function TaskTemplatesTab() {
   const {
     templates,
     loading,
+    error,
     createTemplate,
     updateTemplate,
     deleteTemplate,
-    addLink,
-    removeLink,
+    replaceLinks,
   } = useTaskTemplates();
   const { chargeTypes } = useChargeTypes();
 
@@ -294,8 +311,6 @@ export function TaskTemplatesTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<TaskTemplateWithLinks | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<TaskTemplateWithLinks | null>(null);
-  const [addServiceDialog, setAddServiceDialog] = useState<string | null>(null);
-  const [selectedChargeTypeId, setSelectedChargeTypeId] = useState('');
 
   const filtered = templates.filter(t => {
     if (filter === 'billable') return t.is_billable;
@@ -303,17 +318,44 @@ export function TaskTemplatesTab() {
     return true;
   });
 
-  const handleAddService = async () => {
-    if (!addServiceDialog || !selectedChargeTypeId) return;
-    await addLink(addServiceDialog, selectedChargeTypeId);
-    setAddServiceDialog(null);
-    setSelectedChargeTypeId('');
+  const handleSaveTemplate = async (
+    data: { name: string; description: string | null; is_billable: boolean; is_active: boolean },
+    serviceIds: string[]
+  ) => {
+    if (editingTemplate) {
+      const ok = await updateTemplate(editingTemplate.id, data);
+      if (ok) {
+        await replaceLinks(editingTemplate.id, serviceIds);
+        setDialogOpen(false);
+      }
+    } else {
+      const result = await createTemplate(data);
+      if (result) {
+        await replaceLinks(result.id, serviceIds);
+        setDialogOpen(false);
+      }
+    }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+          <MaterialIcon name="error" size="xl" className="text-destructive" />
+        </div>
+        <h3 className="text-lg font-semibold mb-2">Failed to load templates</h3>
+        <p className="text-muted-foreground mb-4 max-w-sm">{error}</p>
+        <p className="text-xs text-muted-foreground mb-4">
+          This may happen if the task_types table hasn't been set up yet.
+        </p>
       </div>
     );
   }
@@ -338,11 +380,12 @@ export function TaskTemplatesTab() {
         {(['all', 'billable', 'non-billable'] as FilterType[]).map((f) => (
           <button
             key={f}
-            className={`px-3 py-1 rounded-full text-sm transition-colors ${
+            className={cn(
+              'px-3 py-1 rounded-full text-sm transition-colors',
               filter === f
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
+            )}
             onClick={() => setFilter(f)}
           >
             {f === 'all' ? 'All' : f === 'billable' ? 'Billable' : 'Non-Billable'}
@@ -365,6 +408,10 @@ export function TaskTemplatesTab() {
             Add First Template
           </Button>
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground text-sm">
+          No templates match the current filter.
+        </div>
       ) : (
         <Accordion type="multiple" className="space-y-2">
           {filtered.map((template) => (
@@ -376,11 +423,11 @@ export function TaskTemplatesTab() {
                     {template.is_billable ? 'Billable' : 'Non-Billable'}
                   </Badge>
                   {!template.is_active && <Badge variant="secondary" className="text-xs">Inactive</Badge>}
-                  {template.links.length > 0 && (
-                    <span className="text-xs text-muted-foreground ml-auto mr-2">
-                      {template.links.length} service{template.links.length !== 1 ? 's' : ''}
-                    </span>
-                  )}
+                  <span className="text-xs text-muted-foreground ml-auto mr-2">
+                    {template.links.length > 0
+                      ? `${template.links.length} service${template.links.length !== 1 ? 's' : ''}`
+                      : 'No services'}
+                  </span>
                 </div>
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-4">
@@ -391,40 +438,32 @@ export function TaskTemplatesTab() {
 
                   {/* Linked services */}
                   {template.links.length === 0 ? (
-                    <p className="text-sm text-muted-foreground italic">No services linked to this template</p>
+                    <p className="text-sm text-muted-foreground italic">No services linked — legacy billing on task completion</p>
                   ) : (
                     <div className="space-y-1">
                       {template.links.map((link, idx) => (
                         <div key={link.id} className="flex items-center justify-between py-1.5 px-3 rounded bg-muted/50 text-sm">
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">{idx + 1}.</span>
-                            {link.charge_type && (
+                            {link.charge_type ? (
                               <>
                                 <Badge variant="outline" className="font-mono text-xs">{link.charge_type.charge_code}</Badge>
                                 <span>{link.charge_type.charge_name}</span>
                               </>
+                            ) : (
+                              <span className="text-muted-foreground italic">Unknown service</span>
                             )}
-                            {!link.charge_type && <span className="text-muted-foreground italic">Unknown service</span>}
                           </div>
                           <div className="flex items-center gap-2">
                             <Badge variant="secondary" className="text-xs">{link.scope}</Badge>
                             <Badge variant={link.auto_calculate ? 'default' : 'secondary'} className="text-xs">
                               {link.auto_calculate ? 'Auto' : 'Manual'}
                             </Badge>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeLink(link.id)}>
-                              <MaterialIcon name="close" size="sm" />
-                            </Button>
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
-
-                  {/* Add service button */}
-                  <Button variant="outline" size="sm" onClick={() => setAddServiceDialog(template.id)}>
-                    <MaterialIcon name="add" size="sm" className="mr-1" />
-                    Add Service
-                  </Button>
 
                   {/* Actions */}
                   <div className="flex gap-2 pt-2 border-t">
@@ -444,53 +483,14 @@ export function TaskTemplatesTab() {
         </Accordion>
       )}
 
-      {/* Template Dialog */}
+      {/* Template Dialog — with integrated service assignment */}
       <TemplateDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         template={editingTemplate}
-        onSave={async (data) => {
-          if (editingTemplate) {
-            const ok = await updateTemplate(editingTemplate.id, data);
-            if (ok) setDialogOpen(false);
-          } else {
-            const result = await createTemplate(data);
-            if (result) setDialogOpen(false);
-          }
-        }}
+        chargeTypes={chargeTypes}
+        onSave={handleSaveTemplate}
       />
-
-      {/* Add Service Dialog */}
-      <Dialog open={!!addServiceDialog} onOpenChange={() => { setAddServiceDialog(null); setSelectedChargeTypeId(''); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add Service to Template</DialogTitle>
-            <DialogDescription>Select a service to link to this task template.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <Select value={selectedChargeTypeId} onValueChange={setSelectedChargeTypeId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select service..." />
-              </SelectTrigger>
-              <SelectContent>
-                {chargeTypes.filter(ct => ct.is_active).map(ct => (
-                  <SelectItem key={ct.id} value={ct.id}>
-                    {ct.charge_code} — {ct.charge_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setAddServiceDialog(null); setSelectedChargeTypeId(''); }}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddService} disabled={!selectedChargeTypeId}>
-              Add Service
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
@@ -522,27 +522,50 @@ export function TaskTemplatesTab() {
 }
 
 // =============================================================================
-// TEMPLATE DIALOG
+// TEMPLATE DIALOG — with integrated service search & assignment
 // =============================================================================
 
 interface TemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   template?: TaskTemplateWithLinks | null;
-  onSave: (data: {
-    name: string;
-    description: string | null;
-    is_billable: boolean;
-    is_active: boolean;
-  }) => Promise<void>;
+  chargeTypes: ChargeType[];
+  onSave: (
+    data: { name: string; description: string | null; is_billable: boolean; is_active: boolean },
+    serviceIds: string[]
+  ) => Promise<void>;
 }
 
-function TemplateDialog({ open, onOpenChange, template, onSave }: TemplateDialogProps) {
+function TemplateDialog({ open, onOpenChange, template, chargeTypes, onSave }: TemplateDialogProps) {
   const [saving, setSaving] = useState(false);
-  const [name, setName] = useState(template?.name || '');
-  const [description, setDescription] = useState(template?.description || '');
-  const [isBillable, setIsBillable] = useState(template?.is_billable ?? true);
-  const [isActive, setIsActive] = useState(template?.is_active ?? true);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [isBillable, setIsBillable] = useState(true);
+  const [isActive, setIsActive] = useState(true);
+  const [assignedServiceIds, setAssignedServiceIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showServiceDropdown, setShowServiceDropdown] = useState(false);
+
+  // Sync form state when dialog opens
+  useEffect(() => {
+    if (open && template) {
+      setName(template.name);
+      setDescription(template.description || '');
+      setIsBillable(template.is_billable);
+      setIsActive(template.is_active);
+      setAssignedServiceIds(template.links.map(l => l.charge_type_id));
+      setSearchQuery('');
+      setShowServiceDropdown(false);
+    } else if (open && !template) {
+      setName('');
+      setDescription('');
+      setIsBillable(true);
+      setIsActive(true);
+      setAssignedServiceIds([]);
+      setSearchQuery('');
+      setShowServiceDropdown(false);
+    }
+  }, [open, template]);
 
   const handleOpenChange = (isOpen: boolean) => {
     if (isOpen && template) {
@@ -550,40 +573,73 @@ function TemplateDialog({ open, onOpenChange, template, onSave }: TemplateDialog
       setDescription(template.description || '');
       setIsBillable(template.is_billable);
       setIsActive(template.is_active);
+      setAssignedServiceIds(template.links.map(l => l.charge_type_id));
     } else if (isOpen) {
       setName('');
       setDescription('');
       setIsBillable(true);
       setIsActive(true);
+      setAssignedServiceIds([]);
     }
+    setSearchQuery('');
+    setShowServiceDropdown(false);
     onOpenChange(isOpen);
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave({
-        name: name.trim(),
-        description: description.trim() || null,
-        is_billable: isBillable,
-        is_active: isActive,
-      });
+      await onSave(
+        {
+          name: name.trim(),
+          description: description.trim() || null,
+          is_billable: isBillable,
+          is_active: isActive,
+        },
+        assignedServiceIds
+      );
     } finally {
       setSaving(false);
     }
   };
 
+  const addService = (chargeTypeId: string) => {
+    if (!assignedServiceIds.includes(chargeTypeId)) {
+      setAssignedServiceIds(prev => [...prev, chargeTypeId]);
+    }
+    setSearchQuery('');
+    setShowServiceDropdown(false);
+  };
+
+  const removeService = (chargeTypeId: string) => {
+    setAssignedServiceIds(prev => prev.filter(id => id !== chargeTypeId));
+  };
+
+  // Filter charge types for search dropdown
+  const availableServices = chargeTypes.filter(ct =>
+    ct.is_active &&
+    !assignedServiceIds.includes(ct.id) &&
+    (searchQuery === '' ||
+      ct.charge_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ct.charge_code.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const assignedServices = assignedServiceIds
+    .map(id => chargeTypes.find(ct => ct.id === id))
+    .filter((ct): ct is ChargeType => ct !== undefined);
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{template ? 'Edit Template' : 'Add Template'}</DialogTitle>
           <DialogDescription>
-            {template ? 'Update the template details.' : 'Create a new task template with linked services.'}
+            {template ? 'Update the template details and assigned services.' : 'Create a new task template with linked services.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Template Name */}
           <div className="space-y-2">
             <LabelWithTooltip htmlFor="tmplName" tooltip={fieldDescriptions.templateName} required>
               Template Name
@@ -597,6 +653,7 @@ function TemplateDialog({ open, onOpenChange, template, onSave }: TemplateDialog
             />
           </div>
 
+          {/* Description */}
           <div className="space-y-2">
             <LabelWithTooltip htmlFor="tmplDesc" tooltip={fieldDescriptions.templateDescription}>
               Description
@@ -610,6 +667,7 @@ function TemplateDialog({ open, onOpenChange, template, onSave }: TemplateDialog
             />
           </div>
 
+          {/* Toggles */}
           <div className="flex items-center justify-between">
             <LabelWithTooltip tooltip={fieldDescriptions.templateBillable}>Billable</LabelWithTooltip>
             <Switch checked={isBillable} onCheckedChange={setIsBillable} />
@@ -618,6 +676,86 @@ function TemplateDialog({ open, onOpenChange, template, onSave }: TemplateDialog
           <div className="flex items-center justify-between">
             <Label className="text-sm font-medium">Active</Label>
             <Switch checked={isActive} onCheckedChange={setIsActive} />
+          </div>
+
+          {/* ============================================================ */}
+          {/* ASSIGNED SERVICES SECTION                                     */}
+          {/* ============================================================ */}
+          <div className="border-t pt-4">
+            <Label className="text-sm font-medium mb-3 block">Assigned Services</Label>
+
+            {/* Search and add */}
+            <div className="relative mb-3">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <MaterialIcon name="search" size="sm" className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setShowServiceDropdown(true);
+                    }}
+                    onFocus={() => setShowServiceDropdown(true)}
+                    onBlur={() => {
+                      // Delay closing to allow click on dropdown items
+                      setTimeout(() => setShowServiceDropdown(false), 200);
+                    }}
+                    placeholder="Search and add services..."
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+
+              {/* Dropdown results */}
+              {showServiceDropdown && searchQuery.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-[200px] overflow-y-auto">
+                  {availableServices.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      No matching services found
+                    </div>
+                  ) : (
+                    availableServices.slice(0, 10).map(ct => (
+                      <button
+                        key={ct.id}
+                        type="button"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted transition-colors text-left"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => addService(ct.id)}
+                      >
+                        <Badge variant="outline" className="font-mono text-xs shrink-0">{ct.charge_code}</Badge>
+                        <span className="truncate">{ct.charge_name}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Assigned services list */}
+            {assignedServices.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic py-2">
+                No services assigned. Search above to add services.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {assignedServices.map((ct) => (
+                  <div key={ct.id} className="flex items-center justify-between py-1.5 px-3 rounded bg-muted/50 text-sm">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Badge variant="outline" className="font-mono text-xs shrink-0">{ct.charge_code}</Badge>
+                      <span className="truncate">{ct.charge_name}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 shrink-0"
+                      onClick={() => removeService(ct.id)}
+                    >
+                      <MaterialIcon name="close" size="sm" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
