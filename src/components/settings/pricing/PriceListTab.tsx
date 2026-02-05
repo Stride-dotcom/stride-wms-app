@@ -1,10 +1,8 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import {
@@ -38,15 +36,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { ActiveBadge } from '@/components/ui/active-badge';
 import { useChargeTypesWithRules, useChargeTypes, usePricingRules, type ChargeTypeWithRules } from '@/hooks/useChargeTypes';
-import type { UpdateChargeTypeInput } from '@/hooks/useChargeTypes';
 import { useClasses } from '@/hooks/useClasses';
 import { useServiceCategories } from '@/hooks/useServiceCategories';
 import { AddServiceForm } from './AddServiceForm';
@@ -61,8 +53,7 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 
 export function PriceListTab({ navigateToTab }: PriceListTabProps) {
   const { chargeTypesWithRules, loading, refetch } = useChargeTypesWithRules();
-  const { deleteChargeType, updateChargeType } = useChargeTypes();
-  const { updatePricingRule } = usePricingRules();
+  const { deleteChargeType } = useChargeTypes();
   const { classes } = useClasses();
   const { activeCategories } = useServiceCategories();
   const { toast } = useToast();
@@ -74,7 +65,6 @@ export function PriceListTab({ navigateToTab }: PriceListTabProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingChargeType, setEditingChargeType] = useState<ChargeTypeWithRules | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<ChargeTypeWithRules | null>(null);
-  const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   const filtered = useMemo(() => {
     return chargeTypesWithRules.filter((ct) => {
@@ -112,16 +102,6 @@ export function PriceListTab({ navigateToTab }: PriceListTabProps) {
     setShowAddForm(true);
   };
 
-  const handleInlineChargeTypeUpdate = async (ct: ChargeTypeWithRules, updates: Partial<UpdateChargeTypeInput>) => {
-    await updateChargeType({ id: ct.id, ...updates });
-    refetch();
-  };
-
-  const handleInlineRuleUpdate = async (ruleId: string, chargeTypeId: string, updates: Record<string, unknown>) => {
-    await updatePricingRule({ id: ruleId, charge_type_id: chargeTypeId, ...updates });
-    refetch();
-  };
-
   const handleExport = () => {
     const wb = XLSX.utils.book_new();
     const headers = ['Code', 'Name', 'Category', 'Trigger', 'Method', 'Unit', 'Rate', 'Min Charge', 'Active', 'Taxable', 'Scan', 'Flag'];
@@ -147,7 +127,6 @@ export function PriceListTab({ navigateToTab }: PriceListTabProps) {
       ];
     });
 
-    // Add class-specific rate columns
     if (classes.length > 0) {
       headers.push(...classes.map(c => `Rate: ${c.code}`));
       rows.forEach((row, idx) => {
@@ -300,10 +279,6 @@ export function PriceListTab({ navigateToTab }: PriceListTabProps) {
           onEdit={handleEdit}
           onDuplicate={handleDuplicate}
           onDelete={setDeleteConfirm}
-          onInlineUpdate={handleInlineChargeTypeUpdate}
-          onInlineRuleUpdate={handleInlineRuleUpdate}
-          expandedItems={expandedItems}
-          setExpandedItems={setExpandedItems}
         />
       ) : (
         <MatrixView
@@ -339,7 +314,7 @@ export function PriceListTab({ navigateToTab }: PriceListTabProps) {
 }
 
 // =============================================================================
-// LIST VIEW
+// LIST VIEW — Clickable rows that navigate to full edit form
 // =============================================================================
 
 interface ListViewProps {
@@ -348,13 +323,9 @@ interface ListViewProps {
   onEdit: (ct: ChargeTypeWithRules) => void;
   onDuplicate: (ct: ChargeTypeWithRules) => void;
   onDelete: (ct: ChargeTypeWithRules) => void;
-  onInlineUpdate: (ct: ChargeTypeWithRules, updates: Partial<UpdateChargeTypeInput>) => Promise<void>;
-  onInlineRuleUpdate: (ruleId: string, chargeTypeId: string, updates: Record<string, unknown>) => Promise<void>;
-  expandedItems: string[];
-  setExpandedItems: (items: string[]) => void;
 }
 
-function ListView({ items, classes, onEdit, onDuplicate, onDelete, onInlineUpdate, onInlineRuleUpdate, expandedItems, setExpandedItems }: ListViewProps) {
+function ListView({ items, classes, onEdit, onDuplicate, onDelete }: ListViewProps) {
   const getPricingMethodLabel = (ct: ChargeTypeWithRules) => {
     const hasClassRules = ct.pricing_rules.some(r => r.pricing_method === 'class_based');
     return hasClassRules ? 'Class-Based' : 'Flat';
@@ -370,249 +341,87 @@ function ListView({ items, classes, onEdit, onDuplicate, onDelete, onInlineUpdat
     return `$${min.toFixed(2)} – $${max.toFixed(2)}`;
   };
 
-  const getTriggerLabel = (trigger: string) => {
-    const map: Record<string, string> = {
-      manual: 'Manual',
-      task: 'Task',
-      shipment: 'Shipment',
-      storage: 'Storage',
-      auto: 'Auto',
-    };
-    return map[trigger] || trigger;
-  };
-
   return (
-    <Accordion
-      type="multiple"
-      value={expandedItems}
-      onValueChange={setExpandedItems}
-      className="space-y-2"
-    >
+    <div className="space-y-2">
       {items.map((ct) => (
-        <AccordionItem key={ct.id} value={ct.id} className="border rounded-lg overflow-hidden">
-          <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50">
-            <div className="flex items-center gap-3 flex-1 min-w-0 text-left">
-              <Badge variant="outline" className="font-mono text-xs shrink-0">
-                {ct.charge_code}
-              </Badge>
-              <span className={cn('font-medium truncate', !ct.is_active && 'opacity-50')}>
-                {ct.charge_name}
-              </span>
-              <div className="hidden sm:flex items-center gap-1.5 ml-auto mr-4">
-                {ct.category && (
-                  <Badge variant="secondary" className="text-xs capitalize">
-                    {ct.category}
-                  </Badge>
-                )}
-                <Badge variant="outline" className="text-xs">
-                  {getPricingMethodLabel(ct)}
+        <Card
+          key={ct.id}
+          className={cn(
+            'group cursor-pointer transition-colors hover:bg-muted/50',
+            !ct.is_active && 'opacity-60'
+          )}
+          onClick={() => onEdit(ct)}
+        >
+          <CardContent className="flex items-center gap-3 py-3 px-4">
+            <Badge variant="outline" className="font-mono text-xs shrink-0">
+              {ct.charge_code}
+            </Badge>
+            <div className="flex-1 min-w-0">
+              <span className="font-medium text-sm truncate block">{ct.charge_name}</span>
+            </div>
+            <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+              {ct.category && (
+                <Badge variant="secondary" className="text-xs capitalize">
+                  {ct.category}
                 </Badge>
-                {ct.add_to_scan && (
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Badge variant="outline" className="text-xs">Scan</Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>Available in Scan Hub</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-                {ct.add_flag && (
-                  <Badge variant="outline" className="text-xs">Flag</Badge>
-                )}
-                {ct.is_taxable && (
-                  <Badge variant="outline" className="text-xs">Tax</Badge>
-                )}
-                <span className="text-sm text-muted-foreground ml-2">
-                  {getRateDisplay(ct)}
-                </span>
-                {!ct.is_active && (
-                  <Badge variant="secondary" className="text-xs">Inactive</Badge>
-                )}
-              </div>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4">
-            <div className="space-y-4 pt-2">
-              {/* Pricing Rules - Inline Editable */}
-              <div>
-                <h4 className="text-sm font-medium mb-2">Pricing Rules</h4>
-                {ct.pricing_rules.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">No pricing rules configured</p>
-                ) : ct.pricing_rules.some(r => r.pricing_method === 'class_based') ? (
-                  <div className="space-y-1">
-                    {ct.pricing_rules
-                      .sort((a, b) => (a.class_code || '').localeCompare(b.class_code || ''))
-                      .map((rule) => {
-                        const cls = classes.find(c => c.code === rule.class_code);
-                        return (
-                          <InlineRateRow
-                            key={rule.id}
-                            ruleId={rule.id}
-                            chargeTypeId={ct.id}
-                            label={
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="font-mono text-xs">{rule.class_code || 'Default'}</Badge>
-                                {cls && <span className="text-muted-foreground text-sm">{cls.name}</span>}
-                              </div>
-                            }
-                            rate={rule.rate}
-                            serviceTime={rule.service_time_minutes}
-                            onUpdate={onInlineRuleUpdate}
-                          />
-                        );
-                      })}
-                  </div>
-                ) : (
-                  <InlineRateRow
-                    ruleId={ct.pricing_rules[0]?.id}
-                    chargeTypeId={ct.id}
-                    label={<span className="text-sm">{ct.pricing_rules[0]?.unit || 'each'}</span>}
-                    rate={ct.pricing_rules[0]?.rate ?? 0}
-                    serviceTime={ct.pricing_rules[0]?.service_time_minutes}
-                    onUpdate={onInlineRuleUpdate}
-                  />
-                )}
-                {ct.pricing_rules.some(r => r.minimum_charge) && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Minimum charge: ${ct.pricing_rules.find(r => r.minimum_charge)?.minimum_charge?.toFixed(2)}
-                  </p>
-                )}
-              </div>
-
-              {/* Inline Config Controls */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Trigger</Label>
-                  <Select
-                    value={ct.default_trigger}
-                    onValueChange={(value) => onInlineUpdate(ct, { default_trigger: value as UpdateChargeTypeInput['default_trigger'] })}
-                  >
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="manual">Manual</SelectItem>
-                      <SelectItem value="task">Task</SelectItem>
-                      <SelectItem value="shipment">Shipment</SelectItem>
-                      <SelectItem value="storage">Storage</SelectItem>
-                      <SelectItem value="auto">Auto</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground">Taxable</Label>
-                  <Switch
-                    checked={ct.is_taxable}
-                    onCheckedChange={(checked) => onInlineUpdate(ct, { is_taxable: checked })}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground">Scan Hub</Label>
-                  <Switch
-                    checked={ct.add_to_scan}
-                    onCheckedChange={(checked) => onInlineUpdate(ct, { add_to_scan: checked })}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground">Flag</Label>
-                  <Switch
-                    checked={ct.add_flag}
-                    onCheckedChange={(checked) => onInlineUpdate(ct, { add_flag: checked })}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Active</Label>
-                <Switch
-                  checked={ct.is_active}
-                  onCheckedChange={(checked) => onInlineUpdate(ct, { is_active: checked })}
-                />
-              </div>
-
-              {/* Notes */}
-              {ct.notes && (
-                <p className="text-sm text-muted-foreground italic">{ct.notes}</p>
               )}
-
-              {/* Actions - Duplicate & Delete only (editing is inline) */}
-              <div className="flex gap-2 pt-2 border-t">
-                <Button variant="outline" size="sm" onClick={() => onDuplicate(ct)}>
-                  <MaterialIcon name="content_copy" size="sm" className="mr-1" />
-                  Duplicate
-                </Button>
-                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => onDelete(ct)}>
-                  <MaterialIcon name="delete" size="sm" className="mr-1" />
-                  Delete
-                </Button>
-              </div>
+              <Badge variant="outline" className="text-xs">
+                {getPricingMethodLabel(ct)}
+              </Badge>
+              {ct.add_to_scan && (
+                <Badge variant="outline" className="text-xs">Scan</Badge>
+              )}
+              {ct.add_flag && (
+                <Badge variant="outline" className="text-xs">Flag</Badge>
+              )}
+              {ct.is_taxable && (
+                <Badge variant="outline" className="text-xs">Tax</Badge>
+              )}
+              <span className="text-sm text-muted-foreground ml-1">
+                {getRateDisplay(ct)}
+              </span>
             </div>
-          </AccordionContent>
-        </AccordionItem>
+            <ActiveBadge active={ct.is_active} className="shrink-0" />
+            {/* Action buttons — visible on hover */}
+            <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={(e) => { e.stopPropagation(); onDuplicate(ct); }}
+                    >
+                      <MaterialIcon name="content_copy" size="sm" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Duplicate</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={(e) => { e.stopPropagation(); onDelete(ct); }}
+                    >
+                      <MaterialIcon name="delete" size="sm" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <MaterialIcon name="chevron_right" size="sm" className="text-muted-foreground shrink-0" />
+          </CardContent>
+        </Card>
       ))}
-    </Accordion>
-  );
-}
-
-// =============================================================================
-// INLINE RATE ROW
-// =============================================================================
-
-interface InlineRateRowProps {
-  ruleId: string;
-  chargeTypeId: string;
-  label: React.ReactNode;
-  rate: number;
-  serviceTime?: number | null;
-  onUpdate: (ruleId: string, chargeTypeId: string, updates: Record<string, unknown>) => Promise<void>;
-}
-
-function InlineRateRow({ ruleId, chargeTypeId, label, rate, serviceTime, onUpdate }: InlineRateRowProps) {
-  const [rateValue, setRateValue] = useState(rate.toString());
-
-  useEffect(() => {
-    setRateValue(rate.toString());
-  }, [rate]);
-
-  const handleBlur = () => {
-    const numVal = parseFloat(rateValue);
-    if (!isNaN(numVal) && numVal !== rate) {
-      onUpdate(ruleId, chargeTypeId, { rate: numVal });
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      (e.target as HTMLInputElement).blur();
-    }
-  };
-
-  return (
-    <div className="flex items-center justify-between py-1.5 px-3 rounded bg-muted/50 text-sm">
-      {label}
-      <div className="flex items-center gap-3">
-        <div className="relative w-24">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            value={rateValue}
-            onChange={(e) => setRateValue(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            className="h-7 text-sm pl-5 font-mono"
-          />
-        </div>
-        {serviceTime && (
-          <span className="text-xs text-muted-foreground">{serviceTime}min</span>
-        )}
-      </div>
     </div>
   );
 }
-
 
 // =============================================================================
 // MATRIX VIEW
@@ -656,11 +465,16 @@ function MatrixView({ items, classes, onEdit }: MatrixViewProps) {
               </TableHead>
             ))}
             <TableHead className="text-center min-w-[80px]">Min</TableHead>
+            <TableHead className="text-center min-w-[80px]">Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map((ct) => (
-            <TableRow key={ct.id} className={cn(!ct.is_active && 'opacity-50')}>
+            <TableRow
+              key={ct.id}
+              className={cn('cursor-pointer hover:bg-muted/50', !ct.is_active && 'opacity-50')}
+              onClick={() => onEdit(ct)}
+            >
               <TableCell className="sticky left-0 bg-background z-10">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="font-mono text-xs shrink-0">{ct.charge_code}</Badge>
@@ -693,6 +507,9 @@ function MatrixView({ items, classes, onEdit }: MatrixViewProps) {
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}
+              </TableCell>
+              <TableCell className="text-center">
+                <ActiveBadge active={ct.is_active} />
               </TableCell>
             </TableRow>
           ))}

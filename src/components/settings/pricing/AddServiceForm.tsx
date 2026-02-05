@@ -451,7 +451,7 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
         </Button>
         <h3 className="text-lg font-semibold">
           {isEditing
-            ? `Edit Service: ${editingChargeType?.charge_name}`
+            ? 'Edit Service'
             : isDuplicating
               ? 'Duplicate Service'
               : 'Add New Service'}
