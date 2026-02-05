@@ -4,11 +4,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -127,49 +126,47 @@ export function FlagSettingsSection() {
           Item Flags
         </CardTitle>
         <CardDescription className="text-xs">
-          Enable or disable flags available on item details. Hover for descriptions.
+          Enable or disable flags available on item details. Tap a flag name for details.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <TooltipProvider delayDuration={200}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2">
-            {flags.map((flag) => {
-              const isUpdating = updatingId === flag.id;
-              return (
-                <Tooltip key={flag.id}>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2 min-w-0">
-                      {isUpdating ? (
-                        <MaterialIcon name="progress_activity" size="sm" className="animate-spin text-muted-foreground flex-shrink-0" />
-                      ) : (
-                        <Checkbox
-                          id={`flag-${flag.id}`}
-                          checked={flag.is_active}
-                          onCheckedChange={() => handleToggle(flag)}
-                          disabled={isUpdating}
-                          className="flex-shrink-0"
-                        />
-                      )}
-                      <Label
-                        htmlFor={`flag-${flag.id}`}
-                        className="text-xs cursor-pointer truncate"
-                      >
-                        {flag.service_name}
-                      </Label>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs">
-                    <p className="font-medium">{flag.service_name}</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2">
+          {flags.map((flag) => {
+            const isUpdating = updatingId === flag.id;
+            return (
+              <div key={flag.id} className="flex items-center gap-2 min-w-0">
+                {isUpdating ? (
+                  <MaterialIcon name="progress_activity" size="sm" className="animate-spin text-muted-foreground flex-shrink-0" />
+                ) : (
+                  <Checkbox
+                    id={`flag-${flag.id}`}
+                    checked={flag.is_active}
+                    onCheckedChange={() => handleToggle(flag)}
+                    disabled={isUpdating}
+                    className="flex-shrink-0"
+                  />
+                )}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="text-xs cursor-pointer truncate text-left hover:underline"
+                    >
+                      {flag.service_name}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent side="top" className="max-w-xs p-3">
+                    <p className="font-medium text-sm">{flag.service_name}</p>
                     {flag.notes && (
                       <p className="text-xs text-muted-foreground mt-1">{flag.notes}</p>
                     )}
                     <p className="text-xs mt-1">Rate: ${flag.rate.toFixed(2)}</p>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })}
-          </div>
-        </TooltipProvider>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            );
+          })}
+        </div>
       </CardContent>
     </Card>
   );
