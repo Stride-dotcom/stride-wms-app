@@ -744,11 +744,11 @@ async function toolSearchItems(supabase: any, params: any, scope: TenantScope) {
   let queryBuilder = supabase
     .from("items")
     .select(`
-      id, item_code, description, status, condition, received_at,
+      id, item_code, description, status, has_damage, received_at,
       vendor, sidemark, room,
       account:accounts(id, account_name, account_code),
       sidemark_rel:sidemarks(id, sidemark_name),
-      location:locations(id, code, name),
+      location:locations!items_current_location_id_fkey(id, code, name),
       warehouse:warehouses(id, name)
     `)
     .eq("tenant_id", scope.tenant_id)
@@ -756,7 +756,7 @@ async function toolSearchItems(supabase: any, params: any, scope: TenantScope) {
 
   if (status) queryBuilder = queryBuilder.eq("status", status);
   if (account_id) queryBuilder = queryBuilder.eq("account_id", account_id);
-  if (location_id) queryBuilder = queryBuilder.eq("location_id", location_id);
+  if (location_id) queryBuilder = queryBuilder.eq("current_location_id", location_id);
 
   if (isIdQuery) {
     const numericPart = extractNumericPortion(query);
@@ -782,7 +782,7 @@ async function toolSearchItems(supabase: any, params: any, scope: TenantScope) {
     item_code: item.item_code,
     description: item.description,
     status: item.status,
-    condition: item.condition,
+    damaged: item.has_damage || false,
     vendor: item.vendor,
     account: item.account?.account_name,
     job: item.sidemark || item.sidemark_rel?.sidemark_name,
@@ -820,9 +820,8 @@ async function toolSearchShipments(supabase: any, params: any, scope: TenantScop
     .from("shipments")
     .select(`
       id, shipment_number, shipment_type, status, tracking_number,
-      scheduled_date, received_at, released_at,
-      account:accounts(id, account_name),
-      total_items
+      expected_arrival_date, received_at, shipped_at,
+      account:accounts(id, account_name)
     `)
     .eq("tenant_id", scope.tenant_id)
     .is("deleted_at", null);
@@ -856,8 +855,7 @@ async function toolSearchShipments(supabase: any, params: any, scope: TenantScop
     status: s.status,
     tracking: s.tracking_number,
     account: s.account?.account_name,
-    item_count: s.total_items,
-    date: s.received_at || s.released_at || s.scheduled_date,
+    date: s.received_at || s.shipped_at || s.expected_arrival_date,
   }));
 
   if (candidates.length > 1) {
@@ -989,15 +987,14 @@ async function toolGetItemDetails(supabase: any, params: any, scope: TenantScope
   const { data: item, error } = await supabase
     .from("items")
     .select(`
-      id, item_code, description, status, condition, quantity,
-      received_at, weight_lbs, dimensions,
+      id, item_code, description, status, has_damage, quantity,
+      received_at, weight_lbs, size, size_unit,
       vendor, sidemark, room,
       account:accounts(id, account_name, account_code),
       sidemark_rel:sidemarks(id, sidemark_name),
-      location:locations(id, code, name),
+      location:locations!items_current_location_id_fkey(id, code, name),
       warehouse:warehouses(id, name),
-      shipment:shipments!items_shipment_id_fkey(id, shipment_number),
-      photos, notes
+      shipment:shipments!items_receiving_shipment_id_fkey(id, shipment_number)
     `)
     .eq("id", item_id)
     .eq("tenant_id", scope.tenant_id)
@@ -1007,14 +1004,43 @@ async function toolGetItemDetails(supabase: any, params: any, scope: TenantScope
     return { result: { found: false, error: "Item not found" } };
   }
 
-  // Get active tasks for this item
-  const { data: tasks } = await supabase
+  // Get notes from item_notes table
+  const { data: notes } = await supabase
+    .from("item_notes")
+    .select("note, created_at, note_type")
+    .eq("item_id", item_id)
+    .eq("is_current", true)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  // Get photo count from item_photos table
+  const { count: photoCount } = await supabase
+    .from("item_photos")
+    .select("id", { count: "exact", head: true })
+    .eq("item_id", item_id);
+
+  // Get active tasks for this item via task_items join table
+  const { data: taskItems } = await supabase
+    .from("task_items")
+    .select("task:tasks(id, task_number, task_type, status, title)")
+    .eq("item_id", item_id)
+    .in("tasks.status", ["open", "in_progress"])
+    .limit(5);
+
+  // Also check via related_item_id
+  const { data: directTasks } = await supabase
     .from("tasks")
     .select("id, task_number, task_type, status, title")
     .eq("tenant_id", scope.tenant_id)
-    .contains("item_ids", [item_id])
+    .eq("related_item_id", item_id)
     .in("status", ["open", "in_progress"])
+    .is("deleted_at", null)
     .limit(5);
+
+  const activeTasks = [
+    ...(taskItems || []).filter((ti: any) => ti.task).map((ti: any) => ti.task),
+    ...(directTasks || []),
+  ];
 
   // Check if item is frozen by stocktake
   const { data: activeStocktake } = await supabase
@@ -1032,11 +1058,11 @@ async function toolGetItemDetails(supabase: any, params: any, scope: TenantScope
         item_code: item.item_code,
         description: item.description,
         status: item.status,
-        condition: item.condition,
+        damaged: item.has_damage || false,
         quantity: item.quantity,
         received_at: item.received_at,
         weight_lbs: item.weight_lbs,
-        dimensions: item.dimensions,
+        size: item.size ? `${item.size} ${item.size_unit || ""}`.trim() : null,
         vendor: item.vendor,
         account: item.account?.account_name,
         job: item.sidemark || item.sidemark_rel?.sidemark_name,
@@ -1044,10 +1070,10 @@ async function toolGetItemDetails(supabase: any, params: any, scope: TenantScope
         location: item.location ? `${item.location.code} (${item.location.name})` : null,
         warehouse: item.warehouse?.name,
         shipment: item.shipment?.shipment_number,
-        notes: item.notes,
-        photo_count: Array.isArray(item.photos) ? item.photos.length : 0,
+        notes: (notes || []).map((n: any) => n.note),
+        photo_count: photoCount || 0,
       },
-      active_tasks: tasks || [],
+      active_tasks: activeTasks,
       frozen_by_stocktake: activeStocktake?.[0]?.stocktake?.stocktake_number || null,
     },
   };
@@ -1069,33 +1095,39 @@ async function toolGetItemMovementHistory(supabase: any, params: any, scope: Ten
   }
 
   const { data: movements, error } = await supabase
-    .from("item_movements")
+    .from("movements")
     .select(`
-      id, movement_type, from_location_id, to_location_id,
-      from_location:locations!item_movements_from_location_id_fkey(code, name),
-      to_location:locations!item_movements_to_location_id_fkey(code, name),
-      moved_by:users!item_movements_moved_by_fkey(first_name, last_name),
-      notes, created_at
+      id, action_type, from_location_id, to_location_id,
+      from_location:locations!movements_from_location_id_fkey(code, name),
+      to_location:locations!movements_to_location_id_fkey(code, name),
+      actor_id, actor_type, note, moved_at
     `)
     .eq("item_id", item_id)
-    .order("created_at", { ascending: false })
+    .order("moved_at", { ascending: false })
     .limit(limit);
 
   if (error) {
-    // Table might not exist
     return { result: { movements: [], message: "Movement history not available" } };
+  }
+
+  // Resolve actor names for user-type actors
+  const actorIds = [...new Set((movements || []).filter((m: any) => m.actor_type === "user" && m.actor_id).map((m: any) => m.actor_id))];
+  const actorMap: Record<string, string> = {};
+  if (actorIds.length > 0) {
+    const { data: users } = await supabase.from("users").select("id, first_name, last_name").in("id", actorIds);
+    (users || []).forEach((u: any) => { actorMap[u.id] = `${u.first_name || ""} ${u.last_name || ""}`.trim(); });
   }
 
   return {
     result: {
       item_code: item.item_code,
       movements: (movements || []).map((m: any) => ({
-        type: m.movement_type,
+        type: m.action_type,
         from: m.from_location?.code || "Unknown",
         to: m.to_location?.code || "Unknown",
-        moved_by: m.moved_by ? `${m.moved_by.first_name} ${m.moved_by.last_name}` : "System",
-        notes: m.notes,
-        timestamp: m.created_at,
+        moved_by: m.actor_id ? (actorMap[m.actor_id] || m.actor_type) : "System",
+        notes: m.note,
+        timestamp: m.moved_at,
       })),
     },
   };
@@ -1119,7 +1151,7 @@ async function toolGetItemOutboundHistory(supabase: any, params: any, scope: Ten
     .from("shipment_items")
     .select(`
       status, released_at,
-      shipment:shipments(id, shipment_number, shipment_type, status, released_to, released_at)
+      shipment:shipments(id, shipment_number, shipment_type, status, released_to, shipped_at)
     `)
     .eq("item_id", item_id)
     .eq("shipments.shipment_type", "outbound")
@@ -1140,7 +1172,7 @@ async function toolGetItemOutboundHistory(supabase: any, params: any, scope: Ten
           status: si.status,
           shipment_status: si.shipment.status,
           released_to: si.shipment.released_to,
-          released_at: si.shipment.released_at || si.released_at,
+          released_at: si.shipment.shipped_at || si.released_at,
         })),
     },
   };
@@ -1155,8 +1187,8 @@ async function toolGetShipmentDetails(supabase: any, params: any, scope: TenantS
     .from("shipments")
     .select(`
       id, shipment_number, shipment_type, status, tracking_number,
-      carrier, scheduled_date, received_at, released_at, released_to,
-      notes, total_items,
+      carrier, expected_arrival_date, received_at, shipped_at, released_to,
+      notes,
       account:accounts(id, account_name),
       sidemark:sidemarks(id, sidemark_name),
       created_by_user:users!shipments_created_by_fkey(first_name, last_name)
@@ -1190,13 +1222,12 @@ async function toolGetShipmentDetails(supabase: any, params: any, scope: TenantS
         status: shipment.status,
         tracking: shipment.tracking_number,
         carrier: shipment.carrier,
-        scheduled_date: shipment.scheduled_date,
+        expected_arrival_date: shipment.expected_arrival_date,
         received_at: shipment.received_at,
-        released_at: shipment.released_at,
+        shipped_at: shipment.shipped_at,
         released_to: shipment.released_to,
         account: shipment.account?.account_name,
         job: shipment.sidemark?.sidemark_name,
-        total_items: shipment.total_items,
         item_status_breakdown: statusCounts,
         notes: shipment.notes,
         created_by: shipment.created_by_user
@@ -1222,15 +1253,29 @@ async function toolGetShipmentItems(supabase: any, params: any, scope: TenantSco
     return { result: { error: "Shipment not found", items: [] } };
   }
 
-  const { data: items, error } = await supabase
-    .from("items")
-    .select(`
-      id, item_code, description, status, condition,
-      location:locations(id, code)
-    `)
-    .eq("shipment_id", shipment_id)
-    .eq("tenant_id", scope.tenant_id)
-    .is("deleted_at", null);
+  // Get items via shipment_items join table
+  const { data: shipmentItemRows } = await supabase
+    .from("shipment_items")
+    .select("item_id")
+    .eq("shipment_id", shipment_id);
+
+  const itemIds = (shipmentItemRows || []).map((si: any) => si.item_id).filter(Boolean);
+
+  let items: any[] = [];
+  let error: any = null;
+  if (itemIds.length > 0) {
+    const res = await supabase
+      .from("items")
+      .select(`
+        id, item_code, description, status, has_damage,
+        location:locations!items_current_location_id_fkey(id, code)
+      `)
+      .in("id", itemIds)
+      .eq("tenant_id", scope.tenant_id)
+      .is("deleted_at", null);
+    items = res.data || [];
+    error = res.error;
+  }
 
   if (error) {
     return { result: { error: "Failed to get items", items: [] } };
@@ -1245,7 +1290,7 @@ async function toolGetShipmentItems(supabase: any, params: any, scope: TenantSco
         item_code: item.item_code,
         description: item.description,
         status: item.status,
-        condition: item.condition,
+        damaged: item.has_damage || false,
         location: item.location?.code,
       })),
     },
@@ -1301,12 +1346,14 @@ async function toolValidateShipmentOutbound(supabase: any, params: any, scope: T
   // Check for active tasks blocking release
   const itemIds = (shipmentItems || []).map((si: any) => si.item_id).filter(Boolean);
   if (itemIds.length > 0) {
+    // Check via related_item_id
     const { data: activeTasks } = await supabase
       .from("tasks")
-      .select("task_number, task_type, status, item_ids")
+      .select("task_number, task_type, status")
       .eq("tenant_id", scope.tenant_id)
       .in("status", ["open", "in_progress"])
-      .overlaps("item_ids", itemIds);
+      .in("related_item_id", itemIds)
+      .is("deleted_at", null);
 
     if (activeTasks && activeTasks.length > 0) {
       for (const task of activeTasks) {
@@ -1363,8 +1410,9 @@ async function toolCreateTaskSingle(supabase: any, params: any, scope: TenantSco
       .select("id, status")
       .eq("tenant_id", scope.tenant_id)
       .eq("task_type", "inspection")
-      .contains("item_ids", [item_id])
+      .eq("related_item_id", item_id)
       .eq("status", "completed")
+      .is("deleted_at", null)
       .limit(1);
 
     if (!inspectionTask || inspectionTask.length === 0) {
@@ -1405,21 +1453,27 @@ async function toolCreateTaskSingle(supabase: any, params: any, scope: TenantSco
     .insert({
       tenant_id: scope.tenant_id,
       account_id: item.account_id,
-      sidemark_id: item.sidemark_id,
       task_type,
       title: taskTitle,
       description: description || `${task_type} task for ${item.description || item.item_code}`,
       status: taskStatus,
       priority,
-      item_ids: [item_id],
-      assignee_id: assignee_id || null,
-      created_by: scope.user_id,
+      related_item_id: item_id,
+      assigned_to: assignee_id || null,
     })
     .select("id, task_number")
     .single();
 
   if (error) {
     return { result: { ok: false, error: "Failed to create task" } };
+  }
+
+  // Link item to task via task_items
+  if (task) {
+    await supabase.from("task_items").insert({
+      task_id: task.id,
+      item_id: item_id,
+    }).select().maybeSingle();
   }
 
   return {
@@ -1439,16 +1493,22 @@ async function toolCreateTasksBulkPreview(supabase: any, params: any, scope: Ten
 
   let targetItemIds = item_ids || [];
 
-  // If shipment_id provided, get items from shipment
+  // If shipment_id provided, get items from shipment via shipment_items
   if (shipment_id && !item_ids?.length) {
-    const { data: shipmentItems } = await supabase
-      .from("items")
-      .select("id, item_code, description")
-      .eq("shipment_id", shipment_id)
-      .eq("tenant_id", scope.tenant_id)
-      .is("deleted_at", null);
-
-    targetItemIds = (shipmentItems || []).map((i: any) => i.id);
+    const { data: siRows } = await supabase
+      .from("shipment_items")
+      .select("item_id")
+      .eq("shipment_id", shipment_id);
+    const siItemIds = (siRows || []).map((si: any) => si.item_id).filter(Boolean);
+    if (siItemIds.length > 0) {
+      const { data: shipmentItems } = await supabase
+        .from("items")
+        .select("id, item_code, description")
+        .in("id", siItemIds)
+        .eq("tenant_id", scope.tenant_id)
+        .is("deleted_at", null);
+      targetItemIds = (shipmentItems || []).map((i: any) => i.id);
+    }
   }
 
   if (targetItemIds.length === 0) {
@@ -1466,20 +1526,33 @@ async function toolCreateTasksBulkPreview(supabase: any, params: any, scope: Ten
     return { result: { ok: false, error: "No valid items found" } };
   }
 
-  // Check for existing tasks of this type
-  const { data: existingTasks } = await supabase
+  // Check for existing tasks of this type via task_items and related_item_id
+  const itemsWithExistingTasks = new Set<string>();
+
+  // Check via task_items join table
+  const { data: existingTaskItems } = await supabase
+    .from("task_items")
+    .select("item_id, task:tasks(task_type, status)")
+    .in("item_id", targetItemIds)
+    .eq("tasks.task_type", task_type)
+    .in("tasks.status", ["open", "in_progress"]);
+
+  (existingTaskItems || []).forEach((ti: any) => {
+    if (ti.task && ti.item_id) itemsWithExistingTasks.add(ti.item_id);
+  });
+
+  // Also check via related_item_id
+  const { data: directExisting } = await supabase
     .from("tasks")
-    .select("item_ids, task_number")
+    .select("related_item_id")
     .eq("tenant_id", scope.tenant_id)
     .eq("task_type", task_type)
     .in("status", ["open", "in_progress"])
-    .overlaps("item_ids", targetItemIds);
+    .in("related_item_id", targetItemIds)
+    .is("deleted_at", null);
 
-  const itemsWithExistingTasks = new Set<string>();
-  (existingTasks || []).forEach((t: any) => {
-    (t.item_ids || []).forEach((id: string) => {
-      if (targetItemIds.includes(id)) itemsWithExistingTasks.add(id);
-    });
+  (directExisting || []).forEach((t: any) => {
+    if (t.related_item_id) itemsWithExistingTasks.add(t.related_item_id);
   });
 
   const itemsToCreate = items.filter((i: any) => !itemsWithExistingTasks.has(i.id));
@@ -1543,7 +1616,7 @@ async function toolCreateTasksBulkExecute(supabase: any, params: any, scope: Ten
   // Get item details
   const { data: items } = await supabase
     .from("items")
-    .select("id, item_code, description, account_id, sidemark_id")
+    .select("id, item_code, description, account_id")
     .in("id", item_ids)
     .eq("tenant_id", scope.tenant_id);
 
@@ -1563,23 +1636,26 @@ async function toolCreateTasksBulkExecute(supabase: any, params: any, scope: Ten
       .insert({
         tenant_id: scope.tenant_id,
         account_id: item.account_id,
-        sidemark_id: item.sidemark_id,
         task_type,
         title: `${task_type.charAt(0).toUpperCase() + task_type.slice(1)} - ${item.item_code}`,
         description: `${task_type} for ${item.description || item.item_code}`,
         status: taskStatus,
         priority,
-        item_ids: [item.id], // CRITICAL: One item per task for inspections
-        assignee_id: assignee_id || null,
-        created_by: scope.user_id,
+        related_item_id: item.id,
+        assigned_to: assignee_id || null,
       })
-      .select("task_number")
+      .select("id, task_number")
       .single();
 
     if (error) {
       errors.push(`Failed for ${item.item_code}: ${error.message}`);
     } else {
       createdTasks.push(task.task_number);
+      // Link via task_items
+      await supabase.from("task_items").insert({
+        task_id: task.id,
+        item_id: item.id,
+      }).select().maybeSingle();
     }
   }
 
@@ -1602,7 +1678,7 @@ async function toolMoveItem(supabase: any, params: any, scope: TenantScope) {
   // Get item
   const { data: item } = await supabase
     .from("items")
-    .select("id, item_code, status, location_id")
+    .select("id, item_code, status, current_location_id")
     .eq("id", item_id)
     .eq("tenant_id", scope.tenant_id)
     .single();
@@ -1652,30 +1728,32 @@ async function toolMoveItem(supabase: any, params: any, scope: TenantScope) {
     return { result: { ok: false, error: "Destination location not found" } };
   }
 
-  const fromLocationId = item.location_id;
+  const fromLocationId = item.current_location_id;
 
   // Update item location
   const { error: updateError } = await supabase
     .from("items")
-    .update({ location_id: to_location_id })
+    .update({ current_location_id: to_location_id })
     .eq("id", item_id);
 
   if (updateError) {
     return { result: { ok: false, error: "Failed to move item" } };
   }
 
-  // Log movement (if table exists)
+  // Log movement
   try {
-    await supabase.from("item_movements").insert({
+    await supabase.from("movements").insert({
       item_id,
       from_location_id: fromLocationId,
       to_location_id,
-      movement_type: "manual",
-      moved_by: scope.user_id,
-      notes,
+      action_type: "moved",
+      actor_type: "user",
+      actor_id: scope.user_id,
+      note: notes || null,
+      tenant_id: scope.tenant_id,
     });
   } catch {
-    // Movement logging table might not exist
+    // Movement logging is best-effort
   }
 
   return {
@@ -1706,7 +1784,7 @@ async function toolMoveItemsPreview(supabase: any, params: any, scope: TenantSco
   // Get items and check blockers
   const { data: items } = await supabase
     .from("items")
-    .select("id, item_code, status, location:locations(code)")
+    .select("id, item_code, status, location:locations!items_current_location_id_fkey(code)")
     .in("id", item_ids)
     .eq("tenant_id", scope.tenant_id);
 
@@ -1789,7 +1867,7 @@ async function toolMoveItemsExecute(supabase: any, params: any, scope: TenantSco
   for (const itemId of item_ids) {
     const { error } = await supabase
       .from("items")
-      .update({ location_id: to_location_id })
+      .update({ current_location_id: to_location_id })
       .eq("id", itemId)
       .eq("tenant_id", scope.tenant_id);
 
@@ -1799,15 +1877,17 @@ async function toolMoveItemsExecute(supabase: any, params: any, scope: TenantSco
       movedCount++;
       // Log movement
       try {
-        await supabase.from("item_movements").insert({
+        await supabase.from("movements").insert({
           item_id: itemId,
           to_location_id,
-          movement_type: "bulk_manual",
-          moved_by: scope.user_id,
-          notes,
+          action_type: "moved",
+          actor_type: "user",
+          actor_id: scope.user_id,
+          note: notes || null,
+          tenant_id: scope.tenant_id,
         });
       } catch {
-        // Ignore
+        // Movement logging is best-effort
       }
     }
   }
@@ -1894,11 +1974,12 @@ async function toolValidateStocktakeCompletion(supabase: any, params: any, scope
   // Get stocktake items and check for unresolved variances
   const { data: items } = await supabase
     .from("stocktake_items")
-    .select("id, expected_quantity, actual_quantity, variance_resolved")
+    .select("id, expected_quantity, counted_quantity, status")
     .eq("stocktake_id", stocktake_id);
 
+  // Items with discrepancy status or mismatched quantities that haven't been resolved
   const unresolvedVariances = (items || []).filter(
-    (i: any) => i.expected_quantity !== i.actual_quantity && !i.variance_resolved
+    (i: any) => i.expected_quantity !== i.counted_quantity && i.status !== "resolved" && i.status !== "verified"
   );
 
   const canClose = unresolvedVariances.length === 0;
@@ -2024,7 +2105,7 @@ async function toolGetAccountSummary(supabase: any, params: any, scope: TenantSc
   // Get recent shipments
   const { data: recentShipments } = await supabase
     .from("shipments")
-    .select("id, shipment_number, shipment_type, status, received_at, released_at")
+    .select("id, shipment_number, shipment_type, status, received_at, shipped_at")
     .eq("tenant_id", scope.tenant_id)
     .eq("account_id", account_id)
     .is("deleted_at", null)
@@ -2059,7 +2140,7 @@ async function toolGetAccountSummary(supabase: any, params: any, scope: TenantSc
         number: s.shipment_number,
         type: s.shipment_type,
         status: s.status,
-        date: s.received_at || s.released_at,
+        date: s.received_at || s.shipped_at,
       })),
       unbilled_amount: unbilledTotal,
     },
@@ -2214,7 +2295,7 @@ async function toolGetRecentActivity(supabase: any, params: any, scope: TenantSc
   // Recent inbound shipments
   const { data: recentInbound } = await supabase
     .from("shipments")
-    .select("id, shipment_number, received_at, total_items, account:accounts(account_name)")
+    .select("id, shipment_number, received_at, account:accounts(account_name)")
     .eq("tenant_id", scope.tenant_id)
     .eq("shipment_type", "inbound")
     .gte("received_at", since)
@@ -2235,15 +2316,15 @@ async function toolGetRecentActivity(supabase: any, params: any, scope: TenantSc
 
   // Recent item movements
   const { data: recentMovements } = await supabase
-    .from("item_movements")
+    .from("movements")
     .select(`
-      id, movement_type, created_at,
+      id, action_type, moved_at,
       item:items(item_code),
-      to_location:locations!item_movements_to_location_id_fkey(code)
+      to_location:locations!movements_to_location_id_fkey(code)
     `)
     .eq("tenant_id", scope.tenant_id)
-    .gte("created_at", since)
-    .order("created_at", { ascending: false })
+    .gte("moved_at", since)
+    .order("moved_at", { ascending: false })
     .limit(10);
 
   return {
@@ -2252,7 +2333,6 @@ async function toolGetRecentActivity(supabase: any, params: any, scope: TenantSc
       shipments_received: (recentInbound || []).map((s: any) => ({
         number: s.shipment_number,
         received_at: s.received_at,
-        items: s.total_items,
         account: s.account?.account_name,
       })),
       tasks_completed: (recentTasks || []).map((t: any) => ({
@@ -2263,9 +2343,9 @@ async function toolGetRecentActivity(supabase: any, params: any, scope: TenantSc
       })),
       items_moved: (recentMovements || []).map((m: any) => ({
         item_code: m.item?.item_code,
-        type: m.movement_type,
+        type: m.action_type,
         to_location: m.to_location?.code,
-        timestamp: m.created_at,
+        timestamp: m.moved_at,
       })),
     },
   };
@@ -2323,7 +2403,7 @@ async function toolAddNoteToItem(supabase: any, params: any, scope: TenantScope)
   // Verify item exists
   const { data: item } = await supabase
     .from("items")
-    .select("id, item_code, notes")
+    .select("id, item_code")
     .eq("id", item_id)
     .eq("tenant_id", scope.tenant_id)
     .single();
@@ -2332,16 +2412,18 @@ async function toolAddNoteToItem(supabase: any, params: any, scope: TenantScope)
     return { result: { ok: false, error: "Item not found" } };
   }
 
-  // Append note with timestamp
-  const timestamp = new Date().toISOString();
-  const newNote = `[${timestamp}] ${scope.user_name || "System"}: ${note}`;
-  const updatedNotes = item.notes ? `${item.notes}\n${newNote}` : newNote;
-
+  // Insert into item_notes table
   const { error } = await supabase
-    .from("items")
-    .update({ notes: updatedNotes })
-    .eq("id", item_id)
-    .eq("tenant_id", scope.tenant_id);
+    .from("item_notes")
+    .insert({
+      item_id,
+      note,
+      created_by: scope.user_id,
+      note_type: "general",
+      visibility: "internal",
+      is_current: true,
+      tenant_id: scope.tenant_id,
+    });
 
   if (error) {
     return { result: { ok: false, error: "Failed to add note" } };
@@ -2657,6 +2739,8 @@ serve(async (req) => {
 
         if (newSessionState) {
           sessionUpdates = { ...sessionUpdates, ...newSessionState };
+          // Update session.state so subsequent tool calls in this round see the changes
+          Object.assign(session.state, newSessionState);
         }
 
         // Add tool result to conversation

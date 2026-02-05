@@ -124,6 +124,10 @@ export function AITenantBot() {
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
+    if (!session?.access_token) {
+      toast({ title: "Not authenticated", description: "Please log in to use the assistant.", variant: "destructive" });
+      return;
+    }
 
     const userContent = input.trim();
     const userMessage: Message = { role: 'user', content: userContent };
@@ -597,7 +601,7 @@ export function AITenantBot() {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             placeholder="Search, query, or command..."
             disabled={isLoading}
             className="flex-1 bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500 font-mono text-sm"
