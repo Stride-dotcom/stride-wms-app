@@ -462,13 +462,13 @@ export function SavedInvoicesTab() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'draft':
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Draft</Badge>;
+        return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">Draft</Badge>;
       case 'sent':
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Sent</Badge>;
+        return <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">Sent</Badge>;
       case 'paid':
-        return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Paid</Badge>;
+        return <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">Paid</Badge>;
       case 'void':
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Void</Badge>;
+        return <Badge variant="outline" className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20">Void</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }

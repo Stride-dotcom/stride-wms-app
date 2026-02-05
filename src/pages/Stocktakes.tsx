@@ -49,10 +49,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 const statusColors: Record<StocktakeStatus, string> = {
-  draft: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  active: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  closed: 'bg-green-500/20 text-green-400 border-green-500/30',
-  cancelled: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+  draft: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+  active: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+  closed: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
+  cancelled: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20',
 };
 
 const statusLabels: Record<StocktakeStatus, string> = {
@@ -158,7 +158,7 @@ export default function Stocktakes() {
   };
 
   const getStatusBadge = (status: string) => (
-    <Badge className={statusColors[status as StocktakeStatus] || statusColors.draft}>
+    <Badge variant="outline" className={statusColors[status as StocktakeStatus] || statusColors.draft}>
       {statusLabels[status as StocktakeStatus] || status}
     </Badge>
   );
