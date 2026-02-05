@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -239,6 +239,21 @@ function CategoryDialog({ open, onOpenChange, category, onSave, saving }: Catego
   const [description, setDescription] = useState(category?.description || '');
   const [sortOrder, setSortOrder] = useState(category?.sort_order ?? 0);
   const [isActive, setIsActive] = useState(category?.is_active ?? true);
+
+  // Sync form state when the dialog opens or the category prop changes
+  useEffect(() => {
+    if (open && category) {
+      setName(category.name);
+      setDescription(category.description || '');
+      setSortOrder(category.sort_order);
+      setIsActive(category.is_active);
+    } else if (open && !category) {
+      setName('');
+      setDescription('');
+      setSortOrder(0);
+      setIsActive(true);
+    }
+  }, [open, category]);
 
   const handleOpenChange = (isOpen: boolean) => {
     if (isOpen && category) {

@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -13,12 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { LabelWithTooltip } from '@/components/ui/label-with-tooltip';
 import { fieldDescriptions } from '@/lib/pricing/fieldDescriptions';
@@ -33,6 +26,10 @@ import { useClasses } from '@/hooks/useClasses';
 import { useServiceCategories } from '@/hooks/useServiceCategories';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+
+// =============================================================================
+// TYPES
+// =============================================================================
 
 interface AddServiceFormProps {
   onClose: () => void;
@@ -65,19 +62,14 @@ interface FormState {
   isTaxable: boolean;
   addToScan: boolean;
   addFlag: boolean;
-  flagAddsCharge: boolean;
-  flagAlertOffice: boolean;
-  flagAddsTime: boolean;
-  flagTimeMinutes: string;
   notes: string;
 }
 
-const STEPS = [
-  { number: 1, label: 'Basic Info' },
-  { number: 2, label: 'Category & Trigger' },
-  { number: 3, label: 'Pricing' },
-  { number: 4, label: 'Options' },
-];
+type FormErrors = Partial<Record<string, string>>;
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
 
 const categoryTriggerDefaults: Record<string, string> = {
   'service': 'auto',
@@ -99,11 +91,32 @@ const TRIGGER_OPTIONS = [
 ] as const;
 
 const PRICING_METHOD_CARDS = [
-  { value: 'class_based', label: 'Class-Based Pricing', description: fieldDescriptions.classBasedPricing, icon: 'category' },
-  { value: 'flat_per_item', label: 'Flat Rate Per Item', description: fieldDescriptions.flatPerItem, icon: 'straighten' },
-  { value: 'flat_per_task', label: 'Flat Rate Per Task', description: fieldDescriptions.flatPerTask, icon: 'assignment' },
-  { value: 'unit_price', label: 'Unit Price', description: fieldDescriptions.unitPrice, icon: 'inventory' },
+  { value: 'class_based', label: 'Class-Based', icon: 'category' },
+  { value: 'flat_per_item', label: 'Flat Rate Per Item', icon: 'straighten' },
+  { value: 'flat_per_task', label: 'Flat Rate Per Task', icon: 'assignment' },
+  { value: 'unit_price', label: 'Unit Price', icon: 'inventory' },
 ] as const;
+
+const HELP = {
+  serviceName: 'The display name for this service. Appears on invoices, quotes, and work orders.',
+  serviceCode: 'A short unique code for this service. Auto-generated from the name but can be customized. Used in reports and integrations.',
+  description: 'Brief description shown on invoices and reports. Helps staff and customers understand what this service covers.',
+  glAccountCode: 'General Ledger code for accounting integration. Links charges to the correct revenue account.',
+  serviceCategory: 'Groups related services together for organization, reporting, and filtering.',
+  billingTrigger: "Determines when the charge is automatically created. 'Receiving' triggers on inbound processing. 'Task Completion' triggers when a linked task is marked done. 'Storage' accrues daily/monthly. 'Manual' requires staff to add the charge.",
+  pricingMethod: "How rates are calculated. 'Class-Based' uses different rates per item class. 'Flat Per Item' charges the same for every item. 'Flat Per Task' charges once per job. 'Unit Price' is for sellable materials billed by quantity.",
+  rate: 'The charge amount for this service. Can be overridden per-customer in account pricing settings.',
+  unit: 'The billing unit displayed on invoices. Auto-set based on pricing method but can be customized.',
+  minCharge: 'If the calculated charge falls below this amount, the minimum will be used instead. Protects against unprofitable small orders.',
+  serviceTime: 'Estimated time to complete this service in minutes. Used for scheduling, capacity planning, and dashboard time estimates.',
+  active: 'When active, this service is available for use on work orders, quotes, and billing. Inactive services are hidden from selection but historical data is preserved.',
+  taxable: 'When enabled, sales tax will be automatically applied to this charge based on the customer\'s tax rate settings.',
+  notes: 'Notes visible only to staff. Use for internal guidance about when to apply this service, special handling instructions, or billing rules.',
+};
+
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
 
 export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateToTab }: AddServiceFormProps) {
   const { chargeTypes, createChargeType, updateChargeType } = useChargeTypes();
@@ -115,8 +128,9 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
   const isEditing = editingChargeType && editingChargeType.id !== '';
   const isDuplicating = editingChargeType && editingChargeType.id === '';
 
-  const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const getInitialForm = (): FormState => {
     if (editingChargeType) {
@@ -152,10 +166,6 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
         isTaxable: editingChargeType.is_taxable,
         addToScan: editingChargeType.add_to_scan,
         addFlag: editingChargeType.add_flag,
-        flagAddsCharge: editingChargeType.add_flag,
-        flagAlertOffice: editingChargeType.alert_rule === 'office',
-        flagAddsTime: false,
-        flagTimeMinutes: '',
         notes: editingChargeType.notes || '',
       };
     }
@@ -182,10 +192,6 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
       isTaxable: false,
       addToScan: false,
       addFlag: false,
-      flagAddsCharge: true,
-      flagAlertOffice: false,
-      flagAddsTime: false,
-      flagTimeMinutes: '',
       notes: '',
     };
   };
@@ -211,10 +217,19 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
         })),
       }));
     }
-  }, [classes]);
+  }, [classes, form.classRates.length]);
 
   const updateForm = (updates: Partial<FormState>) => {
     setForm(prev => ({ ...prev, ...updates }));
+    // Clear related errors when field changes
+    const errorKeys = Object.keys(updates);
+    if (errorKeys.length > 0) {
+      setErrors(prev => {
+        const next = { ...prev };
+        errorKeys.forEach(k => delete next[k]);
+        return next;
+      });
+    }
   };
 
   const isCodeUnique = (code: string): boolean => {
@@ -222,88 +237,70 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
     return !chargeTypes.some(ct => ct.charge_code === code);
   };
 
-  const canProceed = (): boolean => {
-    switch (step) {
-      case 1: return form.name.trim() !== '' && form.code.trim() !== '' && isCodeUnique(form.code);
-      case 2: return form.category !== '' && form.trigger !== undefined;
-      case 3: {
-        if (form.pricingMethod === 'class_based') {
-          return form.classRates.some(r => r.rate !== '');
-        }
-        return form.flatRate !== '';
-      }
-      case 4: return true;
-      default: return false;
+  // ==========================================================================
+  // VALIDATION
+  // ==========================================================================
+
+  const validate = (): FormErrors => {
+    const errs: FormErrors = {};
+    if (!form.name.trim()) errs.name = 'Service name is required';
+    if (!form.code.trim()) errs.code = 'Service code is required';
+    else if (!isCodeUnique(form.code)) errs.code = 'This code is already in use';
+    if (!form.category) errs.category = 'Select a service category';
+    if (!form.trigger) errs.trigger = 'Select a billing trigger';
+    if (form.pricingMethod === 'class_based') {
+      if (!form.classRates.some(r => r.rate !== '')) errs.pricing = 'Set a rate for at least one class';
+    } else {
+      if (!form.flatRate) errs.pricing = 'Rate is required';
+    }
+    return errs;
+  };
+
+  // ==========================================================================
+  // CATEGORY SELECTION
+  // ==========================================================================
+
+  const handleCategorySelect = (categoryName: string) => {
+    const lower = categoryName.toLowerCase();
+    updateForm({
+      category: lower,
+      trigger: (categoryTriggerDefaults[lower] as FormState['trigger']) || form.trigger,
+    });
+  };
+
+  // ==========================================================================
+  // PRICING METHOD SELECTION
+  // ==========================================================================
+
+  const handlePricingMethodSelect = (value: string) => {
+    if (value === 'class_based') {
+      updateForm({ pricingMethod: 'class_based', unit: 'each' });
+    } else if (value === 'flat_per_task') {
+      updateForm({ pricingMethod: 'flat', unit: 'per_task' });
+    } else if (value === 'unit_price') {
+      updateForm({ pricingMethod: 'flat', unit: 'each' });
+    } else {
+      updateForm({ pricingMethod: 'flat', unit: 'each' });
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      if (isEditing && editingChargeType) {
-        // Update existing charge type
-        const updated = await updateChargeType({
-          id: editingChargeType.id,
-          charge_code: form.code,
-          charge_name: form.name,
-          category: form.category.toLowerCase(),
-          is_active: form.isActive,
-          is_taxable: form.isTaxable,
-          default_trigger: form.trigger,
-          input_mode: 'qty',
-          add_to_scan: form.addToScan,
-          add_flag: form.addFlag,
-          alert_rule: form.flagAlertOffice ? 'office' : undefined,
-          notes: [form.description, form.notes].filter(Boolean).join('\n') || undefined,
-        });
-
-        if (!updated) throw new Error('Failed to update');
-
-        // Delete existing pricing rules
-        for (const rule of editingChargeType.pricing_rules) {
-          await deletePricingRule(rule.id);
-        }
-
-        // Create new pricing rules
-        await createPricingRules(editingChargeType.id);
-      } else {
-        // Create new charge type
-        const chargeType = await createChargeType({
-          charge_code: form.code,
-          charge_name: form.name,
-          category: form.category.toLowerCase(),
-          is_active: form.isActive,
-          is_taxable: form.isTaxable,
-          default_trigger: form.trigger,
-          input_mode: 'qty',
-          add_to_scan: form.addToScan,
-          add_flag: form.addFlag,
-          alert_rule: form.flagAlertOffice ? 'office' : undefined,
-          notes: [form.description, form.notes].filter(Boolean).join('\n') || undefined,
-        });
-
-        if (!chargeType) throw new Error('Failed to create');
-
-        // Create pricing rules
-        await createPricingRules(chargeType.id);
-      }
-
-      toast({
-        title: isEditing ? 'Service Updated' : 'Service Created',
-        description: `${form.name} has been ${isEditing ? 'updated' : 'created'} successfully.`,
-      });
-      onSaved();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'An error occurred';
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: message,
-      });
-    } finally {
-      setSaving(false);
-    }
+  const getActivePricingCard = () => {
+    if (form.pricingMethod === 'class_based') return 'class_based';
+    if (form.unit === 'per_task') return 'flat_per_task';
+    return 'flat_per_item';
   };
+
+  const updateClassRate = (classCode: string, field: 'rate' | 'serviceTimeMinutes', value: string) => {
+    updateForm({
+      classRates: form.classRates.map(cr =>
+        cr.classCode === classCode ? { ...cr, [field]: value } : cr
+      ),
+    });
+  };
+
+  // ==========================================================================
+  // SAVE HANDLERS
+  // ==========================================================================
 
   const createPricingRules = async (chargeTypeId: string) => {
     if (form.pricingMethod === 'class_based') {
@@ -332,95 +329,416 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
     }
   };
 
-  const handlePricingMethodSelect = (value: string) => {
-    if (value === 'class_based') {
-      updateForm({ pricingMethod: 'class_based', unit: 'each' });
-    } else if (value === 'flat_per_task') {
-      updateForm({ pricingMethod: 'flat', unit: 'per_task' });
-    } else if (value === 'unit_price') {
-      updateForm({ pricingMethod: 'flat', unit: 'each' });
+  const handleSave = async (mode: 'save' | 'draft' | 'saveAndAnother') => {
+    // For draft mode, only require name
+    if (mode === 'draft') {
+      if (!form.name.trim()) {
+        setErrors({ name: 'Service name is required' });
+        nameInputRef.current?.focus();
+        return;
+      }
     } else {
-      updateForm({ pricingMethod: 'flat', unit: 'each' });
+      const validationErrors = validate();
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors);
+        // Scroll to first error
+        const firstErrorKey = Object.keys(validationErrors)[0];
+        const el = document.querySelector(`[data-field="${firstErrorKey}"]`);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+    }
+
+    setSaving(true);
+    try {
+      const isActiveValue = mode === 'draft' ? false : form.isActive;
+
+      if (isEditing && editingChargeType) {
+        // UPDATE existing
+        const updated = await updateChargeType({
+          id: editingChargeType.id,
+          charge_code: form.code,
+          charge_name: form.name,
+          category: form.category.toLowerCase(),
+          is_active: isActiveValue,
+          is_taxable: form.isTaxable,
+          default_trigger: form.trigger,
+          input_mode: 'qty',
+          add_to_scan: form.addToScan,
+          add_flag: form.addFlag,
+          notes: [form.description, form.notes].filter(Boolean).join('\n') || undefined,
+        });
+
+        if (!updated) throw new Error('Failed to update');
+
+        // Delete existing pricing rules, then recreate
+        for (const rule of editingChargeType.pricing_rules) {
+          await deletePricingRule(rule.id);
+        }
+        await createPricingRules(editingChargeType.id);
+
+        toast({
+          title: 'Service Updated',
+          description: `${form.name} has been updated successfully.`,
+        });
+        onSaved();
+      } else {
+        // INSERT new
+        const chargeType = await createChargeType({
+          charge_code: form.code,
+          charge_name: form.name,
+          category: form.category.toLowerCase() || 'service',
+          is_active: isActiveValue,
+          is_taxable: form.isTaxable,
+          default_trigger: form.trigger,
+          input_mode: 'qty',
+          add_to_scan: form.addToScan,
+          add_flag: form.addFlag,
+          notes: [form.description, form.notes].filter(Boolean).join('\n') || undefined,
+        });
+
+        if (!chargeType) throw new Error('Failed to create');
+        await createPricingRules(chargeType.id);
+
+        if (mode === 'draft') {
+          toast({ title: 'Service saved as draft' });
+          onSaved();
+        } else if (mode === 'saveAndAnother') {
+          toast({ title: 'Service saved', description: 'Ready for next entry.' });
+          // Reset form but keep category and trigger
+          const savedCategory = form.category;
+          const savedTrigger = form.trigger;
+          setForm({
+            ...getInitialForm(),
+            category: savedCategory,
+            trigger: savedTrigger,
+          });
+          setErrors({});
+          nameInputRef.current?.focus();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          toast({
+            title: 'Service Created',
+            description: `${form.name} has been created successfully.`,
+          });
+          onSaved();
+        }
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'An error occurred';
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: message,
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
-  const getActivePricingCard = () => {
-    if (form.pricingMethod === 'class_based') return 'class_based';
-    if (form.unit === 'per_task') return 'flat_per_task';
-    return 'flat_per_item';
-  };
+  // ==========================================================================
+  // RENDER
+  // ==========================================================================
+
+  const activePricingCard = getActivePricingCard();
 
   return (
-    <div className="space-y-6">
-      {/* Back button + title */}
+    <div className="space-y-6 pb-24">
+      {/* Back + Title */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={onClose}>
+        <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0">
           <MaterialIcon name="arrow_back" size="sm" />
         </Button>
         <h3 className="text-lg font-semibold">
-          {isEditing ? 'Edit Service' : isDuplicating ? 'Duplicate Service' : 'Add Service'}
+          {isEditing
+            ? `Edit Service: ${editingChargeType?.charge_name}`
+            : isDuplicating
+              ? 'Duplicate Service'
+              : 'Add New Service'}
         </h3>
       </div>
 
-      {/* Step Progress */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2">
-        {STEPS.map((s, i) => (
-          <div key={s.number} className="flex items-center">
-            <button
-              onClick={() => s.number <= step && setStep(s.number)}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap',
-                step === s.number
-                  ? 'bg-primary text-primary-foreground'
-                  : s.number < step
-                    ? 'bg-primary/10 text-primary cursor-pointer hover:bg-primary/20'
-                    : 'bg-muted text-muted-foreground'
-              )}
-              disabled={s.number > step}
-            >
-              {s.number < step ? (
-                <MaterialIcon name="check" size="sm" />
-              ) : (
-                <span className="w-5 h-5 rounded-full border flex items-center justify-center text-xs">
-                  {s.number}
-                </span>
-              )}
-              <span className="hidden sm:inline">{s.label}</span>
-            </button>
-            {i < STEPS.length - 1 && (
-              <div className={cn('w-8 h-px mx-1', s.number < step ? 'bg-primary' : 'bg-border')} />
-            )}
+      {/* ================================================================ */}
+      {/* SECTION 1: Basic Information                                     */}
+      {/* ================================================================ */}
+      <Card data-field="name">
+        <CardContent className="pt-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">1</span>
+            <h4 className="font-semibold text-sm">Basic Information</h4>
           </div>
-        ))}
-      </div>
 
-      {/* Step Content */}
-      <div className="min-h-[300px]">
-        {step === 1 && <Step1BasicInfo form={form} updateForm={updateForm} isEditing={!!isEditing} isCodeUnique={isCodeUnique} />}
-        {step === 2 && <Step2CategoryTrigger form={form} updateForm={updateForm} activeCategories={activeCategories} navigateToTab={navigateToTab} />}
-        {step === 3 && <Step3Pricing form={form} updateForm={updateForm} classes={classes} navigateToTab={navigateToTab} handlePricingMethodSelect={handlePricingMethodSelect} getActivePricingCard={getActivePricingCard} />}
-        {step === 4 && <Step4Options form={form} updateForm={updateForm} />}
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2 space-y-2">
+              <LabelWithTooltip htmlFor="serviceName" tooltip={HELP.serviceName} required>
+                Service Name
+              </LabelWithTooltip>
+              <Input
+                id="serviceName"
+                ref={nameInputRef}
+                value={form.name}
+                onChange={(e) => updateForm({ name: e.target.value })}
+                placeholder="e.g., Receiving, Inspection, Assembly"
+                autoFocus
+                className={cn(errors.name && 'border-destructive')}
+              />
+              {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+            </div>
+            <div className="space-y-2">
+              <LabelWithTooltip htmlFor="serviceCode" tooltip={HELP.serviceCode} required>
+                Service Code
+              </LabelWithTooltip>
+              <div className="relative">
+                <Input
+                  id="serviceCode"
+                  value={form.code}
+                  onChange={(e) => updateForm({ code: e.target.value.toUpperCase(), codeManual: true })}
+                  placeholder="Auto-generated"
+                  className={cn(
+                    'font-mono',
+                    !form.codeManual && form.code && 'text-muted-foreground',
+                    errors.code && 'border-destructive'
+                  )}
+                  readOnly={!!isEditing}
+                />
+                {form.codeManual && !isEditing && (
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => updateForm({ codeManual: false })}
+                  >
+                    Auto
+                  </button>
+                )}
+              </div>
+              {errors.code && <p className="text-xs text-destructive">{errors.code}</p>}
+              {!form.codeManual && !errors.code && (
+                <p className="text-xs text-muted-foreground">Auto-generated from service name</p>
+              )}
+            </div>
+          </div>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between border-t pt-4">
-        <div>
-          {step > 1 && (
-            <Button variant="outline" onClick={() => setStep(step - 1)}>
-              <MaterialIcon name="arrow_back" size="sm" className="mr-1" />
-              Back
-            </Button>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          {step < 4 ? (
-            <Button onClick={() => setStep(step + 1)} disabled={!canProceed()}>
-              Next
-              <MaterialIcon name="arrow_forward" size="sm" className="ml-1" />
-            </Button>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div className="md:col-span-2 space-y-2">
+              <LabelWithTooltip htmlFor="description" tooltip={HELP.description}>
+                Description
+              </LabelWithTooltip>
+              <Input
+                id="description"
+                value={form.description}
+                onChange={(e) => updateForm({ description: e.target.value })}
+                placeholder="Brief description for invoices and reports"
+              />
+            </div>
+            <div className="space-y-2">
+              <LabelWithTooltip htmlFor="glCode" tooltip={HELP.glAccountCode}>
+                GL Account Code
+              </LabelWithTooltip>
+              <Input
+                id="glCode"
+                value={form.glCode}
+                onChange={(e) => updateForm({ glCode: e.target.value })}
+                placeholder="e.g., 4100-10"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ================================================================ */}
+      {/* SECTION 2: Category & Billing Trigger                            */}
+      {/* ================================================================ */}
+      <Card data-field="category">
+        <CardContent className="pt-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">2</span>
+            <h4 className="font-semibold text-sm">Category & Billing Trigger</h4>
+          </div>
+
+          {/* Service Category — chip selectors */}
+          <div className="space-y-3 mb-6">
+            <LabelWithTooltip tooltip={HELP.serviceCategory} required>
+              Service Category
+            </LabelWithTooltip>
+
+            {activeCategories.length === 0 ? (
+              <div className="text-sm text-muted-foreground p-3 border rounded-lg border-dashed">
+                No categories configured.{' '}
+                <button className="text-primary underline" onClick={() => navigateToTab('categories')}>
+                  Set up categories
+                </button>{' '}
+                or{' '}
+                <button className="text-primary underline" onClick={() => updateForm({ category: 'general' })}>
+                  continue with General
+                </button>.
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {activeCategories.map((cat) => {
+                  const selected = form.category === cat.name.toLowerCase();
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      className={cn(
+                        'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+                        selected
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border hover:border-primary/50 text-foreground'
+                      )}
+                      onClick={() => handleCategorySelect(cat.name)}
+                    >
+                      {selected && <span className="mr-1">✓</span>}
+                      {cat.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {errors.category && <p className="text-xs text-destructive">{errors.category}</p>}
+          </div>
+
+          {/* Billing Trigger — chip selectors */}
+          <div className="space-y-3" data-field="trigger">
+            <LabelWithTooltip tooltip={HELP.billingTrigger} required>
+              Billing Trigger
+            </LabelWithTooltip>
+            <div className="flex flex-wrap gap-2">
+              {TRIGGER_OPTIONS.map((opt) => {
+                const selected = form.trigger === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={cn(
+                      'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+                      selected
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border hover:border-primary/50 text-foreground'
+                    )}
+                    onClick={() => updateForm({ trigger: opt.value as FormState['trigger'] })}
+                  >
+                    {selected && <span className="mr-1">✓</span>}
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+            {errors.trigger && <p className="text-xs text-destructive">{errors.trigger}</p>}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ================================================================ */}
+      {/* SECTION 3: Pricing                                               */}
+      {/* ================================================================ */}
+      <Card data-field="pricing">
+        <CardContent className="pt-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">3</span>
+            <h4 className="font-semibold text-sm">Pricing</h4>
+          </div>
+
+          {/* Pricing Method — 2x2 grid */}
+          <div className="space-y-3 mb-6">
+            <LabelWithTooltip tooltip={HELP.pricingMethod} required>
+              Pricing Method
+            </LabelWithTooltip>
+            <div className="grid grid-cols-2 gap-2 max-w-md">
+              {PRICING_METHOD_CARDS.map((pm) => {
+                const active = activePricingCard === pm.value;
+                return (
+                  <button
+                    key={pm.value}
+                    type="button"
+                    className={cn(
+                      'flex items-center gap-2 p-3 rounded-lg border-2 text-sm font-medium transition-colors text-left',
+                      active
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    )}
+                    onClick={() => handlePricingMethodSelect(pm.value)}
+                  >
+                    <MaterialIcon name={pm.icon} size="sm" className="text-muted-foreground shrink-0" />
+                    <span>{pm.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {errors.pricing && <p className="text-xs text-destructive mt-1">{errors.pricing}</p>}
+          </div>
+
+          {/* Dynamic rate config */}
+          {form.pricingMethod === 'class_based' ? (
+            <ClassBasedRateConfig
+              form={form}
+              classes={classes}
+              updateClassRate={updateClassRate}
+              updateForm={updateForm}
+              navigateToTab={navigateToTab}
+              handlePricingMethodSelect={handlePricingMethodSelect}
+            />
           ) : (
-            <Button onClick={handleSave} disabled={saving || !canProceed()} className="bg-green-600 hover:bg-green-700 text-white">
+            <FlatRateConfig form={form} updateForm={updateForm} />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ================================================================ */}
+      {/* SECTION 4: Options                                               */}
+      {/* ================================================================ */}
+      <Card>
+        <CardContent className="pt-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">4</span>
+            <h4 className="font-semibold text-sm">Options</h4>
+          </div>
+
+          <div className="flex flex-wrap gap-x-8 gap-y-4 mb-4">
+            <div className="flex items-center gap-3">
+              <LabelWithTooltip tooltip={HELP.active}>Active</LabelWithTooltip>
+              <Switch checked={form.isActive} onCheckedChange={(v) => updateForm({ isActive: v })} />
+            </div>
+            <div className="flex items-center gap-3">
+              <LabelWithTooltip tooltip={HELP.taxable}>Taxable</LabelWithTooltip>
+              <Switch checked={form.isTaxable} onCheckedChange={(v) => updateForm({ isTaxable: v })} />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <LabelWithTooltip htmlFor="internalNotes" tooltip={HELP.notes}>
+              Internal Notes
+            </LabelWithTooltip>
+            <Input
+              id="internalNotes"
+              value={form.notes}
+              onChange={(e) => updateForm({ notes: e.target.value })}
+              placeholder="Optional — internal notes about when to use this service"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ================================================================ */}
+      {/* PINNED FOOTER BAR                                                */}
+      {/* ================================================================ */}
+      <div className="sticky bottom-0 z-40 -mx-1 px-1 py-3 mt-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-t">
+        <div className="flex items-center justify-between gap-2">
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <div className="flex gap-2">
+            {!isEditing && !isDuplicating && (
+              <Button
+                variant="secondary"
+                onClick={() => handleSave('draft')}
+                disabled={saving}
+                className="hidden sm:inline-flex"
+              >
+                Save as Draft
+              </Button>
+            )}
+            <Button onClick={() => handleSave('save')} disabled={saving}>
               {saving ? (
                 <>
                   <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />
@@ -433,207 +751,16 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
                 </>
               )}
             </Button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
-// STEP 1: BASIC INFO
-// =============================================================================
-
-function Step1BasicInfo({ form, updateForm, isEditing, isCodeUnique }: {
-  form: FormState;
-  updateForm: (u: Partial<FormState>) => void;
-  isEditing: boolean;
-  isCodeUnique: (code: string) => boolean;
-}) {
-  const codeIsValid = form.code === '' || isCodeUnique(form.code);
-
-  return (
-    <div className="space-y-4 max-w-lg">
-      <div className="space-y-2">
-        <LabelWithTooltip htmlFor="serviceName" tooltip={fieldDescriptions.serviceName} required>
-          Service Name
-        </LabelWithTooltip>
-        <Input
-          id="serviceName"
-          value={form.name}
-          onChange={(e) => updateForm({ name: e.target.value })}
-          placeholder="e.g., Standard Inspection"
-          autoFocus
-        />
-      </div>
-
-      <div className="space-y-2">
-        <LabelWithTooltip htmlFor="serviceCode" tooltip={fieldDescriptions.serviceCode} required>
-          Service Code
-        </LabelWithTooltip>
-        <div className="relative">
-          <Input
-            id="serviceCode"
-            value={form.code}
-            onChange={(e) => updateForm({ code: e.target.value.toUpperCase(), codeManual: true })}
-            placeholder="AUTO"
-            className={cn(
-              'font-mono',
-              !form.codeManual && 'text-muted-foreground',
-              !codeIsValid && 'border-destructive'
-            )}
-            readOnly={isEditing}
-          />
-          {form.codeManual && !isEditing && (
-            <button
-              type="button"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => updateForm({ codeManual: false })}
-            >
-              Auto
-            </button>
-          )}
-        </div>
-        {!codeIsValid && (
-          <p className="text-xs text-destructive">This code is already in use</p>
-        )}
-        {!form.codeManual && (
-          <p className="text-xs text-muted-foreground">Auto-generated from service name</p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <LabelWithTooltip htmlFor="glCode" tooltip={fieldDescriptions.glAccountCode}>
-          GL Account Code
-        </LabelWithTooltip>
-        <Input
-          id="glCode"
-          value={form.glCode}
-          onChange={(e) => updateForm({ glCode: e.target.value })}
-          placeholder="Optional"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <LabelWithTooltip htmlFor="description" tooltip={fieldDescriptions.description}>
-          Description
-        </LabelWithTooltip>
-        <Textarea
-          id="description"
-          value={form.description}
-          onChange={(e) => updateForm({ description: e.target.value })}
-          placeholder="Brief description for invoices..."
-          rows={2}
-        />
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
-// STEP 2: CATEGORY & TRIGGER
-// =============================================================================
-
-function Step2CategoryTrigger({ form, updateForm, activeCategories, navigateToTab }: {
-  form: FormState;
-  updateForm: (u: Partial<FormState>) => void;
-  activeCategories: ReturnType<typeof useServiceCategories>['activeCategories'];
-  navigateToTab: (tab: string) => void;
-}) {
-  const handleCategorySelect = (categoryName: string) => {
-    const lower = categoryName.toLowerCase();
-    updateForm({
-      category: lower,
-      trigger: (categoryTriggerDefaults[lower] as FormState['trigger']) || 'manual',
-    });
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Category */}
-      <div className="space-y-3">
-        <LabelWithTooltip tooltip={fieldDescriptions.chargeCategory} required>
-          Service Category
-        </LabelWithTooltip>
-
-        {activeCategories.length === 0 ? (
-          <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
-            <CardContent className="pt-4">
-              <div className="flex items-start gap-3">
-                <MaterialIcon name="warning" className="text-amber-600 shrink-0" />
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">No categories configured</p>
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Categories organize your services in menus and reports.
-                  </p>
-                  <div className="flex gap-2 pt-1">
-                    <Button size="sm" variant="outline" onClick={() => navigateToTab('categories')}>
-                      <MaterialIcon name="add" size="sm" className="mr-1" />
-                      Set Up Categories
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => updateForm({ category: 'general' })}>
-                      Continue with General
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-2 gap-2">
-            {activeCategories.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                className={cn(
-                  'text-left p-3 rounded-lg border-2 transition-colors',
-                  form.category === cat.name.toLowerCase()
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/50'
-                )}
-                onClick={() => handleCategorySelect(cat.name)}
+            {!isEditing && !isDuplicating && (
+              <Button
+                onClick={() => handleSave('saveAndAnother')}
+                disabled={saving}
+                className="hidden sm:inline-flex"
               >
-                <p className="font-medium text-sm">{cat.name}</p>
-                {cat.description && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{cat.description}</p>
-                )}
-              </button>
-            ))}
+                Save & Add Another
+              </Button>
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Trigger */}
-      <div className="space-y-3">
-        <LabelWithTooltip tooltip={fieldDescriptions.billingTrigger} required>
-          Billing Trigger
-        </LabelWithTooltip>
-
-        <div className="space-y-2">
-          {TRIGGER_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              className={cn(
-                'w-full text-left p-3 rounded-lg border-2 transition-colors flex items-start gap-3',
-                form.trigger === opt.value
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/50'
-              )}
-              onClick={() => updateForm({ trigger: opt.value as FormState['trigger'] })}
-            >
-              <div className={cn(
-                'w-4 h-4 rounded-full border-2 mt-0.5 shrink-0 flex items-center justify-center',
-                form.trigger === opt.value ? 'border-primary' : 'border-muted-foreground/30'
-              )}>
-                {form.trigger === opt.value && <div className="w-2 h-2 rounded-full bg-primary" />}
-              </div>
-              <div>
-                <p className="font-medium text-sm">{opt.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{opt.description}</p>
-              </div>
-            </button>
-          ))}
         </div>
       </div>
     </div>
@@ -641,322 +768,186 @@ function Step2CategoryTrigger({ form, updateForm, activeCategories, navigateToTa
 }
 
 // =============================================================================
-// STEP 3: PRICING
+// CLASS-BASED RATE CONFIG
 // =============================================================================
 
-function Step3Pricing({ form, updateForm, classes, navigateToTab, handlePricingMethodSelect, getActivePricingCard }: {
+function ClassBasedRateConfig({
+  form,
+  classes,
+  updateClassRate,
+  updateForm,
+  navigateToTab,
+  handlePricingMethodSelect,
+}: {
   form: FormState;
-  updateForm: (u: Partial<FormState>) => void;
   classes: ReturnType<typeof useClasses>['classes'];
+  updateClassRate: (classCode: string, field: 'rate' | 'serviceTimeMinutes', value: string) => void;
+  updateForm: (u: Partial<FormState>) => void;
   navigateToTab: (tab: string) => void;
   handlePricingMethodSelect: (value: string) => void;
-  getActivePricingCard: () => string;
 }) {
-  const activePricingCard = getActivePricingCard();
-
-  const updateClassRate = (classCode: string, field: 'rate' | 'serviceTimeMinutes', value: string) => {
-    updateForm({
-      classRates: form.classRates.map(cr =>
-        cr.classCode === classCode ? { ...cr, [field]: value } : cr
-      ),
-    });
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Pricing Method */}
-      <div className="space-y-3">
-        <LabelWithTooltip tooltip={fieldDescriptions.pricingMethod} required>
-          Pricing Method
-        </LabelWithTooltip>
-
-        <div className="grid grid-cols-2 gap-2">
-          {PRICING_METHOD_CARDS.map((pm) => (
-            <button
-              key={pm.value}
-              type="button"
-              className={cn(
-                'text-left p-3 rounded-lg border-2 transition-colors',
-                activePricingCard === pm.value
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/50'
-              )}
-              onClick={() => handlePricingMethodSelect(pm.value)}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <MaterialIcon name={pm.icon} size="sm" className="text-muted-foreground" />
-                <p className="font-medium text-sm">{pm.label}</p>
-              </div>
-              <p className="text-xs text-muted-foreground">{pm.description}</p>
-            </button>
-          ))}
+  if (classes.length === 0) {
+    return (
+      <div className="border border-dashed rounded-lg p-4 text-sm text-muted-foreground">
+        <p className="font-medium mb-2">No classes configured</p>
+        <p className="mb-3">Classes let you group items so different groups can have different rates.</p>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => navigateToTab('classes')}>
+            <MaterialIcon name="add" size="sm" className="mr-1" />
+            Set Up Classes
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => handlePricingMethodSelect('flat_per_item')}>
+            Use Flat Pricing
+          </Button>
         </div>
       </div>
+    );
+  }
 
-      {/* Class-Based pricing */}
-      {form.pricingMethod === 'class_based' && (
-        <div className="space-y-3">
-          <h4 className="text-sm font-medium">Class Rates</h4>
-          {classes.length === 0 ? (
-            <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
-              <CardContent className="pt-4">
-                <div className="flex items-start gap-3">
-                  <MaterialIcon name="warning" className="text-amber-600 shrink-0" />
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">No classes configured</p>
-                    <p className="text-sm text-amber-700 dark:text-amber-300">{fieldDescriptions.classExplanation}</p>
-                    <div className="space-y-2 text-sm text-amber-700 dark:text-amber-300">
-                      <p className="font-medium">Example class schemes:</p>
-                      <ul className="list-disc pl-4 space-y-1">
-                        <li><strong>By Size:</strong> Small, Medium, Large, Oversized</li>
-                        <li><strong>By Value:</strong> Bronze, Silver, Gold, Platinum</li>
-                        <li><strong>By Type:</strong> Standard, Fragile, High-Value, Hazmat</li>
-                      </ul>
-                    </div>
-                    <div className="flex gap-2 pt-1">
-                      <Button size="sm" variant="outline" onClick={() => navigateToTab('classes')}>
-                        <MaterialIcon name="add" size="sm" className="mr-1" />
-                        Set Up Classes
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handlePricingMethodSelect('flat_per_item')}>
-                        Continue with Flat Pricing
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Accordion type="multiple" className="space-y-1">
-              {form.classRates.map((cr) => {
-                const cls = classes.find(c => c.code === cr.classCode);
-                if (!cls) return null;
-                return (
-                  <AccordionItem key={cr.classCode} value={cr.classCode} className="border rounded-lg overflow-hidden">
-                    <AccordionTrigger className="px-3 py-2 hover:no-underline hover:bg-muted/50">
-                      <div className="flex items-center gap-2 flex-1">
-                        <Badge variant="outline" className="font-mono text-xs">{cr.classCode}</Badge>
-                        <span className="text-sm">{cls.name}</span>
-                        {cr.rate && (
-                          <span className="text-sm text-muted-foreground ml-auto mr-2">${parseFloat(cr.rate).toFixed(2)}</span>
-                        )}
-                        {!cr.rate && (
-                          <span className="text-xs text-muted-foreground ml-auto mr-2">Set rate</span>
-                        )}
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-3 pb-3">
-                      <div className="grid grid-cols-2 gap-3 pt-1">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Rate ($)</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={cr.rate}
-                            onChange={(e) => updateClassRate(cr.classCode, 'rate', e.target.value)}
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Service Time (min)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={cr.serviceTimeMinutes}
-                            onChange={(e) => updateClassRate(cr.classCode, 'serviceTimeMinutes', e.target.value)}
-                            placeholder="Optional"
-                          />
-                        </div>
-                      </div>
-                      {(cls.min_cubic_feet !== null || cls.max_cubic_feet !== null) && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Range: {cls.min_cubic_feet ?? 0} – {cls.max_cubic_feet ?? '∞'} cu ft
-                        </p>
-                      )}
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
-            </Accordion>
-          )}
-        </div>
-      )}
+  return (
+    <div className="border rounded-lg p-4 space-y-4">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Rates by Item Class</p>
 
-      {/* Flat rate pricing */}
-      {form.pricingMethod === 'flat' && (
-        <div className="space-y-4 max-w-lg">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <LabelWithTooltip htmlFor="flatRate" tooltip="The rate to charge per unit" required>
-                Rate ($)
-              </LabelWithTooltip>
-              <Input
-                id="flatRate"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.flatRate}
-                onChange={(e) => updateForm({ flatRate: e.target.value })}
-                placeholder="0.00"
-              />
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        {form.classRates.map((cr) => {
+          const cls = classes.find(c => c.code === cr.classCode);
+          if (!cls) return null;
+          return (
+            <div key={cr.classCode} className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Badge variant="outline" className="font-mono text-xs">{cr.classCode}</Badge>
+                <span className="text-xs text-muted-foreground truncate">{cls.name}</span>
+              </div>
+              <div className="relative">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={cr.rate}
+                  onChange={(e) => updateClassRate(cr.classCode, 'rate', e.target.value)}
+                  placeholder="0.00"
+                  className="pl-5 h-9"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="unit" className="text-sm font-medium">Unit</Label>
-              <Select value={form.unit} onValueChange={(v) => updateForm({ unit: v })}>
-                <SelectTrigger id="unit">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {UNIT_OPTIONS.map((u) => (
-                    <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          );
+        })}
+      </div>
+
+      <div className="border-t pt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="space-y-1.5">
+            <LabelWithTooltip htmlFor="classUnit" tooltip={HELP.unit}>Unit</LabelWithTooltip>
+            <Select value={form.unit} onValueChange={(v) => updateForm({ unit: v })}>
+              <SelectTrigger id="classUnit" className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {UNIT_OPTIONS.map((u) => (
+                  <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-
-          <div className="space-y-2">
-            <LabelWithTooltip htmlFor="serviceTimeFull" tooltip={fieldDescriptions.serviceTime}>
-              Service Time (minutes)
-            </LabelWithTooltip>
+          <div className="space-y-1.5">
+            <LabelWithTooltip htmlFor="classMinCharge" tooltip={HELP.minCharge}>Min. Charge ($)</LabelWithTooltip>
             <Input
-              id="serviceTimeFull"
+              id="classMinCharge"
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.minimumCharge}
+              onChange={(e) => updateForm({ minimumCharge: e.target.value })}
+              placeholder="Optional"
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <LabelWithTooltip htmlFor="classServiceTime" tooltip={HELP.serviceTime}>Service Time (min)</LabelWithTooltip>
+            <Input
+              id="classServiceTime"
               type="number"
               min="0"
               value={form.serviceTime}
               onChange={(e) => updateForm({ serviceTime: e.target.value })}
               placeholder="Optional"
-              className="max-w-[160px]"
+              className="h-9"
             />
           </div>
         </div>
-      )}
-
-      {/* Minimum charge (both methods) */}
-      <div className="space-y-2 max-w-lg">
-        <LabelWithTooltip htmlFor="minimumCharge" tooltip={fieldDescriptions.minimumCharge}>
-          Minimum Charge ($)
-        </LabelWithTooltip>
-        <Input
-          id="minimumCharge"
-          type="number"
-          step="0.01"
-          min="0"
-          value={form.minimumCharge}
-          onChange={(e) => updateForm({ minimumCharge: e.target.value })}
-          placeholder="Optional"
-          className="max-w-[160px]"
-        />
       </div>
-
-      {/* Quick tips */}
-      <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
-        <CardContent className="pt-4 text-sm text-amber-800 dark:text-amber-200">
-          <p className="font-medium mb-2">Quick Tips</p>
-          <ul className="space-y-1 text-xs list-disc pl-4">
-            <li><strong>Class-Based</strong> — Use when different item groups should cost more or less</li>
-            <li><strong>Flat Per Item</strong> — Simple, predictable billing regardless of item characteristics</li>
-            <li><strong>Flat Per Task</strong> — Best for jobs where you charge once, not per item</li>
-            <li><strong>Minimum Charge</strong> — Protects against unprofitable small orders</li>
-            <li>Customer-specific rates can override these defaults in account agreements</li>
-          </ul>
-        </CardContent>
-      </Card>
     </div>
   );
 }
 
 // =============================================================================
-// STEP 4: OPTIONS
+// FLAT RATE CONFIG
 // =============================================================================
 
-function Step4Options({ form, updateForm }: {
+function FlatRateConfig({
+  form,
+  updateForm,
+}: {
   form: FormState;
   updateForm: (u: Partial<FormState>) => void;
 }) {
   return (
-    <div className="space-y-4 max-w-lg">
-      {/* Active */}
-      <Card>
-        <CardContent className="flex items-center justify-between py-4">
-          <div>
-            <LabelWithTooltip tooltip={fieldDescriptions.activeToggle}>Active</LabelWithTooltip>
+    <div className="border rounded-lg p-4 space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="space-y-1.5">
+          <LabelWithTooltip htmlFor="flatRate" tooltip={HELP.rate} required>Rate ($)</LabelWithTooltip>
+          <div className="relative">
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+            <Input
+              id="flatRate"
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.flatRate}
+              onChange={(e) => updateForm({ flatRate: e.target.value })}
+              placeholder="0.00"
+              className="pl-5 h-9"
+            />
           </div>
-          <Switch checked={form.isActive} onCheckedChange={(v) => updateForm({ isActive: v })} />
-        </CardContent>
-      </Card>
-
-      {/* Taxable */}
-      <Card>
-        <CardContent className="flex items-center justify-between py-4">
-          <div>
-            <LabelWithTooltip tooltip={fieldDescriptions.taxableToggle}>Taxable</LabelWithTooltip>
-          </div>
-          <Switch checked={form.isTaxable} onCheckedChange={(v) => updateForm({ isTaxable: v })} />
-        </CardContent>
-      </Card>
-
-      {/* Scan Hub */}
-      <Card>
-        <CardContent className="flex items-center justify-between py-4">
-          <div>
-            <LabelWithTooltip tooltip={fieldDescriptions.scanHubToggle}>Show in Scan Hub</LabelWithTooltip>
-          </div>
-          <Switch checked={form.addToScan} onCheckedChange={(v) => updateForm({ addToScan: v })} />
-        </CardContent>
-      </Card>
-
-      {/* Flag */}
-      <Card>
-        <CardContent className="py-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <LabelWithTooltip tooltip={fieldDescriptions.flagToggle}>Create as Flag</LabelWithTooltip>
-            </div>
-            <Switch checked={form.addFlag} onCheckedChange={(v) => updateForm({ addFlag: v })} />
-          </div>
-
-          {form.addFlag && (
-            <div className="ml-4 border-l-2 border-primary/20 pl-4 space-y-3 animate-in slide-in-from-left-2 duration-200">
-              <div className="flex items-center justify-between">
-                <LabelWithTooltip tooltip={fieldDescriptions.flagAddsCharge}>Add Charge</LabelWithTooltip>
-                <Switch checked={form.flagAddsCharge} onCheckedChange={(v) => updateForm({ flagAddsCharge: v })} />
-              </div>
-              <div className="flex items-center justify-between">
-                <LabelWithTooltip tooltip={fieldDescriptions.flagAlertOffice}>Alert Office</LabelWithTooltip>
-                <Switch checked={form.flagAlertOffice} onCheckedChange={(v) => updateForm({ flagAlertOffice: v })} />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <LabelWithTooltip tooltip={fieldDescriptions.flagAddsTime}>Add Service Time</LabelWithTooltip>
-                  <Switch checked={form.flagAddsTime} onCheckedChange={(v) => updateForm({ flagAddsTime: v })} />
-                </div>
-                {form.flagAddsTime && (
-                  <Input
-                    type="number"
-                    min="0"
-                    value={form.flagTimeMinutes}
-                    onChange={(e) => updateForm({ flagTimeMinutes: e.target.value })}
-                    placeholder="Minutes"
-                    className="max-w-[120px] ml-auto"
-                  />
-                )}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Notes */}
-      <div className="space-y-2">
-        <Label htmlFor="notes" className="text-sm font-medium">Notes</Label>
-        <Textarea
-          id="notes"
-          value={form.notes}
-          onChange={(e) => updateForm({ notes: e.target.value })}
-          placeholder="Internal notes (not shown on invoices)"
-          rows={2}
+        </div>
+        <div className="space-y-1.5">
+          <LabelWithTooltip htmlFor="flatUnit" tooltip={HELP.unit}>Unit</LabelWithTooltip>
+          <Select value={form.unit} onValueChange={(v) => updateForm({ unit: v })}>
+            <SelectTrigger id="flatUnit" className="h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {UNIT_OPTIONS.map((u) => (
+                <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <LabelWithTooltip htmlFor="flatMinCharge" tooltip={HELP.minCharge}>Min. Charge ($)</LabelWithTooltip>
+          <Input
+            id="flatMinCharge"
+            type="number"
+            step="0.01"
+            min="0"
+            value={form.minimumCharge}
+            onChange={(e) => updateForm({ minimumCharge: e.target.value })}
+            placeholder="Optional"
+            className="h-9"
+          />
+        </div>
+      </div>
+      <div className="space-y-1.5 max-w-[200px]">
+        <LabelWithTooltip htmlFor="flatServiceTime" tooltip={HELP.serviceTime}>Service Time (min)</LabelWithTooltip>
+        <Input
+          id="flatServiceTime"
+          type="number"
+          min="0"
+          value={form.serviceTime}
+          onChange={(e) => updateForm({ serviceTime: e.target.value })}
+          placeholder="Optional"
+          className="h-9"
         />
       </div>
     </div>
