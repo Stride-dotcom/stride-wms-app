@@ -183,6 +183,7 @@ export default function ItemDetail() {
   const [claimDialogOpen, setClaimDialogOpen] = useState(false);
   const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
   const [billingRefreshKey, setBillingRefreshKey] = useState(0);
+  const [activeIndicatorFlags, setActiveIndicatorFlags] = useState<Array<{ code: string; name: string }>>([]);
 
   // Inline edit state for autocomplete fields
   const [editVendor, setEditVendor] = useState('');
@@ -212,12 +213,40 @@ export default function ItemDetail() {
   const { sidemarks } = useAccountSidemarks(item?.account_id);
   const { rooms } = useAccountRoomSuggestions(item?.account_id);
 
+  // Fetch active indicator flags for this item
+  const fetchIndicatorFlags = async () => {
+    try {
+      const { data, error } = await (supabase
+        .from('item_flags') as any)
+        .select('service_code, charge_types:charge_type_id(charge_name)')
+        .eq('item_id', id);
+
+      if (error) {
+        // Table may not exist yet
+        if (error.code !== '42P01') {
+          console.error('[ItemDetail] Error fetching indicator flags:', error);
+        }
+        return;
+      }
+
+      setActiveIndicatorFlags(
+        (data || []).map((f: any) => ({
+          code: f.service_code,
+          name: f.charge_types?.charge_name || f.service_code,
+        }))
+      );
+    } catch (err) {
+      // Silently handle - indicator flags are non-critical UI enhancement
+    }
+  };
+
   // Fetch data on mount (id is guaranteed valid UUID at this point)
   useEffect(() => {
     fetchItem();
     fetchMovements();
     fetchTasks();
     fetchShipments();
+    fetchIndicatorFlags();
   }, [id]);
 
   // Sync local edit state when item changes
@@ -400,6 +429,8 @@ export default function ItemDetail() {
       await fetchItem();
       // Refresh billing events section so new flag charges appear immediately
       setBillingRefreshKey(prev => prev + 1);
+      // Refresh indicator flag badges in header
+      await fetchIndicatorFlags();
     }
   };
 
@@ -585,6 +616,17 @@ export default function ItemDetail() {
                     Coverage Pending
                   </Badge>
                 )}
+                {/* Active Indicator Flags */}
+                {activeIndicatorFlags.map((flag) => (
+                  <Badge
+                    key={flag.code}
+                    variant="outline"
+                    className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 font-semibold"
+                  >
+                    <MaterialIcon name="info" size="sm" className="mr-1" />
+                    {flag.name.toUpperCase()}
+                  </Badge>
+                ))}
               </div>
               <p className="text-muted-foreground">
                 {item.description || 'No description'}

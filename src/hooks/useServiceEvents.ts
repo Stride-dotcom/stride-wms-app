@@ -37,6 +37,7 @@ export interface ServiceEvent {
   is_active: boolean;
   notes: string | null;
   add_flag: boolean;
+  flag_is_indicator: boolean;
   add_to_service_event_scan: boolean;
   alert_rule: string;
   billing_trigger: string;
@@ -539,6 +540,7 @@ function chargeTypeToServiceEvent(ct: any, pr: any | null): ServiceEvent {
     is_active: ct.is_active,
     notes: ct.notes,
     add_flag: ct.add_flag || false,
+    flag_is_indicator: ct.flag_is_indicator || false,
     add_to_service_event_scan: ct.add_to_scan || false,
     alert_rule: ct.alert_rule || 'none',
     billing_trigger: mapTriggerToLegacy(ct.default_trigger),
