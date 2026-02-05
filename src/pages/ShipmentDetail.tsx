@@ -1871,7 +1871,8 @@ export default function ShipmentDetail() {
                   .update({ receiving_photos: allPhotos as unknown as Json })
                   .eq('id', shipment.id);
               }}
-              label="Take Photos"
+              label="Photo"
+              size="sm"
             />
             <PhotoUploadButton
               entityType="shipment"
@@ -1879,6 +1880,7 @@ export default function ShipmentDetail() {
               tenantId={profile?.tenant_id}
               existingPhotos={getPhotoUrls(receivingPhotos)}
               maxPhotos={20}
+              size="sm"
               onPhotosSaved={async (urls) => {
                 // Convert new URLs to TaggablePhoto format and merge with existing
                 const existingUrls = getPhotoUrls(receivingPhotos);

@@ -434,7 +434,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           willChange: isGesturing ? 'transform' : 'auto',
         }}
         className={cn(
-          'fixed top-0 left-0 z-50 h-full border-r flex flex-col',
+          'fixed top-0 left-0 z-50 h-full border-r flex flex-col rounded-r-2xl',
           // Light mode: white background
           'bg-white border-gray-200',
           // Dark mode: keep dark gradient
@@ -475,7 +475,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             className="lg:hidden text-gray-700 dark:text-white"
             onClick={() => setSidebarOpen(false)}
           >
-            <MaterialIcon name="close" size="md" />
+            <MaterialIcon name="menu" size="md" />
           </Button>
         </div>
 
@@ -487,18 +487,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <button
             onClick={toggleSidebarCollapsed}
             className={cn(
-              "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors",
+              "w-full flex items-center justify-center p-2 rounded-xl text-sm font-medium transition-colors",
               "text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-white/70 dark:hover:text-white dark:hover:bg-white/10",
-              sidebarCollapsed && "lg:justify-center lg:px-2"
             )}
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {sidebarCollapsed ? (
-              <MaterialIcon name="menu_open" size="md" />
-            ) : (
-              <MaterialIcon name="left_panel_close" size="md" />
-            )}
-            {!sidebarCollapsed && <span>Collapse</span>}
+            <MaterialIcon name="menu" size="md" />
           </button>
         </div>
 
