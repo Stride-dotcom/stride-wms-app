@@ -1,30 +1,28 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { PromptsSettingsTab } from '@/components/settings/PromptsSettingsTab';
-import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
-import { AuditLogTab } from '@/components/settings/AuditLogTab';
+import { PromptsSettingsTab } from './PromptsSettingsTab';
+import { AuditLogTab } from './AuditLogTab';
+import { LaborSettingsTab } from './LaborSettingsTab';
 
 interface OperationsSettingsTabProps {
   usersContent: React.ReactNode;
 }
 
-const subTabs = [
+const SUB_TABS = [
   { value: 'prompts', label: 'Prompts' },
   { value: 'users', label: 'Users' },
   { value: 'audit', label: 'Audit' },
   { value: 'labor', label: 'Labor' },
 ] as const;
 
-type SubTabValue = typeof subTabs[number]['value'];
-
 export function OperationsSettingsTab({ usersContent }: OperationsSettingsTabProps) {
-  const [activeSubTab, setActiveSubTab] = useState<SubTabValue>('prompts');
+  const [activeSubTab, setActiveSubTab] = useState<string>('prompts');
 
   return (
     <div className="space-y-6">
       {/* Sub-tab navigation */}
       <div className="flex gap-1 border-b">
-        {subTabs.map(tab => (
+        {SUB_TABS.map(tab => (
           <button
             key={tab.value}
             className={cn(

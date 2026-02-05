@@ -36,7 +36,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { Quote, QuoteStatus, QUOTE_STATUS_CONFIG } from '@/lib/quotes/types';
 import { formatCurrency } from '@/lib/quotes/calculator';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { RepairQuotesContent } from '@/components/repair-quotes/RepairQuotesContent';
+import { RepairQuotesTab } from '@/components/repair-quotes/RepairQuotesTab';
 import { getQuoteStatusClasses } from '@/lib/statusColors';
 import { cn } from '@/lib/utils';
 
@@ -141,8 +141,8 @@ export default function Quotes() {
           description="Create, manage, and track customer quotes"
         />
 
-        {/* Tab navigation */}
-        <div className="flex gap-1 border-b">
+        {/* Tab Navigation */}
+        <div className="flex gap-1 border-b mb-6">
           <button
             className={cn(
               "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
@@ -167,10 +167,7 @@ export default function Quotes() {
           </button>
         </div>
 
-        {activeTab === 'repair-quotes' && <RepairQuotesContent />}
-
-        {activeTab === 'quotes' && (
-        <>
+        {activeTab === 'quotes' && (<>
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="bg-card border border-border shadow-sm">
@@ -377,7 +374,10 @@ export default function Quotes() {
             )}
           </CardContent>
         </Card>
-        </>
+        </>)}
+
+        {activeTab === 'repair-quotes' && (
+          <RepairQuotesTab />
         )}
       </div>
 

@@ -266,12 +266,12 @@ export interface QuoteCalculation {
 
 // Status display config
 export const QUOTE_STATUS_CONFIG: Record<QuoteStatus, { label: string; variant: string; color: string }> = {
-  draft: { label: 'Draft', variant: 'outline', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' },
-  sent: { label: 'Sent', variant: 'outline', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
-  accepted: { label: 'Accepted', variant: 'outline', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' },
-  declined: { label: 'Declined', variant: 'outline', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' },
-  expired: { label: 'Expired', variant: 'outline', color: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' },
-  void: { label: 'Void', variant: 'outline', color: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' },
+  draft: { label: 'Draft', variant: 'outline', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-500/20' },
+  sent: { label: 'Sent', variant: 'outline', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-500/20' },
+  accepted: { label: 'Accepted', variant: 'outline', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-500/20' },
+  declined: { label: 'Declined', variant: 'outline', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-500/20' },
+  expired: { label: 'Expired', variant: 'outline', color: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-gray-500/20' },
+  void: { label: 'Void', variant: 'outline', color: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-gray-500/20' },
 };
 
 // Billing unit display labels

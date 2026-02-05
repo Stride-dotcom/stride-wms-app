@@ -327,6 +327,76 @@ export function usePromptAdmin() {
     }
   }, [profile?.tenant_id, tenantDefaults?.default_reminder_days, loadData]);
 
+  // Update a guided prompt
+  const updatePrompt = useCallback(async (
+    promptId: string,
+    updates: Partial<GuidedPrompt>
+  ): Promise<boolean> => {
+    if (!profile?.tenant_id) return false;
+
+    try {
+      const { error } = await (supabase
+        .from('guided_prompts') as any)
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', promptId)
+        .eq('tenant_id', profile.tenant_id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Prompt Updated',
+        description: 'The prompt has been updated successfully.',
+      });
+
+      await loadData();
+      return true;
+    } catch (error) {
+      console.error('Error updating prompt:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update prompt.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  }, [profile?.tenant_id, loadData, toast]);
+
+  // Delete a guided prompt
+  const deletePrompt = useCallback(async (
+    promptId: string
+  ): Promise<boolean> => {
+    if (!profile?.tenant_id) return false;
+
+    try {
+      const { error } = await (supabase
+        .from('guided_prompts') as any)
+        .delete()
+        .eq('id', promptId)
+        .eq('tenant_id', profile.tenant_id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Prompt Deleted',
+        description: 'The prompt has been permanently deleted.',
+      });
+
+      await loadData();
+      return true;
+    } catch (error) {
+      console.error('Error deleting prompt:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete prompt.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  }, [profile?.tenant_id, loadData, toast]);
+
   return {
     // State
     isLoading,
@@ -342,6 +412,8 @@ export function usePromptAdmin() {
     dismissSuggestion,
     togglePromptActive,
     createUserSettings,
+    updatePrompt,
+    deletePrompt,
     refetch: loadData,
   };
 }

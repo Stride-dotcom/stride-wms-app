@@ -7,7 +7,6 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -45,9 +44,9 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { usePromptAdmin } from '@/hooks/usePromptAdmin';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { PromptLevel, PromptWorkflow } from '@/types/guidedPrompts';
+import { PromptLevel, PromptWorkflow, GuidedPrompt, PromptUIType, PromptTriggerPoint, TenantPromptDefaults } from '@/types/guidedPrompts';
 import { Skeleton } from '@/components/ui/skeleton';
+import { X } from 'lucide-react';
 
 const LEVEL_LABELS: Record<PromptLevel, string> = {
   training: 'Training (All Prompts)',
@@ -68,6 +67,17 @@ const WORKFLOW_LABELS: Record<PromptWorkflow, string> = {
   will_call: 'Will Call',
 };
 
+interface EditFormState {
+  title: string;
+  message: string;
+  tip_text: string;
+  checklist_items: { label: string; required: boolean }[];
+  prompt_type: PromptUIType;
+  trigger_point: PromptTriggerPoint;
+  min_level: PromptLevel;
+  is_active: boolean;
+}
+
 export function PromptsSettingsTab() {
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -82,39 +92,49 @@ export function PromptsSettingsTab() {
     approveSuggestion,
     dismissSuggestion,
     togglePromptActive,
-    refetch,
+    updatePrompt,
+    deletePrompt,
   } = usePromptAdmin();
 
   const [activeSubTab, setActiveSubTab] = useState('users');
 
-  // Fix 1.1 - Optimistic local state for user settings
+  // -- 1.1 Local state for user settings (optimistic updates) --
   const [localUserSettings, setLocalUserSettings] = useState(allUserSettings);
   useEffect(() => {
     setLocalUserSettings(allUserSettings);
   }, [allUserSettings]);
 
-  // Fix 1.2 - Local state for organization defaults
-  const [localDefaults, setLocalDefaults] = useState(tenantDefaults);
+  // -- 1.2 Local state for tenant defaults (debounced saves) --
+  const [localDefaults, setLocalDefaults] = useState<TenantPromptDefaults | null>(tenantDefaults);
   useEffect(() => {
     setLocalDefaults(tenantDefaults);
   }, [tenantDefaults]);
 
-  // Fix 1.3 - Prompt edit dialog state
-  const [editingPrompt, setEditingPrompt] = useState<any | null>(null);
-  const [editForm, setEditForm] = useState<any>({});
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  // -- 1.3 Prompt edit dialog state --
+  const [editingPrompt, setEditingPrompt] = useState<GuidedPrompt | null>(null);
+  const [editForm, setEditForm] = useState<EditFormState>({
+    title: '',
+    message: '',
+    tip_text: '',
+    checklist_items: [],
+    prompt_type: 'modal',
+    trigger_point: 'before',
+    min_level: 'training',
+    is_active: true,
+  });
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isSavingPrompt, setIsSavingPrompt] = useState(false);
 
-  const openEditDialog = (prompt: any) => {
+  const openEditDialog = (prompt: GuidedPrompt) => {
     setEditingPrompt(prompt);
     setEditForm({
-      id: prompt.id,
       title: prompt.title || '',
       message: prompt.message || '',
       tip_text: prompt.tip_text || '',
-      checklist_items: Array.isArray(prompt.checklist_items)
-        ? prompt.checklist_items.map((item: any) => ({ ...item }))
-        : [],
+      checklist_items: (prompt.checklist_items || []).map(item => ({
+        label: item.label,
+        required: item.required,
+      })),
       prompt_type: prompt.prompt_type || 'modal',
       trigger_point: prompt.trigger_point || 'before',
       min_level: prompt.min_level || 'training',
@@ -124,107 +144,80 @@ export function PromptsSettingsTab() {
 
   const closeEditDialog = () => {
     setEditingPrompt(null);
-    setEditForm({});
+  };
+
+  const updateChecklistItem = (index: number, field: string, value: string | boolean) => {
+    setEditForm(prev => ({
+      ...prev,
+      checklist_items: prev.checklist_items.map((item, i) =>
+        i === index ? { ...item, [field]: value } : item
+      ),
+    }));
+  };
+
+  const removeChecklistItem = (index: number) => {
+    setEditForm(prev => ({
+      ...prev,
+      checklist_items: prev.checklist_items.filter((_, i) => i !== index),
+    }));
+  };
+
+  const addChecklistItem = () => {
+    setEditForm(prev => ({
+      ...prev,
+      checklist_items: [...prev.checklist_items, { label: '', required: false }],
+    }));
   };
 
   const handleSavePrompt = async () => {
-    if (!editForm.id) return;
-    setIsSaving(true);
-    try {
-      const { error } = await (supabase.from('guided_prompts') as any).update({
-        title: editForm.title,
-        message: editForm.message,
-        tip_text: editForm.tip_text,
-        checklist_items: editForm.checklist_items,
-        prompt_type: editForm.prompt_type,
-        trigger_point: editForm.trigger_point,
-        min_level: editForm.min_level,
-        is_active: editForm.is_active,
-        updated_at: new Date().toISOString(),
-      }).eq('id', editForm.id);
+    if (!editingPrompt) return;
+    setIsSavingPrompt(true);
 
-      if (error) throw error;
+    const checklistWithKeys = editForm.checklist_items.map((item, idx) => ({
+      key: `item_${idx}`,
+      label: item.label,
+      required: item.required,
+    }));
 
-      toast({
-        title: 'Prompt Updated',
-        description: 'The prompt has been saved successfully.',
-      });
+    const success = await updatePrompt(editingPrompt.id, {
+      title: editForm.title,
+      message: editForm.message,
+      tip_text: editForm.tip_text || null,
+      checklist_items: checklistWithKeys.length > 0 ? checklistWithKeys : null,
+      prompt_type: editForm.prompt_type,
+      trigger_point: editForm.trigger_point,
+      min_level: editForm.min_level,
+      is_active: editForm.is_active,
+    });
+
+    setIsSavingPrompt(false);
+    if (success) {
       closeEditDialog();
-      await refetch();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to save prompt changes.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
     }
   };
 
   const handleDeletePrompt = async () => {
-    if (!editForm.id) return;
-    setIsSaving(true);
-    try {
-      const { error } = await (supabase.from('guided_prompts') as any)
-        .delete()
-        .eq('id', editForm.id);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Prompt Deleted',
-        description: 'The prompt has been permanently deleted.',
-      });
-      setShowDeleteConfirm(false);
+    if (!editingPrompt) return;
+    const success = await deletePrompt(editingPrompt.id);
+    if (success) {
+      setDeleteConfirmOpen(false);
       closeEditDialog();
-      await refetch();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete prompt.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
     }
   };
 
-  const addChecklistItem = () => {
-    setEditForm((prev: any) => ({
-      ...prev,
-      checklist_items: [
-        ...(prev.checklist_items || []),
-        { label: '', required: false },
-      ],
-    }));
-  };
-
-  const updateChecklistItem = (index: number, field: string, value: any) => {
-    setEditForm((prev: any) => {
-      const items = [...(prev.checklist_items || [])];
-      items[index] = { ...items[index], [field]: value };
-      return { ...prev, checklist_items: items };
-    });
-  };
-
-  const removeChecklistItem = (index: number) => {
-    setEditForm((prev: any) => {
-      const items = [...(prev.checklist_items || [])];
-      items.splice(index, 1);
-      return { ...prev, checklist_items: items };
-    });
-  };
-
-  // Fix 1.2 - Save defaults on blur for text/number inputs
-  const handleDefaultsBlur = (field: string, value: any) => {
+  // -- Helpers for Organization Defaults tab --
+  const handleDefaultFieldBlur = (field: keyof TenantPromptDefaults, value: number) => {
     updateTenantDefaults({ [field]: value });
-    toast({ title: 'Setting saved', duration: 2000 });
   };
 
-  const handleDefaultsKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleDefaultFieldKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    field: keyof TenantPromptDefaults,
+    value: number
+  ) => {
     if (e.key === 'Enter') {
-      (e.target as HTMLInputElement).blur();
+      e.currentTarget.blur();
+      updateTenantDefaults({ [field]: value });
     }
   };
 
@@ -338,15 +331,13 @@ export function PromptsSettingsTab() {
                           <Select
                             value={setting.prompt_level}
                             onValueChange={(value: PromptLevel) => {
-                              // Optimistic update: update local state immediately
+                              // Optimistic local update
                               setLocalUserSettings(prev =>
                                 prev.map(s =>
-                                  s.id === setting.id
-                                    ? { ...s, prompt_level: value }
-                                    : s
+                                  s.id === setting.id ? { ...s, prompt_level: value } : s
                                 )
                               );
-                              // Then persist to server
+                              // Persist to database
                               updateUserSettings(setting.user_id, { prompt_level: value });
                             }}
                           >
@@ -397,7 +388,6 @@ export function PromptsSettingsTab() {
                     onValueChange={(value: PromptLevel) => {
                       setLocalDefaults(prev => prev ? { ...prev, default_prompt_level: value } : prev);
                       updateTenantDefaults({ default_prompt_level: value });
-                      toast({ title: 'Setting saved', duration: 2000 });
                     }}
                   >
                     <SelectTrigger>
@@ -418,16 +408,18 @@ export function PromptsSettingsTab() {
                   <Label>Reminder Interval (Days)</Label>
                   <Input
                     type="number"
-                    value={localDefaults?.default_reminder_days || 30}
+                    value={localDefaults?.default_reminder_days ?? 30}
                     onChange={(e) =>
                       setLocalDefaults(prev =>
                         prev ? { ...prev, default_reminder_days: parseInt(e.target.value) || 30 } : prev
                       )
                     }
-                    onBlur={(e) =>
-                      handleDefaultsBlur('default_reminder_days', parseInt(e.target.value) || 30)
+                    onBlur={() =>
+                      handleDefaultFieldBlur('default_reminder_days', localDefaults?.default_reminder_days ?? 30)
                     }
-                    onKeyDown={handleDefaultsKeyDown}
+                    onKeyDown={(e) =>
+                      handleDefaultFieldKeyDown(e, 'default_reminder_days', localDefaults?.default_reminder_days ?? 30)
+                    }
                     min={1}
                     max={365}
                   />
@@ -452,16 +444,18 @@ export function PromptsSettingsTab() {
                   <Label>Tasks Required</Label>
                   <Input
                     type="number"
-                    value={localDefaults?.competency_tasks_required || 10}
+                    value={localDefaults?.competency_tasks_required ?? 10}
                     onChange={(e) =>
                       setLocalDefaults(prev =>
                         prev ? { ...prev, competency_tasks_required: parseInt(e.target.value) || 10 } : prev
                       )
                     }
-                    onBlur={(e) =>
-                      handleDefaultsBlur('competency_tasks_required', parseInt(e.target.value) || 10)
+                    onBlur={() =>
+                      handleDefaultFieldBlur('competency_tasks_required', localDefaults?.competency_tasks_required ?? 10)
                     }
-                    onKeyDown={handleDefaultsKeyDown}
+                    onKeyDown={(e) =>
+                      handleDefaultFieldKeyDown(e, 'competency_tasks_required', localDefaults?.competency_tasks_required ?? 10)
+                    }
                     min={1}
                   />
                   <p className="text-xs text-muted-foreground">
@@ -473,16 +467,18 @@ export function PromptsSettingsTab() {
                   <Label>Max Errors Allowed</Label>
                   <Input
                     type="number"
-                    value={localDefaults?.competency_max_errors || 0}
+                    value={localDefaults?.competency_max_errors ?? 0}
                     onChange={(e) =>
                       setLocalDefaults(prev =>
                         prev ? { ...prev, competency_max_errors: parseInt(e.target.value) || 0 } : prev
                       )
                     }
-                    onBlur={(e) =>
-                      handleDefaultsBlur('competency_max_errors', parseInt(e.target.value) || 0)
+                    onBlur={() =>
+                      handleDefaultFieldBlur('competency_max_errors', localDefaults?.competency_max_errors ?? 0)
                     }
-                    onKeyDown={handleDefaultsKeyDown}
+                    onKeyDown={(e) =>
+                      handleDefaultFieldKeyDown(e, 'competency_max_errors', localDefaults?.competency_max_errors ?? 0)
+                    }
                     min={0}
                   />
                   <p className="text-xs text-muted-foreground">
@@ -494,16 +490,18 @@ export function PromptsSettingsTab() {
                   <Label>Max Missing Photos</Label>
                   <Input
                     type="number"
-                    value={localDefaults?.competency_max_missing_photos || 0}
+                    value={localDefaults?.competency_max_missing_photos ?? 0}
                     onChange={(e) =>
                       setLocalDefaults(prev =>
                         prev ? { ...prev, competency_max_missing_photos: parseInt(e.target.value) || 0 } : prev
                       )
                     }
-                    onBlur={(e) =>
-                      handleDefaultsBlur('competency_max_missing_photos', parseInt(e.target.value) || 0)
+                    onBlur={() =>
+                      handleDefaultFieldBlur('competency_max_missing_photos', localDefaults?.competency_max_missing_photos ?? 0)
                     }
-                    onKeyDown={handleDefaultsKeyDown}
+                    onKeyDown={(e) =>
+                      handleDefaultFieldKeyDown(e, 'competency_max_missing_photos', localDefaults?.competency_max_missing_photos ?? 0)
+                    }
                     min={0}
                   />
                   <p className="text-xs text-muted-foreground">
@@ -515,16 +513,18 @@ export function PromptsSettingsTab() {
                   <Label>Max Location Errors</Label>
                   <Input
                     type="number"
-                    value={localDefaults?.competency_max_location_errors || 0}
+                    value={localDefaults?.competency_max_location_errors ?? 0}
                     onChange={(e) =>
                       setLocalDefaults(prev =>
                         prev ? { ...prev, competency_max_location_errors: parseInt(e.target.value) || 0 } : prev
                       )
                     }
-                    onBlur={(e) =>
-                      handleDefaultsBlur('competency_max_location_errors', parseInt(e.target.value) || 0)
+                    onBlur={() =>
+                      handleDefaultFieldBlur('competency_max_location_errors', localDefaults?.competency_max_location_errors ?? 0)
                     }
-                    onKeyDown={handleDefaultsKeyDown}
+                    onKeyDown={(e) =>
+                      handleDefaultFieldKeyDown(e, 'competency_max_location_errors', localDefaults?.competency_max_location_errors ?? 0)
+                    }
                     min={0}
                   />
                   <p className="text-xs text-muted-foreground">
@@ -545,7 +545,6 @@ export function PromptsSettingsTab() {
                   onCheckedChange={(checked) => {
                     setLocalDefaults(prev => prev ? { ...prev, auto_suggestion_enabled: checked } : prev);
                     updateTenantDefaults({ auto_suggestion_enabled: checked });
-                    toast({ title: 'Setting saved', duration: 2000 });
                   }}
                 />
               </div>
@@ -559,7 +558,7 @@ export function PromptsSettingsTab() {
             <CardHeader>
               <CardTitle className="text-base">Prompt Library</CardTitle>
               <CardDescription>
-                Enable or disable individual prompts across workflows. Click a prompt to edit.
+                Enable or disable individual prompts across workflows. Click a prompt to edit it.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -624,13 +623,13 @@ export function PromptsSettingsTab() {
         </TabsContent>
       </Tabs>
 
-      {/* Prompt Edit Dialog */}
+      {/* Edit Prompt Dialog */}
       <Dialog open={!!editingPrompt} onOpenChange={(open) => { if (!open) closeEditDialog(); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Prompt</DialogTitle>
             <DialogDescription>
-              Modify the prompt settings, message content, and checklist items.
+              Modify the prompt details below. Changes are saved when you click Save.
             </DialogDescription>
           </DialogHeader>
 
@@ -639,8 +638,8 @@ export function PromptsSettingsTab() {
             <div className="space-y-2">
               <Label>Title</Label>
               <Input
-                value={editForm.title || ''}
-                onChange={(e) => setEditForm((prev: any) => ({ ...prev, title: e.target.value }))}
+                value={editForm.title}
+                onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
                 placeholder="Prompt title"
               />
             </div>
@@ -649,20 +648,20 @@ export function PromptsSettingsTab() {
             <div className="space-y-2">
               <Label>Message</Label>
               <Textarea
-                value={editForm.message || ''}
-                onChange={(e) => setEditForm((prev: any) => ({ ...prev, message: e.target.value }))}
-                placeholder="Prompt message shown to the user"
+                value={editForm.message}
+                onChange={(e) => setEditForm(prev => ({ ...prev, message: e.target.value }))}
+                placeholder="Prompt message displayed to the user"
                 rows={3}
               />
             </div>
 
             {/* Tip Text */}
             <div className="space-y-2">
-              <Label>Tip Text (optional)</Label>
+              <Label>Tip Text</Label>
               <Textarea
-                value={editForm.tip_text || ''}
-                onChange={(e) => setEditForm((prev: any) => ({ ...prev, tip_text: e.target.value }))}
-                placeholder="Optional tip or hint text"
+                value={editForm.tip_text}
+                onChange={(e) => setEditForm(prev => ({ ...prev, tip_text: e.target.value }))}
+                placeholder="Optional tip or additional context"
                 rows={2}
               />
             </div>
@@ -670,54 +669,54 @@ export function PromptsSettingsTab() {
             {/* Checklist Items */}
             <div className="space-y-2">
               <Label>Checklist Items</Label>
-              <div className="space-y-2">
-                {(editForm.checklist_items || []).map((item: any, index: number) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Input
-                      value={item.label || ''}
-                      onChange={(e) => updateChecklistItem(index, 'label', e.target.value)}
-                      placeholder="Checklist item label"
-                      className="flex-1"
-                    />
-                    <div className="flex items-center gap-1">
-                      <Checkbox
-                        checked={item.required || false}
-                        onCheckedChange={(checked) => updateChecklistItem(index, 'required', !!checked)}
+              {editForm.checklist_items.length > 0 && (
+                <div className="space-y-2">
+                  {editForm.checklist_items.map((item, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        value={item.label}
+                        onChange={(e) => updateChecklistItem(index, 'label', e.target.value)}
+                        placeholder="Checklist item label"
+                        className="flex-1"
                       />
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">Required</span>
+                      <div className="flex items-center gap-1.5">
+                        <Switch
+                          checked={item.required}
+                          onCheckedChange={(checked) => updateChecklistItem(index, 'required', checked)}
+                        />
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">Required</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeChecklistItem(index)}
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeChecklistItem(index)}
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                    >
-                      <MaterialIcon name="close" size="sm" />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addChecklistItem}
-                  className="mt-1"
-                >
-                  <MaterialIcon name="add" size="sm" className="mr-1" />
-                  Add Item
-                </Button>
-              </div>
+                  ))}
+                </div>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addChecklistItem}
+                className="mt-1"
+              >
+                Add Item
+              </Button>
             </div>
 
-            {/* Row of selects */}
-            <div className="grid gap-4 md:grid-cols-3">
-              {/* Prompt Type */}
+            {/* Row: Prompt Type + Trigger Point */}
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Prompt Type</Label>
                 <Select
-                  value={editForm.prompt_type || 'modal'}
-                  onValueChange={(value) => setEditForm((prev: any) => ({ ...prev, prompt_type: value }))}
+                  value={editForm.prompt_type}
+                  onValueChange={(value: PromptUIType) =>
+                    setEditForm(prev => ({ ...prev, prompt_type: value }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -731,12 +730,13 @@ export function PromptsSettingsTab() {
                 </Select>
               </div>
 
-              {/* Trigger Point */}
               <div className="space-y-2">
                 <Label>Trigger Point</Label>
                 <Select
-                  value={editForm.trigger_point || 'before'}
-                  onValueChange={(value) => setEditForm((prev: any) => ({ ...prev, trigger_point: value }))}
+                  value={editForm.trigger_point}
+                  onValueChange={(value: PromptTriggerPoint) =>
+                    setEditForm(prev => ({ ...prev, trigger_point: value }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -748,13 +748,17 @@ export function PromptsSettingsTab() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
 
-              {/* Minimum Level */}
+            {/* Row: Min Level + Active */}
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label>Minimum Level</Label>
+                <Label>Min Level</Label>
                 <Select
-                  value={editForm.min_level || 'training'}
-                  onValueChange={(value) => setEditForm((prev: any) => ({ ...prev, min_level: value }))}
+                  value={editForm.min_level}
+                  onValueChange={(value: PromptLevel) =>
+                    setEditForm(prev => ({ ...prev, min_level: value }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -765,70 +769,59 @@ export function PromptsSettingsTab() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            {/* Active Toggle */}
-            <div className="flex items-center justify-between pt-2">
-              <div>
+              <div className="space-y-2">
                 <Label>Active</Label>
-                <p className="text-xs text-muted-foreground">
-                  Whether this prompt is currently shown to users.
-                </p>
+                <div className="flex items-center gap-2 pt-2">
+                  <Switch
+                    checked={editForm.is_active}
+                    onCheckedChange={(checked) =>
+                      setEditForm(prev => ({ ...prev, is_active: checked }))
+                    }
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {editForm.is_active ? 'Enabled' : 'Disabled'}
+                  </span>
+                </div>
               </div>
-              <Switch
-                checked={editForm.is_active ?? true}
-                onCheckedChange={(checked) => setEditForm((prev: any) => ({ ...prev, is_active: checked }))}
-              />
             </div>
           </div>
 
-          <DialogFooter className="flex items-center justify-between sm:justify-between gap-2">
+          <DialogFooter className="flex justify-between sm:justify-between">
             <Button
-              type="button"
               variant="destructive"
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={isSaving}
+              onClick={() => setDeleteConfirmOpen(true)}
             >
-              Delete Prompt
+              Delete
             </Button>
             <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeEditDialog}
-                disabled={isSaving}
-              >
+              <Button variant="outline" onClick={closeEditDialog}>
                 Cancel
               </Button>
-              <Button
-                type="button"
-                onClick={handleSavePrompt}
-                disabled={isSaving}
-              >
-                {isSaving ? 'Saving...' : 'Save Changes'}
+              <Button onClick={handleSavePrompt} disabled={isSavingPrompt}>
+                {isSavingPrompt ? 'Saving...' : 'Save'}
               </Button>
             </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Prompt</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete this prompt? This action cannot be undone.
+              Are you sure you want to permanently delete &quot;{editingPrompt?.title}&quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeletePrompt}
-              disabled={isSaving}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isSaving ? 'Deleting...' : 'Delete'}
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

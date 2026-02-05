@@ -89,24 +89,13 @@ export function LocationsSettingsTab({
   const [autoUppercase, setAutoUppercase] = useState(true);
   const fastAddInputRef = useRef<HTMLInputElement>(null);
 
-  // Default receiving location state
+  // Default shipment location state
   const [defaultRecvLocationId, setDefaultRecvLocationId] = useState<string>('');
   const [defaultOutboundLocationId, setDefaultOutboundLocationId] = useState<string>('');
   const [savingDefaultLocation, setSavingDefaultLocation] = useState(false);
+  const [locationValidationErrors, setLocationValidationErrors] = useState<{ inbound?: string; outbound?: string }>({});
 
-  // Sync default receiving + outbound location when warehouse selection changes
-  useEffect(() => {
-    if (selectedWarehouse && selectedWarehouse !== 'all') {
-      const wh = warehouses.find(w => w.id === selectedWarehouse);
-      setDefaultRecvLocationId((wh as any)?.default_receiving_location_id || '');
-      setDefaultOutboundLocationId((wh as any)?.default_outbound_location_id || '');
-    } else {
-      setDefaultRecvLocationId('');
-      setDefaultOutboundLocationId('');
-    }
-  }, [selectedWarehouse, warehouses]);
-
-  // Persistent warehouse filter
+  // Persist warehouse filter per user
   useEffect(() => {
     if (profile?.id) {
       const saved = localStorage.getItem(`stride_location_view_${profile.id}`);
@@ -116,15 +105,42 @@ export function LocationsSettingsTab({
     }
   }, [profile?.id, warehouses]);
 
-  const handleWarehouseFilterChange = (value: string) => {
+  const handleWarehouseFilterChange = useCallback((value: string) => {
     onWarehouseChange(value);
     if (profile?.id) {
       localStorage.setItem(`stride_location_view_${profile.id}`, value);
     }
-  };
+  }, [onWarehouseChange, profile?.id]);
 
-  const handleSaveDefaultReceivingLocation = async () => {
+  // Sync default locations when warehouse selection changes
+  useEffect(() => {
+    if (selectedWarehouse && selectedWarehouse !== 'all') {
+      const wh = warehouses.find(w => w.id === selectedWarehouse);
+      setDefaultRecvLocationId((wh as any)?.default_receiving_location_id || '');
+      setDefaultOutboundLocationId((wh as any)?.default_outbound_location_id || '');
+    } else {
+      setDefaultRecvLocationId('');
+      setDefaultOutboundLocationId('');
+    }
+    setLocationValidationErrors({});
+  }, [selectedWarehouse, warehouses]);
+
+  const handleSaveDefaultLocations = async () => {
     if (!selectedWarehouse || selectedWarehouse === 'all') return;
+
+    // Validate both fields are set
+    const errors: { inbound?: string; outbound?: string } = {};
+    if (!defaultRecvLocationId) {
+      errors.inbound = 'Default shipment location is required';
+    }
+    if (!defaultOutboundLocationId) {
+      errors.outbound = 'Default outbound location is required';
+    }
+    if (Object.keys(errors).length > 0) {
+      setLocationValidationErrors(errors);
+      return;
+    }
+    setLocationValidationErrors({});
 
     setSavingDefaultLocation(true);
     try {
@@ -139,15 +155,15 @@ export function LocationsSettingsTab({
 
       toast({
         title: 'Default locations saved',
-        description: 'Default shipment locations updated for this warehouse.',
+        description: 'Default shipment and outbound locations updated for this warehouse.',
       });
       onWarehouseRefresh?.();
     } catch (error: any) {
-      console.error('Error saving default receiving location:', error);
+      console.error('Error saving default locations:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to save default receiving location.',
+        description: 'Failed to save default locations.',
       });
     } finally {
       setSavingDefaultLocation(false);
@@ -495,7 +511,7 @@ export function LocationsSettingsTab({
           </CardContent>
         </Card>
 
-        {/* Default Receiving Location Card - only visible when a specific warehouse is selected */}
+        {/* Default Shipment Locations Card - only visible when a specific warehouse is selected */}
         {selectedWarehouse && selectedWarehouse !== 'all' && (
           <Card>
             <CardHeader className="pb-3">
@@ -504,76 +520,90 @@ export function LocationsSettingsTab({
                 Default Shipment Locations
               </CardTitle>
               <CardDescription>
-                Set default locations for receiving and outbound operations in this warehouse.
+                Configure default locations for inbound receiving and outbound shipments.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-col gap-4">
-                <div className="flex gap-3 items-end">
-                  <div className="flex-1 space-y-1">
-                    <Label htmlFor="default-recv-location">Default Receiving Location</Label>
-                    <Select
-                      value={defaultRecvLocationId || '_none_'}
-                      onValueChange={(val) => setDefaultRecvLocationId(val === '_none_' ? '' : val)}
-                    >
-                      <SelectTrigger id="default-recv-location">
-                        <SelectValue placeholder="Select a location..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_none_">None (no default)</SelectItem>
-                        {locations
-                          .filter(l => (l as any).is_active !== false)
-                          .map((loc) => (
-                            <SelectItem key={loc.id} value={loc.id}>
-                              {loc.code}{loc.name ? ` — ${loc.name}` : ''}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Items received into this warehouse will be auto-assigned to this location during receiving
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-3 items-end">
-                  <div className="flex-1 space-y-1">
-                    <Label htmlFor="default-outbound-location">Default Outbound Location</Label>
-                    <Select
-                      value={defaultOutboundLocationId || '_none_'}
-                      onValueChange={(val) => setDefaultOutboundLocationId(val === '_none_' ? '' : val)}
-                    >
-                      <SelectTrigger id="default-outbound-location">
-                        <SelectValue placeholder="Select a location..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_none_">None (no default)</SelectItem>
-                        {locations
-                          .filter(l => (l as any).is_active !== false)
-                          .map((loc) => (
-                            <SelectItem key={loc.id} value={loc.id}>
-                              {loc.code}{loc.name ? ` — ${loc.name}` : ''}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      When pulling items for outbound, scanned items will automatically be assigned to this location
-                    </p>
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <Button
-                    onClick={handleSaveDefaultReceivingLocation}
-                    disabled={savingDefaultLocation}
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="default-recv-location">
+                    Default Shipment Locations <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={defaultRecvLocationId || '_none_'}
+                    onValueChange={(val) => {
+                      setDefaultRecvLocationId(val === '_none_' ? '' : val);
+                      setLocationValidationErrors(prev => ({ ...prev, inbound: undefined }));
+                    }}
                   >
-                    {savingDefaultLocation ? (
-                      <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
-                    ) : (
-                      <MaterialIcon name="save" size="sm" className="mr-2" />
-                    )}
-                    Save
-                  </Button>
+                    <SelectTrigger id="default-recv-location" className={locationValidationErrors.inbound ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Select a location..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">None (no default)</SelectItem>
+                      {locations
+                        .filter(l => (l as any).is_active !== false)
+                        .map((loc) => (
+                          <SelectItem key={loc.id} value={loc.id}>
+                            {loc.code}{loc.name ? ` — ${loc.name}` : ''}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  {locationValidationErrors.inbound && (
+                    <p className="text-xs text-red-500">{locationValidationErrors.inbound}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Default location where inbound items are received
+                  </p>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="default-outbound-location">
+                    Default Outbound Location <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={defaultOutboundLocationId || '_none_'}
+                    onValueChange={(val) => {
+                      setDefaultOutboundLocationId(val === '_none_' ? '' : val);
+                      setLocationValidationErrors(prev => ({ ...prev, outbound: undefined }));
+                    }}
+                  >
+                    <SelectTrigger id="default-outbound-location" className={locationValidationErrors.outbound ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Select a location..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">None (no default)</SelectItem>
+                      {locations
+                        .filter(l => (l as any).is_active !== false)
+                        .map((loc) => (
+                          <SelectItem key={loc.id} value={loc.id}>
+                            {loc.code}{loc.name ? ` — ${loc.name}` : ''}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  {locationValidationErrors.outbound && (
+                    <p className="text-xs text-red-500">{locationValidationErrors.outbound}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    When pulling items for outbound, scanned items will automatically be assigned to this location
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleSaveDefaultLocations}
+                  disabled={savingDefaultLocation || (!defaultRecvLocationId && !defaultOutboundLocationId)}
+                >
+                  {savingDefaultLocation ? (
+                    <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                  ) : (
+                    <MaterialIcon name="save" size="sm" className="mr-2" />
+                  )}
+                  Save Locations
+                </Button>
               </div>
             </CardContent>
           </Card>

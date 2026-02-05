@@ -35,14 +35,10 @@ import { InviteUserDialog } from '@/components/settings/InviteUserDialog';
 // Removed: ItemTypesSettingsTab, RateSheetsSettingsTab, BillableServicesSettingsTab - using unified service_events pricing
 // Removed: EmployeesSettingsTab - employee functionality consolidated into Users tab
 import { OrganizationSettingsTab } from '@/components/settings/OrganizationSettingsTab';
-import { SidemarksSettingsTab } from '@/components/settings/SidemarksSettingsTab';
 import { ServiceRatesConsole } from '@/components/settings/ServiceRatesConsole';
 
-import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
 import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
 import { IntegrationsSettingsTab } from '@/components/settings/IntegrationsSettingsTab';
-import { PromptsSettingsTab } from '@/components/settings/PromptsSettingsTab';
-import { AuditLogTab } from '@/components/settings/AuditLogTab';
 import { OperationsSettingsTab } from '@/components/settings/OperationsSettingsTab';
 import { QATestConsoleTab } from '@/components/settings/QATestConsoleTab';
 import packageJson from '../../package.json';

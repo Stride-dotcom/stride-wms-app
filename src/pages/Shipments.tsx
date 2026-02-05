@@ -22,6 +22,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { getShipmentStatusClasses } from '@/lib/statusColors';
 import { format } from 'date-fns';
+import { getShipmentStatusClasses } from '@/lib/statusColors';
 
 interface ShipmentCounts {
   incoming: number;
@@ -219,7 +220,12 @@ export default function Shipments() {
       role="button"
     >
       <div className="flex-1 min-w-0">
-        <div className="font-mono text-sm font-medium truncate">{item.shipment_number}</div>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-sm font-medium truncate">{item.shipment_number}</span>
+          <Badge className={cn('text-[10px] px-1.5 py-0', getShipmentStatusClasses(item.status))}>
+            {item.status.replace(/_/g, ' ')}
+          </Badge>
+        </div>
         <div className="text-xs text-muted-foreground truncate">
           {item.account_name || 'No account'} • {item.carrier || 'No carrier'}
         </div>

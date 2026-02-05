@@ -47,13 +47,7 @@ import { HelpButton } from '@/components/prompts';
 import { SOPValidationDialog, SOPBlocker } from '@/components/common/SOPValidationDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-const statusColors: Record<StocktakeStatus, string> = {
-  draft: 'font-bold text-orange-500 dark:text-orange-400',
-  active: 'font-bold text-yellow-500 dark:text-yellow-400',
-  closed: 'font-bold text-green-500 dark:text-green-400',
-  cancelled: 'font-bold text-red-500 dark:text-red-400',
-};
+import { getStocktakeStatusClasses } from '@/lib/statusColors';
 
 const statusLabels: Record<StocktakeStatus, string> = {
   draft: 'Draft',
@@ -158,7 +152,7 @@ export default function Stocktakes() {
   };
 
   const getStatusBadge = (status: string) => (
-    <Badge variant="outline" className={statusColors[status as StocktakeStatus] || statusColors.draft}>
+    <Badge variant="outline" className={getStocktakeStatusClasses(status)}>
       {statusLabels[status as StocktakeStatus] || status}
     </Badge>
   );
