@@ -290,6 +290,10 @@ export function useChargeTypes() {
     }
   }, [toast, fetchChargeTypes]);
 
+  const isCodeUnique = useCallback((code: string, excludeId?: string): boolean => {
+    return !chargeTypes.some(ct => ct.charge_code === code && ct.id !== excludeId);
+  }, [chargeTypes]);
+
   return {
     chargeTypes,
     loading,
@@ -297,6 +301,7 @@ export function useChargeTypes() {
     createChargeType,
     updateChargeType,
     deleteChargeType,
+    isCodeUnique,
   };
 }
 

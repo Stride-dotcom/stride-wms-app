@@ -43,7 +43,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export function ClassesTab() {
-  const { classes, loading, createClass, updateClass, deleteClass } = useClasses();
+  const { classes, loading, createClass, updateClass, deleteClass } = useClasses({ includeInactive: true });
   const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingClass, setEditingClass] = useState<ItemClass | null>(null);
@@ -166,13 +166,16 @@ export function ClassesTab() {
       ) : (
         <div className="space-y-2">
           {classes.map((cls) => (
-            <Card key={cls.id}>
+            <Card key={cls.id} className={cn(!cls.is_active && 'opacity-60')}>
               <CardContent className="flex items-center gap-3 py-3 px-4">
                 <Badge variant="outline" className="text-xs shrink-0">{cls.sort_order || '-'}</Badge>
                 <Badge variant="outline" className="font-mono text-xs shrink-0">{cls.code}</Badge>
                 <div className="flex-1 min-w-0">
-                  <span className="font-medium text-sm">{cls.name}</span>
-                  <span className="text-xs text-muted-foreground ml-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">{cls.name}</span>
+                    {!cls.is_active && <Badge variant="secondary" className="text-xs">Inactive</Badge>}
+                  </div>
+                  <span className="text-xs text-muted-foreground">
                     {cls.min_cubic_feet !== null || cls.max_cubic_feet !== null
                       ? `${cls.min_cubic_feet ?? 0} – ${cls.max_cubic_feet ?? '∞'} cu ft`
                       : ''}

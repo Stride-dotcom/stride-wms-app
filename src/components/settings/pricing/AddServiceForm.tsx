@@ -254,7 +254,7 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
           add_to_scan: form.addToScan,
           add_flag: form.addFlag,
           alert_rule: form.flagAlertOffice ? 'office' : undefined,
-          notes: form.notes || undefined,
+          notes: [form.description, form.notes].filter(Boolean).join('\n') || undefined,
         });
 
         if (!updated) throw new Error('Failed to update');
@@ -279,7 +279,7 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
           add_to_scan: form.addToScan,
           add_flag: form.addFlag,
           alert_rule: form.flagAlertOffice ? 'office' : undefined,
-          notes: form.notes || undefined,
+          notes: [form.description, form.notes].filter(Boolean).join('\n') || undefined,
         });
 
         if (!chargeType) throw new Error('Failed to create');

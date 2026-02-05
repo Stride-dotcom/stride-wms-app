@@ -10,22 +10,32 @@ type ClassUpdate = Database['public']['Tables']['classes']['Update'];
 
 export type ItemClass = ClassRow;
 
-export function useClasses() {
+interface UseClassesOptions {
+  includeInactive?: boolean;
+}
+
+export function useClasses(options?: UseClassesOptions) {
   const [classes, setClasses] = useState<ItemClass[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { profile } = useAuth();
+  const includeInactive = options?.includeInactive ?? false;
 
   const fetchClasses = useCallback(async () => {
     if (!profile?.tenant_id) return;
-    
+
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('classes')
         .select('*')
-        .eq('tenant_id', profile.tenant_id)
-        .eq('is_active', true)
+        .eq('tenant_id', profile.tenant_id);
+
+      if (!includeInactive) {
+        query = query.eq('is_active', true);
+      }
+
+      const { data, error } = await query
         .order('sort_order')
         .order('name');
 
@@ -41,7 +51,7 @@ export function useClasses() {
     } finally {
       setLoading(false);
     }
-  }, [profile?.tenant_id, toast]);
+  }, [profile?.tenant_id, toast, includeInactive]);
 
   useEffect(() => {
     fetchClasses();
