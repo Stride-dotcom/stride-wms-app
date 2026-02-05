@@ -6,7 +6,7 @@ import { useTenantPreferences, TenantPreferencesUpdate, DEFAULT_LABEL_CONFIG } f
 import type { LabelConfig } from '@/hooks/useTenantPreferences';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { StorageInspectionSection } from './StorageInspectionSection';
-import { FlagSettingsSection } from './FlagSettingsSection';
+// FlagSettingsSection moved to PricingSettingsTab
 import { DefaultNotesSection } from './DefaultNotesSection';
 import { ComingSoonSection } from './ComingSoonSection';
 import { ClaimSettingsSection } from './ClaimSettingsSection';
@@ -36,7 +36,6 @@ import {
 // Define the card IDs and their default order
 const DEFAULT_CARD_ORDER = [
   'storage-inspection',
-  'flag-settings',
   'display-settings',
   'label-customization',
   'account-types',
@@ -175,11 +174,6 @@ export function PreferencesContent() {
           onShouldAutoAssemblyChange={(value) => setFormData(prev => ({ ...prev, auto_assembly_on_receiving: value }))}
           onShouldAutoRepairChange={(value) => setFormData(prev => ({ ...prev, auto_repair_on_damage: value }))}
         />
-      </SortableCard>
-    ),
-    'flag-settings': (
-      <SortableCard id="flag-settings" key="flag-settings">
-        <FlagSettingsSection />
       </SortableCard>
     ),
     'display-settings': (

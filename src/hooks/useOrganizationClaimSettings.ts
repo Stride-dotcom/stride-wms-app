@@ -22,6 +22,8 @@ export interface OrganizationClaimSettings {
   coverage_deductible_amount: number;
   coverage_allow_shipment: boolean;
   coverage_allow_item: boolean;
+  coverage_display_name: string;
+  coverage_rate_standard: number;
   // Aliases for AccountCoverageOverrideSection compatibility
   full_replacement_no_deductible_rate: number;
   full_replacement_deductible_rate: number;
@@ -63,6 +65,8 @@ export interface OrganizationClaimSettingsUpdate {
   coverage_deductible_amount?: number;
   coverage_allow_shipment?: boolean;
   coverage_allow_item?: boolean;
+  coverage_display_name?: string;
+  coverage_rate_standard?: number;
   // Claim Assistance Settings
   enable_claim_assistance?: boolean;
   claim_assistance_flat_fee?: number;
@@ -95,6 +99,8 @@ const DEFAULT_SETTINGS: Omit<OrganizationClaimSettings, 'id' | 'tenant_id' | 'cr
   coverage_deductible_amount: 300,
   coverage_allow_shipment: true,
   coverage_allow_item: true,
+  coverage_display_name: 'Valuation',
+  coverage_rate_standard: 0.60,
   // Aliases for AccountCoverageOverrideSection compatibility
   full_replacement_no_deductible_rate: 0.0188,
   full_replacement_deductible_rate: 0.0142,

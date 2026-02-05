@@ -39,6 +39,8 @@ export function ClaimSettingsSection() {
     coverage_deductible_amount: 300,
     coverage_allow_shipment: true,
     coverage_allow_item: true,
+    coverage_display_name: 'Valuation',
+    coverage_rate_standard: 0.60,
   });
 
   const [termsOpen, setTermsOpen] = useState(false);
@@ -62,6 +64,8 @@ export function ClaimSettingsSection() {
         coverage_deductible_amount: settings.coverage_deductible_amount,
         coverage_allow_shipment: settings.coverage_allow_shipment,
         coverage_allow_item: settings.coverage_allow_item,
+        coverage_display_name: settings.coverage_display_name || 'Valuation',
+        coverage_rate_standard: settings.coverage_rate_standard ?? 0.60,
       });
     }
   }, [settings]);
@@ -83,7 +87,9 @@ export function ClaimSettingsSection() {
       formData.coverage_rate_full_deductible !== settings.coverage_rate_full_deductible ||
       formData.coverage_deductible_amount !== settings.coverage_deductible_amount ||
       formData.coverage_allow_shipment !== settings.coverage_allow_shipment ||
-      formData.coverage_allow_item !== settings.coverage_allow_item;
+      formData.coverage_allow_item !== settings.coverage_allow_item ||
+      formData.coverage_display_name !== (settings.coverage_display_name || 'Valuation') ||
+      formData.coverage_rate_standard !== (settings.coverage_rate_standard ?? 0.60);
     setHasChanges(changed);
   }, [formData, settings]);
 
@@ -148,14 +154,15 @@ export function ClaimSettingsSection() {
                   type="number"
                   step="100"
                   min="0"
-                  value={formData.approval_threshold_amount}
+                  value={formData.approval_threshold_amount || ''}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      approval_threshold_amount: parseFloat(e.target.value) || 0,
+                      approval_threshold_amount: e.target.value === '' ? 0 : parseFloat(e.target.value),
                     }))
                   }
                   className="pl-8"
+                  placeholder="Enter amount"
                 />
               </div>
               <p className="text-xs text-muted-foreground">
@@ -197,14 +204,15 @@ export function ClaimSettingsSection() {
               type="number"
               min="1"
               max="365"
-              value={formData.acceptance_token_expiry_days}
+              value={formData.acceptance_token_expiry_days || ''}
               onChange={(e) =>
                 setFormData((prev) => ({
                   ...prev,
-                  acceptance_token_expiry_days: parseInt(e.target.value) || 30,
+                  acceptance_token_expiry_days: e.target.value === '' ? 0 : parseInt(e.target.value),
                 }))
               }
               className="w-24"
+              placeholder="30"
             />
             <span className="text-sm text-muted-foreground">days</span>
           </div>
@@ -258,18 +266,18 @@ export function ClaimSettingsSection() {
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Valuation Coverage Section */}
+        {/* Coverages Section */}
         <div className="pt-4 border-t">
           <div className="flex items-center gap-2 mb-4">
-            <MaterialIcon name="verified_user" size="md" className="text-blue-600" />
-            <h3 className="font-semibold text-lg">Valuation Coverage</h3>
+            <MaterialIcon name="verified_user" size="md" className="text-blue-600 dark:text-blue-400" />
+            <h3 className="font-semibold text-lg">Coverages</h3>
           </div>
 
           {/* Enable Coverage Toggle */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="coverage_enabled">Enable Valuation Coverage</Label>
+                <Label htmlFor="coverage_enabled">Enable Coverage</Label>
                 <p className="text-sm text-muted-foreground">
                   Allow clients to purchase additional coverage protection for their items.
                 </p>
@@ -284,7 +292,53 @@ export function ClaimSettingsSection() {
             </div>
 
             {formData.coverage_enabled && (
-              <div className="space-y-4 pl-4 border-l-2 border-blue-200 bg-blue-50/50 rounded-r-lg p-4">
+              <div className="space-y-4 pl-4 border-l-2 border-blue-500/20 bg-blue-500/5 dark:bg-blue-500/10 rounded-r-lg p-4">
+                {/* Coverage Display Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="coverage_display_name">Coverage Type Name</Label>
+                  <Input
+                    id="coverage_display_name"
+                    value={formData.coverage_display_name}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, coverage_display_name: e.target.value }))
+                    }
+                    placeholder="e.g., Valuation, Insurance"
+                    className="max-w-xs"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Display name for coverage throughout the system (e.g., "Valuation" or "Insurance").
+                  </p>
+                </div>
+
+                {/* Standard Rate */}
+                <div className="space-y-2">
+                  <Label htmlFor="coverage_rate_standard">Standard Rate (per lb)</Label>
+                  <div className="flex items-center gap-2">
+                    <div className="relative max-w-[8rem]">
+                      <MaterialIcon name="attach_money" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="coverage_rate_standard"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.coverage_rate_standard || ''}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            coverage_rate_standard: e.target.value === '' ? 0 : parseFloat(e.target.value),
+                          }))
+                        }
+                        className="pl-8"
+                        placeholder="0.60"
+                      />
+                    </div>
+                    <span className="text-sm text-muted-foreground">per lb</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Basic carrier liability rate per pound for standard coverage.
+                  </p>
+                </div>
+
                 {/* Default Coverage Type */}
                 <div className="space-y-2">
                   <Label htmlFor="coverage_default_type">Default Coverage Type</Label>
@@ -294,13 +348,13 @@ export function ClaimSettingsSection() {
                       setFormData((prev) => ({ ...prev, coverage_default_type: value }))
                     }
                   >
-                    <SelectTrigger className="max-w-sm bg-white">
+                    <SelectTrigger className="max-w-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="standard">
                         <div className="flex flex-col">
-                          <span>Standard (60¢/lb)</span>
+                          <span>Standard ({formData.coverage_rate_standard ? `${(formData.coverage_rate_standard * 100).toFixed(0)}¢` : '60¢'}/lb)</span>
                           <span className="text-xs text-muted-foreground">Basic carrier liability</span>
                         </div>
                       </SelectItem>
@@ -341,7 +395,7 @@ export function ClaimSettingsSection() {
                             coverage_rate_full_no_deductible: parseFloat(e.target.value) || 0,
                           }))
                         }
-                        className="w-28 bg-white"
+                        className="w-28"
                       />
                       <span className="text-sm text-muted-foreground">
                         = {(formData.coverage_rate_full_no_deductible * 100).toFixed(2)}% of declared value
@@ -365,7 +419,7 @@ export function ClaimSettingsSection() {
                             coverage_rate_full_deductible: parseFloat(e.target.value) || 0,
                           }))
                         }
-                        className="w-28 bg-white"
+                        className="w-28"
                       />
                       <span className="text-sm text-muted-foreground">
                         = {(formData.coverage_rate_full_deductible * 100).toFixed(2)}% of declared value
@@ -391,7 +445,7 @@ export function ClaimSettingsSection() {
                           coverage_deductible_amount: parseFloat(e.target.value) || 0,
                         }))
                       }
-                      className="pl-8 bg-white"
+                      className="pl-8"
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -437,14 +491,14 @@ export function ClaimSettingsSection() {
                 </div>
 
                 {/* Info box */}
-                <div className="bg-blue-100 border border-blue-200 rounded-lg p-3 mt-2">
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mt-2">
                   <div className="flex gap-2">
-                    <MaterialIcon name="info" size="sm" className="text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm text-blue-800">
+                    <MaterialIcon name="info" size="sm" className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-blue-700 dark:text-blue-300">
                       <p className="font-medium">Coverage Premium Calculation</p>
                       <p className="text-xs mt-1">
                         Premium = Declared Value × Rate. For example, $10,000 declared value at 1.88%
-                        rate = $188 coverage premium. Standard coverage (60¢/lb) has no additional charge.
+                        rate = $188 coverage premium. Standard coverage ({formData.coverage_rate_standard ? `${(formData.coverage_rate_standard * 100).toFixed(0)}¢` : '60¢'}/lb) has no additional charge.
                       </p>
                     </div>
                   </div>

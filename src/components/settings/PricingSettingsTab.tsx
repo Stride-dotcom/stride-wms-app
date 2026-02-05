@@ -59,6 +59,7 @@ import {
   type CreateChargeTypeInput,
   type CreatePricingRuleInput,
 } from '@/hooks/useChargeTypes';
+import { FlagSettingsSection } from '@/components/settings/preferences/FlagSettingsSection';
 
 export function PricingSettingsTab() {
   const [activeTab, setActiveTab] = useState('charge-types');
@@ -68,7 +69,7 @@ export function PricingSettingsTab() {
       <div>
         <h3 className="text-lg font-medium">Pricing Configuration</h3>
         <p className="text-sm text-muted-foreground">
-          Manage charge types and pricing rules for billing.
+          Manage charge types, pricing rules, and item flags for billing.
         </p>
       </div>
 
@@ -76,6 +77,7 @@ export function PricingSettingsTab() {
         <TabsList>
           <TabsTrigger value="charge-types">Charge Types</TabsTrigger>
           <TabsTrigger value="pricing-rules">Pricing Rules</TabsTrigger>
+          <TabsTrigger value="flags">Flags</TabsTrigger>
         </TabsList>
 
         <TabsContent value="charge-types" className="mt-4">
@@ -84,6 +86,10 @@ export function PricingSettingsTab() {
 
         <TabsContent value="pricing-rules" className="mt-4">
           <PricingRulesPanel />
+        </TabsContent>
+
+        <TabsContent value="flags" className="mt-4">
+          <FlagSettingsSection />
         </TabsContent>
       </Tabs>
     </div>
@@ -99,7 +105,6 @@ function ChargeTypesPanel() {
   const { chargeTypes, loading, createChargeType, updateChargeType, deleteChargeType, refetch } = useChargeTypes();
   const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [editingChargeType, setEditingChargeType] = useState<ChargeType | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>(() => {
     return localStorage.getItem('pricing_category_filter') || 'all';
@@ -123,7 +128,7 @@ function ChargeTypesPanel() {
       ct.charge_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ct.charge_name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || ct.category === categoryFilter;
-    const matchesStatus = statusFilter === 'all' || 
+    const matchesStatus = statusFilter === 'all' ||
       (statusFilter === 'active' && ct.is_active) ||
       (statusFilter === 'inactive' && !ct.is_active);
     return matchesSearch && matchesCategory && matchesStatus;
@@ -133,6 +138,10 @@ function ChargeTypesPanel() {
     if (confirm(`Delete charge type "${ct.charge_name}"?`)) {
       await deleteChargeType(ct.id);
     }
+  };
+
+  const handleInlineUpdate = async (ct: ChargeType, updates: Partial<CreateChargeTypeInput>) => {
+    await updateChargeType({ id: ct.id, ...updates });
   };
 
   if (loading) {
@@ -270,24 +279,26 @@ function ChargeTypesPanel() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table - Inline Editable */}
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Code</TableHead>
+              <TableHead className="w-[100px]">Code</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Trigger</TableHead>
-              <TableHead>Flags</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="w-[140px]">Category</TableHead>
+              <TableHead className="w-[130px]">Trigger</TableHead>
+              <TableHead className="w-[100px]">Scan</TableHead>
+              <TableHead className="w-[100px]">Flag</TableHead>
+              <TableHead className="w-[100px]">Taxable</TableHead>
+              <TableHead className="w-[80px]">Active</TableHead>
+              <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredChargeTypes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                   {chargeTypes.length === 0
                     ? 'No charge types found. Create one to get started.'
                     : 'No charge types match your search.'}
@@ -295,56 +306,12 @@ function ChargeTypesPanel() {
               </TableRow>
             ) : (
               filteredChargeTypes.map((ct) => (
-                <TableRow key={ct.id}>
-                  <TableCell className="font-mono text-sm">{ct.charge_code}</TableCell>
-                  <TableCell className="font-medium">{ct.charge_name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {CHARGE_CATEGORIES.find(c => c.value === ct.category)?.label || ct.category}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-muted-foreground">
-                      {TRIGGER_OPTIONS.find(t => t.value === ct.default_trigger)?.label || ct.default_trigger}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {ct.add_to_scan && (
-                        <Badge variant="secondary" className="text-xs">Scan</Badge>
-                      )}
-                      {ct.add_flag && (
-                        <Badge variant="secondary" className="text-xs">Flag</Badge>
-                      )}
-                      {ct.is_taxable && (
-                        <Badge variant="secondary" className="text-xs">Tax</Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={ct.is_active ? 'default' : 'secondary'}>
-                      {ct.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingChargeType(ct)}
-                      >
-                        <MaterialIcon name="edit" size="sm" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(ct)}
-                      >
-                        <MaterialIcon name="delete" size="sm" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <InlineChargeTypeRow
+                  key={ct.id}
+                  chargeType={ct}
+                  onUpdate={handleInlineUpdate}
+                  onDelete={handleDelete}
+                />
               ))
             )}
           </TableBody>
@@ -359,21 +326,6 @@ function ChargeTypesPanel() {
           const result = await createChargeType(data);
           if (result) {
             setShowCreateDialog(false);
-          }
-        }}
-      />
-
-      {/* Edit Dialog */}
-      <ChargeTypeDialog
-        open={!!editingChargeType}
-        onOpenChange={(open) => !open && setEditingChargeType(null)}
-        chargeType={editingChargeType}
-        onSave={async (data) => {
-          if (editingChargeType) {
-            const success = await updateChargeType({ id: editingChargeType.id, ...data });
-            if (success) {
-              setEditingChargeType(null);
-            }
           }
         }}
       />
@@ -424,6 +376,117 @@ function ChargeTypesPanel() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+
+// =============================================================================
+// INLINE EDITABLE CHARGE TYPE ROW
+// =============================================================================
+
+interface InlineChargeTypeRowProps {
+  chargeType: ChargeType;
+  onUpdate: (ct: ChargeType, updates: Partial<CreateChargeTypeInput>) => Promise<void>;
+  onDelete: (ct: ChargeType) => Promise<void>;
+}
+
+function InlineChargeTypeRow({ chargeType, onUpdate, onDelete }: InlineChargeTypeRowProps) {
+  const [name, setName] = useState(chargeType.charge_name);
+
+  // Sync local state if chargeType changes from external source
+  useEffect(() => {
+    setName(chargeType.charge_name);
+  }, [chargeType.charge_name]);
+
+  const handleNameBlur = () => {
+    if (name !== chargeType.charge_name && name.trim()) {
+      onUpdate(chargeType, { charge_name: name.trim() });
+    }
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  return (
+    <TableRow>
+      <TableCell className="font-mono text-sm">{chargeType.charge_code}</TableCell>
+      <TableCell>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={handleNameBlur}
+          onKeyDown={handleNameKeyDown}
+          className="h-8 text-sm"
+        />
+      </TableCell>
+      <TableCell>
+        <Select
+          value={chargeType.category}
+          onValueChange={(value) => onUpdate(chargeType, { category: value })}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CHARGE_CATEGORIES.map(cat => (
+              <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell>
+        <Select
+          value={chargeType.default_trigger}
+          onValueChange={(value: string) => onUpdate(chargeType, { default_trigger: value as CreateChargeTypeInput['default_trigger'] })}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TRIGGER_OPTIONS.map(opt => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell>
+        <Switch
+          checked={chargeType.add_to_scan}
+          onCheckedChange={(checked) => onUpdate(chargeType, { add_to_scan: checked })}
+        />
+      </TableCell>
+      <TableCell>
+        <Switch
+          checked={chargeType.add_flag}
+          onCheckedChange={(checked) => onUpdate(chargeType, { add_flag: checked })}
+        />
+      </TableCell>
+      <TableCell>
+        <Switch
+          checked={chargeType.is_taxable}
+          onCheckedChange={(checked) => onUpdate(chargeType, { is_taxable: checked })}
+        />
+      </TableCell>
+      <TableCell>
+        <Switch
+          checked={chargeType.is_active}
+          onCheckedChange={(checked) => onUpdate(chargeType, { is_active: checked })}
+        />
+      </TableCell>
+      <TableCell>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onDelete(chargeType)}
+          className="h-8 w-8 p-0"
+        >
+          <MaterialIcon name="delete" size="sm" className="text-muted-foreground" />
+        </Button>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -675,14 +738,17 @@ function PricingRulesPanel() {
   const { createPricingRule, updatePricingRule, deletePricingRule } = usePricingRules();
   const [expandedChargeType, setExpandedChargeType] = useState<string>('');
   const [showAddRuleDialog, setShowAddRuleDialog] = useState<string | null>(null);
-  const [editingRule, setEditingRule] = useState<{ rule: PricingRule; chargeTypeId: string } | null>(null);
-  const { toast } = useToast();
 
   const handleDeleteRule = async (rule: PricingRule, chargeTypeId: string) => {
     if (confirm('Delete this pricing rule?')) {
       await deletePricingRule(rule.id, chargeTypeId);
       refetch();
     }
+  };
+
+  const handleInlineRuleUpdate = async (rule: PricingRule, chargeTypeId: string, updates: Partial<CreatePricingRuleInput>) => {
+    await updatePricingRule({ id: rule.id, charge_type_id: chargeTypeId, ...updates });
+    refetch();
   };
 
   if (loading) {
@@ -708,7 +774,7 @@ function PricingRulesPanel() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Click on a charge type to view and manage its pricing rules.
+        Click on a charge type to view and manage its pricing rules. Edit rates and settings directly in the table.
       </p>
 
       <Accordion
@@ -744,7 +810,7 @@ function PricingRulesPanel() {
                   </Button>
                 </div>
 
-                {/* Rules Table */}
+                {/* Rules Table - Inline Editable */}
                 {ct.pricing_rules.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No pricing rules. Add a rule to set rates for this charge type.
@@ -756,52 +822,21 @@ function PricingRulesPanel() {
                         <TableHead>Class</TableHead>
                         <TableHead>Method</TableHead>
                         <TableHead>Unit</TableHead>
-                        <TableHead className="text-right">Rate</TableHead>
-                        <TableHead className="text-right">Min Charge</TableHead>
-                        <TableHead>Default</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead className="w-[120px]">Rate</TableHead>
+                        <TableHead className="w-[120px]">Min Charge</TableHead>
+                        <TableHead className="w-[80px]">Default</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {ct.pricing_rules.map((rule) => (
-                        <TableRow key={rule.id}>
-                          <TableCell>
-                            {rule.class_code || <span className="text-muted-foreground">Any</span>}
-                          </TableCell>
-                          <TableCell>
-                            {PRICING_METHOD_OPTIONS.find(m => m.value === rule.pricing_method)?.label || rule.pricing_method}
-                          </TableCell>
-                          <TableCell>
-                            {UNIT_OPTIONS.find(u => u.value === rule.unit)?.label || rule.unit}
-                          </TableCell>
-                          <TableCell className="text-right font-mono">
-                            ${rule.rate.toFixed(2)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono">
-                            {rule.minimum_charge ? `$${rule.minimum_charge.toFixed(2)}` : '-'}
-                          </TableCell>
-                          <TableCell>
-                            {rule.is_default && <Badge variant="secondary">Default</Badge>}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEditingRule({ rule, chargeTypeId: ct.id })}
-                              >
-                                <MaterialIcon name="edit" size="sm" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteRule(rule, ct.id)}
-                              >
-                                <MaterialIcon name="delete" size="sm" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                        <InlinePricingRuleRow
+                          key={rule.id}
+                          rule={rule}
+                          chargeTypeId={ct.id}
+                          onUpdate={handleInlineRuleUpdate}
+                          onDelete={handleDeleteRule}
+                        />
                       ))}
                     </TableBody>
                   </Table>
@@ -827,24 +862,134 @@ function PricingRulesPanel() {
           }}
         />
       )}
-
-      {/* Edit Rule Dialog */}
-      {editingRule && (
-        <PricingRuleDialog
-          open={true}
-          onOpenChange={() => setEditingRule(null)}
-          chargeTypeId={editingRule.chargeTypeId}
-          rule={editingRule.rule}
-          onSave={async (data) => {
-            const success = await updatePricingRule({ id: editingRule.rule.id, ...data });
-            if (success) {
-              setEditingRule(null);
-              refetch();
-            }
-          }}
-        />
-      )}
     </div>
+  );
+}
+
+
+// =============================================================================
+// INLINE EDITABLE PRICING RULE ROW
+// =============================================================================
+
+interface InlinePricingRuleRowProps {
+  rule: PricingRule;
+  chargeTypeId: string;
+  onUpdate: (rule: PricingRule, chargeTypeId: string, updates: Partial<CreatePricingRuleInput>) => Promise<void>;
+  onDelete: (rule: PricingRule, chargeTypeId: string) => Promise<void>;
+}
+
+function InlinePricingRuleRow({ rule, chargeTypeId, onUpdate, onDelete }: InlinePricingRuleRowProps) {
+  const [rate, setRate] = useState(rule.rate.toString());
+  const [minCharge, setMinCharge] = useState(rule.minimum_charge?.toString() || '');
+
+  useEffect(() => {
+    setRate(rule.rate.toString());
+    setMinCharge(rule.minimum_charge?.toString() || '');
+  }, [rule.rate, rule.minimum_charge]);
+
+  const handleRateBlur = () => {
+    const numVal = parseFloat(rate);
+    if (!isNaN(numVal) && numVal !== rule.rate) {
+      onUpdate(rule, chargeTypeId, { rate: numVal });
+    }
+  };
+
+  const handleMinChargeBlur = () => {
+    const numVal = minCharge ? parseFloat(minCharge) : undefined;
+    if (numVal !== rule.minimum_charge) {
+      onUpdate(rule, chargeTypeId, { minimum_charge: numVal });
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  return (
+    <TableRow>
+      <TableCell className="text-sm">
+        {rule.class_code || <span className="text-muted-foreground">Any</span>}
+      </TableCell>
+      <TableCell>
+        <Select
+          value={rule.pricing_method}
+          onValueChange={(value: string) => onUpdate(rule, chargeTypeId, { pricing_method: value as CreatePricingRuleInput['pricing_method'] })}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PRICING_METHOD_OPTIONS.map(opt => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell>
+        <Select
+          value={rule.unit}
+          onValueChange={(value) => onUpdate(rule, chargeTypeId, { unit: value })}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {UNIT_OPTIONS.map(opt => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell>
+        <div className="relative">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={rate}
+            onChange={(e) => setRate(e.target.value)}
+            onBlur={handleRateBlur}
+            onKeyDown={handleKeyDown}
+            className="h-8 text-sm pl-5 font-mono"
+          />
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="relative">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={minCharge}
+            onChange={(e) => setMinCharge(e.target.value)}
+            onBlur={handleMinChargeBlur}
+            onKeyDown={handleKeyDown}
+            className="h-8 text-sm pl-5 font-mono"
+            placeholder="-"
+          />
+        </div>
+      </TableCell>
+      <TableCell>
+        <Switch
+          checked={rule.is_default}
+          onCheckedChange={(checked) => onUpdate(rule, chargeTypeId, { is_default: checked })}
+        />
+      </TableCell>
+      <TableCell>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onDelete(rule, chargeTypeId)}
+          className="h-8 w-8 p-0"
+        >
+          <MaterialIcon name="delete" size="sm" className="text-muted-foreground" />
+        </Button>
+      </TableCell>
+    </TableRow>
   );
 }
 
