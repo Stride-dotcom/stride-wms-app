@@ -7,11 +7,13 @@ import { CategoriesTab } from './pricing/CategoriesTab';
 import { ClassesTab } from './pricing/ClassesTab';
 import { TaskTemplatesTab } from './pricing/TaskTemplatesTab';
 import { QuickStartTab } from './pricing/QuickStartTab';
+import { FlagSettingsSection } from './preferences/FlagSettingsSection';
 
 const SUB_TABS = [
   { value: 'price-list', label: 'Price List', icon: 'payments' },
   { value: 'categories', label: 'Categories', icon: 'folder' },
   { value: 'classes', label: 'Classes', icon: 'label' },
+  { value: 'flags', label: 'Flags', icon: 'flag' },
   { value: 'task-templates', label: 'Task Templates', icon: 'assignment' },
   { value: 'quick-start', label: 'Quick Start', icon: 'rocket_launch' },
 ] as const;
@@ -72,6 +74,10 @@ export function ServiceRatesConsole() {
 
         <TabsContent value="classes" className="mt-6">
           <ClassesTab />
+        </TabsContent>
+
+        <TabsContent value="flags" className="mt-6">
+          <FlagSettingsSection />
         </TabsContent>
 
         <TabsContent value="task-templates" className="mt-6">

@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import {
@@ -43,7 +45,8 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { useChargeTypesWithRules, useChargeTypes, type ChargeTypeWithRules } from '@/hooks/useChargeTypes';
+import { useChargeTypesWithRules, useChargeTypes, usePricingRules, type ChargeTypeWithRules } from '@/hooks/useChargeTypes';
+import type { UpdateChargeTypeInput } from '@/hooks/useChargeTypes';
 import { useClasses } from '@/hooks/useClasses';
 import { useServiceCategories } from '@/hooks/useServiceCategories';
 import { AddServiceForm } from './AddServiceForm';
@@ -58,7 +61,8 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 
 export function PriceListTab({ navigateToTab }: PriceListTabProps) {
   const { chargeTypesWithRules, loading, refetch } = useChargeTypesWithRules();
-  const { deleteChargeType } = useChargeTypes();
+  const { deleteChargeType, updateChargeType } = useChargeTypes();
+  const { updatePricingRule } = usePricingRules();
   const { classes } = useClasses();
   const { activeCategories } = useServiceCategories();
   const { toast } = useToast();
@@ -106,6 +110,16 @@ export function PriceListTab({ navigateToTab }: PriceListTabProps) {
     };
     setEditingChargeType(dup as ChargeTypeWithRules);
     setShowAddForm(true);
+  };
+
+  const handleInlineChargeTypeUpdate = async (ct: ChargeTypeWithRules, updates: Partial<UpdateChargeTypeInput>) => {
+    await updateChargeType({ id: ct.id, ...updates });
+    refetch();
+  };
+
+  const handleInlineRuleUpdate = async (ruleId: string, chargeTypeId: string, updates: Record<string, unknown>) => {
+    await updatePricingRule({ id: ruleId, charge_type_id: chargeTypeId, ...updates });
+    refetch();
   };
 
   const handleExport = () => {
@@ -286,6 +300,8 @@ export function PriceListTab({ navigateToTab }: PriceListTabProps) {
           onEdit={handleEdit}
           onDuplicate={handleDuplicate}
           onDelete={setDeleteConfirm}
+          onInlineUpdate={handleInlineChargeTypeUpdate}
+          onInlineRuleUpdate={handleInlineRuleUpdate}
           expandedItems={expandedItems}
           setExpandedItems={setExpandedItems}
         />
@@ -332,11 +348,13 @@ interface ListViewProps {
   onEdit: (ct: ChargeTypeWithRules) => void;
   onDuplicate: (ct: ChargeTypeWithRules) => void;
   onDelete: (ct: ChargeTypeWithRules) => void;
+  onInlineUpdate: (ct: ChargeTypeWithRules, updates: Partial<UpdateChargeTypeInput>) => Promise<void>;
+  onInlineRuleUpdate: (ruleId: string, chargeTypeId: string, updates: Record<string, unknown>) => Promise<void>;
   expandedItems: string[];
   setExpandedItems: (items: string[]) => void;
 }
 
-function ListView({ items, classes, onEdit, onDuplicate, onDelete, expandedItems, setExpandedItems }: ListViewProps) {
+function ListView({ items, classes, onEdit, onDuplicate, onDelete, onInlineUpdate, onInlineRuleUpdate, expandedItems, setExpandedItems }: ListViewProps) {
   const getPricingMethodLabel = (ct: ChargeTypeWithRules) => {
     const hasClassRules = ct.pricing_rules.some(r => r.pricing_method === 'class_based');
     return hasClassRules ? 'Class-Based' : 'Flat';
@@ -416,20 +434,7 @@ function ListView({ items, classes, onEdit, onDuplicate, onDelete, expandedItems
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4">
             <div className="space-y-4 pt-2">
-              {/* Mobile badges */}
-              <div className="flex flex-wrap gap-1.5 sm:hidden">
-                {ct.category && (
-                  <Badge variant="secondary" className="text-xs capitalize">{ct.category}</Badge>
-                )}
-                <Badge variant="outline" className="text-xs">{getPricingMethodLabel(ct)}</Badge>
-                {ct.add_to_scan && <Badge variant="outline" className="text-xs">Scan</Badge>}
-                {ct.add_flag && <Badge variant="outline" className="text-xs">Flag</Badge>}
-                {ct.is_taxable && <Badge variant="outline" className="text-xs">Tax</Badge>}
-                {!ct.is_active && <Badge variant="secondary" className="text-xs">Inactive</Badge>}
-                <span className="text-sm text-muted-foreground">{getRateDisplay(ct)}</span>
-              </div>
-
-              {/* Pricing Rules */}
+              {/* Pricing Rules - Inline Editable */}
               <div>
                 <h4 className="text-sm font-medium mb-2">Pricing Rules</h4>
                 {ct.pricing_rules.length === 0 ? (
@@ -441,31 +446,32 @@ function ListView({ items, classes, onEdit, onDuplicate, onDelete, expandedItems
                       .map((rule) => {
                         const cls = classes.find(c => c.code === rule.class_code);
                         return (
-                          <div key={rule.id} className="flex items-center justify-between py-1.5 px-3 rounded bg-muted/50 text-sm">
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="font-mono text-xs">{rule.class_code || 'Default'}</Badge>
-                              {cls && <span className="text-muted-foreground">{cls.name}</span>}
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <span className="font-medium">${rule.rate.toFixed(2)}</span>
-                              {rule.service_time_minutes && (
-                                <span className="text-xs text-muted-foreground">{rule.service_time_minutes}min</span>
-                              )}
-                            </div>
-                          </div>
+                          <InlineRateRow
+                            key={rule.id}
+                            ruleId={rule.id}
+                            chargeTypeId={ct.id}
+                            label={
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="font-mono text-xs">{rule.class_code || 'Default'}</Badge>
+                                {cls && <span className="text-muted-foreground text-sm">{cls.name}</span>}
+                              </div>
+                            }
+                            rate={rule.rate}
+                            serviceTime={rule.service_time_minutes}
+                            onUpdate={onInlineRuleUpdate}
+                          />
                         );
                       })}
                   </div>
                 ) : (
-                  <div className="py-1.5 px-3 rounded bg-muted/50 text-sm flex items-center justify-between">
-                    <span>{ct.pricing_rules[0]?.unit || 'each'}</span>
-                    <div className="flex items-center gap-4">
-                      <span className="font-medium">${ct.pricing_rules[0]?.rate.toFixed(2)}</span>
-                      {ct.pricing_rules[0]?.service_time_minutes && (
-                        <span className="text-xs text-muted-foreground">{ct.pricing_rules[0].service_time_minutes}min</span>
-                      )}
-                    </div>
-                  </div>
+                  <InlineRateRow
+                    ruleId={ct.pricing_rules[0]?.id}
+                    chargeTypeId={ct.id}
+                    label={<span className="text-sm">{ct.pricing_rules[0]?.unit || 'each'}</span>}
+                    rate={ct.pricing_rules[0]?.rate ?? 0}
+                    serviceTime={ct.pricing_rules[0]?.service_time_minutes}
+                    onUpdate={onInlineRuleUpdate}
+                  />
                 )}
                 {ct.pricing_rules.some(r => r.minimum_charge) && (
                   <p className="text-xs text-muted-foreground mt-1">
@@ -474,24 +480,55 @@ function ListView({ items, classes, onEdit, onDuplicate, onDelete, expandedItems
                 )}
               </div>
 
-              {/* Config summary */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Trigger</span>
-                  <p className="font-medium">{getTriggerLabel(ct.default_trigger)}</p>
+              {/* Inline Config Controls */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Trigger</Label>
+                  <Select
+                    value={ct.default_trigger}
+                    onValueChange={(value) => onInlineUpdate(ct, { default_trigger: value as UpdateChargeTypeInput['default_trigger'] })}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">Manual</SelectItem>
+                      <SelectItem value="task">Task</SelectItem>
+                      <SelectItem value="shipment">Shipment</SelectItem>
+                      <SelectItem value="storage">Storage</SelectItem>
+                      <SelectItem value="auto">Auto</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Taxable</span>
-                  <p className="font-medium">{ct.is_taxable ? 'Yes' : 'No'}</p>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">Taxable</Label>
+                  <Switch
+                    checked={ct.is_taxable}
+                    onCheckedChange={(checked) => onInlineUpdate(ct, { is_taxable: checked })}
+                  />
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Scan Hub</span>
-                  <p className="font-medium">{ct.add_to_scan ? 'Yes' : 'No'}</p>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">Scan Hub</Label>
+                  <Switch
+                    checked={ct.add_to_scan}
+                    onCheckedChange={(checked) => onInlineUpdate(ct, { add_to_scan: checked })}
+                  />
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Flag</span>
-                  <p className="font-medium">{ct.add_flag ? 'Yes' : 'No'}</p>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">Flag</Label>
+                  <Switch
+                    checked={ct.add_flag}
+                    onCheckedChange={(checked) => onInlineUpdate(ct, { add_flag: checked })}
+                  />
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Active</Label>
+                <Switch
+                  checked={ct.is_active}
+                  onCheckedChange={(checked) => onInlineUpdate(ct, { is_active: checked })}
+                />
               </div>
 
               {/* Notes */}
@@ -499,12 +536,8 @@ function ListView({ items, classes, onEdit, onDuplicate, onDelete, expandedItems
                 <p className="text-sm text-muted-foreground italic">{ct.notes}</p>
               )}
 
-              {/* Actions */}
+              {/* Actions - Duplicate & Delete only (editing is inline) */}
               <div className="flex gap-2 pt-2 border-t">
-                <Button variant="outline" size="sm" onClick={() => onEdit(ct)}>
-                  <MaterialIcon name="edit" size="sm" className="mr-1" />
-                  Edit
-                </Button>
                 <Button variant="outline" size="sm" onClick={() => onDuplicate(ct)}>
                   <MaterialIcon name="content_copy" size="sm" className="mr-1" />
                   Duplicate
@@ -521,6 +554,65 @@ function ListView({ items, classes, onEdit, onDuplicate, onDelete, expandedItems
     </Accordion>
   );
 }
+
+// =============================================================================
+// INLINE RATE ROW
+// =============================================================================
+
+interface InlineRateRowProps {
+  ruleId: string;
+  chargeTypeId: string;
+  label: React.ReactNode;
+  rate: number;
+  serviceTime?: number | null;
+  onUpdate: (ruleId: string, chargeTypeId: string, updates: Record<string, unknown>) => Promise<void>;
+}
+
+function InlineRateRow({ ruleId, chargeTypeId, label, rate, serviceTime, onUpdate }: InlineRateRowProps) {
+  const [rateValue, setRateValue] = useState(rate.toString());
+
+  useEffect(() => {
+    setRateValue(rate.toString());
+  }, [rate]);
+
+  const handleBlur = () => {
+    const numVal = parseFloat(rateValue);
+    if (!isNaN(numVal) && numVal !== rate) {
+      onUpdate(ruleId, chargeTypeId, { rate: numVal });
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between py-1.5 px-3 rounded bg-muted/50 text-sm">
+      {label}
+      <div className="flex items-center gap-3">
+        <div className="relative w-24">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={rateValue}
+            onChange={(e) => setRateValue(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            className="h-7 text-sm pl-5 font-mono"
+          />
+        </div>
+        {serviceTime && (
+          <span className="text-xs text-muted-foreground">{serviceTime}min</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 // =============================================================================
 // MATRIX VIEW
@@ -564,7 +656,6 @@ function MatrixView({ items, classes, onEdit }: MatrixViewProps) {
               </TableHead>
             ))}
             <TableHead className="text-center min-w-[80px]">Min</TableHead>
-            <TableHead className="w-12" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -602,11 +693,6 @@ function MatrixView({ items, classes, onEdit }: MatrixViewProps) {
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}
-              </TableCell>
-              <TableCell>
-                <Button variant="ghost" size="sm" onClick={() => onEdit(ct)}>
-                  <MaterialIcon name="edit" size="sm" />
-                </Button>
               </TableCell>
             </TableRow>
           ))}
