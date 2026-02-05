@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { queueRepairQuoteReadyAlert, queueRepairQuoteSentToClientAlert } from '@/lib/alertQueue';
 import { buildRepairQuoteReadyEmail } from '@/lib/email';
+import { getInvoiceStatusClasses } from '@/lib/statusColors';
 
 // ============================================================================
 // NEW WORKFLOW TYPES
@@ -940,25 +941,46 @@ export function useRepairQuoteWorkflow() {
     }
   }, [profile, toast, fetchQuotes]);
 
-  // Get status display info
+  // Get status display info - uses invoice-consistent color scheme
   const getStatusInfo = (status: RepairQuoteWorkflowStatus | string) => {
-    const statusMap: Record<string, { label: string; color: string }> = {
-      draft: { label: 'Draft', color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
-      awaiting_assignment: { label: 'Awaiting Assignment', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
-      sent_to_tech: { label: 'Sent to Tech', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
-      tech_declined: { label: 'Tech Declined', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
-      tech_submitted: { label: 'Tech Submitted', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
-      under_review: { label: 'Under Review', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
-      sent_to_client: { label: 'Sent to Client', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200' },
-      accepted: { label: 'Accepted', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-      declined: { label: 'Declined', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
-      expired: { label: 'Expired', color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
-      closed: { label: 'Closed', color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200' },
-      // Legacy statuses
-      pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
-      approved: { label: 'Approved', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+    // Map repair-specific statuses to invoice-equivalent for consistent colors
+    const invoiceStatusMap: Record<string, string> = {
+      draft: 'draft',
+      awaiting_assignment: 'draft',
+      sent_to_tech: 'sent',
+      tech_declined: 'declined',
+      tech_submitted: 'countered',
+      under_review: 'countered',
+      sent_to_client: 'sent',
+      accepted: 'accepted',
+      declined: 'declined',
+      expired: 'expired',
+      closed: 'void',
+      pending: 'draft',
+      approved: 'accepted',
     };
-    return statusMap[status] || { label: status, color: 'bg-gray-100 text-gray-800' };
+
+    const labelMap: Record<string, string> = {
+      draft: 'Draft',
+      awaiting_assignment: 'Awaiting Assignment',
+      sent_to_tech: 'Sent to Tech',
+      tech_declined: 'Tech Declined',
+      tech_submitted: 'Tech Submitted',
+      under_review: 'Under Review',
+      sent_to_client: 'Sent to Client',
+      accepted: 'Accepted',
+      declined: 'Declined',
+      expired: 'Expired',
+      closed: 'Closed',
+      pending: 'Pending',
+      approved: 'Approved',
+    };
+
+    const invoiceEquiv = invoiceStatusMap[status] || status;
+    return {
+      label: labelMap[status] || status,
+      color: getInvoiceStatusClasses(invoiceEquiv),
+    };
   };
 
   return {

@@ -36,11 +36,17 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { Quote, QuoteStatus, QUOTE_STATUS_CONFIG } from '@/lib/quotes/types';
 import { formatCurrency } from '@/lib/quotes/calculator';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { RepairQuotesTab } from '@/components/repair-quotes/RepairQuotesTab';
+import { getQuoteStatusClasses } from '@/lib/statusColors';
+import { cn } from '@/lib/utils';
 
 export default function Quotes() {
   const navigate = useNavigate();
   const { quotes, loading, fetchQuotes, voidQuote, duplicateQuote } = useQuotes();
   const { accounts } = useAccounts();
+
+  // Tab navigation
+  const [activeTab, setActiveTab] = useState<'quotes' | 'repair-quotes'>('quotes');
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -120,7 +126,7 @@ export default function Quotes() {
   const getStatusBadge = (status: QuoteStatus) => {
     const config = QUOTE_STATUS_CONFIG[status];
     return (
-      <Badge variant={config.variant as any} className={config.color}>
+      <Badge variant={config.variant as any} className={getQuoteStatusClasses(status)}>
         {config.label}
       </Badge>
     );
@@ -135,6 +141,33 @@ export default function Quotes() {
           description="Create, manage, and track customer quotes"
         />
 
+        {/* Tab Navigation */}
+        <div className="flex gap-1 border-b mb-6">
+          <button
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+              activeTab === 'quotes'
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setActiveTab('quotes')}
+          >
+            Quotes
+          </button>
+          <button
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+              activeTab === 'repair-quotes'
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setActiveTab('repair-quotes')}
+          >
+            Repair Quotes
+          </button>
+        </div>
+
+        {activeTab === 'quotes' && (<>
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="bg-card border border-border shadow-sm">
@@ -341,6 +374,11 @@ export default function Quotes() {
             )}
           </CardContent>
         </Card>
+        </>)}
+
+        {activeTab === 'repair-quotes' && (
+          <RepairQuotesTab />
+        )}
       </div>
 
       {/* Void Dialog */}

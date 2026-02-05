@@ -32,7 +32,7 @@ interface DisambiguationState {
 interface SessionState {
   pending_disambiguation?: DisambiguationState;
   pending_draft?: {
-    type: 'will_call' | 'repair_quote' | 'reallocation';
+    type: 'will_call' | 'repair_quote' | 'reallocation' | 'disposal';
     draft_id: string;
     summary: string;
   };
@@ -601,7 +601,7 @@ async function toolSearchItems(supabase: any, params: { query: string }, scope: 
     received_at,
     sidemark:sidemarks(id, sidemark_name),
     location:locations(id, code, name),
-    shipment:shipments!items_shipment_id_fkey(id, shipment_number)
+    shipment:shipments!items_receiving_shipment_id_fkey(id, shipment_number)
   `;
 
   let allItems: any[] = [];
@@ -651,7 +651,7 @@ async function toolSearchItems(supabase: any, params: { query: string }, scope: 
         received_at,
         sidemark:sidemarks!inner(id, sidemark_name),
         location:locations(id, code, name),
-        shipment:shipments!items_shipment_id_fkey(id, shipment_number)
+        shipment:shipments!items_receiving_shipment_id_fkey(id, shipment_number)
       `)
       .eq("tenant_id", scope.tenant_id)
       .eq("account_id", scope.account_id)
@@ -746,21 +746,33 @@ async function toolGetShipmentItems(supabase: any, params: { shipment_id: string
     return { result: { error: "Shipment not found", items: [] } };
   }
 
-  const { data: items, error } = await supabase
-    .from("items")
-    .select(`
-      id,
-      item_code,
-      description,
-      status,
-      sidemark:sidemarks(id, sidemark_name)
-    `)
-    .eq("shipment_id", params.shipment_id)
-    .eq("tenant_id", scope.tenant_id)
-    .is("deleted_at", null);
+  // Get items via shipment_items join table
+  const { data: siRows } = await supabase
+    .from("shipment_items")
+    .select("item_id")
+    .eq("shipment_id", params.shipment_id);
 
-  if (error) {
-    return { result: { error: "Failed to get shipment items", items: [] } };
+  const siItemIds = (siRows || []).map((si: any) => si.item_id).filter(Boolean);
+
+  let items: any[] = [];
+  if (siItemIds.length > 0) {
+    const { data, error } = await supabase
+      .from("items")
+      .select(`
+        id,
+        item_code,
+        description,
+        status,
+        sidemark:sidemarks(id, sidemark_name)
+      `)
+      .in("id", siItemIds)
+      .eq("tenant_id", scope.tenant_id)
+      .is("deleted_at", null);
+
+    if (error) {
+      return { result: { error: "Failed to get shipment items", items: [] } };
+    }
+    items = data || [];
   }
 
   return {
@@ -789,7 +801,7 @@ async function toolGetItemStatus(supabase: any, params: { item_id: string }, sco
       sidemark:sidemarks(id, sidemark_name),
       location:locations(id, code, name),
       warehouse:warehouses(id, name),
-      shipment:shipments!items_shipment_id_fkey(id, shipment_number, received_at)
+      shipment:shipments!items_receiving_shipment_id_fkey(id, shipment_number, received_at)
     `)
     .eq("id", params.item_id)
     .eq("tenant_id", scope.tenant_id)
@@ -805,8 +817,9 @@ async function toolGetItemStatus(supabase: any, params: { item_id: string }, sco
     .from("tasks")
     .select("id, task_number, title, status, completed_at")
     .eq("tenant_id", scope.tenant_id)
-    .contains("item_ids", [params.item_id])
+    .eq("related_item_id", params.item_id)
     .eq("task_type", "inspection")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(5);
 
@@ -839,7 +852,7 @@ async function toolGetInspectionReports(
 ) {
   let query = supabase
     .from("tasks")
-    .select("id, task_number, title, status, completed_at, created_at, item_ids")
+    .select("id, task_number, title, status, completed_at, created_at, related_item_id")
     .eq("tenant_id", scope.tenant_id)
     .eq("account_id", scope.account_id)
     .eq("task_type", "inspection")
@@ -848,7 +861,12 @@ async function toolGetInspectionReports(
     .limit(20);
 
   if (params.subaccount_id) {
-    query = query.eq("sidemark_id", params.subaccount_id);
+    query = query.eq("sidemark", params.subaccount_id);
+  }
+
+  // Filter by item_id directly if provided
+  if (params.item_id) {
+    query = query.eq("related_item_id", params.item_id);
   }
 
   const { data: tasks, error } = await query;
@@ -859,25 +877,17 @@ async function toolGetInspectionReports(
 
   let filteredTasks = tasks || [];
 
-  // Filter by item_id if provided
-  if (params.item_id) {
-    filteredTasks = filteredTasks.filter((t: any) =>
-      t.item_ids && t.item_ids.includes(params.item_id)
-    );
-  }
-
   // Filter by shipment_id if provided - need to get items from that shipment
   if (params.shipment_id) {
-    const { data: shipmentItems } = await supabase
-      .from("items")
-      .select("id")
-      .eq("shipment_id", params.shipment_id)
-      .eq("tenant_id", scope.tenant_id);
+    const { data: siRows } = await supabase
+      .from("shipment_items")
+      .select("item_id")
+      .eq("shipment_id", params.shipment_id);
 
-    const shipmentItemIds = (shipmentItems || []).map((i: any) => i.id);
+    const shipmentItemIds = (siRows || []).map((si: any) => si.item_id).filter(Boolean);
 
     filteredTasks = filteredTasks.filter((t: any) =>
-      t.item_ids && t.item_ids.some((id: string) => shipmentItemIds.includes(id))
+      t.related_item_id && shipmentItemIds.includes(t.related_item_id)
     );
   }
 
@@ -1160,23 +1170,30 @@ async function toolSubmitRepairQuoteRequest(
     return { result: { ok: false, error: "Draft not found or already submitted" } };
   }
 
-  // Create a repair quote task
+  // Create a repair quote task for the first item (related_item_id supports single)
   const { data: task, error: taskError } = await supabase
     .from("tasks")
     .insert({
       tenant_id: scope.tenant_id,
       account_id: scope.account_id,
-      sidemark_id: draft.subaccount_id,
       task_type: "repair_quote",
       title: `Repair Quote Request - ${draft.item_ids.length} item(s)`,
       description: draft.notes || "Customer requested repair quote via chat",
       status: "open",
       priority: "medium",
-      item_ids: draft.item_ids,
-      created_by: scope.user_id,
+      related_item_id: draft.item_ids[0] || null,
     })
     .select("id, task_number")
     .single();
+
+  // Link all items via task_items
+  if (task && draft.item_ids.length > 0) {
+    const taskItemRows = draft.item_ids.map((itemId: string) => ({
+      task_id: task.id,
+      item_id: itemId,
+    }));
+    await supabase.from("task_items").insert(taskItemRows);
+  }
 
   if (taskError) {
     console.error("Create task error:", taskError);
@@ -1428,7 +1445,7 @@ async function toolSearchItemsNatural(
       received_at,
       sidemark:sidemarks(id, sidemark_name),
       location:locations(id, code, name),
-      shipment:shipments!items_shipment_id_fkey(id, shipment_number)
+      shipment:shipments!items_receiving_shipment_id_fkey(id, shipment_number)
     `)
     .eq("tenant_id", scope.tenant_id)
     .eq("account_id", scope.account_id)
@@ -1530,7 +1547,7 @@ async function toolCheckDeliveryStatus(
   const { data: shipments, error } = await supabase
     .from("shipments")
     .select(`
-      id, shipment_number, tracking_number, status, received_at, expected_date,
+      id, shipment_number, tracking_number, status, received_at, expected_arrival_date,
       shipment_type, carrier, notes,
       items:shipment_items(
         item:items(id, item_code, description)
@@ -1553,7 +1570,7 @@ async function toolCheckDeliveryStatus(
     .from("items")
     .select(`
       id, item_code, description, received_at, status,
-      shipment:shipments!items_shipment_id_fkey(
+      shipment:shipments!items_receiving_shipment_id_fkey(
         id, shipment_number, status, received_at, tracking_number
       )
     `)
@@ -1577,13 +1594,13 @@ async function toolCheckDeliveryStatus(
           status: shipment.status,
           carrier: shipment.carrier,
           received_at: shipment.received_at,
-          expected_date: shipment.expected_date,
+          expected_arrival_date: shipment.expected_arrival_date,
           is_received: isReceived,
           item_count: shipment.items?.length || 0,
         },
         message: isReceived
           ? `Your shipment ${shipment.shipment_number} has been received!`
-          : `Shipment ${shipment.shipment_number} is ${shipment.status}. ${shipment.expected_date ? `Expected: ${shipment.expected_date}` : ''}`,
+          : `Shipment ${shipment.shipment_number} is ${shipment.status}. ${shipment.expected_arrival_date ? `Expected: ${shipment.expected_arrival_date}` : ''}`,
       },
     };
   }
@@ -1729,7 +1746,7 @@ async function toolGetMyStorageSummary(supabase: any, scope: ChatScope) {
   // Get recent shipments
   const { data: recentShipments } = await supabase
     .from("shipments")
-    .select("id, shipment_number, shipment_type, status, received_at, released_at")
+    .select("id, shipment_number, shipment_type, status, received_at, shipped_at")
     .eq("tenant_id", scope.tenant_id)
     .eq("account_id", scope.account_id)
     .is("deleted_at", null)
@@ -1746,7 +1763,7 @@ async function toolGetMyStorageSummary(supabase: any, scope: ChatScope) {
         type: s.shipment_type,
         number: s.shipment_number,
         status: s.status,
-        date: s.received_at || s.released_at,
+        date: s.received_at || s.shipped_at,
       })),
     },
   };
@@ -2015,6 +2032,8 @@ serve(async (req) => {
 
         if (newSessionState) {
           sessionUpdates = { ...sessionUpdates, ...newSessionState };
+          // Update session.state so subsequent tool calls in this round see the changes
+          Object.assign(session.state, newSessionState);
         }
 
         // Add tool result to conversation

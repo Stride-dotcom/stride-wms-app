@@ -96,6 +96,7 @@ export interface UpdatePricingRuleInput extends Partial<CreatePricingRuleInput> 
 // CONSTANTS
 // =============================================================================
 
+// FALLBACK ONLY — prefer useServiceCategories() for tenant-specific categories
 export const CHARGE_CATEGORIES = [
   { value: 'receiving', label: 'Receiving' },
   { value: 'storage', label: 'Storage' },
@@ -135,6 +136,8 @@ export const PRICING_METHOD_OPTIONS = [
   { value: 'tiered', label: 'Tiered' },
 ] as const;
 
+// DEPRECATED: Class codes should come from useClasses() hook, not hardcoded here
+// Kept as fallback for any code that still references it
 export const CLASS_CODES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
 
 // =============================================================================
@@ -287,6 +290,10 @@ export function useChargeTypes() {
     }
   }, [toast, fetchChargeTypes]);
 
+  const isCodeUnique = useCallback((code: string, excludeId?: string): boolean => {
+    return !chargeTypes.some(ct => ct.charge_code === code && ct.id !== excludeId);
+  }, [chargeTypes]);
+
   return {
     chargeTypes,
     loading,
@@ -294,6 +301,7 @@ export function useChargeTypes() {
     createChargeType,
     updateChargeType,
     deleteChargeType,
+    isCodeUnique,
   };
 }
 

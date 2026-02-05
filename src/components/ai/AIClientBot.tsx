@@ -105,6 +105,10 @@ export function AIClientBot() {
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
+    if (!session?.access_token) {
+      toast({ title: "Not authenticated", description: "Please log in to use the chat assistant.", variant: "destructive" });
+      return;
+    }
 
     const userContent = input.trim();
 
@@ -454,7 +458,7 @@ export function AIClientBot() {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             placeholder="Ask me anything..."
             disabled={isLoading}
             className="flex-1"
