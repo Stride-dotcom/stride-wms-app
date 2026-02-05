@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -58,9 +58,9 @@ import { HelpButton } from '@/components/prompts';
 import { PromptWorkflow } from '@/types/guidedPrompts';
 import { validateTaskCompletion, TaskCompletionValidationResult } from '@/lib/billing/taskCompletionValidation';
 import { useTaskServiceLines } from '@/hooks/useTaskServiceLines';
-import { TaskServiceChips, ChargeTypeOption } from '@/components/tasks/TaskServiceChips';
+import { TaskServiceLinesEditor, ChargeTypeOption, RateInfo } from '@/components/tasks/TaskServiceLinesEditor';
 import { TaskCompletionPanel, CompletionLineValues } from '@/components/tasks/TaskCompletionPanel';
-import { getChargeTypes, getTaskTypeCharges } from '@/lib/billing/chargeTypeUtils';
+import { getChargeTypes, getTaskTypeCharges, getEffectiveRate } from '@/lib/billing/chargeTypeUtils';
 
 interface TaskDetail {
   id: string;
@@ -206,12 +206,18 @@ export default function TaskDetailPage() {
     loading: serviceLinesLoading,
     fetchServiceLines,
     addServiceLine,
+    updateServiceLine,
     removeServiceLine,
     loadFromTemplate,
   } = useTaskServiceLines(id);
 
   // Only managers and admins can see billing
   const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
+
+  // Rate cache for service lines (keyed by chargeCode|accountId|classCode)
+  const ratesCache = useRef<Map<string, RateInfo>>(new Map());
+  const [ratesMap, setRatesMap] = useState<Map<string, RateInfo>>(new Map());
+  const [ratesLoading, setRatesLoading] = useState(false);
 
   const fetchTask = useCallback(async () => {
     if (!id) return;
@@ -453,6 +459,95 @@ export default function TaskDetailPage() {
     }
   }, [task?.status, fetchPendingRateBillingEvents]);
 
+  // Get classCode from first task item (for rate lookup)
+  const classCode = useMemo(() => {
+    if (taskItems.length === 0) return null;
+    const firstItem = taskItems[0]?.item;
+    if (!firstItem) return null;
+    // We don't have class directly on item, but class_id
+    // We'd need to fetch classes to get the code, but for now return null
+    // The rate lookup will work without it (falls back to flat rate)
+    return null;
+  }, [taskItems]);
+
+  // Fetch rates for service lines (for editor and billing preview)
+  useEffect(() => {
+    if (!profile?.tenant_id || !canSeeBilling || serviceLines.length === 0) {
+      setRatesMap(new Map());
+      return;
+    }
+
+    const fetchRates = async () => {
+      setRatesLoading(true);
+      const newRatesMap = new Map<string, RateInfo>();
+      const accountId = task?.account_id || undefined;
+
+      for (const line of serviceLines) {
+        const cacheKey = `${line.charge_code}|${accountId || ''}|${classCode || ''}`;
+
+        // Check cache first
+        if (ratesCache.current.has(cacheKey)) {
+          const cached = ratesCache.current.get(cacheKey)!;
+          newRatesMap.set(line.charge_code, cached);
+          continue;
+        }
+
+        try {
+          const result = await getEffectiveRate({
+            tenantId: profile.tenant_id,
+            chargeCode: line.charge_code,
+            accountId: accountId,
+            classCode: classCode || undefined,
+          });
+
+          const rateInfo: RateInfo = {
+            rate: result.effective_rate,
+            serviceName: result.charge_name || line.charge_name,
+            hasError: result.has_error,
+          };
+
+          ratesCache.current.set(cacheKey, rateInfo);
+          newRatesMap.set(line.charge_code, rateInfo);
+        } catch (error) {
+          console.error(`[TaskDetail] Rate lookup error for ${line.charge_code}:`, error);
+          const rateInfo: RateInfo = {
+            rate: 0,
+            serviceName: line.charge_name,
+            hasError: true,
+          };
+          ratesCache.current.set(cacheKey, rateInfo);
+          newRatesMap.set(line.charge_code, rateInfo);
+        }
+      }
+
+      setRatesMap(newRatesMap);
+      setRatesLoading(false);
+    };
+
+    fetchRates();
+  }, [profile?.tenant_id, canSeeBilling, serviceLines, task?.account_id, classCode]);
+
+  // Build service line preview for BillingCalculator
+  const serviceLinePreview = useMemo(() => {
+    if (!canSeeBilling || serviceLines.length === 0) {
+      return undefined; // Return undefined to fall back to legacy behavior
+    }
+
+    return serviceLines.map(line => {
+      const rateInfo = ratesMap.get(line.charge_code);
+      const rate = rateInfo?.rate ?? 0;
+      const qty = line.qty || 1;
+      return {
+        chargeCode: line.charge_code,
+        chargeName: line.charge_name,
+        quantity: qty,
+        unitRate: rate,
+        totalAmount: rateInfo?.hasError ? 0 : rate * qty,
+        hasError: rateInfo?.hasError ?? true,
+      };
+    });
+  }, [canSeeBilling, serviceLines, ratesMap]);
+
   const handleStartTask = async () => {
     if (!id || !profile?.id || !profile?.tenant_id) return;
     setActionLoading(true);
@@ -500,19 +595,8 @@ export default function TaskDetailPage() {
       return;
     }
 
-    // Validate Assembly and Repair tasks require billing quantity > 0
-    if (task.task_type === 'Assembly' || task.task_type === 'Repair') {
-      const billingQty = task.metadata?.billing_quantity ?? 0;
-      if (billingQty <= 0) {
-        const taskLabel = task.task_type === 'Assembly' ? 'assembly quantity' : 'repair hours';
-        toast({
-          variant: 'destructive',
-          title: 'Billing Required',
-          description: `Set ${taskLabel} before completing task`,
-        });
-        return;
-      }
-    }
+    // Note: Assembly/Repair no longer have hardcoded validation here.
+    // Service lines now handle quantity validation through the completion panel.
 
     setActionLoading(true);
     try {
@@ -993,7 +1077,7 @@ export default function TaskDetailPage() {
 
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Left Column - Details */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-6 min-w-0">
             {/* Task Description */}
             {task.description && (
               <Card>
@@ -1247,7 +1331,7 @@ export default function TaskDetailPage() {
           </div>
 
           {/* Right Column - Metadata */}
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Details</CardTitle>
@@ -1309,7 +1393,7 @@ export default function TaskDetailPage() {
             </Card>
 
             {/* Services Card (Phase 2) */}
-            <Card>
+            <Card className="min-w-0">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <MaterialIcon name="build" size="sm" />
@@ -1319,8 +1403,8 @@ export default function TaskDetailPage() {
                   Services determine billing for this task.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <TaskServiceChips
+              <CardContent className="overflow-x-auto">
+                <TaskServiceLinesEditor
                   serviceLines={serviceLines}
                   availableServices={availableServices}
                   suggestedChargeTypeIds={suggestedChargeTypeIds}
@@ -1335,6 +1419,9 @@ export default function TaskDetailPage() {
                     });
                   }}
                   onRemove={removeServiceLine}
+                  onUpdate={updateServiceLine}
+                  rates={ratesMap}
+                  showRates={canSeeBilling}
                   disabled={task.status === 'completed' || task.status === 'unable_to_complete'}
                   loading={serviceLinesLoading}
                 />
@@ -1374,9 +1461,7 @@ export default function TaskDetailPage() {
                 taskType={task.task_type}
                 refreshKey={billingRefreshKey}
                 title="Billing Calculator"
-                selectedServiceCode={task.metadata?.billing_service_code || '60MA'}
-                billingQuantity={task.metadata?.billing_quantity ?? 0}
-                billingRate={task.billing_rate}
+                serviceLinePreview={serviceLinePreview}
               />
             )}
           </div>
