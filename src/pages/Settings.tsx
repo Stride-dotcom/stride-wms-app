@@ -36,16 +36,12 @@ import { InviteUserDialog } from '@/components/settings/InviteUserDialog';
 // Removed: EmployeesSettingsTab - employee functionality consolidated into Users tab
 import { OrganizationSettingsTab } from '@/components/settings/OrganizationSettingsTab';
 import { SidemarksSettingsTab } from '@/components/settings/SidemarksSettingsTab';
-import { ServiceEventsPricingTab } from '@/components/settings/ServiceEventsPricingTab';
-import { ServiceCategoriesSettingsTab } from '@/components/settings/ServiceCategoriesSettingsTab';
-import { PricingSettingsTab } from '@/components/settings/PricingSettingsTab';
-import { ClassesSettingsTab } from '@/components/settings/ClassesSettingsTab';
+import { ServiceRatesConsole } from '@/components/settings/ServiceRatesConsole';
 
 import { LaborSettingsTab } from '@/components/settings/LaborSettingsTab';
 import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
 import { IntegrationsSettingsTab } from '@/components/settings/IntegrationsSettingsTab';
 import { PromptsSettingsTab } from '@/components/settings/PromptsSettingsTab';
-import { TenantTemplatesTab } from '@/components/settings/TenantTemplatesTab';
 import { AuditLogTab } from '@/components/settings/AuditLogTab';
 import { QATestConsoleTab } from '@/components/settings/QATestConsoleTab';
 import packageJson from '../../package.json';
@@ -63,11 +59,7 @@ const TAB_OPTIONS = [
   { value: 'alerts', label: 'Alerts' },
   { value: 'prompts', label: 'Prompts', adminOnly: true },
   { value: 'labor', label: 'Labor', adminOnly: true },
-  { value: 'classes', label: 'Classes', adminOnly: true },
-  { value: 'pricing', label: 'Pricing', adminOnly: true },
-  { value: 'legacy-pricing', label: 'Legacy Pricing', adminOnly: true },
-  { value: 'categories', label: 'Categories', adminOnly: true },
-  { value: 'templates', label: 'Templates', adminOnly: true },
+  { value: 'service-rates', label: 'Service Rates', adminOnly: true },
   { value: 'audit', label: 'Audit Log', adminOnly: true },
   { value: 'integrations', label: 'Integrations', adminOnly: true },
   { value: 'sidemarks', label: 'Sidemarks' },
@@ -337,11 +329,7 @@ export default function Settings() {
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
             {isAdmin && <TabsTrigger value="prompts">Prompts</TabsTrigger>}
             {isAdmin && <TabsTrigger value="labor">Labor</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="classes">Classes</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="pricing">Pricing</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="legacy-pricing">Legacy Pricing</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="categories">Categories</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="templates">Templates</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="service-rates">Service Rates</TabsTrigger>}
             {isAdmin && <TabsTrigger value="audit">Audit Log</TabsTrigger>}
             {isAdmin && <TabsTrigger value="integrations">Integrations</TabsTrigger>}
             <TabsTrigger value="sidemarks">Sidemarks</TabsTrigger>
@@ -430,38 +418,8 @@ export default function Settings() {
           )}
 
           {isAdmin && (
-            <TabsContent value="classes">
-              <ClassesSettingsTab />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="pricing">
-              <PricingSettingsTab />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="legacy-pricing">
-              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-950 dark:border-amber-800">
-                <p className="text-sm text-amber-800 dark:text-amber-200">
-                  <MaterialIcon name="info" size="sm" className="inline mr-1" />
-                  This is the legacy pricing system. Use the new "Pricing" tab for charge types and pricing rules.
-                </p>
-              </div>
-              <ServiceEventsPricingTab />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="categories">
-              <ServiceCategoriesSettingsTab />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="templates">
-              <TenantTemplatesTab />
+            <TabsContent value="service-rates">
+              <ServiceRatesConsole />
             </TabsContent>
           )}
 
