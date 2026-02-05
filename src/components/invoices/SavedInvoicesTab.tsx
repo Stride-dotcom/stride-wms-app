@@ -14,6 +14,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { downloadInvoicePdf, InvoicePdfData } from '@/lib/invoicePdf';
 import { sendEmail, buildInvoiceSentEmail } from '@/lib/email';
+import { getInvoiceStatusClasses } from '@/utils/statusColors';
 import * as XLSX from 'xlsx';
 
 interface Account {
@@ -460,18 +461,8 @@ export function SavedInvoicesTab() {
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'draft':
-        return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">Draft</Badge>;
-      case 'sent':
-        return <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">Sent</Badge>;
-      case 'paid':
-        return <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">Paid</Badge>;
-      case 'void':
-        return <Badge variant="outline" className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20">Void</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
+    const label = status.charAt(0).toUpperCase() + status.slice(1);
+    return <Badge variant="outline" className={getInvoiceStatusClasses(status)}>{label}</Badge>;
   };
 
   return (
