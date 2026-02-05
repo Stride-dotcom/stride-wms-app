@@ -181,6 +181,7 @@ export default function ItemDetail() {
   const [linkShipmentDialogOpen, setLinkShipmentDialogOpen] = useState(false);
   const [claimDialogOpen, setClaimDialogOpen] = useState(false);
   const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
+  const [billingRefreshKey, setBillingRefreshKey] = useState(0);
 
   // Inline edit state for autocomplete fields
   const [editVendor, setEditVendor] = useState('');
@@ -392,10 +393,12 @@ export default function ItemDetail() {
     }
   };
 
-  const handleFlagsChange = async (flags: any) => {
+  const handleFlagsChange = async () => {
     if (item) {
       // Refetch item to get updated status values from database
       await fetchItem();
+      // Refresh billing events section so new flag charges appear immediately
+      setBillingRefreshKey(prev => prev + 1);
     }
   };
 
@@ -914,13 +917,13 @@ export default function ItemDetail() {
               <ItemFlagsSection
                 itemId={item.id}
                 accountId={item.account_id || undefined}
-                onFlagsChange={() => fetchItem()}
+                onFlagsChange={handleFlagsChange}
                 isClientUser={isClientUser}
               />
 
               {/* Billing Events - Manager/Admin Only */}
               {canSeeBilling && (
-                <ItemBillingEventsSection itemId={item.id} />
+                <ItemBillingEventsSection itemId={item.id} refreshKey={billingRefreshKey} />
               )}
             </div>
 
@@ -1166,6 +1169,7 @@ export default function ItemDetail() {
         classId={item?.class_id || null}
         onSuccess={() => {
           setBillingChargeDialogOpen(false);
+          setBillingRefreshKey(prev => prev + 1);
         }}
       />
 
