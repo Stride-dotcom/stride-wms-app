@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
 import {
   Select,
   SelectContent,
@@ -59,6 +61,7 @@ export function PriceListTab({ navigateToTab }: PriceListTabProps) {
   const { deleteChargeType } = useChargeTypes();
   const { classes } = useClasses();
   const { activeCategories } = useServiceCategories();
+  const { toast } = useToast();
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -103,6 +106,49 @@ export function PriceListTab({ navigateToTab }: PriceListTabProps) {
     };
     setEditingChargeType(dup as ChargeTypeWithRules);
     setShowAddForm(true);
+  };
+
+  const handleExport = () => {
+    const wb = XLSX.utils.book_new();
+    const headers = ['Code', 'Name', 'Category', 'Trigger', 'Method', 'Unit', 'Rate', 'Min Charge', 'Active', 'Taxable', 'Scan', 'Flag'];
+    const rows = filtered.map(ct => {
+      const isClassBased = ct.pricing_rules.some(r => r.pricing_method === 'class_based');
+      const rates = ct.pricing_rules.map(r => r.rate);
+      const rateDisplay = rates.length === 0 ? '' : isClassBased
+        ? `${Math.min(...rates).toFixed(2)}-${Math.max(...rates).toFixed(2)}`
+        : rates[0]?.toFixed(2) || '';
+      return [
+        ct.charge_code,
+        ct.charge_name,
+        ct.category,
+        ct.default_trigger,
+        isClassBased ? 'class_based' : 'flat',
+        ct.pricing_rules[0]?.unit || 'each',
+        rateDisplay,
+        ct.pricing_rules[0]?.minimum_charge?.toFixed(2) || '',
+        ct.is_active ? 'Yes' : 'No',
+        ct.is_taxable ? 'Yes' : 'No',
+        ct.add_to_scan ? 'Yes' : 'No',
+        ct.add_flag ? 'Yes' : 'No',
+      ];
+    });
+
+    // Add class-specific rate columns
+    if (classes.length > 0) {
+      headers.push(...classes.map(c => `Rate: ${c.code}`));
+      rows.forEach((row, idx) => {
+        const ct = filtered[idx];
+        classes.forEach(cls => {
+          const rule = ct.pricing_rules.find(r => r.class_code === cls.code);
+          row.push(rule ? rule.rate.toFixed(2) : '');
+        });
+      });
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Price List');
+    XLSX.writeFile(wb, 'price-list-export.xlsx');
+    toast({ title: 'Exported', description: `${filtered.length} services exported to Excel.` });
   };
 
   if (showAddForm) {
@@ -215,6 +261,11 @@ export function PriceListTab({ navigateToTab }: PriceListTabProps) {
             <MaterialIcon name="grid_view" size="sm" />
           </button>
         </div>
+
+        <Button variant="outline" onClick={handleExport} className="hidden sm:flex">
+          <MaterialIcon name="download" size="sm" className="mr-1.5" />
+          Export
+        </Button>
 
         <Button onClick={() => setShowAddForm(true)} className="w-full sm:w-auto">
           <MaterialIcon name="add" size="sm" className="mr-1.5" />
