@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MobileDataCard } from '@/components/ui/mobile-data-card';
 import { AddShipmentDialog } from '@/components/shipments/AddShipmentDialog';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { cn } from '@/lib/utils';
+import { getShipmentStatusClasses } from '@/lib/statusColors';
 import { format } from 'date-fns';
 
 // ============================================
@@ -237,17 +239,6 @@ export default function ShipmentsList() {
   // Status badge helper
   // ------------------------------------------
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      expected: 'secondary',
-      pending: 'secondary',
-      in_progress: 'default',
-      receiving: 'default',
-      received: 'default',
-      released: 'default',
-      shipped: 'default',
-      completed: 'default',
-      cancelled: 'outline',
-    };
     const labels: Record<string, string> = {
       pending: 'Pending',
       shipped: 'Shipped',
@@ -259,7 +250,11 @@ export default function ShipmentsList() {
       completed: 'Completed',
       cancelled: 'Cancelled',
     };
-    return <Badge variant={variants[status] || 'secondary'}>{labels[status] || status}</Badge>;
+    return (
+      <Badge className={cn('border-0', getShipmentStatusClasses(status))}>
+        {labels[status] || status}
+      </Badge>
+    );
   };
 
   // ------------------------------------------

@@ -14,7 +14,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { downloadInvoicePdf, InvoicePdfData } from '@/lib/invoicePdf';
 import { sendEmail, buildInvoiceSentEmail } from '@/lib/email';
-import { getInvoiceStatusClasses } from '@/utils/statusColors';
+import { getInvoiceStatusClasses } from '@/lib/statusColors';
 import * as XLSX from 'xlsx';
 
 interface Account {

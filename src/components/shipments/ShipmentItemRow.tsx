@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ItemPreviewCard } from '@/components/items/ItemPreviewCard';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
+import { getShipmentStatusClasses } from '@/lib/statusColors';
 
 interface ShipmentItem {
   id: string;
@@ -621,7 +622,7 @@ export function ShipmentItemRow({
 
         {/* Status */}
         <TableCell className="w-24">
-          <Badge variant="outline" className="text-xs">{item.status}</Badge>
+          <Badge className={cn('text-xs border-0', getShipmentStatusClasses(item.status))}>{item.status}</Badge>
           {saving && (
             <MaterialIcon name="progress_activity" size="sm" className="ml-1 animate-spin inline" />
           )}

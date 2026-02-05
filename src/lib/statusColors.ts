@@ -3,7 +3,7 @@
  */
 
 // ── Shipment Status Colors ──────────────────────────────────────────────────
-// Used by: Shipment Hub, Item Details shipment history
+// Used by: Shipment Hub, Shipment Detail, Item Details shipment history
 
 export function getShipmentStatusClasses(status: string): string {
   const normalized = status.toLowerCase().replace(/[_\s-]/g, '');
@@ -19,6 +19,7 @@ export function getShipmentStatusClasses(status: string): string {
     case 'released':
     case 'completed':
     case 'delivered':
+    case 'received':
       return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
     case 'cancelled':
     case 'rejected':
@@ -34,7 +35,7 @@ export function getShipmentStatusClasses(status: string): string {
 // ── Shipment Type Colors ────────────────────────────────────────────────────
 // Used by: Item Details shipment history
 
-export function getShipmentTypeClasses(type: string): string {
+export function getShipmentTypeBadgeClasses(type: string): string {
   const normalized = type.toLowerCase().replace(/[_\s-]/g, '');
 
   switch (normalized) {
@@ -50,6 +51,9 @@ export function getShipmentTypeClasses(type: string): string {
       return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
   }
 }
+
+// Alias for backwards compatibility
+export const getShipmentTypeClasses = getShipmentTypeBadgeClasses;
 
 // ── Invoice-style Status Colors ─────────────────────────────────────────────
 // Used by: Saved Invoices, Invoice Builder, Report Builder, Quotes, Repair Quotes
@@ -72,15 +76,23 @@ export function getInvoiceStatusClasses(status: string): string {
       return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
     case 'countered':
       return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
+    case 'overdue':
+      return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
     default:
       return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
   }
 }
 
-// ── Task-style Status Colors ────────────────────────────────────────────────
-// Used by: Tasks page, Stocktake page, Shipment Hub (bold text variant)
+// ── Quote Status Colors (delegates to invoice) ──────────────────────────────
 
-export function getTaskStatusClasses(status: string): string {
+export function getQuoteStatusClasses(status: string): string {
+  return getInvoiceStatusClasses(status);
+}
+
+// ── Task-style Status Colors (bold text, no background) ─────────────────────
+// Used by: Tasks page
+
+export function getTaskStatusTextClasses(status: string): string {
   const normalized = status.toLowerCase().replace(/[_\s-]/g, '');
 
   switch (normalized) {
@@ -104,6 +116,9 @@ export function getTaskStatusClasses(status: string): string {
       return 'text-gray-500 dark:text-gray-400 font-bold';
   }
 }
+
+// Alias for backwards compatibility
+export const getTaskStatusClasses = getTaskStatusTextClasses;
 
 // ── Stocktake Status Colors (badge variant matching task style) ─────────────
 

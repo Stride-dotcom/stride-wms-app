@@ -47,7 +47,7 @@ import { HelpButton } from '@/components/prompts';
 import { SOPValidationDialog, SOPBlocker } from '@/components/common/SOPValidationDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { getStocktakeStatusClasses } from '@/utils/statusColors';
+import { getStocktakeStatusClasses } from '@/lib/statusColors';
 
 const statusLabels: Record<StocktakeStatus, string> = {
   draft: 'Draft',

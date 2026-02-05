@@ -18,7 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { sendEmail, buildInvoiceSentEmail } from "@/lib/email";
 import { queueInvoiceSentAlert } from "@/lib/alertQueue";
 import { downloadInvoicePdf, printInvoicePdf, InvoicePdfData } from "@/lib/invoicePdf";
-import { getInvoiceStatusClasses } from '@/utils/statusColors';
+import { getInvoiceStatusClasses } from '@/lib/statusColors';
 
 interface Account {
   id: string;

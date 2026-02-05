@@ -98,12 +98,12 @@ export function LocationsSettingsTab({
   // Persist warehouse filter per user
   useEffect(() => {
     if (profile?.id) {
-      const savedView = localStorage.getItem(`stride_location_view_${profile.id}`);
-      if (savedView) {
-        onWarehouseChange(savedView);
+      const saved = localStorage.getItem(`stride_location_view_${profile.id}`);
+      if (saved && (saved === 'all' || warehouses.some(w => w.id === saved))) {
+        onWarehouseChange(saved);
       }
     }
-  }, [profile?.id]);
+  }, [profile?.id, warehouses]);
 
   const handleWarehouseFilterChange = useCallback((value: string) => {
     onWarehouseChange(value);
@@ -490,7 +490,7 @@ export function LocationsSettingsTab({
                 />
               </div>
               {warehouses.length > 1 && selectedWarehouse === 'all' && (
-                <Select value={selectedWarehouse} onValueChange={onWarehouseChange}>
+                <Select value={selectedWarehouse} onValueChange={handleWarehouseFilterChange}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Select warehouse" />
                   </SelectTrigger>

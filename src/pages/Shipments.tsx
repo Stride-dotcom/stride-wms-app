@@ -20,8 +20,8 @@ import { useToast } from '@/hooks/use-toast';
 import { AddShipmentDialog } from '@/components/shipments/AddShipmentDialog';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
+import { getShipmentStatusClasses } from '@/lib/statusColors';
 import { format } from 'date-fns';
-import { getShipmentStatusClasses } from '@/utils/statusColors';
 
 interface ShipmentCounts {
   incoming: number;
@@ -229,6 +229,9 @@ export default function Shipments() {
           {item.account_name || 'No account'} • {item.carrier || 'No carrier'}
         </div>
       </div>
+      <Badge className={cn('text-xs border-0 ml-2 flex-shrink-0', getShipmentStatusClasses(item.status))}>
+        {item.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+      </Badge>
       <MaterialIcon name="chevron_right" size="sm" className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
     </div>
   );

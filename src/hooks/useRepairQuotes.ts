@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { queueRepairQuoteReadyAlert, queueRepairQuoteSentToClientAlert } from '@/lib/alertQueue';
 import { buildRepairQuoteReadyEmail } from '@/lib/email';
-import { getInvoiceStatusClasses } from '@/utils/statusColors';
+import { getInvoiceStatusClasses } from '@/lib/statusColors';
 
 // ============================================================================
 // NEW WORKFLOW TYPES

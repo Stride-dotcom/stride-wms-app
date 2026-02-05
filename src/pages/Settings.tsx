@@ -35,7 +35,6 @@ import { InviteUserDialog } from '@/components/settings/InviteUserDialog';
 // Removed: ItemTypesSettingsTab, RateSheetsSettingsTab, BillableServicesSettingsTab - using unified service_events pricing
 // Removed: EmployeesSettingsTab - employee functionality consolidated into Users tab
 import { OrganizationSettingsTab } from '@/components/settings/OrganizationSettingsTab';
-import { SidemarksSettingsTab } from '@/components/settings/SidemarksSettingsTab';
 import { ServiceRatesConsole } from '@/components/settings/ServiceRatesConsole';
 
 import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
@@ -442,7 +441,7 @@ export default function Settings() {
             </TabsContent>
           )}
 
-          {/* Removed: Services, Rate Sheets, Classes tabs - now using unified service_events pricing system */}
+          {/* Removed: Sidemarks, Services, Rate Sheets, Classes tabs - consolidated or using unified service_events pricing system */}
 
           <TabsContent value="warehouses">
             <div className="space-y-4">

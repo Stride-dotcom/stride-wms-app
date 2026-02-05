@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useReceivingSession } from '@/hooks/useReceivingSession';
 import { usePermissions, PERMISSIONS } from '@/hooks/usePermissions';
 import { isValidUuid, cn } from '@/lib/utils';
+import { getShipmentStatusClasses } from '@/lib/statusColors';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -1176,16 +1177,6 @@ export default function ShipmentDetail() {
   // Status badge helper
   // ------------------------------------------
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      expected: 'secondary',
-      receiving: 'default',
-      in_progress: 'default',
-      received: 'default',
-      partial: 'destructive',
-      shipped: 'default',
-      completed: 'default',
-      cancelled: 'outline',
-    };
     const labels: Record<string, string> = {
       expected: 'Expected',
       receiving: 'In Progress',
@@ -1196,7 +1187,11 @@ export default function ShipmentDetail() {
       completed: 'Completed',
       cancelled: 'Cancelled',
     };
-    return <Badge variant={variants[status] || 'secondary'}>{labels[status] || status}</Badge>;
+    return (
+      <Badge className={cn('border-0', getShipmentStatusClasses(status))}>
+        {labels[status] || status}
+      </Badge>
+    );
   };
 
   // ------------------------------------------
@@ -2017,10 +2012,7 @@ export default function ShipmentDetail() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Badge variant={
-                        item.status === 'received' ? 'default' :
-                        item.status === 'partial' ? 'secondary' : 'destructive'
-                      }>
+                      <Badge className={cn('border-0', getShipmentStatusClasses(item.status))}>
                         {item.status}
                       </Badge>
                     </TableCell>

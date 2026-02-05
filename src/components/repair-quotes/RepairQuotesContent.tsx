@@ -44,9 +44,8 @@ import {
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { getInvoiceStatusClasses } from '@/lib/statusColors';
 
-export function RepairQuotesTab() {
+export function RepairQuotesContent() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -289,11 +288,7 @@ export function RepairQuotesTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold">Repair Quote Workflow</h2>
-          <p className="text-sm text-muted-foreground">Manage repair quote workflow</p>
-        </div>
+      <div className="flex items-center justify-end">
         <Button onClick={refetch} variant="outline">
           <MaterialIcon name="refresh" size="sm" className="mr-2" />
           Refresh

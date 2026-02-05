@@ -30,6 +30,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { isValidUuid, cn } from '@/lib/utils';
+import { getShipmentStatusClasses, getShipmentTypeBadgeClasses } from '@/lib/statusColors';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { ItemFlagsSection } from '@/components/items/ItemFlagsSection';
 import { ItemBillingEventsSection } from '@/components/items/ItemBillingEventsSection';
@@ -52,7 +53,6 @@ import { ItemLabelData } from '@/lib/labelGenerator';
 import { ScanDocumentButton, DocumentList } from '@/components/scanner';
 import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { getShipmentStatusClasses, getShipmentTypeClasses } from '@/utils/statusColors';
 import { QuickReleaseDialog } from '@/components/inventory/QuickReleaseDialog';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
 
@@ -954,10 +954,12 @@ export default function ItemDetail() {
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
-                        <Badge className={getShipmentTypeClasses('inbound')}>inbound</Badge>
+                        <Badge className={getShipmentTypeBadgeClasses('inbound')}>Inbound</Badge>
                         <span className="font-medium text-lg">{item.receiving_shipment.shipment_number}</span>
                       </div>
-                      <Badge className={getShipmentStatusClasses(item.receiving_shipment.status)}>{item.receiving_shipment.status}</Badge>
+                      <Badge className={getShipmentStatusClasses(item.receiving_shipment.status)}>
+                        {item.receiving_shipment.status.charAt(0).toUpperCase() + item.receiving_shipment.status.slice(1).replace(/_/g, ' ')}
+                      </Badge>
                       {item.receiving_shipment.received_at && (
                         <span className="text-sm text-muted-foreground">
                           Received: {format(new Date(item.receiving_shipment.received_at), 'MMM d, yyyy')}

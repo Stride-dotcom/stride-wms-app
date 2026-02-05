@@ -47,7 +47,7 @@ import {
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { getInvoiceStatusClasses } from '@/utils/statusColors';
+import { getInvoiceStatusClasses } from '@/lib/statusColors';
 
 export default function RepairQuotes() {
   const navigate = useNavigate();
