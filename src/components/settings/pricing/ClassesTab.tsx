@@ -5,15 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,18 +16,18 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { LabelWithTooltip } from '@/components/ui/label-with-tooltip';
+import { ActiveBadge } from '@/components/ui/active-badge';
 import { fieldDescriptions } from '@/lib/pricing/fieldDescriptions';
 import { useClasses, type ItemClass } from '@/hooks/useClasses';
 import { useToast } from '@/hooks/use-toast';
@@ -51,7 +42,6 @@ function generateClassCode(name: string): string {
   const trimmed = name.trim().toUpperCase();
   const words = trimmed.split(/\s+/);
 
-  // Common abbreviations
   const abbreviations: Record<string, string> = {
     'EXTRA SMALL': 'XS',
     'EXTRA LARGE': 'XL',
@@ -75,10 +65,11 @@ function generateClassCode(name: string): string {
 export function ClassesTab() {
   const { classes, loading, createClass, updateClass, deleteClass } = useClasses({ includeInactive: true });
   const { toast } = useToast();
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [editingClass, setEditingClass] = useState<ItemClass | null>(null);
+  const [expandedItem, setExpandedItem] = useState<string>('');
+  const [showAddForm, setShowAddForm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<ItemClass | null>(null);
   const [explainerOpen, setExplainerOpen] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const handleDelete = async () => {
     if (!deleteConfirm) return;
@@ -90,16 +81,6 @@ export function ClassesTab() {
       toast({ variant: 'destructive', title: 'Error', description: message });
     }
     setDeleteConfirm(null);
-  };
-
-  const handleToggleActive = async (cls: ItemClass) => {
-    try {
-      await updateClass(cls.id, { is_active: !cls.is_active });
-      toast({ title: cls.is_active ? 'Class deactivated' : 'Class activated' });
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'An error occurred';
-      toast({ variant: 'destructive', title: 'Error', description: message });
-    }
   };
 
   if (loading) {
@@ -119,7 +100,7 @@ export function ClassesTab() {
             Define item groups for class-based pricing. Items are automatically classified when dimensions are entered.
           </p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)} className="w-full sm:w-auto">
+        <Button onClick={() => setShowAddForm(true)} className="w-full sm:w-auto">
           <MaterialIcon name="add" size="sm" className="mr-1.5" />
           Add Class
         </Button>
@@ -188,8 +169,29 @@ export function ClassesTab() {
         </Card>
       </Collapsible>
 
-      {/* Classes list — removed Sort Order, Min/Max Cubic Feet; added Active status */}
-      {classes.length === 0 ? (
+      {/* Add New Class inline form */}
+      {showAddForm && (
+        <AddClassForm
+          saving={saving}
+          onSave={async (data) => {
+            setSaving(true);
+            try {
+              await createClass(data);
+              setShowAddForm(false);
+              toast({ title: 'Class created' });
+            } catch (error: unknown) {
+              const message = error instanceof Error ? error.message : 'An error occurred';
+              toast({ variant: 'destructive', title: 'Error', description: message });
+            } finally {
+              setSaving(false);
+            }
+          }}
+          onCancel={() => setShowAddForm(false)}
+        />
+      )}
+
+      {/* Empty state */}
+      {classes.length === 0 && !showAddForm ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
             <MaterialIcon name="label" size="xl" className="text-muted-foreground" />
@@ -198,123 +200,61 @@ export function ClassesTab() {
           <p className="text-muted-foreground mb-6 max-w-sm">
             Add classes to enable class-based pricing tiers.
           </p>
-          <Button onClick={() => setShowCreateDialog(true)}>
+          <Button onClick={() => setShowAddForm(true)}>
             <MaterialIcon name="add" size="sm" className="mr-1.5" />
             Add First Class
           </Button>
         </div>
-      ) : (
-        <div className="space-y-2">
+      ) : classes.length > 0 && (
+        <Accordion
+          type="single"
+          collapsible
+          value={expandedItem}
+          onValueChange={setExpandedItem}
+          className="space-y-2"
+        >
           {classes.map((cls) => (
-            <Card key={cls.id} className={cn(!cls.is_active && 'opacity-60')}>
-              <CardContent className="flex items-center gap-3 py-3 px-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{cls.name}</span>
-                    <Badge variant="outline" className="font-mono text-xs shrink-0">{cls.code}</Badge>
-                    {cls.is_active ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-green-600">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                        Active
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
-                        Inactive
-                      </span>
-                    )}
+            <AccordionItem
+              key={cls.id}
+              value={cls.id}
+              className="border rounded-lg overflow-hidden"
+            >
+              <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50">
+                <div className="flex items-center gap-2 flex-1 min-w-0 text-left">
+                  <Badge variant="outline" className="font-mono text-xs shrink-0">{cls.code}</Badge>
+                  <span className={cn('font-medium text-sm', !cls.is_active && 'opacity-50')}>
+                    {cls.name}
+                  </span>
+                  <div className="ml-auto mr-2">
+                    <ActiveBadge active={cls.is_active ?? true} />
                   </div>
-                  {cls.notes && (
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{cls.notes}</p>
-                  )}
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingClass(cls)}>
-                          <MaterialIcon name="edit" size="sm" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Edit</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleToggleActive(cls)}
-                        >
-                          <MaterialIcon
-                            name={cls.is_active ? 'visibility_off' : 'visibility'}
-                            size="sm"
-                          />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>{cls.is_active ? 'Deactivate' : 'Activate'}</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteConfirm(cls)}
-                        >
-                          <MaterialIcon name="delete" size="sm" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Deactivate</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </CardContent>
-            </Card>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4">
+                <ClassEditForm
+                  itemClass={cls}
+                  saving={saving}
+                  onSave={async (data) => {
+                    setSaving(true);
+                    try {
+                      await updateClass(cls.id, data);
+                      setExpandedItem('');
+                      toast({ title: 'Class updated' });
+                    } catch (error: unknown) {
+                      const message = error instanceof Error ? error.message : 'An error occurred';
+                      toast({ variant: 'destructive', title: 'Error', description: message });
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  onCancel={() => setExpandedItem('')}
+                  onDelete={() => setDeleteConfirm(cls)}
+                />
+              </AccordionContent>
+            </AccordionItem>
           ))}
-        </div>
+        </Accordion>
       )}
-
-      {/* Create Dialog */}
-      <ClassDialog
-        open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
-        onSave={async (data) => {
-          try {
-            await createClass(data);
-            setShowCreateDialog(false);
-            toast({ title: 'Class created' });
-          } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : 'An error occurred';
-            toast({ variant: 'destructive', title: 'Error', description: message });
-          }
-        }}
-      />
-
-      {/* Edit Dialog */}
-      <ClassDialog
-        open={!!editingClass}
-        onOpenChange={(open) => !open && setEditingClass(null)}
-        itemClass={editingClass}
-        onSave={async (data) => {
-          if (editingClass) {
-            try {
-              await updateClass(editingClass.id, data);
-              setEditingClass(null);
-              toast({ title: 'Class updated' });
-            } catch (error: unknown) {
-              const message = error instanceof Error ? error.message : 'An error occurred';
-              toast({ variant: 'destructive', title: 'Error', description: message });
-            }
-          }
-        }}
-      />
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
@@ -342,139 +282,168 @@ export function ClassesTab() {
 }
 
 // =============================================================================
-// CLASS DIALOG — Name first, Code auto-generated, Active toggle, no Sort/MinMax
+// CLASS EDIT FORM — inline within accordion
 // =============================================================================
 
-interface ClassDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  itemClass?: ItemClass | null;
-  onSave: (data: {
-    code: string;
-    name: string;
-    is_active?: boolean | null;
-    notes?: string | null;
-  }) => Promise<void>;
+interface ClassEditFormProps {
+  itemClass: ItemClass;
+  saving: boolean;
+  onSave: (data: { code: string; name: string; is_active?: boolean | null; notes?: string | null }) => Promise<void>;
+  onCancel: () => void;
+  onDelete: () => void;
 }
 
-function ClassDialog({ open, onOpenChange, itemClass, onSave }: ClassDialogProps) {
-  const [saving, setSaving] = useState(false);
-  const [codeManual, setCodeManual] = useState(!!itemClass);
-  const [formData, setFormData] = useState({
-    name: itemClass?.name || '',
-    code: itemClass?.code || '',
-    isActive: itemClass?.is_active ?? true,
-    notes: itemClass?.notes ?? '',
-  });
+function ClassEditForm({ itemClass, saving, onSave, onCancel, onDelete }: ClassEditFormProps) {
+  const [name, setName] = useState(itemClass.name);
+  const [code, setCode] = useState(itemClass.code);
+  const [notes, setNotes] = useState(itemClass.notes ?? '');
+  const [isActive, setIsActive] = useState(itemClass.is_active ?? true);
 
-  // Sync form state when dialog opens with a different class
   useEffect(() => {
-    if (open && itemClass) {
-      setFormData({
-        name: itemClass.name,
-        code: itemClass.code,
-        isActive: itemClass.is_active ?? true,
-        notes: itemClass.notes ?? '',
-      });
-      setCodeManual(true);
-    } else if (open && !itemClass) {
-      setFormData({
-        name: '',
-        code: '',
-        isActive: true,
-        notes: '',
-      });
-      setCodeManual(false);
-    }
-  }, [open, itemClass]);
+    setName(itemClass.name);
+    setCode(itemClass.code);
+    setNotes(itemClass.notes ?? '');
+    setIsActive(itemClass.is_active ?? true);
+  }, [itemClass]);
 
-  // Auto-generate code from name
-  useEffect(() => {
-    if (!codeManual && formData.name) {
-      setFormData(prev => ({ ...prev, code: generateClassCode(prev.name) }));
-    }
-  }, [formData.name, codeManual]);
-
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen && itemClass) {
-      setFormData({
-        name: itemClass.name,
-        code: itemClass.code,
-        isActive: itemClass.is_active ?? true,
-        notes: itemClass.notes ?? '',
-      });
-      setCodeManual(true);
-    } else if (isOpen) {
-      setFormData({
-        name: '',
-        code: '',
-        isActive: true,
-        notes: '',
-      });
-      setCodeManual(false);
-    }
-    onOpenChange(isOpen);
+  const handleCancel = () => {
+    setName(itemClass.name);
+    setCode(itemClass.code);
+    setNotes(itemClass.notes ?? '');
+    setIsActive(itemClass.is_active ?? true);
+    onCancel();
   };
 
   const handleSave = async () => {
-    setSaving(true);
-    try {
-      await onSave({
-        code: formData.code.toUpperCase(),
-        name: formData.name,
-        is_active: formData.isActive,
-        notes: formData.notes || null,
-      });
-    } finally {
-      setSaving(false);
-    }
+    if (!name.trim() || !code.trim()) return;
+    await onSave({
+      name: name.trim(),
+      code: code.toUpperCase().trim(),
+      is_active: isActive,
+      notes: notes.trim() || null,
+    });
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{itemClass ? 'Edit Class' : 'Create Class'}</DialogTitle>
-          <DialogDescription>
-            {itemClass
-              ? 'Update the class configuration.'
-              : 'Create a new pricing class for items.'}
-          </DialogDescription>
-        </DialogHeader>
+    <div className="space-y-4 pt-3 border-t border-dashed">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor={`cls-name-${itemClass.id}`} className="text-sm font-medium">Name</Label>
+          <Input
+            id={`cls-name-${itemClass.id}`}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., Small, Large, High Value"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={`cls-code-${itemClass.id}`} className="text-sm font-medium">Code</Label>
+          <Input
+            id={`cls-code-${itemClass.id}`}
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="e.g., S, L, HV"
+            className="font-mono"
+            maxLength={10}
+          />
+        </div>
+      </div>
 
-        <div className="grid gap-4 py-4">
-          {/* Name first */}
+      <div className="space-y-2">
+        <Label htmlFor={`cls-notes-${itemClass.id}`} className="text-sm font-medium">Description</Label>
+        <Input
+          id={`cls-notes-${itemClass.id}`}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Optional description"
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium">Active</Label>
+        <Switch checked={isActive} onCheckedChange={setIsActive} />
+      </div>
+
+      <div className="flex items-center justify-between pt-2 border-t">
+        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDelete}>
+          <MaterialIcon name="delete" size="sm" className="mr-1" />
+          Deactivate
+        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={saving || !name.trim() || !code.trim()}>
+            {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />}
+            Save Changes
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// ADD CLASS FORM — inline at top of list
+// =============================================================================
+
+interface AddClassFormProps {
+  saving: boolean;
+  onSave: (data: { code: string; name: string; is_active?: boolean | null; notes?: string | null }) => Promise<void>;
+  onCancel: () => void;
+}
+
+function AddClassForm({ saving, onSave, onCancel }: AddClassFormProps) {
+  const [name, setName] = useState('');
+  const [code, setCode] = useState('');
+  const [codeManual, setCodeManual] = useState(false);
+  const [notes, setNotes] = useState('');
+  const [isActive, setIsActive] = useState(true);
+
+  useEffect(() => {
+    if (!codeManual && name) {
+      setCode(generateClassCode(name));
+    }
+  }, [name, codeManual]);
+
+  const handleSave = async () => {
+    if (!name.trim() || !code.trim()) return;
+    await onSave({
+      name: name.trim(),
+      code: code.toUpperCase().trim(),
+      is_active: isActive,
+      notes: notes.trim() || null,
+    });
+  };
+
+  return (
+    <Card className="border-primary/50">
+      <CardContent className="pt-4 space-y-4">
+        <p className="text-sm font-medium">New Class</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <LabelWithTooltip htmlFor="clsName" tooltip={fieldDescriptions.className} required>
-              Name
-            </LabelWithTooltip>
+            <Label htmlFor="new-cls-name" className="text-sm font-medium">Name</Label>
             <Input
-              id="clsName"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              id="new-cls-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Small, Large, High Value"
               autoFocus
             />
           </div>
-
-          {/* Code with auto-generation */}
           <div className="space-y-2">
-            <LabelWithTooltip htmlFor="clsCode" tooltip={fieldDescriptions.classCode} required>
-              Code
-            </LabelWithTooltip>
+            <Label htmlFor="new-cls-code" className="text-sm font-medium">Code</Label>
             <div className="relative">
               <Input
-                id="clsCode"
-                value={formData.code}
-                onChange={(e) => {
-                  setFormData({ ...formData, code: e.target.value.toUpperCase() });
-                  setCodeManual(true);
-                }}
+                id="new-cls-code"
+                value={code}
+                onChange={(e) => { setCode(e.target.value.toUpperCase()); setCodeManual(true); }}
                 placeholder="Auto-generated"
+                className={cn('font-mono', !codeManual && code && 'text-muted-foreground')}
                 maxLength={10}
-                className={cn('font-mono', !codeManual && formData.code && 'text-muted-foreground')}
               />
-              {codeManual && !itemClass && (
+              {codeManual && (
                 <button
                   type="button"
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
@@ -484,59 +453,34 @@ function ClassDialog({ open, onOpenChange, itemClass, onSave }: ClassDialogProps
                 </button>
               )}
             </div>
-            {!codeManual && !formData.code && (
-              <p className="text-xs text-muted-foreground">Auto-generated from class name</p>
-            )}
-          </div>
-
-          {/* Notes */}
-          <div className="space-y-2">
-            <Label htmlFor="clsNotes" className="text-sm font-medium">Notes</Label>
-            <Textarea
-              id="clsNotes"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Optional notes..."
-              rows={2}
-            />
-          </div>
-
-          {/* Active toggle */}
-          <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium">Active</Label>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="clsActive"
-                checked={formData.isActive}
-                onCheckedChange={(v) => setFormData({ ...formData, isActive: v })}
-              />
-              <Label htmlFor="clsActive" className="cursor-pointer text-sm">
-                {formData.isActive ? 'Active' : 'Inactive'}
-              </Label>
-            </div>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+        <div className="space-y-2">
+          <Label htmlFor="new-cls-notes" className="text-sm font-medium">Description</Label>
+          <Input
+            id="new-cls-notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Optional description"
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Active</Label>
+          <Switch checked={isActive} onCheckedChange={setIsActive} />
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2 border-t">
+          <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
             Cancel
           </Button>
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !formData.code || !formData.name}
-          >
-            {saving ? (
-              <>
-                <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-1" />
-                Saving...
-              </>
-            ) : (
-              itemClass ? 'Update' : 'Create'
-            )}
+          <Button size="sm" onClick={handleSave} disabled={saving || !name.trim() || !code.trim()}>
+            {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />}
+            Create
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

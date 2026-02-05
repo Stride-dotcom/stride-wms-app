@@ -1,19 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,8 +23,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { LabelWithTooltip } from '@/components/ui/label-with-tooltip';
-import { fieldDescriptions } from '@/lib/pricing/fieldDescriptions';
+import { ActiveBadge } from '@/components/ui/active-badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useChargeTypes, type ChargeType } from '@/hooks/useChargeTypes';
@@ -79,7 +70,6 @@ function useTaskTemplates() {
   const { toast } = useToast();
   const { chargeTypes } = useChargeTypes();
 
-  // Use refs to avoid stale closures without adding to dependency arrays
   const chargeTypesRef = useRef(chargeTypes);
   chargeTypesRef.current = chargeTypes;
   const toastRef = useRef(toast);
@@ -155,7 +145,6 @@ function useTaskTemplates() {
     fetchTemplates();
   }, [fetchTemplates]);
 
-  // Re-merge charge types when they load (without re-fetching from DB)
   useEffect(() => {
     if (chargeTypes.length > 0 && templates.length > 0) {
       setTemplates(prev => prev.map(tt => ({
@@ -224,7 +213,6 @@ function useTaskTemplates() {
 
   const deleteTemplate = async (id: string): Promise<boolean> => {
     try {
-      // Delete links first
       await (supabase as any)
         .from('task_type_charge_links')
         .delete()
@@ -308,8 +296,8 @@ export function TaskTemplatesTab() {
   const { chargeTypes } = useChargeTypes();
 
   const [filter, setFilter] = useState<FilterType>('all');
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<TaskTemplateWithLinks | null>(null);
+  const [expandedItem, setExpandedItem] = useState<string>('');
+  const [showAddForm, setShowAddForm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<TaskTemplateWithLinks | null>(null);
 
   const filtered = templates.filter(t => {
@@ -317,25 +305,6 @@ export function TaskTemplatesTab() {
     if (filter === 'non-billable') return !t.is_billable;
     return true;
   });
-
-  const handleSaveTemplate = async (
-    data: { name: string; description: string | null; is_billable: boolean; is_active: boolean },
-    serviceIds: string[]
-  ) => {
-    if (editingTemplate) {
-      const ok = await updateTemplate(editingTemplate.id, data);
-      if (ok) {
-        await replaceLinks(editingTemplate.id, serviceIds);
-        setDialogOpen(false);
-      }
-    } else {
-      const result = await createTemplate(data);
-      if (result) {
-        await replaceLinks(result.id, serviceIds);
-        setDialogOpen(false);
-      }
-    }
-  };
 
   if (loading) {
     return (
@@ -369,7 +338,7 @@ export function TaskTemplatesTab() {
             Preconfigured service bundles for common task workflows. When a task uses a template, linked services are automatically added.
           </p>
         </div>
-        <Button onClick={() => { setEditingTemplate(null); setDialogOpen(true); }} className="w-full sm:w-auto">
+        <Button onClick={() => setShowAddForm(true)} className="w-full sm:w-auto">
           <MaterialIcon name="add" size="sm" className="mr-1.5" />
           Add Template
         </Button>
@@ -393,8 +362,25 @@ export function TaskTemplatesTab() {
         ))}
       </div>
 
+      {/* Add New Template inline form */}
+      {showAddForm && (
+        <AddTemplateForm
+          chargeTypes={chargeTypes}
+          onSave={async (data, serviceIds) => {
+            const result = await createTemplate(data);
+            if (result) {
+              if (serviceIds.length > 0) {
+                await replaceLinks(result.id, serviceIds);
+              }
+              setShowAddForm(false);
+            }
+          }}
+          onCancel={() => setShowAddForm(false)}
+        />
+      )}
+
       {/* Empty state */}
-      {templates.length === 0 ? (
+      {templates.length === 0 && !showAddForm ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
             <MaterialIcon name="assignment" size="xl" className="text-muted-foreground" />
@@ -403,7 +389,7 @@ export function TaskTemplatesTab() {
           <p className="text-muted-foreground mb-6 max-w-sm">
             Create templates to define which services are automatically added to tasks.
           </p>
-          <Button onClick={() => { setEditingTemplate(null); setDialogOpen(true); }}>
+          <Button onClick={() => setShowAddForm(true)}>
             <MaterialIcon name="add" size="sm" className="mr-1.5" />
             Add First Template
           </Button>
@@ -413,84 +399,57 @@ export function TaskTemplatesTab() {
           No templates match the current filter.
         </div>
       ) : (
-        <Accordion type="multiple" className="space-y-2">
+        <Accordion
+          type="single"
+          collapsible
+          value={expandedItem}
+          onValueChange={setExpandedItem}
+          className="space-y-2"
+        >
           {filtered.map((template) => (
             <AccordionItem key={template.id} value={template.id} className="border rounded-lg overflow-hidden">
               <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50">
-                <div className="flex items-center gap-3 flex-1 text-left">
-                  <span className="font-medium text-sm">{template.name}</span>
-                  <Badge variant={template.is_billable ? 'default' : 'secondary'} className="text-xs">
-                    {template.is_billable ? 'Billable' : 'Non-Billable'}
-                  </Badge>
-                  {!template.is_active && <Badge variant="secondary" className="text-xs">Inactive</Badge>}
-                  <span className="text-xs text-muted-foreground ml-auto mr-2">
-                    {template.links.length > 0
-                      ? `${template.links.length} service${template.links.length !== 1 ? 's' : ''}`
-                      : 'No services'}
-                  </span>
+                <div className="flex flex-col flex-1 min-w-0 text-left gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className={cn('font-medium text-sm', !template.is_active && 'opacity-50')}>
+                      {template.name}
+                    </span>
+                    <Badge variant={template.is_billable ? 'default' : 'secondary'} className="text-xs">
+                      {template.is_billable ? 'Billable' : 'Non-Billable'}
+                    </Badge>
+                    <div className="ml-auto mr-2 flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {template.links.length > 0
+                          ? `${template.links.length} service${template.links.length !== 1 ? 's' : ''}`
+                          : 'No services'}
+                      </span>
+                      <ActiveBadge active={template.is_active} />
+                    </div>
+                  </div>
+                  {template.description && (
+                    <p className="text-xs text-muted-foreground truncate">{template.description}</p>
+                  )}
                 </div>
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-4">
-                <div className="space-y-3 pt-2">
-                  {template.description && (
-                    <p className="text-sm text-muted-foreground">{template.description}</p>
-                  )}
-
-                  {/* Linked services */}
-                  {template.links.length === 0 ? (
-                    <p className="text-sm text-muted-foreground italic">No services linked — legacy billing on task completion</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {template.links.map((link, idx) => (
-                        <div key={link.id} className="flex items-center justify-between py-1.5 px-3 rounded bg-muted/50 text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">{idx + 1}.</span>
-                            {link.charge_type ? (
-                              <>
-                                <Badge variant="outline" className="font-mono text-xs">{link.charge_type.charge_code}</Badge>
-                                <span>{link.charge_type.charge_name}</span>
-                              </>
-                            ) : (
-                              <span className="text-muted-foreground italic">Unknown service</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-xs">{link.scope}</Badge>
-                            <Badge variant={link.auto_calculate ? 'default' : 'secondary'} className="text-xs">
-                              {link.auto_calculate ? 'Auto' : 'Manual'}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-2 border-t">
-                    <Button variant="outline" size="sm" onClick={() => { setEditingTemplate(template); setDialogOpen(true); }}>
-                      <MaterialIcon name="edit" size="sm" className="mr-1" />
-                      Edit
-                    </Button>
-                    <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(template)}>
-                      <MaterialIcon name="delete" size="sm" className="mr-1" />
-                      Delete
-                    </Button>
-                  </div>
-                </div>
+                <TemplateEditForm
+                  template={template}
+                  chargeTypes={chargeTypes}
+                  onSave={async (data, serviceIds) => {
+                    const ok = await updateTemplate(template.id, data);
+                    if (ok) {
+                      await replaceLinks(template.id, serviceIds);
+                      setExpandedItem('');
+                    }
+                  }}
+                  onCancel={() => setExpandedItem('')}
+                  onDelete={() => setDeleteConfirm(template)}
+                />
               </AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>
       )}
-
-      {/* Template Dialog — with integrated service assignment */}
-      <TemplateDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        template={editingTemplate}
-        chargeTypes={chargeTypes}
-        onSave={handleSaveTemplate}
-      />
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
@@ -522,71 +481,50 @@ export function TaskTemplatesTab() {
 }
 
 // =============================================================================
-// TEMPLATE DIALOG — with integrated service search & assignment
+// TEMPLATE EDIT FORM — inline within accordion, with service checklist
 // =============================================================================
 
-interface TemplateDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  template?: TaskTemplateWithLinks | null;
+interface TemplateEditFormProps {
+  template: TaskTemplateWithLinks;
   chargeTypes: ChargeType[];
   onSave: (
     data: { name: string; description: string | null; is_billable: boolean; is_active: boolean },
-    serviceIds: string[]
+    serviceIds: string[],
   ) => Promise<void>;
+  onCancel: () => void;
+  onDelete: () => void;
 }
 
-function TemplateDialog({ open, onOpenChange, template, chargeTypes, onSave }: TemplateDialogProps) {
-  const [saving, setSaving] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [isBillable, setIsBillable] = useState(true);
-  const [isActive, setIsActive] = useState(true);
-  const [assignedServiceIds, setAssignedServiceIds] = useState<string[]>([]);
+function TemplateEditForm({ template, chargeTypes, onSave, onCancel, onDelete }: TemplateEditFormProps) {
+  const [name, setName] = useState(template.name);
+  const [description, setDescription] = useState(template.description || '');
+  const [isBillable, setIsBillable] = useState(template.is_billable);
+  const [isActive, setIsActive] = useState(template.is_active);
+  const [assignedIds, setAssignedIds] = useState<string[]>(template.links.map(l => l.charge_type_id));
   const [searchQuery, setSearchQuery] = useState('');
-  const [showServiceDropdown, setShowServiceDropdown] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Sync form state when dialog opens
   useEffect(() => {
-    if (open && template) {
-      setName(template.name);
-      setDescription(template.description || '');
-      setIsBillable(template.is_billable);
-      setIsActive(template.is_active);
-      setAssignedServiceIds(template.links.map(l => l.charge_type_id));
-      setSearchQuery('');
-      setShowServiceDropdown(false);
-    } else if (open && !template) {
-      setName('');
-      setDescription('');
-      setIsBillable(true);
-      setIsActive(true);
-      setAssignedServiceIds([]);
-      setSearchQuery('');
-      setShowServiceDropdown(false);
-    }
-  }, [open, template]);
-
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen && template) {
-      setName(template.name);
-      setDescription(template.description || '');
-      setIsBillable(template.is_billable);
-      setIsActive(template.is_active);
-      setAssignedServiceIds(template.links.map(l => l.charge_type_id));
-    } else if (isOpen) {
-      setName('');
-      setDescription('');
-      setIsBillable(true);
-      setIsActive(true);
-      setAssignedServiceIds([]);
-    }
+    setName(template.name);
+    setDescription(template.description || '');
+    setIsBillable(template.is_billable);
+    setIsActive(template.is_active);
+    setAssignedIds(template.links.map(l => l.charge_type_id));
     setSearchQuery('');
-    setShowServiceDropdown(false);
-    onOpenChange(isOpen);
+  }, [template]);
+
+  const handleCancel = () => {
+    setName(template.name);
+    setDescription(template.description || '');
+    setIsBillable(template.is_billable);
+    setIsActive(template.is_active);
+    setAssignedIds(template.links.map(l => l.charge_type_id));
+    setSearchQuery('');
+    onCancel();
   };
 
   const handleSave = async () => {
+    if (!name.trim()) return;
     setSaving(true);
     try {
       await onSave(
@@ -596,179 +534,288 @@ function TemplateDialog({ open, onOpenChange, template, chargeTypes, onSave }: T
           is_billable: isBillable,
           is_active: isActive,
         },
-        assignedServiceIds
+        assignedIds,
       );
     } finally {
       setSaving(false);
     }
   };
 
-  const addService = (chargeTypeId: string) => {
-    if (!assignedServiceIds.includes(chargeTypeId)) {
-      setAssignedServiceIds(prev => [...prev, chargeTypeId]);
-    }
-    setSearchQuery('');
-    setShowServiceDropdown(false);
+  const toggleService = (chargeTypeId: string) => {
+    setAssignedIds(prev =>
+      prev.includes(chargeTypeId)
+        ? prev.filter(id => id !== chargeTypeId)
+        : [...prev, chargeTypeId]
+    );
   };
 
-  const removeService = (chargeTypeId: string) => {
-    setAssignedServiceIds(prev => prev.filter(id => id !== chargeTypeId));
-  };
+  // Active services, sorted: checked first, then alphabetical
+  const activeServices = useMemo(() => {
+    const filtered = chargeTypes.filter(ct => {
+      if (!ct.is_active) return false;
+      if (!searchQuery) return true;
+      return ct.charge_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ct.charge_code.toLowerCase().includes(searchQuery.toLowerCase());
+    });
 
-  // Filter charge types for search dropdown
-  const availableServices = chargeTypes.filter(ct =>
-    ct.is_active &&
-    !assignedServiceIds.includes(ct.id) &&
-    (searchQuery === '' ||
-      ct.charge_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ct.charge_code.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  const assignedServices = assignedServiceIds
-    .map(id => chargeTypes.find(ct => ct.id === id))
-    .filter((ct): ct is ChargeType => ct !== undefined);
+    return filtered.sort((a, b) => {
+      const aChecked = assignedIds.includes(a.id);
+      const bChecked = assignedIds.includes(b.id);
+      if (aChecked && !bChecked) return -1;
+      if (!aChecked && bChecked) return 1;
+      return a.charge_name.localeCompare(b.charge_name);
+    });
+  }, [chargeTypes, searchQuery, assignedIds]);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{template ? 'Edit Template' : 'Add Template'}</DialogTitle>
-          <DialogDescription>
-            {template ? 'Update the template details and assigned services.' : 'Create a new task template with linked services.'}
-          </DialogDescription>
-        </DialogHeader>
+    <div className="space-y-4 pt-3 border-t border-dashed">
+      {/* Name */}
+      <div className="space-y-2">
+        <Label htmlFor={`tmpl-name-${template.id}`} className="text-sm font-medium">Name</Label>
+        <Input
+          id={`tmpl-name-${template.id}`}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Template name"
+        />
+      </div>
 
-        <div className="space-y-4 py-4">
-          {/* Template Name */}
-          <div className="space-y-2">
-            <LabelWithTooltip htmlFor="tmplName" tooltip={fieldDescriptions.templateName} required>
-              Template Name
-            </LabelWithTooltip>
-            <Input
-              id="tmplName"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Standard Inspection"
-              autoFocus
-            />
-          </div>
+      {/* Description */}
+      <div className="space-y-2">
+        <Label htmlFor={`tmpl-desc-${template.id}`} className="text-sm font-medium">Description</Label>
+        <Input
+          id={`tmpl-desc-${template.id}`}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Optional description"
+        />
+      </div>
 
-          {/* Description */}
-          <div className="space-y-2">
-            <LabelWithTooltip htmlFor="tmplDesc" tooltip={fieldDescriptions.templateDescription}>
-              Description
-            </LabelWithTooltip>
-            <Textarea
-              id="tmplDesc"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description..."
-              rows={2}
-            />
-          </div>
+      {/* Toggles */}
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium">Active</Label>
+        <Switch checked={isActive} onCheckedChange={setIsActive} />
+      </div>
 
-          {/* Toggles */}
-          <div className="flex items-center justify-between">
-            <LabelWithTooltip tooltip={fieldDescriptions.templateBillable}>Billable</LabelWithTooltip>
-            <Switch checked={isBillable} onCheckedChange={setIsBillable} />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium">Active</Label>
-            <Switch checked={isActive} onCheckedChange={setIsActive} />
-          </div>
-
-          {/* ============================================================ */}
-          {/* ASSIGNED SERVICES SECTION                                     */}
-          {/* ============================================================ */}
-          <div className="border-t pt-4">
-            <Label className="text-sm font-medium mb-3 block">Assigned Services</Label>
-
-            {/* Search and add */}
-            <div className="relative mb-3">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <MaterialIcon name="search" size="sm" className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setShowServiceDropdown(true);
-                    }}
-                    onFocus={() => setShowServiceDropdown(true)}
-                    onBlur={() => {
-                      // Delay closing to allow click on dropdown items
-                      setTimeout(() => setShowServiceDropdown(false), 200);
-                    }}
-                    placeholder="Search and add services..."
-                    className="pl-8"
-                  />
-                </div>
-              </div>
-
-              {/* Dropdown results */}
-              {showServiceDropdown && searchQuery.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-[200px] overflow-y-auto">
-                  {availableServices.length === 0 ? (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">
-                      No matching services found
-                    </div>
-                  ) : (
-                    availableServices.slice(0, 10).map(ct => (
-                      <button
-                        key={ct.id}
-                        type="button"
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted transition-colors text-left"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => addService(ct.id)}
-                      >
-                        <Badge variant="outline" className="font-mono text-xs shrink-0">{ct.charge_code}</Badge>
-                        <span className="truncate">{ct.charge_name}</span>
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Assigned services list */}
-            {assignedServices.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic py-2">
-                No services assigned. Search above to add services.
-              </p>
-            ) : (
-              <div className="space-y-1">
-                {assignedServices.map((ct) => (
-                  <div key={ct.id} className="flex items-center justify-between py-1.5 px-3 rounded bg-muted/50 text-sm">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Badge variant="outline" className="font-mono text-xs shrink-0">{ct.charge_code}</Badge>
-                      <span className="truncate">{ct.charge_name}</span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 shrink-0"
-                      onClick={() => removeService(ct.id)}
-                    >
-                      <MaterialIcon name="close" size="sm" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+      {/* Assigned Services — checklist */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Assigned Services</Label>
+        <div className="relative">
+          <MaterialIcon name="search" size="sm" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Filter services..."
+            className="pl-8"
+          />
         </div>
+        <div className="border rounded-md max-h-[250px] overflow-y-auto">
+          {activeServices.length === 0 ? (
+            <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+              {searchQuery ? 'No matching services found' : 'No active services available'}
+            </div>
+          ) : (
+            activeServices.map((ct) => {
+              const isChecked = assignedIds.includes(ct.id);
+              return (
+                <label
+                  key={ct.id}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer transition-colors border-b last:border-b-0',
+                    isChecked && 'bg-primary/5'
+                  )}
+                >
+                  <Checkbox
+                    checked={isChecked}
+                    onCheckedChange={() => toggleService(ct.id)}
+                    className="shrink-0"
+                  />
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-sm truncate">{ct.charge_name}</span>
+                    <Badge variant="outline" className="font-mono text-xs shrink-0">{ct.charge_code}</Badge>
+                  </div>
+                </label>
+              );
+            })
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {assignedIds.length} service{assignedIds.length !== 1 ? 's' : ''} assigned
+        </p>
+      </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+      <div className="flex items-center justify-between pt-2 border-t">
+        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDelete}>
+          <MaterialIcon name="delete" size="sm" className="mr-1" />
+          Delete
+        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving || !name.trim()}>
+          <Button size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
             {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />}
-            {template ? 'Save Changes' : 'Create Template'}
+            Save Changes
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// ADD TEMPLATE FORM — inline at top of list
+// =============================================================================
+
+interface AddTemplateFormProps {
+  chargeTypes: ChargeType[];
+  onSave: (
+    data: { name: string; description?: string; is_billable: boolean; is_active: boolean },
+    serviceIds: string[],
+  ) => Promise<void>;
+  onCancel: () => void;
+}
+
+function AddTemplateForm({ chargeTypes, onSave, onCancel }: AddTemplateFormProps) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [isBillable, setIsBillable] = useState(true);
+  const [isActive, setIsActive] = useState(true);
+  const [assignedIds, setAssignedIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const toggleService = (chargeTypeId: string) => {
+    setAssignedIds(prev =>
+      prev.includes(chargeTypeId)
+        ? prev.filter(id => id !== chargeTypeId)
+        : [...prev, chargeTypeId]
+    );
+  };
+
+  const activeServices = useMemo(() => {
+    const filtered = chargeTypes.filter(ct => {
+      if (!ct.is_active) return false;
+      if (!searchQuery) return true;
+      return ct.charge_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ct.charge_code.toLowerCase().includes(searchQuery.toLowerCase());
+    });
+
+    return filtered.sort((a, b) => {
+      const aChecked = assignedIds.includes(a.id);
+      const bChecked = assignedIds.includes(b.id);
+      if (aChecked && !bChecked) return -1;
+      if (!aChecked && bChecked) return 1;
+      return a.charge_name.localeCompare(b.charge_name);
+    });
+  }, [chargeTypes, searchQuery, assignedIds]);
+
+  const handleSave = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      await onSave(
+        {
+          name: name.trim(),
+          description: description.trim() || undefined,
+          is_billable: isBillable,
+          is_active: isActive,
+        },
+        assignedIds,
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="border-primary/50">
+      <CardContent className="pt-4 space-y-4">
+        <p className="text-sm font-medium">New Template</p>
+
+        <div className="space-y-2">
+          <Label htmlFor="new-tmpl-name" className="text-sm font-medium">Name</Label>
+          <Input
+            id="new-tmpl-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., Standard Inspection"
+            autoFocus
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="new-tmpl-desc" className="text-sm font-medium">Description</Label>
+          <Input
+            id="new-tmpl-desc"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Optional description"
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Active</Label>
+          <Switch checked={isActive} onCheckedChange={setIsActive} />
+        </div>
+
+        {/* Assigned Services */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Assigned Services</Label>
+          <div className="relative">
+            <MaterialIcon name="search" size="sm" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter services..."
+              className="pl-8"
+            />
+          </div>
+          <div className="border rounded-md max-h-[200px] overflow-y-auto">
+            {activeServices.length === 0 ? (
+              <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                {searchQuery ? 'No matching services found' : 'No active services available'}
+              </div>
+            ) : (
+              activeServices.map((ct) => {
+                const isChecked = assignedIds.includes(ct.id);
+                return (
+                  <label
+                    key={ct.id}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer transition-colors border-b last:border-b-0',
+                      isChecked && 'bg-primary/5'
+                    )}
+                  >
+                    <Checkbox
+                      checked={isChecked}
+                      onCheckedChange={() => toggleService(ct.id)}
+                      className="shrink-0"
+                    />
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="text-sm truncate">{ct.charge_name}</span>
+                      <Badge variant="outline" className="font-mono text-xs shrink-0">{ct.charge_code}</Badge>
+                    </div>
+                  </label>
+                );
+              })
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {assignedIds.length} service{assignedIds.length !== 1 ? 's' : ''} selected
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2 border-t">
+          <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
+            {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />}
+            Create
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -7,7 +7,7 @@ import { CategoriesTab } from './pricing/CategoriesTab';
 import { ClassesTab } from './pricing/ClassesTab';
 import { TaskTemplatesTab } from './pricing/TaskTemplatesTab';
 import { QuickStartTab } from './pricing/QuickStartTab';
-import { FlagSettingsSection } from './preferences/FlagSettingsSection';
+import { FlagsTab } from './pricing/FlagsTab';
 
 const SUB_TABS = [
   { value: 'price-list', label: 'Price List', icon: 'payments' },
@@ -77,7 +77,7 @@ export function ServiceRatesConsole() {
         </TabsContent>
 
         <TabsContent value="flags" className="mt-6">
-          <FlagSettingsSection />
+          <FlagsTab />
         </TabsContent>
 
         <TabsContent value="task-templates" className="mt-6">
