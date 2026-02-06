@@ -131,16 +131,20 @@ export function useInvoices() {
       if (invErr) throw invErr;
 
       // 4) create invoice lines from events
-      const lines = events.map((e) => ({
-        tenant_id: profile.tenant_id,
-        invoice_id: invoice.id,
-        billing_event_id: e.id,
-        item_id: e.item_id || null,
-        description: e.description || e.charge_type || e.event_type,
-        quantity: e.quantity ?? 1,
-        unit_rate: e.unit_rate ?? e.total_amount ?? 0,
-        total_amount: e.total_amount ?? 0,
-      }));
+      const lines = events.map((e) => {
+        const qty = e.quantity ?? 1;
+        const rate = e.unit_rate ?? e.total_amount ?? 0;
+        return {
+          tenant_id: profile.tenant_id,
+          invoice_id: invoice.id,
+          billing_event_id: e.id,
+          item_id: e.item_id || null,
+          description: e.description || e.charge_type || e.event_type,
+          quantity: qty,
+          unit_rate: rate,
+          total_amount: Math.round(qty * rate * 100) / 100,
+        };
+      });
 
       const { error: linesErr } = await supabase.from("invoice_lines").insert(lines);
       if (linesErr) throw linesErr;
@@ -506,16 +510,20 @@ export function useInvoices() {
           if (invErr) throw invErr;
 
           // Create invoice lines
-          const lines = accountEvents.map((e) => ({
-            tenant_id: profile.tenant_id,
-            invoice_id: invoice.id,
-            billing_event_id: e.id,
-            item_id: e.item_id || null,
-            description: e.description || e.charge_type || e.event_type,
-            quantity: e.quantity ?? 1,
-            unit_rate: e.unit_rate ?? e.total_amount ?? 0,
-            total_amount: e.total_amount ?? 0,
-          }));
+          const lines = accountEvents.map((e) => {
+            const qty = e.quantity ?? 1;
+            const rate = e.unit_rate ?? e.total_amount ?? 0;
+            return {
+              tenant_id: profile.tenant_id,
+              invoice_id: invoice.id,
+              billing_event_id: e.id,
+              item_id: e.item_id || null,
+              description: e.description || e.charge_type || e.event_type,
+              quantity: qty,
+              unit_rate: rate,
+              total_amount: Math.round(qty * rate * 100) / 100,
+            };
+          });
 
           const { error: linesErr } = await supabase.from("invoice_lines").insert(lines);
           if (linesErr) throw linesErr;
@@ -740,16 +748,20 @@ export function useInvoices() {
           if (invErr) throw invErr;
 
           // Create invoice lines
-          const lines = group.events.map((e) => ({
-            tenant_id: profile.tenant_id,
-            invoice_id: invoice.id,
-            billing_event_id: e.id,
-            item_id: e.item_id || null,
-            description: e.description || e.charge_type || e.event_type,
-            quantity: e.quantity ?? 1,
-            unit_rate: e.unit_rate ?? e.total_amount ?? 0,
-            total_amount: e.total_amount ?? 0,
-          }));
+          const lines = group.events.map((e) => {
+            const qty = e.quantity ?? 1;
+            const rate = e.unit_rate ?? e.total_amount ?? 0;
+            return {
+              tenant_id: profile.tenant_id,
+              invoice_id: invoice.id,
+              billing_event_id: e.id,
+              item_id: e.item_id || null,
+              description: e.description || e.charge_type || e.event_type,
+              quantity: qty,
+              unit_rate: rate,
+              total_amount: Math.round(qty * rate * 100) / 100,
+            };
+          });
 
           const { error: linesErr } = await supabase.from("invoice_lines").insert(lines);
           if (linesErr) throw linesErr;

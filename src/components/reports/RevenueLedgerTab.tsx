@@ -518,7 +518,7 @@ export function RevenueLedgerTab() {
         case 'item':
           return (String(a.item_id) || '').localeCompare(String(b.item_id) || '');
         case 'amount':
-          return (Number(b.line_total) || 0) - (Number(a.line_total) || 0);
+          return (Number(b.total_amount) || 0) - (Number(a.total_amount) || 0);
         case 'date':
         default:
           return 0; // Keep original order (by created_at)
@@ -643,7 +643,7 @@ export function RevenueLedgerTab() {
         description: line.description || undefined,
         quantity: line.quantity,
         unitRate: Number(line.unit_rate) || 0,
-        lineTotal: Number(line.line_total) || 0,
+        lineTotal: Number(line.total_amount) || 0,
       })),
 
       subtotal: Number(invoice.subtotal) || 0,
@@ -696,7 +696,7 @@ export function RevenueLedgerTab() {
       (line.description || '').replace(/,/g, ';'),
       line.quantity,
       Number(line.unit_rate || 0).toFixed(2),
-      Number(line.line_total || 0).toFixed(2),
+      Number(line.total_amount || 0).toFixed(2),
     ]);
 
     const csvContent = [
@@ -1311,7 +1311,7 @@ export function RevenueLedgerTab() {
                       <TableCell>{line.description || "-"}</TableCell>
                       <TableCell className="text-right">{line.quantity}</TableCell>
                       <TableCell className="text-right">${Number(line.unit_rate || 0).toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-semibold">${Number(line.line_total || 0).toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-semibold">${Number(line.total_amount || 0).toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
                   {!sortedLines.length && (

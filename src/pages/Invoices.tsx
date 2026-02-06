@@ -530,7 +530,7 @@ export default function Invoices() {
         case 'item':
           return (String(a.item_id) || '').localeCompare(String(b.item_id) || '');
         case 'amount':
-          return (Number(b.line_total) || 0) - (Number(a.line_total) || 0);
+          return (Number(b.total_amount) || 0) - (Number(a.total_amount) || 0);
         case 'date':
         default:
           return 0; // Keep original order (by created_at)
@@ -720,7 +720,7 @@ export default function Invoices() {
         description: line.description || undefined,
         quantity: line.quantity,
         unitRate: Number(line.unit_rate) || 0,
-        lineTotal: Number(line.line_total) || 0,
+        lineTotal: Number(line.total_amount) || 0,
       })),
 
       subtotal: Number(invoice.subtotal) || 0,
@@ -773,7 +773,7 @@ export default function Invoices() {
       (line.description || '').replace(/,/g, ';'),
       line.quantity,
       Number(line.unit_rate || 0).toFixed(2),
-      Number(line.line_total || 0).toFixed(2),
+      Number(line.total_amount || 0).toFixed(2),
     ]);
     
     const csvContent = [
@@ -885,7 +885,7 @@ export default function Invoices() {
         setSelectedInvoice(null);
       } else {
         // Recalculate invoice total in local state
-        const newTotal = updatedLines.reduce((sum, l) => sum + Number(l.total_amount || l.line_total || 0), 0);
+        const newTotal = updatedLines.reduce((sum, l) => sum + Number(l.total_amount || 0), 0);
         setSelectedInvoice(prev => prev ? { ...prev, subtotal: newTotal, total: newTotal } : null);
       }
 
@@ -1600,7 +1600,7 @@ export default function Invoices() {
                         <TableCell>{line.description || "-"}</TableCell>
                         <TableCell className="text-right">{line.quantity}</TableCell>
                         <TableCell className="text-right">${Number(line.unit_rate || 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-right font-semibold">${Number(line.line_total || 0).toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-semibold">${Number(line.total_amount || 0).toFixed(2)}</TableCell>
                         {selectedInvoice && selectedInvoice.status !== 'paid' && (
                           <TableCell>
                             <Button
