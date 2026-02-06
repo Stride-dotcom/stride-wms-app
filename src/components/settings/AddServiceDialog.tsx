@@ -450,7 +450,7 @@ export function AddServiceDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>Billing Trigger *</Label>
+              <Label>Auto Billing Trigger *</Label>
               <Select
                 value={formData.billing_trigger}
                 onValueChange={(value) =>

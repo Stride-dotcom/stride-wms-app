@@ -199,7 +199,7 @@ export function BillingCalculator({
       if (isTask && taskId && taskType) {
         // Fetch task type details to get category_id and check if manual rate required
         let categoryId: string | null = null;
-        let effectiveServiceCode = selectedServiceCode;
+        let effectiveServiceCode: string | null = null;
         let requiresManualRate = false;
 
         const { data: taskTypeData } = await (supabase

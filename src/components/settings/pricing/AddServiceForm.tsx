@@ -105,7 +105,7 @@ const HELP = {
   description: 'Brief description shown on invoices and reports. Helps staff and customers understand what this service covers.',
   glAccountCode: 'General Ledger code for accounting integration. Links charges to the correct revenue account.',
   serviceCategory: 'Groups related services together for organization, reporting, and filtering.',
-  billingTrigger: "Determines when the charge is automatically created. 'Receiving' triggers on inbound processing. 'Task Completion' triggers when a linked task is marked done. 'Storage' accrues daily/monthly. 'Manual' requires staff to add the charge.",
+  billingTrigger: "Determines when the system automatically creates a charge. A charge can always be added manually, via Scan Hub, or via Flag regardless of this setting. 'Receiving' triggers on inbound processing. 'Task Completion' triggers when a linked task is marked done. 'Storage' accrues daily/monthly. 'Manual' means no automatic creation.",
   pricingMethod: "How rates are calculated. 'Class-Based' uses different rates per item class. 'Flat Per Item' charges the same for every item. 'Flat Per Task' charges once per job. 'Unit Price' is for sellable materials billed by quantity.",
   rate: 'The charge amount for this service. Can be overridden per-customer in account pricing settings.',
   unit: 'The billing unit displayed on invoices. Auto-set based on pricing method but can be customized.',
@@ -253,7 +253,7 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
     if (!form.code.trim()) errs.code = 'Service code is required';
     else if (!isCodeUnique(form.code)) errs.code = 'This code is already in use';
     if (!form.category) errs.category = 'Select a service category';
-    if (!form.trigger) errs.trigger = 'Select a billing trigger';
+    if (!form.trigger) errs.trigger = 'Select an auto billing trigger';
 
     // Skip rate validation for indicator-only flags
     const isIndicatorFlag = form.addFlag && form.flagBehavior === 'indicator';
@@ -577,13 +577,13 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
       </Card>
 
       {/* ================================================================ */}
-      {/* SECTION 2: Category & Billing Trigger                            */}
+      {/* SECTION 2: Category & Auto Billing Trigger                       */}
       {/* ================================================================ */}
       <Card data-field="category">
         <CardContent className="pt-5">
           <div className="flex items-center gap-2 mb-4">
             <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">2</span>
-            <h4 className="font-semibold text-sm">Category & Billing Trigger</h4>
+            <h4 className="font-semibold text-sm">Category & Auto Billing Trigger</h4>
           </div>
 
           {/* Service Category — chip selectors */}
@@ -629,10 +629,10 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
             {errors.category && <p className="text-xs text-destructive">{errors.category}</p>}
           </div>
 
-          {/* Billing Trigger — chip selectors */}
+          {/* Auto Billing Trigger — chip selectors */}
           <div className="space-y-3" data-field="trigger">
-            <LabelWithTooltip tooltip={HELP.billingTrigger} required>
-              Billing Trigger
+            <LabelWithTooltip tooltip={HELP.billingTrigger} required fieldKey="billingTrigger">
+              Auto Billing Trigger
             </LabelWithTooltip>
             <div className="flex flex-wrap gap-2">
               {TRIGGER_OPTIONS.map((opt) => {
@@ -656,6 +656,9 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
               })}
             </div>
             {errors.trigger && <p className="text-xs text-destructive">{errors.trigger}</p>}
+            <p className="text-xs text-muted-foreground">
+              This controls automatic billing only. Flag and Scan Hub billing are configured separately below and work regardless of this setting.
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -672,7 +675,7 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
 
           {/* Pricing Method — 2x2 grid */}
           <div className="space-y-3 mb-6">
-            <LabelWithTooltip tooltip={HELP.pricingMethod} required>
+            <LabelWithTooltip tooltip={HELP.pricingMethod} required fieldKey="pricingMethod">
               Pricing Method
             </LabelWithTooltip>
             <div className="grid grid-cols-2 gap-2 max-w-md">
@@ -938,7 +941,7 @@ function ClassBasedRateConfig({
       <div className="border-t pt-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="space-y-1.5">
-            <LabelWithTooltip htmlFor="classUnit" tooltip={HELP.unit}>Unit</LabelWithTooltip>
+            <LabelWithTooltip htmlFor="classUnit" tooltip={HELP.unit} fieldKey="unit">Unit</LabelWithTooltip>
             <Select value={form.unit} onValueChange={(v) => updateForm({ unit: v })}>
               <SelectTrigger id="classUnit" className="h-9">
                 <SelectValue />
@@ -951,7 +954,7 @@ function ClassBasedRateConfig({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <LabelWithTooltip htmlFor="classMinCharge" tooltip={HELP.minCharge}>Min. Charge ($)</LabelWithTooltip>
+            <LabelWithTooltip htmlFor="classMinCharge" tooltip={HELP.minCharge} fieldKey="minCharge">Min. Charge ($)</LabelWithTooltip>
             <Input
               id="classMinCharge"
               type="number"
@@ -964,7 +967,7 @@ function ClassBasedRateConfig({
             />
           </div>
           <div className="space-y-1.5">
-            <LabelWithTooltip htmlFor="classServiceTime" tooltip={HELP.serviceTime}>Service Time (min)</LabelWithTooltip>
+            <LabelWithTooltip htmlFor="classServiceTime" tooltip={HELP.serviceTime} fieldKey="serviceTime">Service Time (min)</LabelWithTooltip>
             <Input
               id="classServiceTime"
               type="number"
@@ -996,7 +999,7 @@ function FlatRateConfig({
     <div className="border rounded-lg p-4 space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="space-y-1.5">
-          <LabelWithTooltip htmlFor="flatRate" tooltip={HELP.rate} required>Rate ($)</LabelWithTooltip>
+          <LabelWithTooltip htmlFor="flatRate" tooltip={HELP.rate} required fieldKey="rate">Rate ($)</LabelWithTooltip>
           <div className="relative">
             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
             <Input
@@ -1012,7 +1015,7 @@ function FlatRateConfig({
           </div>
         </div>
         <div className="space-y-1.5">
-          <LabelWithTooltip htmlFor="flatUnit" tooltip={HELP.unit}>Unit</LabelWithTooltip>
+          <LabelWithTooltip htmlFor="flatUnit" tooltip={HELP.unit} fieldKey="unit">Unit</LabelWithTooltip>
           <Select value={form.unit} onValueChange={(v) => updateForm({ unit: v })}>
             <SelectTrigger id="flatUnit" className="h-9">
               <SelectValue />
@@ -1025,7 +1028,7 @@ function FlatRateConfig({
           </Select>
         </div>
         <div className="space-y-1.5">
-          <LabelWithTooltip htmlFor="flatMinCharge" tooltip={HELP.minCharge}>Min. Charge ($)</LabelWithTooltip>
+          <LabelWithTooltip htmlFor="flatMinCharge" tooltip={HELP.minCharge} fieldKey="minCharge">Min. Charge ($)</LabelWithTooltip>
           <Input
             id="flatMinCharge"
             type="number"
@@ -1039,7 +1042,7 @@ function FlatRateConfig({
         </div>
       </div>
       <div className="space-y-1.5 max-w-[200px]">
-        <LabelWithTooltip htmlFor="flatServiceTime" tooltip={HELP.serviceTime}>Service Time (min)</LabelWithTooltip>
+        <LabelWithTooltip htmlFor="flatServiceTime" tooltip={HELP.serviceTime} fieldKey="serviceTime">Service Time (min)</LabelWithTooltip>
         <Input
           id="flatServiceTime"
           type="number"

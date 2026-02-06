@@ -104,7 +104,7 @@ export function PriceListTab({ navigateToTab }: PriceListTabProps) {
 
   const handleExport = () => {
     const wb = XLSX.utils.book_new();
-    const headers = ['Code', 'Name', 'Category', 'Trigger', 'Method', 'Unit', 'Rate', 'Min Charge', 'Active', 'Taxable', 'Scan', 'Flag'];
+    const headers = ['Code', 'Name', 'Category', 'Auto Trigger', 'Method', 'Unit', 'Rate', 'Min Charge', 'Active', 'Taxable', 'Scan', 'Flag'];
     const rows = filtered.map(ct => {
       const isClassBased = ct.pricing_rules.some(r => r.pricing_method === 'class_based');
       const rates = ct.pricing_rules.map(r => r.rate);
@@ -451,7 +451,7 @@ function MatrixView({ items, classes, onEdit }: MatrixViewProps) {
         <TableHeader>
           <TableRow>
             <TableHead className="sticky left-0 bg-background z-10 min-w-[200px]">Service</TableHead>
-            <TableHead className="text-center w-20">Trigger</TableHead>
+            <TableHead className="text-center w-20">Auto Trigger</TableHead>
             {classes.map((cls) => (
               <TableHead key={cls.id} className="text-center min-w-[80px]">
                 <TooltipProvider delayDuration={200}>

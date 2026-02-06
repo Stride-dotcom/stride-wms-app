@@ -224,6 +224,12 @@ export function ItemFlagsSection({
       const rateInfo = getServiceRate(service.service_code, classCode);
       const itemAccountId = itemData?.account_id || accountId || null;
 
+      // Block class-based services when item has no class assigned
+      if (service.uses_class_pricing && !classCode) {
+        toast.error('Item class required to apply this service.');
+        return;
+      }
+
       // Check account_service_settings for is_enabled before creating billing event
       if (itemAccountId) {
         const { data: accountSetting } = await supabase

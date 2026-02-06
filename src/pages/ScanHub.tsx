@@ -973,13 +973,13 @@ export default function ScanHub() {
 
                 {/* Rate Preview for items without class */}
                 {serviceItems.some(i => !i.class_code) && selectedServices.some(s => s.uses_class_pricing) && (
-                  <div className="mt-4 p-3 bg-warning/10 border border-warning/30 rounded-lg">
+                  <div className="mt-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
                     <div className="flex items-start gap-2">
-                      <span className="text-xl text-warning flex-shrink-0">⚠️</span>
+                      <MaterialIcon name="error" size="sm" className="text-destructive flex-shrink-0 mt-0.5" />
                       <div className="text-sm">
-                        <p className="font-medium text-warning">Rate Warning</p>
+                        <p className="font-medium text-destructive">Item class required</p>
                         <p className="text-muted-foreground">
-                          Some items have no class assigned. Default rates will be used and flagged in billing.
+                          Some items have no class assigned. These items will be skipped for class-based services.
                         </p>
                       </div>
                     </div>
