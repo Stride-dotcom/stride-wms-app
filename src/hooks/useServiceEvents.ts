@@ -327,9 +327,25 @@ export function useServiceEvents() {
     let successCount = 0;
     let errorCount = 0;
 
+    // Build a set of class-based service codes for blocking logic
+    const classBasedServices = new Set(
+      serviceEvents
+        .filter(se => se.uses_class_pricing)
+        .map(se => se.service_code)
+    );
+
+    let classBlockedCount = 0;
+
     for (const item of items) {
       for (const serviceCode of serviceCodes) {
         try {
+          // Block class-based services when item has no class assigned
+          if (classBasedServices.has(serviceCode) && !item.class_code) {
+            classBlockedCount++;
+            errorCount++;
+            continue;
+          }
+
           // Use async rate lookup to get account adjustments
           const rateInfo = await getServiceRateAsync(serviceCode, item.class_code, item.account_id);
           const description = `${rateInfo.serviceName} - ${item.item_code}`;
@@ -397,13 +413,21 @@ export function useServiceEvents() {
       }
     }
 
-    if (errorCount > 0) {
+    if (classBlockedCount > 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Item class required',
+        description: `${classBlockedCount} item${classBlockedCount !== 1 ? 's' : ''} skipped — item class required to apply class-based services.`,
+      });
+    }
+
+    if (errorCount > 0 && errorCount !== classBlockedCount) {
       toast({
         variant: 'destructive',
         title: 'Some billing events failed',
-        description: `Created ${successCount}, failed ${errorCount}`,
+        description: `Created ${successCount}, failed ${errorCount - classBlockedCount}`,
       });
-    } else {
+    } else if (successCount > 0) {
       toast({
         title: 'Billing events created',
         description: `Created ${successCount} billing event${successCount !== 1 ? 's' : ''}`,

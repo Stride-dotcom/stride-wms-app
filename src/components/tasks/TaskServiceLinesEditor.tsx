@@ -41,7 +41,7 @@ interface TaskServiceLinesEditorProps {
   suggestedChargeTypeIds: string[];
   onAdd: (service: ChargeTypeOption) => void;
   onRemove: (lineId: string) => void;
-  onUpdate: (lineId: string, updates: { qty?: number }) => Promise<boolean>;
+  onUpdate: (lineId: string, updates: { qty?: number; minutes?: number }) => Promise<boolean>;
   // Rate lookup for live totals (optional — only shown when user has billing permission)
   rates?: Map<string, RateInfo>;
   showRates?: boolean;
@@ -93,12 +93,14 @@ export function TaskServiceLinesEditor({
   const { toast } = useToast();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState('');
-  // Local qty state for controlled inputs (allows typing without immediate save)
+  // Local qty/minutes state for controlled inputs (allows typing without immediate save)
   const [localQtys, setLocalQtys] = useState<Record<string, string>>({});
+  const [localMins, setLocalMins] = useState<Record<string, string>>({});
 
-  // Initialize local qty state from service lines
+  // Initialize local qty/minutes state from service lines
   useEffect(() => {
     const newLocalQtys: Record<string, string> = {};
+    const newLocalMins: Record<string, string> = {};
     serviceLines.forEach(line => {
       // Only initialize if we don't already have a local value (preserves user edits)
       if (localQtys[line.id] === undefined) {
@@ -106,8 +108,14 @@ export function TaskServiceLinesEditor({
       } else {
         newLocalQtys[line.id] = localQtys[line.id];
       }
+      if (localMins[line.id] === undefined) {
+        newLocalMins[line.id] = String(line.minutes || 0);
+      } else {
+        newLocalMins[line.id] = localMins[line.id];
+      }
     });
     setLocalQtys(newLocalQtys);
+    setLocalMins(newLocalMins);
   }, [serviceLines.map(l => l.id).join(',')]); // Re-init when line IDs change
 
   // Close picker when disabled
@@ -194,6 +202,33 @@ export function TaskServiceLinesEditor({
     }
   };
 
+  const handleMinsChange = (lineId: string, value: string) => {
+    setLocalMins(prev => ({ ...prev, [lineId]: value }));
+  };
+
+  const handleMinsBlur = async (lineId: string, originalMins: number) => {
+    const localValue = localMins[lineId] ?? String(originalMins);
+    const parsed = parseInt(localValue, 10);
+    const rounded = isNaN(parsed) || parsed < 0 ? originalMins : parsed;
+
+    if (rounded === originalMins) {
+      setLocalMins(prev => ({ ...prev, [lineId]: String(rounded) }));
+      return;
+    }
+
+    const success = await onUpdate(lineId, { minutes: rounded });
+    if (!success) {
+      setLocalMins(prev => ({ ...prev, [lineId]: String(originalMins) }));
+      toast({
+        variant: 'destructive',
+        title: 'Update failed',
+        description: 'Failed to update service time. Please try again.',
+      });
+    } else {
+      setLocalMins(prev => ({ ...prev, [lineId]: String(rounded) }));
+    }
+  };
+
   // Calculate subtotal
   const subtotal = useMemo(() => {
     if (!showRates || !rates) return 0;
@@ -221,6 +256,10 @@ export function TaskServiceLinesEditor({
           const qty = parseFloat(localQtyValue) || line.qty || 1;
           const lineTotal = rateInfo && !rateInfo.hasError ? qty * rateInfo.rate : 0;
 
+          const showQty = line.input_mode === 'qty' || line.input_mode === 'both';
+          const showTime = line.input_mode === 'time' || line.input_mode === 'both';
+          const localMinsValue = localMins[line.id] ?? String(line.minutes || 0);
+
           return (
             <div
               key={line.id}
@@ -239,9 +278,10 @@ export function TaskServiceLinesEditor({
                 </Badge>
               </div>
 
-              {/* Row 2: Qty input + rate/total + remove button */}
+              {/* Row 2: Qty/Time inputs + rate/total + remove button */}
               <div className="flex items-center gap-2">
                 {/* Qty input */}
+                {showQty && (
                 <div className="flex items-center gap-1.5">
                   <label className="text-xs text-muted-foreground">Qty:</label>
                   <Input
@@ -255,6 +295,24 @@ export function TaskServiceLinesEditor({
                     className="h-7 w-16 text-sm text-center"
                   />
                 </div>
+                )}
+
+                {/* Time/minutes input */}
+                {showTime && (
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs text-muted-foreground">Min:</label>
+                  <Input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={localMinsValue}
+                    onChange={(e) => handleMinsChange(line.id, e.target.value)}
+                    onBlur={() => handleMinsBlur(line.id, line.minutes || 0)}
+                    disabled={disabled}
+                    className="h-7 w-16 text-sm text-center"
+                  />
+                </div>
+                )}
 
                 {/* Rate and total (only if showRates) */}
                 {showRates && (

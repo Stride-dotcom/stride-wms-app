@@ -249,7 +249,7 @@ export function useTasks(filters?: {
         .single();
 
       // Check if task type requires manual rate entry (Safety Billing)
-      // This covers Assembly/Repair by name OR any task type with requires_manual_rate=true
+      // Only use the database flag — no hardcoded task type name checks
       const { data: taskTypeData } = await (supabase
         .from('task_types') as any)
         .select('requires_manual_rate')
@@ -257,36 +257,27 @@ export function useTasks(filters?: {
         .eq('name', taskType)
         .maybeSingle();
 
-      const isManualRateTaskType =
-        taskTypeData?.requires_manual_rate === true ||
-        taskType === 'Assembly' ||
-        taskType === 'Repair';
+      const isManualRateTaskType = taskTypeData?.requires_manual_rate === true;
 
       const hasManualRate = taskData?.billing_rate_locked && taskData?.billing_rate !== null;
       const manualRate = taskData?.billing_rate;
 
-      // For Assembly and Repair tasks, use service code and quantity from metadata
-      const isAssemblyTask = taskType === 'Assembly';
-      const isRepairTask = taskType === 'Repair';
-      const isPerTaskBilling = isAssemblyTask || isRepairTask;
-
-      // Get service code and quantity from metadata
-      const assemblyServiceCode = taskData?.metadata?.billing_service_code || '60MA';
+      // Check metadata for per-task billing (service code + quantity set by UI)
+      const metadataServiceCode = taskData?.metadata?.billing_service_code || null;
       const billingQuantity = taskData?.metadata?.billing_quantity || 0;
+      const isPerTaskBilling = !!metadataServiceCode && billingQuantity > 0;
 
       // Get service code for this task type
-      // Priority: 1) Assembly service from metadata, 2) Repair default, 3) DB lookup, 4) Hardcoded defaults
+      // Priority: 1) Metadata service code, 2) DB lookup, 3) Hardcoded legacy defaults
       let serviceCode: string;
-      if (isAssemblyTask) {
-        serviceCode = assemblyServiceCode;
-      } else if (isRepairTask) {
-        serviceCode = '1HRO'; // Repair uses 1 Hr Repair service
+      if (metadataServiceCode) {
+        serviceCode = metadataServiceCode;
       } else {
         // Dynamic lookup from task_types table, falls back to hardcoded defaults
         serviceCode = await getTaskTypeServiceCode(profile.tenant_id, taskType);
       }
 
-      // Check if this service uses task-level billing (e.g., Assembly, Repair)
+      // Check if this service uses task-level billing (billing_unit === 'Task' or per-task from metadata)
       const serviceInfo = await getRateFromPriceList(profile.tenant_id, serviceCode, null, accountId);
       const isTaskLevelBilling = serviceInfo.billingUnit === 'Task' || isPerTaskBilling;
 
@@ -319,7 +310,7 @@ export function useTasks(filters?: {
         description: string;
       }> = [];
 
-      // For Assembly and Repair tasks, create single billing event with selected service and quantity
+      // For per-task billing (metadata has service code + quantity), create single billing event
       if (isPerTaskBilling) {
         const firstItem = taskItems[0]?.items;
         const taskAccountId = accountId || firstItem?.account_id;

@@ -104,7 +104,7 @@ export function PriceListTab({ navigateToTab }: PriceListTabProps) {
 
   const handleExport = () => {
     const wb = XLSX.utils.book_new();
-    const headers = ['Code', 'Name', 'Category', 'Trigger', 'Method', 'Unit', 'Rate', 'Min Charge', 'Active', 'Taxable', 'Scan', 'Flag'];
+    const headers = ['Code', 'Name', 'Category', 'Auto Trigger', 'Method', 'Unit', 'Rate', 'Min Charge', 'Active', 'Taxable', 'Scan', 'Flag'];
     const rows = filtered.map(ct => {
       const isClassBased = ct.pricing_rules.some(r => r.pricing_method === 'class_based');
       const rates = ct.pricing_rules.map(r => r.rate);
@@ -115,7 +115,7 @@ export function PriceListTab({ navigateToTab }: PriceListTabProps) {
         ct.charge_code,
         ct.charge_name,
         ct.category,
-        ct.default_trigger,
+        [ct.default_trigger, ct.add_flag ? 'Flag' : '', ct.add_to_scan ? 'Scan' : ''].filter(Boolean).join(' + '),
         isClassBased ? 'class_based' : 'flat',
         ct.pricing_rules[0]?.unit || 'each',
         rateDisplay,
@@ -445,13 +445,20 @@ function MatrixView({ items, classes, onEdit }: MatrixViewProps) {
     return map[trigger] || trigger;
   };
 
+  const getCompoundTriggerLabel = (ct: ChargeTypeWithRules) => {
+    const parts: string[] = [getTriggerLabel(ct.default_trigger)];
+    if (ct.add_flag) parts.push('Flag');
+    if (ct.add_to_scan) parts.push('Scan');
+    return parts.join(' + ');
+  };
+
   return (
     <div className="border rounded-lg overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="sticky left-0 bg-background z-10 min-w-[200px]">Service</TableHead>
-            <TableHead className="text-center w-20">Trigger</TableHead>
+            <TableHead className="text-center w-20">Auto Trigger</TableHead>
             {classes.map((cls) => (
               <TableHead key={cls.id} className="text-center min-w-[80px]">
                 <TooltipProvider delayDuration={200}>
@@ -482,7 +489,11 @@ function MatrixView({ items, classes, onEdit }: MatrixViewProps) {
                 </div>
               </TableCell>
               <TableCell className="text-center">
-                <Badge variant="secondary" className="text-xs">{getTriggerLabel(ct.default_trigger)}</Badge>
+                <div className="flex items-center justify-center gap-1 flex-wrap">
+                  <Badge variant="secondary" className="text-xs">{getTriggerLabel(ct.default_trigger)}</Badge>
+                  {ct.add_flag && <Badge variant="outline" className="text-[10px] px-1">Flag</Badge>}
+                  {ct.add_to_scan && <Badge variant="outline" className="text-[10px] px-1">Scan</Badge>}
+                </div>
               </TableCell>
               {classes.map((cls) => {
                 const rule = ct.pricing_rules.find(r => r.class_code === cls.code);

@@ -7,7 +7,7 @@ export const fieldDescriptions = {
 
   // === Add Service Form: Step 2 ===
   chargeCategory: 'Organizes this service in menus, filters, and reports. Categories are for display only — they do NOT affect billing calculations or automated workflows. You can manage categories in the Categories tab.',
-  billingTrigger: 'Controls WHEN the system automatically creates a charge. This determines the automation behavior. A charge can always be added manually or via Scan Hub regardless of this setting.',
+  billingTrigger: 'Controls WHEN the system automatically creates a charge. This is the automation behavior only. A charge can always be added manually, via Scan Hub, or via Flag regardless of this setting.',
   triggerAuto: 'Charge is automatically created when an item is received or processed through the receiving workflow.',
   triggerTask: 'Charge is automatically created when the linked task is marked as complete.',
   triggerShipment: 'Charge is automatically created when an outbound shipment is completed.',
