@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { logItemActivity } from "@/lib/activity/logItemActivity";
 
 export type InvoiceType = "weekly_services" | "monthly_storage" | "closeout" | "manual";
 export type InvoiceStatus = "draft" | "sent" | "void";
@@ -720,6 +721,175 @@ export function useInvoices() {
     }
   }, [profile, toast]);
 
+  // Remove a single invoice line and return its billing event to unbilled
+  const removeInvoiceLine = useCallback(async (
+    lineId: string,
+    invoiceId: string
+  ): Promise<boolean> => {
+    try {
+      if (!profile?.tenant_id) {
+        throw new Error("No tenant context");
+      }
+
+      // 1) Fetch the invoice line to get billing_event_id
+      const { data: line, error: lineErr } = await supabase
+        .from("invoice_lines")
+        .select("id, billing_event_id, item_id, description, total_amount")
+        .eq("id", lineId)
+        .single();
+
+      if (lineErr || !line) {
+        throw new Error("Invoice line not found");
+      }
+
+      // 2) Delete the invoice line
+      const { error: deleteErr } = await supabase
+        .from("invoice_lines")
+        .delete()
+        .eq("id", lineId);
+
+      if (deleteErr) throw deleteErr;
+
+      // 3) If linked to a billing event, return it to unbilled
+      if (line.billing_event_id) {
+        const { error: eventErr } = await supabase
+          .from("billing_events")
+          .update({
+            status: "unbilled",
+            invoice_id: null,
+            invoiced_at: null,
+          })
+          .eq("id", line.billing_event_id);
+
+        if (eventErr) throw eventErr;
+
+        // Log activity if item-linked
+        if (line.item_id && profile.id) {
+          logItemActivity({
+            tenantId: profile.tenant_id,
+            itemId: line.item_id,
+            actorUserId: profile.id,
+            eventType: 'billing_event_uninvoiced',
+            eventLabel: `Charge removed from invoice: ${line.description || 'Unknown'}`,
+            details: {
+              billing_event_id: line.billing_event_id,
+              invoice_id: invoiceId,
+              reason: 'removed_from_invoice',
+            },
+          });
+        }
+      }
+
+      // 4) Recalculate invoice totals
+      const { data: remainingLines, error: remainErr } = await supabase
+        .from("invoice_lines")
+        .select("total_amount")
+        .eq("invoice_id", invoiceId);
+
+      if (remainErr) throw remainErr;
+
+      const newSubtotal = (remainingLines || []).reduce(
+        (sum, l) => sum + Number(l.total_amount || 0), 0
+      );
+
+      const { error: updateErr } = await (supabase
+        .from("invoices") as any)
+        .update({
+          subtotal: newSubtotal,
+          total_amount: newSubtotal,
+        })
+        .eq("id", invoiceId);
+
+      if (updateErr) throw updateErr;
+
+      // 5) If no lines remain, delete the invoice
+      if (!remainingLines || remainingLines.length === 0) {
+        await supabase.from("invoices").delete().eq("id", invoiceId);
+        toast({ title: "Invoice deleted", description: "Invoice had no remaining lines and was removed." });
+      } else {
+        toast({ title: "Line removed", description: "Billing event returned to unbilled status." });
+      }
+
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast({ title: "Failed to remove line", description: message, variant: "destructive" });
+      return false;
+    }
+  }, [profile, toast]);
+
+  // Delete an entire invoice and return all billing events to unbilled
+  const deleteInvoice = useCallback(async (invoiceId: string): Promise<boolean> => {
+    try {
+      if (!profile?.tenant_id) {
+        throw new Error("No tenant context");
+      }
+
+      // 1) Get invoice lines to find billing events
+      const { data: lines, error: linesErr } = await supabase
+        .from("invoice_lines")
+        .select("billing_event_id, item_id, description")
+        .eq("invoice_id", invoiceId);
+
+      if (linesErr) throw linesErr;
+
+      // 2) Return all linked billing events to unbilled
+      const billingEventIds = (lines || [])
+        .map(l => l.billing_event_id)
+        .filter(Boolean) as string[];
+
+      if (billingEventIds.length > 0) {
+        const { error: eventErr } = await supabase
+          .from("billing_events")
+          .update({
+            status: "unbilled",
+            invoice_id: null,
+            invoiced_at: null,
+          })
+          .in("id", billingEventIds);
+
+        if (eventErr) throw eventErr;
+
+        // Log activity for item-linked events
+        if (profile.id) {
+          for (const line of (lines || [])) {
+            if (line.item_id && line.billing_event_id) {
+              logItemActivity({
+                tenantId: profile.tenant_id,
+                itemId: line.item_id,
+                actorUserId: profile.id,
+                eventType: 'billing_event_uninvoiced',
+                eventLabel: `Charge returned to unbilled: ${line.description || 'Unknown'} (invoice deleted)`,
+                details: {
+                  billing_event_id: line.billing_event_id,
+                  invoice_id: invoiceId,
+                  reason: 'invoice_deleted',
+                },
+              });
+            }
+          }
+        }
+      }
+
+      // 3) Delete invoice lines
+      await supabase.from("invoice_lines").delete().eq("invoice_id", invoiceId);
+
+      // 4) Delete the invoice
+      const { error: invErr } = await supabase.from("invoices").delete().eq("id", invoiceId);
+      if (invErr) throw invErr;
+
+      toast({
+        title: "Invoice deleted",
+        description: `Invoice deleted. ${billingEventIds.length} billing event(s) returned to unbilled.`,
+      });
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast({ title: "Failed to delete invoice", description: message, variant: "destructive" });
+      return false;
+    }
+  }, [profile, toast]);
+
   return {
     createInvoiceDraft,
     markInvoiceSent,
@@ -731,5 +901,7 @@ export function useInvoices() {
     updateInvoiceNotes,
     createBatchInvoices,
     createInvoicesFromEvents,
+    removeInvoiceLine,
+    deleteInvoice,
   };
 }
