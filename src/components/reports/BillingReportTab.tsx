@@ -198,7 +198,7 @@ export function BillingReportTab() {
   });
   const [end, setEnd] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['unbilled']);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [rows, setRows] = useState<BillingEventRow[]>([]);
@@ -368,9 +368,10 @@ export function BillingReportTab() {
       if (selectedAccounts.length > 0) {
         query = query.in("account_id", selectedAccounts);
       }
-      // Only apply status filter in date_range mode (all_unbilled already forces unbilled)
-      if (filterMode === 'date_range' && selectedStatuses.length > 0) {
-        query = query.in("status", selectedStatuses);
+      // Apply status filter in date_range mode (fallback to unbilled if none selected)
+      if (filterMode === 'date_range') {
+        const effectiveStatuses = selectedStatuses.length > 0 ? selectedStatuses : ['unbilled'];
+        query = query.in("status", effectiveStatuses);
       }
       if (selectedServices.length > 0) {
         const hasAddon = selectedServices.includes('__addon__');
@@ -451,6 +452,7 @@ export function BillingReportTab() {
 
         // Find events with inactive service types
         const eventsWithInactive = transformed.filter((event: BillingEventRow) => {
+          if (event.status === 'void') return false;
           const serviceInfo = serviceMap.get(event.charge_type);
           return serviceInfo && !serviceInfo.isActive;
         });
@@ -1547,18 +1549,39 @@ export function BillingReportTab() {
                   Unbilled only
                 </div>
               ) : (
-                <MultiSelect
-                  options={[
-                    { value: 'unbilled', label: 'Unbilled' },
-                    { value: 'invoiced', label: 'Invoiced' },
-                    { value: 'void', label: 'Void' },
-                  ]}
-                  selected={selectedStatuses}
-                  onChange={setSelectedStatuses}
-                  placeholder="All statuses"
-                  emptyMessage="No statuses found"
-                />
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {([
+                    { value: 'unbilled', label: 'Unbilled', activeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40' },
+                    { value: 'invoiced', label: 'Invoiced', activeClass: 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/40' },
+                    { value: 'void', label: 'Void', activeClass: 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/40' },
+                  ] as const).map(({ value, label, activeClass }) => {
+                    const isActive = selectedStatuses.includes(value);
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          setSelectedStatuses(prev =>
+                            isActive
+                              ? prev.filter(s => s !== value)
+                              : [...prev, value]
+                          );
+                        }}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+                          isActive
+                            ? activeClass
+                            : 'bg-background text-muted-foreground border-border hover:bg-muted'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
+              <p className="text-[11px] text-muted-foreground leading-tight">
+                Unbilled is for invoicing. Enable Invoiced/Void to review history.
+              </p>
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium">Service Type</label>
@@ -1619,6 +1642,16 @@ export function BillingReportTab() {
                 <Button onClick={handleCreateInvoice} size="sm" variant="default">
                   <MaterialIcon name="receipt" size="sm" className="mr-2" />
                   Create Invoices ({selectedRows.size})
+                </Button>
+              )}
+              {filterMode === 'date_range' && !(selectedStatuses.length === 1 && selectedStatuses[0] === 'unbilled') && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedStatuses(['unbilled'])}
+                >
+                  <MaterialIcon name="restart_alt" size="sm" className="mr-1" />
+                  Reset Filters
                 </Button>
               )}
               <Button onClick={fetchRows} disabled={loading}>
