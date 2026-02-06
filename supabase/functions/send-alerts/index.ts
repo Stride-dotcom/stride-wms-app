@@ -18,29 +18,180 @@ interface AlertPayload {
   body_text?: string;
 }
 
-async function getManagerEmails(supabase: any, tenantId: string): Promise<string[]> {
-  const { data: users } = await supabase
-    .from('users')
-    .select(`
-      email,
-      user_roles(
-        roles(name)
-      )
-    `)
-    .eq('tenant_id', tenantId)
-    .is('deleted_at', null);
+// =============================================================================
+// EMAIL VALIDATION & UTILS
+// =============================================================================
 
-  if (!users) return [];
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  return users
-    .filter((u: any) => 
-      u.user_roles?.some((ur: any) => 
-        ['admin', 'manager', 'tenant_admin'].includes(ur.roles?.name)
-      )
-    )
-    .map((u: any) => u.email)
-    .filter(Boolean);
+function cleanEmails(emails: string[]): string[] {
+  const cleaned = emails
+    .map(e => (e || '').trim().toLowerCase())
+    .filter(e => EMAIL_REGEX.test(e));
+  return [...new Set(cleaned)];
 }
+
+function parseCommaEmails(str: string | null | undefined): string[] {
+  if (!str) return [];
+  return str.split(',').map(e => e.trim().toLowerCase()).filter(e => EMAIL_REGEX.test(e));
+}
+
+// =============================================================================
+// RECIPIENT RESOLUTION (Hardened)
+// =============================================================================
+
+/**
+ * Get manager/admin emails via direct join: user_roles → roles + users
+ * This avoids the fragile nested embed that was causing empty results.
+ */
+async function getManagerEmails(supabase: any, tenantId: string): Promise<string[]> {
+  try {
+    // Step 1: Get role IDs for admin/manager/tenant_admin
+    const { data: roles, error: rolesError } = await supabase
+      .from('roles')
+      .select('id, name')
+      .in('name', ['admin', 'manager', 'tenant_admin'])
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null);
+
+    if (rolesError || !roles || roles.length === 0) {
+      console.warn('[getManagerEmails] No admin/manager roles found for tenant:', tenantId, rolesError);
+      return [];
+    }
+
+    const roleIds = roles.map((r: any) => r.id);
+
+    // Step 2: Get user IDs with those roles
+    const { data: userRoles, error: urError } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .in('role_id', roleIds)
+      .is('deleted_at', null);
+
+    if (urError || !userRoles || userRoles.length === 0) {
+      console.warn('[getManagerEmails] No user_roles found for roles:', roleIds, urError);
+      return [];
+    }
+
+    const userIds = [...new Set(userRoles.map((ur: any) => ur.user_id))];
+
+    // Step 3: Get emails for those users
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('email')
+      .in('id', userIds)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null);
+
+    if (usersError || !users) {
+      console.warn('[getManagerEmails] Failed to fetch user emails:', usersError);
+      return [];
+    }
+
+    const emails = users.map((u: any) => u.email).filter(Boolean);
+    console.log(`[getManagerEmails] Found ${emails.length} manager/admin emails for tenant ${tenantId}`);
+    return cleanEmails(emails);
+  } catch (err) {
+    console.error('[getManagerEmails] Unexpected error:', err);
+    return [];
+  }
+}
+
+/**
+ * Get office_alert_emails from tenant_company_settings (comma-separated field)
+ */
+async function getOfficeAlertEmails(supabase: any, tenantId: string): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from('tenant_company_settings')
+      .select('office_alert_emails')
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    if (error || !data) return [];
+    return parseCommaEmails(data.office_alert_emails);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Get per-alert send_to override from communication_alerts (if configured)
+ */
+async function getAlertSendToEmails(supabase: any, tenantId: string, alertType: string): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from('communication_alerts')
+      .select('channels')
+      .eq('tenant_id', tenantId)
+      .eq('trigger_event', alertType)
+      .eq('is_enabled', true)
+      .maybeSingle();
+
+    if (error || !data) return [];
+
+    // Check for send_to_emails inside channels JSON
+    const channels = data.channels;
+    if (channels && channels.send_to_emails) {
+      if (typeof channels.send_to_emails === 'string') {
+        return parseCommaEmails(channels.send_to_emails);
+      }
+      if (Array.isArray(channels.send_to_emails)) {
+        return cleanEmails(channels.send_to_emails);
+      }
+    }
+
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Resolve recipients with deterministic precedence:
+ * 1) alert_queue.recipient_emails (explicit per-alert)
+ * 2) communication_alerts.channels.send_to_emails (per-trigger override)
+ * 3) tenant_company_settings.office_alert_emails (tenant-wide fallback)
+ * 4) getManagerEmails() (role-based fallback)
+ */
+async function resolveRecipients(
+  supabase: any,
+  tenantId: string,
+  alertType: string,
+  queueRecipients: string[] | null
+): Promise<{ emails: string[]; source: string }> {
+  // 1) Explicit recipients from alert_queue
+  if (queueRecipients && queueRecipients.length > 0) {
+    const cleaned = cleanEmails(queueRecipients);
+    if (cleaned.length > 0) {
+      return { emails: cleaned, source: 'alert_queue.recipient_emails' };
+    }
+  }
+
+  // 2) Per-alert send_to override from communication_alerts
+  const alertSendTo = await getAlertSendToEmails(supabase, tenantId, alertType);
+  if (alertSendTo.length > 0) {
+    return { emails: alertSendTo, source: 'communication_alerts.send_to_emails' };
+  }
+
+  // 3) Tenant office_alert_emails setting
+  const officeEmails = await getOfficeAlertEmails(supabase, tenantId);
+  if (officeEmails.length > 0) {
+    return { emails: officeEmails, source: 'tenant_company_settings.office_alert_emails' };
+  }
+
+  // 4) Manager/admin role-based fallback
+  const managerEmails = await getManagerEmails(supabase, tenantId);
+  if (managerEmails.length > 0) {
+    return { emails: managerEmails, source: 'getManagerEmails (role-based)' };
+  }
+
+  return { emails: [], source: 'none' };
+}
+
+// =============================================================================
+// ENTITY DATA & TEMPLATES (unchanged logic, extracted for clarity)
+// =============================================================================
 
 async function getAccountContactEmail(supabase: any, accountId: string): Promise<string | null> {
   const { data } = await supabase
@@ -92,16 +243,10 @@ async function getTenantBranding(supabase: any, tenantId: string): Promise<{
 function replaceTemplateVariables(html: string, variables: Record<string, string>): string {
   let result = html;
   for (const [key, value] of Object.entries(variables)) {
-    // Replace both {{key}} and [[key]] syntax
     result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value || '');
     result = result.replace(new RegExp(`\\[\\[${key}\\]\\]`, 'g'), value || '');
   }
   return result;
-}
-
-function wrapEmailWithBranding(html: string, variables: Record<string, string>): string {
-  // Replace template variables in the HTML
-  return replaceTemplateVariables(html, variables);
 }
 
 async function generateItemsTableHtml(supabase: any, itemIds: string[]): Promise<string> {
@@ -153,7 +298,6 @@ async function generateItemsListText(supabase: any, itemIds: string[]): Promise<
   return items.map((item: any) => `• ${item.item_code}: ${item.description || 'N/A'}`).join('\n');
 }
 
-// Fetch entity data and build variables for template substitution
 async function buildTemplateVariables(
   supabase: any,
   alertType: string,
@@ -179,7 +323,6 @@ async function buildTemplateVariables(
   let itemIds: string[] = [];
 
   try {
-    // Fetch entity-specific data based on entity type
     if (entityType === 'shipment') {
       const { data: shipment } = await supabase
         .from('shipments')
@@ -199,7 +342,6 @@ async function buildTemplateVariables(
         variables.account_contact_email = shipment.account?.primary_contact_email || '';
         variables.shipment_link = `${branding.portalBaseUrl}/shipments/${entityId}`;
 
-        // Get shipment items
         const { data: shipmentItems } = await supabase
           .from('items')
           .select('id')
@@ -265,7 +407,6 @@ async function buildTemplateVariables(
           variables.created_by_name = 'Someone';
         }
 
-        // Calculate days overdue for task.overdue alerts
         if (alertType === 'task.overdue' && task.due_date) {
           const dueDate = new Date(task.due_date);
           const today = new Date();
@@ -276,7 +417,6 @@ async function buildTemplateVariables(
           variables.task_days_overdue = String(Math.max(0, diffDays));
         }
 
-        // Get task items
         const { data: taskItems } = await supabase
           .from('task_items')
           .select('item_id')
@@ -364,7 +504,6 @@ async function getTemplateForAlert(
   channel: 'email' | 'sms' = 'email'
 ): Promise<{ subjectTemplate: string; bodyTemplate: string } | null> {
   try {
-    // First try to find a communication_alert with matching trigger_event
     const { data: alert } = await supabase
       .from('communication_alerts')
       .select('id')
@@ -374,7 +513,6 @@ async function getTemplateForAlert(
       .maybeSingle();
 
     if (alert) {
-      // Get the template for this alert
       const { data: template } = await supabase
         .from('communication_templates')
         .select('subject_template, body_template')
@@ -397,7 +535,7 @@ async function getTemplateForAlert(
   }
 }
 
-// Generate default email content for legacy alerts
+// Legacy email content generation
 async function generateEmailContent(
   alertType: string, 
   entityType: string,
@@ -417,7 +555,7 @@ async function generateEmailContent(
         .single();
 
       subject = `⚠️ Damage Photo Flagged - ${item?.item_code || 'Item'}`;
-      text = `A photo has been flagged as needing attention for item ${item?.item_code || entityId}.\n\nItem: ${item?.item_code}\nDescription: ${item?.description || 'N/A'}\nClient: ${item?.client_account || 'N/A'}\n\nPlease review this item in the system.`;
+      text = `A photo has been flagged as needing attention for item ${item?.item_code || entityId}.`;
       html = `
         <h2 style="color: #dc2626;">⚠️ Damage Photo Flagged</h2>
         <p>A photo has been flagged as needing attention.</p>
@@ -442,7 +580,7 @@ async function generateEmailContent(
       const assignedTo = task?.assigned_user 
         ? `${task.assigned_user.first_name} ${task.assigned_user.last_name}`
         : 'Unassigned';
-      text = `A task has been marked as unable to complete.\n\nTask: ${task?.title}\nType: ${task?.task_type}\nAssigned To: ${assignedTo}\n\nReason: ${task?.unable_to_complete_note || 'No reason provided'}\n\nPlease review and take action.`;
+      text = `A task has been marked as unable to complete.\n\nTask: ${task?.title}\nType: ${task?.task_type}\nAssigned To: ${assignedTo}\n\nReason: ${task?.unable_to_complete_note || 'No reason provided'}`;
       html = `
         <h2 style="color: #dc2626;">❌ Task Unable to Complete</h2>
         <p>A task has been marked as unable to complete and requires review.</p>
@@ -468,7 +606,7 @@ async function generateEmailContent(
         .single();
 
       subject = `✅ Repair Quote Approved - ${item?.item_code || 'Item'}`;
-      text = `A repair quote has been approved for item ${item?.item_code}.\n\nA repair task has been automatically created.`;
+      text = `A repair quote has been approved for item ${item?.item_code}.`;
       html = `
         <h2 style="color: #16a34a;">✅ Repair Quote Approved</h2>
         <p>A repair quote has been approved for the following item:</p>
@@ -499,7 +637,7 @@ async function generateEmailContent(
         .single();
 
       subject = `🔧 New Repair Quote Pending - ${item?.item_code || 'Item'}`;
-      text = `A new repair quote is pending approval.\n\nItem: ${item?.item_code}\nAmount: $${quote?.flat_rate?.toFixed(2) || '0.00'}\n\nPlease review and approve or decline.`;
+      text = `A new repair quote is pending approval.\n\nItem: ${item?.item_code}\nAmount: $${quote?.flat_rate?.toFixed(2) || '0.00'}`;
       html = `
         <h2 style="color: #f59e0b;">🔧 Repair Quote Pending Approval</h2>
         <p>A new repair quote requires your approval:</p>
@@ -524,6 +662,10 @@ async function generateEmailContent(
   return { subject, html, text };
 }
 
+// =============================================================================
+// MAIN HANDLER
+// =============================================================================
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -534,20 +676,141 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse optional JSON body filters
-    let bodyFilter: { tenant_id?: string; alert_queue_id?: string; limit?: number } = {};
+    // Parse optional JSON body
+    let bodyFilter: { 
+      tenant_id?: string; 
+      alert_queue_id?: string; 
+      limit?: number;
+      test_send?: boolean;
+      test_email?: string;
+    } = {};
     try {
       const bodyText = await req.text();
       if (bodyText) {
         bodyFilter = JSON.parse(bodyText);
       }
     } catch {
-      // No body or invalid JSON — process all pending alerts
+      // No body or invalid JSON
     }
+
+    // =========================================================================
+    // TEST SEND PATH
+    // =========================================================================
+    if (bodyFilter.test_send === true) {
+      const testEmail = bodyFilter.test_email;
+      if (!testEmail || !EMAIL_REGEX.test(testEmail)) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Valid test_email is required for test_send' 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      if (!resendApiKey) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'RESEND_API_KEY not configured' 
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      try {
+        const { Resend } = await import("https://esm.sh/resend@2.0.0");
+        const resend = new Resend(resendApiKey);
+
+        // Determine from address
+        let fromEmail = 'alerts@resend.dev';
+        let fromName = 'Stride WMS Test';
+
+        if (bodyFilter.tenant_id) {
+          const { data: brandSettings } = await supabase
+            .from('communication_brand_settings')
+            .select('from_email, from_name, email_domain_verified')
+            .eq('tenant_id', bodyFilter.tenant_id)
+            .maybeSingle();
+
+          if (brandSettings?.email_domain_verified && brandSettings?.from_email) {
+            fromEmail = brandSettings.from_email;
+            fromName = brandSettings.from_name || 'Stride WMS';
+          }
+
+          // Also test recipient resolution
+          const recipientResult = await resolveRecipients(
+            supabase, bodyFilter.tenant_id, 'test', null
+          );
+          console.log(`[test_send] Recipient resolution for tenant ${bodyFilter.tenant_id}:`, recipientResult);
+        }
+
+        const { data: sendResult, error: sendError } = await resend.emails.send({
+          from: `${fromName} <${fromEmail}>`,
+          to: [testEmail],
+          subject: '✅ Stride WMS - Email Test Successful',
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h1 style="color: #16a34a;">✅ Email Test Successful</h1>
+              <p>This is a test email from Stride WMS to verify your email configuration is working correctly.</p>
+              <table style="border-collapse: collapse; margin: 20px 0; width: 100%;">
+                <tr>
+                  <td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">From:</td>
+                  <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${fromName} &lt;${fromEmail}&gt;</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">To:</td>
+                  <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${testEmail}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">Sent At:</td>
+                  <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${new Date().toISOString()}</td>
+                </tr>
+              </table>
+              <p style="color: #6b7280; font-size: 14px;">If you received this email, your email alert system is configured correctly.</p>
+            </div>
+          `,
+          text: `Email Test Successful\n\nThis is a test email from Stride WMS.\nFrom: ${fromName} <${fromEmail}>\nTo: ${testEmail}\nSent: ${new Date().toISOString()}`,
+        });
+
+        if (sendError) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: sendError.message || 'Send failed',
+            details: sendError,
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: `Test email sent to ${testEmail}`,
+          from: `${fromName} <${fromEmail}>`,
+          resend_id: sendResult?.id,
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (testErr: any) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: testErr.message || 'Unknown test error',
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // =========================================================================
+    // NORMAL ALERT PROCESSING
+    // =========================================================================
 
     const queryLimit = bodyFilter.limit || 50;
 
-    // Build query with optional filters
     let query = supabase
       .from('alert_queue')
       .select('*')
@@ -597,11 +860,11 @@ const handler = async (req: Request): Promise<Response> => {
           .eq('trigger_event', alert.alert_type)
           .maybeSingle();
 
-        // If a matching communication_alert exists and is disabled or email channel is off, skip
+        // If disabled or email channel is off, skip
         if (commAlert) {
           const emailEnabled = commAlert.channels?.email === true;
           if (!commAlert.is_enabled || !emailEnabled) {
-            console.log(`Alert ${alert.id} skipped: alert type "${alert.alert_type}" is disabled for tenant ${alert.tenant_id}`);
+            console.log(`Alert ${alert.id} skipped: "${alert.alert_type}" disabled for tenant ${alert.tenant_id}`);
             await supabase
               .from('alert_queue')
               .update({ status: 'skipped', error_message: 'Alert disabled' })
@@ -610,7 +873,6 @@ const handler = async (req: Request): Promise<Response> => {
             continue;
           }
         }
-        // If no commAlert row found, treat as enabled (backwards compatible)
 
         // Build template variables from entity data
         const { variables, itemIds } = await buildTemplateVariables(
@@ -627,21 +889,30 @@ const handler = async (req: Request): Promise<Response> => {
         variables.items_table_html = itemsTableHtml;
         variables.items_list_text = itemsListText;
 
-        // Get recipient emails
-        let recipients = alert.recipient_emails || [];
-        if (recipients.length === 0) {
-          recipients = await getManagerEmails(supabase, alert.tenant_id);
-        }
+        // =====================================================================
+        // RECIPIENT RESOLUTION (4-tier precedence)
+        // =====================================================================
+        const { emails: recipients, source: recipientSource } = await resolveRecipients(
+          supabase,
+          alert.tenant_id,
+          alert.alert_type,
+          alert.recipient_emails
+        );
 
         if (recipients.length === 0) {
-          console.log(`No recipients for alert ${alert.id}`);
+          console.error(`[send-alerts] No recipients for alert ${alert.id} (type: ${alert.alert_type}, tenant: ${alert.tenant_id})`);
           await supabase
             .from('alert_queue')
-            .update({ status: 'failed', error_message: 'No recipients found' })
+            .update({ 
+              status: 'failed', 
+              error_message: 'No recipients found. Configure office_alert_emails in Organization Settings or assign admin/manager roles.' 
+            })
             .eq('id', alert.id);
           failed++;
           continue;
         }
+
+        console.log(`[send-alerts] Alert ${alert.id}: ${recipients.length} recipients via ${recipientSource}`);
 
         // Try to get custom template first
         const customTemplate = await getTemplateForAlert(supabase, alert.alert_type, alert.tenant_id, 'email');
@@ -651,12 +922,10 @@ const handler = async (req: Request): Promise<Response> => {
         let text = alert.body_text;
 
         if (customTemplate && customTemplate.bodyTemplate) {
-          // Use custom template with variable substitution
           subject = replaceTemplateVariables(customTemplate.subjectTemplate || subject, variables);
           html = replaceTemplateVariables(customTemplate.bodyTemplate, variables);
-          text = html.replace(/<[^>]+>/g, ''); // Strip HTML for text version
+          text = html.replace(/<[^>]+>/g, '');
         } else if (!html || !text) {
-          // Fall back to legacy content generation
           const content = await generateEmailContent(
             alert.alert_type,
             alert.entity_type,
@@ -680,7 +949,6 @@ const handler = async (req: Request): Promise<Response> => {
           .eq('tenant_id', alert.tenant_id)
           .maybeSingle();
 
-        // Determine from email
         let fromEmail = 'alerts@resend.dev';
         let fromName = variables.tenant_name || 'Warehouse System';
 
@@ -712,7 +980,7 @@ const handler = async (req: Request): Promise<Response> => {
           .eq('id', alert.id);
 
         sent++;
-        console.log(`Alert ${alert.id} sent successfully to ${recipients.length} recipients`);
+        console.log(`Alert ${alert.id} sent successfully to ${recipients.length} recipients (${recipientSource})`);
       } catch (alertError) {
         console.error(`Error processing alert ${alert.id}:`, alertError);
 

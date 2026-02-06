@@ -77,7 +77,7 @@ export async function logActivity(params: LogActivityParams): Promise<void> {
       actorName = await resolveActorName(actorUserId);
     }
 
-    await (supabase.from(mapping.table) as any).insert({
+    await (supabase as any).from(mapping.table).insert({
       tenant_id: tenantId,
       [mapping.idColumn]: entityId,
       actor_user_id: actorUserId || null,

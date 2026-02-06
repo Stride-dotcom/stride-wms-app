@@ -68,7 +68,7 @@ export function useAccountActivity(accountId: string | undefined) {
 
   const fetchAccountActivity = useCallback(
     async (eventTypes: string[] | null, offset: number, limit: number) => {
-      let query = (supabase.from('account_activity') as any)
+      let query = (supabase as any).from('account_activity')
         .select('*')
         .eq('account_id', accountId)
         .order('created_at', { ascending: false })
@@ -115,7 +115,7 @@ export function useAccountActivity(accountId: string | undefined) {
       limit: number,
     ): Promise<UnifiedActivity[]> => {
       // Step 1: Get entity IDs for this account
-      const { data: entities, error: entityError } = await supabase
+      const { data: entities, error: entityError } = await (supabase as any)
         .from(entityTable)
         .select('id')
         .eq('account_id', accountId!)
@@ -129,7 +129,7 @@ export function useAccountActivity(accountId: string | undefined) {
       const entityIds = entities.map((e: any) => e.id);
 
       // Step 2: Get activity for those entities
-      let query = (supabase.from(activityTable) as any)
+      let query = (supabase as any).from(activityTable)
         .select('*, ' + idColumn)
         .in(idColumn, entityIds)
         .order('created_at', { ascending: false })

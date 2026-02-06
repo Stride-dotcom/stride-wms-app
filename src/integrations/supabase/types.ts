@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_activity: {
+        Row: {
+          account_id: string
+          actor_name: string | null
+          actor_user_id: string | null
+          created_at: string
+          details: Json
+          event_label: string
+          event_type: string
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          account_id: string
+          actor_name?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json
+          event_label: string
+          event_type: string
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          account_id?: string
+          actor_name?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json
+          event_label?: string
+          event_type?: string
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_activity_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_additional_charges: {
         Row: {
           account_id: string
@@ -1740,6 +1784,7 @@ export type Database = {
           created_by: string | null
           default_trigger: string
           deleted_at: string | null
+          flag_is_indicator: boolean | null
           id: string
           input_mode: string
           is_active: boolean
@@ -1764,6 +1809,7 @@ export type Database = {
           created_by?: string | null
           default_trigger?: string
           deleted_at?: string | null
+          flag_is_indicator?: boolean | null
           id?: string
           input_mode?: string
           is_active?: boolean
@@ -1788,6 +1834,7 @@ export type Database = {
           created_by?: string | null
           default_trigger?: string
           deleted_at?: string | null
+          flag_is_indicator?: boolean | null
           id?: string
           input_mode?: string
           is_active?: boolean
@@ -5076,6 +5123,57 @@ export type Database = {
           },
         ]
       }
+      item_activity: {
+        Row: {
+          actor_name: string | null
+          actor_user_id: string | null
+          created_at: string
+          details: Json
+          event_label: string
+          event_type: string
+          id: string
+          item_id: string
+          tenant_id: string
+        }
+        Insert: {
+          actor_name?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json
+          event_label: string
+          event_type: string
+          id?: string
+          item_id: string
+          tenant_id: string
+        }
+        Update: {
+          actor_name?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json
+          event_label?: string
+          event_type?: string
+          id?: string
+          item_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_activity_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_activity_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       item_additional_charges: {
         Row: {
           charge_amount: number
@@ -5315,6 +5413,58 @@ export type Database = {
           },
           {
             foreignKeyName: "item_custom_field_values_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "v_items_with_location"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      item_flags: {
+        Row: {
+          charge_type_id: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          item_id: string
+          service_code: string
+          tenant_id: string
+        }
+        Insert: {
+          charge_type_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          item_id: string
+          service_code: string
+          tenant_id: string
+        }
+        Update: {
+          charge_type_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          item_id?: string
+          service_code?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_flags_charge_type_id_fkey"
+            columns: ["charge_type_id"]
+            isOneToOne: false
+            referencedRelation: "charge_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_flags_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_flags_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "v_items_with_location"
@@ -6353,9 +6503,11 @@ export type Database = {
           coverage_allow_shipment: boolean | null
           coverage_deductible_amount: number | null
           coverage_default_type: string | null
+          coverage_display_name: string
           coverage_enabled: boolean | null
           coverage_rate_full_deductible: number | null
           coverage_rate_full_no_deductible: number | null
+          coverage_rate_standard: number
           created_at: string | null
           default_payout_method: string | null
           enable_ai_analysis: boolean | null
@@ -6384,9 +6536,11 @@ export type Database = {
           coverage_allow_shipment?: boolean | null
           coverage_deductible_amount?: number | null
           coverage_default_type?: string | null
+          coverage_display_name?: string
           coverage_enabled?: boolean | null
           coverage_rate_full_deductible?: number | null
           coverage_rate_full_no_deductible?: number | null
+          coverage_rate_standard?: number
           created_at?: string | null
           default_payout_method?: string | null
           enable_ai_analysis?: boolean | null
@@ -6415,9 +6569,11 @@ export type Database = {
           coverage_allow_shipment?: boolean | null
           coverage_deductible_amount?: number | null
           coverage_default_type?: string | null
+          coverage_display_name?: string
           coverage_enabled?: boolean | null
           coverage_rate_full_deductible?: number | null
           coverage_rate_full_no_deductible?: number | null
+          coverage_rate_standard?: number
           created_at?: string | null
           default_payout_method?: string | null
           enable_ai_analysis?: boolean | null
@@ -8761,6 +8917,57 @@ export type Database = {
           },
         ]
       }
+      shipment_activity: {
+        Row: {
+          actor_name: string | null
+          actor_user_id: string | null
+          created_at: string
+          details: Json
+          event_label: string
+          event_type: string
+          id: string
+          shipment_id: string
+          tenant_id: string
+        }
+        Insert: {
+          actor_name?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json
+          event_label: string
+          event_type: string
+          id?: string
+          shipment_id: string
+          tenant_id: string
+        }
+        Update: {
+          actor_name?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json
+          event_label?: string
+          event_type?: string
+          id?: string
+          shipment_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_activity_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_activity_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shipment_items: {
         Row: {
           actual_quantity: number | null
@@ -9929,6 +10136,57 @@ export type Database = {
           },
         ]
       }
+      task_activity: {
+        Row: {
+          actor_name: string | null
+          actor_user_id: string | null
+          created_at: string
+          details: Json
+          event_label: string
+          event_type: string
+          id: string
+          task_id: string
+          tenant_id: string
+        }
+        Insert: {
+          actor_name?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json
+          event_label: string
+          event_type: string
+          id?: string
+          task_id: string
+          tenant_id: string
+        }
+        Update: {
+          actor_name?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json
+          event_label?: string
+          event_type?: string
+          id?: string
+          task_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_activity_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_activity_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "v_tasks_canonical"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_additional_charges: {
         Row: {
           charge_amount: number
@@ -10818,6 +11076,7 @@ export type Database = {
           id: string
           logo_storage_path: string | null
           logo_url: string | null
+          office_alert_emails: string | null
           remit_address_line1: string | null
           remit_address_line2: string | null
           remit_city: string | null
@@ -10842,6 +11101,7 @@ export type Database = {
           id?: string
           logo_storage_path?: string | null
           logo_url?: string | null
+          office_alert_emails?: string | null
           remit_address_line1?: string | null
           remit_address_line2?: string | null
           remit_city?: string | null
@@ -10866,6 +11126,7 @@ export type Database = {
           id?: string
           logo_storage_path?: string | null
           logo_url?: string | null
+          office_alert_emails?: string | null
           remit_address_line1?: string | null
           remit_address_line2?: string | null
           remit_city?: string | null
@@ -11121,6 +11382,7 @@ export type Database = {
           id: string
           invoice_payment_tracking_mode: string | null
           items_to_switch_to_hourly: number | null
+          label_config: Json | null
           late_cancellation_fee: number | null
           max_assemblies_in_base_rate: number | null
           minutes_before_arrival_notification: number | null
@@ -11173,6 +11435,7 @@ export type Database = {
           id?: string
           invoice_payment_tracking_mode?: string | null
           items_to_switch_to_hourly?: number | null
+          label_config?: Json | null
           late_cancellation_fee?: number | null
           max_assemblies_in_base_rate?: number | null
           minutes_before_arrival_notification?: number | null
@@ -11225,6 +11488,7 @@ export type Database = {
           id?: string
           invoice_payment_tracking_mode?: string | null
           items_to_switch_to_hourly?: number | null
+          label_config?: Json | null
           late_cancellation_fee?: number | null
           max_assemblies_in_base_rate?: number | null
           minutes_before_arrival_notification?: number | null
@@ -11996,17 +12260,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "warehouses_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "warehouses_default_receiving_location_id_fkey"
             columns: ["default_receiving_location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -13208,21 +13472,6 @@ export type Database = {
         Args: { p_warehouse_id: string }
         Returns: string
       }
-      rpc_assign_receiving_location_for_shipment: {
-        Args: {
-          p_shipment_id: string
-          p_location_id?: string | null
-          p_note?: string
-        }
-        Returns: Json
-      }
-      rpc_resolve_receiving_location: {
-        Args: {
-          p_warehouse_id: string
-          p_account_id?: string | null
-        }
-        Returns: Json
-      }
       get_pricing_export_data: { Args: { p_tenant_id: string }; Returns: Json }
       get_qa_artifact_signed_url: {
         Args: { p_storage_path: string }
@@ -13327,6 +13576,14 @@ export type Database = {
           message: string
           success: boolean
         }[]
+      }
+      rpc_assign_receiving_location_for_shipment: {
+        Args: { p_location_id?: string; p_note?: string; p_shipment_id: string }
+        Returns: Json
+      }
+      rpc_resolve_receiving_location: {
+        Args: { p_account_id?: string; p_warehouse_id: string }
+        Returns: Json
       }
       seed_default_billable_services: {
         Args: { p_tenant_id: string }

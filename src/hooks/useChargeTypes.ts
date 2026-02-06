@@ -178,7 +178,7 @@ export function useChargeTypes() {
         throw error;
       }
 
-      setChargeTypes((data || []) as ChargeType[]);
+      setChargeTypes((data || []) as unknown as ChargeType[]);
     } catch (error: any) {
       console.error('[useChargeTypes] Fetch failed:', error);
       toast({
@@ -231,7 +231,7 @@ export function useChargeTypes() {
 
       toast({ title: 'Charge type created', description: `Created ${input.charge_name}` });
       await fetchChargeTypes();
-      return data as ChargeType;
+      return data as unknown as ChargeType;
     } catch (error: any) {
       console.error('[useChargeTypes] Create failed:', error);
       toast({
@@ -520,7 +520,7 @@ export function useChargeTypesWithRules() {
       }
 
       // Combine
-      const combined: ChargeTypeWithRules[] = (chargeTypes as ChargeType[]).map(ct => ({
+      const combined: ChargeTypeWithRules[] = (chargeTypes as unknown as ChargeType[]).map(ct => ({
         ...ct,
         pricing_rules: ((pricingRules || []) as PricingRule[]).filter(pr => pr.charge_type_id === ct.id),
       }));
