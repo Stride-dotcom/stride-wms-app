@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/accordion';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { ActiveBadge } from '@/components/ui/active-badge';
-import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useChargeTypes, type ChargeType } from '@/hooks/useChargeTypes';
 import { cn } from '@/lib/utils';
@@ -40,7 +39,7 @@ export function FlagsTab() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">
-            Flags mark items with special conditions (e.g., Fragile, Damaged). When a flag is applied, it can trigger alerts and generate billing events.
+            Flags mark items with special conditions (e.g., Fragile, Damaged). Flags can create billing charges or serve as visual indicators only.
           </p>
         </div>
         <Button onClick={() => setShowAddForm(true)} className="w-full sm:w-auto">
@@ -58,7 +57,8 @@ export function FlagsTab() {
               charge_name: data.charge_name,
               notes: data.description || undefined,
               add_flag: true,
-              alert_rule: data.triggers_alert ? 'email' : undefined,
+              flag_is_indicator: data.flag_behavior === 'indicator',
+              alert_rule: data.triggers_alert ? 'email_office' : 'none',
               is_active: data.is_active,
               default_trigger: 'manual',
               category: 'service',
@@ -95,54 +95,70 @@ export function FlagsTab() {
           onValueChange={setExpandedItem}
           className="space-y-2"
         >
-          {flags.map((flag) => (
-            <AccordionItem
-              key={flag.id}
-              value={flag.id}
-              className="border rounded-lg overflow-hidden"
-            >
-              <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50">
-                <div className="flex flex-col flex-1 min-w-0 text-left gap-0.5">
-                  <div className="flex items-center gap-2">
-                    <MaterialIcon name="flag" size="sm" className="text-muted-foreground shrink-0" />
-                    <span className={cn('font-medium text-sm', !flag.is_active && 'opacity-50')}>
-                      {flag.charge_name}
-                    </span>
-                    {flag.alert_rule && (
-                      <Badge variant="warning" className="text-xs">
-                        <MaterialIcon name="notifications" size="sm" className="mr-0.5" />
-                        Alert
-                      </Badge>
-                    )}
-                    <div className="ml-auto mr-2">
-                      <ActiveBadge active={flag.is_active} />
+          {flags.map((flag) => {
+            const isIndicator = flag.flag_is_indicator;
+            const hasAlert = flag.alert_rule && flag.alert_rule !== 'none';
+
+            return (
+              <AccordionItem
+                key={flag.id}
+                value={flag.id}
+                className="border rounded-lg overflow-hidden"
+              >
+                <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50">
+                  <div className="flex flex-col flex-1 min-w-0 text-left gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <MaterialIcon name="flag" size="sm" className="text-muted-foreground shrink-0" />
+                      <span className={cn('font-medium text-sm', !flag.is_active && 'opacity-50')}>
+                        {flag.charge_name}
+                      </span>
+                      {isIndicator ? (
+                        <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800">
+                          INDICATOR
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">
+                          <MaterialIcon name="attach_money" className="text-[12px] mr-0.5" />
+                          Charge
+                        </Badge>
+                      )}
+                      {hasAlert && (
+                        <Badge variant="outline" className="text-xs">
+                          <MaterialIcon name="notifications" size="sm" className="mr-0.5" />
+                          Alert
+                        </Badge>
+                      )}
+                      <div className="ml-auto mr-2">
+                        <ActiveBadge active={flag.is_active} />
+                      </div>
                     </div>
+                    {flag.notes && (
+                      <p className="text-xs text-muted-foreground truncate pl-7">{flag.notes}</p>
+                    )}
                   </div>
-                  {flag.notes && (
-                    <p className="text-xs text-muted-foreground truncate pl-7">{flag.notes}</p>
-                  )}
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="px-4 pb-4">
-                <FlagEditForm
-                  flag={flag}
-                  onSave={async (data) => {
-                    const success = await updateChargeType({
-                      id: flag.id,
-                      notes: data.description,
-                      alert_rule: data.triggers_alert ? 'email' : undefined,
-                      is_active: data.is_active,
-                    });
-                    if (success) {
-                      setExpandedItem('');
-                      refetch();
-                    }
-                  }}
-                  onCancel={() => setExpandedItem('')}
-                />
-              </AccordionContent>
-            </AccordionItem>
-          ))}
+                </AccordionTrigger>
+                <AccordionContent className="px-4 pb-4">
+                  <FlagEditForm
+                    flag={flag}
+                    onSave={async (data) => {
+                      const success = await updateChargeType({
+                        id: flag.id,
+                        notes: data.description,
+                        flag_is_indicator: data.flag_behavior === 'indicator',
+                        alert_rule: data.triggers_alert ? 'email_office' : 'none',
+                        is_active: data.is_active,
+                      });
+                      if (success) {
+                        setExpandedItem('');
+                        refetch();
+                      }
+                    }}
+                    onCancel={() => setExpandedItem('')}
+                  />
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
         </Accordion>
       )}
     </div>
@@ -155,25 +171,37 @@ export function FlagsTab() {
 
 interface FlagEditFormProps {
   flag: ChargeType;
-  onSave: (data: { description: string | null; triggers_alert: boolean; is_active: boolean }) => Promise<void>;
+  onSave: (data: {
+    description: string | null;
+    flag_behavior: 'charge' | 'indicator';
+    triggers_alert: boolean;
+    is_active: boolean;
+  }) => Promise<void>;
   onCancel: () => void;
 }
 
 function FlagEditForm({ flag, onSave, onCancel }: FlagEditFormProps) {
   const [description, setDescription] = useState(flag.notes || '');
-  const [triggersAlert, setTriggersAlert] = useState(!!flag.alert_rule);
+  const [flagBehavior, setFlagBehavior] = useState<'charge' | 'indicator'>(
+    flag.flag_is_indicator ? 'indicator' : 'charge'
+  );
+  const [triggersAlert, setTriggersAlert] = useState(
+    !!flag.alert_rule && flag.alert_rule !== 'none'
+  );
   const [isActive, setIsActive] = useState(flag.is_active);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setDescription(flag.notes || '');
-    setTriggersAlert(!!flag.alert_rule);
+    setFlagBehavior(flag.flag_is_indicator ? 'indicator' : 'charge');
+    setTriggersAlert(!!flag.alert_rule && flag.alert_rule !== 'none');
     setIsActive(flag.is_active);
   }, [flag]);
 
   const handleCancel = () => {
     setDescription(flag.notes || '');
-    setTriggersAlert(!!flag.alert_rule);
+    setFlagBehavior(flag.flag_is_indicator ? 'indicator' : 'charge');
+    setTriggersAlert(!!flag.alert_rule && flag.alert_rule !== 'none');
     setIsActive(flag.is_active);
     onCancel();
   };
@@ -183,6 +211,7 @@ function FlagEditForm({ flag, onSave, onCancel }: FlagEditFormProps) {
     try {
       await onSave({
         description: description.trim() || null,
+        flag_behavior: flagBehavior,
         triggers_alert: triggersAlert,
         is_active: isActive,
       });
@@ -208,6 +237,41 @@ function FlagEditForm({ flag, onSave, onCancel }: FlagEditFormProps) {
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Describe when to use this flag"
         />
+      </div>
+
+      {/* Flag Behavior — radio */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Flag Behavior</Label>
+        <div className="space-y-2">
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name={`flag-behavior-${flag.id}`}
+              value="charge"
+              checked={flagBehavior === 'charge'}
+              onChange={() => setFlagBehavior('charge')}
+              className="mt-1"
+            />
+            <div>
+              <span className="text-sm font-medium">Creates Billing Charge</span>
+              <p className="text-xs text-muted-foreground">When applied to an item, creates a billing event at the configured rate</p>
+            </div>
+          </label>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name={`flag-behavior-${flag.id}`}
+              value="indicator"
+              checked={flagBehavior === 'indicator'}
+              onChange={() => setFlagBehavior('indicator')}
+              className="mt-1"
+            />
+            <div>
+              <span className="text-sm font-medium">Indicator Only</span>
+              <p className="text-xs text-muted-foreground">Visual marker only — no billing event created when applied</p>
+            </div>
+          </label>
+        </div>
       </div>
 
       {/* Toggles */}
@@ -246,6 +310,7 @@ interface AddFlagFormProps {
     charge_code: string;
     charge_name: string;
     description: string | null;
+    flag_behavior: 'charge' | 'indicator';
     triggers_alert: boolean;
     is_active: boolean;
   }) => Promise<void>;
@@ -257,6 +322,7 @@ function AddFlagForm({ onSave, onCancel }: AddFlagFormProps) {
   const [code, setCode] = useState('');
   const [codeManual, setCodeManual] = useState(false);
   const [description, setDescription] = useState('');
+  const [flagBehavior, setFlagBehavior] = useState<'charge' | 'indicator'>('charge');
   const [triggersAlert, setTriggersAlert] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -276,6 +342,7 @@ function AddFlagForm({ onSave, onCancel }: AddFlagFormProps) {
         charge_code: code || 'FLG_' + name.trim().toUpperCase().replace(/\s+/g, '_').substring(0, 20),
         charge_name: name.trim(),
         description: description.trim() || null,
+        flag_behavior: flagBehavior,
         triggers_alert: triggersAlert,
         is_active: isActive,
       });
@@ -320,6 +387,41 @@ function AddFlagForm({ onSave, onCancel }: AddFlagFormProps) {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Describe when to use this flag"
           />
+        </div>
+
+        {/* Flag Behavior — radio */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Flag Behavior</Label>
+          <div className="space-y-2">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="new-flag-behavior"
+                value="charge"
+                checked={flagBehavior === 'charge'}
+                onChange={() => setFlagBehavior('charge')}
+                className="mt-1"
+              />
+              <div>
+                <span className="text-sm font-medium">Creates Billing Charge</span>
+                <p className="text-xs text-muted-foreground">Creates a billing event when applied</p>
+              </div>
+            </label>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="new-flag-behavior"
+                value="indicator"
+                checked={flagBehavior === 'indicator'}
+                onChange={() => setFlagBehavior('indicator')}
+                className="mt-1"
+              />
+              <div>
+                <span className="text-sm font-medium">Indicator Only</span>
+                <p className="text-xs text-muted-foreground">Visual marker only, no billing event</p>
+              </div>
+            </label>
+          </div>
         </div>
 
         <div className="flex items-center justify-between">

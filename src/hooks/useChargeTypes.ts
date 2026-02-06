@@ -29,6 +29,7 @@ export interface ChargeType {
   min_minutes: number | null;
   add_to_scan: boolean;
   add_flag: boolean;
+  flag_is_indicator: boolean;
   alert_rule: string | null;
   notes: string | null;
   legacy_service_code: string | null;
@@ -69,6 +70,7 @@ export interface CreateChargeTypeInput {
   min_minutes?: number;
   add_to_scan?: boolean;
   add_flag?: boolean;
+  flag_is_indicator?: boolean;
   alert_rule?: string;
   notes?: string;
 }
@@ -218,7 +220,8 @@ export function useChargeTypes() {
           min_minutes: input.min_minutes,
           add_to_scan: input.add_to_scan ?? false,
           add_flag: input.add_flag ?? false,
-          alert_rule: input.alert_rule,
+          flag_is_indicator: input.flag_is_indicator ?? false,
+          alert_rule: input.alert_rule || 'none',
           notes: input.notes,
         })
         .select()
