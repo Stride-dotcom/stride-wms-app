@@ -534,17 +534,38 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get pending alerts from queue
-    const { data: pendingAlerts, error: fetchError } = await supabase
+    // Parse optional JSON body filters
+    let bodyFilter: { tenant_id?: string; alert_queue_id?: string; limit?: number } = {};
+    try {
+      const bodyText = await req.text();
+      if (bodyText) {
+        bodyFilter = JSON.parse(bodyText);
+      }
+    } catch {
+      // No body or invalid JSON — process all pending alerts
+    }
+
+    const queryLimit = bodyFilter.limit || 50;
+
+    // Build query with optional filters
+    let query = supabase
       .from('alert_queue')
       .select('*')
-      .eq('status', 'pending')
-      .limit(50);
+      .eq('status', 'pending');
+
+    if (bodyFilter.tenant_id) {
+      query = query.eq('tenant_id', bodyFilter.tenant_id);
+    }
+    if (bodyFilter.alert_queue_id) {
+      query = query.eq('id', bodyFilter.alert_queue_id);
+    }
+
+    const { data: pendingAlerts, error: fetchError } = await query.limit(queryLimit);
 
     if (fetchError) throw fetchError;
 
     if (!pendingAlerts || pendingAlerts.length === 0) {
-      return new Response(JSON.stringify({ message: "No pending alerts" }), {
+      return new Response(JSON.stringify({ message: "No pending alerts", processed: 0, sent: 0, failed: 0, skipped: 0 }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -564,9 +585,33 @@ const handler = async (req: Request): Promise<Response> => {
 
     let sent = 0;
     let failed = 0;
+    let skipped = 0;
 
     for (const alert of pendingAlerts) {
       try {
+        // Check communication_alerts enable/disable for this alert type
+        const { data: commAlert } = await supabase
+          .from('communication_alerts')
+          .select('is_enabled, channels')
+          .eq('tenant_id', alert.tenant_id)
+          .eq('trigger_event', alert.alert_type)
+          .maybeSingle();
+
+        // If a matching communication_alert exists and is disabled or email channel is off, skip
+        if (commAlert) {
+          const emailEnabled = commAlert.channels?.email === true;
+          if (!commAlert.is_enabled || !emailEnabled) {
+            console.log(`Alert ${alert.id} skipped: alert type "${alert.alert_type}" is disabled for tenant ${alert.tenant_id}`);
+            await supabase
+              .from('alert_queue')
+              .update({ status: 'skipped', error_message: 'Alert disabled' })
+              .eq('id', alert.id);
+            skipped++;
+            continue;
+          }
+        }
+        // If no commAlert row found, treat as enabled (backwards compatible)
+
         // Build template variables from entity data
         const { variables, itemIds } = await buildTemplateVariables(
           supabase,
@@ -600,7 +645,7 @@ const handler = async (req: Request): Promise<Response> => {
 
         // Try to get custom template first
         const customTemplate = await getTemplateForAlert(supabase, alert.alert_type, alert.tenant_id, 'email');
-        
+
         let subject = alert.subject;
         let html = alert.body_html;
         let text = alert.body_text;
@@ -684,10 +729,12 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     return new Response(
-      JSON.stringify({ 
-        message: `Processed ${pendingAlerts.length} alerts`, 
-        sent, 
-        failed 
+      JSON.stringify({
+        message: `Processed ${pendingAlerts.length} alerts`,
+        processed: pendingAlerts.length,
+        sent,
+        failed,
+        skipped,
       }),
       {
         status: 200,
