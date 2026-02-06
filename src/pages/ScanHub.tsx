@@ -545,6 +545,23 @@ export default function ScanHub() {
       return;
     }
 
+    // Pre-validate: block if any class-based services selected for items without class
+    const classBasedServiceCodes = selectedServices.filter(s => s.uses_class_pricing);
+    if (classBasedServiceCodes.length > 0) {
+      const itemsWithoutClass = serviceItems.filter(i => !i.class_code);
+      if (itemsWithoutClass.length > 0) {
+        hapticError();
+        const itemCodes = itemsWithoutClass.map(i => i.item_code).join(', ');
+        const serviceCodes = classBasedServiceCodes.map(s => s.service_name).join(', ');
+        toast({
+          variant: 'destructive',
+          title: 'Item class required',
+          description: `Cannot apply class-based service${classBasedServiceCodes.length > 1 ? 's' : ''} (${serviceCodes}) to item${itemsWithoutClass.length > 1 ? 's' : ''} without a class: ${itemCodes}. Assign a class or remove these items first.`,
+        });
+        return;
+      }
+    }
+
     setProcessing(true);
 
     try {
@@ -979,7 +996,7 @@ export default function ScanHub() {
                       <div className="text-sm">
                         <p className="font-medium text-destructive">Item class required</p>
                         <p className="text-muted-foreground">
-                          Some items have no class assigned. These items will be skipped for class-based services.
+                          Some items have no class assigned. Saving is blocked until these items are removed or a class is assigned.
                         </p>
                       </div>
                     </div>

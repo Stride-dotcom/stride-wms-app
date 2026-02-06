@@ -654,10 +654,38 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
                   </button>
                 );
               })}
+
+              {/* Synced Flag / Scan chips — clickable, bidirectionally tied to toggles below */}
+              <button
+                type="button"
+                className={cn(
+                  'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+                  form.addFlag
+                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300'
+                    : 'border-dashed border-border hover:border-amber-500/50 text-muted-foreground'
+                )}
+                onClick={() => updateForm({ addFlag: !form.addFlag })}
+              >
+                {form.addFlag && <span className="mr-1">✓</span>}
+                Flag
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+                  form.addToScan
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300'
+                    : 'border-dashed border-border hover:border-blue-500/50 text-muted-foreground'
+                )}
+                onClick={() => updateForm({ addToScan: !form.addToScan })}
+              >
+                {form.addToScan && <span className="mr-1">✓</span>}
+                Scan
+              </button>
             </div>
             {errors.trigger && <p className="text-xs text-destructive">{errors.trigger}</p>}
             <p className="text-xs text-muted-foreground">
-              This controls automatic billing only. Flag and Scan Hub billing are configured separately below and work regardless of this setting.
+              Select the auto billing trigger, then optionally enable Flag and/or Scan. All triggers are additive — billing from each source works independently.
             </p>
           </div>
         </CardContent>

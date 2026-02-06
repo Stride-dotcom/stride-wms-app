@@ -115,7 +115,7 @@ export function PriceListTab({ navigateToTab }: PriceListTabProps) {
         ct.charge_code,
         ct.charge_name,
         ct.category,
-        ct.default_trigger,
+        [ct.default_trigger, ct.add_flag ? 'Flag' : '', ct.add_to_scan ? 'Scan' : ''].filter(Boolean).join(' + '),
         isClassBased ? 'class_based' : 'flat',
         ct.pricing_rules[0]?.unit || 'each',
         rateDisplay,
@@ -445,6 +445,13 @@ function MatrixView({ items, classes, onEdit }: MatrixViewProps) {
     return map[trigger] || trigger;
   };
 
+  const getCompoundTriggerLabel = (ct: ChargeTypeWithRules) => {
+    const parts: string[] = [getTriggerLabel(ct.default_trigger)];
+    if (ct.add_flag) parts.push('Flag');
+    if (ct.add_to_scan) parts.push('Scan');
+    return parts.join(' + ');
+  };
+
   return (
     <div className="border rounded-lg overflow-x-auto">
       <Table>
@@ -482,7 +489,11 @@ function MatrixView({ items, classes, onEdit }: MatrixViewProps) {
                 </div>
               </TableCell>
               <TableCell className="text-center">
-                <Badge variant="secondary" className="text-xs">{getTriggerLabel(ct.default_trigger)}</Badge>
+                <div className="flex items-center justify-center gap-1 flex-wrap">
+                  <Badge variant="secondary" className="text-xs">{getTriggerLabel(ct.default_trigger)}</Badge>
+                  {ct.add_flag && <Badge variant="outline" className="text-[10px] px-1">Flag</Badge>}
+                  {ct.add_to_scan && <Badge variant="outline" className="text-[10px] px-1">Scan</Badge>}
+                </div>
               </TableCell>
               {classes.map((cls) => {
                 const rule = ct.pricing_rules.find(r => r.class_code === cls.code);
