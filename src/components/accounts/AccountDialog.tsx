@@ -41,6 +41,7 @@ import { ClientPortalSection } from './ClientPortalSection';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
 import { AccountPricingTab } from './AccountPricingTab';
 import { AccountInvoicesTab } from './AccountInvoicesTab';
+import { AccountActivityTab } from './AccountActivityTab';
 import { useAccountTypes } from '@/components/settings/preferences/AccountTypesSection';
 
 const accountSchema = z.object({
@@ -601,7 +602,7 @@ export function AccountDialog({
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <Tabs defaultValue="basic" className="w-full">
-                <TabsList className={`grid w-full mb-4 gap-1 h-auto ${isEditing ? 'grid-cols-4 sm:grid-cols-8' : 'grid-cols-4 sm:grid-cols-6'}`}>
+                <TabsList className={`grid w-full mb-4 gap-1 h-auto ${isEditing ? 'grid-cols-5 sm:grid-cols-9' : 'grid-cols-4 sm:grid-cols-6'}`}>
                   <TabsTrigger value="basic" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Basic</TabsTrigger>
                   <TabsTrigger value="contacts" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Contacts</TabsTrigger>
                   <TabsTrigger value="pricing" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0">Pricing</TabsTrigger>
@@ -618,6 +619,12 @@ export function AccountDialog({
                     <TabsTrigger value="portal" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0 gap-1">
                       <MaterialIcon name="group" className="h-3 w-3 hidden sm:inline" />
                       Portal
+                    </TabsTrigger>
+                  )}
+                  {isEditing && (
+                    <TabsTrigger value="activity" className="text-xs sm:text-sm px-2 sm:px-3 truncate min-w-0 gap-1">
+                      <MaterialIcon name="timeline" className="h-3 w-3 hidden sm:inline" />
+                      Activity
                     </TabsTrigger>
                   )}
                 </TabsList>
@@ -1575,6 +1582,13 @@ export function AccountDialog({
                         accountId={accountId}
                         accountName={form.watch('account_name') || 'this account'}
                       />
+                    </TabsContent>
+                  )}
+
+                  {/* Activity Tab - Only shown when editing */}
+                  {isEditing && accountId && (
+                    <TabsContent value="activity" className="mt-0">
+                      <AccountActivityTab accountId={accountId} />
                     </TabsContent>
                   )}
                 </ScrollArea>
