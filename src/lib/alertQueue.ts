@@ -24,17 +24,21 @@ export async function queueAlert({
   bodyText?: string;
 }): Promise<boolean> {
   try {
-    const { error } = await supabase.from('alert_queue').insert({
-      tenant_id: tenantId,
-      alert_type: alertType,
-      entity_type: entityType,
-      entity_id: entityId,
-      subject: subject,
-      recipient_emails: recipientEmails || null,
-      body_html: bodyHtml || null,
-      body_text: bodyText || null,
-      status: 'pending',
-    });
+    const { data, error } = await supabase
+      .from('alert_queue')
+      .insert({
+        tenant_id: tenantId,
+        alert_type: alertType,
+        entity_type: entityType,
+        entity_id: entityId,
+        subject: subject,
+        recipient_emails: recipientEmails || null,
+        body_html: bodyHtml || null,
+        body_text: bodyText || null,
+        status: 'pending',
+      })
+      .select('id, tenant_id')
+      .single();
 
     if (error) {
       console.error('Error queuing alert:', error);
@@ -42,6 +46,22 @@ export async function queueAlert({
     }
 
     console.log(`Alert queued: ${alertType} for ${entityType}/${entityId}`);
+
+    // Immediately invoke send-alerts edge function to process the queued alert
+    try {
+      const { data: invokeResult, error: invokeError } = await supabase.functions.invoke('send-alerts', {
+        body: { alert_queue_id: data.id, tenant_id: data.tenant_id },
+      });
+
+      if (invokeError) {
+        console.warn('send-alerts invoke failed (alert remains queued for retry):', invokeError);
+      } else {
+        console.log('send-alerts invoke result:', invokeResult);
+      }
+    } catch (invokeErr) {
+      console.warn('send-alerts invoke error (alert remains queued for retry):', invokeErr);
+    }
+
     return true;
   } catch (error) {
     console.error('Error queuing alert:', error);
