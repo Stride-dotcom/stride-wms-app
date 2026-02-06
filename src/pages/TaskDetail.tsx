@@ -53,6 +53,7 @@ import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
 import { DocumentUploadButton } from '@/components/scanner/DocumentUploadButton';
 import { DocumentList } from '@/components/scanner/DocumentList';
 import { TaskHistoryTab } from '@/components/tasks/TaskHistoryTab';
+import { EntityActivityFeed } from '@/components/activity/EntityActivityFeed';
 import { TaskCompletionBlockedDialog } from '@/components/tasks/TaskCompletionBlockedDialog';
 import { HelpButton } from '@/components/prompts';
 import { PromptWorkflow } from '@/types/guidedPrompts';
@@ -1325,6 +1326,9 @@ export default function TaskDetailPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Task Activity */}
+            <EntityActivityFeed entityType="task" entityId={task.id} title="Activity" description="Billing and operational activity for this task" />
 
             {/* Task History */}
             <TaskHistoryTab taskId={task.id} />

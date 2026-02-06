@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { logItemActivity } from "@/lib/activity/logItemActivity";
+import { logBillingActivity } from "@/lib/activity/logActivity";
 
 export type InvoiceType = "weekly_services" | "monthly_storage" | "closeout" | "manual";
 export type InvoiceStatus = "draft" | "sent" | "void";
@@ -153,6 +153,27 @@ export function useInvoices() {
 
       if (updErr) throw updErr;
 
+      // 6) Log activity for each billing event becoming invoiced
+      for (const e of events) {
+        logBillingActivity({
+          tenantId: profile.tenant_id,
+          actorUserId: profile.id,
+          eventType: 'billing_event_invoiced',
+          eventLabel: `Charge invoiced: ${e.description || e.charge_type || e.event_type}`,
+          details: {
+            billing_event_id: e.id,
+            invoice_id: invoice.id,
+            invoice_number,
+            total_amount: e.total_amount,
+            service_code: e.charge_type,
+          },
+          itemId: e.item_id,
+          shipmentId: e.shipment_id,
+          taskId: e.task_id,
+          accountId: e.account_id,
+        });
+      }
+
       toast({ title: "Invoice draft created", description: `${invoice_number} created with ${lines.length} line(s).` });
       return invoice as unknown as Invoice;
     } catch (err: unknown) {
@@ -200,7 +221,7 @@ export function useInvoices() {
       // 1) Get invoice details for the success message
       const { data: invoice, error: fetchErr } = await supabase
         .from("invoices")
-        .select("invoice_number")
+        .select("invoice_number, account_id")
         .eq("id", invoiceId)
         .single();
 
@@ -208,6 +229,12 @@ export function useInvoices() {
         console.error("Error fetching invoice:", fetchErr);
         throw new Error("Failed to fetch invoice details");
       }
+
+      // 1b) Fetch billing events before updating (for activity logging)
+      const { data: linkedEvents } = await supabase
+        .from("billing_events")
+        .select("id, item_id, shipment_id, task_id, account_id, charge_type, description, event_type, total_amount")
+        .eq("invoice_id", invoiceId);
 
       // 2) Update invoice status to 'void'
       const { error: invoiceErr } = await supabase
@@ -239,6 +266,29 @@ export function useInvoices() {
       if (eventsErr) {
         console.error("Error updating billing events:", eventsErr);
         throw new Error("Failed to update billing events");
+      }
+
+      // 4) Log activity for each billing event becoming uninvoiced
+      if (linkedEvents) {
+        for (const e of linkedEvents) {
+          logBillingActivity({
+            tenantId: profile.tenant_id,
+            actorUserId: profile.id,
+            eventType: 'billing_event_uninvoiced',
+            eventLabel: `Charge uninvoiced: ${e.description || e.charge_type || e.event_type}`,
+            details: {
+              billing_event_id: e.id,
+              invoice_id: invoiceId,
+              invoice_number: invoice.invoice_number,
+              reason: 'invoice_voided',
+              total_amount: e.total_amount,
+            },
+            itemId: e.item_id,
+            shipmentId: e.shipment_id,
+            taskId: e.task_id,
+            accountId: e.account_id,
+          });
+        }
       }
 
       toast({
@@ -478,6 +528,27 @@ export function useInvoices() {
 
           if (updErr) throw updErr;
 
+          // Log activity for each billing event becoming invoiced
+          for (const e of accountEvents) {
+            logBillingActivity({
+              tenantId: profile.tenant_id,
+              actorUserId: profile.id,
+              eventType: 'billing_event_invoiced',
+              eventLabel: `Charge invoiced: ${e.description || e.charge_type || e.event_type}`,
+              details: {
+                billing_event_id: e.id,
+                invoice_id: invoice.id,
+                invoice_number,
+                total_amount: e.total_amount,
+                service_code: e.charge_type,
+              },
+              itemId: e.item_id,
+              shipmentId: e.shipment_id,
+              taskId: e.task_id,
+              accountId: e.account_id,
+            });
+          }
+
           result.invoices.push(invoice as unknown as Invoice);
           result.success++;
         } catch (err) {
@@ -691,6 +762,27 @@ export function useInvoices() {
 
           if (updErr) throw updErr;
 
+          // Log activity for each billing event becoming invoiced
+          for (const e of group.events) {
+            logBillingActivity({
+              tenantId: profile.tenant_id,
+              actorUserId: profile.id,
+              eventType: 'billing_event_invoiced',
+              eventLabel: `Charge invoiced: ${e.description || e.charge_type || e.event_type}`,
+              details: {
+                billing_event_id: e.id,
+                invoice_id: invoice.id,
+                invoice_number,
+                total_amount: e.total_amount,
+                service_code: e.charge_type,
+              },
+              itemId: e.item_id,
+              shipmentId: e.shipment_id,
+              taskId: e.task_id,
+              accountId: e.account_id,
+            });
+          }
+
           result.invoices.push(invoice as unknown as Invoice);
           result.success++;
         } catch (err) {
@@ -752,6 +844,13 @@ export function useInvoices() {
 
       // 3) If linked to a billing event, return it to unbilled
       if (line.billing_event_id) {
+        // Fetch billing event entity IDs before updating
+        const { data: billingEvent } = await supabase
+          .from("billing_events")
+          .select("item_id, shipment_id, task_id, account_id, charge_type")
+          .eq("id", line.billing_event_id)
+          .single();
+
         const { error: eventErr } = await supabase
           .from("billing_events")
           .update({
@@ -763,11 +862,10 @@ export function useInvoices() {
 
         if (eventErr) throw eventErr;
 
-        // Log activity if item-linked
-        if (line.item_id && profile.id) {
-          logItemActivity({
+        // Log activity to all linked entity tables
+        if (profile.id && billingEvent) {
+          logBillingActivity({
             tenantId: profile.tenant_id,
-            itemId: line.item_id,
             actorUserId: profile.id,
             eventType: 'billing_event_uninvoiced',
             eventLabel: `Charge removed from invoice: ${line.description || 'Unknown'}`,
@@ -776,6 +874,10 @@ export function useInvoices() {
               invoice_id: invoiceId,
               reason: 'removed_from_invoice',
             },
+            itemId: billingEvent.item_id,
+            shipmentId: billingEvent.shipment_id,
+            taskId: billingEvent.task_id,
+            accountId: billingEvent.account_id,
           });
         }
       }
@@ -839,6 +941,12 @@ export function useInvoices() {
         .filter(Boolean) as string[];
 
       if (billingEventIds.length > 0) {
+        // Fetch billing event entity IDs before updating
+        const { data: billingEvents } = await supabase
+          .from("billing_events")
+          .select("id, item_id, shipment_id, task_id, account_id, charge_type, description, event_type, total_amount")
+          .in("id", billingEventIds);
+
         const { error: eventErr } = await supabase
           .from("billing_events")
           .update({
@@ -850,23 +958,25 @@ export function useInvoices() {
 
         if (eventErr) throw eventErr;
 
-        // Log activity for item-linked events
-        if (profile.id) {
-          for (const line of (lines || [])) {
-            if (line.item_id && line.billing_event_id) {
-              logItemActivity({
-                tenantId: profile.tenant_id,
-                itemId: line.item_id,
-                actorUserId: profile.id,
-                eventType: 'billing_event_uninvoiced',
-                eventLabel: `Charge returned to unbilled: ${line.description || 'Unknown'} (invoice deleted)`,
-                details: {
-                  billing_event_id: line.billing_event_id,
-                  invoice_id: invoiceId,
-                  reason: 'invoice_deleted',
-                },
-              });
-            }
+        // Log activity to all linked entity tables
+        if (profile.id && billingEvents) {
+          for (const e of billingEvents) {
+            logBillingActivity({
+              tenantId: profile.tenant_id,
+              actorUserId: profile.id,
+              eventType: 'billing_event_uninvoiced',
+              eventLabel: `Charge returned to unbilled: ${e.description || e.charge_type || e.event_type} (invoice deleted)`,
+              details: {
+                billing_event_id: e.id,
+                invoice_id: invoiceId,
+                reason: 'invoice_deleted',
+                total_amount: e.total_amount,
+              },
+              itemId: e.item_id,
+              shipmentId: e.shipment_id,
+              taskId: e.task_id,
+              accountId: e.account_id,
+            });
           }
         }
       }

@@ -36,6 +36,7 @@ import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDia
 import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
 import { ShipmentHistoryTab } from '@/components/shipments/ShipmentHistoryTab';
+import { EntityActivityFeed } from '@/components/activity/EntityActivityFeed';
 import { QRScanner } from '@/components/scan/QRScanner';
 import { useLocations } from '@/hooks/useLocations';
 import { hapticError, hapticSuccess } from '@/lib/haptics';
@@ -1968,6 +1969,11 @@ export default function ShipmentDetail() {
           </CardContent>
         </Card>
       )}
+
+      {/* Shipment Activity */}
+      <div className="mt-6">
+        <EntityActivityFeed entityType="shipment" entityId={shipment.id} title="Activity" description="Billing and operational activity for this shipment" />
+      </div>
 
       {/* Shipment History */}
       <div className="mt-6">

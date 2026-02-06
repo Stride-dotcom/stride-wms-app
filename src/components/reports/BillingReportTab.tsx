@@ -11,9 +11,9 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { PushToQuickBooksButton } from "@/components/billing/PushToQuickBooksButton";
 import { BillingEventForSync } from "@/hooks/useQuickBooks";
 import { useAuth } from "@/contexts/AuthContext";
+import { logBillingActivity } from "@/lib/activity/logActivity";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { useInvoices, InvoiceGrouping, InvoiceType } from "@/hooks/useInvoices";
-import { logItemActivity } from "@/lib/activity/logItemActivity";
 import * as XLSX from 'xlsx';
 import {
   Dialog,
@@ -48,6 +48,8 @@ interface BillingEventRow {
   occurred_at: string;
   account_id: string;
   item_id: string | null;
+  shipment_id: string | null;
+  task_id: string | null;
   sidemark_id: string | null;
   event_type: string;
   charge_type: string;
@@ -346,7 +348,7 @@ export function BillingReportTab() {
       let query = (supabase
         .from("billing_events") as any)
         .select(`
-          id, occurred_at, account_id, item_id, sidemark_id, event_type, charge_type,
+          id, occurred_at, account_id, item_id, shipment_id, task_id, sidemark_id, event_type, charge_type,
           description, quantity, unit_rate, total_amount, status, invoice_id
         `)
         .eq("tenant_id", profile.tenant_id)
@@ -514,6 +516,29 @@ export function BillingReportTab() {
     if (error) {
       toast({ title: 'Error voiding events', variant: 'destructive' });
       return;
+    }
+
+    // Log activity for voided billing events
+    if (profile?.tenant_id) {
+      const voidedRows = pendingBillingEvents.filter(e => eventIdsToVoid.includes(e.id));
+      for (const row of voidedRows) {
+        logBillingActivity({
+          tenantId: profile.tenant_id,
+          actorUserId: profile.id,
+          eventType: 'billing_event_voided',
+          eventLabel: `Billing charge voided: ${row.charge_type}`,
+          details: {
+            billing_event_id: row.id,
+            service_code: row.charge_type,
+            reason: 'inactive_service_type',
+            amount: row.total_amount,
+          },
+          itemId: row.item_id,
+          shipmentId: row.shipment_id,
+          taskId: row.task_id,
+          accountId: row.account_id,
+        });
+      }
     }
 
     // Show remaining events (excluding voided ones)
@@ -748,6 +773,9 @@ export function BillingReportTab() {
           continue;
         }
 
+        // Capture before values for activity logging
+        const beforeRow = rows.find(r => r.id === rowId);
+
         const totalAmount = unitRate * quantity;
         const { error } = await supabase
           .from("billing_events")
@@ -762,26 +790,37 @@ export function BillingReportTab() {
 
         if (error) throw error;
 
-        // Log activity for item-linked billing events
-        if (originalRow?.item_id && profile?.tenant_id && profile?.id) {
+        // Log activity for billing event update (only if values actually changed)
+        if (originalRow && profile?.tenant_id) {
           const changes: Record<string, unknown> = {};
-          if (originalRow.description !== (edit.description || null)) {
-            changes.description = { before: originalRow.description, after: edit.description || null };
-          }
           if (originalRow.quantity !== quantity) {
-            changes.quantity = { before: originalRow.quantity, after: quantity };
+            changes.quantity_before = originalRow.quantity;
+            changes.quantity_after = quantity;
           }
           if (originalRow.unit_rate !== unitRate) {
-            changes.unit_rate = { before: originalRow.unit_rate, after: unitRate };
+            changes.rate_before = originalRow.unit_rate;
+            changes.rate_after = unitRate;
           }
+          if ((originalRow.description || null) !== (edit.description || null)) {
+            changes.description_before = originalRow.description;
+            changes.description_after = edit.description || null;
+          }
+
           if (Object.keys(changes).length > 0) {
-            logItemActivity({
+            logBillingActivity({
               tenantId: profile.tenant_id,
-              itemId: originalRow.item_id,
               actorUserId: profile.id,
               eventType: 'billing_event_updated',
               eventLabel: `Billing charge edited: ${originalRow.charge_type}`,
-              details: { billing_event_id: rowId, changes },
+              details: {
+                billing_event_id: rowId,
+                service_code: originalRow.charge_type,
+                ...changes,
+              },
+              itemId: originalRow.item_id,
+              shipmentId: originalRow.shipment_id,
+              taskId: originalRow.task_id,
+              accountId: originalRow.account_id,
             });
           }
         }
@@ -1051,26 +1090,7 @@ export function BillingReportTab() {
       });
 
       if (result.success > 0) {
-        // Log activity for item-linked events
-        if (profile?.tenant_id && profile?.id) {
-          const selectedEventRows = rows.filter(r => selectedRows.has(r.id));
-          for (const row of selectedEventRows) {
-            if (row.item_id) {
-              logItemActivity({
-                tenantId: profile.tenant_id,
-                itemId: row.item_id,
-                actorUserId: profile.id,
-                eventType: 'billing_event_invoiced',
-                eventLabel: `Charge invoiced: ${row.charge_type} ($${Number(row.total_amount || 0).toFixed(2)})`,
-                details: {
-                  billing_event_id: row.id,
-                  charge_type: row.charge_type,
-                  total_amount: row.total_amount,
-                },
-              });
-            }
-          }
-        }
+        // Activity logging for invoiced events is handled in useInvoices.ts
 
         // Clear selection and panel
         setSelectedRows(new Set());
