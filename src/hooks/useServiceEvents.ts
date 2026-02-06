@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { queueBillingEventAlert } from '@/lib/alertQueue';
+import { logItemActivity } from '@/lib/activity/logItemActivity';
 import {
   getEffectiveRate,
   mapUnitToLegacy,
@@ -384,6 +385,16 @@ export function useServiceEvents() {
             errorCount++;
           } else {
             successCount++;
+
+            // Log activity for this item
+            logItemActivity({
+              tenantId: profile.tenant_id,
+              itemId: item.id,
+              actorUserId: profile.id,
+              eventType: 'item_scan_charge_applied',
+              eventLabel: `Scan service applied: ${rateInfo.serviceName}`,
+              details: { service_code: serviceCode, service_name: rateInfo.serviceName, amount: rateInfo.rate, item_code: item.item_code },
+            });
 
             // Queue alert if service has email_office alert rule
             if (rateInfo.alertRule === 'email_office' && billingEvent?.id) {

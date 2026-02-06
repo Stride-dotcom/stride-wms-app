@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { queueTaskCreatedAlert, queueTaskAssignedAlert, queueTaskCompletedAlert, queueInspectionCompletedAlert, queueBillingEventAlert } from '@/lib/alertQueue';
+import { logItemActivity } from '@/lib/activity/logItemActivity';
 import { createBillingEventsBatch, CreateBillingEventParams } from '@/lib/billing/createBillingEvent';
 import { TASK_TYPE_TO_SERVICE_CODE, getRateFromPriceList } from '@/lib/billing/billingCalculation';
 import { getTaskTypeServiceCode } from '@/lib/billing/taskServiceLookup';
@@ -609,6 +610,20 @@ export function useTasks(filters?: {
         description: `Task has been created and added to queue.`,
       });
 
+      // Log activity per linked item
+      if (task && itemIds && itemIds.length > 0) {
+        for (const itemId of itemIds) {
+          logItemActivity({
+            tenantId: profile.tenant_id,
+            itemId,
+            actorUserId: profile.id,
+            eventType: 'task_assigned',
+            eventLabel: `${taskData.task_type || 'General'} task created: ${task.title || ''}`,
+            details: { task_id: task.id, task_type: taskData.task_type, title: task.title },
+          });
+        }
+      }
+
       // Queue task.created alert
       if (task) {
         await queueTaskCreatedAlert(profile.tenant_id, task.id, taskData.task_type || 'General');
@@ -684,6 +699,24 @@ export function useTasks(filters?: {
         title: 'Task Started',
         description: 'Task is now in progress.',
       });
+
+      // Log activity for linked items
+      if (taskData) {
+        const { data: taskItems } = await (supabase.from('task_items') as any)
+          .select('item_id').eq('task_id', taskId);
+        if (taskItems) {
+          for (const ti of taskItems) {
+            logItemActivity({
+              tenantId: profile.tenant_id,
+              itemId: ti.item_id,
+              actorUserId: profile.id,
+              eventType: 'task_started',
+              eventLabel: `${taskData.task_type} task started`,
+              details: { task_id: taskId, task_type: taskData.task_type },
+            });
+          }
+        }
+      }
 
       // Queue task.assigned alert (task started = assigned to current user)
       if (taskData) {
@@ -763,6 +796,20 @@ export function useTasks(filters?: {
           description: `Items released to ${pickupName}.`,
         });
 
+        // Log task completion per item
+        if (taskItems) {
+          for (const ti of taskItems) {
+            logItemActivity({
+              tenantId: profile.tenant_id,
+              itemId: ti.item_id,
+              actorUserId: profile.id,
+              eventType: 'task_completed',
+              eventLabel: `Will Call completed (released to ${pickupName})`,
+              details: { task_id: taskId, task_type: 'Will Call', pickup_name: pickupName },
+            });
+          }
+        }
+
         // Queue task.completed alert
         await queueTaskCompletedAlert(profile.tenant_id, taskId, 'Will Call');
 
@@ -807,6 +854,20 @@ export function useTasks(filters?: {
           description: 'Items have been marked as disposed.',
         });
 
+        // Log task completion per item
+        if (taskItems) {
+          for (const ti of taskItems) {
+            logItemActivity({
+              tenantId: profile.tenant_id,
+              itemId: ti.item_id,
+              actorUserId: profile.id,
+              eventType: 'task_completed',
+              eventLabel: 'Disposal task completed (item disposed)',
+              details: { task_id: taskId, task_type: 'Disposal' },
+            });
+          }
+        }
+
         // Queue task.completed alert
         await queueTaskCompletedAlert(profile.tenant_id, taskId, 'Disposal');
 
@@ -842,6 +903,24 @@ export function useTasks(filters?: {
 
       // Also convert any task custom charges to billing events
       await convertTaskCustomChargesToBillingEvents(taskId, taskFullData?.account_id);
+
+      // Log task completion per linked item
+      {
+        const { data: taskItemsForLog } = await (supabase.from('task_items') as any)
+          .select('item_id').eq('task_id', taskId);
+        if (taskItemsForLog) {
+          for (const ti of taskItemsForLog) {
+            logItemActivity({
+              tenantId: profile.tenant_id,
+              itemId: ti.item_id,
+              actorUserId: profile.id,
+              eventType: 'task_completed',
+              eventLabel: `${taskData.task_type} task completed`,
+              details: { task_id: taskId, task_type: taskData.task_type },
+            });
+          }
+        }
+      }
 
       toast({
         title: 'Task Completed',

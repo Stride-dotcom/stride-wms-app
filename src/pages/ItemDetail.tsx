@@ -39,6 +39,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { RepairQuoteSection } from '@/components/items/RepairQuoteSection';
 import { ItemPhotoGallery } from '@/components/items/ItemPhotoGallery';
 import { ItemHistoryTab } from '@/components/items/ItemHistoryTab';
+import { ItemActivityFeed } from '@/components/items/ItemActivityFeed';
 import { ItemEditDialog } from '@/components/items/ItemEditDialog';
 import { useItemPhotos } from '@/hooks/useItemPhotos';
 import { useItemNotes } from '@/hooks/useItemNotes';
@@ -55,6 +56,7 @@ import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { QuickReleaseDialog } from '@/components/inventory/QuickReleaseDialog';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
+import { logItemActivity } from '@/lib/activity/logItemActivity';
 
 interface ReceivingShipment {
   id: string;
@@ -161,7 +163,7 @@ export default function ItemDetail() {
 
   // Tab state - initialize from URL param if provided
   const initialTab = searchParams.get('tab') || 'details';
-  const validTabs = ['details', 'photos', 'documents', 'notes', 'coverage', 'history', 'advanced', 'repair'];
+  const validTabs = ['details', 'photos', 'documents', 'notes', 'coverage', 'activity', 'history', 'advanced', 'repair'];
   const [activeTab, setActiveTab] = useState(validTabs.includes(initialTab) ? initialTab : 'details');
 
   const [item, setItem] = useState<ItemDetail | null>(null);
@@ -485,6 +487,16 @@ export default function ItemDetail() {
         .eq('id', item.id);
       
       if (error) throw error;
+      if (profile?.tenant_id && (newValue || null) !== (item.sidemark || null)) {
+        logItemActivity({
+          tenantId: profile.tenant_id,
+          itemId: item.id,
+          actorUserId: profile.id,
+          eventType: 'item_field_updated',
+          eventLabel: `Sidemark updated`,
+          details: { field: 'sidemark', from: item.sidemark, to: newValue || null },
+        });
+      }
       setItem({ ...item, sidemark: newValue || null });
       toast({ title: 'Sidemark updated' });
       return true;
@@ -503,6 +515,16 @@ export default function ItemDetail() {
         .eq('id', item.id);
 
       if (error) throw error;
+      if (profile?.tenant_id && (newValue || null) !== (item.room || null)) {
+        logItemActivity({
+          tenantId: profile.tenant_id,
+          itemId: item.id,
+          actorUserId: profile.id,
+          eventType: 'item_field_updated',
+          eventLabel: `Room updated`,
+          details: { field: 'room', from: item.room, to: newValue || null },
+        });
+      }
       setItem({ ...item, room: newValue || null });
       toast({ title: 'Room updated' });
       return true;
@@ -521,6 +543,16 @@ export default function ItemDetail() {
         .eq('id', item.id);
 
       if (error) throw error;
+      if (profile?.tenant_id && (newValue || null) !== (item.vendor || null)) {
+        logItemActivity({
+          tenantId: profile.tenant_id,
+          itemId: item.id,
+          actorUserId: profile.id,
+          eventType: 'item_field_updated',
+          eventLabel: `Vendor updated`,
+          details: { field: 'vendor', from: item.vendor, to: newValue || null },
+        });
+      }
       setItem({ ...item, vendor: newValue || null });
       if (newValue) addVendorSuggestion(newValue);
       return true;
@@ -539,6 +571,16 @@ export default function ItemDetail() {
         .eq('id', item.id);
 
       if (error) throw error;
+      if (profile?.tenant_id && (newValue || null) !== (item.description || null)) {
+        logItemActivity({
+          tenantId: profile.tenant_id,
+          itemId: item.id,
+          actorUserId: profile.id,
+          eventType: 'item_field_updated',
+          eventLabel: `Description updated`,
+          details: { field: 'description', from: item.description, to: newValue || null },
+        });
+      }
       setItem({ ...item, description: newValue || null });
       if (newValue) addDescSuggestion(newValue);
       return true;
@@ -762,6 +804,7 @@ export default function ItemDetail() {
             {!isClientUser && (
               <TabsTrigger value="coverage">🛡️ Coverage</TabsTrigger>
             )}
+            {!isClientUser && <TabsTrigger value="activity">📊 Activity</TabsTrigger>}
             {!isClientUser && <TabsTrigger value="history">📜 History</TabsTrigger>}
             {!isClientUser && (
               <TabsTrigger value="advanced">⚙️ Advanced</TabsTrigger>
@@ -1131,6 +1174,12 @@ export default function ItemDetail() {
                 currentWeight={item.weight_lbs}
                 onUpdate={() => fetchItem()}
               />
+            </TabsContent>
+          )}
+
+          {!isClientUser && (
+            <TabsContent value="activity" className="mt-6">
+              <ItemActivityFeed itemId={item.id} />
             </TabsContent>
           )}
 
