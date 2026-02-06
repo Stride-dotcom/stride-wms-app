@@ -73,7 +73,7 @@ export default function Invoices() {
   const { profile } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { createInvoiceDraft, markInvoiceSent, voidInvoice, fetchInvoices, fetchInvoiceLines, generateStorageForDate, updateInvoiceNotes, createInvoicesFromEvents } = useInvoices();
+  const { createInvoiceDraft, markInvoiceSent, voidInvoice, fetchInvoices, fetchInvoiceLines, generateStorageForDate, updateInvoiceNotes, createInvoicesFromEvents, removeInvoiceLine, deleteInvoice } = useInvoices();
   
   const [accountId, setAccountId] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -132,7 +132,7 @@ export default function Invoices() {
   const [batchCreating, setBatchCreating] = useState(false);
   const [selectedAccountsForBatch, setSelectedAccountsForBatch] = useState<string[]>([]);
 
-  // Billing report flow - selected events from billing report
+  // Billing report flow - deprecated (invoice creation now inline on billing report)
   const [fromBillingReport, setFromBillingReport] = useState(false);
   const [selectedBillingEvents, setSelectedBillingEvents] = useState<SelectedBillingEvent[]>([]);
   const [billingReportGrouping, setBillingReportGrouping] = useState<InvoiceGrouping>('by_account');
@@ -141,6 +141,9 @@ export default function Invoices() {
 
   // Tenant company settings for PDF
   const [tenantSettings, setTenantSettings] = useState<TenantCompanySettings | null>(null);
+
+  // Invoice line removal
+  const [removingLineId, setRemovingLineId] = useState<string | null>(null);
 
   // Invoice selection for bulk actions
   const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(new Set());
@@ -860,6 +863,52 @@ export default function Invoices() {
     if (ok) await load();
   };
 
+  // Remove a single line from an invoice (returns billing event to unbilled)
+  const handleRemoveInvoiceLine = async (lineId: string) => {
+    if (!selectedInvoice) return;
+
+    const confirmed = window.confirm(
+      "Remove this line from the invoice? The billing charge will return to unbilled status."
+    );
+    if (!confirmed) return;
+
+    setRemovingLineId(lineId);
+    const ok = await removeInvoiceLine(lineId, selectedInvoice.id);
+    if (ok) {
+      // Refresh lines
+      const updatedLines = await fetchInvoiceLines(selectedInvoice.id);
+      setLines(updatedLines);
+
+      // If invoice was deleted (no lines), close dialog and reload
+      if (updatedLines.length === 0) {
+        setLinesDialogOpen(false);
+        setSelectedInvoice(null);
+      } else {
+        // Recalculate invoice total in local state
+        const newTotal = updatedLines.reduce((sum, l) => sum + Number(l.total_amount || l.line_total || 0), 0);
+        setSelectedInvoice(prev => prev ? { ...prev, subtotal: newTotal, total: newTotal } : null);
+      }
+
+      await load();
+    }
+    setRemovingLineId(null);
+  };
+
+  // Delete entire invoice
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    const confirmed = window.confirm(
+      "Delete this invoice entirely? All billing charges will return to unbilled status and can be re-invoiced."
+    );
+    if (!confirmed) return;
+
+    const ok = await deleteInvoice(invoiceId);
+    if (ok) {
+      setLinesDialogOpen(false);
+      setSelectedInvoice(null);
+      await load();
+    }
+  };
+
   const handleGenerateStorage = async () => {
     setGeneratingStorage(true);
     await generateStorageForDate(storageDate);
@@ -1539,6 +1588,9 @@ export default function Invoices() {
                       <TableHead className="text-right">Qty</TableHead>
                       <TableHead className="text-right">Rate</TableHead>
                       <TableHead className="text-right">Total</TableHead>
+                      {selectedInvoice && selectedInvoice.status !== 'paid' && (
+                        <TableHead className="w-10"></TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1549,11 +1601,29 @@ export default function Invoices() {
                         <TableCell className="text-right">{line.quantity}</TableCell>
                         <TableCell className="text-right">${Number(line.unit_rate || 0).toFixed(2)}</TableCell>
                         <TableCell className="text-right font-semibold">${Number(line.line_total || 0).toFixed(2)}</TableCell>
+                        {selectedInvoice && selectedInvoice.status !== 'paid' && (
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveInvoiceLine(line.id)}
+                              disabled={removingLineId === line.id}
+                              className="text-red-500 hover:text-red-700 h-7 w-7 p-0"
+                              title="Remove line (returns to unbilled)"
+                            >
+                              {removingLineId === line.id ? (
+                                <RefreshCw className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <XCircle className="h-3 w-3" />
+                              )}
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                     {!sortedLines.length && (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={selectedInvoice && selectedInvoice.status !== 'paid' ? 6 : 5} className="text-center py-8 text-muted-foreground">
                           No lines found
                         </TableCell>
                       </TableRow>
@@ -1598,8 +1668,20 @@ export default function Invoices() {
               </>
             )}
             <DialogFooter className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-4 border-t gap-4">
-              <div className="text-lg font-semibold">
-                Total: ${Number(selectedInvoice?.total || 0).toFixed(2)}
+              <div className="flex items-center gap-4">
+                <div className="text-lg font-semibold">
+                  Total: ${Number(selectedInvoice?.total || selectedInvoice?.subtotal || 0).toFixed(2)}
+                </div>
+                {selectedInvoice && selectedInvoice.status !== 'paid' && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => selectedInvoice && handleDeleteInvoice(selectedInvoice.id)}
+                  >
+                    <XCircle className="h-4 w-4 mr-1" />
+                    Delete Invoice
+                  </Button>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={!sortedLines.length}>

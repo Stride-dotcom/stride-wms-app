@@ -12,6 +12,8 @@ import { PushToQuickBooksButton } from "@/components/billing/PushToQuickBooksBut
 import { BillingEventForSync } from "@/hooks/useQuickBooks";
 import { useAuth } from "@/contexts/AuthContext";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { useInvoices, InvoiceGrouping, InvoiceType } from "@/hooks/useInvoices";
+import { logItemActivity } from "@/lib/activity/logItemActivity";
 import * as XLSX from 'xlsx';
 import {
   Dialog,
@@ -89,6 +91,8 @@ interface RowEdit {
 
 type SortField = 'occurred_at' | 'account_name' | 'sidemark_name' | 'item_code' | 'event_type' | 'charge_type' | 'description' | 'quantity' | 'unit_rate' | 'total_amount' | 'status';
 type SortDirection = 'asc' | 'desc';
+type FilterMode = 'date_range' | 'all_unbilled';
+type LineSortOption = 'date' | 'service' | 'item' | 'amount';
 
 // ============================================
 // BILLING SAFETY HELPER FUNCTIONS (Phase 5A.1)
@@ -184,6 +188,7 @@ export function BillingReportTab() {
   const { toast } = useToast();
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const { createInvoicesFromEvents } = useInvoices();
 
   const [start, setStart] = useState<string>(() => {
     const d = new Date();
@@ -238,6 +243,19 @@ export function BillingReportTab() {
     unit_rate: '',
     occurred_at: new Date().toISOString().slice(0, 10),
   });
+
+  // Filter mode: date_range or all_unbilled
+  const [filterMode, setFilterMode] = useState<FilterMode>('date_range');
+
+  // Inline Create Invoices panel state
+  const [showCreatePanel, setShowCreatePanel] = useState(false);
+  const [invoiceGrouping, setInvoiceGrouping] = useState<InvoiceGrouping>('by_account');
+  const [invoiceLineSorting, setInvoiceLineSorting] = useState<LineSortOption>('date');
+  const [invoiceType, setInvoiceType] = useState<InvoiceType>('weekly_services');
+  const [invoicePeriodStart, setInvoicePeriodStart] = useState<string>('');
+  const [invoicePeriodEnd, setInvoicePeriodEnd] = useState<string>('');
+  const [creatingInvoices, setCreatingInvoices] = useState(false);
+  const [combinedConfirmOpen, setCombinedConfirmOpen] = useState(false);
 
   // Billing Safety UX (Phase 5A)
   const [showOnlyIssues, setShowOnlyIssues] = useState(false);
@@ -321,6 +339,7 @@ export function BillingReportTab() {
 
     setLoading(true);
     setSelectedRows(new Set());
+    setShowCreatePanel(false);
     setRowEdits({}); // Clear any pending edits
     setEditingCell(null);
     try {
@@ -331,22 +350,30 @@ export function BillingReportTab() {
           description, quantity, unit_rate, total_amount, status, invoice_id
         `)
         .eq("tenant_id", profile.tenant_id)
-        .gte("occurred_at", `${start}T00:00:00.000Z`)
-        .lte("occurred_at", `${end}T23:59:59.999Z`)
         .order("occurred_at", { ascending: false })
         .limit(1000);
+
+      // Apply date range filter only in date_range mode
+      if (filterMode === 'date_range') {
+        query = query
+          .gte("occurred_at", `${start}T00:00:00.000Z`)
+          .lte("occurred_at", `${end}T23:59:59.999Z`);
+      } else {
+        // All Unbilled mode: force status to unbilled
+        query = query.eq("status", "unbilled");
+      }
 
       if (selectedAccounts.length > 0) {
         query = query.in("account_id", selectedAccounts);
       }
-      if (selectedStatuses.length > 0) {
+      // Only apply status filter in date_range mode (all_unbilled already forces unbilled)
+      if (filterMode === 'date_range' && selectedStatuses.length > 0) {
         query = query.in("status", selectedStatuses);
       }
       if (selectedServices.length > 0) {
         const hasAddon = selectedServices.includes('__addon__');
         const regularServices = selectedServices.filter(s => s !== '__addon__');
         if (hasAddon && regularServices.length > 0) {
-          // Filter by charge_type OR event_type='addon'
           query = query.or(`charge_type.in.(${regularServices.join(',')}),event_type.eq.addon`);
         } else if (hasAddon) {
           query = query.eq("event_type", "addon");
@@ -465,7 +492,7 @@ export function BillingReportTab() {
     } finally {
       setLoading(false);
     }
-  }, [profile?.tenant_id, start, end, selectedAccounts, selectedStatuses, selectedServices, toast]);
+  }, [profile?.tenant_id, start, end, selectedAccounts, selectedStatuses, selectedServices, filterMode, toast]);
 
   // Inactive service type handlers
   const handleIncludeInactiveServices = () => {
@@ -699,7 +726,7 @@ export function BillingReportTab() {
     return row.sidemark_name || '-';
   };
 
-  // Save all edited rows
+  // Save all edited rows with activity logging
   const saveAllEdits = async () => {
     const editedRowIds = Object.keys(rowEdits);
     if (editedRowIds.length === 0) return;
@@ -708,6 +735,7 @@ export function BillingReportTab() {
     try {
       for (const rowId of editedRowIds) {
         const edit = rowEdits[rowId];
+        const originalRow = rows.find(r => r.id === rowId);
         const unitRate = parseFloat(edit.unit_rate);
         const quantity = parseFloat(edit.quantity);
 
@@ -733,6 +761,30 @@ export function BillingReportTab() {
           .eq("id", rowId);
 
         if (error) throw error;
+
+        // Log activity for item-linked billing events
+        if (originalRow?.item_id && profile?.tenant_id && profile?.id) {
+          const changes: Record<string, unknown> = {};
+          if (originalRow.description !== (edit.description || null)) {
+            changes.description = { before: originalRow.description, after: edit.description || null };
+          }
+          if (originalRow.quantity !== quantity) {
+            changes.quantity = { before: originalRow.quantity, after: quantity };
+          }
+          if (originalRow.unit_rate !== unitRate) {
+            changes.unit_rate = { before: originalRow.unit_rate, after: unitRate };
+          }
+          if (Object.keys(changes).length > 0) {
+            logItemActivity({
+              tenantId: profile.tenant_id,
+              itemId: originalRow.item_id,
+              actorUserId: profile.id,
+              eventType: 'billing_event_updated',
+              eventLabel: `Billing charge edited: ${originalRow.charge_type}`,
+              details: { billing_event_id: rowId, changes },
+            });
+          }
+        }
 
         // Update local state
         setRows(prev => prev.map(r =>
@@ -848,38 +900,35 @@ export function BillingReportTab() {
     });
   };
 
-  // Select/deselect all unbilled rows
+  // Select/deselect all unbilled rows in the current filtered view
   const toggleSelectAll = () => {
-    const unbilledRows = rows.filter(r => r.status === 'unbilled');
-    if (selectedRows.size === unbilledRows.length && unbilledRows.length > 0) {
-      // Deselect all
+    const unbilledFilteredRows = filteredRows.filter(r => r.status === 'unbilled');
+    const allSelected = unbilledFilteredRows.length > 0 && unbilledFilteredRows.every(r => selectedRows.has(r.id));
+    if (allSelected) {
       setSelectedRows(new Set());
     } else {
-      // Select all unbilled
-      setSelectedRows(new Set(unbilledRows.map(r => r.id)));
+      setSelectedRows(new Set(unbilledFilteredRows.map(r => r.id)));
     }
   };
 
-  // Check if all unbilled are selected
+  // Check if all unbilled in filtered view are selected
   const allUnbilledSelected = useMemo(() => {
-    const unbilledRows = rows.filter(r => r.status === 'unbilled');
-    return unbilledRows.length > 0 && unbilledRows.every(r => selectedRows.has(r.id));
-  }, [rows, selectedRows]);
+    const unbilledFilteredRows = filteredRows.filter(r => r.status === 'unbilled');
+    return unbilledFilteredRows.length > 0 && unbilledFilteredRows.every(r => selectedRows.has(r.id));
+  }, [filteredRows, selectedRows]);
 
-  // Check if some unbilled are selected
+  // Check if some unbilled in filtered view are selected
   const someUnbilledSelected = useMemo(() => {
-    const unbilledRows = rows.filter(r => r.status === 'unbilled');
-    return unbilledRows.some(r => selectedRows.has(r.id)) && !allUnbilledSelected;
-  }, [rows, selectedRows, allUnbilledSelected]);
+    const unbilledFilteredRows = filteredRows.filter(r => r.status === 'unbilled');
+    return unbilledFilteredRows.some(r => selectedRows.has(r.id)) && !allUnbilledSelected;
+  }, [filteredRows, selectedRows, allUnbilledSelected]);
 
 
   // Handle navigation after unsaved changes dialog
   const handleProceedWithNavigation = () => {
     setShowUnsavedDialog(false);
     if (pendingNavigation === 'create-invoice') {
-      const selectedBillingEventIds = Array.from(selectedRows);
-      sessionStorage.setItem('invoiceSelectedBillingEvents', JSON.stringify(selectedBillingEventIds));
-      navigate('/invoices?tab=create&source=billing-report');
+      openCreatePanel();
     }
     setPendingNavigation(null);
   };
@@ -888,20 +937,39 @@ export function BillingReportTab() {
     await saveAllEdits();
     setShowUnsavedDialog(false);
     if (pendingNavigation === 'create-invoice') {
-      const selectedBillingEventIds = Array.from(selectedRows);
-      sessionStorage.setItem('invoiceSelectedBillingEvents', JSON.stringify(selectedBillingEventIds));
-      navigate('/invoices?tab=create&source=billing-report');
+      openCreatePanel();
     }
     setPendingNavigation(null);
   };
 
-  // Navigate to Invoice Builder with selected unbilled events
+  // Open inline Create Invoices panel
+  const openCreatePanel = () => {
+    // Compute period from selected events
+    const selectedEventRows = rows.filter(r => selectedRows.has(r.id));
+    const dates = selectedEventRows.map(r => r.occurred_at?.slice(0, 10)).filter(Boolean).sort();
+    setInvoicePeriodStart(dates[0] || new Date().toISOString().slice(0, 10));
+    setInvoicePeriodEnd(dates[dates.length - 1] || new Date().toISOString().slice(0, 10));
+    setShowCreatePanel(true);
+  };
+
+  // Validate selection and show Create Invoices panel
   // Phase 5A: Block if any selected rows have billing issues
   const handleCreateInvoice = () => {
     const unbilledEventIds = Array.from(selectedRows).filter(id => {
       const row = rows.find(r => r.id === id);
       return row?.status === 'unbilled';
     });
+
+    // Check if any selected rows are NOT unbilled
+    const nonUnbilledCount = selectedRows.size - unbilledEventIds.length;
+    if (nonUnbilledCount > 0) {
+      toast({
+        title: 'Selection contains non-unbilled rows',
+        description: `${nonUnbilledCount} selected row(s) are reserved/invoiced. Please deselect them first.`,
+        variant: 'destructive',
+      });
+      return;
+    }
 
     if (unbilledEventIds.length === 0) {
       toast({
@@ -919,16 +987,122 @@ export function BillingReportTab() {
     });
 
     if (unsafeIds.length > 0) {
-      // Block and show modal
       setPendingUnsafeEventIds(unsafeIds);
       setUnsafeInvoiceDialogOpen(true);
       return;
     }
 
-    // All lines are safe, proceed to invoice builder
-    const eventParams = unbilledEventIds.join(',');
-    navigate(`/reports?tab=revenue-ledger&subtab=builder&events=${eventParams}`);
+    // Check for unsaved edits
+    if (hasUnsavedChanges) {
+      setPendingNavigation('create-invoice');
+      setShowUnsavedDialog(true);
+      return;
+    }
+
+    // All lines are safe, open inline panel
+    openCreatePanel();
   };
+
+  // Execute Create Draft Invoices
+  const handleExecuteCreateInvoices = async () => {
+    if (invoiceGrouping === 'single') {
+      // Require confirmation for combined invoice across accounts
+      const accountIds = new Set(
+        rows.filter(r => selectedRows.has(r.id)).map(r => r.account_id)
+      );
+      if (accountIds.size > 1) {
+        setCombinedConfirmOpen(true);
+        return;
+      }
+    }
+    await executeCreateInvoices();
+  };
+
+  const executeCreateInvoices = async () => {
+    setCombinedConfirmOpen(false);
+    setCreatingInvoices(true);
+
+    try {
+      const selectedEventIds = Array.from(selectedRows);
+
+      // Re-validate: fresh query to ensure all are still unbilled
+      const { data: freshEvents, error: freshErr } = await supabase
+        .from("billing_events")
+        .select("id, status")
+        .in("id", selectedEventIds);
+
+      if (freshErr) throw freshErr;
+
+      const staleEvents = (freshEvents || []).filter(e => e.status !== 'unbilled');
+      if (staleEvents.length > 0) {
+        toast({
+          title: 'Some events already invoiced',
+          description: `${staleEvents.length} event(s) were invoiced by another user. Please refresh and try again.`,
+          variant: 'destructive',
+        });
+        setCreatingInvoices(false);
+        return;
+      }
+
+      const result = await createInvoicesFromEvents({
+        billingEventIds: selectedEventIds,
+        grouping: invoiceGrouping,
+        invoiceType: invoiceType,
+      });
+
+      if (result.success > 0) {
+        // Log activity for item-linked events
+        if (profile?.tenant_id && profile?.id) {
+          const selectedEventRows = rows.filter(r => selectedRows.has(r.id));
+          for (const row of selectedEventRows) {
+            if (row.item_id) {
+              logItemActivity({
+                tenantId: profile.tenant_id,
+                itemId: row.item_id,
+                actorUserId: profile.id,
+                eventType: 'billing_event_invoiced',
+                eventLabel: `Charge invoiced: ${row.charge_type} ($${Number(row.total_amount || 0).toFixed(2)})`,
+                details: {
+                  billing_event_id: row.id,
+                  charge_type: row.charge_type,
+                  total_amount: row.total_amount,
+                },
+              });
+            }
+          }
+        }
+
+        // Clear selection and panel
+        setSelectedRows(new Set());
+        setShowCreatePanel(false);
+
+        toast({
+          title: 'Invoices created',
+          description: `Created ${result.success} draft invoice(s) with ${Array.from(selectedRows).length} line items.`,
+        });
+
+        // Navigate to invoices page to see the new drafts
+        navigate('/billing/invoices');
+      }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Unknown error";
+      toast({ title: "Invoice creation failed", description: message, variant: "destructive" });
+    } finally {
+      setCreatingInvoices(false);
+    }
+  };
+
+  // Selected rows summary for the create panel
+  const selectedRowsSummary = useMemo(() => {
+    const selected = rows.filter(r => selectedRows.has(r.id));
+    const total = selected.reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
+    const accountIds = new Set(selected.map(r => r.account_id));
+    const accountNames = [...accountIds].map(id => {
+      const row = selected.find(r => r.account_id === id);
+      return row?.account_name || 'Unknown';
+    });
+    return { count: selected.length, total, accountCount: accountIds.size, accountNames };
+  }, [rows, selectedRows]);
 
   // Phase 5A: Get details of unsafe rows for the modal
   const getUnsafeRowDetails = useMemo(() => {
@@ -1066,10 +1240,10 @@ export function BillingReportTab() {
           <p className="text-muted-foreground text-sm">View, edit, and manage billing events</p>
         </div>
         <div className="flex gap-2">
-          {selectedRows.size > 0 && (
+          {selectedRows.size > 0 && !showCreatePanel && (
             <Button onClick={handleCreateInvoice} size="sm" variant="default">
               <MaterialIcon name="receipt" size="sm" className="mr-2" />
-              Create Invoice ({selectedRows.size})
+              Create Invoices ({selectedRows.size})
             </Button>
           )}
           <Button onClick={() => setAddChargeOpen(true)} size="sm" variant="outline">
@@ -1162,17 +1336,176 @@ export function BillingReportTab() {
         </Card>
       )}
 
+      {/* Inline Create Invoices Panel */}
+      {showCreatePanel && selectedRows.size > 0 && (
+        <Card className="border-blue-300 bg-blue-50/50 dark:bg-blue-950/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                  <MaterialIcon name="receipt_long" size="md" />
+                  Create Draft Invoices
+                </CardTitle>
+                <CardDescription>
+                  {selectedRowsSummary.count} charge(s) totaling ${selectedRowsSummary.total.toFixed(2)} across {selectedRowsSummary.accountCount} account(s)
+                </CardDescription>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowCreatePanel(false)}>
+                <MaterialIcon name="close" size="sm" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Grouping */}
+              <div className="space-y-1">
+                <Label className="text-sm font-medium">Grouping</Label>
+                <Select value={invoiceGrouping} onValueChange={(v) => setInvoiceGrouping(v as InvoiceGrouping)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="by_account">One invoice per account</SelectItem>
+                    <SelectItem value="by_account_sidemark">Separate by account + sidemark</SelectItem>
+                    <SelectItem value="single">One combined invoice</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Line sorting */}
+              <div className="space-y-1">
+                <Label className="text-sm font-medium">Line Sorting</Label>
+                <Select value={invoiceLineSorting} onValueChange={(v) => setInvoiceLineSorting(v as LineSortOption)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date">By Date</SelectItem>
+                    <SelectItem value="service">By Service Type</SelectItem>
+                    <SelectItem value="item">By Item</SelectItem>
+                    <SelectItem value="amount">By Amount (High to Low)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Invoice Type */}
+              <div className="space-y-1">
+                <Label className="text-sm font-medium">Invoice Type</Label>
+                <Select value={invoiceType} onValueChange={(v) => setInvoiceType(v as InvoiceType)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="weekly_services">Weekly Services</SelectItem>
+                    <SelectItem value="monthly_storage">Monthly Storage</SelectItem>
+                    <SelectItem value="closeout">Closeout</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Period (optional, for header) */}
+              <div className="space-y-1">
+                <Label className="text-sm font-medium">Period (optional)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    value={invoicePeriodStart}
+                    onChange={(e) => setInvoicePeriodStart(e.target.value)}
+                    className="text-xs"
+                  />
+                  <Input
+                    type="date"
+                    value={invoicePeriodEnd}
+                    onChange={(e) => setInvoicePeriodEnd(e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Grouping explanation */}
+            <div className="text-sm text-muted-foreground bg-white dark:bg-background p-2 rounded border">
+              {invoiceGrouping === 'by_account' && (
+                <span>Will create {selectedRowsSummary.accountCount} invoice(s) - one per account.</span>
+              )}
+              {invoiceGrouping === 'by_account_sidemark' && (
+                <span>Will create separate invoices for each unique account + sidemark combination.</span>
+              )}
+              {invoiceGrouping === 'single' && selectedRowsSummary.accountCount > 1 && (
+                <span className="text-amber-600">Will create 1 combined invoice across {selectedRowsSummary.accountCount} accounts. Confirmation required.</span>
+              )}
+              {invoiceGrouping === 'single' && selectedRowsSummary.accountCount === 1 && (
+                <span>Will create 1 invoice for {selectedRowsSummary.accountNames[0]}.</span>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleExecuteCreateInvoices}
+                disabled={creatingInvoices}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {creatingInvoices && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
+                <MaterialIcon name="receipt" size="sm" className="mr-2" />
+                {creatingInvoices ? 'Creating...' : `Create Draft Invoice${selectedRowsSummary.accountCount > 1 && invoiceGrouping !== 'single' ? 's' : ''}`}
+              </Button>
+              <Button variant="outline" onClick={() => { setShowCreatePanel(false); setSelectedRows(new Set()); }} disabled={creatingInvoices}>
+                Cancel Selection
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
+          {/* Filter Mode Toggle */}
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Mode:</span>
+            <div className="inline-flex rounded-md border">
+              <button
+                className={`px-3 py-1.5 text-sm font-medium rounded-l-md transition-colors ${filterMode === 'date_range' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'}`}
+                onClick={() => setFilterMode('date_range')}
+              >
+                Date Range
+              </button>
+              <button
+                className={`px-3 py-1.5 text-sm font-medium rounded-r-md transition-colors ${filterMode === 'all_unbilled' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'}`}
+                onClick={() => setFilterMode('all_unbilled')}
+              >
+                All Unbilled
+              </button>
+            </div>
+            {filterMode === 'all_unbilled' && (
+              <span className="text-xs text-muted-foreground ml-2">
+                Shows all unbilled charges regardless of date
+              </span>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div className="space-y-1">
               <label className="text-sm font-medium">Start Date</label>
-              <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+              <Input
+                type="date"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+                disabled={filterMode === 'all_unbilled'}
+                className={filterMode === 'all_unbilled' ? 'opacity-50' : ''}
+              />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium">End Date</label>
-              <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+              <Input
+                type="date"
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+                disabled={filterMode === 'all_unbilled'}
+                className={filterMode === 'all_unbilled' ? 'opacity-50' : ''}
+              />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium">Account</label>
@@ -1188,18 +1521,24 @@ export function BillingReportTab() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium">Status</label>
-              <MultiSelect
-                options={[
-                  { value: 'unbilled', label: 'Unbilled' },
-                  { value: 'invoiced', label: 'Invoiced' },
-                  { value: 'void', label: 'Void' },
-                ]}
-                selected={selectedStatuses}
-                onChange={setSelectedStatuses}
-                placeholder="All statuses"
-                emptyMessage="No statuses found"
-              />
+              <label className="text-sm font-medium">Status{filterMode === 'all_unbilled' ? ' (Unbilled only)' : ''}</label>
+              {filterMode === 'all_unbilled' ? (
+                <div className="flex h-10 items-center rounded-md border bg-muted/50 px-3 text-sm text-muted-foreground">
+                  Unbilled only
+                </div>
+              ) : (
+                <MultiSelect
+                  options={[
+                    { value: 'unbilled', label: 'Unbilled' },
+                    { value: 'invoiced', label: 'Invoiced' },
+                    { value: 'void', label: 'Void' },
+                  ]}
+                  selected={selectedStatuses}
+                  onChange={setSelectedStatuses}
+                  placeholder="All statuses"
+                  emptyMessage="No statuses found"
+                />
+              )}
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium">Service Type</label>
@@ -1233,7 +1572,7 @@ export function BillingReportTab() {
           <div className="mt-4 flex justify-between items-center">
             <div className="text-sm text-muted-foreground flex items-center gap-4">
               {selectedRows.size > 0 && (
-                <span>{selectedRows.size} row(s) selected</span>
+                <span className="font-medium text-blue-600">{selectedRows.size} row(s) selected &mdash; ${rows.filter(r => selectedRows.has(r.id)).reduce((s, r) => s + Number(r.total_amount || 0), 0).toFixed(2)}</span>
               )}
               {hasUnsavedChanges && (
                 <span className="text-amber-600 flex items-center gap-1">
@@ -1255,11 +1594,11 @@ export function BillingReportTab() {
                   </Button>
                 </>
               )}
-              {/* Create Invoice button */}
-              {selectedRows.size > 0 && (
+              {/* Create Invoice button - opens inline panel */}
+              {selectedRows.size > 0 && !showCreatePanel && (
                 <Button onClick={handleCreateInvoice} size="sm" variant="default">
                   <MaterialIcon name="receipt" size="sm" className="mr-2" />
-                  Create Invoice ({selectedRows.size})
+                  Create Invoices ({selectedRows.size})
                 </Button>
               )}
               <Button onClick={fetchRows} disabled={loading}>
@@ -1751,6 +2090,27 @@ export function BillingReportTab() {
               <MaterialIcon name="visibility" size="sm" className="mr-2" />
               Show Issues
             </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Combined Invoice Confirmation Dialog */}
+      <AlertDialog open={combinedConfirmOpen} onOpenChange={setCombinedConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <MaterialIcon name="warning" size="md" className="text-amber-500" />
+              Combine Multiple Accounts?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to create a single combined invoice across {selectedRowsSummary.accountCount} different accounts ({selectedRowsSummary.accountNames.join(', ')}). This is unusual and may cause billing confusion. Are you sure?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={executeCreateInvoices}>
+              Yes, Create Combined Invoice
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
