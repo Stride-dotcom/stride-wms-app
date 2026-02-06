@@ -11,6 +11,7 @@ import { useLocations } from '@/hooks/useLocations';
 import { useStocktakeFreezeCheck } from '@/hooks/useStocktakes';
 import { useServiceEvents, ServiceEventForScan } from '@/hooks/useServiceEvents';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useAuth } from '@/contexts/AuthContext';
 import { QRScanner } from '@/components/scan/QRScanner';
 import { ItemSearchOverlay, LocationSearchOverlay } from '@/components/scan/SearchOverlays';
 import {
@@ -22,6 +23,7 @@ import {
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { logItemActivity } from '@/lib/activity/logItemActivity';
 import { ScanModeIcon } from '@/components/scan/ScanModeIcon';
 import { HelpButton } from '@/components/prompts';
 import { SOPValidationDialog, SOPBlocker } from '@/components/common/SOPValidationDialog';
@@ -61,6 +63,7 @@ type ScanPhase = 'idle' | 'scanning-item' | 'scanning-location' | 'confirm';
 export default function ScanHub() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { profile } = useAuth();
   const { locations } = useLocations();
   const { checkFreeze } = useStocktakeFreezeCheck();
   const { scanServiceEvents, getServiceRate, createBillingEvents, loading: serviceEventsLoading } = useServiceEvents();
@@ -475,7 +478,21 @@ export default function ScanHub() {
       }
 
       hapticSuccess(); // Move completed successfully
-      
+
+      // Log activity per item
+      if (profile?.tenant_id) {
+        for (const item of items) {
+          logItemActivity({
+            tenantId: profile.tenant_id,
+            itemId: item.id,
+            actorUserId: profile.id,
+            eventType: 'item_moved',
+            eventLabel: `Moved to ${targetLocation.code}`,
+            details: { from_location: item.current_location_code, to_location: targetLocation.code, to_location_id: targetLocation.id },
+          });
+        }
+      }
+
       // Show different toast for release locations
       if (targetLocation.type === 'release') {
         toast({

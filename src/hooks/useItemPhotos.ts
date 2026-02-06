@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { queueItemDamagedAlert } from '@/lib/alertQueue';
+import { logItemActivity } from '@/lib/activity/logItemActivity';
 
 export interface ItemPhoto {
   id: string;
@@ -197,6 +198,15 @@ export function useItemPhotos(itemId: string | undefined, includeTaskPhotos: boo
 
       if (error) throw error;
 
+      logItemActivity({
+        tenantId: profile.tenant_id,
+        itemId,
+        actorUserId: profile.id,
+        eventType: 'item_photo_added',
+        eventLabel: `Photo added (${photoType})`,
+        details: { photo_id: data?.id, photo_type: photoType, file_name: file.name },
+      });
+
       fetchPhotos();
       return data;
     } catch (error) {
@@ -374,6 +384,17 @@ export function useItemPhotos(itemId: string | undefined, includeTaskPhotos: boo
         title: 'Photo Deleted',
         description: 'Photo has been removed.',
       });
+
+      if (itemId && profile) {
+        logItemActivity({
+          tenantId: profile.tenant_id,
+          itemId,
+          actorUserId: profile.id,
+          eventType: 'item_photo_removed',
+          eventLabel: 'Photo removed',
+          details: { photo_id: photoId, file_name: photo?.file_name },
+        });
+      }
 
       fetchPhotos();
       return true;

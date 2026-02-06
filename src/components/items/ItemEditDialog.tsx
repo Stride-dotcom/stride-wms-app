@@ -32,6 +32,8 @@ import {
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { logItemActivity } from '@/lib/activity/logItemActivity';
 import { ClassSelect } from '@/components/ui/class-select';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { useFieldSuggestions } from '@/hooks/useFieldSuggestions';
@@ -111,6 +113,7 @@ export function ItemEditDialog({
   onSuccess,
 }: ItemEditDialogProps) {
   const { toast } = useToast();
+  const { profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
 
@@ -207,6 +210,41 @@ export function ItemEditDialog({
         .eq('id', item.id);
 
       if (error) throw error;
+
+      // Log activity for key field changes
+      if (profile?.tenant_id) {
+        if (data.status !== item.status) {
+          logItemActivity({
+            tenantId: profile.tenant_id,
+            itemId: item.id,
+            actorUserId: profile.id,
+            eventType: 'item_status_changed',
+            eventLabel: `Status changed: ${item.status} → ${data.status}`,
+            details: { from: item.status, to: data.status },
+          });
+        }
+        if ((data.account_id || null) !== (item.account_id || null)) {
+          const newAccount = accounts.find(a => a.id === data.account_id);
+          logItemActivity({
+            tenantId: profile.tenant_id,
+            itemId: item.id,
+            actorUserId: profile.id,
+            eventType: 'item_account_changed',
+            eventLabel: `Account changed${newAccount ? `: ${newAccount.account_name}` : ''}`,
+            details: { from_account_id: item.account_id, to_account_id: data.account_id || null, to_account_name: newAccount?.account_name },
+          });
+        }
+        if ((data.class_id || null) !== (item.class_id || null)) {
+          logItemActivity({
+            tenantId: profile.tenant_id,
+            itemId: item.id,
+            actorUserId: profile.id,
+            eventType: 'item_class_changed',
+            eventLabel: 'Item class changed',
+            details: { from_class_id: item.class_id, to_class_id: data.class_id || null },
+          });
+        }
+      }
 
       // Add room to suggestions
       if (data.room) addRoomSuggestion(data.room);

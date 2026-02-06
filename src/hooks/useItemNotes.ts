@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { logItemActivity } from '@/lib/activity/logItemActivity';
 
 export interface ItemNote {
   id: string;
@@ -97,6 +98,15 @@ export function useItemNotes(itemId: string | undefined) {
         description: `${noteType === 'public' ? 'Public' : 'Internal'} note has been added.`,
       });
 
+      logItemActivity({
+        tenantId: profile.tenant_id,
+        itemId,
+        actorUserId: profile.id,
+        eventType: 'item_note_added',
+        eventLabel: `${noteType === 'public' ? 'Public' : 'Internal'} note added`,
+        details: { note_id: data.id, note_type: noteType, preview: note.substring(0, 100) },
+      });
+
       fetchNotes();
       return data;
     } catch (error) {
@@ -153,6 +163,17 @@ export function useItemNotes(itemId: string | undefined) {
         description: 'Note has been updated.',
       });
 
+      if (itemId && profile) {
+        logItemActivity({
+          tenantId: profile.tenant_id,
+          itemId,
+          actorUserId: profile.id,
+          eventType: 'item_note_edited',
+          eventLabel: 'Note edited',
+          details: { note_id: noteId, preview: newContent.substring(0, 100) },
+        });
+      }
+
       fetchNotes();
       return true;
     } catch (error) {
@@ -179,6 +200,17 @@ export function useItemNotes(itemId: string | undefined) {
         title: 'Note Deleted',
         description: 'Note has been removed.',
       });
+
+      if (itemId && profile) {
+        logItemActivity({
+          tenantId: profile.tenant_id,
+          itemId,
+          actorUserId: profile.id,
+          eventType: 'item_note_deleted',
+          eventLabel: 'Note deleted',
+          details: { note_id: noteId },
+        });
+      }
 
       fetchNotes();
       return true;

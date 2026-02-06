@@ -18,6 +18,7 @@ import { toast } from '@/lib/toastShim';
 import { queueBillingEventAlert } from '@/lib/alertQueue';
 import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { logItemActivity } from '@/lib/activity/logItemActivity';
 
 interface ItemFlagsSectionProps {
   itemId: string;
@@ -141,6 +142,16 @@ export function ItemFlagsSection({
       if (error) throw error;
 
       toast.success(`${service.service_name} removed`);
+
+      logItemActivity({
+        tenantId: profile!.tenant_id,
+        itemId,
+        actorUserId: profile!.id,
+        eventType: 'item_flag_removed',
+        eventLabel: `Flag removed: ${service.service_name}`,
+        details: { service_code: service.service_code, service_name: service.service_name, flag_type: 'indicator' },
+      });
+
       setEnabledIndicatorFlags(prev => {
         const next = new Set(prev);
         next.delete(service.service_code);
@@ -184,6 +195,15 @@ export function ItemFlagsSection({
         toast.success(`${service.service_name} applied`);
       }
 
+      logItemActivity({
+        tenantId: profile!.tenant_id,
+        itemId,
+        actorUserId: profile!.id,
+        eventType: 'item_flag_applied',
+        eventLabel: `Flag applied: ${service.service_name}`,
+        details: { service_code: service.service_code, service_name: service.service_name, flag_type: 'indicator' },
+      });
+
       setEnabledIndicatorFlags(prev => {
         const next = new Set(prev);
         next.add(service.service_code);
@@ -207,6 +227,25 @@ export function ItemFlagsSection({
       if (error) throw error;
 
       toast.success(`${service.service_name} removed`);
+
+      // Log flag removal AND billing event void (billing event was deleted, but history stays)
+      logItemActivity({
+        tenantId: profile!.tenant_id,
+        itemId,
+        actorUserId: profile!.id,
+        eventType: 'item_flag_removed',
+        eventLabel: `Flag removed: ${service.service_name}`,
+        details: { service_code: service.service_code, service_name: service.service_name, flag_type: 'billing' },
+      });
+      logItemActivity({
+        tenantId: profile!.tenant_id,
+        itemId,
+        actorUserId: profile!.id,
+        eventType: 'billing_event_voided',
+        eventLabel: `Unbilled charge removed: ${service.service_name}`,
+        details: { service_code: service.service_code, reason: 'flag_unchecked' },
+      });
+
       setEnabledBillingFlags(prev => {
         const next = new Set(prev);
         next.delete(service.service_code);
@@ -284,6 +323,24 @@ export function ItemFlagsSection({
       } else {
         toast.success(`${service.service_name} enabled (billing event created)`);
       }
+
+      // Log flag applied + billing event created
+      logItemActivity({
+        tenantId: profile!.tenant_id,
+        itemId,
+        actorUserId: profile!.id,
+        eventType: 'item_flag_applied',
+        eventLabel: `Flag applied: ${service.service_name}`,
+        details: { service_code: service.service_code, service_name: service.service_name, flag_type: 'billing', rate: rateInfo.rate },
+      });
+      logItemActivity({
+        tenantId: profile!.tenant_id,
+        itemId,
+        actorUserId: profile!.id,
+        eventType: 'billing_event_created',
+        eventLabel: `Billing charge created: ${service.service_name}`,
+        details: { service_code: service.service_code, amount: rateInfo.rate, status: 'unbilled' },
+      });
 
       setEnabledBillingFlags(prev => {
         const next = new Set(prev);

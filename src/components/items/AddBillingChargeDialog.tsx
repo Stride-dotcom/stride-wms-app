@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { logItemActivity } from '@/lib/activity/logItemActivity';
 
 interface ChargeTemplate {
   id: string;
@@ -182,6 +183,15 @@ export function AddBillingChargeDialog({
       toast({
         title: 'Add-on added',
         description: `$${amount.toFixed(2)} add-on added to ${itemCode}.`,
+      });
+
+      logItemActivity({
+        tenantId: profile.tenant_id,
+        itemId,
+        actorUserId: profile.id,
+        eventType: 'billing_charge_added',
+        eventLabel: `Manual charge added: ${formData.charge_name.trim()}`,
+        details: { charge_name: formData.charge_name.trim(), amount, description: formData.description.trim() || null },
       });
 
       onSuccess();
