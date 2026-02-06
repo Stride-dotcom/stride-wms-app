@@ -96,6 +96,25 @@ type SortDirection = 'asc' | 'desc';
 type FilterMode = 'date_range' | 'all_unbilled';
 type LineSortOption = 'date' | 'service' | 'item' | 'amount';
 
+/** Stable string from current filters – used as localStorage key for inactive-service suppression. */
+function computeFilterHash(
+  tenantId: string,
+  mode: FilterMode,
+  accounts: string[],
+  services: string[],
+  startDate: string,
+  endDate: string,
+): string {
+  const parts = [
+    tenantId,
+    mode,
+    [...accounts].sort().join(','),
+    [...services].sort().join(','),
+    mode === 'date_range' ? `${startDate}:${endDate}` : '',
+  ];
+  return parts.join('|');
+}
+
 // ============================================
 // BILLING SAFETY HELPER FUNCTIONS (Phase 5A.1)
 // ============================================
@@ -449,13 +468,23 @@ export function BillingReportTab() {
           serviceData?.map(s => [s.service_code, { name: s.service_name, isActive: s.is_active }]) || []
         );
 
-        // Find events with inactive service types
+        // Find events with inactive service types (skip already-voided events)
         const eventsWithInactive = transformed.filter((event: BillingEventRow) => {
+          if (event.status === 'void') return false;
           const serviceInfo = serviceMap.get(event.charge_type);
           return serviceInfo && !serviceInfo.isActive;
         });
 
         if (eventsWithInactive.length > 0) {
+          // Check if user previously chose "Include Anyway" for this filter combination
+          const hash = computeFilterHash(profile.tenant_id, filterMode, selectedAccounts, selectedServices, start, end);
+          const suppressionKey = `inactive_service_warning_ignored::${profile.tenant_id}::${hash}`;
+          if (localStorage.getItem(suppressionKey)) {
+            setRows(transformed);
+            setLoading(false);
+            return;
+          }
+
           // Group by service type for display
           const groupedByService = new Map<string, { name: string; events: BillingEventRow[] }>();
 
@@ -498,6 +527,12 @@ export function BillingReportTab() {
 
   // Inactive service type handlers
   const handleIncludeInactiveServices = () => {
+    // Store suppression flag so modal won't re-appear for this filter combination
+    if (profile?.tenant_id) {
+      const hash = computeFilterHash(profile.tenant_id, filterMode, selectedAccounts, selectedServices, start, end);
+      const suppressionKey = `inactive_service_warning_ignored::${profile.tenant_id}::${hash}`;
+      localStorage.setItem(suppressionKey, 'true');
+    }
     setRows(pendingBillingEvents);
     setInactiveServiceDialogOpen(false);
     setPendingBillingEvents([]);
@@ -541,18 +576,18 @@ export function BillingReportTab() {
       }
     }
 
-    // Show remaining events (excluding voided ones)
-    const remainingEvents = pendingBillingEvents.filter(e => !eventIdsToVoid.includes(e.id));
-    setRows(remainingEvents);
-
     toast({
       title: 'Events Voided',
       description: `Voided ${eventIdsToVoid.length} billing event(s) with inactive service types.`,
     });
 
+    // Clean up dialog state before refresh
     setInactiveServiceDialogOpen(false);
     setPendingBillingEvents([]);
     setInactiveServiceEvents([]);
+
+    // Re-fetch from database so voided events show correct status
+    fetchRows();
   };
 
   const handleCancelInactiveDialog = () => {
