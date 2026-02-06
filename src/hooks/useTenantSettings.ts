@@ -18,6 +18,7 @@ export interface TenantCompanySettings {
   remit_zip: string | null;
   logo_url: string | null;
   logo_storage_path: string | null;
+  office_alert_emails: string | null;
   app_base_url: string | null;
   app_subdomain: string | null;
   email_signature_enabled: boolean;

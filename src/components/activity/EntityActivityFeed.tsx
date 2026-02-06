@@ -115,7 +115,7 @@ export function EntityActivityFeed({ entityType, entityId, title, description }:
 
     setLoading(true);
     try {
-      const { data, error } = await (supabase.from(mapping.table) as any)
+      const { data, error } = await (supabase as any).from(mapping.table)
         .select('*')
         .eq(mapping.idColumn, entityId)
         .order('created_at', { ascending: false })
