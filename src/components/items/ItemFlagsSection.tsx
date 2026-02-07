@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePermissions } from '@/hooks/usePermissions';
+
 import { useServiceEvents, ServiceEvent } from '@/hooks/useServiceEvents';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toastShim';
@@ -34,10 +34,6 @@ export function ItemFlagsSection({
   isClientUser = false,
 }: ItemFlagsSectionProps) {
   const { profile } = useAuth();
-  const { hasRole } = usePermissions();
-
-  // Only show flag prices to certain roles
-  const canViewPrices = hasRole('tenant_admin') || hasRole('admin') || hasRole('manager');
 
   const [updatingFlag, setUpdatingFlag] = useState<string | null>(null);
   const [enabledBillingFlags, setEnabledBillingFlags] = useState<Set<string>>(new Set());
@@ -401,7 +397,7 @@ export function ItemFlagsSection({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="flex items-center gap-3 p-2">
                 <Skeleton className="h-4 w-4" />
@@ -460,7 +456,7 @@ export function ItemFlagsSection({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {flagServiceEvents.map((service) => {
             const isEnabled = isFlagEnabled(service);
             const isUpdating = updatingFlag === service.service_code;
@@ -491,24 +487,22 @@ export function ItemFlagsSection({
                     <MaterialIcon name="progress_activity" size="sm" className="animate-spin text-muted-foreground" />
                   ) : (
                     <MaterialIcon
-                      name={isIndicator ? 'info' : 'flag'}
+                      name="flag"
                       size="sm"
-                      className={isEnabled ? (isIndicator ? 'text-amber-600 dark:text-amber-400' : 'text-primary') : 'text-muted-foreground'}
+                      className={isEnabled ? 'text-primary' : 'text-muted-foreground'}
                     />
                   )}
                   <span className="text-sm">{service.service_name}</span>
                   <div className="flex items-center gap-1 ml-auto">
-                    {isIndicator ? (
-                      <Badge variant="outline" className="text-xs px-1 bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800">
-                        INDICATOR
+                    {!isIndicator && (
+                      <Badge variant="outline" className="text-xs px-1">
+                        <MaterialIcon name="attach_money" className="text-[12px]" />
                       </Badge>
-                    ) : (
-                      canViewPrices && service.rate > 0 && (
-                        <Badge variant="outline" className="text-xs px-1">
-                          <MaterialIcon name="attach_money" className="text-[12px]" />
-                          {service.rate.toFixed(2)}
-                        </Badge>
-                      )
+                    )}
+                    {isIndicator && (
+                      <Badge variant="outline" className="text-xs px-1 bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800">
+                        <MaterialIcon name="warning" className="text-[12px]" />
+                      </Badge>
                     )}
                     {hasAlert && (
                       <Badge variant="outline" className="text-xs px-1">
@@ -523,18 +517,18 @@ export function ItemFlagsSection({
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 mt-4 pt-4 border-t text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <MaterialIcon name="attach_money" className="text-[12px]" />
-            <span>Creates Billing Charge</span>
+            <span>Billing</span>
           </div>
           <div className="flex items-center gap-1">
-            <Badge variant="outline" className="text-[9px] px-0.5 py-0 leading-tight">IND</Badge>
-            <span>Indicator Only</span>
+            <MaterialIcon name="warning" className="text-[12px] text-amber-600 dark:text-amber-400" />
+            <span>Indicator</span>
           </div>
           <div className="flex items-center gap-1">
             <MaterialIcon name="notifications" className="text-[12px]" />
-            <span>Sends Alert</span>
+            <span>Alert</span>
           </div>
         </div>
 
