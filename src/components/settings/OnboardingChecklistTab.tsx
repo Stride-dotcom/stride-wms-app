@@ -270,41 +270,52 @@ export function OnboardingChecklistTab() {
 
   const handleQueueTestAlert = async () => {
     if (!profile?.tenant_id) return;
+    if (!testEmailAddress) {
+      toast({
+        variant: 'destructive',
+        title: 'Email Required',
+        description: 'Enter an email address above to receive the test alert.',
+      });
+      return;
+    }
 
     setQueuingTestAlert(true);
     try {
-      const { error } = await supabase.from('alert_queue').insert({
+      const { data: inserted, error } = await supabase.from('alert_queue').insert({
         tenant_id: profile.tenant_id,
         alert_type: 'shipment.received',
         entity_type: 'shipment',
         entity_id: '00000000-0000-0000-0000-000000000000',
-        subject: '[Test] Shipment Received Alert',
-        recipient_emails: testEmailAddress ? [testEmailAddress] : [],
+        subject: '📦 [Test] Shipment Received Alert',
+        recipient_emails: [testEmailAddress],
         body_html: `
           <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:32px;">
-            <h2>Test Shipment Received Alert</h2>
+            <h2>✅ Test Shipment Received Alert</h2>
             <p>This is a test alert queued from the Onboarding Setup Checklist.</p>
-            <p>Shipment: TEST-001</p>
-            <p>Items: 3</p>
+            <p><strong>Shipment:</strong> TEST-001</p>
+            <p><strong>Items:</strong> 3</p>
+            <p style="color:#6b7280;font-size:13px;margin-top:24px;">If you received this email, your alert system is working correctly.</p>
           </div>
         `,
-        body_text: 'Test Shipment Received Alert - Shipment TEST-001 with 3 items.',
+        body_text: 'Test Shipment Received Alert - Shipment TEST-001 with 3 items. If you received this, your alert system is working.',
         status: 'pending',
-      });
+      }).select('id, tenant_id').single();
 
       if (error) throw error;
 
-      // Try to invoke the send-alerts function
+      // Invoke send-alerts with the specific alert_queue_id so it processes just this one
       try {
-        await supabase.functions.invoke('send-alerts', { body: {} });
+        await supabase.functions.invoke('send-alerts', {
+          body: { alert_queue_id: inserted.id, tenant_id: inserted.tenant_id },
+        });
       } catch {
-        // Edge function may not exist or may fail; the row is still queued
+        // Edge function may not exist or may fail; the row is still queued for retry
       }
 
       setTestAlertQueued(true);
       toast({
-        title: 'Test Alert Queued',
-        description: 'A test shipment received alert has been added to the alert queue.',
+        title: 'Test Alert Sent',
+        description: `A test email alert was queued and sent to ${testEmailAddress}. Check your inbox.`,
       });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to queue test alert';
@@ -532,18 +543,18 @@ export function OnboardingChecklistTab() {
               Send Test Email
             </Button>
 
-            {/* Queue Test Alert */}
+            {/* Queue Test Email Alert */}
             <Button
               variant="outline"
               onClick={handleQueueTestAlert}
-              disabled={queuingTestAlert}
+              disabled={queuingTestAlert || !testEmailAddress}
             >
               {queuingTestAlert ? (
                 <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
               ) : (
-                <MaterialIcon name="queue" size="sm" className="mr-2" />
+                <MaterialIcon name="forward_to_inbox" size="sm" className="mr-2" />
               )}
-              Queue Test Shipment Alert
+              Send Test Email Alert
             </Button>
 
             {/* Refresh Checks */}
