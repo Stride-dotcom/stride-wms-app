@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import {
   Select,
   SelectContent,
@@ -193,9 +194,7 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
       case 'pending_acceptance':
         return (
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
-              Waiting for Client
-            </Badge>
+            <StatusIndicator status="pending_acceptance" label="Waiting for Client" size="sm" />
             {claim.sent_for_acceptance_at && (
               <span className="text-sm text-muted-foreground">
                 Sent {new Date(claim.sent_for_acceptance_at).toLocaleDateString()}
@@ -207,10 +206,7 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
       case 'accepted':
         return (
           <div className="flex flex-wrap gap-2">
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
-              <MaterialIcon name="check_circle" className="!text-[12px] mr-1" />
-              Client Accepted
-            </Badge>
+            <StatusIndicator status="accepted" label="Client Accepted" size="sm" />
             {isManager && (
               <Button onClick={() => setShowPayoutDialog(true)} disabled={loading}>
                 <MaterialIcon name="attach_money" size="sm" className="mr-2" />
@@ -223,10 +219,7 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
       case 'declined':
         return (
           <div className="flex flex-wrap gap-2">
-            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">
-              <MaterialIcon name="cancel" className="!text-[12px] mr-1" />
-              Client Declined
-            </Badge>
+            <StatusIndicator status="declined" label="Client Declined" size="sm" />
             {claim.counter_offer_amount && (
               <Badge variant="secondary">
                 Counter: ${claim.counter_offer_amount.toFixed(2)}
@@ -264,10 +257,7 @@ export function ClaimStatusActions({ claim, claimItems = [], onUpdate }: ClaimSt
       case 'paid':
         return (
           <div className="flex flex-wrap gap-2">
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
-              <MaterialIcon name="check_circle" className="!text-[12px] mr-1" />
-              Payout Complete
-            </Badge>
+            <StatusIndicator status="paid" label="Payout Complete" size="sm" />
             <Button variant="outline" onClick={() => setConfirmDialog({ action: 'Close', status: 'closed' })} disabled={loading}>
               Close Claim
             </Button>

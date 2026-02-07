@@ -30,7 +30,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { isValidUuid, cn } from '@/lib/utils';
-import { getShipmentTypeBadgeClasses } from '@/lib/statusColors';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { ItemFlagsSection } from '@/components/items/ItemFlagsSection';
@@ -1039,7 +1038,7 @@ export default function ItemDetail() {
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
-                        <Badge className={getShipmentTypeBadgeClasses('inbound')}>Inbound</Badge>
+                        <StatusIndicator status="inbound" label="Inbound" size="sm" />
                         <span className="font-medium text-lg">{item.receiving_shipment.shipment_number}</span>
                       </div>
                       <StatusIndicator status={item.receiving_shipment.status} size="sm" />
