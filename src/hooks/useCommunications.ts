@@ -67,6 +67,16 @@ export interface CommunicationBrandSettings {
   updated_at: string;
 }
 
+/** Company info from tenant_company_settings for email/SMS token resolution */
+export interface TenantCompanyInfo {
+  companyName?: string;
+  logoUrl?: string;
+  companyEmail?: string;
+  companyAddress?: string;
+  portalBaseUrl?: string;
+  companyPhone?: string;
+}
+
 export const TRIGGER_EVENTS = [
   // Legacy dot-notation events
   { value: 'shipment.received', label: 'Shipment Received' },
@@ -223,8 +233,7 @@ export function useCommunications() {
   const [templates, setTemplates] = useState<CommunicationTemplate[]>([]);
   const [designElements, setDesignElements] = useState<CommunicationDesignElement[]>([]);
   const [brandSettings, setBrandSettings] = useState<CommunicationBrandSettings | null>(null);
-  const [tenantCompanyName, setTenantCompanyName] = useState<string>('');
-  const [tenantLogoUrl, setTenantLogoUrl] = useState<string>('');
+  const [tenantCompanyInfo, setTenantCompanyInfo] = useState<TenantCompanyInfo>({});
   const [loading, setLoading] = useState(true);
 
   const fetchAlerts = useCallback(async () => {
@@ -278,18 +287,23 @@ export function useCommunications() {
     if (!profile?.tenant_id) return;
 
     try {
-      // Fetch actual company name and logo from tenant_company_settings
+      // Fetch all company info from tenant_company_settings (single source of truth)
       const { data: companySettings } = await supabase
         .from('tenant_company_settings')
-        .select('company_name, logo_url')
+        .select('company_name, logo_url, company_email, company_address, company_phone, app_base_url')
         .eq('tenant_id', profile.tenant_id)
         .maybeSingle();
 
-      const companyName = companySettings?.company_name || '';
-      const logoUrl = companySettings?.logo_url || '';
-      setTenantCompanyName(companyName);
-      setTenantLogoUrl(logoUrl);
+      setTenantCompanyInfo({
+        companyName: companySettings?.company_name || '',
+        logoUrl: companySettings?.logo_url || '',
+        companyEmail: companySettings?.company_email || '',
+        companyAddress: companySettings?.company_address || '',
+        portalBaseUrl: companySettings?.app_base_url || '',
+        companyPhone: companySettings?.company_phone || '',
+      });
 
+      // Brand settings only used for accent color (brand_primary_color)
       const { data, error } = await supabase
         .from('communication_brand_settings')
         .select('*')
@@ -299,14 +313,11 @@ export function useCommunications() {
       if (error) throw error;
 
       if (!data) {
-        // Create default brand settings using actual company name
         const { data: newSettings, error: createError } = await supabase
           .from('communication_brand_settings')
           .insert({
             tenant_id: profile.tenant_id,
             brand_primary_color: '#FD5A2A',
-            from_name: companyName || 'My Company',
-            brand_logo_url: logoUrl || null,
           })
           .select()
           .single();
@@ -601,8 +612,7 @@ export function useCommunications() {
     templates,
     designElements,
     brandSettings,
-    tenantCompanyName,
-    tenantLogoUrl,
+    tenantCompanyInfo,
     loading,
     createAlert,
     updateAlert,

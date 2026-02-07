@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
-  CommunicationBrandSettings,
+  TenantCompanyInfo,
   COMMUNICATION_VARIABLES,
 } from '@/hooks/useCommunications';
 import { buildBrandedEmailHtml, replaceTokens } from '@/lib/emailTemplates/brandedEmailBuilder';
@@ -15,9 +15,7 @@ interface EmailPreviewProps {
   ctaEnabled: boolean;
   ctaLabel: string;
   ctaLink: string;
-  brandSettings: CommunicationBrandSettings | null;
-  tenantCompanyName?: string;
-  tenantLogoUrl?: string;
+  tenantCompanyInfo?: TenantCompanyInfo;
   accentColor: string;
 }
 
@@ -26,11 +24,13 @@ interface EmailPreviewModalProps extends EmailPreviewProps {
   onOpenChange: (open: boolean) => void;
 }
 
-/** Build sample data map from COMMUNICATION_VARIABLES + real tenant overrides */
+/**
+ * Build sample data map from COMMUNICATION_VARIABLES + real tenant data.
+ * All company info comes from tenant_company_settings (Organization > General/Contact pages).
+ * Brand settings only provides accent color (handled separately).
+ */
 function useSampleData(
-  brandSettings: CommunicationBrandSettings | null,
-  tenantCompanyName?: string,
-  tenantLogoUrl?: string
+  tenantCompanyInfo?: TenantCompanyInfo
 ) {
   return useMemo(() => {
     const data: Record<string, string> = {};
@@ -38,26 +38,22 @@ function useSampleData(
       data[v.key] = v.sample;
     });
 
-    // Use real company name for tenant_name (from tenant_company_settings)
-    if (tenantCompanyName) data['tenant_name'] = tenantCompanyName;
-
-    // Use real company logo (from tenant_company_settings), then brand override
-    if (tenantLogoUrl) data['brand_logo_url'] = tenantLogoUrl;
-
-    if (brandSettings) {
-      // Brand settings overrides (these take priority)
-      if (brandSettings.brand_logo_url) data['brand_logo_url'] = brandSettings.brand_logo_url;
-      if (brandSettings.brand_support_email) data['brand_support_email'] = brandSettings.brand_support_email;
-      if (brandSettings.portal_base_url) data['portal_base_url'] = brandSettings.portal_base_url;
+    if (tenantCompanyInfo) {
+      // All token data from tenant_company_settings
+      if (tenantCompanyInfo.companyName) data['tenant_name'] = tenantCompanyInfo.companyName;
+      if (tenantCompanyInfo.logoUrl) data['brand_logo_url'] = tenantCompanyInfo.logoUrl;
+      if (tenantCompanyInfo.companyEmail) data['brand_support_email'] = tenantCompanyInfo.companyEmail;
+      if (tenantCompanyInfo.portalBaseUrl) data['portal_base_url'] = tenantCompanyInfo.portalBaseUrl;
+      if (tenantCompanyInfo.companyAddress) data['tenant_company_address'] = tenantCompanyInfo.companyAddress;
     }
 
-    // If still no logo URL, use empty string to avoid broken image
+    // If no logo URL set, use empty string to avoid broken image placeholder
     if (!data['brand_logo_url'] || data['brand_logo_url'] === 'https://example.com/logo.png') {
       data['brand_logo_url'] = '';
     }
 
     return data;
-  }, [brandSettings, tenantCompanyName, tenantLogoUrl]);
+  }, [tenantCompanyInfo]);
 }
 
 /** Build the final preview HTML from editor fields */
@@ -100,9 +96,7 @@ export function EmailPreviewModal({
   ctaEnabled,
   ctaLabel,
   ctaLink,
-  brandSettings,
-  tenantCompanyName,
-  tenantLogoUrl,
+  tenantCompanyInfo,
   accentColor,
 }: EmailPreviewModalProps) {
   // ESC key support
@@ -125,7 +119,7 @@ export function EmailPreviewModal({
     };
   }, [open]);
 
-  const sampleData = useSampleData(brandSettings, tenantCompanyName, tenantLogoUrl);
+  const sampleData = useSampleData(tenantCompanyInfo);
   const previewHtml = usePreviewHtml(heading, body, ctaEnabled, ctaLabel, ctaLink, accentColor, sampleData);
   const resolvedSubject = useMemo(() => replaceTokens(subject, sampleData), [subject, sampleData]);
 
@@ -155,8 +149,8 @@ export function EmailPreviewModal({
         <p className="text-xs text-muted-foreground mb-0.5">Subject</p>
         <p className="text-sm font-medium">{resolvedSubject || '(no subject)'}</p>
         <div className="mt-1 text-xs text-muted-foreground">
-          From: {brandSettings?.from_name || 'Company Name'}{' '}
-          &lt;{brandSettings?.from_email || 'notifications@company.com'}&gt;
+          From: {tenantCompanyInfo?.companyName || 'Company Name'}{' '}
+          &lt;{tenantCompanyInfo?.companyEmail || 'notifications@company.com'}&gt;
         </div>
       </div>
 
@@ -192,12 +186,10 @@ export function EmailLivePreview({
   ctaEnabled,
   ctaLabel,
   ctaLink,
-  brandSettings,
-  tenantCompanyName,
-  tenantLogoUrl,
+  tenantCompanyInfo,
   accentColor,
 }: EmailPreviewProps) {
-  const sampleData = useSampleData(brandSettings, tenantCompanyName, tenantLogoUrl);
+  const sampleData = useSampleData(tenantCompanyInfo);
   const previewHtml = usePreviewHtml(heading, body, ctaEnabled, ctaLabel, ctaLink, accentColor, sampleData);
   const resolvedSubject = useMemo(() => replaceTokens(subject, sampleData), [subject, sampleData]);
 
@@ -214,8 +206,8 @@ export function EmailLivePreview({
           <p className="text-sm font-medium truncate">{resolvedSubject || '(no subject)'}</p>
         </div>
         <div className="mt-1 text-xs text-muted-foreground">
-          From: {brandSettings?.from_name || 'Company Name'}{' '}
-          &lt;{brandSettings?.from_email || 'notifications@company.com'}&gt;
+          From: {tenantCompanyInfo?.companyName || 'Company Name'}{' '}
+          &lt;{tenantCompanyInfo?.companyEmail || 'notifications@company.com'}&gt;
         </div>
       </div>
 
