@@ -203,22 +203,26 @@ async function getAccountContactEmail(supabase: any, accountId: string): Promise
   return data?.alerts_contact_email || data?.primary_contact_email || null;
 }
 
-async function getTenantBranding(supabase: any, tenantId: string): Promise<{ 
-  logoUrl: string | null; 
+async function getTenantBranding(supabase: any, tenantId: string): Promise<{
+  logoUrl: string | null;
   companyName: string | null;
   supportEmail: string | null;
   portalBaseUrl: string | null;
+  primaryColor: string;
+  termsUrl: string | null;
+  privacyUrl: string | null;
+  companyAddress: string | null;
 }> {
   try {
     const { data: brandSettings } = await supabase
       .from('communication_brand_settings')
-      .select('brand_logo_url, brand_support_email, portal_base_url')
+      .select('brand_logo_url, brand_primary_color, brand_support_email, portal_base_url')
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
     const { data: settings } = await supabase
       .from('tenant_company_settings')
-      .select('logo_url, company_name')
+      .select('logo_url, company_name, company_address, terms_url, privacy_url')
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
@@ -233,18 +237,28 @@ async function getTenantBranding(supabase: any, tenantId: string): Promise<{
       companyName: settings?.company_name || tenant?.name || 'Warehouse System',
       supportEmail: brandSettings?.brand_support_email || null,
       portalBaseUrl: brandSettings?.portal_base_url || null,
+      primaryColor: brandSettings?.brand_primary_color || '#FD5A2A',
+      termsUrl: settings?.terms_url || null,
+      privacyUrl: settings?.privacy_url || null,
+      companyAddress: settings?.company_address || null,
     };
   } catch {
-    return { logoUrl: null, companyName: 'Warehouse System', supportEmail: null, portalBaseUrl: null };
+    return { logoUrl: null, companyName: 'Warehouse System', supportEmail: null, portalBaseUrl: null, primaryColor: '#FD5A2A', termsUrl: null, privacyUrl: null, companyAddress: null };
   }
 }
 
-// Replace both {{variable}} and [[variable]] syntax
+// Replace {{variable}}, [[variable]], and {variable} syntax
+// Single-brace {variable} is matched ONLY when not preceded by another { (avoids clobbering {{)
 function replaceTemplateVariables(html: string, variables: Record<string, string>): string {
   let result = html;
   for (const [key, value] of Object.entries(variables)) {
-    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value || '');
-    result = result.replace(new RegExp(`\\[\\[${key}\\]\\]`, 'g'), value || '');
+    const safeValue = value || '';
+    // Double braces first
+    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), safeValue);
+    // Square brackets
+    result = result.replace(new RegExp(`\\[\\[${key}\\]\\]`, 'g'), safeValue);
+    // Single braces (negative lookbehind for { and lookahead for })
+    result = result.replace(new RegExp(`(?<!\\{)\\{${key}\\}(?!\\})`, 'g'), safeValue);
   }
   return result;
 }
@@ -298,6 +312,151 @@ async function generateItemsListText(supabase: any, itemIds: string[]): Promise<
   return items.map((item: any) => `• ${item.item_code}: ${item.description || 'N/A'}`).join('\n');
 }
 
+// ── INSPECTION FINDINGS TABLE ──
+async function generateInspectionFindingsTableHtml(supabase: any, itemIds: string[]): Promise<string> {
+  if (!itemIds || itemIds.length === 0) return '<p style="color:#6b7280;font-size:14px;">No inspection details available.</p>';
+
+  const { data: items } = await supabase
+    .from('items')
+    .select('item_code, description, inspection_status, inspection_photos')
+    .in('id', itemIds);
+
+  if (!items || items.length === 0) return '<p style="color:#6b7280;font-size:14px;">No inspection details available.</p>';
+
+  const rows = items.map((item: any, index: number) => {
+    const photosCount = Array.isArray(item.inspection_photos) ? item.inspection_photos.length : 0;
+    return `
+    <tr style="background-color:${index % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-weight:500;color:#111827;">${item.item_code || 'N/A'}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#374151;">${item.description || 'N/A'}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#6b7280;">${item.inspection_status || 'Pending'}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#6b7280;text-align:center;">${photosCount}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:12px 0;border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
+      <thead>
+        <tr style="background-color:#111827;">
+          <th style="padding:10px 14px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;">Item</th>
+          <th style="padding:10px 14px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;">Description</th>
+          <th style="padding:10px 14px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;">Condition</th>
+          <th style="padding:10px 14px;text-align:center;font-weight:600;color:#ffffff;font-size:13px;">Photos</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── TASK SERVICES TABLE ──
+async function generateTaskServicesTableHtml(supabase: any, taskId: string): Promise<string> {
+  if (!taskId) return '<p style="color:#6b7280;font-size:14px;">No services details available.</p>';
+
+  const { data: lines } = await supabase
+    .from('task_addon_lines')
+    .select('description, quantity, unit_rate, total_amount')
+    .eq('task_id', taskId);
+
+  if (!lines || lines.length === 0) return '<p style="color:#6b7280;font-size:14px;">No services details available.</p>';
+
+  const rows = lines.map((line: any, index: number) => `
+    <tr style="background-color:${index % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#111827;">${line.description || 'Service'}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#374151;text-align:center;">${line.quantity ?? 1}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#374151;text-align:right;">$${Number(line.unit_rate || 0).toFixed(2)}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#111827;font-weight:600;text-align:right;">$${Number(line.total_amount || 0).toFixed(2)}</td>
+    </tr>`).join('');
+
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:12px 0;border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
+      <thead>
+        <tr style="background-color:#111827;">
+          <th style="padding:10px 14px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;">Service</th>
+          <th style="padding:10px 14px;text-align:center;font-weight:600;color:#ffffff;font-size:13px;">Qty</th>
+          <th style="padding:10px 14px;text-align:right;font-weight:600;color:#ffffff;font-size:13px;">Rate</th>
+          <th style="padding:10px 14px;text-align:right;font-weight:600;color:#ffffff;font-size:13px;">Total</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── REPAIR ACTIONS TABLE ──
+async function generateRepairActionsTableHtml(supabase: any, entityId: string, entityType: string): Promise<string> {
+  // entityId could be a repair_quote id or an item id
+  let quoteId = entityId;
+
+  if (entityType === 'item') {
+    // Find the most recent repair quote for this item
+    const { data: quote } = await supabase
+      .from('repair_quotes')
+      .select('id')
+      .eq('item_id', entityId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (quote) quoteId = quote.id;
+    else return '<p style="color:#6b7280;font-size:14px;">No repair details available.</p>';
+  }
+
+  const { data: items } = await supabase
+    .from('repair_quote_items')
+    .select('item_code, item_description, damage_description, allocated_customer_amount, notes_public')
+    .eq('repair_quote_id', quoteId);
+
+  if (!items || items.length === 0) {
+    // Fallback: show quote-level data
+    const { data: quote } = await supabase
+      .from('repair_quotes')
+      .select('tech_notes, customer_total, tech_labor_hours, tech_materials_cost')
+      .eq('id', quoteId)
+      .maybeSingle();
+
+    if (!quote) return '<p style="color:#6b7280;font-size:14px;">No repair details available.</p>';
+
+    return `
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:12px 0;border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
+        <thead>
+          <tr style="background-color:#111827;">
+            <th style="padding:10px 14px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;">Description</th>
+            <th style="padding:10px 14px;text-align:right;font-weight:600;color:#ffffff;font-size:13px;">Labor Hrs</th>
+            <th style="padding:10px 14px;text-align:right;font-weight:600;color:#ffffff;font-size:13px;">Materials</th>
+            <th style="padding:10px 14px;text-align:right;font-weight:600;color:#ffffff;font-size:13px;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#111827;">${quote.tech_notes || 'Repair work'}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#374151;text-align:right;">${quote.tech_labor_hours ?? '—'}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#374151;text-align:right;">${quote.tech_materials_cost != null ? '$' + Number(quote.tech_materials_cost).toFixed(2) : '—'}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#111827;font-weight:600;text-align:right;">${quote.customer_total != null ? '$' + Number(quote.customer_total).toFixed(2) : '—'}</td>
+          </tr>
+        </tbody>
+      </table>`;
+  }
+
+  const rows = items.map((item: any, index: number) => `
+    <tr style="background-color:${index % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#111827;">${item.damage_description || item.item_description || 'Repair'}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#374151;">${item.item_code || 'N/A'}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#374151;">${item.notes_public || '—'}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#111827;font-weight:600;text-align:right;">${item.allocated_customer_amount != null ? '$' + Number(item.allocated_customer_amount).toFixed(2) : '—'}</td>
+    </tr>`).join('');
+
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:12px 0;border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
+      <thead>
+        <tr style="background-color:#111827;">
+          <th style="padding:10px 14px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;">Action</th>
+          <th style="padding:10px 14px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;">Item</th>
+          <th style="padding:10px 14px;text-align:left;font-weight:600;color:#ffffff;font-size:13px;">Notes</th>
+          <th style="padding:10px 14px;text-align:right;font-weight:600;color:#ffffff;font-size:13px;">Estimate</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
 async function buildTemplateVariables(
   supabase: any,
   alertType: string,
@@ -312,13 +471,35 @@ async function buildTemplateVariables(
   const officeAlertEmailsStr = officeAlertEmailsList.join(', ');
   const officeAlertEmailPrimary = officeAlertEmailsList.length > 0 ? officeAlertEmailsList[0] : '';
 
+  const portalBase = branding.portalBaseUrl || '';
+
   const variables: Record<string, string> = {
+    // ── Branding tokens ──
     tenant_name: branding.companyName || 'Warehouse System',
     brand_logo_url: branding.logoUrl || '',
+    brand_primary_color: branding.primaryColor || '#FD5A2A',
     brand_support_email: branding.supportEmail || 'support@example.com',
-    portal_base_url: branding.portalBaseUrl || '',
+    brand_terms_url: branding.termsUrl || '',
+    brand_privacy_url: branding.privacyUrl || '',
+    tenant_company_address: branding.companyAddress || '',
+    portal_base_url: portalBase,
+    // Aliases used by some v4 templates
+    tenant_terms_url: branding.termsUrl || '',
+    tenant_privacy_url: branding.privacyUrl || '',
+    // ── Office tokens ──
     office_alert_emails: officeAlertEmailsStr,
     office_alert_email_primary: officeAlertEmailPrimary,
+    // ── Portal deep-link tokens (defaults; overridden per entity below) ──
+    shipment_link: '',
+    portal_invoice_url: '',
+    portal_claim_url: '',
+    portal_release_url: '',
+    portal_quote_url: '',
+    portal_account_url: '',
+    portal_settings_url: portalBase ? `${portalBase}/settings/organization/contact` : '',
+    portal_inspection_url: '',
+    portal_repair_url: '',
+    // ── General ──
     created_at: new Date().toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
@@ -326,7 +507,7 @@ async function buildTemplateVariables(
       day: 'numeric'
     }),
   };
-  
+
   let itemIds: string[] = [];
 
   try {
@@ -344,16 +525,27 @@ async function buildTemplateVariables(
         variables.shipment_number = shipment.shipment_number || entityId;
         variables.shipment_status = shipment.status || 'Unknown';
         variables.shipment_vendor = shipment.vendor || 'N/A';
+        variables.scheduled_date = shipment.scheduled_date
+          ? new Date(shipment.scheduled_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : '';
+        variables.delivery_window = shipment.delivery_window || '';
+        variables.delay_reason = shipment.delay_reason || '';
+        variables.delivered_at = shipment.delivered_at
+          ? new Date(shipment.delivered_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+          : '';
         variables.account_name = shipment.account?.account_name || 'N/A';
         variables.account_contact_name = shipment.account?.primary_contact_name || 'Customer';
         variables.account_contact_email = shipment.account?.primary_contact_email || '';
-        variables.shipment_link = `${branding.portalBaseUrl}/shipments/${entityId}`;
+        variables.shipment_link = portalBase ? `${portalBase}/shipments/${entityId}` : '';
+        if (shipment.account_id) {
+          variables.portal_account_url = portalBase ? `${portalBase}/accounts/${shipment.account_id}` : '';
+        }
 
         const { data: shipmentItems } = await supabase
           .from('items')
           .select('id')
           .eq('receiving_shipment_id', entityId);
-        
+
         if (shipmentItems) {
           itemIds = shipmentItems.map((i: any) => i.id);
           variables.items_count = String(itemIds.length);
@@ -376,11 +568,35 @@ async function buildTemplateVariables(
         variables.item_id = item.item_code || entityId;
         variables.item_description = item.description || 'N/A';
         variables.item_location = item.current_location || 'Unknown';
+        variables.item_sidemark = item.sidemark || '';
+        variables.item_vendor = item.vendor || '';
         variables.account_name = item.account?.account_name || item.client_account || 'N/A';
         variables.account_contact_name = item.account?.primary_contact_name || 'Customer';
-        variables.item_photos_link = `${branding.portalBaseUrl}/inventory/${entityId}`;
+        variables.item_photos_link = portalBase ? `${portalBase}/inventory/${entityId}` : '';
         variables.items_count = '1';
         itemIds = [entityId];
+
+        // Repair-specific tokens (for repair_started, repair_completed, repair_requires_approval)
+        if (alertType.startsWith('repair')) {
+          variables.repair_type = item.repair_type || '';
+          variables.repair_completed_at = item.repair_completed_at
+            ? new Date(item.repair_completed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+            : '';
+          // Fetch repair quote for estimate amount
+          const { data: repairQuote } = await supabase
+            .from('repair_quotes')
+            .select('id, customer_total, status')
+            .eq('item_id', entityId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (repairQuote) {
+            variables.repair_estimate_amount = repairQuote.customer_total != null
+              ? `$${Number(repairQuote.customer_total).toFixed(2)}`
+              : '';
+            variables.portal_repair_url = portalBase ? `${portalBase}/repairs/${repairQuote.id}` : '';
+          }
+        }
       }
     } else if (entityType === 'task') {
       const { data: task } = await supabase
@@ -397,24 +613,29 @@ async function buildTemplateVariables(
       if (task) {
         variables.task_type = task.task_type || 'Task';
         variables.task_title = task.title || 'Untitled Task';
-        variables.task_due_date = task.due_date 
+        variables.task_number = task.task_number || entityId;
+        variables.task_status = task.status || 'Unknown';
+        variables.task_due_date = task.due_date
           ? new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
           : 'No due date';
         variables.account_name = task.account?.account_name || 'N/A';
         variables.account_contact_name = task.account?.primary_contact_name || 'Customer';
-        variables.task_link = `${branding.portalBaseUrl}/tasks`;
-        
+        variables.task_link = portalBase ? `${portalBase}/tasks` : '';
+
         if (task.assigned_user) {
           variables.assigned_to_name = `${task.assigned_user.first_name || ''} ${task.assigned_user.last_name || ''}`.trim() || 'Unassigned';
         }
-        
+
         if (task.completed_by_user) {
-          variables.created_by_name = `${task.completed_by_user.first_name || ''} ${task.completed_by_user.last_name || ''}`.trim() || 'Someone';
+          variables.completed_by_name = `${task.completed_by_user.first_name || ''} ${task.completed_by_user.last_name || ''}`.trim() || 'Someone';
+          variables.created_by_name = variables.completed_by_name;
         } else {
+          variables.completed_by_name = 'Someone';
           variables.created_by_name = 'Someone';
         }
 
-        if (alertType === 'task.overdue' && task.due_date) {
+        // task_days_overdue: works for both legacy task.overdue and v4 task_overdue
+        if ((alertType === 'task.overdue' || alertType === 'task_overdue') && task.due_date) {
           const dueDate = new Date(task.due_date);
           const today = new Date();
           today.setHours(0, 0, 0, 0);
@@ -424,11 +645,45 @@ async function buildTemplateVariables(
           variables.task_days_overdue = String(Math.max(0, diffDays));
         }
 
+        // Inspection tokens (inspection is a task type)
+        if (alertType.startsWith('inspection')) {
+          variables.inspection_number = task.task_number || task.title || entityId;
+          variables.portal_inspection_url = portalBase ? `${portalBase}/tasks` : '';
+          // Count items with issues
+          const { data: taskItemsInsp } = await supabase
+            .from('task_items')
+            .select('item_id')
+            .eq('task_id', entityId);
+          if (taskItemsInsp) {
+            const inspItemIds = taskItemsInsp.map((ti: any) => ti.item_id);
+            const { data: issueItems } = await supabase
+              .from('items')
+              .select('id, inspection_status')
+              .in('id', inspItemIds)
+              .neq('inspection_status', 'good');
+            variables.inspection_issues_count = String(issueItems?.length || 0);
+            variables.inspection_result = (issueItems?.length || 0) > 0 ? 'Issues found' : 'All clear';
+          }
+          // Shipment number for inspection context
+          if (task.shipment_id) {
+            const { data: shipment } = await supabase
+              .from('shipments')
+              .select('shipment_number')
+              .eq('id', task.shipment_id)
+              .maybeSingle();
+            if (shipment) variables.shipment_number = shipment.shipment_number;
+          }
+        }
+
+        if (task.account_id) {
+          variables.portal_account_url = portalBase ? `${portalBase}/accounts/${task.account_id}` : '';
+        }
+
         const { data: taskItems } = await supabase
           .from('task_items')
           .select('item_id')
           .eq('task_id', entityId);
-        
+
         if (taskItems) {
           itemIds = taskItems.map((ti: any) => ti.item_id);
           variables.items_count = String(itemIds.length);
@@ -495,6 +750,67 @@ async function buildTemplateVariables(
         if (billingEvent.item_id) {
           itemIds = [billingEvent.item_id];
         }
+      }
+    } else if (entityType === 'release') {
+      const { data: release } = await supabase
+        .from('releases')
+        .select(`
+          *,
+          account:accounts(account_name, primary_contact_name, primary_contact_email)
+        `)
+        .eq('id', entityId)
+        .single();
+
+      if (release) {
+        variables.release_number = release.release_number || entityId;
+        variables.release_type = release.release_type || 'Will Call';
+        variables.release_completed_at = release.completed_at
+          ? new Date(release.completed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+          : '';
+        variables.released_at = variables.release_completed_at;
+        variables.pickup_hours = release.pickup_hours || '';
+        variables.account_name = release.account?.account_name || 'N/A';
+        variables.account_contact_name = release.account?.primary_contact_name || 'Customer';
+        variables.portal_release_url = portalBase ? `${portalBase}/releases/${entityId}` : '';
+
+        const { data: releaseItems } = await supabase
+          .from('release_items')
+          .select('item_id')
+          .eq('release_id', entityId);
+
+        if (releaseItems) {
+          itemIds = releaseItems.map((ri: any) => ri.item_id);
+          variables.items_count = String(itemIds.length);
+        } else {
+          variables.items_count = '0';
+        }
+      }
+    } else if (entityType === 'repair_quote') {
+      const { data: quote } = await supabase
+        .from('repair_quotes')
+        .select(`
+          *,
+          item:items(item_code, description, client_account),
+          account:accounts(account_name, primary_contact_name, primary_contact_email)
+        `)
+        .eq('id', entityId)
+        .single();
+
+      if (quote) {
+        variables.item_code = quote.item?.item_code || '';
+        variables.item_description = quote.item?.description || '';
+        variables.account_name = quote.account?.account_name || quote.item?.client_account || 'N/A';
+        variables.repair_estimate_amount = quote.customer_total != null
+          ? `$${Number(quote.customer_total).toFixed(2)}`
+          : '';
+        variables.repair_type = quote.repair_type || '';
+        variables.repair_completed_at = quote.completed_at
+          ? new Date(quote.completed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+          : '';
+        variables.portal_repair_url = portalBase ? `${portalBase}/repairs/${entityId}` : '';
+        variables.item_photos_link = portalBase && quote.item_id ? `${portalBase}/inventory/${quote.item_id}` : '';
+        if (quote.item_id) itemIds = [quote.item_id];
+        variables.items_count = itemIds.length > 0 ? '1' : '0';
       }
     }
   } catch (error) {
@@ -895,6 +1211,21 @@ const handler = async (req: Request): Promise<Response> => {
         const itemsListText = await generateItemsListText(supabase, itemIds);
         variables.items_table_html = itemsTableHtml;
         variables.items_list_text = itemsListText;
+
+        // Generate inspection findings table (for inspection triggers)
+        if (alert.alert_type.startsWith('inspection') || alert.alert_type.includes('inspection')) {
+          variables.inspection_findings_table_html = await generateInspectionFindingsTableHtml(supabase, itemIds);
+        }
+
+        // Generate task services table (for task triggers)
+        if (alert.alert_type.startsWith('task') || alert.alert_type.includes('task') || alert.entity_type === 'task') {
+          variables.task_services_table_html = await generateTaskServicesTableHtml(supabase, alert.entity_id);
+        }
+
+        // Generate repair actions table (for repair triggers)
+        if (alert.alert_type.startsWith('repair') || alert.alert_type.includes('repair')) {
+          variables.repair_actions_table_html = await generateRepairActionsTableHtml(supabase, alert.entity_id, alert.entity_type);
+        }
 
         // =====================================================================
         // RECIPIENT RESOLUTION (4-tier precedence)
