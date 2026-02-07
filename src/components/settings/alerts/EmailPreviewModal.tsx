@@ -32,7 +32,8 @@ function useSampleData(brandSettings: CommunicationBrandSettings | null) {
       data[v.key] = v.sample;
     });
     if (brandSettings) {
-      if (brandSettings.brand_logo_url) data['brand_logo_url'] = brandSettings.brand_logo_url;
+      // Always override logo — use real URL or empty to avoid broken image
+      data['brand_logo_url'] = brandSettings.brand_logo_url || '';
       if (brandSettings.from_name) data['tenant_name'] = brandSettings.from_name;
       if (brandSettings.brand_support_email) data['brand_support_email'] = brandSettings.brand_support_email;
       if (brandSettings.portal_base_url) data['portal_base_url'] = brandSettings.portal_base_url;
@@ -60,7 +61,11 @@ function usePreviewHtml(
       ctaLink,
       accentColor,
     });
-    return replaceTokens(rawHtml, sampleData);
+    let html = replaceTokens(rawHtml, sampleData);
+    // Remove <img> tags with empty src (no logo configured).
+    // The onerror handler can't fire inside a sandboxed iframe without allow-scripts.
+    html = html.replace(/<img[^>]*src=["']\s*["'][^>]*\/?>/gi, '');
+    return html;
   }, [heading, body, ctaEnabled, ctaLabel, ctaLink, accentColor, sampleData]);
 }
 
