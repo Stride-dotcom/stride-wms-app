@@ -30,7 +30,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { isValidUuid, cn } from '@/lib/utils';
-import { getShipmentStatusClasses, getShipmentTypeBadgeClasses } from '@/lib/statusColors';
+import { getShipmentTypeBadgeClasses } from '@/lib/statusColors';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { ItemFlagsSection } from '@/components/items/ItemFlagsSection';
 import { ItemBillingEventsSection } from '@/components/items/ItemBillingEventsSection';
@@ -1041,9 +1042,7 @@ export default function ItemDetail() {
                         <Badge className={getShipmentTypeBadgeClasses('inbound')}>Inbound</Badge>
                         <span className="font-medium text-lg">{item.receiving_shipment.shipment_number}</span>
                       </div>
-                      <Badge className={getShipmentStatusClasses(item.receiving_shipment.status)}>
-                        {item.receiving_shipment.status.charAt(0).toUpperCase() + item.receiving_shipment.status.slice(1).replace(/_/g, ' ')}
-                      </Badge>
+                      <StatusIndicator status={item.receiving_shipment.status} size="sm" />
                       {item.receiving_shipment.received_at && (
                         <span className="text-sm text-muted-foreground">
                           Received: {format(new Date(item.receiving_shipment.received_at), 'MMM d, yyyy')}

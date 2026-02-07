@@ -12,7 +12,6 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AddShipmentDialog } from '@/components/shipments/AddShipmentDialog';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
-import { getShipmentStatusClasses } from '@/lib/statusColors';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { format } from 'date-fns';
 
 interface ShipmentCounts {
@@ -221,17 +220,13 @@ export default function Shipments() {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm font-medium truncate">{item.shipment_number}</span>
-          <Badge className={cn('text-[10px] px-1.5 py-0', getShipmentStatusClasses(item.status))}>
-            {item.status.replace(/_/g, ' ')}
-          </Badge>
+          <StatusIndicator status={item.status} size="sm" />
         </div>
         <div className="text-xs text-muted-foreground truncate">
           {item.account_name || 'No account'} • {item.carrier || 'No carrier'}
         </div>
       </div>
-      <Badge className={cn('text-xs border-0 ml-2 flex-shrink-0', getShipmentStatusClasses(item.status))}>
-        {item.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-      </Badge>
+      <StatusIndicator status={item.status} size="sm" className="ml-2 flex-shrink-0" />
       <MaterialIcon name="chevron_right" size="sm" className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
     </div>
   );

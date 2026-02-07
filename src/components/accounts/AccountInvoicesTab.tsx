@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
@@ -134,13 +135,9 @@ export function AccountInvoicesTab({ accountId, accountName }: AccountInvoicesTa
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    if (status === 'draft') return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Draft</Badge>;
-    if (status === 'sent') return <Badge variant="outline" className="bg-green-100 text-green-800">Sent</Badge>;
-    if (status === 'paid') return <Badge variant="outline" className="bg-blue-100 text-blue-800">Paid</Badge>;
-    if (status === 'void') return <Badge variant="outline" className="bg-gray-100 text-gray-500">Void</Badge>;
-    return <Badge variant="outline">{status}</Badge>;
-  };
+  const getStatusBadge = (status: string) => (
+    <StatusIndicator status={status} size="sm" />
+  );
 
   if (loading) {
     return (

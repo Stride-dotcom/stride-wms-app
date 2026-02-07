@@ -13,10 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MobileDataCard } from '@/components/ui/mobile-data-card';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { AddShipmentDialog } from '@/components/shipments/AddShipmentDialog';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { cn } from '@/lib/utils';
-import { getShipmentStatusClasses } from '@/lib/statusColors';
 import { format } from 'date-fns';
 
 // ============================================
@@ -238,23 +237,16 @@ export default function ShipmentsList() {
   // ------------------------------------------
   // Status badge helper
   // ------------------------------------------
-  const getStatusBadge = (status: string) => {
-    const labels: Record<string, string> = {
-      pending: 'Pending',
-      shipped: 'Shipped',
-      expected: 'Expected',
-      in_progress: 'In Progress',
-      receiving: 'In Progress',
-      received: 'Received',
-      released: 'Released',
-      completed: 'Completed',
-      cancelled: 'Cancelled',
-    };
-    return (
-      <Badge className={cn('border-0', getShipmentStatusClasses(status))}>
-        {labels[status] || status}
-      </Badge>
-    );
+  const shipmentStatusLabels: Record<string, string> = {
+    pending: 'Pending',
+    shipped: 'Shipped',
+    expected: 'Expected',
+    in_progress: 'In Progress',
+    receiving: 'In Progress',
+    received: 'Received',
+    released: 'Released',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
   };
 
   // ------------------------------------------
@@ -301,7 +293,7 @@ export default function ShipmentsList() {
                   <div className="text-sm text-muted-foreground">{shipment.account_name || 'No account'}</div>
                 </div>
                 <div className="flex gap-1">
-                  {getStatusBadge(shipment.status)}
+                  <StatusIndicator status={shipment.status} label={shipmentStatusLabels[shipment.status]} size="sm" />
                   {shipment.outbound_type_name && (
                     <Badge variant="outline">{shipment.outbound_type_name}</Badge>
                   )}
@@ -376,7 +368,7 @@ export default function ShipmentsList() {
                       ? format(new Date(shipment.expected_arrival_date), 'MMM d, yyyy')
                       : '-'}
               </TableCell>
-              <TableCell>{getStatusBadge(shipment.status)}</TableCell>
+              <TableCell><StatusIndicator status={shipment.status} label={shipmentStatusLabels[shipment.status]} size="sm" /></TableCell>
             </TableRow>
           ))}
         </TableBody>

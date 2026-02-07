@@ -49,6 +49,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useTasks } from '@/hooks/useTasks';
 import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
 import { DocumentUploadButton } from '@/components/scanner/DocumentUploadButton';
 import { DocumentList } from '@/components/scanner/DocumentList';
@@ -115,36 +116,11 @@ interface TaskItemRow {
   } | null;
 }
 
-const statusColors: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  in_progress: 'bg-amber-100 text-amber-800',
-  completed: 'bg-green-100 text-green-800',
-  unable_to_complete: 'bg-red-100 text-red-800',
-};
-
-const statusLabels: Record<string, string> = {
+const taskStatusLabels: Record<string, string> = {
   pending: 'Pending',
   in_progress: 'In Progress',
   completed: 'Completed',
   unable_to_complete: 'Unable to Complete',
-};
-
-// Status text classes for bold colored text
-const getStatusTextClass = (status: string) => {
-  switch (status) {
-    case 'pending':
-      return 'font-bold text-orange-500 dark:text-orange-400';
-    case 'in_progress':
-      return 'font-bold text-yellow-500 dark:text-yellow-400';
-    case 'completed':
-      return 'font-bold text-green-500 dark:text-green-400';
-    case 'unable_to_complete':
-      return 'font-bold text-red-500 dark:text-red-400';
-    case 'cancelled':
-      return 'font-bold text-gray-500 dark:text-gray-400';
-    default:
-      return '';
-  }
 };
 
 export default function TaskDetailPage() {
@@ -947,14 +923,12 @@ export default function TaskDetailPage() {
               <h1 className="text-xl sm:text-2xl font-semibold">{task.title}</h1>
               <div className="flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
                 <Badge variant="outline" className="text-xs">TSK-{task.id.slice(0, 8).toUpperCase()}</Badge>
-                <span className={getStatusTextClass(task.status)}>
-                  {(statusLabels[task.status] || task.status).toUpperCase()}
-                </span>
-                {task.priority === 'urgent' ? (
-                  <span className="font-bold text-red-500 dark:text-red-400 text-sm">URGENT</span>
-                ) : (
-                  <span className="font-bold text-blue-500 dark:text-blue-400 text-sm">NORMAL</span>
-                )}
+                <StatusIndicator status={task.status} label={taskStatusLabels[task.status]} size="sm" />
+                <StatusIndicator
+                  status={task.priority === 'urgent' ? 'failed' : 'in_progress'}
+                  label={task.priority === 'urgent' ? 'Urgent' : 'Normal'}
+                  size="sm"
+                />
               </div>
             </div>
           </div>
@@ -1098,15 +1072,9 @@ export default function TaskDetailPage() {
                   <div className="flex items-center gap-4">
                     <span className="text-sm font-medium">Inspection Summary:</span>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">
-                        {taskItems.filter(ti => ti.item?.inspection_status === 'pass').length} Passed
-                      </Badge>
-                      <Badge variant="outline" className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20">
-                        {taskItems.filter(ti => ti.item?.inspection_status === 'fail').length} Failed
-                      </Badge>
-                      <Badge variant="outline" className="text-muted-foreground">
-                        {taskItems.filter(ti => !ti.item?.inspection_status).length} Pending
-                      </Badge>
+                      <StatusIndicator status="pass" label={`${taskItems.filter(ti => ti.item?.inspection_status === 'pass').length} Passed`} size="sm" />
+                      <StatusIndicator status="fail" label={`${taskItems.filter(ti => ti.item?.inspection_status === 'fail').length} Failed`} size="sm" />
+                      <StatusIndicator status="pending" label={`${taskItems.filter(ti => !ti.item?.inspection_status).length} Pending`} size="sm" />
                     </div>
                   </div>
                 </CardContent>
@@ -1168,7 +1136,7 @@ export default function TaskDetailPage() {
                             <>
                               <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                                 {ti.item?.inspection_status === 'pass' ? (
-                                  <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">PASSED</Badge>
+                                  <StatusIndicator status="pass" label="PASSED" size="sm" />
                                 ) : (
                                   <Button
                                     size="sm"
@@ -1183,7 +1151,7 @@ export default function TaskDetailPage() {
                               </TableCell>
                               <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                                 {ti.item?.inspection_status === 'fail' ? (
-                                  <Badge variant="outline" className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20">FAILED</Badge>
+                                  <StatusIndicator status="fail" label="FAILED" size="sm" />
                                 ) : (
                                   <Button
                                     size="sm"

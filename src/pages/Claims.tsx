@@ -37,29 +37,13 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
-import { SLA_STATUS_COLORS, SLA_STATUS_LABELS, type SLAStatus } from '@/hooks/useClaimSLA';
-
-const statusColors: Record<ClaimStatus, string> = {
-  initiated: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  under_review: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  pending_approval: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-  pending_acceptance: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-  accepted: 'bg-green-500/20 text-green-400 border-green-500/30',
-  declined: 'bg-red-500/20 text-red-400 border-red-500/30',
-  denied: 'bg-red-500/20 text-red-400 border-red-500/30',
-  approved: 'bg-green-500/20 text-green-400 border-green-500/30',
-  credited: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-  paid: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
-  closed: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-};
+import { SLA_STATUS_LABELS, type SLAStatus } from '@/hooks/useClaimSLA';
 
 // SLA Badge component
 function SLABadge({ status }: { status: SLAStatus | null | undefined }) {
   if (!status) return null;
   return (
-    <Badge variant="outline" className={`text-xs ${SLA_STATUS_COLORS[status]}`}>
-      {SLA_STATUS_LABELS[status]}
-    </Badge>
+    <StatusIndicator status={status} label={SLA_STATUS_LABELS[status]} size="sm" />
   );
 }
 

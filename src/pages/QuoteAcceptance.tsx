@@ -20,7 +20,7 @@ import {
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Quote, QuoteClassLine, QuoteSelectedService, QUOTE_STATUS_CONFIG } from '@/lib/quotes/types';
 import { formatCurrency } from '@/lib/quotes/calculator';
-import { getQuoteStatusClasses } from '@/lib/statusColors';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 
 interface QuoteDetails extends Quote {
   quote_class_lines: (QuoteClassLine & {
@@ -283,9 +283,7 @@ export default function QuoteAcceptance() {
                   Created on {new Date(quote.created_at).toLocaleDateString()}
                 </CardDescription>
               </div>
-              <Badge variant={QUOTE_STATUS_CONFIG[quote.status]?.variant as any} className={getQuoteStatusClasses(quote.status)}>
-                {QUOTE_STATUS_CONFIG[quote.status]?.label}
-              </Badge>
+              <StatusIndicator status={quote.status} label={QUOTE_STATUS_CONFIG[quote.status]?.label} size="sm" />
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
