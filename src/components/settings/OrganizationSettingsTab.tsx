@@ -27,6 +27,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,6 +43,8 @@ import { PreferencesContent } from './preferences/PreferencesContent';
 import { LegalLinksSection } from './preferences/LegalLinksSection';
 import { EmailDomainSection } from './preferences/EmailDomainSection';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const organizationSchema = z.object({
   // Company Info
   company_name: z.string().optional(),
@@ -44,6 +52,15 @@ const organizationSchema = z.object({
   company_phone: z.string().optional(),
   company_website: z.string().optional(),
   company_address: z.string().optional(),
+  // Office Alerts
+  office_alert_emails: z.string().optional().refine(
+    (val) => {
+      if (!val || val.trim() === '') return true;
+      const emails = val.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+      return emails.length > 0 && emails.every(e => EMAIL_REGEX.test(e));
+    },
+    { message: 'Enter one or more valid emails separated by commas' }
+  ),
   // Remit to Address (separate fields)
   remit_address_line1: z.string().optional(),
   remit_address_line2: z.string().optional(),
@@ -102,6 +119,7 @@ export function OrganizationSettingsTab() {
       company_phone: '',
       company_website: '',
       company_address: '',
+      office_alert_emails: '',
       remit_address_line1: '',
       remit_address_line2: '',
       remit_city: '',
@@ -128,6 +146,7 @@ export function OrganizationSettingsTab() {
         company_phone: tenantSettings.company_phone || '',
         company_website: tenantSettings.company_website || '',
         company_address: tenantSettings.company_address || '',
+        office_alert_emails: tenantSettings.office_alert_emails || '',
         remit_address_line1: tenantSettings.remit_address_line1 || '',
         remit_address_line2: tenantSettings.remit_address_line2 || '',
         remit_city: tenantSettings.remit_city || '',
@@ -162,12 +181,23 @@ export function OrganizationSettingsTab() {
   const onSubmit = async (data: OrganizationFormData) => {
     setSaving(true);
     try {
+      // Normalize office_alert_emails: trim, lowercase, dedupe
+      const normalizedOfficeEmails = data.office_alert_emails
+        ? [...new Set(
+            data.office_alert_emails
+              .split(',')
+              .map(e => e.trim().toLowerCase())
+              .filter(e => EMAIL_REGEX.test(e))
+          )].join(', ')
+        : null;
+
       const success = await updateSettings({
         company_name: data.company_name || null,
         company_email: data.company_email || null,
         company_phone: data.company_phone || null,
         company_website: data.company_website || null,
         company_address: data.company_address || null,
+        office_alert_emails: normalizedOfficeEmails || null,
         remit_address_line1: data.remit_address_line1 || null,
         remit_address_line2: data.remit_address_line2 || null,
         remit_city: data.remit_city || null,
@@ -371,6 +401,43 @@ export function OrganizationSettingsTab() {
                       )}
                     />
                   </div>
+
+                  <Separator />
+
+                  {/* Office Alerts Email(s) */}
+                  <FormField
+                    control={form.control}
+                    name="office_alert_emails"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-1.5">
+                          Office Alerts Email(s)
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help">
+                                  <MaterialIcon name="info" size="sm" className="text-muted-foreground" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="max-w-xs">
+                                <p>This email is used for office/internal notifications and can be referenced in alert templates. It is also the default fallback when an alert has no specific recipient configured.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="ops@company.com, alerts@company.com"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Used for internal system alerts such as quotes, claims, flags, and approvals. You may add multiple emails separated by commas.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <div className="flex justify-end">
                     <Button type="submit" disabled={saving}>

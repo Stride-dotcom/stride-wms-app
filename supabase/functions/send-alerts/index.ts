@@ -306,17 +306,24 @@ async function buildTemplateVariables(
   tenantId: string
 ): Promise<{ variables: Record<string, string>; itemIds: string[] }> {
   const branding = await getTenantBranding(supabase, tenantId);
-  
+
+  // Fetch office_alert_emails for template tokens
+  const officeAlertEmailsList = await getOfficeAlertEmails(supabase, tenantId);
+  const officeAlertEmailsStr = officeAlertEmailsList.join(', ');
+  const officeAlertEmailPrimary = officeAlertEmailsList.length > 0 ? officeAlertEmailsList[0] : '';
+
   const variables: Record<string, string> = {
     tenant_name: branding.companyName || 'Warehouse System',
     brand_logo_url: branding.logoUrl || '',
     brand_support_email: branding.supportEmail || 'support@example.com',
     portal_base_url: branding.portalBaseUrl || '',
-    created_at: new Date().toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    office_alert_emails: officeAlertEmailsStr,
+    office_alert_email_primary: officeAlertEmailPrimary,
+    created_at: new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     }),
   };
   

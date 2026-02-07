@@ -195,9 +195,11 @@ export function EmailDomainSection() {
   const [selectedRegistrar, setSelectedRegistrar] = useState('');
   const [dnsRecords, setDnsRecords] = useState<DnsRecord[]>([]);
   const [currentStep, setCurrentStep] = useState<SetupStep>('choice');
+  const [isEditingVerified, setIsEditingVerified] = useState(false);
 
   // Determine the actual current step based on settings
   useEffect(() => {
+    if (isEditingVerified) return; // Don't auto-set step while user is editing
     if (settings.email_domain_verified) {
       setCurrentStep('complete');
       setEmailChoice('custom');
@@ -214,7 +216,7 @@ export function EmailDomainSection() {
       setCurrentStep('choice');
       setEmailChoice(settings.use_default_email ? 'default' : 'custom');
     }
-  }, [settings, dnsRecords.length]);
+  }, [settings, dnsRecords.length, isEditingVerified]);
 
   useEffect(() => {
     if (profile?.tenant_id) {
@@ -373,6 +375,7 @@ export function EmailDomainSection() {
 
         if (data.status === 'verified') {
           setCurrentStep('complete');
+          setIsEditingVerified(false);
           toast({
             title: 'Domain Already Verified!',
             description: 'Your domain was already set up. You\'re ready to send emails!',
@@ -427,6 +430,7 @@ export function EmailDomainSection() {
           setDnsRecords(data.records);
         }
         setCurrentStep('complete');
+        setIsEditingVerified(false);
 
         toast({
           title: 'Domain Verified!',
@@ -489,6 +493,7 @@ export function EmailDomainSection() {
       setSelectedRegistrar('');
       setCurrentStep('choice');
       setEmailChoice('default');
+      setIsEditingVerified(false);
 
       toast({
         title: 'Reset Complete',
@@ -797,7 +802,7 @@ export function EmailDomainSection() {
           </div>
         )}
 
-        {/* STEP: Complete */}
+        {/* STEP: Complete - Verified status card */}
         {currentStep === 'complete' && (
           <div className="space-y-4">
             <Alert className="border-green-200 bg-green-50">
@@ -836,11 +841,24 @@ export function EmailDomainSection() {
               </div>
             </div>
 
-            <Button variant="outline" size="sm" onClick={handleStartOver} disabled={saving}>
-              {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
-              <MaterialIcon name="refresh" size="sm" className="mr-2" />
-              Change Email Settings
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsEditingVerified(true);
+                  setCurrentStep('choice');
+                }}
+              >
+                <MaterialIcon name="edit" size="sm" className="mr-2" />
+                Edit Configuration
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleStartOver} disabled={saving}>
+                {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
+                <MaterialIcon name="refresh" size="sm" className="mr-2" />
+                Reset &amp; Start Over
+              </Button>
+            </div>
           </div>
         )}
 
