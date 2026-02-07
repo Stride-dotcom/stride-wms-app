@@ -1,5 +1,1 @@
-Task completed: {{task_title}}
-
-{alert_message}
-
-Open: {portal_base_url}
+Task completed: {{task_title}}. {{task_link}}
