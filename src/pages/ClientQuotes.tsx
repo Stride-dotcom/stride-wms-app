@@ -4,6 +4,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -88,40 +89,16 @@ export default function ClientQuotes() {
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'sent_to_client':
-        return (
-          <Badge variant="secondary" className="gap-1">
-            <MaterialIcon name="schedule" size="sm" />
-            Pending Review
-          </Badge>
-        );
-      case 'accepted':
-        return (
-          <Badge className="bg-green-500 gap-1">
-            <MaterialIcon name="check_circle" size="sm" />
-            Accepted
-          </Badge>
-        );
-      case 'declined':
-        return (
-          <Badge variant="destructive" className="gap-1">
-            <MaterialIcon name="cancel" size="sm" />
-            Declined
-          </Badge>
-        );
-      case 'expired':
-        return (
-          <Badge variant="outline" className="gap-1">
-            <MaterialIcon name="error" size="sm" />
-            Expired
-          </Badge>
-        );
-      default:
-        return <Badge variant="outline">{status?.replace(/_/g, ' ')}</Badge>;
-    }
+  const quoteStatusLabels: Record<string, string> = {
+    sent_to_client: 'Pending Review',
+    accepted: 'Accepted',
+    declined: 'Declined',
+    expired: 'Expired',
   };
+
+  const getStatusBadge = (status: string) => (
+    <StatusIndicator status={status} label={quoteStatusLabels[status]} size="sm" />
+  );
 
   const handleAccept = async () => {
     if (!selectedQuote) return;

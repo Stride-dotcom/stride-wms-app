@@ -44,7 +44,7 @@ import {
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { getInvoiceStatusClasses } from '@/lib/statusColors';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 
 export function RepairQuotesTab() {
   const navigate = useNavigate();
@@ -177,9 +177,7 @@ export function RepairQuotesTab() {
           )}
         </TableCell>
         <TableCell>
-          <Badge className={statusInfo.color}>
-            {statusInfo.label}
-          </Badge>
+          <StatusIndicator status={quote.status || 'draft'} label={statusInfo.label} size="sm" />
         </TableCell>
         <TableCell className="text-right">
           {formatCurrency(quote.tech_total)}
@@ -257,9 +255,7 @@ export function RepairQuotesTab() {
               {quote.technician?.name || 'No technician assigned'}
             </MobileDataCardDescription>
           </div>
-          <Badge className={statusInfo.color}>
-            {statusInfo.label}
-          </Badge>
+          <StatusIndicator status={quote.status || 'draft'} label={statusInfo.label} size="sm" />
         </MobileDataCardHeader>
         <MobileDataCardContent>
           <div className="flex justify-between text-sm">

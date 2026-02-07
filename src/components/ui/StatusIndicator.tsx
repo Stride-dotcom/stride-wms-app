@@ -251,6 +251,61 @@ const statusStyles = {
     text: 'text-green-700 dark:text-green-400',
     dot: 'bg-green-500',
   },
+  inbound: {
+    bg: 'bg-blue-500/10 dark:bg-blue-400/15',
+    text: 'text-blue-700 dark:text-blue-400',
+    dot: 'bg-blue-500',
+  },
+  incoming: {
+    bg: 'bg-blue-500/10 dark:bg-blue-400/15',
+    text: 'text-blue-700 dark:text-blue-400',
+    dot: 'bg-blue-500',
+  },
+  outbound: {
+    bg: 'bg-purple-500/10 dark:bg-purple-400/15',
+    text: 'text-purple-700 dark:text-purple-400',
+    dot: 'bg-purple-500',
+  },
+  outgoing: {
+    bg: 'bg-purple-500/10 dark:bg-purple-400/15',
+    text: 'text-purple-700 dark:text-purple-400',
+    dot: 'bg-purple-500',
+  },
+  unbilled: {
+    bg: 'bg-amber-500/10 dark:bg-amber-400/15',
+    text: 'text-amber-700 dark:text-amber-400',
+    dot: 'bg-amber-500',
+  },
+  invoiced: {
+    bg: 'bg-green-500/10 dark:bg-green-400/15',
+    text: 'text-green-700 dark:text-green-400',
+    dot: 'bg-green-500',
+  },
+  invited: {
+    bg: 'bg-blue-500/10 dark:bg-blue-400/15',
+    text: 'text-blue-700 dark:text-blue-400',
+    dot: 'bg-blue-500',
+  },
+  awaiting_assignment: {
+    bg: 'bg-yellow-500/10 dark:bg-yellow-400/15',
+    text: 'text-yellow-700 dark:text-yellow-400',
+    dot: 'bg-yellow-500',
+  },
+  sent_to_tech: {
+    bg: 'bg-blue-500/10 dark:bg-blue-400/15',
+    text: 'text-blue-700 dark:text-blue-400',
+    dot: 'bg-blue-500',
+  },
+  tech_declined: {
+    bg: 'bg-red-500/10 dark:bg-red-400/15',
+    text: 'text-red-700 dark:text-red-400',
+    dot: 'bg-red-500',
+  },
+  tech_submitted: {
+    bg: 'bg-orange-500/10 dark:bg-orange-400/15',
+    text: 'text-orange-700 dark:text-orange-400',
+    dot: 'bg-orange-500',
+  },
   default: {
     bg: 'bg-gray-500/10 dark:bg-gray-400/15',
     text: 'text-gray-600 dark:text-gray-400',

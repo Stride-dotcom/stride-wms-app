@@ -101,6 +101,15 @@ export function ReassignAccountDialog({
 
         if (error) throw error;
 
+        // Also reassign all items on these shipments to the new account
+        for (const shipmentId of entityIds) {
+          await supabase
+            .from('items')
+            .update({ account_id: selectedAccountId })
+            .eq('receiving_shipment_id', shipmentId)
+            .is('deleted_at', null);
+        }
+
         // Log to audit log if tenantId and userId are provided
         if (tenantId && userId) {
           for (const entityId of entityIds) {
@@ -120,7 +129,7 @@ export function ReassignAccountDialog({
           }
         }
 
-        toast.success(`Shipment reassigned to ${selectedAccount?.account_name}`);
+        toast.success(`Shipment and all items reassigned to ${selectedAccount?.account_name}`);
       } else {
         // Item reassignment with automatic shipment split
         // 1. Fetch items to discover their source shipments

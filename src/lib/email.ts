@@ -173,6 +173,59 @@ export function buildRepairQuoteReadyEmail(params: {
   };
 }
 
+export function buildRepairUnableToCompleteEmail(params: {
+  itemCodes: string[];
+  accountName: string;
+  taskTitle: string;
+  note: string;
+  completedDate: string;
+  completedBy?: string;
+}): { subject: string; html: string } {
+  const itemSummary = params.itemCodes.length === 1
+    ? params.itemCodes[0]
+    : `${params.itemCodes.length} items`;
+
+  return {
+    subject: `Repair Unable to Complete: ${itemSummary}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #d9534f;">Repair Unable to Complete</h2>
+        <p>A repair task could not be completed. The item${params.itemCodes.length !== 1 ? 's' : ''} remain${params.itemCodes.length === 1 ? 's' : ''} flagged as damaged${params.itemCodes.length > 0 ? ' and quarantined (if applicable)' : ''}.</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Task:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${params.taskTitle}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Item${params.itemCodes.length !== 1 ? 's' : ''}:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${params.itemCodes.join(', ')}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Account:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${params.accountName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Date:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${params.completedDate}</td>
+          </tr>
+          ${params.completedBy ? `
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Marked By:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${params.completedBy}</td>
+          </tr>
+          ` : ''}
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Reason:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; color: #d9534f;">${params.note}</td>
+          </tr>
+        </table>
+        <p style="color: #666; font-size: 14px;">This item requires manual attention. Please review and determine next steps.</p>
+        <p style="color: #666; font-size: 14px;">This is an automated notification from Stride WMS.</p>
+      </div>
+    `,
+  };
+}
+
 export function buildInvoiceSentEmail(params: {
   invoiceNumber: string;
   accountName: string;
