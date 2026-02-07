@@ -42,6 +42,7 @@ import { DueDateRulesSettingsTab } from './DueDateRulesSettingsTab';
 import { PreferencesContent } from './preferences/PreferencesContent';
 import { LegalLinksSection } from './preferences/LegalLinksSection';
 import { EmailDomainSection } from './preferences/EmailDomainSection';
+import { TwilioSmsCard } from './TwilioSmsCard';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -461,6 +462,13 @@ export function OrganizationSettingsTab() {
 
               {/* Email Domain Configuration */}
               <EmailDomainSection />
+
+              {/* Twilio SMS Configuration */}
+              <TwilioSmsCard
+                settings={tenantSettings}
+                tenantId={profile?.tenant_id || ''}
+                onUpdate={updateSettings}
+              />
             </TabsContent>
 
             {/* Address Tab */}
