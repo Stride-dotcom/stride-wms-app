@@ -30,7 +30,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { isValidUuid, cn } from '@/lib/utils';
-import { getShipmentStatusClasses, getShipmentTypeBadgeClasses } from '@/lib/statusColors';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { TaskDialog } from '@/components/tasks/TaskDialog';
 import { ItemFlagsSection } from '@/components/items/ItemFlagsSection';
 import { ItemBillingEventsSection } from '@/components/items/ItemBillingEventsSection';
@@ -658,15 +658,14 @@ export default function ItemDetail() {
                     Coverage Pending
                   </Badge>
                 )}
-                {/* Active Indicator Flags */}
+                {/* Active Indicator Flags — one label per indicator, dynamic service name */}
                 {activeIndicatorFlags.map((flag) => (
                   <Badge
                     key={flag.code}
                     variant="outline"
                     className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 font-semibold"
                   >
-                    <MaterialIcon name="info" size="sm" className="mr-1" />
-                    {flag.name.toUpperCase()}
+                    {'\u26A0\uFE0F'} {flag.name}
                   </Badge>
                 ))}
               </div>
@@ -1039,12 +1038,10 @@ export default function ItemDetail() {
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
-                        <Badge className={getShipmentTypeBadgeClasses('inbound')}>Inbound</Badge>
+                        <StatusIndicator status="inbound" label="Inbound" size="sm" />
                         <span className="font-medium text-lg">{item.receiving_shipment.shipment_number}</span>
                       </div>
-                      <Badge className={getShipmentStatusClasses(item.receiving_shipment.status)}>
-                        {item.receiving_shipment.status.charAt(0).toUpperCase() + item.receiving_shipment.status.slice(1).replace(/_/g, ' ')}
-                      </Badge>
+                      <StatusIndicator status={item.receiving_shipment.status} size="sm" />
                       {item.receiving_shipment.received_at && (
                         <span className="text-sm text-muted-foreground">
                           Received: {format(new Date(item.receiving_shipment.received_at), 'MMM d, yyyy')}

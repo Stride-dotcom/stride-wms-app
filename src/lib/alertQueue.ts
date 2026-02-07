@@ -550,6 +550,74 @@ export async function queueBillingEventAlert(
 }
 
 /**
+ * Queue a flag-added-to-item alert
+ * Fires every time a flag is toggled ON for an item (even if removed and re-added).
+ * Uses the existing alert pipeline — no new notification infrastructure.
+ */
+export async function queueFlagAddedAlert({
+  tenantId,
+  itemId,
+  itemCode,
+  flagServiceName,
+  flagServiceCode,
+  actorUserId,
+  actorName,
+}: {
+  tenantId: string;
+  itemId: string;
+  itemCode: string;
+  flagServiceName: string;
+  flagServiceCode?: string;
+  actorUserId: string;
+  actorName?: string;
+}): Promise<boolean> {
+  const timestamp = new Date().toISOString();
+  return queueAlert({
+    tenantId,
+    alertType: 'item.flag_added',
+    entityType: 'item',
+    entityId: itemId,
+    subject: `Flag added to item ${itemCode}: ${flagServiceName}`,
+    bodyHtml: `
+      <h2 style="color: #d97706;">&#9888;&#65039; Flag Added to Item</h2>
+      <p>A flag has been applied to an item:</p>
+      <table style="border-collapse: collapse; margin: 20px 0;">
+        <tr><td style="padding: 8px; font-weight: bold;">Flag:</td><td style="padding: 8px;">${flagServiceName}</td></tr>
+        ${flagServiceCode ? `<tr><td style="padding: 8px; font-weight: bold;">Service Code:</td><td style="padding: 8px;">${flagServiceCode}</td></tr>` : ''}
+        <tr><td style="padding: 8px; font-weight: bold;">Item:</td><td style="padding: 8px;">${itemCode}</td></tr>
+        <tr><td style="padding: 8px; font-weight: bold;">Applied by:</td><td style="padding: 8px;">${actorName || actorUserId}</td></tr>
+        <tr><td style="padding: 8px; font-weight: bold;">Timestamp:</td><td style="padding: 8px;">${timestamp}</td></tr>
+      </table>
+      <p style="color: #6b7280; font-size: 14px;">This is an automated notification from Stride WMS.</p>
+    `,
+    bodyText: `Flag Added to Item\n\nFlag: ${flagServiceName}${flagServiceCode ? `\nService Code: ${flagServiceCode}` : ''}\nItem: ${itemCode}\nApplied by: ${actorName || actorUserId}\nTimestamp: ${timestamp}\n\nThis is an automated notification from Stride WMS.`,
+  });
+}
+
+/**
+ * Queue a repair unable to complete alert (unrepairable item)
+ */
+export async function queueRepairUnableToCompleteAlert(
+  tenantId: string,
+  taskId: string,
+  itemCodes: string[],
+  note: string,
+  accountName?: string
+): Promise<boolean> {
+  const itemSummary = itemCodes.length === 1
+    ? itemCodes[0]
+    : `${itemCodes.length} items`;
+
+  return queueAlert({
+    tenantId,
+    alertType: 'repair.unable_to_complete',
+    entityType: 'task',
+    entityId: taskId,
+    subject: `🔧 Repair Unable to Complete - ${itemSummary}${accountName ? ` (${accountName})` : ''}`,
+  });
+}
+
+/**
  * Queue a claim requires approval alert (to admins/managers)
  */
 export async function queueClaimRequiresApprovalAlert(

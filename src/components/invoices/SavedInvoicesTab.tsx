@@ -14,7 +14,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { downloadInvoicePdf, InvoicePdfData } from '@/lib/invoicePdf';
 import { sendEmail, buildInvoiceSentEmail } from '@/lib/email';
-import { getInvoiceStatusClasses } from '@/lib/statusColors';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import * as XLSX from 'xlsx';
 
 interface Account {
@@ -460,10 +460,9 @@ export function SavedInvoicesTab() {
     setBulkDownloading(false);
   };
 
-  const getStatusBadge = (status: string) => {
-    const label = status.charAt(0).toUpperCase() + status.slice(1);
-    return <Badge variant="outline" className={getInvoiceStatusClasses(status)}>{label}</Badge>;
-  };
+  const getStatusBadge = (status: string) => (
+    <StatusIndicator status={status} size="sm" />
+  );
 
   return (
     <div className="space-y-6">

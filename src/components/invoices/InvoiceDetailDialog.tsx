@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
@@ -158,14 +159,10 @@ export function InvoiceDetailDialog({
   };
 
   const getStatusBadge = (status: string, paymentStatus: string | null) => {
-    if (status === 'draft') return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Draft</Badge>;
-    if (status === 'sent') {
-      if (paymentStatus === 'partial') return <Badge variant="outline" className="bg-orange-100 text-orange-800">Partial Payment</Badge>;
-      return <Badge variant="outline" className="bg-green-100 text-green-800">Sent</Badge>;
+    if (status === 'sent' && paymentStatus === 'partial') {
+      return <StatusIndicator status="partial" label="Partial Payment" size="sm" />;
     }
-    if (status === 'paid') return <Badge variant="outline" className="bg-blue-100 text-blue-800">Paid</Badge>;
-    if (status === 'void') return <Badge variant="outline" className="bg-gray-100 text-gray-500">Void</Badge>;
-    return <Badge variant="outline">{status}</Badge>;
+    return <StatusIndicator status={status} size="sm" />;
   };
 
   const subtotal = lines.reduce((sum, l) => sum + Number(l.total_amount || 0), 0);

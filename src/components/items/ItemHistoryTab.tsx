@@ -5,7 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { getShipmentStatusClasses, getShipmentTypeBadgeClasses } from '@/lib/statusColors';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import {
   Tooltip,
   TooltipContent,
@@ -330,14 +330,10 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
                     {event.type === 'shipment' && event.metadata && (
                       <div className="flex items-center gap-2 mt-1">
                         {event.metadata.shipmentType && (
-                          <Badge className={getShipmentTypeBadgeClasses(event.metadata.shipmentType)}>
-                            {event.metadata.shipmentType.charAt(0).toUpperCase() + event.metadata.shipmentType.slice(1)}
-                          </Badge>
+                          <StatusIndicator status={event.metadata.shipmentType} size="sm" />
                         )}
                         {event.metadata.status && (
-                          <Badge className={getShipmentStatusClasses(event.metadata.status)}>
-                            {event.metadata.status.charAt(0).toUpperCase() + event.metadata.status.slice(1).replace(/_/g, ' ')}
-                          </Badge>
+                          <StatusIndicator status={event.metadata.status} size="sm" />
                         )}
                       </div>
                     )}

@@ -36,6 +36,9 @@ const CATEGORY_PREFIX_MAP: Record<Exclude<ActivityFilterCategory, 'all'>, string
     'billing_event_voided',
     'billing_event_invoiced',
     'billing_charge_added',
+    'indicator_applied',
+    'indicator_removed',
+    'flag_alert_sent',
   ],
   tasks: ['task_assigned', 'task_completed', 'task_started', 'task_unable'],
   notes_photos: [

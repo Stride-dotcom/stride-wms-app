@@ -1,123 +1,80 @@
 
-# Fix: Services Disappearing & Assembly Rates Showing $0.00
 
-## Summary of Issues Found
+# Fix Item Flags Display on Item Detail Page
 
-After investigation, I found **two separate issues**:
-
-1. **"No classes found" message** - This was a **temporary build/deployment state**. The browser session confirms classes are now loading correctly (Extra Small, Small, Medium, Large, Extra Large all display properly).
-
-2. **Assembly services showing $0.00** - This is the **real underlying issue** caused by:
-   - The UI stores assembly quantities in a client-side `qty_input` field
-   - The database `quote_selected_services` table only has `hours_input` column (no `qty_input`)
-   - When quotes are saved, only `hours_input` is persisted
-   - When quotes are loaded, `qty_input` is always `null`, resulting in `0 * $250 = $0.00`
+## Scope
+Single file: `src/components/items/ItemFlagsSection.tsx`
 
 ---
 
-## Root Cause Analysis
+## Change 1: Remove Visible Pricing
 
-```text
-Database Schema (quote_selected_services):
-┌────────────────────────────┐
-│ id                         │
-│ quote_id                   │
-│ service_id                 │
-│ is_selected                │
-│ hours_input        ← exists│
-│ computed_billable_qty      │
-│ applied_rate_amount        │
-│ line_total                 │
-│ created_at                 │
-│ updated_at                 │
-│                            │
-│ qty_input          ← MISSING│
-└────────────────────────────┘
+Remove the price text (`$XX.XX`) from flag rows. The `canViewPrices` variable and `usePermissions` import become unused and will be removed.
+
+**Lines 14, 37, 39-40**: Remove `usePermissions` import and `canViewPrices` variable.
+
+**Lines 500-518**: Replace the trailing icons block. Currently it shows either an INDICATOR badge (with text) or a price badge, plus an alert icon. The new version shows up to three small icon-only badges based on the flag's settings:
+- **Billing** (`attach_money`): shown when `!isIndicator` (i.e., the flag creates a billing charge)
+- **Indicator** (`warning`): shown when `isIndicator` (i.e., the flag is an indicator)
+- **Alert** (`notifications`): shown when `hasAlert` is true
+
+No price text anywhere.
+
+---
+
+## Change 2: Move Icons After Text, Add Flag Icon Before Text
+
+**Lines 490-498**: Replace the current leading icon (which switches between `flag` and `info` based on type) with a single `flag` icon for ALL flags. This tells users visually "these are flags."
+
+**Lines 499-518**: Restructure the label content so it reads:
 ```
-
-**The Problem Flow:**
-1. User enters "1" for Assembly 120m in the Qty field
-2. UI stores this in `formData.selected_services[x].qty_input = 1`
-3. Save operation runs: `hours_input: ss.hours_input` (line 508)
-4. `qty_input` is **never saved** to database
-5. Quote reloads: `qty_input` comes back as `null`
-6. Calculator: `qtyInput ?? hoursInput ?? 0` = `null ?? null ?? 0` = `0`
-7. Result: `0 * $250 = $0.00`
-
----
-
-## Solution
-
-Use the existing `hours_input` column to store the quantity value for all service types. This avoids a database schema migration while solving the problem.
-
-### Changes Required
-
-**File: `src/hooks/useQuotes.ts`**
-
-1. **Update CREATE quote logic** (around line 505-509):
-   - When inserting selected services, use `qty_input` value if available, fall back to `hours_input`
-   
-2. **Update UPDATE quote logic** (around line 650-660):
-   - Same pattern: persist `qty_input` into the `hours_input` database column
-
-3. **Update LOAD quote logic** (around line 212-217):
-   - When loading a quote, map `hours_input` from DB to `qty_input` for assembly/per_hour services
-
-**File: `src/pages/QuoteBuilder.tsx`**
-
-4. **Update form data loading** (around line 212-217):
-   - Ensure when loading an existing quote, the `qty_input` is populated from the stored `hours_input` value
-
-### Technical Implementation
-
-**In useQuotes.ts - Insert logic (line ~505):**
-```typescript
-// Before (current):
-hours_input: ss.hours_input,
-
-// After (fixed):
-hours_input: ss.qty_input ?? ss.hours_input,
+[flag icon] [Service Name]  ... [$] [warning] [bell]
 ```
-
-**In QuoteBuilder.tsx - Load logic (line ~212-217):**
-```typescript
-// Before (current):
-selected_services: data.selected_services.map((ss) => ({
-  service_id: ss.service_id,
-  is_selected: ss.is_selected,
-  hours_input: ss.hours_input,
-  qty_input: null,  // ← Always null!
-})),
-
-// After (fixed):
-selected_services: data.selected_services.map((ss) => ({
-  service_id: ss.service_id,
-  is_selected: ss.is_selected,
-  hours_input: ss.hours_input,
-  qty_input: ss.hours_input,  // ← Use hours_input for both
-})),
-```
+The behavior icons come after the text (they already do via `ml-auto`, this stays the same).
 
 ---
 
-## Files to Modify
+## Change 3: Standardize Behavior Icons
 
-| File | Change |
-|------|--------|
-| `src/hooks/useQuotes.ts` | Save `qty_input` into `hours_input` column when creating/updating quotes |
-| `src/pages/QuoteBuilder.tsx` | Load `hours_input` into `qty_input` when fetching existing quotes |
+| Icon | MaterialIcon name | Condition | Style |
+|---|---|---|---|
+| Billing ($) | `attach_money` | `!service.flag_is_indicator` | Small outline badge |
+| Indicator | `warning` | `service.flag_is_indicator` | Small amber outline badge |
+| Alert | `notifications` | `service.alert_rule !== 'none'` | Small outline badge (unchanged) |
 
----
-
-## Expected Result After Fix
-
-When opening an existing quote with assembly services:
-- Assembly 120m with Qty=1 will calculate: 1 × $250.00 = $250.00
-- Assembly 60m with Qty=2 will calculate: 2 × $140.00 = $280.00
-- Values persist correctly across save/reload cycles
+All three use the same small `Badge variant="outline"` with just the icon, no text.
 
 ---
 
-## Technical Note
+## Change 4: Mobile-Friendly Grid
 
-The `hours_input` column is repurposed as a generic "quantity input" field. This is semantically imprecise (hours vs quantity) but avoids requiring a database migration. The calculator logic already handles this correctly since it prioritizes `qty_input` over `hours_input` - we just need to ensure the value is persisted and loaded properly.
+**Line 404** (loading skeleton): Change `grid-cols-2` to `grid-cols-1 sm:grid-cols-2`
+
+**Line 463** (flag grid): Change `grid-cols-2` to `grid-cols-1 sm:grid-cols-2`
+
+---
+
+## Change 5: Update Legend -- Remove "Flag", Keep Other 3
+
+**Lines 525-538**: Update the legend to show only 3 items (remove the flag entry that was in the first plan). Keep:
+
+1. `[$]` Billing
+2. `[warning]` Indicator
+3. `[bell]` Alert
+
+Add `flex-wrap` so the legend wraps nicely on mobile.
+
+---
+
+## Summary of All Changes
+
+| Area | Current | New |
+|---|---|---|
+| Leading icon | `flag` or `info` depending on type | Always `flag` for all flags |
+| Pricing text | `$XX.XX` shown to admins | Removed entirely |
+| Trailing icons | INDICATOR text badge OR price badge, plus alert | Three small icon-only badges: $, warning, bell |
+| Icon conditions | Based on indicator status + price > 0 | Based on flag settings (indicator, billing, alert) |
+| Grid | `grid-cols-2` always | `grid-cols-1 sm:grid-cols-2` |
+| Legend | 3 items (billing, indicator, alert) | Same 3 items with shorter labels, no "Flag" entry |
+| Unused code | `canViewPrices`, `usePermissions` | Removed |
+

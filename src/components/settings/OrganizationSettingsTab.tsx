@@ -43,6 +43,7 @@ import { DueDateRulesSettingsTab } from './DueDateRulesSettingsTab';
 import { PreferencesContent } from './preferences/PreferencesContent';
 import { LegalLinksSection } from './preferences/LegalLinksSection';
 import { EmailDomainSection } from './preferences/EmailDomainSection';
+import { TwilioSmsCard } from './TwilioSmsCard';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -433,8 +434,10 @@ export function OrganizationSettingsTab() {
                                   <MaterialIcon name="info" size="sm" className="text-muted-foreground" />
                                 </span>
                               </TooltipTrigger>
-                              <TooltipContent side="right" className="max-w-xs">
-                                <p>These emails receive internal system notifications when alerts are sent by email, even if no specific recipient is configured.</p>
+                              <TooltipContent side="right" className="max-w-xs text-left">
+                                <p className="mb-1">Internal recipients for automated office alerts (quotes, claims, flags, system notices). Separate multiple emails with commas. This can be used as a template token.</p>
+                                <p className="font-mono text-xs opacity-80">[[office_alert_emails]] - full string</p>
+                                <p className="font-mono text-xs opacity-80">[[office_alert_email_primary]] - first email</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -473,6 +476,13 @@ export function OrganizationSettingsTab() {
 
               {/* Email Domain Configuration */}
               <EmailDomainSection />
+
+              {/* Twilio SMS Configuration */}
+              <TwilioSmsCard
+                settings={tenantSettings}
+                tenantId={profile?.tenant_id || ''}
+                onUpdate={updateSettings}
+              />
             </TabsContent>
 
             {/* Address Tab */}

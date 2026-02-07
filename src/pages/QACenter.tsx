@@ -39,6 +39,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { useAdminDev } from '@/hooks/useAdminDev';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -487,23 +488,6 @@ function QARunStatusPanel({ onRunUIVisual, onTabChange }: QARunStatusPanelProps)
     }
   };
 
-  const getStatusColor = (status: string | undefined) => {
-    switch (status) {
-      case 'completed': return 'bg-green-100 text-green-700 border-green-200';
-      case 'failed': return 'bg-red-100 text-red-700 border-red-200';
-      case 'running': return 'bg-blue-100 text-blue-700 border-blue-200';
-      default: return 'bg-gray-100 text-gray-600 border-gray-200';
-    }
-  };
-
-  const getStatusIcon = (status: string | undefined) => {
-    switch (status) {
-      case 'completed': return 'check_circle';
-      case 'failed': return 'error';
-      case 'running': return 'progress_activity';
-      default: return 'help_outline';
-    }
-  };
 
   const formatTimeAgo = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -580,14 +564,7 @@ function QARunStatusPanel({ onRunUIVisual, onTabChange }: QARunStatusPanelProps)
                 ) : status.lastRun ? (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <Badge className={cn("text-xs", getStatusColor(status.lastRun.status))}>
-                        <MaterialIcon
-                          name={getStatusIcon(status.lastRun.status)}
-                          size="sm"
-                          className={cn("mr-1", status.lastRun.status === 'running' && "animate-spin")}
-                        />
-                        {status.lastRun.status}
-                      </Badge>
+                      <StatusIndicator status={status.lastRun.status} size="sm" />
                       <span className="text-xs text-muted-foreground">
                         {formatTimeAgo(status.lastRun.started_at)}
                       </span>
@@ -702,27 +679,17 @@ function QARunStatusPanel({ onRunUIVisual, onTabChange }: QARunStatusPanelProps)
 // =============================================================================
 
 function StatusBadge({ status }: { status: string }) {
-  const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
-    running: { variant: 'default', label: 'Running' },
-    completed: { variant: 'secondary', label: 'Completed' },
-    failed: { variant: 'destructive', label: 'Failed' },
-    cancelled: { variant: 'outline', label: 'Cancelled' },
-    pass: { variant: 'secondary', label: 'Pass' },
-    fail: { variant: 'destructive', label: 'Fail' },
-    skip: { variant: 'outline', label: 'Skip' },
-    pending: { variant: 'outline', label: 'Pending' }
+  const labels: Record<string, string> = {
+    running: 'Running',
+    completed: 'Completed',
+    failed: 'Failed',
+    cancelled: 'Cancelled',
+    pass: 'Pass',
+    fail: 'Fail',
+    skip: 'Skip',
+    pending: 'Pending',
   };
-
-  const config = variants[status] || { variant: 'outline', label: status };
-
-  return (
-    <Badge variant={config.variant} className={cn(
-      status === 'pass' && 'bg-green-100 text-green-800 hover:bg-green-100',
-      status === 'completed' && 'bg-green-100 text-green-800 hover:bg-green-100'
-    )}>
-      {config.label}
-    </Badge>
-  );
+  return <StatusIndicator status={status} label={labels[status]} size="sm" />;
 }
 
 /**

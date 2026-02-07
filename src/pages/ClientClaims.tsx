@@ -9,6 +9,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -42,19 +43,6 @@ import {
   ClaimAutoApprovedNotice,
   ClaimDocumentationNotice,
 } from '@/components/claims/ClaimNotice';
-
-const statusColors: Record<string, string> = {
-  initiated: 'bg-blue-100 text-blue-800',
-  under_review: 'bg-yellow-100 text-yellow-800',
-  pending_acceptance: 'bg-amber-100 text-amber-800',
-  accepted: 'bg-green-100 text-green-800',
-  declined: 'bg-red-100 text-red-800',
-  denied: 'bg-red-100 text-red-800',
-  approved: 'bg-green-100 text-green-800',
-  credited: 'bg-purple-100 text-purple-800',
-  paid: 'bg-emerald-100 text-emerald-800',
-  closed: 'bg-gray-100 text-gray-800',
-};
 
 const statusLabels: Record<string, string> = {
   initiated: 'Submitted',
@@ -304,9 +292,7 @@ export default function ClientClaims() {
             <div className="flex-1">
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold">{claimDetail.claim_number}</h1>
-                <Badge className={statusColors[claimDetail.status]}>
-                  {statusLabels[claimDetail.status] || claimDetail.status}
-                </Badge>
+                <StatusIndicator status={claimDetail.status} label={statusLabels[claimDetail.status]} size="sm" />
               </div>
               <p className="text-muted-foreground">
                 {claimTypeLabels[claimDetail.claim_type] || claimDetail.claim_type}
@@ -803,9 +789,7 @@ export default function ClientClaims() {
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="font-medium">{claim.claim_number}</p>
-                          <Badge className={statusColors[claim.status]} variant="secondary">
-                            {statusLabels[claim.status] || claim.status}
-                          </Badge>
+                          <StatusIndicator status={claim.status} label={statusLabels[claim.status]} size="sm" />
                         </div>
                         <p className="text-sm text-muted-foreground">
                           {claimTypeLabels[claim.claim_type] || claim.claim_type}

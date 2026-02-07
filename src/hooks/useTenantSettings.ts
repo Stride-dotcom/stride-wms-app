@@ -23,6 +23,11 @@ export interface TenantCompanySettings {
   app_subdomain: string | null;
   email_signature_enabled: boolean;
   email_signature_custom_text: string | null;
+  twilio_account_sid: string | null;
+  twilio_messaging_service_sid: string | null;
+  twilio_from_phone: string | null;
+  sms_sender_name: string | null;
+  sms_enabled: boolean;
   created_at: string;
   updated_at: string;
 }

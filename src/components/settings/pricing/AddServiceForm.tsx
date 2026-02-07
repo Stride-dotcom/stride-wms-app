@@ -12,6 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@/components/ui/table';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { LabelWithTooltip } from '@/components/ui/label-with-tooltip';
 import { fieldDescriptions } from '@/lib/pricing/fieldDescriptions';
@@ -52,7 +60,7 @@ interface FormState {
   description: string;
   category: string;
   trigger: 'manual' | 'task' | 'shipment' | 'storage' | 'auto';
-  pricingMethod: 'class_based' | 'flat';
+  pricingMethod: 'class_based' | 'flat' | 'no_charge';
   classRates: ClassRate[];
   flatRate: string;
   unit: string;
@@ -62,7 +70,8 @@ interface FormState {
   isTaxable: boolean;
   addToScan: boolean;
   addFlag: boolean;
-  flagBehavior: 'charge' | 'indicator';
+  flagBilling: boolean;
+  flagIndicator: boolean;
   flagAlertOffice: boolean;
   notes: string;
 }
@@ -97,6 +106,7 @@ const PRICING_METHOD_CARDS = [
   { value: 'flat_per_item', label: 'Flat Rate Per Item', icon: 'straighten' },
   { value: 'flat_per_task', label: 'Flat Rate Per Task', icon: 'assignment' },
   { value: 'unit_price', label: 'Unit Price', icon: 'inventory' },
+  { value: 'no_charge', label: 'No Charge', icon: 'money_off' },
 ] as const;
 
 const HELP = {
@@ -106,7 +116,7 @@ const HELP = {
   glAccountCode: 'General Ledger code for accounting integration. Links charges to the correct revenue account.',
   serviceCategory: 'Groups related services together for organization, reporting, and filtering.',
   billingTrigger: "Determines when the system automatically creates a charge. A charge can always be added manually, via Scan Hub, or via Flag regardless of this setting. 'Receiving' triggers on inbound processing. 'Task Completion' triggers when a linked task is marked done. 'Storage' accrues daily/monthly. 'Manual' means no automatic creation.",
-  pricingMethod: "How rates are calculated. 'Class-Based' uses different rates per item class. 'Flat Per Item' charges the same for every item. 'Flat Per Task' charges once per job. 'Unit Price' is for sellable materials billed by quantity.",
+  pricingMethod: "How rates are calculated. 'Class-Based' uses different rates per item class. 'Flat Per Item' charges the same for every item. 'Flat Per Task' charges once per job. 'Unit Price' is for sellable materials billed by quantity. 'No Charge' is for tracking-only services with no billing.",
   rate: 'The charge amount for this service. Can be overridden per-customer in account pricing settings.',
   unit: 'The billing unit displayed on invoices. Auto-set based on pricing method but can be customized.',
   minCharge: 'If the calculated charge falls below this amount, the minimum will be used instead. Protects against unprofitable small orders.',
@@ -115,6 +125,22 @@ const HELP = {
   taxable: 'When enabled, sales tax will be automatically applied to this charge based on the customer\'s tax rate settings.',
   notes: 'Notes visible only to staff. Use for internal guidance about when to apply this service, special handling instructions, or billing rules.',
 };
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+
+/**
+ * Detect if an existing charge type is a "no charge" service.
+ * Heuristic: single flat rule with rate=0, manual trigger, no class-based rules.
+ */
+function isNoChargeService(ct: ChargeTypeWithRules): boolean {
+  if (ct.default_trigger !== 'manual') return false;
+  const rules = ct.pricing_rules;
+  if (rules.length !== 1) return false;
+  const rule = rules[0];
+  return rule.pricing_method === 'flat' && rule.rate === 0;
+}
 
 // =============================================================================
 // MAIN COMPONENT
@@ -137,6 +163,8 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
   const getInitialForm = (): FormState => {
     if (editingChargeType) {
       const hasClassRules = editingChargeType.pricing_rules.some(r => r.pricing_method === 'class_based');
+      const detectedNoCharge = !hasClassRules && isNoChargeService(editingChargeType);
+
       return {
         name: editingChargeType.charge_name,
         code: editingChargeType.charge_code,
@@ -145,7 +173,7 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
         description: editingChargeType.notes || '',
         category: editingChargeType.category || '',
         trigger: editingChargeType.default_trigger,
-        pricingMethod: hasClassRules ? 'class_based' : 'flat',
+        pricingMethod: detectedNoCharge ? 'no_charge' : hasClassRules ? 'class_based' : 'flat',
         classRates: classes.map(cls => {
           const existingRule = editingChargeType.pricing_rules.find(r => r.class_code === cls.code);
           return {
@@ -154,7 +182,7 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
             serviceTimeMinutes: existingRule?.service_time_minutes ? String(existingRule.service_time_minutes) : '',
           };
         }),
-        flatRate: !hasClassRules && editingChargeType.pricing_rules[0]
+        flatRate: !hasClassRules && !detectedNoCharge && editingChargeType.pricing_rules[0]
           ? String(editingChargeType.pricing_rules[0].rate)
           : '',
         unit: editingChargeType.pricing_rules[0]?.unit || 'each',
@@ -168,7 +196,8 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
         isTaxable: editingChargeType.is_taxable,
         addToScan: editingChargeType.add_to_scan,
         addFlag: editingChargeType.add_flag,
-        flagBehavior: (editingChargeType as any).flag_is_indicator ? 'indicator' : 'charge',
+        flagBilling: editingChargeType.pricing_rules?.some(r => Number(r.rate) > 0) ?? false,
+        flagIndicator: (editingChargeType as any).flag_is_indicator ?? false,
         flagAlertOffice: editingChargeType.alert_rule === 'email_office' || editingChargeType.alert_rule === 'office' || editingChargeType.alert_rule === 'email',
         notes: editingChargeType.notes || '',
       };
@@ -196,7 +225,8 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
       isTaxable: false,
       addToScan: false,
       addFlag: false,
-      flagBehavior: 'charge',
+      flagBilling: false,
+      flagIndicator: false,
       flagAlertOffice: false,
       notes: '',
     };
@@ -211,19 +241,23 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
     }
   }, [form.name, form.codeManual]);
 
-  // Sync class rates when classes change
+  // Sync class rates when classes load (fix race condition for edit mode)
   useEffect(() => {
     if (classes.length > 0 && form.classRates.length === 0) {
       setForm(prev => ({
         ...prev,
-        classRates: classes.map(cls => ({
-          classCode: cls.code,
-          rate: '',
-          serviceTimeMinutes: '',
-        })),
+        classRates: classes.map(cls => {
+          // When editing, restore saved rates from pricing_rules
+          const existingRule = editingChargeType?.pricing_rules.find(r => r.class_code === cls.code);
+          return {
+            classCode: cls.code,
+            rate: existingRule ? String(existingRule.rate) : '',
+            serviceTimeMinutes: existingRule?.service_time_minutes ? String(existingRule.service_time_minutes) : '',
+          };
+        }),
       }));
     }
-  }, [classes, form.classRates.length]);
+  }, [classes, form.classRates.length, editingChargeType]);
 
   const updateForm = (updates: Partial<FormState>) => {
     setForm(prev => ({ ...prev, ...updates }));
@@ -253,10 +287,16 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
     if (!form.code.trim()) errs.code = 'Service code is required';
     else if (!isCodeUnique(form.code)) errs.code = 'This code is already in use';
     if (!form.category) errs.category = 'Select a service category';
+
+    // No Charge: skip rate and trigger validation
+    if (form.pricingMethod === 'no_charge') {
+      return errs;
+    }
+
     if (!form.trigger) errs.trigger = 'Select an auto billing trigger';
 
     // Skip rate validation for indicator-only flags
-    const isIndicatorFlag = form.addFlag && form.flagBehavior === 'indicator';
+    const isIndicatorFlag = form.addFlag && !form.flagBilling;
     if (!isIndicatorFlag) {
       if (form.pricingMethod === 'class_based') {
         if (!form.classRates.some(r => r.rate !== '')) errs.pricing = 'Set a rate for at least one class';
@@ -290,12 +330,15 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
       updateForm({ pricingMethod: 'flat', unit: 'per_task' });
     } else if (value === 'unit_price') {
       updateForm({ pricingMethod: 'flat', unit: 'each' });
+    } else if (value === 'no_charge') {
+      updateForm({ pricingMethod: 'no_charge', unit: 'each', trigger: 'manual' });
     } else {
       updateForm({ pricingMethod: 'flat', unit: 'each' });
     }
   };
 
   const getActivePricingCard = () => {
+    if (form.pricingMethod === 'no_charge') return 'no_charge';
     if (form.pricingMethod === 'class_based') return 'class_based';
     if (form.unit === 'per_task') return 'flat_per_task';
     return 'flat_per_item';
@@ -314,10 +357,21 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
   // ==========================================================================
 
   const createPricingRules = async (chargeTypeId: string) => {
-    const isIndicatorFlag = form.addFlag && form.flagBehavior === 'indicator';
+    const isIndicatorFlag = form.addFlag && !form.flagBilling;
 
-    if (form.pricingMethod === 'class_based') {
-      const classRatesWithValues = form.classRates.filter(r => r.rate);
+    if (form.pricingMethod === 'no_charge') {
+      // No Charge: create a flat rule with rate 0 for database consistency
+      await createPricingRule({
+        charge_type_id: chargeTypeId,
+        pricing_method: 'flat',
+        class_code: null,
+        unit: 'each',
+        rate: 0,
+        is_default: true,
+        service_time_minutes: form.serviceTime ? parseInt(form.serviceTime) : undefined,
+      });
+    } else if (form.pricingMethod === 'class_based') {
+      const classRatesWithValues = form.classRates.filter(r => r.rate !== '');
       if (classRatesWithValues.length === 0 && isIndicatorFlag) {
         // Indicator flag with no rates — create a default zero-rate rule
         await createPricingRule({
@@ -379,6 +433,7 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
     setSaving(true);
     try {
       const isActiveValue = mode === 'draft' ? false : form.isActive;
+      const effectiveTrigger = form.pricingMethod === 'no_charge' ? 'manual' : form.trigger;
 
       if (isEditing && editingChargeType) {
         // UPDATE existing
@@ -389,12 +444,12 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
           category: form.category.toLowerCase(),
           is_active: isActiveValue,
           is_taxable: form.isTaxable,
-          default_trigger: form.trigger,
+          default_trigger: effectiveTrigger,
           input_mode: 'qty',
           add_to_scan: form.addToScan,
           add_flag: form.addFlag,
           alert_rule: form.addFlag && form.flagAlertOffice ? 'email_office' : form.addToScan && form.flagAlertOffice ? 'email_office' : 'none',
-          flag_is_indicator: form.addFlag && form.flagBehavior === 'indicator',
+          flag_is_indicator: form.addFlag && form.flagIndicator,
           notes: [form.description, form.notes].filter(Boolean).join('\n') || undefined,
         });
 
@@ -419,12 +474,12 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
           category: form.category.toLowerCase() || 'service',
           is_active: isActiveValue,
           is_taxable: form.isTaxable,
-          default_trigger: form.trigger,
+          default_trigger: effectiveTrigger,
           input_mode: 'qty',
           add_to_scan: form.addToScan,
           add_flag: form.addFlag,
           alert_rule: form.addFlag && form.flagAlertOffice ? 'email_office' : form.addToScan && form.flagAlertOffice ? 'email_office' : 'none',
-          flag_is_indicator: form.addFlag && form.flagBehavior === 'indicator',
+          flag_is_indicator: form.addFlag && form.flagIndicator,
           notes: [form.description, form.notes].filter(Boolean).join('\n') || undefined,
         });
 
@@ -577,17 +632,16 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
       </Card>
 
       {/* ================================================================ */}
-      {/* SECTION 2: Category & Auto Billing Trigger                       */}
+      {/* SECTION 2: Category                                              */}
       {/* ================================================================ */}
       <Card data-field="category">
         <CardContent className="pt-5">
           <div className="flex items-center gap-2 mb-4">
             <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">2</span>
-            <h4 className="font-semibold text-sm">Category & Auto Billing Trigger</h4>
+            <h4 className="font-semibold text-sm">Category</h4>
           </div>
 
-          {/* Service Category — chip selectors */}
-          <div className="space-y-3 mb-6">
+          <div className="space-y-3">
             <LabelWithTooltip tooltip={HELP.serviceCategory} required>
               Service Category
             </LabelWithTooltip>
@@ -628,66 +682,6 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
             )}
             {errors.category && <p className="text-xs text-destructive">{errors.category}</p>}
           </div>
-
-          {/* Auto Billing Trigger — chip selectors */}
-          <div className="space-y-3" data-field="trigger">
-            <LabelWithTooltip tooltip={HELP.billingTrigger} required fieldKey="billingTrigger">
-              Auto Billing Trigger
-            </LabelWithTooltip>
-            <div className="flex flex-wrap gap-2">
-              {TRIGGER_OPTIONS.map((opt) => {
-                const selected = form.trigger === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    className={cn(
-                      'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
-                      selected
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border hover:border-primary/50 text-foreground'
-                    )}
-                    onClick={() => updateForm({ trigger: opt.value as FormState['trigger'] })}
-                  >
-                    {selected && <span className="mr-1">✓</span>}
-                    {opt.label}
-                  </button>
-                );
-              })}
-
-              {/* Synced Flag / Scan chips — clickable, bidirectionally tied to toggles below */}
-              <button
-                type="button"
-                className={cn(
-                  'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
-                  form.addFlag
-                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300'
-                    : 'border-dashed border-border hover:border-amber-500/50 text-muted-foreground'
-                )}
-                onClick={() => updateForm({ addFlag: !form.addFlag })}
-              >
-                {form.addFlag && <span className="mr-1">✓</span>}
-                Flag
-              </button>
-              <button
-                type="button"
-                className={cn(
-                  'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
-                  form.addToScan
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300'
-                    : 'border-dashed border-border hover:border-blue-500/50 text-muted-foreground'
-                )}
-                onClick={() => updateForm({ addToScan: !form.addToScan })}
-              >
-                {form.addToScan && <span className="mr-1">✓</span>}
-                Scan
-              </button>
-            </div>
-            {errors.trigger && <p className="text-xs text-destructive">{errors.trigger}</p>}
-            <p className="text-xs text-muted-foreground">
-              Select the auto billing trigger, then optionally enable Flag and/or Scan. All triggers are additive — billing from each source works independently.
-            </p>
-          </div>
         </CardContent>
       </Card>
 
@@ -701,12 +695,12 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
             <h4 className="font-semibold text-sm">Pricing</h4>
           </div>
 
-          {/* Pricing Method — 2x2 grid */}
+          {/* Pricing Method — flexible wrap for 5 cards */}
           <div className="space-y-3 mb-6">
             <LabelWithTooltip tooltip={HELP.pricingMethod} required fieldKey="pricingMethod">
               Pricing Method
             </LabelWithTooltip>
-            <div className="grid grid-cols-2 gap-2 max-w-md">
+            <div className="flex flex-wrap gap-2 max-w-2xl">
               {PRICING_METHOD_CARDS.map((pm) => {
                 const active = activePricingCard === pm.value;
                 return (
@@ -731,7 +725,9 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
           </div>
 
           {/* Dynamic rate config */}
-          {form.pricingMethod === 'class_based' ? (
+          {form.pricingMethod === 'no_charge' ? (
+            <NoChargeConfig form={form} updateForm={updateForm} />
+          ) : form.pricingMethod === 'class_based' ? (
             <ClassBasedRateConfig
               form={form}
               classes={classes}
@@ -747,12 +743,87 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
       </Card>
 
       {/* ================================================================ */}
-      {/* SECTION 4: Options                                               */}
+      {/* SECTION 4: Billing Trigger (hidden for No Charge)                */}
+      {/* ================================================================ */}
+      {form.pricingMethod !== 'no_charge' && (
+        <Card data-field="trigger">
+          <CardContent className="pt-5">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">4</span>
+              <h4 className="font-semibold text-sm">Billing Trigger</h4>
+            </div>
+
+            <div className="space-y-3">
+              <LabelWithTooltip tooltip={HELP.billingTrigger} required fieldKey="billingTrigger">
+                Auto Billing Trigger
+              </LabelWithTooltip>
+              <div className="flex flex-wrap gap-2">
+                {TRIGGER_OPTIONS.map((opt) => {
+                  const selected = form.trigger === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className={cn(
+                        'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+                        selected
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border hover:border-primary/50 text-foreground'
+                      )}
+                      onClick={() => updateForm({ trigger: opt.value as FormState['trigger'] })}
+                    >
+                      {selected && <span className="mr-1">✓</span>}
+                      {opt.label}
+                    </button>
+                  );
+                })}
+
+                {/* Synced Flag / Scan chips */}
+                <button
+                  type="button"
+                  className={cn(
+                    'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+                    form.addFlag
+                      ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300'
+                      : 'border-dashed border-border hover:border-amber-500/50 text-muted-foreground'
+                  )}
+                  onClick={() => updateForm({ addFlag: !form.addFlag })}
+                >
+                  {form.addFlag && <span className="mr-1">✓</span>}
+                  Flag
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+                    form.addToScan
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300'
+                      : 'border-dashed border-border hover:border-blue-500/50 text-muted-foreground'
+                  )}
+                  onClick={() => updateForm({ addToScan: !form.addToScan })}
+                >
+                  {form.addToScan && <span className="mr-1">✓</span>}
+                  Scan
+                </button>
+              </div>
+              {errors.trigger && <p className="text-xs text-destructive">{errors.trigger}</p>}
+              <p className="text-xs text-muted-foreground">
+                Select the auto billing trigger, then optionally enable Flag and/or Scan. All triggers are additive — billing from each source works independently.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ================================================================ */}
+      {/* SECTION 5: Options                                               */}
       {/* ================================================================ */}
       <Card>
         <CardContent className="pt-5">
           <div className="flex items-center gap-2 mb-4">
-            <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">4</span>
+            <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">
+              {form.pricingMethod === 'no_charge' ? '4' : '5'}
+            </span>
             <h4 className="font-semibold text-sm">Options</h4>
           </div>
 
@@ -767,69 +838,36 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
             </div>
           </div>
 
-          {/* Show in Scan Hub */}
+          {/* Scan Hub */}
           <div className="flex items-center justify-between py-3 border-t">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Show in Scan Hub</Label>
-              <p className="text-xs text-muted-foreground">Makes this service available in the Scan Hub service dropdown</p>
-            </div>
+            <LabelWithTooltip tooltip={fieldDescriptions.scanHubToggle} fieldKey="scanHubToggle">Scan Hub</LabelWithTooltip>
             <Switch checked={form.addToScan} onCheckedChange={(v) => updateForm({ addToScan: v })} />
           </div>
 
-          {/* Create as Flag */}
+          {/* Flag */}
           <div className="py-3 border-t">
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-sm font-medium">Create as Flag</Label>
-                <p className="text-xs text-muted-foreground">Shows as a toggleable flag on Item Details page</p>
-              </div>
+              <LabelWithTooltip tooltip={fieldDescriptions.flagToggle} fieldKey="flagToggle">Flag</LabelWithTooltip>
               <Switch checked={form.addFlag} onCheckedChange={(v) => updateForm({ addFlag: v })} />
             </div>
 
             {/* Flag sub-options — only shown when addFlag is ON */}
             {form.addFlag && (
-              <div className="mt-3 ml-4 pl-4 border-l-2 border-primary/20 space-y-4">
-                {/* Flag Behavior radio */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Flag Behavior</Label>
-                  <div className="space-y-2">
-                    <label className="flex items-start gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="flagBehavior"
-                        value="charge"
-                        checked={form.flagBehavior === 'charge'}
-                        onChange={() => updateForm({ flagBehavior: 'charge' })}
-                        className="mt-1"
-                      />
-                      <div>
-                        <span className="text-sm font-medium">Creates Billing Charge</span>
-                        <p className="text-xs text-muted-foreground">When applied to an item, creates a billing event at the configured rate</p>
-                      </div>
-                    </label>
-                    <label className="flex items-start gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="flagBehavior"
-                        value="indicator"
-                        checked={form.flagBehavior === 'indicator'}
-                        onChange={() => updateForm({ flagBehavior: 'indicator' })}
-                        className="mt-1"
-                      />
-                      <div>
-                        <span className="text-sm font-medium">Indicator Only</span>
-                        <p className="text-xs text-muted-foreground">Visual marker only — no billing event created when applied</p>
-                      </div>
-                    </label>
-                  </div>
+              <div className="mt-3 ml-4 pl-4 border-l-2 border-primary/20 space-y-3">
+                <Label className="text-sm font-medium">Flag Behavior</Label>
+
+                <div className="flex items-center justify-between">
+                  <LabelWithTooltip tooltip="When flagged on an item, creates a billing event at the configured rate" fieldKey="flagBilling">Billing</LabelWithTooltip>
+                  <Switch checked={form.flagBilling} onCheckedChange={(v) => updateForm({ flagBilling: v })} />
                 </div>
 
-                {/* Alert Office toggle */}
                 <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium">Alert Office</Label>
-                    <p className="text-xs text-muted-foreground">Send email notification when this flag is applied</p>
-                  </div>
+                  <LabelWithTooltip tooltip="Shows a bold visual marker like FRAGILE on the item details page" fieldKey="flagIndicator">Indicator</LabelWithTooltip>
+                  <Switch checked={form.flagIndicator} onCheckedChange={(v) => updateForm({ flagIndicator: v })} />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <LabelWithTooltip tooltip="Sends an email notification to the office when this flag is applied to an item" fieldKey="flagAlertOffice">Alert</LabelWithTooltip>
                   <Switch checked={form.flagAlertOffice} onCheckedChange={(v) => updateForm({ flagAlertOffice: v })} />
                 </div>
               </div>
@@ -899,7 +937,7 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
 }
 
 // =============================================================================
-// CLASS-BASED RATE CONFIG
+// CLASS-BASED RATE CONFIG (Table Layout)
 // =============================================================================
 
 function ClassBasedRateConfig({
@@ -939,35 +977,57 @@ function ClassBasedRateConfig({
     <div className="border rounded-lg p-4 space-y-4">
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Rates by Item Class</p>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-        {form.classRates.map((cr) => {
-          const cls = classes.find(c => c.code === cr.classCode);
-          if (!cls) return null;
-          return (
-            <div key={cr.classCode} className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <Badge variant="outline" className="font-mono text-xs">{cr.classCode}</Badge>
-                <span className="text-xs text-muted-foreground truncate">{cls.name}</span>
-              </div>
-              <div className="relative">
-                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={cr.rate}
-                  onChange={(e) => updateClassRate(cr.classCode, 'rate', e.target.value)}
-                  placeholder="0.00"
-                  className="pl-5 h-9"
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[60px]">Class</TableHead>
+            <TableHead>Name</TableHead>
+            <TableHead className="min-w-[100px]">Rate ($)</TableHead>
+            <TableHead className="min-w-[100px]">Service Time (min)</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {form.classRates.map((cr) => {
+            const cls = classes.find(c => c.code === cr.classCode);
+            if (!cls) return null;
+            return (
+              <TableRow key={cr.classCode}>
+                <TableCell>
+                  <Badge variant="outline" className="font-mono text-xs">{cr.classCode}</Badge>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">{cls.name}</TableCell>
+                <TableCell>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={cr.rate}
+                      onChange={(e) => updateClassRate(cr.classCode, 'rate', e.target.value)}
+                      placeholder="0.00"
+                      className="pl-5 h-9 w-full"
+                    />
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={cr.serviceTimeMinutes}
+                    onChange={(e) => updateClassRate(cr.classCode, 'serviceTimeMinutes', e.target.value)}
+                    placeholder="—"
+                    className="h-9 w-full"
+                  />
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
 
       <div className="border-t pt-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <LabelWithTooltip htmlFor="classUnit" tooltip={HELP.unit} fieldKey="unit">Unit</LabelWithTooltip>
             <Select value={form.unit} onValueChange={(v) => updateForm({ unit: v })}>
@@ -990,18 +1050,6 @@ function ClassBasedRateConfig({
               min="0"
               value={form.minimumCharge}
               onChange={(e) => updateForm({ minimumCharge: e.target.value })}
-              placeholder="Optional"
-              className="h-9"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <LabelWithTooltip htmlFor="classServiceTime" tooltip={HELP.serviceTime} fieldKey="serviceTime">Service Time (min)</LabelWithTooltip>
-            <Input
-              id="classServiceTime"
-              type="number"
-              min="0"
-              value={form.serviceTime}
-              onChange={(e) => updateForm({ serviceTime: e.target.value })}
               placeholder="Optional"
               className="h-9"
             />
@@ -1073,6 +1121,43 @@ function FlatRateConfig({
         <LabelWithTooltip htmlFor="flatServiceTime" tooltip={HELP.serviceTime} fieldKey="serviceTime">Service Time (min)</LabelWithTooltip>
         <Input
           id="flatServiceTime"
+          type="number"
+          min="0"
+          value={form.serviceTime}
+          onChange={(e) => updateForm({ serviceTime: e.target.value })}
+          placeholder="Optional"
+          className="h-9"
+        />
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// NO CHARGE CONFIG
+// =============================================================================
+
+function NoChargeConfig({
+  form,
+  updateForm,
+}: {
+  form: FormState;
+  updateForm: (u: Partial<FormState>) => void;
+}) {
+  return (
+    <div className="border rounded-lg p-4 space-y-4">
+      <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50">
+        <MaterialIcon name="info" size="sm" className="text-muted-foreground mt-0.5 shrink-0" />
+        <p className="text-sm text-muted-foreground">
+          This service will not generate billing charges. Use it for tracking, flags, and alerts only.
+        </p>
+      </div>
+      <div className="space-y-1.5 max-w-[200px]">
+        <LabelWithTooltip htmlFor="noChargeServiceTime" tooltip={HELP.serviceTime} fieldKey="serviceTime">
+          Service Time (min)
+        </LabelWithTooltip>
+        <Input
+          id="noChargeServiceTime"
           type="number"
           min="0"
           value={form.serviceTime}

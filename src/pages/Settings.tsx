@@ -41,6 +41,7 @@ import { AlertsSettingsTab } from '@/components/settings/AlertsSettingsTab';
 import { IntegrationsSettingsTab } from '@/components/settings/IntegrationsSettingsTab';
 import { OperationsSettingsTab } from '@/components/settings/OperationsSettingsTab';
 import { QATestConsoleTab } from '@/components/settings/QATestConsoleTab';
+import { OnboardingChecklistTab } from '@/components/settings/OnboardingChecklistTab';
 import packageJson from '../../package.json';
 
 interface TenantInfo {
@@ -51,6 +52,7 @@ interface TenantInfo {
 }
 
 const TAB_OPTIONS = [
+  { value: 'onboarding', label: 'Onboarding', adminOnly: true },
   { value: 'profile', label: 'Profile' },
   { value: 'organization', label: 'Organization' },
   { value: 'alerts', label: 'Alerts' },
@@ -317,6 +319,7 @@ export default function Settings() {
 
           {/* Desktop: Tab navigation */}
           <TabsList className="hidden sm:flex flex-wrap h-auto gap-1">
+            {isAdmin && <TabsTrigger value="onboarding">Onboarding</TabsTrigger>}
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="organization">Organization</TabsTrigger>
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
@@ -327,6 +330,12 @@ export default function Settings() {
             <TabsTrigger value="locations">Locations</TabsTrigger>
             {isAdmin && <TabsTrigger value="qa">QA Tests</TabsTrigger>}
           </TabsList>
+
+          {isAdmin && (
+            <TabsContent value="onboarding">
+              <OnboardingChecklistTab />
+            </TabsContent>
+          )}
 
           <TabsContent value="profile">
             <Card>

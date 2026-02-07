@@ -3,6 +3,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
@@ -1235,23 +1236,6 @@ export default function BotQA() {
   // RENDER HELPERS
   // ============================================================
 
-  const statusColors: Record<TestStatus | string, string> = {
-    pending: 'bg-gray-100 text-gray-800',
-    running: 'bg-blue-100 text-blue-800',
-    pass: 'bg-green-100 text-green-800',
-    fail: 'bg-red-100 text-red-800',
-    skip: 'bg-yellow-100 text-yellow-800',
-    error: 'bg-red-200 text-red-900',
-  };
-
-  const statusIcons: Record<TestStatus | string, string> = {
-    pending: 'hourglass_empty',
-    running: 'progress_activity',
-    pass: 'check_circle',
-    fail: 'cancel',
-    skip: 'skip_next',
-    error: 'error',
-  };
 
   const toolCategories = [...new Set(results.map(r => r.category))];
 
@@ -1411,15 +1395,8 @@ export default function BotQA() {
                         <CollapsibleTrigger asChild>
                           <button className="w-full p-2 flex items-center justify-between hover:bg-muted/50 transition-colors text-sm">
                             <div className="flex items-center gap-2">
-                              <MaterialIcon
-                                name={statusIcons[result.status]}
-                                size="sm"
-                                className={result.status === 'running' ? 'animate-spin' : ''}
-                              />
                               <span className="font-medium">{result.name}</span>
-                              <Badge className={statusColors[result.status]} variant="secondary">
-                                {result.status.toUpperCase()}
-                              </Badge>
+                              <StatusIndicator status={result.status} size="sm" />
                             </div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               {result.duration && <span>{result.duration}ms</span>}
@@ -1526,14 +1503,8 @@ export default function BotQA() {
                     <CardHeader className="py-3 cursor-pointer hover:bg-muted/50">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <MaterialIcon
-                            name={statusIcons[scenario.status]}
-                            size="sm"
-                          />
                           <CardTitle className="text-sm">{scenario.scenario_name}</CardTitle>
-                          <Badge className={statusColors[scenario.status]} variant="secondary">
-                            {scenario.status.toUpperCase()}
-                          </Badge>
+                          <StatusIndicator status={scenario.status} size="sm" />
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <span>{scenario.turns.length} turn(s)</span>

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -671,18 +672,9 @@ export default function BillingReports() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'unbilled':
-        return <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Unbilled</Badge>;
-      case 'invoiced':
-        return <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">Invoiced</Badge>;
-      case 'void':
-        return <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">Void</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  const getStatusBadge = (status: string) => (
+    <StatusIndicator status={status} size="sm" />
+  );
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);

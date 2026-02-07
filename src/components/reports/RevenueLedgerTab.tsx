@@ -18,7 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { sendEmail, buildInvoiceSentEmail } from "@/lib/email";
 import { queueInvoiceSentAlert } from "@/lib/alertQueue";
 import { downloadInvoicePdf, printInvoicePdf, InvoicePdfData } from "@/lib/invoicePdf";
-import { getInvoiceStatusClasses } from '@/lib/statusColors';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 
 interface Account {
   id: string;
@@ -786,10 +786,9 @@ export function RevenueLedgerTab() {
     if (ok) await load();
   };
 
-  const getStatusBadge = (status: string) => {
-    const label = status.charAt(0).toUpperCase() + status.slice(1);
-    return <Badge variant="outline" className={getInvoiceStatusClasses(status)}>{label}</Badge>;
-  };
+  const getStatusBadge = (status: string) => (
+    <StatusIndicator status={status} size="sm" />
+  );
 
   const getTypeBadge = (type: string) => {
     switch (type) {

@@ -37,7 +37,7 @@ import { Quote, QuoteStatus, QUOTE_STATUS_CONFIG } from '@/lib/quotes/types';
 import { formatCurrency } from '@/lib/quotes/calculator';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { RepairQuotesTab } from '@/components/repair-quotes/RepairQuotesTab';
-import { getQuoteStatusClasses } from '@/lib/statusColors';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { cn } from '@/lib/utils';
 
 export default function Quotes() {
@@ -125,11 +125,7 @@ export default function Quotes() {
 
   const getStatusBadge = (status: QuoteStatus) => {
     const config = QUOTE_STATUS_CONFIG[status];
-    return (
-      <Badge variant={config.variant as any} className={getQuoteStatusClasses(status)}>
-        {config.label}
-      </Badge>
-    );
+    return <StatusIndicator status={status} label={config.label} size="sm" />;
   };
 
   return (

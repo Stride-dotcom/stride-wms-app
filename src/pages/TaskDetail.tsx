@@ -49,6 +49,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useTasks } from '@/hooks/useTasks';
 import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { ScanDocumentButton } from '@/components/scanner/ScanDocumentButton';
 import { DocumentUploadButton } from '@/components/scanner/DocumentUploadButton';
 import { DocumentList } from '@/components/scanner/DocumentList';
@@ -62,6 +63,8 @@ import { useTaskServiceLines } from '@/hooks/useTaskServiceLines';
 import { TaskServiceLinesEditor, ChargeTypeOption, RateInfo } from '@/components/tasks/TaskServiceLinesEditor';
 import { TaskCompletionPanel, CompletionLineValues } from '@/components/tasks/TaskCompletionPanel';
 import { getChargeTypes, getTaskTypeCharges, getEffectiveRate } from '@/lib/billing/chargeTypeUtils';
+import { logItemActivity } from '@/lib/activity/logItemActivity';
+import { queueRepairUnableToCompleteAlert } from '@/lib/alertQueue';
 
 interface TaskDetail {
   id: string;
@@ -115,36 +118,11 @@ interface TaskItemRow {
   } | null;
 }
 
-const statusColors: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  in_progress: 'bg-amber-100 text-amber-800',
-  completed: 'bg-green-100 text-green-800',
-  unable_to_complete: 'bg-red-100 text-red-800',
-};
-
-const statusLabels: Record<string, string> = {
+const taskStatusLabels: Record<string, string> = {
   pending: 'Pending',
   in_progress: 'In Progress',
   completed: 'Completed',
   unable_to_complete: 'Unable to Complete',
-};
-
-// Status text classes for bold colored text
-const getStatusTextClass = (status: string) => {
-  switch (status) {
-    case 'pending':
-      return 'font-bold text-orange-500 dark:text-orange-400';
-    case 'in_progress':
-      return 'font-bold text-yellow-500 dark:text-yellow-400';
-    case 'completed':
-      return 'font-bold text-green-500 dark:text-green-400';
-    case 'unable_to_complete':
-      return 'font-bold text-red-500 dark:text-red-400';
-    case 'cancelled':
-      return 'font-bold text-gray-500 dark:text-gray-400';
-    default:
-      return '';
-  }
 };
 
 export default function TaskDetailPage() {
@@ -590,6 +568,21 @@ export default function TaskDetailPage() {
   const handleCompleteTask = async () => {
     if (!id || !profile?.id || !task || !profile?.tenant_id) return;
 
+    // Inspection tasks require all items to have pass/fail status
+    if (task.task_type === 'Inspection' && taskItems.length > 0) {
+      const uninspectedItems = taskItems.filter(
+        ti => !ti.item?.inspection_status || (ti.item.inspection_status !== 'pass' && ti.item.inspection_status !== 'fail')
+      );
+      if (uninspectedItems.length > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Inspection Incomplete',
+          description: `All items must be marked Pass or Fail before completing. ${uninspectedItems.length} item${uninspectedItems.length !== 1 ? 's' : ''} remaining.`,
+        });
+        return;
+      }
+    }
+
     // If no service lines, show soft confirmation dialog (Option C)
     if (serviceLines.length === 0) {
       setNoServicesDialogOpen(true);
@@ -692,7 +685,7 @@ export default function TaskDetailPage() {
 
 
   const handleUnableToComplete = async (note: string) => {
-    if (!id || !profile?.id) return false;
+    if (!id || !profile?.id || !profile?.tenant_id) return false;
     try {
       const { error } = await (supabase.from('tasks') as any)
         .update({
@@ -703,6 +696,22 @@ export default function TaskDetailPage() {
         })
         .eq('id', id);
       if (error) throw error;
+
+      // For Repair tasks: send unrepairable item alert (damage/quarantine remain)
+      if (task?.task_type === 'Repair') {
+        const itemCodes = taskItems
+          .map(ti => ti.item?.item_code)
+          .filter(Boolean) as string[];
+
+        await queueRepairUnableToCompleteAlert(
+          profile.tenant_id,
+          id,
+          itemCodes.length > 0 ? itemCodes : ['Unknown'],
+          note,
+          task.account?.account_name
+        );
+      }
+
       toast({ title: 'Task Marked', description: 'Task marked as unable to complete.' });
       setUnableDialogOpen(false);
       fetchTask();
@@ -716,8 +725,17 @@ export default function TaskDetailPage() {
   // Handle individual item inspection result
   const handleItemInspectionResult = async (itemId: string, result: 'pass' | 'fail') => {
     try {
+      // Update inspection_status; if fail, also set has_damage
+      const updateData: Record<string, any> = { inspection_status: result };
+      if (result === 'fail') {
+        updateData.has_damage = true;
+      } else if (result === 'pass') {
+        // Passing clears any previous damage flag set by inspection
+        updateData.has_damage = false;
+      }
+
       const { error } = await (supabase.from('items') as any)
-        .update({ inspection_status: result })
+        .update(updateData)
         .eq('id', itemId);
       if (error) throw error;
 
@@ -730,10 +748,161 @@ export default function TaskDetailPage() {
 
       toast({ title: `Item ${result === 'pass' ? 'Passed' : 'Failed'}` });
 
+      // If item failed inspection, trigger auto-repair and auto-quarantine automations
+      if (result === 'fail' && task?.account_id && profile?.tenant_id) {
+        triggerDamageAutomations(itemId, task.account_id);
+      }
+
       // Refresh task items to get updated data
       fetchTaskItems();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to save inspection result' });
+    }
+  };
+
+  // Trigger auto-repair and auto-quarantine automations when item fails inspection
+  const triggerDamageAutomations = async (itemId: string, accountId: string) => {
+    if (!profile?.tenant_id || !task) return;
+
+    try {
+      // Fetch account automation settings
+      const { data: account } = await (supabase
+        .from('accounts') as any)
+        .select('auto_repair_on_damage, auto_quarantine_damaged_items')
+        .eq('id', accountId)
+        .single();
+
+      // Fetch tenant preferences for auto_repair_on_damage
+      const { data: tenantPreferences } = await (supabase
+        .from('tenant_preferences') as any)
+        .select('auto_repair_on_damage')
+        .eq('tenant_id', profile.tenant_id)
+        .maybeSingle();
+
+      const shouldCreateRepair = tenantPreferences?.auto_repair_on_damage || account?.auto_repair_on_damage;
+      const shouldQuarantine = account?.auto_quarantine_damaged_items;
+
+      // Get item info for task creation
+      const { data: itemData } = await (supabase
+        .from('items') as any)
+        .select('item_code, description')
+        .eq('id', itemId)
+        .single();
+
+      // Auto Repair on Damage: create a Repair task
+      if (shouldCreateRepair && itemData) {
+        // Copy inspection photos and notes to the repair task
+        const inspectionPhotos = photos || [];
+        const inspectionNotes = taskNotes || '';
+
+        const { data: repairTask } = await (supabase
+          .from('tasks') as any)
+          .insert({
+            tenant_id: profile.tenant_id,
+            title: `Repair: ${itemData.description || itemData.item_code}`,
+            description: inspectionNotes ? `Inspection Notes:\n${inspectionNotes}` : null,
+            task_type: 'Repair',
+            status: 'pending',
+            priority: 'high',
+            account_id: accountId,
+            warehouse_id: task.warehouse_id,
+            parent_task_id: task.id,
+            metadata: inspectionPhotos.length > 0 ? { photos: inspectionPhotos } : null,
+          })
+          .select('id')
+          .single();
+
+        if (repairTask) {
+          // Link item to repair task
+          await (supabase
+            .from('task_items') as any)
+            .insert({
+              task_id: repairTask.id,
+              item_id: itemId,
+            });
+
+          // Update item's repair_status
+          await (supabase
+            .from('items') as any)
+            .update({ repair_status: 'pending' })
+            .eq('id', itemId);
+
+          toast({
+            title: 'Repair Task Created',
+            description: `Auto-repair task created for ${itemData.item_code}`,
+          });
+        }
+      }
+
+      // Auto Quarantine Damaged Items: apply quarantine indicator flag
+      if (shouldQuarantine) {
+        await applyQuarantineFlag(itemId, itemData?.item_code || 'Unknown');
+      }
+    } catch (error) {
+      console.error('Error triggering damage automations:', error);
+      // Don't block the inspection result - automations are best-effort
+    }
+  };
+
+  // Apply quarantine indicator flag to an item
+  const applyQuarantineFlag = async (itemId: string, itemCode: string) => {
+    if (!profile?.tenant_id) return;
+
+    try {
+      // Look up the Quarantine flag charge type
+      const { data: quarantineFlag } = await (supabase
+        .from('charge_types') as any)
+        .select('id, charge_code')
+        .eq('tenant_id', profile.tenant_id)
+        .eq('add_flag', true)
+        .eq('flag_is_indicator', true)
+        .ilike('charge_name', '%quarantine%')
+        .maybeSingle();
+
+      if (!quarantineFlag) {
+        // No quarantine flag configured in the system - skip silently
+        console.warn('No Quarantine indicator flag found in charge_types. Skipping auto-quarantine.');
+        return;
+      }
+
+      // Check if already applied
+      const { data: existing } = await (supabase
+        .from('item_flags') as any)
+        .select('id')
+        .eq('item_id', itemId)
+        .eq('service_code', quarantineFlag.charge_code)
+        .maybeSingle();
+
+      if (existing) return; // Already quarantined
+
+      // Apply the flag
+      await (supabase
+        .from('item_flags') as any)
+        .insert({
+          tenant_id: profile.tenant_id,
+          item_id: itemId,
+          charge_type_id: quarantineFlag.id,
+          service_code: quarantineFlag.charge_code,
+          created_by: profile.id,
+        });
+
+      // Log activity
+      logItemActivity({
+        tenantId: profile.tenant_id,
+        itemId,
+        actorUserId: profile.id,
+        eventType: 'indicator_applied',
+        eventLabel: 'Quarantine applied (auto - inspection failed)',
+        details: { service_code: quarantineFlag.charge_code, reason: 'inspection_failed', automated: true },
+      });
+
+      toast({
+        title: 'Item Quarantined',
+        description: `${itemCode} has been quarantined due to failed inspection`,
+        variant: 'destructive',
+      });
+    } catch (error) {
+      console.error('Error applying quarantine flag:', error);
     }
   };
 
@@ -947,14 +1116,12 @@ export default function TaskDetailPage() {
               <h1 className="text-xl sm:text-2xl font-semibold">{task.title}</h1>
               <div className="flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
                 <Badge variant="outline" className="text-xs">TSK-{task.id.slice(0, 8).toUpperCase()}</Badge>
-                <span className={getStatusTextClass(task.status)}>
-                  {(statusLabels[task.status] || task.status).toUpperCase()}
-                </span>
-                {task.priority === 'urgent' ? (
-                  <span className="font-bold text-red-500 dark:text-red-400 text-sm">URGENT</span>
-                ) : (
-                  <span className="font-bold text-blue-500 dark:text-blue-400 text-sm">NORMAL</span>
-                )}
+                <StatusIndicator status={task.status} label={taskStatusLabels[task.status]} size="sm" />
+                <StatusIndicator
+                  status={task.priority === 'urgent' ? 'failed' : 'in_progress'}
+                  label={task.priority === 'urgent' ? 'Urgent' : 'Normal'}
+                  size="sm"
+                />
               </div>
             </div>
           </div>
@@ -1098,15 +1265,9 @@ export default function TaskDetailPage() {
                   <div className="flex items-center gap-4">
                     <span className="text-sm font-medium">Inspection Summary:</span>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">
-                        {taskItems.filter(ti => ti.item?.inspection_status === 'pass').length} Passed
-                      </Badge>
-                      <Badge variant="outline" className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20">
-                        {taskItems.filter(ti => ti.item?.inspection_status === 'fail').length} Failed
-                      </Badge>
-                      <Badge variant="outline" className="text-muted-foreground">
-                        {taskItems.filter(ti => !ti.item?.inspection_status).length} Pending
-                      </Badge>
+                      <StatusIndicator status="pass" label={`${taskItems.filter(ti => ti.item?.inspection_status === 'pass').length} Passed`} size="sm" />
+                      <StatusIndicator status="fail" label={`${taskItems.filter(ti => ti.item?.inspection_status === 'fail').length} Failed`} size="sm" />
+                      <StatusIndicator status="pending" label={`${taskItems.filter(ti => !ti.item?.inspection_status).length} Pending`} size="sm" />
                     </div>
                   </div>
                 </CardContent>
@@ -1168,7 +1329,7 @@ export default function TaskDetailPage() {
                             <>
                               <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                                 {ti.item?.inspection_status === 'pass' ? (
-                                  <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">PASSED</Badge>
+                                  <StatusIndicator status="pass" label="PASSED" size="sm" />
                                 ) : (
                                   <Button
                                     size="sm"
@@ -1183,7 +1344,7 @@ export default function TaskDetailPage() {
                               </TableCell>
                               <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                                 {ti.item?.inspection_status === 'fail' ? (
-                                  <Badge variant="outline" className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20">FAILED</Badge>
+                                  <StatusIndicator status="fail" label="FAILED" size="sm" />
                                 ) : (
                                   <Button
                                     size="sm"

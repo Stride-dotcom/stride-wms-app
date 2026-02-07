@@ -47,6 +47,8 @@ export interface ItemRow {
   account_id?: string | null;
   warehouse_id?: string | null;
   location_id?: string | null;
+  /** True when item has any active indicator flags */
+  has_indicator_flags?: boolean;
 }
 
 type SortField = 'item_code' | 'quantity' | 'vendor' | 'description' | 'location_code' | 'sidemark' | 'room';
@@ -199,9 +201,10 @@ export function ItemListTable({
               <TableCell className="font-medium" onClick={(e) => e.stopPropagation()}>
                 <ItemPreviewCard itemId={item.id}>
                   <span
-                    className="text-primary hover:underline cursor-pointer"
+                    className="text-primary hover:underline cursor-pointer inline-flex items-center gap-1"
                     onClick={() => navigate(`/inventory/${item.id}`)}
                   >
+                    {item.has_indicator_flags && <span title="Has indicator flags">{'\u26A0\uFE0F'}</span>}
                     {item.item_code}
                   </span>
                 </ItemPreviewCard>

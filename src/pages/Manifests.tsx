@@ -49,15 +49,8 @@ import { useManifests, ManifestStatus, CreateManifestData } from '@/hooks/useMan
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { format } from 'date-fns';
-
-const statusColors: Record<ManifestStatus, string> = {
-  draft: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  active: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  in_progress: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-  completed: 'bg-green-500/20 text-green-400 border-green-500/30',
-  cancelled: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-};
 
 const statusLabels: Record<ManifestStatus, string> = {
   draft: 'Draft',
@@ -137,9 +130,7 @@ export default function Manifests() {
   };
 
   const getStatusBadge = (status: string) => (
-    <Badge className={statusColors[status as ManifestStatus] || statusColors.draft}>
-      {statusLabels[status as ManifestStatus] || status}
-    </Badge>
+    <StatusIndicator status={status} label={statusLabels[status as ManifestStatus]} size="sm" />
   );
 
   const getProgressDisplay = (scanned: number, expected: number) => {

@@ -11082,7 +11082,12 @@ export type Database = {
           remit_city: string | null
           remit_state: string | null
           remit_zip: string | null
+          sms_enabled: boolean
+          sms_sender_name: string | null
           tenant_id: string
+          twilio_account_sid: string | null
+          twilio_from_phone: string | null
+          twilio_messaging_service_sid: string | null
           updated_at: string
           updated_by: string | null
         }
@@ -11107,7 +11112,12 @@ export type Database = {
           remit_city?: string | null
           remit_state?: string | null
           remit_zip?: string | null
+          sms_enabled?: boolean
+          sms_sender_name?: string | null
           tenant_id: string
+          twilio_account_sid?: string | null
+          twilio_from_phone?: string | null
+          twilio_messaging_service_sid?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -11132,7 +11142,12 @@ export type Database = {
           remit_city?: string | null
           remit_state?: string | null
           remit_zip?: string | null
+          sms_enabled?: boolean
+          sms_sender_name?: string | null
           tenant_id?: string
+          twilio_account_sid?: string | null
+          twilio_from_phone?: string | null
+          twilio_messaging_service_sid?: string | null
           updated_at?: string
           updated_by?: string | null
         }
