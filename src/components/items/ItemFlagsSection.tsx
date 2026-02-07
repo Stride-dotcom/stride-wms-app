@@ -15,7 +15,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useServiceEvents, ServiceEvent } from '@/hooks/useServiceEvents';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toastShim';
-import { queueBillingEventAlert } from '@/lib/alertQueue';
+import { queueBillingEventAlert, queueFlagAddedAlert } from '@/lib/alertQueue';
 import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { logItemActivity } from '@/lib/activity/logItemActivity';
@@ -152,6 +152,15 @@ export function ItemFlagsSection({
         details: { service_code: service.service_code, service_name: service.service_name, flag_type: 'indicator' },
       });
 
+      logItemActivity({
+        tenantId: profile!.tenant_id,
+        itemId,
+        actorUserId: profile!.id,
+        eventType: 'indicator_removed',
+        eventLabel: `Indicator removed: ${service.service_name}`,
+        details: { service_code: service.service_code, service_name: service.service_name },
+      });
+
       setEnabledIndicatorFlags(prev => {
         const next = new Set(prev);
         next.delete(service.service_code);
@@ -180,16 +189,27 @@ export function ItemFlagsSection({
           .single();
 
         if (itemData) {
-          await queueBillingEventAlert(
-            profile!.tenant_id,
-            itemId, // Use item ID as entity reference
-            service.service_name,
-            itemData.item_code || '',
-            itemData.accounts?.account_name || 'Unknown Account',
-            0, // No charge for indicator
-            `Indicator flag applied: ${service.service_name}`
-          );
+          await queueFlagAddedAlert({
+            tenantId: profile!.tenant_id,
+            itemId,
+            itemCode: itemData.item_code || '',
+            flagServiceName: service.service_name,
+            flagServiceCode: service.service_code,
+            actorUserId: profile!.id,
+            actorName: [profile!.first_name, profile!.last_name].filter(Boolean).join(' ') || profile!.email || undefined,
+          });
         }
+
+        // Log alert sent activity
+        logItemActivity({
+          tenantId: profile!.tenant_id,
+          itemId,
+          actorUserId: profile!.id,
+          eventType: 'flag_alert_sent',
+          eventLabel: `Alert sent for flag: ${service.service_name}`,
+          details: { service_code: service.service_code, service_name: service.service_name, flag_type: 'indicator' },
+        });
+
         toast.success(`${service.service_name} applied (alert sent)`);
       } else {
         toast.success(`${service.service_name} applied`);
@@ -202,6 +222,15 @@ export function ItemFlagsSection({
         eventType: 'item_flag_applied',
         eventLabel: `Flag applied: ${service.service_name}`,
         details: { service_code: service.service_code, service_name: service.service_name, flag_type: 'indicator' },
+      });
+
+      logItemActivity({
+        tenantId: profile!.tenant_id,
+        itemId,
+        actorUserId: profile!.id,
+        eventType: 'indicator_applied',
+        eventLabel: `Indicator applied: ${service.service_name}`,
+        details: { service_code: service.service_code, service_name: service.service_name },
       });
 
       setEnabledIndicatorFlags(prev => {
@@ -310,15 +339,26 @@ export function ItemFlagsSection({
 
       // Queue alert if service has alert rule
       if (service.alert_rule && service.alert_rule !== 'none' && billingEvent?.id) {
-        await queueBillingEventAlert(
-          profile!.tenant_id,
-          billingEvent.id,
-          rateInfo.serviceName,
-          itemData?.item_code || '',
-          itemData?.accounts?.account_name || 'Unknown Account',
-          rateInfo.rate,
-          `${service.service_name}`
-        );
+        await queueFlagAddedAlert({
+          tenantId: profile!.tenant_id,
+          itemId,
+          itemCode: itemData?.item_code || '',
+          flagServiceName: service.service_name,
+          flagServiceCode: service.service_code,
+          actorUserId: profile!.id,
+          actorName: [profile!.first_name, profile!.last_name].filter(Boolean).join(' ') || profile!.email || undefined,
+        });
+
+        // Log alert sent activity
+        logItemActivity({
+          tenantId: profile!.tenant_id,
+          itemId,
+          actorUserId: profile!.id,
+          eventType: 'flag_alert_sent',
+          eventLabel: `Alert sent for flag: ${service.service_name}`,
+          details: { service_code: service.service_code, service_name: service.service_name, flag_type: 'billing', rate: rateInfo.rate },
+        });
+
         toast.success(`${service.service_name} enabled (billing event created, alert sent)`);
       } else {
         toast.success(`${service.service_name} enabled (billing event created)`);

@@ -658,15 +658,14 @@ export default function ItemDetail() {
                     Coverage Pending
                   </Badge>
                 )}
-                {/* Active Indicator Flags */}
+                {/* Active Indicator Flags — one label per indicator, dynamic service name */}
                 {activeIndicatorFlags.map((flag) => (
                   <Badge
                     key={flag.code}
                     variant="outline"
                     className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 font-semibold"
                   >
-                    <MaterialIcon name="info" size="sm" className="mr-1" />
-                    {flag.name.toUpperCase()}
+                    {'\u26A0\uFE0F'} {flag.name}
                   </Badge>
                 ))}
               </div>
