@@ -117,7 +117,7 @@ export function QuickReleaseDialog({
         expected_quantity: item.quantity,
         actual_quantity: item.quantity,
         expected_description: item.description,
-        status: 'completed',
+        status: 'released',
       }));
 
       const { error: itemsError } = await (supabase

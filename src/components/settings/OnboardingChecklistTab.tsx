@@ -78,16 +78,16 @@ export function OnboardingChecklistTab() {
           .from('warehouses')
           .select('id')
           .eq('tenant_id', profile.tenant_id),
-        supabase
-          .from('locations')
+        (supabase
+          .from('locations') as any)
           .select('id, is_default_receiving')
           .eq('tenant_id', profile.tenant_id),
         supabase
           .from('users')
           .select('id')
           .eq('tenant_id', profile.tenant_id),
-        supabase
-          .from('user_roles')
+        (supabase
+          .from('user_roles') as any)
           .select('id, role, user_id')
           .in('role', ['admin', 'tenant_admin', 'manager']),
       ]);
