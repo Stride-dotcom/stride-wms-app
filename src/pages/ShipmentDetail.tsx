@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useReceivingSession } from '@/hooks/useReceivingSession';
 import { usePermissions, PERMISSIONS } from '@/hooks/usePermissions';
 import { isValidUuid, cn } from '@/lib/utils';
-import { getShipmentStatusClasses } from '@/lib/statusColors';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -1177,22 +1177,15 @@ export default function ShipmentDetail() {
   // ------------------------------------------
   // Status badge helper
   // ------------------------------------------
-  const getStatusBadge = (status: string) => {
-    const labels: Record<string, string> = {
-      expected: 'Expected',
-      receiving: 'In Progress',
-      in_progress: 'In Progress',
-      received: 'Received',
-      partial: 'Partial',
-      shipped: 'Shipped',
-      completed: 'Completed',
-      cancelled: 'Cancelled',
-    };
-    return (
-      <Badge className={cn('border-0', getShipmentStatusClasses(status))}>
-        {labels[status] || status}
-      </Badge>
-    );
+  const shipmentStatusLabels: Record<string, string> = {
+    expected: 'Expected',
+    receiving: 'In Progress',
+    in_progress: 'In Progress',
+    received: 'Received',
+    partial: 'Partial',
+    shipped: 'Shipped',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
   };
 
   // ------------------------------------------
@@ -1248,7 +1241,7 @@ export default function ShipmentDetail() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold truncate">{shipment.shipment_number}</h1>
-              {getStatusBadge(shipment.status)}
+              <StatusIndicator status={shipment.status} label={shipmentStatusLabels[shipment.status]} size="sm" />
               {shipment.release_type && (
                 <Badge variant="outline" className="text-xs">{shipment.release_type}</Badge>
               )}
@@ -2018,9 +2011,7 @@ export default function ShipmentDetail() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Badge className={cn('border-0', getShipmentStatusClasses(item.status))}>
-                        {item.status}
-                      </Badge>
+                      <StatusIndicator status={item.status} size="sm" />
                     </TableCell>
                   </TableRow>
                 ))}

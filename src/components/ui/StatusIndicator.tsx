@@ -91,6 +91,36 @@ const statusStyles = {
     text: 'text-green-700 dark:text-green-400',
     dot: 'bg-green-500',
   },
+  expected: {
+    bg: 'bg-blue-500/10 dark:bg-blue-400/15',
+    text: 'text-blue-700 dark:text-blue-400',
+    dot: 'bg-blue-500',
+  },
+  receiving: {
+    bg: 'bg-orange-500/10 dark:bg-orange-400/15',
+    text: 'text-orange-700 dark:text-orange-400',
+    dot: 'bg-orange-500',
+  },
+  received: {
+    bg: 'bg-green-500/10 dark:bg-green-400/15',
+    text: 'text-green-700 dark:text-green-400',
+    dot: 'bg-green-500',
+  },
+  released: {
+    bg: 'bg-green-500/10 dark:bg-green-400/15',
+    text: 'text-green-700 dark:text-green-400',
+    dot: 'bg-green-500',
+  },
+  shipped: {
+    bg: 'bg-blue-500/10 dark:bg-blue-400/15',
+    text: 'text-blue-700 dark:text-blue-400',
+    dot: 'bg-blue-500',
+  },
+  partial: {
+    bg: 'bg-orange-500/10 dark:bg-orange-400/15',
+    text: 'text-orange-700 dark:text-orange-400',
+    dot: 'bg-orange-500',
+  },
   expired: {
     bg: 'bg-gray-500/10 dark:bg-gray-400/15',
     text: 'text-gray-600 dark:text-gray-400',
