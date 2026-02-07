@@ -35,6 +35,7 @@ interface ReassignAccountDialogProps {
   currentAccountId?: string | null;
   currentAccountName?: string | null;
   onSuccess: () => void;
+  onShipmentCreated?: (shipmentId: string) => void;
   tenantId?: string;
   userId?: string;
 }
@@ -47,6 +48,7 @@ export function ReassignAccountDialog({
   currentAccountId,
   currentAccountName,
   onSuccess,
+  onShipmentCreated,
   tenantId,
   userId,
 }: ReassignAccountDialogProps) {
@@ -89,6 +91,7 @@ export function ReassignAccountDialog({
     }
 
     setSubmitting(true);
+    let lastCreatedShipmentId: string | null = null;
     try {
       const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
@@ -205,6 +208,7 @@ export function ReassignAccountDialog({
 
               if (newShipment) {
                 newShipmentNumbers.push(newShipment.shipment_number);
+                lastCreatedShipmentId = newShipment.id;
 
                 // Point the moved items at the new shipment
                 await supabase
@@ -295,6 +299,11 @@ export function ReassignAccountDialog({
 
       onSuccess();
       onOpenChange(false);
+
+      // Navigate to the new shipment if one was created from a split
+      if (lastCreatedShipmentId && onShipmentCreated) {
+        onShipmentCreated(lastCreatedShipmentId);
+      }
     } catch (error) {
       console.error('Error reassigning:', error);
       toast.error('Failed to reassign. Please try again.');

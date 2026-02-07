@@ -2245,6 +2245,9 @@ export default function ShipmentDetail() {
             fetchShipment();
             setSelectedItemIds(new Set());
           }}
+          onShipmentCreated={(newShipmentId) => {
+            navigate(`/shipments/${newShipmentId}`);
+          }}
           tenantId={profile?.tenant_id}
           userId={profile?.id}
         />
