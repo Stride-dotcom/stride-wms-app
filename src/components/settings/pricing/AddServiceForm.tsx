@@ -70,7 +70,8 @@ interface FormState {
   isTaxable: boolean;
   addToScan: boolean;
   addFlag: boolean;
-  flagBehavior: 'charge' | 'indicator';
+  flagBilling: boolean;
+  flagIndicator: boolean;
   flagAlertOffice: boolean;
   notes: string;
 }
@@ -195,7 +196,8 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
         isTaxable: editingChargeType.is_taxable,
         addToScan: editingChargeType.add_to_scan,
         addFlag: editingChargeType.add_flag,
-        flagBehavior: (editingChargeType as any).flag_is_indicator ? 'indicator' : 'charge',
+        flagBilling: editingChargeType.pricing_rules?.some(r => Number(r.rate) > 0) ?? false,
+        flagIndicator: (editingChargeType as any).flag_is_indicator ?? false,
         flagAlertOffice: editingChargeType.alert_rule === 'email_office' || editingChargeType.alert_rule === 'office' || editingChargeType.alert_rule === 'email',
         notes: editingChargeType.notes || '',
       };
@@ -223,7 +225,8 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
       isTaxable: false,
       addToScan: false,
       addFlag: false,
-      flagBehavior: 'charge',
+      flagBilling: false,
+      flagIndicator: false,
       flagAlertOffice: false,
       notes: '',
     };
@@ -293,7 +296,7 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
     if (!form.trigger) errs.trigger = 'Select an auto billing trigger';
 
     // Skip rate validation for indicator-only flags
-    const isIndicatorFlag = form.addFlag && form.flagBehavior === 'indicator';
+    const isIndicatorFlag = form.addFlag && !form.flagBilling;
     if (!isIndicatorFlag) {
       if (form.pricingMethod === 'class_based') {
         if (!form.classRates.some(r => r.rate !== '')) errs.pricing = 'Set a rate for at least one class';
@@ -354,7 +357,7 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
   // ==========================================================================
 
   const createPricingRules = async (chargeTypeId: string) => {
-    const isIndicatorFlag = form.addFlag && form.flagBehavior === 'indicator';
+    const isIndicatorFlag = form.addFlag && !form.flagBilling;
 
     if (form.pricingMethod === 'no_charge') {
       // No Charge: create a flat rule with rate 0 for database consistency
@@ -446,7 +449,7 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
           add_to_scan: form.addToScan,
           add_flag: form.addFlag,
           alert_rule: form.addFlag && form.flagAlertOffice ? 'email_office' : form.addToScan && form.flagAlertOffice ? 'email_office' : 'none',
-          flag_is_indicator: form.addFlag && form.flagBehavior === 'indicator',
+          flag_is_indicator: form.addFlag && form.flagIndicator,
           notes: [form.description, form.notes].filter(Boolean).join('\n') || undefined,
         });
 
@@ -476,7 +479,7 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
           add_to_scan: form.addToScan,
           add_flag: form.addFlag,
           alert_rule: form.addFlag && form.flagAlertOffice ? 'email_office' : form.addToScan && form.flagAlertOffice ? 'email_office' : 'none',
-          flag_is_indicator: form.addFlag && form.flagBehavior === 'indicator',
+          flag_is_indicator: form.addFlag && form.flagIndicator,
           notes: [form.description, form.notes].filter(Boolean).join('\n') || undefined,
         });
 
@@ -835,69 +838,36 @@ export function AddServiceForm({ onClose, onSaved, editingChargeType, navigateTo
             </div>
           </div>
 
-          {/* Show in Scan Hub */}
+          {/* Scan Hub */}
           <div className="flex items-center justify-between py-3 border-t">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Show in Scan Hub</Label>
-              <p className="text-xs text-muted-foreground">Makes this service available in the Scan Hub service dropdown</p>
-            </div>
+            <LabelWithTooltip tooltip={fieldDescriptions.scanHubToggle} fieldKey="scanHubToggle">Scan Hub</LabelWithTooltip>
             <Switch checked={form.addToScan} onCheckedChange={(v) => updateForm({ addToScan: v })} />
           </div>
 
-          {/* Create as Flag */}
+          {/* Flag */}
           <div className="py-3 border-t">
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-sm font-medium">Create as Flag</Label>
-                <p className="text-xs text-muted-foreground">Shows as a toggleable flag on Item Details page</p>
-              </div>
+              <LabelWithTooltip tooltip={fieldDescriptions.flagToggle} fieldKey="flagToggle">Flag</LabelWithTooltip>
               <Switch checked={form.addFlag} onCheckedChange={(v) => updateForm({ addFlag: v })} />
             </div>
 
             {/* Flag sub-options — only shown when addFlag is ON */}
             {form.addFlag && (
-              <div className="mt-3 ml-4 pl-4 border-l-2 border-primary/20 space-y-4">
-                {/* Flag Behavior radio */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Flag Behavior</Label>
-                  <div className="space-y-2">
-                    <label className="flex items-start gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="flagBehavior"
-                        value="charge"
-                        checked={form.flagBehavior === 'charge'}
-                        onChange={() => updateForm({ flagBehavior: 'charge' })}
-                        className="mt-1"
-                      />
-                      <div>
-                        <span className="text-sm font-medium">Creates Billing Charge</span>
-                        <p className="text-xs text-muted-foreground">When applied to an item, creates a billing event at the configured rate</p>
-                      </div>
-                    </label>
-                    <label className="flex items-start gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="flagBehavior"
-                        value="indicator"
-                        checked={form.flagBehavior === 'indicator'}
-                        onChange={() => updateForm({ flagBehavior: 'indicator' })}
-                        className="mt-1"
-                      />
-                      <div>
-                        <span className="text-sm font-medium">Indicator Only</span>
-                        <p className="text-xs text-muted-foreground">Visual marker only — no billing event created when applied</p>
-                      </div>
-                    </label>
-                  </div>
+              <div className="mt-3 ml-4 pl-4 border-l-2 border-primary/20 space-y-3">
+                <Label className="text-sm font-medium">Flag Behavior</Label>
+
+                <div className="flex items-center justify-between">
+                  <LabelWithTooltip tooltip="When flagged on an item, creates a billing event at the configured rate" fieldKey="flagBilling">Billing</LabelWithTooltip>
+                  <Switch checked={form.flagBilling} onCheckedChange={(v) => updateForm({ flagBilling: v })} />
                 </div>
 
-                {/* Alert Office toggle */}
                 <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium">Alert Office</Label>
-                    <p className="text-xs text-muted-foreground">Send email notification when this flag is applied</p>
-                  </div>
+                  <LabelWithTooltip tooltip="Shows a bold visual marker like FRAGILE on the item details page" fieldKey="flagIndicator">Indicator</LabelWithTooltip>
+                  <Switch checked={form.flagIndicator} onCheckedChange={(v) => updateForm({ flagIndicator: v })} />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <LabelWithTooltip tooltip="Sends an email notification to the office when this flag is applied to an item" fieldKey="flagAlertOffice">Alert</LabelWithTooltip>
                   <Switch checked={form.flagAlertOffice} onCheckedChange={(v) => updateForm({ flagAlertOffice: v })} />
                 </div>
               </div>
@@ -1010,10 +980,10 @@ function ClassBasedRateConfig({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[80px]">Class</TableHead>
+            <TableHead className="w-[60px]">Class</TableHead>
             <TableHead>Name</TableHead>
-            <TableHead className="w-[140px]">Rate ($)</TableHead>
-            <TableHead className="w-[130px]">Service Time (min)</TableHead>
+            <TableHead className="min-w-[100px]">Rate ($)</TableHead>
+            <TableHead className="min-w-[100px]">Service Time (min)</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -1036,7 +1006,7 @@ function ClassBasedRateConfig({
                       value={cr.rate}
                       onChange={(e) => updateClassRate(cr.classCode, 'rate', e.target.value)}
                       placeholder="0.00"
-                      className="pl-5 h-9"
+                      className="pl-5 h-9 w-full"
                     />
                   </div>
                 </TableCell>
@@ -1047,7 +1017,7 @@ function ClassBasedRateConfig({
                     value={cr.serviceTimeMinutes}
                     onChange={(e) => updateClassRate(cr.classCode, 'serviceTimeMinutes', e.target.value)}
                     placeholder="—"
-                    className="h-9"
+                    className="h-9 w-full"
                   />
                 </TableCell>
               </TableRow>
