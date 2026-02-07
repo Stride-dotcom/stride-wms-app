@@ -1,142 +1,80 @@
 
 
-# Fix Price List Options Section
+# Fix Item Flags Display on Item Detail Page
 
 ## Scope
-All changes in a single file: `src/components/settings/pricing/AddServiceForm.tsx`
+Single file: `src/components/items/ItemFlagsSection.tsx`
 
 ---
 
-## Change 1: Mobile-Friendly Class-Based Rate Table
+## Change 1: Remove Visible Pricing
 
-**Problem**: Rate ($) column has fixed `w-[140px]` and Service Time has `w-[130px]`, making inputs too narrow on mobile.
+Remove the price text (`$XX.XX`) from flag rows. The `canViewPrices` variable and `usePermissions` import become unused and will be removed.
 
-**Fix (lines 1013-1016)**:
-- Remove fixed widths from Rate and Service Time `TableHead` columns
-- Add responsive classes: Rate gets `min-w-[100px]`, Service Time gets `min-w-[100px]`
-- Add `w-full` to the rate and service time `Input` components so they fill their cells
+**Lines 14, 37, 39-40**: Remove `usePermissions` import and `canViewPrices` variable.
 
----
+**Lines 500-518**: Replace the trailing icons block. Currently it shows either an INDICATOR badge (with text) or a price badge, plus an alert icon. The new version shows up to three small icon-only badges based on the flag's settings:
+- **Billing** (`attach_money`): shown when `!isIndicator` (i.e., the flag creates a billing charge)
+- **Indicator** (`warning`): shown when `isIndicator` (i.e., the flag is an indicator)
+- **Alert** (`notifications`): shown when `hasAlert` is true
 
-## Change 2: Rename Options Display Labels
-
-**Problem**: Currently shows "Show in Scan Hub" and "Create as Flag". Should be "Scan Hub" and "Flag".
-
-**Fix (lines 839-855)**:
-- "Show in Scan Hub" label becomes **"Scan Hub"**
-- "Create as Flag" label becomes **"Flag"**
-- No changes to billing trigger chips -- those stay as-is
+No price text anywhere.
 
 ---
 
-## Change 3: Move All Visible Help Text Behind (?) Icons
+## Change 2: Move Icons After Text, Add Flag Icon Before Text
 
-**Problem**: "Show in Scan Hub", "Create as Flag", and all three flag behavior options show their descriptions as visible `<p>` text. These should be behind `LabelWithTooltip` (?) icons only.
+**Lines 490-498**: Replace the current leading icon (which switches between `flag` and `info` based on type) with a single `flag` icon for ALL flags. This tells users visually "these are flags."
 
-The `LabelWithTooltip` component already uses a `Popover` (not a hover-only tooltip), so it works on tap/click for mobile and tablet out of the box.
-
-**Scan Hub (lines 839-845)**:
-- Replace `<Label>Show in Scan Hub</Label>` + `<p>Makes this service available...</p>` with:
-  `<LabelWithTooltip tooltip="Makes this service available in the Scan Hub service dropdown">Scan Hub</LabelWithTooltip>`
-- Remove the `<p>` description paragraph
-
-**Flag (lines 848-855)**:
-- Replace `<Label>Create as Flag</Label>` + `<p>Shows as a toggleable flag...</p>` with:
-  `<LabelWithTooltip tooltip="Shows as a toggleable flag on Item Details page">Flag</LabelWithTooltip>`
-- Remove the `<p>` description paragraph
-
-**Flag Behavior sub-options (lines 860-902)**:
-- All three options get their inline descriptions moved behind (?) icons (details in Change 4 below)
+**Lines 499-518**: Restructure the label content so it reads:
+```
+[flag icon] [Service Name]  ... [$] [warning] [bell]
+```
+The behavior icons come after the text (they already do via `ml-auto`, this stays the same).
 
 ---
 
-## Change 4: Flag Behaviors -- Independent Toggles Instead of Radio Buttons
+## Change 3: Standardize Behavior Icons
 
-**Problem**: "Creates Billing Charge" and "Indicator Only" are mutually exclusive radio buttons. They should be independent since a flag can do both.
+| Icon | MaterialIcon name | Condition | Style |
+|---|---|---|---|
+| Billing ($) | `attach_money` | `!service.flag_is_indicator` | Small outline badge |
+| Indicator | `warning` | `service.flag_is_indicator` | Small amber outline badge |
+| Alert | `notifications` | `service.alert_rule !== 'none'` | Small outline badge (unchanged) |
 
-### FormState Update (line 73)
-Replace:
-```
-flagBehavior: 'charge' | 'indicator';
-```
-With two booleans:
-```
-flagBilling: boolean;
-flagIndicator: boolean;
-```
-
-### Default Values (line 226)
-Replace:
-```
-flagBehavior: 'charge',
-```
-With:
-```
-flagBilling: false,
-flagIndicator: false,
-```
-
-### Edit Mode Loading (line 198)
-Replace:
-```
-flagBehavior: (editingChargeType as any).flag_is_indicator ? 'indicator' : 'charge',
-```
-With:
-```
-flagBilling: editingChargeType.pricing_rules?.some(r => Number(r.rate) > 0) ?? false,
-flagIndicator: (editingChargeType as any).flag_is_indicator ?? false,
-```
-
-### Save Logic (lines 448-449, 478-479)
-Replace:
-```
-flag_is_indicator: form.addFlag && form.flagBehavior === 'indicator',
-```
-With:
-```
-flag_is_indicator: form.addFlag && form.flagIndicator,
-```
-
-### Validation (line 296)
-Replace:
-```
-const isIndicatorFlag = form.addFlag && form.flagBehavior === 'indicator';
-```
-With:
-```
-const isIndicatorFlag = form.addFlag && !form.flagBilling;
-```
-This skips rate validation only when flag is on but billing is not checked.
-
-### New Flag Behavior UI (replaces lines 858-903)
-Three `Switch` toggle rows with `LabelWithTooltip` (?) icons. No visible description text -- all help text is behind the (?) icon:
-
-```text
-Flag Behavior
-  Billing    (?)  [switch]
-  Indicator  (?)  [switch]
-  Alert      (?)  [switch]
-```
-
-Each row:
-1. **Billing** -- `LabelWithTooltip tooltip="When flagged on an item, creates a billing event at the configured rate"` + `Switch checked={form.flagBilling}`
-2. **Indicator** -- `LabelWithTooltip tooltip="Shows a bold visual marker like FRAGILE on the item details page"` + `Switch checked={form.flagIndicator}`
-3. **Alert** -- `LabelWithTooltip tooltip="Sends an email notification to the office when this flag is applied to an item"` + `Switch checked={form.flagAlertOffice}`
-
-All three are independent -- any combination can be active simultaneously.
+All three use the same small `Badge variant="outline"` with just the icon, no text.
 
 ---
 
-## Summary
+## Change 4: Mobile-Friendly Grid
+
+**Line 404** (loading skeleton): Change `grid-cols-2` to `grid-cols-1 sm:grid-cols-2`
+
+**Line 463** (flag grid): Change `grid-cols-2` to `grid-cols-1 sm:grid-cols-2`
+
+---
+
+## Change 5: Update Legend -- Remove "Flag", Keep Other 3
+
+**Lines 525-538**: Update the legend to show only 3 items (remove the flag entry that was in the first plan). Keep:
+
+1. `[$]` Billing
+2. `[warning]` Indicator
+3. `[bell]` Alert
+
+Add `flex-wrap` so the legend wraps nicely on mobile.
+
+---
+
+## Summary of All Changes
 
 | Area | Current | New |
 |---|---|---|
-| Class rate table columns | Fixed `w-[140px]`/`w-[130px]` | Responsive `min-w-[100px]` + `w-full` inputs |
-| Scan Hub label | "Show in Scan Hub" + visible description | "Scan Hub" + (?) tooltip |
-| Flag label | "Create as Flag" + visible description | "Flag" + (?) tooltip |
-| Flag behavior | Radio: "Creates Billing Charge" OR "Indicator Only" | 3 independent switches: Billing, Indicator, Alert |
-| Flag behavior help text | Visible `<p>` descriptions | Behind (?) tooltip icons |
-| Billing trigger chips | Unchanged | Unchanged |
+| Leading icon | `flag` or `info` depending on type | Always `flag` for all flags |
+| Pricing text | `$XX.XX` shown to admins | Removed entirely |
+| Trailing icons | INDICATOR text badge OR price badge, plus alert | Three small icon-only badges: $, warning, bell |
+| Icon conditions | Based on indicator status + price > 0 | Based on flag settings (indicator, billing, alert) |
+| Grid | `grid-cols-2` always | `grid-cols-1 sm:grid-cols-2` |
+| Legend | 3 items (billing, indicator, alert) | Same 3 items with shorter labels, no "Flag" entry |
+| Unused code | `canViewPrices`, `usePermissions` | Removed |
 
-### No database changes needed
-`flag_is_indicator` boolean already supports the indicator toggle. Billing behavior is driven by the rate value. Alert is already driven by `alert_rule`.
