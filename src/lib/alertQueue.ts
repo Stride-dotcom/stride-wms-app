@@ -595,6 +595,29 @@ export async function queueFlagAddedAlert({
 }
 
 /**
+ * Queue a repair unable to complete alert (unrepairable item)
+ */
+export async function queueRepairUnableToCompleteAlert(
+  tenantId: string,
+  taskId: string,
+  itemCodes: string[],
+  note: string,
+  accountName?: string
+): Promise<boolean> {
+  const itemSummary = itemCodes.length === 1
+    ? itemCodes[0]
+    : `${itemCodes.length} items`;
+
+  return queueAlert({
+    tenantId,
+    alertType: 'repair.unable_to_complete',
+    entityType: 'task',
+    entityId: taskId,
+    subject: `🔧 Repair Unable to Complete - ${itemSummary}${accountName ? ` (${accountName})` : ''}`,
+  });
+}
+
+/**
  * Queue a claim requires approval alert (to admins/managers)
  */
 export async function queueClaimRequiresApprovalAlert(

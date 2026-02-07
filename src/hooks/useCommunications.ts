@@ -104,6 +104,7 @@ export const TRIGGER_EVENTS = [
   { value: 'repair_started', label: 'Repair Started (v4)' },
   { value: 'repair_completed', label: 'Repair Completed (v4)' },
   { value: 'repair_requires_approval', label: 'Repair Requires Approval (v4)' },
+  { value: 'repair.unable_to_complete', label: 'Repair Unable to Complete' },
   { value: 'custom', label: 'Custom Event' },
 ];
 

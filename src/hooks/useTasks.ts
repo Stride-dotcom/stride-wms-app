@@ -233,6 +233,75 @@ export function useTasks(filters?: {
     }
   };
 
+  // Helper to clear damage and quarantine flags when repair task is completed
+  const clearDamageAndQuarantine = async (taskId: string) => {
+    if (!profile?.tenant_id || !profile?.id) return;
+
+    try {
+      // Get task items
+      const { data: taskItems } = await (supabase
+        .from('task_items') as any)
+        .select('item_id')
+        .eq('task_id', taskId);
+
+      if (!taskItems || taskItems.length === 0) return;
+
+      const itemIds = taskItems.map((ti: any) => ti.item_id);
+
+      // Clear has_damage on all items
+      await (supabase
+        .from('items') as any)
+        .update({ has_damage: false })
+        .in('id', itemIds);
+
+      // Remove quarantine indicator flags from all items
+      // Look up the quarantine flag charge type
+      const { data: quarantineFlag } = await (supabase
+        .from('charge_types') as any)
+        .select('charge_code')
+        .eq('tenant_id', profile.tenant_id)
+        .eq('add_flag', true)
+        .eq('flag_is_indicator', true)
+        .ilike('charge_name', '%quarantine%')
+        .maybeSingle();
+
+      if (quarantineFlag) {
+        await (supabase
+          .from('item_flags') as any)
+          .delete()
+          .in('item_id', itemIds)
+          .eq('service_code', quarantineFlag.charge_code);
+
+        // Log quarantine removal per item
+        for (const itemId of itemIds) {
+          logItemActivity({
+            tenantId: profile.tenant_id,
+            itemId,
+            actorUserId: profile.id,
+            eventType: 'indicator_removed',
+            eventLabel: 'Quarantine removed (repair completed)',
+            details: { service_code: quarantineFlag.charge_code, reason: 'repair_completed', automated: true },
+          });
+        }
+      }
+
+      // Log damage cleared per item
+      for (const itemId of itemIds) {
+        logItemActivity({
+          tenantId: profile.tenant_id,
+          itemId,
+          actorUserId: profile.id,
+          eventType: 'damage_cleared',
+          eventLabel: 'Damage cleared (repair completed)',
+          details: { task_id: taskId, automated: true },
+        });
+      }
+    } catch (error) {
+      console.error('Error clearing damage and quarantine:', error);
+      // Non-blocking - don't fail the task completion
+    }
+  };
+
   // Helper to create billing events for task completion
   const createTaskBillingEvents = async (
     taskId: string,
@@ -891,6 +960,11 @@ export function useTasks(filters?: {
       // Update inventory status
       await updateInventoryStatus(taskId, taskData.task_type, 'completed');
 
+      // For Repair tasks: clear damage and quarantine flags on items
+      if (taskData.task_type === 'Repair') {
+        await clearDamageAndQuarantine(taskId);
+      }
+
       // Get task account_id for billing
       const { data: taskFullData } = await (supabase
         .from('tasks') as any)
@@ -1446,6 +1520,11 @@ export function useTasks(filters?: {
 
       // Update inventory status
       await updateInventoryStatus(taskId, taskType, 'completed');
+
+      // For Repair tasks: clear damage and quarantine flags on items
+      if (taskType === 'Repair') {
+        await clearDamageAndQuarantine(taskId);
+      }
 
       // Create billing events from service lines
       if (completionValues.length > 0) {
