@@ -1,0 +1,5 @@
+Task assigned: {{task_title}}
+
+{alert_message}
+
+Open: {portal_base_url}

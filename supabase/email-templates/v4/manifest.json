@@ -1,0 +1,590 @@
+[
+  {
+    "trigger_event": "shipment.received",
+    "channel": "email",
+    "filename": "shipment_received.html",
+    "subject_template": "Shipment received: {{shipment_number}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "shipment.status_changed",
+    "channel": "email",
+    "filename": "shipment_status_changed.html",
+    "subject_template": "Shipment update: {{shipment_number}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "shipment.completed",
+    "channel": "email",
+    "filename": "shipment_completed.html",
+    "subject_template": "Shipment completed: {{shipment_number}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "item.received",
+    "channel": "email",
+    "filename": "item_received.html",
+    "subject_template": "Item received: {{item_code}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "item.damaged",
+    "channel": "email",
+    "filename": "item_damaged.html",
+    "subject_template": "Attention needed: Item damage noted ({{item_code}})",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "item.location_changed",
+    "channel": "email",
+    "filename": "item_location_changed.html",
+    "subject_template": "Item moved: {{item_code}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "task.created",
+    "channel": "email",
+    "filename": "task_created.html",
+    "subject_template": "New task created: {{task_title}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "task.assigned",
+    "channel": "email",
+    "filename": "task_assigned.html",
+    "subject_template": "Task assigned: {{task_title}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "task.completed",
+    "channel": "email",
+    "filename": "task_completed.html",
+    "subject_template": "Task completed: {{task_title}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "task.overdue",
+    "channel": "email",
+    "filename": "task_overdue.html",
+    "subject_template": "Task overdue: {{task_title}} ({{task_days_overdue}} days)",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "release.created",
+    "channel": "email",
+    "filename": "release_created.html",
+    "subject_template": "Release created",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "release.approved",
+    "channel": "email",
+    "filename": "release_approved.html",
+    "subject_template": "Release approved",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "release.completed",
+    "channel": "email",
+    "filename": "release_completed.html",
+    "subject_template": "Release completed",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "invoice.created",
+    "channel": "email",
+    "filename": "invoice_created.html",
+    "subject_template": "Invoice {{invoice_number}} created",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "invoice.sent",
+    "channel": "email",
+    "filename": "invoice_sent.html",
+    "subject_template": "Invoice {{invoice_number}} is ready",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "payment.received",
+    "channel": "email",
+    "filename": "payment_received.html",
+    "subject_template": "Payment received for Invoice {{invoice_number}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "employee.invited",
+    "channel": "email",
+    "filename": "employee_invite.html",
+    "subject_template": "You\u2019ve been invited to {{tenant_name}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "claim.determination_sent",
+    "channel": "email",
+    "filename": "claim_determination_sent.html",
+    "subject_template": "Claim determination ready",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "claim.client_accepted",
+    "channel": "email",
+    "filename": "claim_client_accepted.html",
+    "subject_template": "Claim accepted by client",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "claim.client_declined",
+    "channel": "email",
+    "filename": "claim_client_declined.html",
+    "subject_template": "Claim declined by client",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "claim.client_countered",
+    "channel": "email",
+    "filename": "claim_client_countered.html",
+    "subject_template": "Client counter-offer on claim",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "claim.note_added",
+    "channel": "email",
+    "filename": "claim_note_added.html",
+    "subject_template": "New note on claim {{claim_number}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "claim.attachment_added",
+    "channel": "email",
+    "filename": "claim_attachment_added.html",
+    "subject_template": "New attachment on claim {{claim_number}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "claim.requires_approval",
+    "channel": "email",
+    "filename": "claim_requires_approval.html",
+    "subject_template": "Claim requires approval",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "damage_photo",
+    "channel": "email",
+    "filename": "damage_photo_flagged.html",
+    "subject_template": "Damage photo flagged: {{item_code}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "unable_to_complete",
+    "channel": "email",
+    "filename": "task_unable_to_complete.html",
+    "subject_template": "Task unable to complete: {{task_title}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "repair_quote_pending",
+    "channel": "email",
+    "filename": "repair_quote_pending.html",
+    "subject_template": "Repair quote pending: {{item_code}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "repair_quote_approved",
+    "channel": "email",
+    "filename": "repair_quote_approved.html",
+    "subject_template": "Repair quote approved: {{item_code}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "quote.requested",
+    "channel": "email",
+    "filename": "quote_requested.html",
+    "subject_template": "Quote request received",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "quote.sent",
+    "channel": "email",
+    "filename": "quote_sent.html",
+    "subject_template": "Your quote is ready",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "quote.accepted",
+    "channel": "email",
+    "filename": "quote_accepted.html",
+    "subject_template": "Quote accepted",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "quote.declined",
+    "channel": "email",
+    "filename": "quote_declined.html",
+    "subject_template": "Quote declined",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "claim.sla_warning",
+    "channel": "email",
+    "filename": "claim_sla_warning.html",
+    "subject_template": "Claim SLA warning: {{claim_number}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "claim.sla_breached",
+    "channel": "email",
+    "filename": "claim_sla_breached.html",
+    "subject_template": "Claim SLA breached: {{claim_number}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "inspection.completed",
+    "channel": "email",
+    "filename": "inspection_completed.html",
+    "subject_template": "Inspection completed for {{shipment_number}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "inspection.issues_found",
+    "channel": "email",
+    "filename": "inspection_issues_found.html",
+    "subject_template": "Issues found during inspection ({{shipment_number}})",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "invoice.overdue",
+    "channel": "email",
+    "filename": "invoice_overdue.html",
+    "subject_template": "Invoice overdue: {{invoice_number}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "storage.billing_upcoming",
+    "channel": "email",
+    "filename": "storage_billing_upcoming.html",
+    "subject_template": "Upcoming storage billing",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "release.scheduled",
+    "channel": "email",
+    "filename": "release_scheduled.html",
+    "subject_template": "Release scheduled",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "release.blocked",
+    "channel": "email",
+    "filename": "release_blocked.html",
+    "subject_template": "Release blocked",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "receiving.exception",
+    "channel": "email",
+    "filename": "receiving_exception.html",
+    "subject_template": "Receiving exception: {{shipment_number}}",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "alert.failed_send",
+    "channel": "email",
+    "filename": "alert_failed_send.html",
+    "subject_template": "Alert failed to send",
+    "body_format": "html"
+  },
+  {
+    "trigger_event": "shipment.received",
+    "channel": "sms",
+    "filename": "sms/shipment_received.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "shipment.status_changed",
+    "channel": "sms",
+    "filename": "sms/shipment_status_changed.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "shipment.completed",
+    "channel": "sms",
+    "filename": "sms/shipment_completed.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "item.received",
+    "channel": "sms",
+    "filename": "sms/item_received.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "item.damaged",
+    "channel": "sms",
+    "filename": "sms/item_damaged.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "item.location_changed",
+    "channel": "sms",
+    "filename": "sms/item_location_changed.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "task.created",
+    "channel": "sms",
+    "filename": "sms/task_created.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "task.assigned",
+    "channel": "sms",
+    "filename": "sms/task_assigned.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "task.completed",
+    "channel": "sms",
+    "filename": "sms/task_completed.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "task.overdue",
+    "channel": "sms",
+    "filename": "sms/task_overdue.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "release.created",
+    "channel": "sms",
+    "filename": "sms/release_created.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "release.approved",
+    "channel": "sms",
+    "filename": "sms/release_approved.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "release.completed",
+    "channel": "sms",
+    "filename": "sms/release_completed.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "invoice.created",
+    "channel": "sms",
+    "filename": "sms/invoice_created.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "invoice.sent",
+    "channel": "sms",
+    "filename": "sms/invoice_sent.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "payment.received",
+    "channel": "sms",
+    "filename": "sms/payment_received.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "employee.invited",
+    "channel": "sms",
+    "filename": "sms/employee_invite.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "claim.determination_sent",
+    "channel": "sms",
+    "filename": "sms/claim_determination_sent.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "claim.client_accepted",
+    "channel": "sms",
+    "filename": "sms/claim_client_accepted.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "claim.client_declined",
+    "channel": "sms",
+    "filename": "sms/claim_client_declined.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "claim.client_countered",
+    "channel": "sms",
+    "filename": "sms/claim_client_countered.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "claim.note_added",
+    "channel": "sms",
+    "filename": "sms/claim_note_added.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "claim.attachment_added",
+    "channel": "sms",
+    "filename": "sms/claim_attachment_added.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "claim.requires_approval",
+    "channel": "sms",
+    "filename": "sms/claim_requires_approval.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "damage_photo",
+    "channel": "sms",
+    "filename": "sms/damage_photo_flagged.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "unable_to_complete",
+    "channel": "sms",
+    "filename": "sms/task_unable_to_complete.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "repair_quote_pending",
+    "channel": "sms",
+    "filename": "sms/repair_quote_pending.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "repair_quote_approved",
+    "channel": "sms",
+    "filename": "sms/repair_quote_approved.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "quote.requested",
+    "channel": "sms",
+    "filename": "sms/quote_requested.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "quote.sent",
+    "channel": "sms",
+    "filename": "sms/quote_sent.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "quote.accepted",
+    "channel": "sms",
+    "filename": "sms/quote_accepted.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "quote.declined",
+    "channel": "sms",
+    "filename": "sms/quote_declined.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "claim.sla_warning",
+    "channel": "sms",
+    "filename": "sms/claim_sla_warning.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "claim.sla_breached",
+    "channel": "sms",
+    "filename": "sms/claim_sla_breached.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "inspection.completed",
+    "channel": "sms",
+    "filename": "sms/inspection_completed.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "inspection.issues_found",
+    "channel": "sms",
+    "filename": "sms/inspection_issues_found.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "invoice.overdue",
+    "channel": "sms",
+    "filename": "sms/invoice_overdue.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "storage.billing_upcoming",
+    "channel": "sms",
+    "filename": "sms/storage_billing_upcoming.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "release.scheduled",
+    "channel": "sms",
+    "filename": "sms/release_scheduled.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "release.blocked",
+    "channel": "sms",
+    "filename": "sms/release_blocked.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "receiving.exception",
+    "channel": "sms",
+    "filename": "sms/receiving_exception.txt",
+    "body_format": "text",
+    "subject_template": null
+  },
+  {
+    "trigger_event": "alert.failed_send",
+    "channel": "sms",
+    "filename": "sms/alert_failed_send.txt",
+    "body_format": "text",
+    "subject_template": null
+  }
+]
