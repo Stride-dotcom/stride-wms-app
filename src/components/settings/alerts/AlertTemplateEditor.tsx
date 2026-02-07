@@ -6,6 +6,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { ColorPicker } from '@/components/ui/color-picker';
+import { ResizableSplit } from '@/components/ui/resizable-split';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -19,12 +27,16 @@ import {
   CommunicationBrandSettings,
   COMMUNICATION_VARIABLES,
 } from '@/hooks/useCommunications';
-import { EmailPreviewModal } from './EmailPreviewModal';
+import { EmailPreviewModal, EmailLivePreview } from './EmailPreviewModal';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 // Link-type tokens for CTA button link dropdown
 const LINK_TOKENS = COMMUNICATION_VARIABLES.filter(
   (v) => v.key.endsWith('_link') || v.key.endsWith('_url')
 );
+
+// Font size options
+const FONT_SIZES = [10, 12, 14, 16, 18, 20, 24, 28, 32];
 
 type Channel = 'email' | 'sms';
 
@@ -35,6 +47,7 @@ interface AlertTemplateEditorProps {
   onUpdateAlert: (id: string, updates: Partial<CommunicationAlert>) => Promise<boolean>;
   onUpdateTemplate: (id: string, updates: Partial<CommunicationTemplate>) => Promise<boolean>;
   onCreateTemplate: (alertId: string, channel: 'email' | 'sms', alertName: string, triggerEvent?: string) => Promise<CommunicationTemplate | null>;
+  onUpdateBrandSettings: (updates: Partial<CommunicationBrandSettings>) => Promise<boolean>;
   onBack: () => void;
   selectedAlertId?: string;
 }
@@ -46,9 +59,12 @@ export function AlertTemplateEditor({
   onUpdateAlert,
   onUpdateTemplate,
   onCreateTemplate,
+  onUpdateBrandSettings,
   onBack,
   selectedAlertId,
 }: AlertTemplateEditorProps) {
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+
   // --- Core selection state ---
   const [alertId, setAlertId] = useState(selectedAlertId || alerts[0]?.id || '');
   const [channel, setChannel] = useState<Channel>('email');
@@ -59,10 +75,14 @@ export function AlertTemplateEditor({
   // --- Per-channel email state ---
   const [emailRecipients, setEmailRecipients] = useState('');
   const [subject, setSubject] = useState('');
+  const [heading, setHeading] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [emailCtaEnabled, setEmailCtaEnabled] = useState(false);
   const [emailCtaLabel, setEmailCtaLabel] = useState('');
   const [emailCtaLink, setEmailCtaLink] = useState('');
+
+  // --- Brand color (editable in editor, saved to brand settings) ---
+  const [accentColor, setAccentColor] = useState(brandSettings?.brand_primary_color || '#FD5A2A');
 
   // --- Per-channel SMS state ---
   const [smsRecipients, setSmsRecipients] = useState('');
@@ -74,6 +94,7 @@ export function AlertTemplateEditor({
   // --- Refs for cursor insertion ---
   const emailBodyRef = useRef<HTMLTextAreaElement>(null);
   const subjectRef = useRef<HTMLInputElement>(null);
+  const headingRef = useRef<HTMLInputElement>(null);
   const emailRecipientsRef = useRef<HTMLInputElement>(null);
   const smsBodyRef = useRef<HTMLTextAreaElement>(null);
   const smsRecipientsRef = useRef<HTMLInputElement>(null);
@@ -126,6 +147,13 @@ export function AlertTemplateEditor({
     autoCreateAttempted.current = '';
   }, [alertId]);
 
+  // --- Sync accent color from brand settings ---
+  useEffect(() => {
+    if (brandSettings?.brand_primary_color) {
+      setAccentColor(brandSettings.brand_primary_color);
+    }
+  }, [brandSettings?.brand_primary_color]);
+
   // --- Load template data when alert changes ---
   useEffect(() => {
     if (!selectedAlert) return;
@@ -136,6 +164,7 @@ export function AlertTemplateEditor({
       setEmailBody(emailTemplate.body_template || '');
       const ed = emailTemplate.editor_json as Record<string, unknown> | null;
       setEmailRecipients((ed?.recipients as string) || '');
+      setHeading((ed?.heading as string) || '');
       setEmailCtaEnabled(!!(ed?.cta_enabled));
       setEmailCtaLabel((ed?.cta_label as string) || '');
       setEmailCtaLink((ed?.cta_link as string) || '');
@@ -143,6 +172,7 @@ export function AlertTemplateEditor({
       setSubject('');
       setEmailBody('');
       setEmailRecipients('');
+      setHeading('');
       setEmailCtaEnabled(false);
       setEmailCtaLabel('');
       setEmailCtaLink('');
@@ -176,8 +206,10 @@ export function AlertTemplateEditor({
         await onUpdateTemplate(emailTemplate.id, {
           subject_template: subject,
           body_template: emailBody,
+          body_format: 'text' as const,
           editor_json: {
             recipients: emailRecipients,
+            heading,
             cta_enabled: emailCtaEnabled,
             cta_label: emailCtaLabel,
             cta_link: emailCtaLink,
@@ -196,6 +228,11 @@ export function AlertTemplateEditor({
             sms_cta_link: smsCtaLink,
           } as Record<string, unknown>,
         });
+      }
+
+      // Save accent color to brand settings if changed
+      if (accentColor !== brandSettings?.brand_primary_color) {
+        await onUpdateBrandSettings({ brand_primary_color: accentColor });
       }
     } catch {
       // Errors handled by hook toast
@@ -241,28 +278,435 @@ export function AlertTemplateEditor({
           insertAtCursor(subjectRef, subject, setSubject);
         } else if (lastFocusedField === 'emailRecipients') {
           insertAtCursor(emailRecipientsRef, emailRecipients, setEmailRecipients);
+        } else if (lastFocusedField === 'heading') {
+          insertAtCursor(headingRef, heading, setHeading);
         } else {
           insertAtCursor(emailBodyRef, emailBody, setEmailBody);
         }
       }
     },
-    [channel, lastFocusedField, emailBody, subject, emailRecipients, smsBody, smsRecipients]
+    [channel, lastFocusedField, emailBody, subject, heading, emailRecipients, smsBody, smsRecipients]
   );
-
-  // --- Channel toggle handler ---
-  const toggleChannel = async (ch: 'email' | 'sms', enabled: boolean) => {
-    if (!selectedAlert) return;
-    await onUpdateAlert(selectedAlert.id, {
-      channels: { ...selectedAlert.channels, [ch]: enabled },
-    });
-  };
 
   const noChannelsEnabled = availableChannels.length === 0;
 
+  // --- Editor Form (left pane on desktop, full page on mobile) ---
+  const editorForm = (
+    <div className="flex-1 overflow-y-auto">
+      <div className="max-w-2xl mx-auto px-6 py-6 space-y-6">
+        {/* TOP ROW: Alert Trigger + Template Type */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Alert Trigger</Label>
+            <Select value={alertId} onValueChange={setAlertId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select alert" />
+              </SelectTrigger>
+              <SelectContent>
+                {alerts.map((alert) => (
+                  <SelectItem key={alert.id} value={alert.id}>
+                    {alert.key}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Template Type</Label>
+            {noChannelsEnabled ? (
+              <div className="flex items-center h-10 px-3 rounded-md border border-dashed text-sm text-muted-foreground">
+                No channels enabled
+              </div>
+            ) : (
+              <Select value={channel} onValueChange={(v) => setChannel(v as Channel)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableChannels.map((ch) => (
+                    <SelectItem key={ch.value} value={ch.value}>
+                      {ch.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        </div>
+
+        {/* Tokens Dropdown + Insert */}
+        {!noChannelsEnabled && (
+          <>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Tokens</Label>
+              <TokenInsertRow onInsert={insertToken} />
+              <p className="text-xs text-muted-foreground">
+                Click into a field first, then insert a token.
+              </p>
+            </div>
+
+            <Separator />
+          </>
+        )}
+
+        {/* No channels message */}
+        {noChannelsEnabled && (
+          <div className="text-center py-12 text-muted-foreground space-y-2">
+            <MaterialIcon name="notifications_off" size="lg" className="mx-auto opacity-40" />
+            <p className="text-sm">Enable at least one channel (Email or SMS) from the Alerts list to edit templates.</p>
+          </div>
+        )}
+
+        {/* ================================================ */}
+        {/* EMAIL CHANNEL                                     */}
+        {/* ================================================ */}
+        {!noChannelsEnabled && channel === 'email' && (
+          <>
+            {/* Recipients */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">
+                Recipients (comma-separated emails and/or tokens)
+              </Label>
+              <Input
+                ref={emailRecipientsRef}
+                value={emailRecipients}
+                onChange={(e) => setEmailRecipients(e.target.value)}
+                onFocus={() => setLastFocusedField('emailRecipients')}
+                placeholder="[[account_contact_email]], warehouse@company.com"
+              />
+            </div>
+
+            {/* Subject */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Subject</Label>
+              <Input
+                ref={subjectRef}
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                onFocus={() => setLastFocusedField('subject')}
+                placeholder="[[tenant_name]]: Shipment Received [[shipment_number]]"
+              />
+            </div>
+
+            {/* Heading */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Heading</Label>
+              <Input
+                ref={headingRef}
+                value={heading}
+                onChange={(e) => setHeading(e.target.value)}
+                onFocus={() => setLastFocusedField('heading')}
+                placeholder="Shipment Received"
+                className="text-lg font-bold"
+              />
+              <p className="text-xs text-muted-foreground">
+                Displays as large bold text at the top of the email.
+              </p>
+            </div>
+
+            {/* Body */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Body</Label>
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => wrapSelection(emailBodyRef, '**', '**', emailBody, setEmailBody)}
+                >
+                  Bold
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => wrapSelection(emailBodyRef, '*', '*', emailBody, setEmailBody)}
+                >
+                  Italic
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    wrapSelection(emailBodyRef, '[', '](url)', emailBody, setEmailBody)
+                  }
+                >
+                  Link
+                </Button>
+                <FontSizeDropdown
+                  onSelect={(size) =>
+                    wrapSelection(
+                      emailBodyRef,
+                      `{size:${size}px}`,
+                      '{/size}',
+                      emailBody,
+                      setEmailBody
+                    )
+                  }
+                />
+              </div>
+              <Textarea
+                ref={emailBodyRef}
+                value={emailBody}
+                onChange={(e) => setEmailBody(e.target.value)}
+                onFocus={() => setLastFocusedField('body')}
+                className="min-h-[200px] text-sm"
+                style={{ resize: 'vertical', fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                placeholder="Enter your email body text here. Use tokens like [[account_name]] and formatting like **bold**."
+              />
+            </div>
+
+            {/* Optional CTA Button */}
+            <div className="space-y-3">
+              <h3 className="font-bold text-base">Optional CTA Button</h3>
+              <p className="text-xs text-muted-foreground">Enable only if needed.</p>
+              <Separator />
+
+              <div className="flex items-center gap-3">
+                <Switch checked={emailCtaEnabled} onCheckedChange={setEmailCtaEnabled} />
+                <span className="text-sm">Enable CTA button</span>
+              </div>
+
+              {emailCtaEnabled && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Button Label</Label>
+                    <Input
+                      value={emailCtaLabel}
+                      onChange={(e) => setEmailCtaLabel(e.target.value)}
+                      placeholder="e.g. View Shipment"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Button Link</Label>
+                    <Select value={emailCtaLink} onValueChange={setEmailCtaLink}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a link token" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LINK_TOKENS.map((token) => (
+                          <SelectItem key={token.key} value={`[[${token.key}]]`}>
+                            [[{token.key}]]
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Brand Accent Color */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-base">Brand Accent Color</h3>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="rounded-full w-5 h-5 flex items-center justify-center bg-muted text-muted-foreground hover:bg-muted/80 text-xs font-medium">
+                        ?
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs">
+                      <p className="text-sm">Logo is pulled automatically from Organization settings. Color is an optional override for the email header bar and CTA button.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <Separator />
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Accent Color</Label>
+                <ColorPicker
+                  value={accentColor}
+                  onChange={setAccentColor}
+                />
+              </div>
+            </div>
+
+            {/* Preview button (mobile only) */}
+            {!isDesktop && (
+              <div>
+                <Button variant="outline" onClick={() => setShowPreview(true)}>
+                  <MaterialIcon name="visibility" size="sm" className="mr-2" />
+                  Preview
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ================================================ */}
+        {/* SMS CHANNEL                                       */}
+        {/* ================================================ */}
+        {!noChannelsEnabled && channel === 'sms' && (
+          <>
+            {/* Recipients */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">
+                Recipients (comma-separated phone numbers and/or tokens)
+              </Label>
+              <Input
+                ref={smsRecipientsRef}
+                value={smsRecipients}
+                onChange={(e) => setSmsRecipients(e.target.value)}
+                onFocus={() => setLastFocusedField('smsRecipients')}
+                placeholder="[[account_contact_phone]], +1-555-000-0000"
+              />
+            </div>
+
+            {/* SMS Body */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">SMS Body</Label>
+              <Textarea
+                ref={smsBodyRef}
+                value={smsBody}
+                onChange={(e) => setSmsBody(e.target.value)}
+                onFocus={() => setLastFocusedField('smsBody')}
+                className="min-h-[200px] text-sm"
+                style={{ resize: 'vertical', fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                placeholder="Enter SMS message..."
+              />
+              <p className="text-xs text-muted-foreground">
+                {smsBody.length} characters &middot; ~{Math.ceil(smsBody.length / 160) || 1} SMS segment{Math.ceil(smsBody.length / 160) !== 1 ? 's' : ''}
+              </p>
+            </div>
+
+            {/* Optional SMS CTA */}
+            <div className="space-y-3">
+              <h3 className="font-bold text-base">Optional CTA Link</h3>
+              <p className="text-xs text-muted-foreground">
+                When enabled, a link line is appended to the SMS at send time.
+              </p>
+              <Separator />
+
+              <div className="flex items-center gap-3">
+                <Switch checked={smsCtaEnabled} onCheckedChange={setSmsCtaEnabled} />
+                <span className="text-sm">Enable CTA link</span>
+              </div>
+
+              {smsCtaEnabled && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Label (optional)</Label>
+                    <Input
+                      value={smsCtaLabel}
+                      onChange={(e) => setSmsCtaLabel(e.target.value)}
+                      placeholder="e.g. View details"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Link</Label>
+                    <Select value={smsCtaLink} onValueChange={setSmsCtaLink}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a link token" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LINK_TOKENS.map((token) => (
+                          <SelectItem key={token.key} value={`[[${token.key}]]`}>
+                            [[{token.key}]]
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Live preview of what will be appended */}
+                  <div className="rounded-md border border-dashed p-3 bg-muted/30 text-xs font-mono text-muted-foreground">
+                    Appended at send:{' '}
+                    <span className="text-foreground">
+                      {smsCtaLabel ? `${smsCtaLabel}: ` : ''}
+                      {smsCtaLink || '(select link)'}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Footer Actions */}
+        {!noChannelsEnabled && (
+          <div className="flex items-center justify-end gap-3 pt-4 pb-8">
+            <Button variant="outline" onClick={onBack}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // --- Desktop: side-by-side with live preview ---
+  if (isDesktop && !noChannelsEnabled && channel === 'email') {
+    return (
+      <div className="flex flex-col h-full">
+        {/* Page Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-card flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={onBack}>
+              <MaterialIcon name="arrow_back" size="md" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold">Alert Template Editor</h1>
+              <p className="text-sm text-muted-foreground">
+                Configure recipients, subject, body, tokens, and optional CTA.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Side-by-side layout */}
+        <ResizableSplit
+          left={editorForm}
+          right={
+            <EmailLivePreview
+              subject={subject}
+              heading={heading}
+              body={emailBody}
+              ctaEnabled={emailCtaEnabled}
+              ctaLabel={emailCtaLabel}
+              ctaLink={emailCtaLink}
+              brandSettings={brandSettings}
+              accentColor={accentColor}
+            />
+          }
+          defaultLeftPercent={50}
+          minLeftPercent={35}
+          maxLeftPercent={65}
+          className="flex-1"
+        />
+
+        {/* Email Preview Modal (mobile fallback) */}
+        {showPreview && (
+          <EmailPreviewModal
+            open={showPreview}
+            onOpenChange={setShowPreview}
+            subject={subject}
+            heading={heading}
+            body={emailBody}
+            ctaEnabled={emailCtaEnabled}
+            ctaLabel={emailCtaLabel}
+            ctaLink={emailCtaLink}
+            brandSettings={brandSettings}
+            accentColor={accentColor}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // --- Mobile / SMS: single-column layout ---
   return (
     <div className="flex flex-col h-full">
       {/* Page Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b bg-card">
+      <div className="flex items-center justify-between px-6 py-4 border-b bg-card flex-shrink-0">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={onBack}>
             <MaterialIcon name="arrow_back" size="md" />
@@ -276,362 +720,21 @@ export function AlertTemplateEditor({
         </div>
       </div>
 
-      {/* Scrollable Form Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-6 py-6 space-y-6">
-          {/* TOP ROW: Alert Trigger + Template Type */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Alert Trigger</Label>
-              <Select value={alertId} onValueChange={setAlertId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select alert" />
-                </SelectTrigger>
-                <SelectContent>
-                  {alerts.map((alert) => (
-                    <SelectItem key={alert.id} value={alert.id}>
-                      {alert.key}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      {editorForm}
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Template Type</Label>
-              {noChannelsEnabled ? (
-                <div className="flex items-center h-10 px-3 rounded-md border border-dashed text-sm text-muted-foreground">
-                  No channels enabled
-                </div>
-              ) : (
-                <Select value={channel} onValueChange={(v) => setChannel(v as Channel)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableChannels.map((ch) => (
-                      <SelectItem key={ch.value} value={ch.value}>
-                        {ch.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </div>
-
-          {/* Alert Enabled + Channel Toggles */}
-          {selectedAlert && (
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={selectedAlert.is_enabled}
-                  onCheckedChange={(checked) =>
-                    onUpdateAlert(selectedAlert.id, { is_enabled: checked })
-                  }
-                />
-                <span className="text-sm font-medium">Enabled</span>
-              </div>
-              <div className="h-5 w-px bg-border" />
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Switch
-                  checked={selectedAlert.channels.email}
-                  onCheckedChange={(checked) => toggleChannel('email', checked)}
-                />
-                <MaterialIcon name="mail" size="sm" className="text-muted-foreground" />
-                <span className="text-sm">Email</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Switch
-                  checked={selectedAlert.channels.sms}
-                  onCheckedChange={(checked) => toggleChannel('sms', checked)}
-                />
-                <MaterialIcon name="chat" size="sm" className="text-muted-foreground" />
-                <span className="text-sm">SMS</span>
-              </label>
-            </div>
-          )}
-
-          {/* Tokens Dropdown + Insert */}
-          {!noChannelsEnabled && (
-            <>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Tokens</Label>
-                <TokenInsertRow onInsert={insertToken} />
-                <p className="text-xs text-muted-foreground">
-                  Click into a field first, then insert a token.
-                </p>
-              </div>
-
-              <Separator />
-            </>
-          )}
-
-          {/* No channels message */}
-          {noChannelsEnabled && (
-            <div className="text-center py-12 text-muted-foreground space-y-2">
-              <MaterialIcon name="notifications_off" size="lg" className="mx-auto opacity-40" />
-              <p className="text-sm">Enable at least one channel (Email or SMS) to edit templates.</p>
-            </div>
-          )}
-
-          {/* ================================================ */}
-          {/* EMAIL CHANNEL                                     */}
-          {/* ================================================ */}
-          {!noChannelsEnabled && channel === 'email' && (
-            <>
-              {/* Recipients */}
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">
-                  Recipients (comma-separated emails and/or tokens)
-                </Label>
-                <Input
-                  ref={emailRecipientsRef}
-                  value={emailRecipients}
-                  onChange={(e) => setEmailRecipients(e.target.value)}
-                  onFocus={() => setLastFocusedField('emailRecipients')}
-                  placeholder="[[account_contact_email]], warehouse@company.com"
-                />
-              </div>
-
-              {/* Subject */}
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Subject</Label>
-                <Input
-                  ref={subjectRef}
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  onFocus={() => setLastFocusedField('subject')}
-                  placeholder="[[tenant_name]]: Shipment Received [[shipment_number]]"
-                />
-              </div>
-
-              {/* Body */}
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Body (light rich text)</Label>
-                <div className="flex items-center gap-2 mb-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => wrapSelection(emailBodyRef, '**', '**', emailBody, setEmailBody)}
-                  >
-                    Bold
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => wrapSelection(emailBodyRef, '*', '*', emailBody, setEmailBody)}
-                  >
-                    Italic
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      wrapSelection(emailBodyRef, '[', '](url)', emailBody, setEmailBody)
-                    }
-                  >
-                    Link
-                  </Button>
-                  <span className="text-xs text-muted-foreground">/ minimal tools only</span>
-                </div>
-                <Textarea
-                  ref={emailBodyRef}
-                  value={emailBody}
-                  onChange={(e) => setEmailBody(e.target.value)}
-                  onFocus={() => setLastFocusedField('body')}
-                  className="min-h-[200px] resize-y font-mono text-sm"
-                  style={{ resize: 'vertical' }}
-                  placeholder=""
-                />
-              </div>
-
-              {/* Optional CTA Button */}
-              <div className="space-y-3">
-                <h3 className="font-bold text-base">Optional CTA Button</h3>
-                <p className="text-xs text-muted-foreground">Enable only if needed.</p>
-                <Separator />
-
-                <div className="flex items-center gap-3">
-                  <Switch checked={emailCtaEnabled} onCheckedChange={setEmailCtaEnabled} />
-                  <span className="text-sm">Enable CTA button</span>
-                </div>
-
-                {emailCtaEnabled && (
-                  <>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Button Label</Label>
-                      <Input
-                        value={emailCtaLabel}
-                        onChange={(e) => setEmailCtaLabel(e.target.value)}
-                        placeholder="e.g. View Shipment"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Button Link</Label>
-                      <Select value={emailCtaLink} onValueChange={setEmailCtaLink}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a link token" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {LINK_TOKENS.map((token) => (
-                            <SelectItem key={token.key} value={`[[${token.key}]]`}>
-                              [[{token.key}]]
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Brand Styling */}
-              <div className="space-y-3">
-                <h3 className="font-bold text-base">Brand Styling</h3>
-                <p className="text-xs text-muted-foreground">
-                  Logo auto from Organization &rarr; Logo. Color optional override.
-                </p>
-                <Separator />
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Accent Color (optional)</Label>
-                  <Input
-                    value={brandSettings?.brand_primary_color || '#FF6A00'}
-                    disabled
-                    className="max-w-xs"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Managed from Organization &rarr; Brand Settings
-                  </p>
-                </div>
-              </div>
-
-              {/* Preview */}
-              <div>
-                <Button variant="outline" onClick={() => setShowPreview(true)}>
-                  <MaterialIcon name="visibility" size="sm" className="mr-2" />
-                  Preview
-                </Button>
-              </div>
-            </>
-          )}
-
-          {/* ================================================ */}
-          {/* SMS CHANNEL                                       */}
-          {/* ================================================ */}
-          {!noChannelsEnabled && channel === 'sms' && (
-            <>
-              {/* Recipients */}
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">
-                  Recipients (comma-separated phone numbers and/or tokens)
-                </Label>
-                <Input
-                  ref={smsRecipientsRef}
-                  value={smsRecipients}
-                  onChange={(e) => setSmsRecipients(e.target.value)}
-                  onFocus={() => setLastFocusedField('smsRecipients')}
-                  placeholder="[[account_contact_phone]], +1-555-000-0000"
-                />
-              </div>
-
-              {/* SMS Body */}
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">SMS Body</Label>
-                <Textarea
-                  ref={smsBodyRef}
-                  value={smsBody}
-                  onChange={(e) => setSmsBody(e.target.value)}
-                  onFocus={() => setLastFocusedField('smsBody')}
-                  className="min-h-[200px] resize-y font-mono text-sm"
-                  style={{ resize: 'vertical' }}
-                  placeholder="Enter SMS message..."
-                />
-              </div>
-
-              {/* Optional SMS CTA */}
-              <div className="space-y-3">
-                <h3 className="font-bold text-base">Optional CTA Link</h3>
-                <p className="text-xs text-muted-foreground">
-                  When enabled, a link line is appended to the SMS at send time.
-                </p>
-                <Separator />
-
-                <div className="flex items-center gap-3">
-                  <Switch checked={smsCtaEnabled} onCheckedChange={setSmsCtaEnabled} />
-                  <span className="text-sm">Enable CTA link</span>
-                </div>
-
-                {smsCtaEnabled && (
-                  <>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Label (optional)</Label>
-                      <Input
-                        value={smsCtaLabel}
-                        onChange={(e) => setSmsCtaLabel(e.target.value)}
-                        placeholder="e.g. View details"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Link</Label>
-                      <Select value={smsCtaLink} onValueChange={setSmsCtaLink}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a link token" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {LINK_TOKENS.map((token) => (
-                            <SelectItem key={token.key} value={`[[${token.key}]]`}>
-                              [[{token.key}]]
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Live preview of what will be appended */}
-                    <div className="rounded-md border border-dashed p-3 bg-muted/30 text-xs font-mono text-muted-foreground">
-                      Appended at send:{' '}
-                      <span className="text-foreground">
-                        {smsCtaLabel ? `${smsCtaLabel}: ` : ''}
-                        {smsCtaLink || '(select link)'}
-                      </span>
-                    </div>
-                  </>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* Footer Actions */}
-          {!noChannelsEnabled && (
-            <div className="flex items-center justify-end gap-3 pt-4 pb-8">
-              <Button variant="outline" onClick={onBack}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={isSaving}>
-                {isSaving ? 'Saving...' : 'Save'}
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Email Preview Modal (full-screen) */}
+      {/* Email Preview Modal (mobile) */}
       {showPreview && (
         <EmailPreviewModal
           open={showPreview}
           onOpenChange={setShowPreview}
           subject={subject}
+          heading={heading}
           body={emailBody}
           ctaEnabled={emailCtaEnabled}
           ctaLabel={emailCtaLabel}
           ctaLink={emailCtaLink}
           brandSettings={brandSettings}
+          accentColor={accentColor}
         />
       )}
     </div>
@@ -688,7 +791,26 @@ function TokenInsertRow({ onInsert }: { onInsert: (key: string) => void }) {
   );
 }
 
-// ---------- Wrap-selection helper for bold/italic/link ----------
+// ---------- Font Size Dropdown ----------
+
+function FontSizeDropdown({ onSelect }: { onSelect: (size: number) => void }) {
+  return (
+    <Select onValueChange={(v) => onSelect(Number(v))}>
+      <SelectTrigger className="w-[100px]">
+        <SelectValue placeholder="Size" />
+      </SelectTrigger>
+      <SelectContent>
+        {FONT_SIZES.map((size) => (
+          <SelectItem key={size} value={String(size)}>
+            {size}px
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+// ---------- Wrap-selection helper for bold/italic/link/size ----------
 
 function wrapSelection(
   ref: React.RefObject<HTMLTextAreaElement | null>,

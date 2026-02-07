@@ -18,6 +18,7 @@ export function AlertsSettingsTab() {
     deleteAlert,
     createTemplate,
     updateTemplate,
+    updateBrandSettings,
   } = useCommunications();
 
   const { profile } = useAuth();
@@ -54,7 +55,7 @@ export function AlertsSettingsTab() {
   // Show unified template editor when alert is selected
   if (selectedAlertId) {
     return (
-      <div className="flex flex-col -m-6 min-h-0">
+      <div className="flex flex-col -m-6 min-h-0" style={{ height: 'calc(100vh - 80px)' }}>
         <AlertTemplateEditor
           alerts={alerts}
           templates={templates}
@@ -62,6 +63,7 @@ export function AlertsSettingsTab() {
           onUpdateAlert={updateAlert}
           onUpdateTemplate={updateTemplate}
           onCreateTemplate={createTemplate}
+          onUpdateBrandSettings={updateBrandSettings}
           onBack={handleBack}
           selectedAlertId={selectedAlertId}
         />

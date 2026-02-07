@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
@@ -6,34 +6,80 @@ import {
   CommunicationBrandSettings,
   COMMUNICATION_VARIABLES,
 } from '@/hooks/useCommunications';
+import { buildBrandedEmailHtml, replaceTokens } from '@/lib/emailTemplates/brandedEmailBuilder';
 
-interface EmailPreviewModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+interface EmailPreviewProps {
   subject: string;
+  heading: string;
   body: string;
   ctaEnabled: boolean;
   ctaLabel: string;
   ctaLink: string;
   brandSettings: CommunicationBrandSettings | null;
+  accentColor: string;
 }
 
+interface EmailPreviewModalProps extends EmailPreviewProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+/** Build sample data map from COMMUNICATION_VARIABLES + brand settings overrides */
+function useSampleData(brandSettings: CommunicationBrandSettings | null) {
+  return useMemo(() => {
+    const data: Record<string, string> = {};
+    COMMUNICATION_VARIABLES.forEach((v) => {
+      data[v.key] = v.sample;
+    });
+    if (brandSettings) {
+      if (brandSettings.brand_logo_url) data['brand_logo_url'] = brandSettings.brand_logo_url;
+      if (brandSettings.from_name) data['tenant_name'] = brandSettings.from_name;
+      if (brandSettings.brand_support_email) data['brand_support_email'] = brandSettings.brand_support_email;
+      if (brandSettings.portal_base_url) data['portal_base_url'] = brandSettings.portal_base_url;
+    }
+    return data;
+  }, [brandSettings]);
+}
+
+/** Build the final preview HTML from editor fields */
+function usePreviewHtml(
+  heading: string,
+  body: string,
+  ctaEnabled: boolean,
+  ctaLabel: string,
+  ctaLink: string,
+  accentColor: string,
+  sampleData: Record<string, string>
+) {
+  return useMemo(() => {
+    const rawHtml = buildBrandedEmailHtml({
+      heading,
+      body,
+      ctaEnabled,
+      ctaLabel,
+      ctaLink,
+      accentColor,
+    });
+    return replaceTokens(rawHtml, sampleData);
+  }, [heading, body, ctaEnabled, ctaLabel, ctaLink, accentColor, sampleData]);
+}
+
+/**
+ * Full-screen email preview modal (used on mobile).
+ * Renders the branded HTML email in an iframe with sample data.
+ */
 export function EmailPreviewModal({
   open,
   onOpenChange,
   subject,
+  heading,
   body,
   ctaEnabled,
   ctaLabel,
   ctaLink,
   brandSettings,
+  accentColor,
 }: EmailPreviewModalProps) {
-  const accentColor = brandSettings?.brand_primary_color || '#E85D2D';
-  const logoUrl = brandSettings?.brand_logo_url || null;
-  const tenantName = brandSettings?.from_name || 'Your Company';
-  const supportEmail = brandSettings?.brand_support_email || '';
-  const portalUrl = brandSettings?.portal_base_url || '';
-
   // ESC key support
   useEffect(() => {
     if (!open) return;
@@ -54,15 +100,11 @@ export function EmailPreviewModal({
     };
   }, [open]);
 
+  const sampleData = useSampleData(brandSettings);
+  const previewHtml = usePreviewHtml(heading, body, ctaEnabled, ctaLabel, ctaLink, accentColor, sampleData);
+  const resolvedSubject = useMemo(() => replaceTokens(subject, sampleData), [subject, sampleData]);
+
   if (!open) return null;
-
-  // Replace tokens with sample data for preview
-  const sampleData = buildSampleData();
-  const resolvedSubject = replaceTokens(subject, sampleData);
-  const resolvedBody = replaceTokens(body, sampleData);
-
-  // Convert basic markdown to HTML-safe display
-  const bodyHtml = markdownToSimpleHtml(resolvedBody);
 
   return createPortal(
     <div
@@ -83,127 +125,89 @@ export function EmailPreviewModal({
         </Button>
       </div>
 
-      {/* Scrollable Preview Content */}
-      <div className="flex-1 overflow-y-auto bg-muted/30">
-        <div className="max-w-2xl mx-auto px-6 py-8">
-          {/* Subject line preview */}
-          <div className="mb-6 p-4 bg-card rounded-lg border">
-            <p className="text-xs text-muted-foreground mb-1">Subject</p>
-            <p className="text-sm font-medium">{resolvedSubject || '(no subject)'}</p>
-          </div>
-
-          {/* Email render */}
-          <div className="border rounded-lg overflow-hidden shadow-sm">
-            {/* Header Bar */}
-            <div
-              className="p-6 flex items-center"
-              style={{ backgroundColor: accentColor }}
-            >
-              {logoUrl ? (
-                <img
-                  src={logoUrl}
-                  alt={tenantName}
-                  className="h-8 max-w-[180px] object-contain"
-                  style={{ filter: 'brightness(0) invert(1)' }}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-              ) : (
-                <span className="text-white font-semibold text-lg">{tenantName}</span>
-              )}
-            </div>
-
-            {/* Body */}
-            <div className="bg-white p-8">
-              <div
-                className="text-[15px] leading-relaxed text-[#475569] whitespace-pre-wrap"
-                dangerouslySetInnerHTML={{ __html: bodyHtml }}
-              />
-
-              {/* CTA Button */}
-              {ctaEnabled && ctaLabel && (
-                <div className="mt-8 text-center">
-                  <span
-                    className="inline-block px-8 py-3.5 text-white font-semibold text-sm rounded-lg cursor-default"
-                    style={{ backgroundColor: accentColor }}
-                  >
-                    {ctaLabel}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-[#e2e8f0]" />
-
-            {/* Footer */}
-            <div className="bg-[#f8fafc] p-6 text-center text-sm text-[#64748b] space-y-1">
-              <p className="font-semibold text-[#1e293b]">{tenantName}</p>
-              {portalUrl && <p>{portalUrl}</p>}
-              {supportEmail && <p>{supportEmail}</p>}
-              {!portalUrl && !supportEmail && (
-                <p className="text-[#94a3b8]">Configure portal URL or support email in Brand Settings</p>
-              )}
-            </div>
-          </div>
-
-          {/* Sender preview */}
-          <div className="mt-6 p-4 bg-card rounded-lg border text-sm">
-            <span className="text-muted-foreground">From: </span>
-            <span className="font-medium">
-              {brandSettings?.from_name || 'Company Name'}{' '}
-              &lt;{brandSettings?.from_email || 'notifications@company.com'}&gt;
-            </span>
-          </div>
-
-          {/* Note */}
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            This preview uses sample data for tokens. Actual emails will use real values.
-          </p>
+      {/* Subject line */}
+      <div className="px-6 py-3 border-b bg-muted/20 flex-shrink-0">
+        <p className="text-xs text-muted-foreground mb-0.5">Subject</p>
+        <p className="text-sm font-medium">{resolvedSubject || '(no subject)'}</p>
+        <div className="mt-1 text-xs text-muted-foreground">
+          From: {brandSettings?.from_name || 'Company Name'}{' '}
+          &lt;{brandSettings?.from_email || 'notifications@company.com'}&gt;
         </div>
+      </div>
+
+      {/* Email rendered in iframe */}
+      <div className="flex-1 overflow-hidden bg-muted/30">
+        <iframe
+          title="Email Preview"
+          srcDoc={previewHtml}
+          className="w-full h-full border-0"
+          sandbox="allow-same-origin"
+        />
+      </div>
+
+      {/* Note */}
+      <div className="px-6 py-2 border-t bg-card text-center flex-shrink-0">
+        <p className="text-xs text-muted-foreground">
+          Preview uses sample data for tokens. Actual emails use real values.
+        </p>
       </div>
     </div>,
     document.body
   );
 }
 
-// --- Helpers ---
+/**
+ * Inline live preview for desktop side-by-side layout.
+ * Renders the branded HTML email in an iframe that updates as the user types.
+ */
+export function EmailLivePreview({
+  subject,
+  heading,
+  body,
+  ctaEnabled,
+  ctaLabel,
+  ctaLink,
+  brandSettings,
+  accentColor,
+}: EmailPreviewProps) {
+  const sampleData = useSampleData(brandSettings);
+  const previewHtml = usePreviewHtml(heading, body, ctaEnabled, ctaLabel, ctaLink, accentColor, sampleData);
+  const resolvedSubject = useMemo(() => replaceTokens(subject, sampleData), [subject, sampleData]);
 
-function buildSampleData(): Record<string, string> {
-  const data: Record<string, string> = {};
-  COMMUNICATION_VARIABLES.forEach((v) => {
-    data[v.key] = v.sample;
-  });
-  return data;
-}
+  return (
+    <div className="flex flex-col h-full bg-muted/30">
+      {/* Preview Header */}
+      <div className="px-4 py-3 border-b bg-card flex-shrink-0">
+        <div className="flex items-center gap-2 mb-2">
+          <MaterialIcon name="visibility" size="sm" className="text-muted-foreground" />
+          <span className="text-sm font-semibold">Live Preview</span>
+        </div>
+        <div className="space-y-0.5">
+          <p className="text-xs text-muted-foreground">Subject</p>
+          <p className="text-sm font-medium truncate">{resolvedSubject || '(no subject)'}</p>
+        </div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          From: {brandSettings?.from_name || 'Company Name'}{' '}
+          &lt;{brandSettings?.from_email || 'notifications@company.com'}&gt;
+        </div>
+      </div>
 
-function replaceTokens(text: string, data: Record<string, string>): string {
-  let result = text;
-  Object.entries(data).forEach(([key, value]) => {
-    result = result
-      .replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value)
-      .replace(new RegExp(`\\[\\[${key}\\]\\]`, 'g'), value);
-  });
-  return result;
-}
+      {/* Email iframe */}
+      <div className="flex-1 overflow-hidden">
+        <iframe
+          title="Email Live Preview"
+          srcDoc={previewHtml}
+          className="w-full h-full border-0"
+          sandbox="allow-same-origin"
+        />
+      </div>
 
-function markdownToSimpleHtml(text: string): string {
-  // Escape HTML entities
-  let html = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  // Bold: **text**
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  // Italic: *text*
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  // Links: [text](url)
-  html = html.replace(
-    /\[(.+?)\]\((.+?)\)/g,
-    '<a href="$2" style="color:#2563eb;text-decoration:underline;">$1</a>'
+      {/* Note */}
+      <div className="px-4 py-2 border-t bg-card flex-shrink-0">
+        <p className="text-[11px] text-muted-foreground text-center">
+          Sample data shown. Actual emails use real values.
+        </p>
+      </div>
+    </div>
   );
-
-  return html;
 }
