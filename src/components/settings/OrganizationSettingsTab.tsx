@@ -16,16 +16,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
@@ -82,20 +74,8 @@ type OrganizationFormData = z.infer<typeof organizationSchema>;
 interface TenantInfo {
   id: string;
   name: string;
-  slug: string;
   status: string;
 }
-
-const TIMEZONES = [
-  { value: 'America/New_York', label: 'Eastern Time (ET)' },
-  { value: 'America/Chicago', label: 'Central Time (CT)' },
-  { value: 'America/Denver', label: 'Mountain Time (MT)' },
-  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-  { value: 'America/Phoenix', label: 'Arizona (MST)' },
-  { value: 'America/Anchorage', label: 'Alaska (AKT)' },
-  { value: 'Pacific/Honolulu', label: 'Hawaii (HST)' },
-  { value: 'UTC', label: 'UTC' },
-];
 
 export function OrganizationSettingsTab() {
   const { profile } = useAuth();
@@ -168,7 +148,7 @@ export function OrganizationSettingsTab() {
     try {
       const { data: tenantData } = await supabase
         .from('tenants')
-        .select('id, name, slug, status')
+        .select('id, name, status')
         .eq('id', profile.tenant_id)
         .single();
 
@@ -232,15 +212,11 @@ export function OrganizationSettingsTab() {
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="general" className="space-y-6">
+      <Tabs defaultValue="company" className="space-y-6">
         <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="general" className="gap-2">
+          <TabsTrigger value="company" className="gap-2">
             <MaterialIcon name="apartment" size="sm" />
-            General
-          </TabsTrigger>
-          <TabsTrigger value="contact" className="gap-2">
-            <MaterialIcon name="phone" size="sm" />
-            Contact
+            Company Info
           </TabsTrigger>
           <TabsTrigger value="address" className="gap-2">
             <MaterialIcon name="location_on" size="sm" />
@@ -258,16 +234,16 @@ export function OrganizationSettingsTab() {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
-            {/* General Tab */}
-            <TabsContent value="general">
+            {/* Company Info Tab (merged General + Contact) */}
+            <TabsContent value="company">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MaterialIcon name="apartment" size="md" />
-                    General Information
+                    Company Information
                   </CardTitle>
                   <CardDescription>
-                    Basic organization details and branding
+                    Organization details, contact information, and email settings
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -283,23 +259,14 @@ export function OrganizationSettingsTab() {
                   <Separator />
 
                   {/* Tenant Info (Read-only) */}
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
                       <label className="text-sm font-medium text-muted-foreground">Organization Name</label>
                       <p className="text-lg font-medium">{tenant?.name}</p>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Slug</label>
-                      <p className="text-lg font-medium">{tenant?.slug}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Status</label>
-                    <div className="mt-1">
-                      <Badge variant={tenant?.status === 'active' ? 'default' : 'secondary'}>
-                        {tenant?.status}
-                      </Badge>
-                    </div>
+                    <Badge variant={tenant?.status === 'active' ? 'default' : 'secondary'}>
+                      {tenant?.status}
+                    </Badge>
                   </div>
 
                   <Separator />
@@ -322,55 +289,6 @@ export function OrganizationSettingsTab() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="company_website"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Website</FormLabel>
-                        <FormControl>
-                          <Input placeholder="https://www.example.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex justify-end">
-                    <Button type="submit" disabled={saving}>
-                      {saving ? (
-                        <>
-                          <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <MaterialIcon name="save" size="sm" className="mr-2" />
-                          Save Changes
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Legal Links Section */}
-              <LegalLinksSection standalone />
-            </TabsContent>
-
-            {/* Contact Tab */}
-            <TabsContent value="contact">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MaterialIcon name="phone" size="md" />
-                    Contact &amp; Email Recipients
-                  </CardTitle>
-                  <CardDescription>
-                    Organization contact details and internal email alert recipients
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
                   <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                       control={form.control}
@@ -398,6 +316,39 @@ export function OrganizationSettingsTab() {
                           <FormControl>
                             <Input placeholder="(555) 123-4567" {...field} />
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="company_website"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Website</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://www.example.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="app_base_url"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Portal URL</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://app.yourcompany.com" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Client portal URL used in email links and notifications
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -473,6 +424,9 @@ export function OrganizationSettingsTab() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Legal Links Section */}
+              <LegalLinksSection standalone />
 
               {/* Email Domain Configuration */}
               <EmailDomainSection />
