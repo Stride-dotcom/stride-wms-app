@@ -364,7 +364,7 @@ export function QuickStartTab() {
                   <MaterialIcon name="category" className="text-primary" />
                   Core Defaults
                 </CardTitle>
-                <CardDescription className="mt-1">Essential categories, task types, and size classes</CardDescription>
+                <CardDescription className="mt-1">Categories, task types, and flat charge types to get started</CardDescription>
               </div>
               <Badge variant="secondary">Recommended</Badge>
             </div>
@@ -381,11 +381,15 @@ export function QuickStartTab() {
               </div>
               <div className="flex items-center gap-2">
                 <MaterialIcon name="check_circle" size="sm" className="text-green-600" />
-                <span>6 size classes (XS, S, M, L, XL, XXL)</span>
+                <span>18 starter charge types (flat, no classes)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MaterialIcon name="check_circle" size="sm" className="text-green-600" />
+                <span>Quarantine indicator flag included</span>
               </div>
             </div>
             <Separator />
-            <p className="text-xs text-muted-foreground">Does NOT include price list entries.</p>
+            <p className="text-xs text-muted-foreground">All rates are $0 — set your own prices after applying.</p>
             <Button
               onClick={() => setConfirmDialog('core')}
               disabled={loading}
@@ -416,7 +420,7 @@ export function QuickStartTab() {
                   <MaterialIcon name="rocket_launch" className="text-primary" />
                   Full Starter Pack
                 </CardTitle>
-                <CardDescription className="mt-1">Everything in Core + 70+ charge types with pricing rules</CardDescription>
+                <CardDescription className="mt-1">Everything in Core + size classes + class-based pricing structure</CardDescription>
               </div>
               <Badge>Complete</Badge>
             </div>
@@ -429,15 +433,15 @@ export function QuickStartTab() {
               </div>
               <div className="flex items-center gap-2">
                 <MaterialIcon name="check_circle" size="sm" className="text-green-600" />
-                <span>70+ starter price list entries</span>
+                <span>6 size classes (XS, S, M, L, XL, XXL)</span>
               </div>
               <div className="flex items-center gap-2">
                 <MaterialIcon name="check_circle" size="sm" className="text-green-600" />
-                <span>Class-based pricing with rates</span>
+                <span>Class-based pricing rules for key services</span>
               </div>
             </div>
             <Separator />
-            <p className="text-xs text-muted-foreground">Customize every rate after applying.</p>
+            <p className="text-xs text-muted-foreground">All rates are $0 — set your own prices after applying.</p>
             <Button
               onClick={() => setConfirmDialog('full')}
               disabled={loading}

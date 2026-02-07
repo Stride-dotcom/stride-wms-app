@@ -55,6 +55,7 @@ export function OnboardingChecklistTab() {
         locationsResult,
         usersResult,
         rolesResult,
+        chargeTypesResult,
       ] = await Promise.all([
         supabase
           .from('tenant_company_settings')
@@ -90,6 +91,10 @@ export function OnboardingChecklistTab() {
           .from('user_roles') as any)
           .select('id, role, user_id')
           .in('role', ['admin', 'tenant_admin', 'manager']),
+        supabase
+          .from('charge_types')
+          .select('id')
+          .eq('tenant_id', profile.tenant_id),
       ]);
 
       const settings = settingsResult.data;
@@ -100,6 +105,7 @@ export function OnboardingChecklistTab() {
       const locations = locationsResult.data || [];
       const users = usersResult.data || [];
       const adminRoles = rolesResult.data || [];
+      const chargeTypes = chargeTypesResult.data || [];
 
       // Check 1: Organization Contact complete
       const hasContact = !!(settings?.company_email && settings?.company_phone);
