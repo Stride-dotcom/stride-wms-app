@@ -86,11 +86,43 @@ GRANT EXECUTE ON FUNCTION public.seed_core_charge_types(UUID) TO authenticated;
 
 
 -- ============================================================================
--- 2. SEED STARTER CHARGE TYPES (adds class-based pricing rules)
+-- 2. SEED STARTER CLASSES (3 service tiers)
 -- ============================================================================
--- Adds class-based pricing rules (XS–XXL, $0 rates) for services that
--- benefit from size-based pricing. Also marks those charge types as
--- having class-based pricing.
+
+CREATE OR REPLACE FUNCTION public.seed_starter_classes(p_tenant_id UUID)
+RETURNS INT
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_inserted INT := 0;
+BEGIN
+  INSERT INTO public.classes (tenant_id, code, name, sort_order, is_active)
+  SELECT * FROM (VALUES
+    (p_tenant_id, 'STD', 'Standard', 1, true),
+    (p_tenant_id, 'PRM', 'Premium',  2, true),
+    (p_tenant_id, 'DLX', 'Deluxe',   3, true)
+  ) AS v(tenant_id, code, name, sort_order, is_active)
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.classes c
+    WHERE c.tenant_id = v.tenant_id AND c.code = v.code
+  );
+
+  GET DIAGNOSTICS v_inserted = ROW_COUNT;
+  RAISE NOTICE 'Seeded % starter classes for tenant %', v_inserted, p_tenant_id;
+  RETURN v_inserted;
+END;
+$$;
+
+COMMENT ON FUNCTION public.seed_starter_classes IS 'Seed 3 service tier classes (Standard, Premium, Deluxe). Idempotent.';
+GRANT EXECUTE ON FUNCTION public.seed_starter_classes(UUID) TO authenticated;
+
+
+-- ============================================================================
+-- 3. SEED STARTER CHARGE TYPES (adds class-based pricing rules)
+-- ============================================================================
+-- Adds class-based pricing rules (Standard/Premium/Deluxe, $0 rates) for
+-- services that benefit from tier-based pricing.
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.seed_starter_charge_types(p_tenant_id UUID)
@@ -112,9 +144,9 @@ DECLARE
     ARRAY['REPAIR',    'per_item'],
     ARRAY['WILL_CALL', 'per_item']
   ];
-  v_classes TEXT[] := ARRAY['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+  v_classes TEXT[] := ARRAY['STD', 'PRM', 'DLX'];
 BEGIN
-  -- For each class-based service, add XS–XXL pricing rules
+  -- For each class-based service, add Standard/Premium/Deluxe pricing rules
   FOR i IN 1..array_length(v_class_services, 1)
   LOOP
     v_code := v_class_services[i][1];
@@ -130,7 +162,7 @@ BEGIN
       CONTINUE;
     END IF;
 
-    -- Add class-based rules for each size class
+    -- Add class-based rules for each tier
     FOREACH v_class IN ARRAY v_classes
     LOOP
       -- Skip if rule already exists
@@ -163,7 +195,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.seed_starter_charge_types IS 'Add class-based pricing rules (XS–XXL, $0) to core charge types. Idempotent.';
+COMMENT ON FUNCTION public.seed_starter_charge_types IS 'Add class-based pricing rules (Standard/Premium/Deluxe, $0) to core charge types. Idempotent.';
 GRANT EXECUTE ON FUNCTION public.seed_starter_charge_types(UUID) TO authenticated;
 
 
@@ -225,7 +257,7 @@ GRANT EXECUTE ON FUNCTION public.apply_core_defaults(UUID, UUID) TO authenticate
 
 
 -- ============================================================================
--- 4. UPDATE apply_full_starter — adds classes + class-based charge types
+-- 5. UPDATE apply_full_starter — adds classes + class-based charge types
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.apply_full_starter(p_tenant_id UUID, p_user_id UUID DEFAULT NULL)
@@ -246,8 +278,8 @@ BEGIN
   -- 1. Apply core defaults (categories, task types, flat charge types)
   v_core_result := public.apply_core_defaults(p_tenant_id, p_user_id);
 
-  -- 2. Seed size classes (XS–XXL)
-  PERFORM public.seed_default_classes(p_tenant_id);
+  -- 2. Seed starter classes (Standard, Premium, Deluxe)
+  PERFORM public.seed_starter_classes(p_tenant_id);
 
   -- 3. Add class-based pricing rules to relevant charge types
   v_rules_added := public.seed_starter_charge_types(p_tenant_id);
@@ -266,5 +298,5 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.apply_full_starter IS 'Apply full starter (core + classes + class-based pricing rules) to a tenant. All rates are $0. Idempotent.';
+COMMENT ON FUNCTION public.apply_full_starter IS 'Apply full starter (core + 3 service tiers + class-based pricing rules) to a tenant. All rates are $0. Idempotent.';
 GRANT EXECUTE ON FUNCTION public.apply_full_starter(UUID, UUID) TO authenticated;

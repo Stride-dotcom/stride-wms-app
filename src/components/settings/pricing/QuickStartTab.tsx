@@ -433,7 +433,7 @@ export function QuickStartTab() {
               </div>
               <div className="flex items-center gap-2">
                 <MaterialIcon name="check_circle" size="sm" className="text-green-600" />
-                <span>6 size classes (XS, S, M, L, XL, XXL)</span>
+                <span>3 service tiers (Standard, Premium, Deluxe)</span>
               </div>
               <div className="flex items-center gap-2">
                 <MaterialIcon name="check_circle" size="sm" className="text-green-600" />

@@ -132,12 +132,15 @@ export function OnboardingChecklistTab() {
       const hasEditedTemplate = templates.some(t => t.updated_at !== t.created_at);
       const templatesReady = hasTemplates && hasEditedTemplate;
 
-      // Check 6: Warehouses + default receiving location
+      // Check 6: Service rates configured (charge types exist)
+      const hasChargeTypes = chargeTypes.length > 0;
+
+      // Check 7: Warehouses + default receiving location
       const hasWarehouses = warehouses.length > 0;
       const hasDefaultReceiving = locations.some((l: { is_default_receiving?: boolean }) => l.is_default_receiving);
       const warehouseReady = hasWarehouses && hasDefaultReceiving;
 
-      // Check 7: Users with admin/manager roles
+      // Check 8: Users with admin/manager roles
       const tenantUserIds = new Set(users.map(u => u.id));
       const hasAdminUsers = adminRoles.some(r => tenantUserIds.has(r.user_id));
 
@@ -183,11 +186,23 @@ export function OnboardingChecklistTab() {
         },
         {
           id: 'templates',
-          label: 'Templates Present & Edited',
-          description: `${templates.length} template(s) found${hasEditedTemplate ? ', at least 1 customized' : ''}`,
-          complete: templatesReady,
+          label: 'Alert Templates Seeded',
+          description: hasTemplates
+            ? `${templates.length} template(s) found${hasEditedTemplate ? ', at least 1 customized' : ' — customize them in the Alerts tab'}`
+            : 'Use the "Seed Missing Templates" button below to add default templates',
+          complete: hasTemplates,
           goToTab: 'alerts',
           icon: 'description',
+        },
+        {
+          id: 'service-rates',
+          label: 'Service Rates Configured',
+          description: hasChargeTypes
+            ? `${chargeTypes.length} charge type(s) configured — set your prices in Service Rates`
+            : 'Add starter services via Quick Start or configure your own',
+          complete: hasChargeTypes,
+          goToTab: 'service-rates',
+          icon: 'attach_money',
         },
         {
           id: 'warehouses',
