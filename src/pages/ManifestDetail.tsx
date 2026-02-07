@@ -49,15 +49,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { format } from 'date-fns';
-
-const statusColors: Record<ManifestStatus, string> = {
-  draft: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  active: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  in_progress: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-  completed: 'bg-green-500/20 text-green-400 border-green-500/30',
-  cancelled: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-};
 
 const statusLabels: Record<ManifestStatus, string> = {
   draft: 'Draft',
@@ -256,9 +249,7 @@ export default function ManifestDetail() {
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">{manifest.name}</h1>
-            <Badge className={statusColors[manifest.status as ManifestStatus]}>
-              {statusLabels[manifest.status as ManifestStatus]}
-            </Badge>
+            <StatusIndicator status={manifest.status} label={statusLabels[manifest.status as ManifestStatus]} size="sm" />
             {manifest.billable && (
               <Badge variant="secondary" className="bg-green-500/20 text-green-400">
                 <MaterialIcon name="attach_money" size="sm" className="mr-1" />
@@ -538,15 +529,9 @@ export default function ManifestDetail() {
                         </TableCell>
                         <TableCell>
                           {item.scanned ? (
-                            <Badge className="bg-green-500/20 text-green-400">
-                              <MaterialIcon name="check_circle" size="sm" className="mr-1" />
-                              Scanned
-                            </Badge>
+                            <StatusIndicator status="scanned" label="Scanned" size="sm" />
                           ) : (
-                            <Badge variant="secondary">
-                              <MaterialIcon name="schedule" size="sm" className="mr-1" />
-                              Pending
-                            </Badge>
+                            <StatusIndicator status="pending" label="Pending" size="sm" />
                           )}
                         </TableCell>
                         {!isDraft && item.scanned && (

@@ -201,6 +201,56 @@ const statusStyles = {
     text: 'text-red-700 dark:text-red-400',
     dot: 'bg-red-500',
   },
+  running: {
+    bg: 'bg-blue-500/10 dark:bg-blue-400/15',
+    text: 'text-blue-700 dark:text-blue-400',
+    dot: 'bg-blue-500',
+  },
+  skip: {
+    bg: 'bg-yellow-500/10 dark:bg-yellow-400/15',
+    text: 'text-yellow-700 dark:text-yellow-400',
+    dot: 'bg-yellow-500',
+  },
+  error: {
+    bg: 'bg-red-500/10 dark:bg-red-400/15',
+    text: 'text-red-700 dark:text-red-400',
+    dot: 'bg-red-500',
+  },
+  sent_to_client: {
+    bg: 'bg-blue-500/10 dark:bg-blue-400/15',
+    text: 'text-blue-700 dark:text-blue-400',
+    dot: 'bg-blue-500',
+  },
+  in_transit: {
+    bg: 'bg-blue-500/10 dark:bg-blue-400/15',
+    text: 'text-blue-700 dark:text-blue-400',
+    dot: 'bg-blue-500',
+  },
+  delivered: {
+    bg: 'bg-green-500/10 dark:bg-green-400/15',
+    text: 'text-green-700 dark:text-green-400',
+    dot: 'bg-green-500',
+  },
+  on_track: {
+    bg: 'bg-green-500/10 dark:bg-green-400/15',
+    text: 'text-green-700 dark:text-green-400',
+    dot: 'bg-green-500',
+  },
+  due_soon: {
+    bg: 'bg-yellow-500/10 dark:bg-yellow-400/15',
+    text: 'text-yellow-700 dark:text-yellow-400',
+    dot: 'bg-yellow-500',
+  },
+  paused: {
+    bg: 'bg-gray-500/10 dark:bg-gray-400/15',
+    text: 'text-gray-600 dark:text-gray-400',
+    dot: 'bg-gray-500',
+  },
+  scanned: {
+    bg: 'bg-green-500/10 dark:bg-green-400/15',
+    text: 'text-green-700 dark:text-green-400',
+    dot: 'bg-green-500',
+  },
   default: {
     bg: 'bg-gray-500/10 dark:bg-gray-400/15',
     text: 'text-gray-600 dark:text-gray-400',

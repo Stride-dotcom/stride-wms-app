@@ -55,7 +55,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
-import { getQuoteStatusClasses } from '@/lib/statusColors';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 
 // NOTE: All services are now dynamically fetched from the Price List (service_events table)
 // No hardcoded service codes - the quote tool automatically adapts to whatever
@@ -688,9 +688,7 @@ export default function QuoteBuilder() {
               </h1>
               {quote && (
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <Badge variant={QUOTE_STATUS_CONFIG[quote.status].variant as any} className={getQuoteStatusClasses(quote.status)}>
-                    {QUOTE_STATUS_CONFIG[quote.status].label}
-                  </Badge>
+                  <StatusIndicator status={quote.status} label={QUOTE_STATUS_CONFIG[quote.status].label} size="sm" />
                   {isExpired && (
                     <Badge variant="destructive">
                       <MaterialIcon name="schedule" size="sm" className="mr-1" />

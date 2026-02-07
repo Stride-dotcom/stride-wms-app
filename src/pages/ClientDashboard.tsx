@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { ClientPortalLayout } from '@/components/client-portal/ClientPortalLayout';
 import {
   useClientPortalContext,
@@ -213,17 +213,7 @@ export default function ClientDashboard() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <Badge
-                          variant={
-                            shipment.status === 'delivered'
-                              ? 'default'
-                              : shipment.status === 'in_transit'
-                              ? 'secondary'
-                              : 'outline'
-                          }
-                        >
-                          {shipment.status?.replace(/_/g, ' ')}
-                        </Badge>
+                        <StatusIndicator status={shipment.status || 'pending'} size="sm" />
                         <p className="text-xs text-muted-foreground mt-1">
                           {formatDistanceToNow(new Date(shipment.created_at), { addSuffix: true })}
                         </p>
@@ -274,22 +264,11 @@ export default function ClientDashboard() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <Badge
-                          variant={
-                            quote.status === 'accepted'
-                              ? 'default'
-                              : quote.status === 'declined'
-                              ? 'destructive'
-                              : quote.status === 'sent_to_client'
-                              ? 'secondary'
-                              : 'outline'
-                          }
-                          className={quote.status === 'accepted' ? 'bg-green-500' : ''}
-                        >
-                          {quote.status === 'sent_to_client'
-                            ? 'Pending Review'
-                            : quote.status?.replace(/_/g, ' ')}
-                        </Badge>
+                        <StatusIndicator
+                          status={quote.status || 'draft'}
+                          label={quote.status === 'sent_to_client' ? 'Pending Review' : undefined}
+                          size="sm"
+                        />
                         {quote.customer_total && (
                           <p className="text-sm font-medium mt-1">
                             ${Number(quote.customer_total).toFixed(2)}
