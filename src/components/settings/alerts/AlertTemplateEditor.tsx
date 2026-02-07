@@ -25,6 +25,7 @@ import {
   CommunicationAlert,
   CommunicationTemplate,
   CommunicationBrandSettings,
+  TenantCompanyInfo,
   COMMUNICATION_VARIABLES,
 } from '@/hooks/useCommunications';
 import { EmailPreviewModal, EmailLivePreview } from './EmailPreviewModal';
@@ -49,6 +50,7 @@ interface AlertTemplateEditorProps {
   alerts: CommunicationAlert[];
   templates: CommunicationTemplate[];
   brandSettings: CommunicationBrandSettings | null;
+  tenantCompanyInfo?: TenantCompanyInfo;
   onUpdateAlert: (id: string, updates: Partial<CommunicationAlert>) => Promise<boolean>;
   onUpdateTemplate: (id: string, updates: Partial<CommunicationTemplate>) => Promise<boolean>;
   onCreateTemplate: (alertId: string, channel: 'email' | 'sms', alertName: string, triggerEvent?: string) => Promise<CommunicationTemplate | null>;
@@ -61,6 +63,7 @@ export function AlertTemplateEditor({
   alerts,
   templates,
   brandSettings,
+  tenantCompanyInfo,
   onUpdateAlert,
   onUpdateTemplate,
   onCreateTemplate,
@@ -693,7 +696,7 @@ export function AlertTemplateEditor({
               ctaEnabled={emailCtaEnabled}
               ctaLabel={emailCtaLabel}
               ctaLink={emailCtaLink}
-              brandSettings={brandSettings}
+              tenantCompanyInfo={tenantCompanyInfo}
               accentColor={accentColor}
             />
           }
@@ -714,7 +717,7 @@ export function AlertTemplateEditor({
             ctaEnabled={emailCtaEnabled}
             ctaLabel={emailCtaLabel}
             ctaLink={emailCtaLink}
-            brandSettings={brandSettings}
+            tenantCompanyInfo={tenantCompanyInfo}
             accentColor={accentColor}
           />
         )}
@@ -753,7 +756,7 @@ export function AlertTemplateEditor({
           ctaEnabled={emailCtaEnabled}
           ctaLabel={emailCtaLabel}
           ctaLink={emailCtaLink}
-          brandSettings={brandSettings}
+          tenantCompanyInfo={tenantCompanyInfo}
           accentColor={accentColor}
         />
       )}

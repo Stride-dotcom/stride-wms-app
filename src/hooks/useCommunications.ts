@@ -67,6 +67,16 @@ export interface CommunicationBrandSettings {
   updated_at: string;
 }
 
+/** Company info from tenant_company_settings for email/SMS token resolution */
+export interface TenantCompanyInfo {
+  companyName?: string;
+  logoUrl?: string;
+  companyEmail?: string;
+  companyAddress?: string;
+  portalBaseUrl?: string;
+  companyPhone?: string;
+}
+
 export const TRIGGER_EVENTS = [
   // Legacy dot-notation events
   { value: 'shipment.received', label: 'Shipment Received' },
@@ -223,6 +233,7 @@ export function useCommunications() {
   const [templates, setTemplates] = useState<CommunicationTemplate[]>([]);
   const [designElements, setDesignElements] = useState<CommunicationDesignElement[]>([]);
   const [brandSettings, setBrandSettings] = useState<CommunicationBrandSettings | null>(null);
+  const [tenantCompanyInfo, setTenantCompanyInfo] = useState<TenantCompanyInfo>({});
   const [loading, setLoading] = useState(true);
 
   const fetchAlerts = useCallback(async () => {
@@ -274,28 +285,43 @@ export function useCommunications() {
 
   const fetchBrandSettings = useCallback(async () => {
     if (!profile?.tenant_id) return;
-    
+
     try {
+      // Fetch all company info from tenant_company_settings (single source of truth)
+      const { data: companySettings } = await supabase
+        .from('tenant_company_settings')
+        .select('company_name, logo_url, company_email, company_address, company_phone, app_base_url')
+        .eq('tenant_id', profile.tenant_id)
+        .maybeSingle();
+
+      setTenantCompanyInfo({
+        companyName: companySettings?.company_name || '',
+        logoUrl: companySettings?.logo_url || '',
+        companyEmail: companySettings?.company_email || '',
+        companyAddress: companySettings?.company_address || '',
+        portalBaseUrl: companySettings?.app_base_url || '',
+        companyPhone: companySettings?.company_phone || '',
+      });
+
+      // Brand settings only used for accent color (brand_primary_color)
       const { data, error } = await supabase
         .from('communication_brand_settings')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
         .maybeSingle();
-      
+
       if (error) throw error;
-      
+
       if (!data) {
-        // Create default brand settings
         const { data: newSettings, error: createError } = await supabase
           .from('communication_brand_settings')
           .insert({
             tenant_id: profile.tenant_id,
             brand_primary_color: '#FD5A2A',
-            from_name: 'Stride Logistics',
           })
           .select()
           .single();
-        
+
         if (createError) throw createError;
         setBrandSettings(newSettings as CommunicationBrandSettings);
       } else {
@@ -586,6 +612,7 @@ export function useCommunications() {
     templates,
     designElements,
     brandSettings,
+    tenantCompanyInfo,
     loading,
     createAlert,
     updateAlert,
