@@ -96,6 +96,8 @@ export const COMMUNICATION_VARIABLES = [
   { key: 'brand_primary_color', label: 'Brand Primary Color', group: 'Brand', sample: '#FD5A2A', description: 'Your primary brand color' },
   { key: 'brand_support_email', label: 'Support Email', group: 'Brand', sample: 'support@stride.com', description: 'Customer support email address' },
   { key: 'portal_base_url', label: 'Portal URL', group: 'Brand', sample: 'https://portal.stride.com', description: 'Base URL for customer portal' },
+  { key: 'office_alert_emails', label: 'Office Alerts Email(s)', group: 'Brand', sample: 'ops@company.com, alerts@company.com', description: 'Comma-separated office alert email addresses' },
+  { key: 'office_alert_email_primary', label: 'Office Alerts Email (Primary)', group: 'Brand', sample: 'ops@company.com', description: 'First office alert email address' },
   
   // Account
   { key: 'account_name', label: 'Account Name', group: 'Account', sample: 'Acme Corp', description: 'Customer account name' },
