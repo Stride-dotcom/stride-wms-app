@@ -16,6 +16,8 @@ interface EmailPreviewProps {
   ctaLabel: string;
   ctaLink: string;
   brandSettings: CommunicationBrandSettings | null;
+  tenantCompanyName?: string;
+  tenantLogoUrl?: string;
   accentColor: string;
 }
 
@@ -24,22 +26,38 @@ interface EmailPreviewModalProps extends EmailPreviewProps {
   onOpenChange: (open: boolean) => void;
 }
 
-/** Build sample data map from COMMUNICATION_VARIABLES + brand settings overrides */
-function useSampleData(brandSettings: CommunicationBrandSettings | null) {
+/** Build sample data map from COMMUNICATION_VARIABLES + real tenant overrides */
+function useSampleData(
+  brandSettings: CommunicationBrandSettings | null,
+  tenantCompanyName?: string,
+  tenantLogoUrl?: string
+) {
   return useMemo(() => {
     const data: Record<string, string> = {};
     COMMUNICATION_VARIABLES.forEach((v) => {
       data[v.key] = v.sample;
     });
+
+    // Use real company name for tenant_name (from tenant_company_settings)
+    if (tenantCompanyName) data['tenant_name'] = tenantCompanyName;
+
+    // Use real company logo (from tenant_company_settings), then brand override
+    if (tenantLogoUrl) data['brand_logo_url'] = tenantLogoUrl;
+
     if (brandSettings) {
-      // Always override logo — use real URL or empty to avoid broken image
-      data['brand_logo_url'] = brandSettings.brand_logo_url || '';
-      if (brandSettings.from_name) data['tenant_name'] = brandSettings.from_name;
+      // Brand settings overrides (these take priority)
+      if (brandSettings.brand_logo_url) data['brand_logo_url'] = brandSettings.brand_logo_url;
       if (brandSettings.brand_support_email) data['brand_support_email'] = brandSettings.brand_support_email;
       if (brandSettings.portal_base_url) data['portal_base_url'] = brandSettings.portal_base_url;
     }
+
+    // If still no logo URL, use empty string to avoid broken image
+    if (!data['brand_logo_url'] || data['brand_logo_url'] === 'https://example.com/logo.png') {
+      data['brand_logo_url'] = '';
+    }
+
     return data;
-  }, [brandSettings]);
+  }, [brandSettings, tenantCompanyName, tenantLogoUrl]);
 }
 
 /** Build the final preview HTML from editor fields */
@@ -83,6 +101,8 @@ export function EmailPreviewModal({
   ctaLabel,
   ctaLink,
   brandSettings,
+  tenantCompanyName,
+  tenantLogoUrl,
   accentColor,
 }: EmailPreviewModalProps) {
   // ESC key support
@@ -105,7 +125,7 @@ export function EmailPreviewModal({
     };
   }, [open]);
 
-  const sampleData = useSampleData(brandSettings);
+  const sampleData = useSampleData(brandSettings, tenantCompanyName, tenantLogoUrl);
   const previewHtml = usePreviewHtml(heading, body, ctaEnabled, ctaLabel, ctaLink, accentColor, sampleData);
   const resolvedSubject = useMemo(() => replaceTokens(subject, sampleData), [subject, sampleData]);
 
@@ -173,9 +193,11 @@ export function EmailLivePreview({
   ctaLabel,
   ctaLink,
   brandSettings,
+  tenantCompanyName,
+  tenantLogoUrl,
   accentColor,
 }: EmailPreviewProps) {
-  const sampleData = useSampleData(brandSettings);
+  const sampleData = useSampleData(brandSettings, tenantCompanyName, tenantLogoUrl);
   const previewHtml = usePreviewHtml(heading, body, ctaEnabled, ctaLabel, ctaLink, accentColor, sampleData);
   const resolvedSubject = useMemo(() => replaceTokens(subject, sampleData), [subject, sampleData]);
 

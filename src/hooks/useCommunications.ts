@@ -223,6 +223,8 @@ export function useCommunications() {
   const [templates, setTemplates] = useState<CommunicationTemplate[]>([]);
   const [designElements, setDesignElements] = useState<CommunicationDesignElement[]>([]);
   const [brandSettings, setBrandSettings] = useState<CommunicationBrandSettings | null>(null);
+  const [tenantCompanyName, setTenantCompanyName] = useState<string>('');
+  const [tenantLogoUrl, setTenantLogoUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   const fetchAlerts = useCallback(async () => {
@@ -274,28 +276,41 @@ export function useCommunications() {
 
   const fetchBrandSettings = useCallback(async () => {
     if (!profile?.tenant_id) return;
-    
+
     try {
+      // Fetch actual company name and logo from tenant_company_settings
+      const { data: companySettings } = await supabase
+        .from('tenant_company_settings')
+        .select('company_name, logo_url')
+        .eq('tenant_id', profile.tenant_id)
+        .maybeSingle();
+
+      const companyName = companySettings?.company_name || '';
+      const logoUrl = companySettings?.logo_url || '';
+      setTenantCompanyName(companyName);
+      setTenantLogoUrl(logoUrl);
+
       const { data, error } = await supabase
         .from('communication_brand_settings')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
         .maybeSingle();
-      
+
       if (error) throw error;
-      
+
       if (!data) {
-        // Create default brand settings
+        // Create default brand settings using actual company name
         const { data: newSettings, error: createError } = await supabase
           .from('communication_brand_settings')
           .insert({
             tenant_id: profile.tenant_id,
             brand_primary_color: '#FD5A2A',
-            from_name: 'Stride Logistics',
+            from_name: companyName || 'My Company',
+            brand_logo_url: logoUrl || null,
           })
           .select()
           .single();
-        
+
         if (createError) throw createError;
         setBrandSettings(newSettings as CommunicationBrandSettings);
       } else {
@@ -586,6 +601,8 @@ export function useCommunications() {
     templates,
     designElements,
     brandSettings,
+    tenantCompanyName,
+    tenantLogoUrl,
     loading,
     createAlert,
     updateAlert,

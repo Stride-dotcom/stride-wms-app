@@ -12,6 +12,8 @@ export function AlertsSettingsTab() {
     alerts,
     templates,
     brandSettings,
+    tenantCompanyName,
+    tenantLogoUrl,
     loading,
     createAlert,
     updateAlert,
@@ -60,6 +62,8 @@ export function AlertsSettingsTab() {
           alerts={alerts}
           templates={templates}
           brandSettings={brandSettings}
+          tenantCompanyName={tenantCompanyName}
+          tenantLogoUrl={tenantLogoUrl}
           onUpdateAlert={updateAlert}
           onUpdateTemplate={updateTemplate}
           onCreateTemplate={createTemplate}

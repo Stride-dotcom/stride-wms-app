@@ -49,6 +49,8 @@ interface AlertTemplateEditorProps {
   alerts: CommunicationAlert[];
   templates: CommunicationTemplate[];
   brandSettings: CommunicationBrandSettings | null;
+  tenantCompanyName?: string;
+  tenantLogoUrl?: string;
   onUpdateAlert: (id: string, updates: Partial<CommunicationAlert>) => Promise<boolean>;
   onUpdateTemplate: (id: string, updates: Partial<CommunicationTemplate>) => Promise<boolean>;
   onCreateTemplate: (alertId: string, channel: 'email' | 'sms', alertName: string, triggerEvent?: string) => Promise<CommunicationTemplate | null>;
@@ -61,6 +63,8 @@ export function AlertTemplateEditor({
   alerts,
   templates,
   brandSettings,
+  tenantCompanyName,
+  tenantLogoUrl,
   onUpdateAlert,
   onUpdateTemplate,
   onCreateTemplate,
@@ -694,6 +698,8 @@ export function AlertTemplateEditor({
               ctaLabel={emailCtaLabel}
               ctaLink={emailCtaLink}
               brandSettings={brandSettings}
+              tenantCompanyName={tenantCompanyName}
+              tenantLogoUrl={tenantLogoUrl}
               accentColor={accentColor}
             />
           }
