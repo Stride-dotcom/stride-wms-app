@@ -44,7 +44,7 @@ export function CommunicationsSettingsTab() {
 
   const [activeTab, setActiveTab] = useState('alerts');
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
-  const [selectedChannel, setSelectedChannel] = useState<'email' | 'sms' | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<'email' | 'sms' | 'in_app' | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('global');
 
@@ -65,7 +65,7 @@ export function CommunicationsSettingsTab() {
     fetchAccounts();
   }, [profile?.tenant_id]);
 
-  const handleEditTemplate = (alertId: string, channel: 'email' | 'sms') => {
+  const handleEditTemplate = (alertId: string, channel: 'email' | 'sms' | 'in_app') => {
     setSelectedAlertId(alertId);
     setSelectedChannel(channel);
     setActiveTab('editor');

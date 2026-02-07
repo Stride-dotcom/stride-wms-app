@@ -64,7 +64,7 @@ interface TemplatesTabProps {
   designElements: CommunicationDesignElement[];
   brandSettings: CommunicationBrandSettings | null;
   selectedAlertId: string | null;
-  selectedChannel: 'email' | 'sms' | null;
+  selectedChannel: 'email' | 'sms' | 'in_app' | null;
   tenantId: string;
   onUpdateTemplate: (id: string, updates: Partial<CommunicationTemplate>) => Promise<boolean>;
   getTemplateVersions: (templateId: string) => Promise<CommunicationTemplateVersion[]>;
@@ -89,7 +89,7 @@ export function TemplatesTab({
   const [currentAlertId, setCurrentAlertId] = useState(() => 
     selectedAlertId || alerts[0]?.id || ''
   );
-  const [currentChannel, setCurrentChannel] = useState<'email' | 'sms'>(selectedChannel || 'email');
+  const [currentChannel, setCurrentChannel] = useState<'email' | 'sms' | 'in_app'>(selectedChannel || 'email');
   const [editorMode, setEditorMode] = useState<'rich' | 'code'>('code');
   const [previewContext, setPreviewContext] = useState<'shipment' | 'task' | 'release'>('shipment');
   const [variableSearch, setVariableSearch] = useState('');
@@ -119,6 +119,7 @@ export function TemplatesTab({
     from_name: '',
     from_email: '',
     sms_sender_id: '',
+    in_app_recipients: '',
   });
 
   // Update currentAlertId when selectedAlertId changes or when alerts load
@@ -138,13 +139,14 @@ export function TemplatesTab({
         from_name: currentTemplate.from_name || brandSettings?.from_name || '',
         from_email: currentTemplate.from_email || brandSettings?.from_email || '',
         sms_sender_id: currentTemplate.sms_sender_id || brandSettings?.sms_sender_id || '',
+        in_app_recipients: currentTemplate.in_app_recipients || '',
       });
     }
   }, [currentTemplate, brandSettings]);
 
   useEffect(() => {
     if (selectedChannel) {
-      setCurrentChannel(selectedChannel);
+      setCurrentChannel(selectedChannel as 'email' | 'sms' | 'in_app');
     }
   }, [selectedChannel]);
 
@@ -177,7 +179,7 @@ export function TemplatesTab({
 
   const handleSave = async () => {
     if (!currentTemplate) return;
-    
+
     setIsSaving(true);
     await onUpdateTemplate(currentTemplate.id, {
       subject_template: formData.subject_template || null,
@@ -185,7 +187,8 @@ export function TemplatesTab({
       from_name: formData.from_name || null,
       from_email: formData.from_email || null,
       sms_sender_id: formData.sms_sender_id || null,
-    });
+      in_app_recipients: formData.in_app_recipients || null,
+    } as Partial<CommunicationTemplate>);
     setIsSaving(false);
     setShowEditorSheet(false);
     toast({
@@ -332,6 +335,95 @@ export function TemplatesTab({
       );
     }
 
+    if (currentChannel === 'in_app') {
+      // Replace variables with sample data for preview
+      const previewTitle = (formData.subject_template || currentAlert?.name || 'Notification').replace(/\[\[(\w+)\]\]/g, (_, key) => {
+        const variable = COMMUNICATION_VARIABLES.find(v => v.key === key);
+        return variable?.sample || `[${key}]`;
+      }).replace(/{{(\w+)}}/g, (_, key) => {
+        const variable = COMMUNICATION_VARIABLES.find(v => v.key === key);
+        return variable?.sample || `[${key}]`;
+      });
+
+      const previewBody = formData.body_template.replace(/\[\[(\w+)\]\]/g, (_, key) => {
+        const variable = COMMUNICATION_VARIABLES.find(v => v.key === key);
+        return variable?.sample || `[${key}]`;
+      }).replace(/{{(\w+)}}/g, (_, key) => {
+        const variable = COMMUNICATION_VARIABLES.find(v => v.key === key);
+        return variable?.sample || `[${key}]`;
+      });
+
+      // Determine category from trigger event
+      const triggerEvent = currentAlert?.trigger_event || '';
+      const category = triggerEvent.split('.')[0].split('_')[0] || 'system';
+
+      // Parse recipient roles for display
+      const recipientRoles = (formData.in_app_recipients || '').split(',')
+        .map(r => r.trim().replace(/\[\[|\]\]|{{|}}/g, '').replace(/_role$/, ''))
+        .filter(Boolean)
+        .map(r => r.replace(/_/g, ' '));
+
+      return (
+        <div className="flex flex-col items-center justify-center p-4 sm:p-6 gap-6">
+          {/* iPhone-style notification preview */}
+          <div className="w-full max-w-[380px]">
+            {/* Lock screen notification */}
+            <div className="rounded-2xl bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-lg overflow-hidden">
+              {/* Notification header */}
+              <div className="flex items-center gap-3 px-4 pt-3 pb-1">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <MaterialIcon name="notifications" size="sm" className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      {brandSettings?.from_name || 'Stride WMS'}
+                    </span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">now</span>
+                  </div>
+                </div>
+              </div>
+              {/* Notification content */}
+              <div className="px-4 pb-3">
+                <p className="text-[15px] font-semibold text-gray-900 dark:text-gray-100 leading-tight">
+                  {previewTitle}
+                </p>
+                <p className="text-[14px] text-gray-600 dark:text-gray-300 mt-0.5 leading-snug line-clamp-3">
+                  {previewBody}
+                </p>
+              </div>
+            </div>
+
+            {/* In-app notification card (how it looks in Messages tab) */}
+            <div className="mt-6">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Messages / Notifications Tab</p>
+              <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
+                <div className="flex items-start gap-3 p-4 bg-blue-50/50 dark:bg-blue-950/20 border-l-2 border-l-blue-500">
+                  {/* Unread indicator */}
+                  <div className="w-2.5 h-2.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-semibold text-sm text-foreground truncate">{previewTitle}</p>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">2 min ago</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{previewBody}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant="secondary" className="text-xs capitalize">{category}</Badge>
+                      {recipientRoles.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          → {recipientRoles.join(', ')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <iframe
         srcDoc={html}
@@ -340,6 +432,15 @@ export function TemplatesTab({
         sandbox="allow-same-origin"
       />
     );
+  };
+
+  const recipientsInputRef = useRef<HTMLInputElement>(null);
+
+  const insertRecipientVariable = (varKey: string) => {
+    const token = `[[${varKey}]]`;
+    const current = formData.in_app_recipients;
+    const updated = current ? `${current}, ${token}` : token;
+    setFormData(prev => ({ ...prev, in_app_recipients: updated }));
   };
 
   const renderEditorPanel = () => (
@@ -388,6 +489,77 @@ export function TemplatesTab({
         </div>
       )}
 
+      {/* In-App Notification Recipients */}
+      {currentChannel === 'in_app' && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="in_app_recipients">Recipients</Label>
+            <Input
+              ref={recipientsInputRef}
+              id="in_app_recipients"
+              placeholder="e.g., [[manager_role]], [[client_user_role]]"
+              value={formData.in_app_recipients}
+              onChange={(e) => setFormData(prev => ({ ...prev, in_app_recipients: e.target.value }))}
+              className="h-11 font-mono text-sm"
+            />
+            <p className="text-xs text-muted-foreground">
+              Comma-separated role tokens. Use the variables panel to insert recipient roles.
+            </p>
+          </div>
+
+          {/* Quick role buttons */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Quick Add Roles</Label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: 'admin_role', label: 'Admin', icon: 'shield_person' },
+                { key: 'manager_role', label: 'Manager', icon: 'supervisor_account' },
+                { key: 'warehouse_role', label: 'Warehouse', icon: 'warehouse' },
+                { key: 'client_user_role', label: 'Client User', icon: 'person' },
+              ].map(role => {
+                const isActive = formData.in_app_recipients.includes(`[[${role.key}]]`);
+                return (
+                  <Button
+                    key={role.key}
+                    variant={isActive ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-9 gap-1.5"
+                    onClick={() => {
+                      if (isActive) {
+                        // Remove role token
+                        const updated = formData.in_app_recipients
+                          .replace(new RegExp(`\\[\\[${role.key}\\]\\],?\\s*`), '')
+                          .replace(/,\s*$/, '')
+                          .trim();
+                        setFormData(prev => ({ ...prev, in_app_recipients: updated }));
+                      } else {
+                        insertRecipientVariable(role.key);
+                      }
+                    }}
+                  >
+                    <MaterialIcon name={role.icon} size="sm" />
+                    {role.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Auto-generated notification info */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <MaterialIcon name="info" size="sm" className="text-blue-500 mt-0.5" />
+                <div className="text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground mb-1">Auto-generated content</p>
+                  <p>The notification title and body are automatically generated from the alert type. The preview on the right shows what recipients will see.</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Subject (Email only) */}
       {currentChannel === 'email' && (
         <div className="space-y-2">
@@ -403,8 +575,8 @@ export function TemplatesTab({
         </div>
       )}
 
-      {/* Body Editor */}
-      <div className="flex-1 flex flex-col min-h-0">
+      {/* Body Editor (Email and SMS only) */}
+      {currentChannel !== 'in_app' && <div className="flex-1 flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <Label>Body</Label>
           {currentChannel === 'email' && (
@@ -472,6 +644,8 @@ export function TemplatesTab({
           </div>
         )}
       </div>
+
+      </div>}
 
       {/* Variables Panel - Desktop only */}
       <Card className="flex-shrink-0 hidden lg:block">
@@ -618,8 +792,8 @@ export function TemplatesTab({
             <button
               onClick={() => setCurrentChannel('email')}
               className={`h-11 w-11 flex items-center justify-center rounded-l-lg transition-colors ${
-                currentChannel === 'email' 
-                  ? 'bg-primary text-primary-foreground' 
+                currentChannel === 'email'
+                  ? 'bg-primary text-primary-foreground'
                   : 'bg-background hover:bg-muted'
               }`}
             >
@@ -627,13 +801,23 @@ export function TemplatesTab({
             </button>
             <button
               onClick={() => setCurrentChannel('sms')}
-              className={`h-11 w-11 flex items-center justify-center rounded-r-lg transition-colors ${
-                currentChannel === 'sms' 
-                  ? 'bg-primary text-primary-foreground' 
+              className={`h-11 w-11 flex items-center justify-center transition-colors ${
+                currentChannel === 'sms'
+                  ? 'bg-primary text-primary-foreground'
                   : 'bg-background hover:bg-muted'
               }`}
             >
               <MaterialIcon name="chat" size="md" />
+            </button>
+            <button
+              onClick={() => setCurrentChannel('in_app')}
+              className={`h-11 w-11 flex items-center justify-center rounded-r-lg transition-colors ${
+                currentChannel === 'in_app'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-background hover:bg-muted'
+              }`}
+            >
+              <MaterialIcon name="notifications" size="md" />
             </button>
           </div>
           
@@ -704,7 +888,7 @@ export function TemplatesTab({
               </SelectContent>
             </Select>
             
-            <Tabs value={currentChannel} onValueChange={(v) => setCurrentChannel(v as 'email' | 'sms')}>
+            <Tabs value={currentChannel} onValueChange={(v) => setCurrentChannel(v as 'email' | 'sms' | 'in_app')}>
               <TabsList>
                 <TabsTrigger value="email" className="gap-2">
                   <MaterialIcon name="mail" size="sm" />
@@ -713,6 +897,10 @@ export function TemplatesTab({
                 <TabsTrigger value="sms" className="gap-2">
                   <MaterialIcon name="chat" size="sm" />
                   SMS
+                </TabsTrigger>
+                <TabsTrigger value="in_app" className="gap-2">
+                  <MaterialIcon name="notifications" size="sm" />
+                  In-App
                 </TabsTrigger>
               </TabsList>
             </Tabs>

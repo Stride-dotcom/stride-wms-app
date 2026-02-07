@@ -47,7 +47,7 @@ interface AlertsTabProps {
   onCreateAlert: (alert: Omit<CommunicationAlert, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>) => Promise<CommunicationAlert | null>;
   onUpdateAlert: (id: string, updates: Partial<CommunicationAlert>) => Promise<boolean>;
   onDeleteAlert: (id: string) => Promise<boolean>;
-  onEditTemplate: (alertId: string, channel: 'email' | 'sms') => void;
+  onEditTemplate: (alertId: string, channel: 'email' | 'sms' | 'in_app') => void;
 }
 
 export function AlertsTab({
@@ -67,7 +67,7 @@ export function AlertsTab({
     description: '',
     trigger_event: '',
     is_enabled: true,
-    channels: { email: true, sms: true },
+    channels: { email: true, sms: true, in_app: false },
     timing_rule: 'immediate',
   });
 
@@ -101,7 +101,7 @@ export function AlertsTab({
         description: '',
         trigger_event: '',
         is_enabled: true,
-        channels: { email: true, sms: true },
+        channels: { email: true, sms: true, in_app: false },
         timing_rule: 'immediate',
       });
     }
@@ -113,10 +113,11 @@ export function AlertsTab({
     setAlertToDelete(null);
   };
 
-  const toggleChannel = async (alert: CommunicationAlert, channel: 'email' | 'sms') => {
+  const toggleChannel = async (alert: CommunicationAlert, channel: 'email' | 'sms' | 'in_app') => {
+    const currentValue = channel === 'in_app' ? (alert.channels.in_app ?? false) : alert.channels[channel];
     const newChannels = {
       ...alert.channels,
-      [channel]: !alert.channels[channel],
+      [channel]: !currentValue,
     };
     await onUpdateAlert(alert.id, { channels: newChannels });
   };
@@ -149,6 +150,7 @@ export function AlertsTab({
               <TableHead>Enabled</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>SMS</TableHead>
+              <TableHead>In-App</TableHead>
               <TableHead>Trigger Event</TableHead>
               <TableHead>Updated</TableHead>
               <TableHead className="w-[100px]">Actions</TableHead>
@@ -157,7 +159,7 @@ export function AlertsTab({
           <TableBody>
             {alerts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   No alerts configured. Create your first alert to get started.
                 </TableCell>
               </TableRow>
@@ -202,6 +204,23 @@ export function AlertsTab({
                           variant="ghost"
                           size="sm"
                           onClick={() => onEditTemplate(alert.id, 'sms')}
+                        >
+                          <MaterialIcon name="edit" size="sm" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={alert.channels.in_app ?? false}
+                        onCheckedChange={() => toggleChannel(alert, 'in_app')}
+                      />
+                      {(alert.channels.in_app ?? false) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEditTemplate(alert.id, 'in_app')}
                         >
                           <MaterialIcon name="edit" size="sm" />
                         </Button>
@@ -312,6 +331,16 @@ export function AlertsTab({
                   />
                   <MaterialIcon name="chat" size="sm" />
                   <span>SMS</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Switch
+                    checked={formData.channels.in_app ?? false}
+                    onCheckedChange={(checked) =>
+                      setFormData(prev => ({ ...prev, channels: { ...prev.channels, in_app: checked } }))
+                    }
+                  />
+                  <MaterialIcon name="notifications" size="sm" />
+                  <span>In-App</span>
                 </label>
               </div>
             </div>

@@ -10,7 +10,7 @@ export interface CommunicationAlert {
   key: string;
   description: string | null;
   is_enabled: boolean;
-  channels: { email: boolean; sms: boolean };
+  channels: { email: boolean; sms: boolean; in_app?: boolean };
   trigger_event: string;
   timing_rule: string;
   created_at: string;
@@ -21,13 +21,14 @@ export interface CommunicationTemplate {
   id: string;
   tenant_id: string;
   alert_id: string;
-  channel: 'email' | 'sms';
+  channel: 'email' | 'sms' | 'in_app';
   subject_template: string | null;
   body_template: string;
   body_format: 'html' | 'text';
   from_name: string | null;
   from_email: string | null;
   sms_sender_id: string | null;
+  in_app_recipients: string | null;
   editor_json: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
@@ -214,6 +215,12 @@ export const COMMUNICATION_VARIABLES = [
   { key: 'user_name', label: 'User Name', group: 'General', sample: 'Jane Doe', description: 'Name of the user who performed action' },
   { key: 'created_by_name', label: 'Created By', group: 'General', sample: 'Jane Doe', description: 'Name of person who triggered' },
   { key: 'created_at', label: 'Created At', group: 'General', sample: '2024-01-15 10:30:00', description: 'Timestamp when created' },
+
+  // Recipients (role tokens for in-app notification targeting)
+  { key: 'admin_role', label: 'Admin Role', group: 'Recipients', sample: 'admin', description: 'Target all users with Admin role' },
+  { key: 'manager_role', label: 'Manager Role', group: 'Recipients', sample: 'manager', description: 'Target all users with Manager role' },
+  { key: 'warehouse_role', label: 'Warehouse Role', group: 'Recipients', sample: 'warehouse', description: 'Target all users with Warehouse role' },
+  { key: 'client_user_role', label: 'Client User Role', group: 'Recipients', sample: 'client_user', description: 'Target all users with Client User role' },
 ];
 
 export function useCommunications() {
@@ -335,9 +342,10 @@ export function useCommunications() {
       
       if (error) throw error;
       
-      // Create default email and SMS templates using plain text + tokens
+      // Create default email, SMS, and in-app templates using plain text + tokens
       const emailBody = getDefaultEmailBody(alert.trigger_event);
       const smsBody = getDefaultSmsBody(alert.trigger_event);
+      const inAppDefaults = getDefaultInAppDefaults(alert.trigger_event);
       const emailEditorJson = getDefaultEditorJson(alert.trigger_event);
       const emailSubject = getDefaultSubject(alert.name, alert.trigger_event);
 
@@ -357,6 +365,15 @@ export function useCommunications() {
           channel: 'sms',
           body_template: smsBody,
           body_format: 'text',
+        },
+        {
+          tenant_id: profile.tenant_id,
+          alert_id: data.id,
+          channel: 'in_app',
+          subject_template: alert.name,
+          body_template: inAppDefaults.body,
+          body_format: 'text',
+          in_app_recipients: inAppDefaults.recipients,
         },
       ]);
       
@@ -434,14 +451,24 @@ export function useCommunications() {
     }
   };
 
-  const createTemplate = async (alertId: string, channel: 'email' | 'sms', alertName: string, triggerEvent?: string) => {
+  const createTemplate = async (alertId: string, channel: 'email' | 'sms' | 'in_app', alertName: string, triggerEvent?: string) => {
     if (!profile?.tenant_id) return null;
 
     try {
       const isEmail = channel === 'email';
-      const defaultBody = isEmail
-        ? getDefaultEmailBody(triggerEvent)
-        : getDefaultSmsBody(triggerEvent);
+      const isInApp = channel === 'in_app';
+      let defaultBody: string;
+      let inAppRecipients: string | null = null;
+
+      if (isInApp) {
+        const inAppDefaults = getDefaultInAppDefaults(triggerEvent);
+        defaultBody = inAppDefaults.body;
+        inAppRecipients = inAppDefaults.recipients;
+      } else if (isEmail) {
+        defaultBody = getDefaultEmailBody(triggerEvent);
+      } else {
+        defaultBody = getDefaultSmsBody(triggerEvent);
+      }
 
       const { data, error } = await supabase
         .from('communication_templates')
@@ -449,10 +476,11 @@ export function useCommunications() {
           tenant_id: profile.tenant_id,
           alert_id: alertId,
           channel,
-          subject_template: isEmail ? getDefaultSubject(alertName, triggerEvent) : null,
+          subject_template: isEmail ? getDefaultSubject(alertName, triggerEvent) : isInApp ? alertName : null,
           body_template: defaultBody,
           body_format: 'text',
           ...(isEmail ? { editor_json: getDefaultEditorJson(triggerEvent) } : {}),
+          ...(isInApp ? { in_app_recipients: inAppRecipients } : {}),
         })
         .select()
         .single();
@@ -625,4 +653,12 @@ function getDefaultEditorJson(triggerEvent?: string): Record<string, unknown> {
 function getDefaultSubject(alertName: string, triggerEvent?: string): string {
   const defaults = getDefaultTemplate(triggerEvent);
   return defaults.subject || `[[tenant_name]]: ${alertName}`;
+}
+
+function getDefaultInAppDefaults(triggerEvent?: string): { body: string; recipients: string } {
+  const defaults = getDefaultTemplate(triggerEvent);
+  return {
+    body: defaults.inAppBody,
+    recipients: defaults.inAppRecipients,
+  };
 }

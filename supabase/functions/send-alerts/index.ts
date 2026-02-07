@@ -1308,6 +1308,128 @@ const handler = async (req: Request): Promise<Response> => {
 
         if (sendError) throw sendError;
 
+        // =====================================================================
+        // IN-APP NOTIFICATION DISPATCH
+        // =====================================================================
+        try {
+          // Check if in_app channel is enabled for this alert type
+          const { data: alertConfig } = await supabase
+            .from('communication_alerts')
+            .select('id, channels')
+            .eq('tenant_id', alert.tenant_id)
+            .eq('trigger_event', alert.alert_type)
+            .eq('is_enabled', true)
+            .maybeSingle();
+
+          const inAppEnabled = alertConfig?.channels?.in_app === true;
+
+          if (inAppEnabled) {
+            // Get the in-app template for recipients and body
+            const { data: inAppTemplate } = await supabase
+              .from('communication_templates')
+              .select('subject_template, body_template, in_app_recipients')
+              .eq('alert_id', alertConfig.id)
+              .eq('channel', 'in_app')
+              .maybeSingle();
+
+            if (inAppTemplate?.in_app_recipients) {
+              // Parse role tokens from recipients string: "[[manager_role]], [[client_user_role]]"
+              const roleTokens = (inAppTemplate.in_app_recipients || '')
+                .match(/\[\[(\w+_role)\]\]/g) || [];
+              const roleNames = roleTokens.map((t: string) =>
+                t.replace(/\[\[|\]\]/g, '').replace(/_role$/, '')
+              );
+
+              if (roleNames.length > 0) {
+                // Resolve role names to user IDs
+                const { data: roles } = await supabase
+                  .from('roles')
+                  .select('id, name')
+                  .in('name', roleNames)
+                  .eq('tenant_id', alert.tenant_id)
+                  .is('deleted_at', null);
+
+                if (roles && roles.length > 0) {
+                  const roleIds = roles.map((r: any) => r.id);
+
+                  const { data: userRoles } = await supabase
+                    .from('user_roles')
+                    .select('user_id')
+                    .in('role_id', roleIds)
+                    .is('deleted_at', null);
+
+                  if (userRoles && userRoles.length > 0) {
+                    const userIds = [...new Set(userRoles.map((ur: any) => ur.user_id))];
+
+                    // Verify users belong to this tenant
+                    const { data: tenantUsers } = await supabase
+                      .from('users')
+                      .select('id')
+                      .in('id', userIds)
+                      .eq('tenant_id', alert.tenant_id)
+                      .is('deleted_at', null);
+
+                    if (tenantUsers && tenantUsers.length > 0) {
+                      // Build notification content with variable substitution
+                      const notifTitle = replaceTemplateVariables(
+                        inAppTemplate.subject_template || alert.alert_type,
+                        variables
+                      );
+                      const notifBody = replaceTemplateVariables(
+                        inAppTemplate.body_template || subject,
+                        variables
+                      );
+
+                      // Determine category and action URL from alert type
+                      const category = alert.alert_type.split('.')[0].split('_')[0] || 'system';
+                      const ctaLink = variables.shipment_link || variables.task_link ||
+                        variables.release_link || variables.portal_invoice_url ||
+                        variables.portal_claim_url || variables.portal_repair_url ||
+                        variables.portal_inspection_url || variables.item_photos_link || null;
+
+                      // Determine priority
+                      let priority = 'normal';
+                      if (alert.alert_type.includes('damaged') || alert.alert_type.includes('overdue') ||
+                          alert.alert_type.includes('requires_attention') || alert.alert_type.includes('delayed')) {
+                        priority = 'high';
+                      }
+
+                      // Insert in-app notifications for each user
+                      const notifications = tenantUsers.map((u: any) => ({
+                        tenant_id: alert.tenant_id,
+                        user_id: u.id,
+                        title: notifTitle,
+                        body: notifBody,
+                        icon: 'notifications',
+                        category,
+                        related_entity_type: alert.entity_type,
+                        related_entity_id: alert.entity_id,
+                        action_url: ctaLink,
+                        is_read: false,
+                        priority,
+                        alert_queue_id: alert.id,
+                      }));
+
+                      const { error: notifError } = await supabase
+                        .from('in_app_notifications')
+                        .insert(notifications);
+
+                      if (notifError) {
+                        console.error(`[send-alerts] Failed to create in-app notifications for alert ${alert.id}:`, notifError);
+                      } else {
+                        console.log(`[send-alerts] Created ${notifications.length} in-app notifications for alert ${alert.id} (roles: ${roleNames.join(', ')})`);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (inAppError) {
+          // In-app notification failure should not block email delivery
+          console.error(`[send-alerts] In-app notification error for alert ${alert.id}:`, inAppError);
+        }
+
         // Mark as sent
         await supabase
           .from('alert_queue')
