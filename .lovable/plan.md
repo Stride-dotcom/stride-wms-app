@@ -1,123 +1,136 @@
 
-# Fix: Services Disappearing & Assembly Rates Showing $0.00
 
-## Summary of Issues Found
+# Implementation Plan: Class-Based Rates Table + "No Charge" Pricing Method
 
-After investigation, I found **two separate issues**:
+## Scope
 
-1. **"No classes found" message** - This was a **temporary build/deployment state**. The browser session confirms classes are now loading correctly (Extra Small, Small, Medium, Large, Extra Large all display properly).
-
-2. **Assembly services showing $0.00** - This is the **real underlying issue** caused by:
-   - The UI stores assembly quantities in a client-side `qty_input` field
-   - The database `quote_selected_services` table only has `hours_input` column (no `qty_input`)
-   - When quotes are saved, only `hours_input` is persisted
-   - When quotes are loaded, `qty_input` is always `null`, resulting in `0 * $250 = $0.00`
+Two feature changes and one form reorganization, all in a single file:
+- **`src/components/settings/pricing/AddServiceForm.tsx`**
 
 ---
 
-## Root Cause Analysis
+## Change 1: Class-Based Rates -- Card Grid to Table
+
+### Current State (lines 938-1012)
+A 2x3 card grid showing a class badge + rate input per class. Service time is a single shared field at the bottom (not per-class).
+
+### New Layout
+A proper table using the existing `Table` components from `@/components/ui/table`:
 
 ```text
-Database Schema (quote_selected_services):
-┌────────────────────────────┐
-│ id                         │
-│ quote_id                   │
-│ service_id                 │
-│ is_selected                │
-│ hours_input        ← exists│
-│ computed_billable_qty      │
-│ applied_rate_amount        │
-│ line_total                 │
-│ created_at                 │
-│ updated_at                 │
-│                            │
-│ qty_input          ← MISSING│
-└────────────────────────────┘
+RATES BY ITEM CLASS
++--------+--------------+----------------+--------------------+
+| Class  | Name         | Rate ($)       | Service Time (min) |
++--------+--------------+----------------+--------------------+
+| XS     | Extra Small  | [$ 10.00 ]     | [  5  ]            |
+| S      | Small        | [$ 25.00 ]     | [  5  ]            |
+| M      | Medium       | [$ 50.00 ]     | [  9  ]            |
+| L      | Large        | [$ 100.00]     | [  10 ]            |
+| XL     | Extra Large  | [$ 185.00]     | [  14 ]            |
++--------+--------------+----------------+--------------------+
+Unit: [each v]   Min. Charge ($): [____]
 ```
 
-**The Problem Flow:**
-1. User enters "1" for Assembly 120m in the Qty field
-2. UI stores this in `formData.selected_services[x].qty_input = 1`
-3. Save operation runs: `hours_input: ss.hours_input` (line 508)
-4. `qty_input` is **never saved** to database
-5. Quote reloads: `qty_input` comes back as `null`
-6. Calculator: `qtyInput ?? hoursInput ?? 0` = `null ?? null ?? 0` = `0`
-7. Result: `0 * $250 = $0.00`
+### Technical Details
+- Import `Table, TableHeader, TableBody, TableHead, TableRow, TableCell` from `@/components/ui/table`
+- Replace the `grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4` div (lines 942-967) with a `Table` element
+- Column order: **Class** (Badge), **Name** (text), **Rate ($)** (input), **Service Time (min)** (input)
+- Each row maps to a `classRate` entry and calls `updateClassRate` for both `rate` and `serviceTimeMinutes`
+- Remove the shared "Service Time (min)" field from the bottom section (line 997-1008) since each class row now has its own
+- Keep Unit and Min. Charge at the bottom (reduce from 3-col to 2-col grid)
+
+### Edit Mode Race Condition Fix (lines 215-226)
+When editing a service, if `classes` loads after the form initializes, `classRates` starts empty and the `useEffect` repopulates with blank values, losing existing rates. The fix:
+- Check if `editingChargeType` exists and has `pricing_rules`
+- When populating blank `classRates` from newly-loaded `classes`, match each class against `editingChargeType.pricing_rules` to restore saved rate and service time values
+
+### Save Logic Fix (line 320)
+Change `form.classRates.filter(r => r.rate)` to `form.classRates.filter(r => r.rate !== '')` so that a rate of `"0"` is saved rather than silently discarded.
 
 ---
 
-## Solution
+## Change 2: "No Charge" Pricing Method
 
-Use the existing `hours_input` column to store the quantity value for all service types. This avoids a database schema migration while solving the problem.
+### Purpose
+For services that need tracking (name, code, flags, alerts, scan hub, service time) but have no billing. Example: a "Fragile" flag that alerts the office but costs nothing.
 
-### Changes Required
+### New Pricing Method Card
+Add a 5th card to `PRICING_METHOD_CARDS`:
+```
+{ value: 'no_charge', label: 'No Charge', icon: 'money_off' }
+```
+The grid changes from `grid-cols-2` to accommodate 5 cards (wrap layout with `flex-wrap`).
 
-**File: `src/hooks/useQuotes.ts`**
+### Behavior When Selected
+- Rate configuration is **hidden entirely** (no rate, unit, or minimum charge)
+- A **Service Time** input is still shown (for scheduling/capacity planning)
+- An info note appears: "This service will not generate billing charges"
+- The **Billing Trigger** section (see Change 3) is hidden entirely
+- Trigger defaults to `'manual'`
+- Validation skips rate and trigger requirements
 
-1. **Update CREATE quote logic** (around line 505-509):
-   - When inserting selected services, use `qty_input` value if available, fall back to `hours_input`
-   
-2. **Update UPDATE quote logic** (around line 650-660):
-   - Same pattern: persist `qty_input` into the `hours_input` database column
+### Type Changes
+- `FormState.pricingMethod`: change from `'class_based' | 'flat'` to `'class_based' | 'flat' | 'no_charge'`
+- `handlePricingMethodSelect`: add `'no_charge'` case -- sets `pricingMethod: 'no_charge'`, `unit: 'each'`, `trigger: 'manual'`
+- `getActivePricingCard`: return `'no_charge'` when `form.pricingMethod === 'no_charge'`
 
-3. **Update LOAD quote logic** (around line 212-217):
-   - When loading a quote, map `hours_input` from DB to `qty_input` for assembly/per_hour services
-
-**File: `src/pages/QuoteBuilder.tsx`**
-
-4. **Update form data loading** (around line 212-217):
-   - Ensure when loading an existing quote, the `qty_input` is populated from the stored `hours_input` value
-
-### Technical Implementation
-
-**In useQuotes.ts - Insert logic (line ~505):**
-```typescript
-// Before (current):
-hours_input: ss.hours_input,
-
-// After (fixed):
-hours_input: ss.qty_input ?? ss.hours_input,
+### Save Behavior
+On save, creates a flat pricing rule with `rate: 0` for database consistency:
+```
+pricing_method: 'flat', rate: 0, unit: 'each',
+service_time_minutes: (from form if set)
 ```
 
-**In QuoteBuilder.tsx - Load logic (line ~212-217):**
-```typescript
-// Before (current):
-selected_services: data.selected_services.map((ss) => ({
-  service_id: ss.service_id,
-  is_selected: ss.is_selected,
-  hours_input: ss.hours_input,
-  qty_input: null,  // ← Always null!
-})),
+### Edit Mode Detection
+When loading an existing service, detect "no charge" by checking if the only pricing rule has `rate === 0` AND `pricing_method === 'flat'` AND `default_trigger === 'manual'` AND not class-based.
 
-// After (fixed):
-selected_services: data.selected_services.map((ss) => ({
-  service_id: ss.service_id,
-  is_selected: ss.is_selected,
-  hours_input: ss.hours_input,
-  qty_input: ss.hours_input,  // ← Use hours_input for both
-})),
+### Validation Changes (lines 250-268)
+- When `pricingMethod === 'no_charge'`: skip rate validation AND trigger validation
+- Other pricing methods: rate validation stays as-is
+
+### New Component: `NoChargeConfig`
+A simple component showing only a Service Time (min) input and an info message. No rate, unit, or min charge fields.
+
+---
+
+## Change 3: Separate Category and Billing Trigger
+
+### Current State (lines 579-692)
+Section 2 is titled "Category & Auto Billing Trigger" and contains both the category chips and the trigger/flag/scan chips in one card.
+
+### New Layout (5 sections instead of 4)
+
+```text
+Section 1: Basic Information (unchanged)
+
+Section 2: Category
+  - Service category chips only
+  - Numbered circle: 2
+
+Section 3: Pricing (unchanged, but now numbered 3)
+  - 5 method cards including No Charge
+  - Rate config / table / NoChargeConfig
+
+Section 4: Billing Trigger            <-- NEW STANDALONE SECTION
+  - Auto billing trigger chips
+  - Flag / Scan chips
+  - Help text
+  - Entire section is HIDDEN when No Charge is selected
+
+Section 5: Options (unchanged content, renumbered from 4 to 5)
 ```
 
----
-
-## Files to Modify
-
-| File | Change |
-|------|--------|
-| `src/hooks/useQuotes.ts` | Save `qty_input` into `hours_input` column when creating/updating quotes |
-| `src/pages/QuoteBuilder.tsx` | Load `hours_input` into `qty_input` when fetching existing quotes |
+### What Moves
+- The auto billing trigger chips, flag/scan chips, and help text (lines 632-689) move from Section 2 into a new Section 4 card
+- Section 2 becomes "Category" only
+- When `form.pricingMethod === 'no_charge'`, the entire Section 4 card is not rendered
+- Section numbering updates: the Options card changes from circle "4" to circle "5"
 
 ---
 
-## Expected Result After Fix
+## No Database Changes Needed
 
-When opening an existing quote with assembly services:
-- Assembly 120m with Qty=1 will calculate: 1 × $250.00 = $250.00
-- Assembly 60m with Qty=2 will calculate: 2 × $140.00 = $280.00
-- Values persist correctly across save/reload cycles
+- "No Charge" services store as `pricing_method: 'flat'` with `rate: 0` in `pricing_rules` -- existing schema supports this
+- Flag/alert functionality is independent of pricing (driven by `add_flag`, `flag_is_indicator`, `alert_rule` on `charge_types`)
+- Per-class `service_time_minutes` is already a column on `pricing_rules`
 
----
-
-## Technical Note
-
-The `hours_input` column is repurposed as a generic "quantity input" field. This is semantically imprecise (hours vs quantity) but avoids requiring a database migration. The calculator logic already handles this correctly since it prioritizes `qty_input` over `hours_input` - we just need to ensure the value is persisted and loaded properly.
