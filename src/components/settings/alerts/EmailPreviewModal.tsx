@@ -1,10 +1,6 @@
+import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
   CommunicationBrandSettings,
@@ -36,45 +32,78 @@ export function EmailPreviewModal({
   const logoUrl = brandSettings?.brand_logo_url || null;
   const tenantName = brandSettings?.from_name || 'Your Company';
   const supportEmail = brandSettings?.brand_support_email || '';
+  const portalUrl = brandSettings?.portal_base_url || '';
+
+  // ESC key support
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onOpenChange(false);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, onOpenChange]);
+
+  // Lock body scroll while open
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open) return null;
 
   // Replace tokens with sample data for preview
   const sampleData = buildSampleData();
   const resolvedSubject = replaceTokens(subject, sampleData);
   const resolvedBody = replaceTokens(body, sampleData);
-  const resolvedCtaLink = replaceTokens(ctaLink, sampleData);
 
   // Convert basic markdown to HTML-safe display
   const bodyHtml = markdownToSimpleHtml(resolvedBody);
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0">
-        <DialogHeader className="p-6 pb-0">
-          <DialogTitle className="flex items-center gap-2">
-            <MaterialIcon name="visibility" size="md" />
-            Email Preview
-          </DialogTitle>
-        </DialogHeader>
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-background"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Email Preview"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b bg-card flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <MaterialIcon name="visibility" size="md" className="text-muted-foreground" />
+          <h2 className="text-lg font-semibold">Email Preview</h2>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+          <MaterialIcon name="close" size="sm" className="mr-2" />
+          Close
+        </Button>
+      </div>
 
-        <div className="p-6 pt-4">
+      {/* Scrollable Preview Content */}
+      <div className="flex-1 overflow-y-auto bg-muted/30">
+        <div className="max-w-2xl mx-auto px-6 py-8">
           {/* Subject line preview */}
-          <div className="mb-4 p-3 bg-muted rounded-lg">
+          <div className="mb-6 p-4 bg-card rounded-lg border">
             <p className="text-xs text-muted-foreground mb-1">Subject</p>
             <p className="text-sm font-medium">{resolvedSubject || '(no subject)'}</p>
           </div>
 
           {/* Email render */}
-          <div className="border rounded-lg overflow-hidden bg-[#f1f5f9]">
+          <div className="border rounded-lg overflow-hidden shadow-sm">
             {/* Header Bar */}
             <div
-              className="p-6 flex items-center justify-between"
+              className="p-6 flex items-center"
               style={{ backgroundColor: accentColor }}
             >
               {logoUrl ? (
                 <img
                   src={logoUrl}
                   alt={tenantName}
-                  className="h-8 max-w-[150px] object-contain"
+                  className="h-8 max-w-[180px] object-contain"
                   style={{ filter: 'brightness(0) invert(1)' }}
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = 'none';
@@ -94,14 +123,13 @@ export function EmailPreviewModal({
 
               {/* CTA Button */}
               {ctaEnabled && ctaLabel && (
-                <div className="mt-6 text-center">
-                  <a
-                    href={resolvedCtaLink || '#'}
-                    className="inline-block px-7 py-3.5 text-white font-semibold text-sm rounded-lg no-underline"
+                <div className="mt-8 text-center">
+                  <span
+                    className="inline-block px-8 py-3.5 text-white font-semibold text-sm rounded-lg cursor-default"
                     style={{ backgroundColor: accentColor }}
                   >
                     {ctaLabel}
-                  </a>
+                  </span>
                 </div>
               )}
             </div>
@@ -112,20 +140,35 @@ export function EmailPreviewModal({
             {/* Footer */}
             <div className="bg-[#f8fafc] p-6 text-center text-sm text-[#64748b] space-y-1">
               <p className="font-semibold text-[#1e293b]">{tenantName}</p>
+              {portalUrl && <p>{portalUrl}</p>}
               {supportEmail && <p>{supportEmail}</p>}
+              {!portalUrl && !supportEmail && (
+                <p className="text-[#94a3b8]">Configure portal URL or support email in Brand Settings</p>
+              )}
             </div>
           </div>
 
-          <div className="mt-4 flex justify-end">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Close
-            </Button>
+          {/* Sender preview */}
+          <div className="mt-6 p-4 bg-card rounded-lg border text-sm">
+            <span className="text-muted-foreground">From: </span>
+            <span className="font-medium">
+              {brandSettings?.from_name || 'Company Name'}{' '}
+              &lt;{brandSettings?.from_email || 'notifications@company.com'}&gt;
+            </span>
           </div>
+
+          {/* Note */}
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            This preview uses sample data for tokens. Actual emails will use real values.
+          </p>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>,
+    document.body
   );
 }
+
+// --- Helpers ---
 
 function buildSampleData(): Record<string, string> {
   const data: Record<string, string> = {};
@@ -146,7 +189,7 @@ function replaceTokens(text: string, data: Record<string, string>): string {
 }
 
 function markdownToSimpleHtml(text: string): string {
-  // Escape HTML
+  // Escape HTML entities
   let html = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -157,7 +200,10 @@ function markdownToSimpleHtml(text: string): string {
   // Italic: *text*
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
   // Links: [text](url)
-  html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" style="color:#E85D2D;">$1</a>');
+  html = html.replace(
+    /\[(.+?)\]\((.+?)\)/g,
+    '<a href="$2" style="color:#2563eb;text-decoration:underline;">$1</a>'
+  );
 
   return html;
 }
