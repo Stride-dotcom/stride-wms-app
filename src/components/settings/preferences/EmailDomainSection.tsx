@@ -534,7 +534,7 @@ export function EmailDomainSection() {
           Email Sender Configuration
         </CardTitle>
         <CardDescription>
-          Choose how your notification emails will be sent to customers
+          Configure the sender address for outgoing email alerts. This controls what address appears in the "From" field &mdash; it does not control who receives the emails.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

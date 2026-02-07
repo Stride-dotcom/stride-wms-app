@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import {
   Tooltip,
@@ -362,10 +363,10 @@ export function OrganizationSettingsTab() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MaterialIcon name="phone" size="md" />
-                    Contact Information
+                    Contact &amp; Email Recipients
                   </CardTitle>
                   <CardDescription>
-                    Primary contact details for your organization
+                    Organization contact details and internal email alert recipients
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -375,12 +376,12 @@ export function OrganizationSettingsTab() {
                       name="company_email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Primary Email</FormLabel>
+                          <FormLabel>Primary Email (Reply-To)</FormLabel>
                           <FormControl>
                             <Input type="email" placeholder="contact@company.com" {...field} />
                           </FormControl>
                           <FormDescription>
-                            Used as the reply-to address for system emails
+                            Used as the reply-to address on outgoing system emails
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -404,6 +405,19 @@ export function OrganizationSettingsTab() {
 
                   <Separator />
 
+                  {/* Alert Channel Clarity */}
+                  <Alert className="border-blue-200 bg-blue-50">
+                    <MaterialIcon name="info" size="sm" className="text-blue-600" />
+                    <AlertDescription className="text-blue-900">
+                      <p className="font-medium mb-1">In-App Alerts vs Email Alerts</p>
+                      <p className="text-sm">
+                        <strong>In-app alerts</strong> (bell icon, Messages page) are shown to logged-in users and do not send email.{' '}
+                        <strong>Email alerts</strong> are sent via your configured email sender to the addresses below.
+                        These are separate systems &mdash; configuring email recipients does not affect in-app notifications.
+                      </p>
+                    </AlertDescription>
+                  </Alert>
+
                   {/* Office Alerts Email(s) */}
                   <FormField
                     control={form.control}
@@ -420,7 +434,7 @@ export function OrganizationSettingsTab() {
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent side="right" className="max-w-xs">
-                                <p>This email is used for office/internal notifications and can be referenced in alert templates. It is also the default fallback when an alert has no specific recipient configured.</p>
+                                <p>These emails receive internal system notifications when alerts are sent by email, even if no specific recipient is configured.</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -432,7 +446,7 @@ export function OrganizationSettingsTab() {
                           />
                         </FormControl>
                         <FormDescription>
-                          Used for internal system alerts such as quotes, claims, flags, and approvals. You may add multiple emails separated by commas.
+                          Used as the default internal email destination for automated app alerts (quotes, claims, flags, approvals). You may add multiple emails separated by commas.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
