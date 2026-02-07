@@ -79,6 +79,7 @@ interface Item {
   account_id: string | null;
   received_at: string | null;
   primary_photo_url: string | null;
+  has_indicator_flags?: boolean;
 }
 
 type SortField = 'item_code' | 'vendor' | 'description' | 'quantity' | 'location_code' | 'client_account' | 'sidemark' | 'room';
@@ -216,7 +217,26 @@ export default function Inventory() {
         primary_photo_url: item.primary_photo_url,
       }));
 
-      setItems(transformedData);
+      // Batch-fetch indicator flags for displayed items
+      const itemIds = transformedData.map(i => i.id);
+      let flaggedItemIds = new Set<string>();
+      if (itemIds.length > 0) {
+        try {
+          const { data: flagData } = await (supabase.from('item_flags') as any)
+            .select('item_id')
+            .in('item_id', itemIds);
+          if (flagData) {
+            flaggedItemIds = new Set<string>(flagData.map((f: any) => f.item_id));
+          }
+        } catch {
+          // item_flags table may not exist yet — ignore gracefully
+        }
+      }
+
+      setItems(transformedData.map(item => ({
+        ...item,
+        has_indicator_flags: flaggedItemIds.has(item.id),
+      })));
     } catch (error) {
       console.error('Error fetching items:', error);
     } finally {
@@ -402,7 +422,7 @@ export default function Inventory() {
             {loading ? (<div className="flex items-center justify-center h-48"><MaterialIcon name="progress_activity" size="xl" className="animate-spin text-muted-foreground" /></div>
             ) : filteredAndSortedItems.length === 0 ? (<div className="text-center py-12"><MaterialIcon name="inventory_2" size="xl" className="mx-auto text-muted-foreground" /><h3 className="mt-4 text-lg font-semibold">No items found</h3><p className="text-muted-foreground">{searchQuery || statusFilter !== 'all' ? 'Try adjusting your search or filters' : 'Get started by adding your first item'}</p></div>
             ) : isMobile ? (
-              <div className="space-y-3">{filteredAndSortedItems.map((item) => (<MobileDataCard key={item.id} onClick={() => navigate(`/inventory/${item.id}`)} selected={selectedItems.has(item.id)}><MobileDataCardHeader><div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={() => toggleItemSelection(item.id)} className="h-5 w-5" /><div className="flex-1 min-w-0"><MobileDataCardTitle>{item.item_code}</MobileDataCardTitle><MobileDataCardDescription className="truncate">{item.description || '-'}</MobileDataCardDescription></div></div></MobileDataCardHeader><MobileDataCardContent><div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs"><div className="flex justify-between"><span className="text-muted-foreground">Qty:</span><span className="font-medium">{item.quantity}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Vendor:</span><span className="truncate ml-1">{item.vendor || '-'}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Account:</span><span className="truncate ml-1">{item.client_account || '-'}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Sidemark:</span><span className="truncate ml-1">{item.sidemark || '-'}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Room:</span><span className="truncate ml-1">{item.room || '-'}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Location:</span><span className="truncate ml-1">{item.location_code || '-'}</span></div></div></MobileDataCardContent></MobileDataCard>))}</div>
+              <div className="space-y-3">{filteredAndSortedItems.map((item) => (<MobileDataCard key={item.id} onClick={() => navigate(`/inventory/${item.id}`)} selected={selectedItems.has(item.id)}><MobileDataCardHeader><div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={() => toggleItemSelection(item.id)} className="h-5 w-5" /><div className="flex-1 min-w-0"><MobileDataCardTitle>{item.has_indicator_flags && <span>{'\u26A0\uFE0F'} </span>}{item.item_code}</MobileDataCardTitle><MobileDataCardDescription className="truncate">{item.description || '-'}</MobileDataCardDescription></div></div></MobileDataCardHeader><MobileDataCardContent><div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs"><div className="flex justify-between"><span className="text-muted-foreground">Qty:</span><span className="font-medium">{item.quantity}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Vendor:</span><span className="truncate ml-1">{item.vendor || '-'}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Account:</span><span className="truncate ml-1">{item.client_account || '-'}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Sidemark:</span><span className="truncate ml-1">{item.sidemark || '-'}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Room:</span><span className="truncate ml-1">{item.room || '-'}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Location:</span><span className="truncate ml-1">{item.location_code || '-'}</span></div></div></MobileDataCardContent></MobileDataCard>))}</div>
             ) : (
               <div className="overflow-x-auto rounded-md border">
                 <Table>
@@ -428,7 +448,10 @@ export default function Inventory() {
                       </TableCell>
                       <TableCell className="font-medium" onClick={(e) => e.stopPropagation()}>
                         <ItemPreviewCard itemId={item.id}>
-                          <span className="text-primary hover:underline cursor-pointer" onClick={() => navigate(`/inventory/${item.id}`)}>{item.item_code}</span>
+                          <span className="text-primary hover:underline cursor-pointer inline-flex items-center gap-1" onClick={() => navigate(`/inventory/${item.id}`)}>
+                            {item.has_indicator_flags && <span title="Has indicator flags">{'\u26A0\uFE0F'}</span>}
+                            {item.item_code}
+                          </span>
                         </ItemPreviewCard>
                       </TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>

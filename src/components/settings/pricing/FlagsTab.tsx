@@ -268,7 +268,7 @@ function FlagEditForm({ flag, onSave, onCancel }: FlagEditFormProps) {
             />
             <div>
               <span className="text-sm font-medium">Indicator Only</span>
-              <p className="text-xs text-muted-foreground">Visual marker only — no billing event created when applied</p>
+              <p className="text-xs text-muted-foreground">Adds a visual warning when this flag is applied. No billing.</p>
             </div>
           </label>
         </div>
@@ -278,7 +278,7 @@ function FlagEditForm({ flag, onSave, onCancel }: FlagEditFormProps) {
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
           <Label className="text-sm font-medium">Triggers Alert</Label>
-          <p className="text-xs text-muted-foreground">Send a notification when this flag is applied to an item</p>
+          <p className="text-xs text-muted-foreground">Sends email/SMS when this flag is applied.</p>
         </div>
         <Switch checked={triggersAlert} onCheckedChange={setTriggersAlert} />
       </div>
@@ -418,7 +418,7 @@ function AddFlagForm({ onSave, onCancel }: AddFlagFormProps) {
               />
               <div>
                 <span className="text-sm font-medium">Indicator Only</span>
-                <p className="text-xs text-muted-foreground">Visual marker only, no billing event</p>
+                <p className="text-xs text-muted-foreground">Adds a visual warning when this flag is applied. No billing.</p>
               </div>
             </label>
           </div>
@@ -427,7 +427,7 @@ function AddFlagForm({ onSave, onCancel }: AddFlagFormProps) {
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <Label className="text-sm font-medium">Triggers Alert</Label>
-            <p className="text-xs text-muted-foreground">Send notification when applied</p>
+            <p className="text-xs text-muted-foreground">Sends email/SMS when this flag is applied.</p>
           </div>
           <Switch checked={triggersAlert} onCheckedChange={setTriggersAlert} />
         </div>

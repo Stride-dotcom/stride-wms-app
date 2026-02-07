@@ -75,7 +75,7 @@ export const TRIGGER_EVENTS = [
   { value: 'item.received', label: 'Item Received' },
   { value: 'item.damaged', label: 'Item Damaged' },
   { value: 'item.location_changed', label: 'Item Location Changed' },
-  { value: 'item.flag_added', label: 'Item Flag Added' },
+  { value: 'item.flag_added', label: 'Flag added to item' },
   { value: 'billing_event.created', label: 'Billing Event Created' },
   { value: 'task.created', label: 'Task Created' },
   { value: 'task.assigned', label: 'Task Assigned' },
