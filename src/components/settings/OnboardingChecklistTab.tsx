@@ -543,20 +543,6 @@ export function OnboardingChecklistTab() {
               Send Test Email
             </Button>
 
-            {/* Queue Test Email Alert */}
-            <Button
-              variant="outline"
-              onClick={handleQueueTestAlert}
-              disabled={queuingTestAlert || !testEmailAddress}
-            >
-              {queuingTestAlert ? (
-                <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
-              ) : (
-                <MaterialIcon name="forward_to_inbox" size="sm" className="mr-2" />
-              )}
-              Send Test Email Alert
-            </Button>
-
             {/* Refresh Checks */}
             <Button variant="ghost" onClick={runChecks}>
               <MaterialIcon name="refresh" size="sm" className="mr-2" />
