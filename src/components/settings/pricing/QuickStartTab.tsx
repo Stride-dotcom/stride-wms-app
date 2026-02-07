@@ -33,13 +33,16 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useTenantTemplates, type TemplateResult } from '@/hooks/useTenantTemplates';
 import { useChargeTypesWithRules } from '@/hooks/useChargeTypes';
 import { useClasses } from '@/hooks/useClasses';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import * as XLSX from 'xlsx';
 
 export function QuickStartTab() {
   const { loading, applyCoreDefaults, applyFullStarter } = useTenantTemplates();
   const { chargeTypesWithRules, refetch: refetchChargeTypes } = useChargeTypesWithRules();
   const { classes } = useClasses();
+  const { profile } = useAuth();
   const { toast } = useToast();
   const [confirmDialog, setConfirmDialog] = useState<'core' | 'full' | null>(null);
   const [resultData, setResultData] = useState<TemplateResult | null>(null);
@@ -65,70 +68,91 @@ export function QuickStartTab() {
     }
   };
 
+  // =========================================================================
+  // EXPORT
+  // =========================================================================
+
   const handleExportTemplate = () => {
     const wb = XLSX.utils.book_new();
 
     // Instructions sheet
     const instructions = [
-      ['Service Rates Import Template'],
+      ['Service Rates Import / Export Template'],
       [''],
       ['Instructions:'],
-      ['1. Fill in the "Services" sheet with your service configurations'],
-      ['2. For class-based pricing, add rates in the "Class Rates" sheet'],
+      ['1. Fill in the "Charge Types" sheet with your service configurations'],
+      ['2. For class-based pricing, add rates in the "Pricing Rules" sheet'],
       ['3. Save the file and upload it using the "Upload & Preview" button'],
       [''],
-      ['Column Descriptions (Services sheet):'],
+      ['Column Descriptions (Charge Types sheet):'],
       ['charge_code - Unique code for the service (e.g., INSP, RECV)'],
       ['charge_name - Display name (e.g., Standard Inspection)'],
-      ['category - Category name in lowercase (e.g., service, task, storage)'],
+      ['category - Category (e.g., receiving, storage, handling, task, shipping, service)'],
       ['default_trigger - manual, task, shipment, storage, or auto'],
-      ['pricing_method - flat or class_based'],
-      ['unit - each, per_item, per_task, per_hour, per_minute, per_day, per_month'],
-      ['flat_rate - Rate for flat pricing (leave empty for class-based)'],
-      ['minimum_charge - Optional minimum charge amount'],
+      ['input_mode - qty, time, or both'],
       ['is_active - TRUE or FALSE'],
       ['is_taxable - TRUE or FALSE'],
       ['add_to_scan - TRUE or FALSE'],
       ['add_flag - TRUE or FALSE'],
+      ['flag_is_indicator - TRUE or FALSE (indicator-only flag, no billing)'],
       ['notes - Optional notes'],
+      [''],
+      ['Column Descriptions (Pricing Rules sheet):'],
+      ['charge_code - Must match a code from the Charge Types sheet'],
+      ['pricing_method - flat or class_based'],
+      ['class_code - Leave empty for flat, set XS/S/M/L/XL/XXL for class_based'],
+      ['unit - each, per_item, per_task, per_hour, per_minute, per_day, per_month'],
+      ['rate - Dollar amount (e.g., 15.00)'],
+      ['minimum_charge - Optional minimum charge amount'],
+      ['service_time_minutes - Optional estimated time in minutes'],
     ];
     const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
     XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
 
-    // Services sheet
-    const servicesHeaders = [
-      'charge_code', 'charge_name', 'category', 'default_trigger',
-      'pricing_method', 'unit', 'flat_rate', 'minimum_charge',
-      'is_active', 'is_taxable', 'add_to_scan', 'add_flag', 'notes',
+    // Charge Types sheet
+    const ctHeaders = [
+      'charge_code', 'charge_name', 'category', 'default_trigger', 'input_mode',
+      'is_active', 'is_taxable', 'add_to_scan', 'add_flag', 'flag_is_indicator', 'notes',
     ];
-    const servicesData = chargeTypesWithRules.map(ct => [
+    const ctData = chargeTypesWithRules.map(ct => [
       ct.charge_code,
       ct.charge_name,
       ct.category,
       ct.default_trigger,
-      ct.pricing_rules.some(r => r.pricing_method === 'class_based') ? 'class_based' : 'flat',
-      ct.pricing_rules[0]?.unit || 'each',
-      ct.pricing_rules.find(r => !r.class_code)?.rate || '',
-      ct.pricing_rules[0]?.minimum_charge || '',
+      ct.input_mode || 'qty',
       ct.is_active,
       ct.is_taxable,
       ct.add_to_scan,
       ct.add_flag,
+      ct.flag_is_indicator,
       ct.notes || '',
     ]);
-    const wsServices = XLSX.utils.aoa_to_sheet([servicesHeaders, ...servicesData]);
-    XLSX.utils.book_append_sheet(wb, wsServices, 'Services');
+    const wsChargeTypes = XLSX.utils.aoa_to_sheet([ctHeaders, ...ctData]);
+    XLSX.utils.book_append_sheet(wb, wsChargeTypes, 'Charge Types');
 
-    // Class Rates sheet
-    const classRatesHeaders = ['charge_code', 'class_code', 'rate', 'service_time_minutes'];
-    const classRatesData: (string | number)[][] = [];
+    // Pricing Rules sheet
+    const prHeaders = ['charge_code', 'pricing_method', 'class_code', 'unit', 'rate', 'minimum_charge', 'service_time_minutes'];
+    const prData: (string | number | boolean)[][] = [];
     chargeTypesWithRules.forEach(ct => {
-      ct.pricing_rules.filter(r => r.class_code).forEach(r => {
-        classRatesData.push([ct.charge_code, r.class_code || '', r.rate, r.service_time_minutes || '']);
-      });
+      if (ct.pricing_rules.length === 0) {
+        // Export a placeholder row for charge types with no rules
+        prData.push([ct.charge_code, 'flat', '', 'each', 0, '', '']);
+      } else {
+        ct.pricing_rules.forEach(r => {
+          prData.push([
+            ct.charge_code,
+            r.pricing_method || 'flat',
+            r.class_code || '',
+            r.unit || 'each',
+            r.rate,
+            r.minimum_charge ?? '',
+            r.service_time_minutes ?? '',
+          ]);
+        });
+      }
     });
-    const wsClassRates = XLSX.utils.aoa_to_sheet([classRatesHeaders, ...classRatesData]);
-    XLSX.utils.book_append_sheet(wb, wsClassRates, 'Class Rates');
+    const wsPricingRules = XLSX.utils.aoa_to_sheet([prHeaders, ...prData]);
+    XLSX.utils.book_append_sheet(wb, wsPricingRules, 'Pricing Rules');
 
     // Classes Reference sheet
     const classRefHeaders = ['code', 'name', 'min_cubic_feet', 'max_cubic_feet', 'sort_order'];
@@ -138,9 +162,13 @@ export function QuickStartTab() {
     const wsClassRef = XLSX.utils.aoa_to_sheet([classRefHeaders, ...classRefData]);
     XLSX.utils.book_append_sheet(wb, wsClassRef, 'Classes Reference');
 
-    XLSX.writeFile(wb, 'service-rates-template.xlsx');
-    toast({ title: 'Template downloaded', description: 'Fill in the template and upload to import.' });
+    XLSX.writeFile(wb, 'service-rates-export.xlsx');
+    toast({ title: 'Export downloaded', description: 'Your service rates have been exported.' });
   };
+
+  // =========================================================================
+  // IMPORT - File parse & preview
+  // =========================================================================
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -150,28 +178,32 @@ export function QuickStartTab() {
     reader.onload = (evt) => {
       try {
         const wb = XLSX.read(evt.target?.result, { type: 'array' });
-        const servicesSheet = wb.Sheets['Services'];
-        const classRatesSheet = wb.Sheets['Class Rates'];
 
-        if (!servicesSheet) {
-          toast({ variant: 'destructive', title: 'Invalid file', description: 'Missing "Services" sheet' });
+        // Support both old and new sheet names
+        const ctSheet = wb.Sheets['Charge Types'] || wb.Sheets['Services'];
+        const prSheet = wb.Sheets['Pricing Rules'] || wb.Sheets['Class Rates'];
+
+        if (!ctSheet) {
+          toast({ variant: 'destructive', title: 'Invalid file', description: 'Missing "Charge Types" or "Services" sheet' });
           return;
         }
 
-        const services: Record<string, string | number | boolean>[] = XLSX.utils.sheet_to_json(servicesSheet);
-        const classRates: Record<string, string | number>[] = classRatesSheet ? XLSX.utils.sheet_to_json(classRatesSheet) : [];
+        const chargeTypeRows: Record<string, string | number | boolean>[] = XLSX.utils.sheet_to_json(ctSheet);
+        const pricingRuleRows: Record<string, string | number>[] = prSheet ? XLSX.utils.sheet_to_json(prSheet) : [];
 
         const existingCodes = new Set(chargeTypesWithRules.map(ct => ct.charge_code));
-        const preview: ImportPreviewRow[] = services.map(row => {
+        const preview: ImportPreviewRow[] = chargeTypeRows.map(row => {
           const code = String(row.charge_code || '').trim();
-          const hasError = !code || !row.charge_name;
+          const name = String(row.charge_name || '').trim();
+          const hasError = !code || !name;
           const status: ImportStatus = hasError ? 'error' : existingCodes.has(code) ? 'update' : 'new';
           return {
             ...row,
             charge_code: code,
+            charge_name: name,
             status,
             error: hasError ? (!code ? 'Missing charge_code' : 'Missing charge_name') : undefined,
-            classRates: classRates.filter(cr => String(cr.charge_code) === code),
+            pricingRules: pricingRuleRows.filter(pr => String(pr.charge_code).trim() === code),
           };
         });
 
@@ -181,27 +213,124 @@ export function QuickStartTab() {
           updateCount: preview.filter(r => r.status === 'update').length,
           errorCount: preview.filter(r => r.status === 'error').length,
         });
-      } catch (error) {
+      } catch {
         toast({ variant: 'destructive', title: 'Error reading file', description: 'Please ensure the file is a valid .xlsx file.' });
       }
     };
     reader.readAsArrayBuffer(file);
 
-    // Reset input
+    // Reset input so same file can be re-uploaded
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // =========================================================================
+  // IMPORT - Apply
+  // =========================================================================
+
   const handleImportApply = async () => {
-    if (!importPreview) return;
+    if (!importPreview || !profile?.tenant_id) return;
+
     setImporting(true);
+    let created = 0;
+    let updated = 0;
+    let errors = 0;
+
     try {
-      // Import is a complex operation - for now show a success message
-      // Full import logic would create/update charge_types and pricing_rules
+      const validRows = importPreview.rows.filter(r => r.status !== 'error');
+
+      for (const row of validRows) {
+        try {
+          const chargeTypeData = {
+            tenant_id: profile.tenant_id,
+            charge_code: row.charge_code,
+            charge_name: String(row.charge_name || ''),
+            category: String(row.category || 'service').toLowerCase(),
+            default_trigger: String(row.default_trigger || 'manual'),
+            input_mode: String(row.input_mode || 'qty'),
+            is_active: parseBool(row.is_active, true),
+            is_taxable: parseBool(row.is_taxable, false),
+            add_to_scan: parseBool(row.add_to_scan, false),
+            add_flag: parseBool(row.add_flag, false),
+            flag_is_indicator: parseBool(row.flag_is_indicator, false),
+            notes: row.notes ? String(row.notes) : null,
+          };
+
+          let chargeTypeId: string;
+
+          if (row.status === 'new') {
+            // Insert new charge type
+            const { data, error } = await supabase
+              .from('charge_types')
+              .insert(chargeTypeData)
+              .select('id')
+              .single();
+
+            if (error) throw error;
+            chargeTypeId = data.id;
+            created++;
+          } else {
+            // Update existing charge type
+            const existing = chargeTypesWithRules.find(ct => ct.charge_code === row.charge_code);
+            if (!existing) continue;
+            chargeTypeId = existing.id;
+
+            const { charge_code: _code, tenant_id: _tid, ...updateData } = chargeTypeData;
+            const { error } = await supabase
+              .from('charge_types')
+              .update(updateData)
+              .eq('id', chargeTypeId);
+
+            if (error) throw error;
+            updated++;
+          }
+
+          // Upsert pricing rules for this charge type
+          if (row.pricingRules.length > 0) {
+            // Delete existing pricing rules for this charge type (replace strategy)
+            await supabase
+              .from('pricing_rules')
+              .delete()
+              .eq('charge_type_id', chargeTypeId);
+
+            // Insert new pricing rules
+            const rulesToInsert = row.pricingRules.map(pr => ({
+              tenant_id: profile.tenant_id,
+              charge_type_id: chargeTypeId,
+              pricing_method: String(pr.pricing_method || 'flat'),
+              class_code: pr.class_code ? String(pr.class_code).trim() : null,
+              unit: String(pr.unit || 'each'),
+              rate: parseFloat(String(pr.rate || '0')),
+              minimum_charge: pr.minimum_charge ? parseFloat(String(pr.minimum_charge)) : null,
+              service_time_minutes: pr.service_time_minutes ? parseInt(String(pr.service_time_minutes), 10) : null,
+              is_default: !pr.class_code,
+            }));
+
+            const { error: prError } = await supabase
+              .from('pricing_rules')
+              .insert(rulesToInsert);
+
+            if (prError) throw prError;
+          }
+        } catch (rowError) {
+          console.error(`Import error for ${row.charge_code}:`, rowError);
+          errors++;
+        }
+      }
+
       toast({
-        title: 'Import Preview',
-        description: `Found ${importPreview.newCount} new, ${importPreview.updateCount} updates, ${importPreview.errorCount} errors. Full import requires server-side processing.`,
+        title: 'Import Complete',
+        description: `Created ${created}, updated ${updated}${errors > 0 ? `, ${errors} errors` : ''}`,
       });
+
       setImportPreview(null);
+      refetchChargeTypes();
+    } catch (error) {
+      console.error('Import failed:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Import Failed',
+        description: error instanceof Error ? error.message : 'An unexpected error occurred',
+      });
     } finally {
       setImporting(false);
     }
@@ -368,7 +497,7 @@ export function QuickStartTab() {
               </div>
               {resultData.services_added !== undefined && (
                 <div>
-                  <span className="text-muted-foreground">Price List</span>
+                  <span className="text-muted-foreground">Charge Types</span>
                   <p className="font-medium">
                     {resultData.services_added > 0 ? (
                       <span className="text-green-600">+{resultData.services_added}</span>
@@ -392,14 +521,14 @@ export function QuickStartTab() {
             Excel Import / Export
           </CardTitle>
           <CardDescription>
-            Download the template, fill in your services and rates, then upload to preview changes before importing.
+            Export your current service rates or import from a spreadsheet. Upload previews changes before applying.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <Button variant="outline" onClick={handleExportTemplate}>
               <MaterialIcon name="download" size="sm" className="mr-1.5" />
-              Download Template
+              Export Rates
             </Button>
             <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
               <MaterialIcon name="upload" size="sm" className="mr-1.5" />
@@ -413,6 +542,9 @@ export function QuickStartTab() {
               onChange={handleFileUpload}
             />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Existing charge types matched by code will be updated. New codes will be created. Pricing rules are replaced on import.
+          </p>
         </CardContent>
       </Card>
 
@@ -442,11 +574,11 @@ export function QuickStartTab() {
 
       {/* Import Preview Dialog */}
       <Dialog open={!!importPreview} onOpenChange={() => setImportPreview(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Import Preview</DialogTitle>
             <DialogDescription>
-              Review the changes before importing.
+              Review the changes before importing. Existing charge types will be updated; new ones will be created.
             </DialogDescription>
           </DialogHeader>
           {importPreview && (
@@ -462,11 +594,12 @@ export function QuickStartTab() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Status</TableHead>
+                      <TableHead className="w-[80px]">Status</TableHead>
                       <TableHead>Code</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Category</TableHead>
-                      <TableHead>Method</TableHead>
+                      <TableHead>Trigger</TableHead>
+                      <TableHead className="text-right">Rules</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -484,7 +617,8 @@ export function QuickStartTab() {
                         <TableCell className="font-mono text-xs">{row.charge_code}</TableCell>
                         <TableCell>{String(row.charge_name || '')}</TableCell>
                         <TableCell>{String(row.category || '')}</TableCell>
-                        <TableCell>{String(row.pricing_method || '')}</TableCell>
+                        <TableCell>{String(row.default_trigger || 'manual')}</TableCell>
+                        <TableCell className="text-right">{row.pricingRules.length}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -504,7 +638,7 @@ export function QuickStartTab() {
                   Importing...
                 </>
               ) : (
-                'Apply Import'
+                `Import ${(importPreview?.newCount ?? 0) + (importPreview?.updateCount ?? 0)} Charge Types`
               )}
             </Button>
           </DialogFooter>
@@ -515,6 +649,21 @@ export function QuickStartTab() {
 }
 
 // =============================================================================
+// HELPERS
+// =============================================================================
+
+function parseBool(value: unknown, fallback: boolean): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const lower = value.toLowerCase().trim();
+    if (lower === 'true' || lower === '1' || lower === 'yes') return true;
+    if (lower === 'false' || lower === '0' || lower === 'no') return false;
+  }
+  if (typeof value === 'number') return value !== 0;
+  return fallback;
+}
+
+// =============================================================================
 // TYPES
 // =============================================================================
 
@@ -522,9 +671,10 @@ type ImportStatus = 'new' | 'update' | 'skip' | 'error';
 
 interface ImportPreviewRow extends Record<string, unknown> {
   charge_code: string;
+  charge_name: string;
   status: ImportStatus;
   error?: string;
-  classRates: Record<string, string | number>[];
+  pricingRules: Record<string, string | number>[];
 }
 
 interface ImportPreviewData {
