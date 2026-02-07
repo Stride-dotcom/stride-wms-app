@@ -19,6 +19,7 @@ import {
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toastShim';
+import { queueShipmentReceivedAlert } from '@/lib/alertQueue';
 
 interface Account {
   id: string;
@@ -34,6 +35,7 @@ interface ReassignAccountDialogProps {
   currentAccountId?: string | null;
   currentAccountName?: string | null;
   onSuccess: () => void;
+  onShipmentCreated?: (shipmentId: string) => void;
   tenantId?: string;
   userId?: string;
 }
@@ -46,6 +48,7 @@ export function ReassignAccountDialog({
   currentAccountId,
   currentAccountName,
   onSuccess,
+  onShipmentCreated,
   tenantId,
   userId,
 }: ReassignAccountDialogProps) {
@@ -88,6 +91,7 @@ export function ReassignAccountDialog({
     }
 
     setSubmitting(true);
+    let lastCreatedShipmentId: string | null = null;
     try {
       const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
@@ -99,6 +103,15 @@ export function ReassignAccountDialog({
           .in('id', entityIds);
 
         if (error) throw error;
+
+        // Also reassign all items on these shipments to the new account
+        for (const shipmentId of entityIds) {
+          await supabase
+            .from('items')
+            .update({ account_id: selectedAccountId })
+            .eq('receiving_shipment_id', shipmentId)
+            .is('deleted_at', null);
+        }
 
         // Log to audit log if tenantId and userId are provided
         if (tenantId && userId) {
@@ -119,9 +132,133 @@ export function ReassignAccountDialog({
           }
         }
 
-        toast.success(`Shipment reassigned to ${selectedAccount?.account_name}`);
+        toast.success(`Shipment and all items reassigned to ${selectedAccount?.account_name}`);
       } else {
-        // Update items account (single or bulk)
+        // Item reassignment with automatic shipment split
+        // 1. Fetch items to discover their source shipments
+        const { data: itemsWithShipments, error: fetchErr } = await supabase
+          .from('items')
+          .select('id, receiving_shipment_id')
+          .in('id', entityIds);
+
+        if (fetchErr) throw fetchErr;
+
+        // 2. Group items by their source shipment
+        const shipmentGroups = new Map<string, string[]>();
+        for (const item of itemsWithShipments || []) {
+          if (item.receiving_shipment_id) {
+            const group = shipmentGroups.get(item.receiving_shipment_id) || [];
+            group.push(item.id);
+            shipmentGroups.set(item.receiving_shipment_id, group);
+          }
+        }
+
+        // 3. Handle shipment splits / full moves
+        const newShipmentNumbers: string[] = [];
+
+        for (const [shipmentId, movingItemIds] of shipmentGroups) {
+          // Count total items on this shipment (that aren't deleted)
+          const { count: totalOnShipment } = await supabase
+            .from('items')
+            .select('id', { count: 'exact', head: true })
+            .eq('receiving_shipment_id', shipmentId)
+            .is('deleted_at', null);
+
+          if (totalOnShipment && totalOnShipment === movingItemIds.length) {
+            // ALL items from this shipment are moving → reassign the whole shipment
+            await supabase
+              .from('shipments')
+              .update({ account_id: selectedAccountId })
+              .eq('id', shipmentId);
+          } else {
+            // PARTIAL split → create a new shipment for the new account
+            const { data: sourceShipment } = await supabase
+              .from('shipments')
+              .select('*')
+              .eq('id', shipmentId)
+              .single();
+
+            if (sourceShipment) {
+              // Build new shipment payload (copy all details, photos, documents, notes)
+              const {
+                id: _id,
+                shipment_number: _num,
+                created_at: _ca,
+                updated_at: _ua,
+                deleted_at: _da,
+                portal_request_id: _pr,
+                ...shipmentDetails
+              } = sourceShipment;
+
+              const splitNote = `Split from shipment ${sourceShipment.shipment_number}`;
+              const { data: newShipment, error: createErr } = await supabase
+                .from('shipments')
+                .insert({
+                  ...shipmentDetails,
+                  account_id: selectedAccountId,
+                  notes: shipmentDetails.notes
+                    ? `${shipmentDetails.notes}\n\n${splitNote}`
+                    : splitNote,
+                  created_by: userId || shipmentDetails.created_by,
+                })
+                .select('id, shipment_number')
+                .single();
+
+              if (createErr) throw createErr;
+
+              if (newShipment) {
+                newShipmentNumbers.push(newShipment.shipment_number);
+                lastCreatedShipmentId = newShipment.id;
+
+                // Point the moved items at the new shipment
+                await supabase
+                  .from('items')
+                  .update({ receiving_shipment_id: newShipment.id })
+                  .in('id', movingItemIds);
+
+                // Copy shipment_items records for the moved items
+                const { data: existingShipmentItems } = await supabase
+                  .from('shipment_items')
+                  .select('*')
+                  .eq('shipment_id', shipmentId)
+                  .in('item_id', movingItemIds);
+
+                if (existingShipmentItems?.length) {
+                  const copied = existingShipmentItems.map(
+                    ({ id: _siId, created_at: _siCa, updated_at: _siUa, ...rest }) => ({
+                      ...rest,
+                      shipment_id: newShipment.id,
+                    })
+                  );
+                  await supabase.from('shipment_items').insert(copied);
+                }
+
+                // Add a note to the source shipment about the split
+                const sourceNote = `Items split to shipment ${newShipment.shipment_number} (${selectedAccount?.account_name})`;
+                await supabase
+                  .from('shipments')
+                  .update({
+                    notes: sourceShipment.notes
+                      ? `${sourceShipment.notes}\n\n${sourceNote}`
+                      : sourceNote,
+                  })
+                  .eq('id', shipmentId);
+
+                // Queue shipment received alert for the new account
+                if (tenantId) {
+                  await queueShipmentReceivedAlert(
+                    tenantId,
+                    newShipment.id,
+                    newShipment.shipment_number,
+                    movingItemIds.length
+                  );
+                }
+              }
+            }
+          }
+        }
+
+        // 4. Update all items' account_id
         const { error } = await supabase
           .from('items')
           .update({ account_id: selectedAccountId })
@@ -129,7 +266,7 @@ export function ReassignAccountDialog({
 
         if (error) throw error;
 
-        // Log to audit log if tenantId and userId are provided
+        // 5. Audit log
         if (tenantId && userId) {
           for (const entityId of entityIds) {
             await supabase.from('admin_audit_log').insert({
@@ -143,21 +280,30 @@ export function ReassignAccountDialog({
                 previous_account_name: currentAccountName,
                 new_account_id: selectedAccountId,
                 new_account_name: selectedAccount?.account_name,
+                new_shipment_numbers: newShipmentNumbers.length ? newShipmentNumbers : undefined,
               },
             });
           }
         }
 
+        // 6. Toast with shipment split info
         const itemCount = entityIds.length;
-        toast.success(
-          itemCount === 1
-            ? `Item reassigned to ${selectedAccount?.account_name}`
-            : `${itemCount} items reassigned to ${selectedAccount?.account_name}`
-        );
+        const baseMsg = itemCount === 1
+          ? `Item reassigned to ${selectedAccount?.account_name}`
+          : `${itemCount} items reassigned to ${selectedAccount?.account_name}`;
+        const shipmentMsg = newShipmentNumbers.length
+          ? `. New shipment${newShipmentNumbers.length > 1 ? 's' : ''} created: ${newShipmentNumbers.join(', ')}`
+          : '';
+        toast.success(`${baseMsg}${shipmentMsg}`);
       }
 
       onSuccess();
       onOpenChange(false);
+
+      // Navigate to the new shipment if one was created from a split
+      if (lastCreatedShipmentId && onShipmentCreated) {
+        onShipmentCreated(lastCreatedShipmentId);
+      }
     } catch (error) {
       console.error('Error reassigning:', error);
       toast.error('Failed to reassign. Please try again.');

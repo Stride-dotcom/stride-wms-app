@@ -11,7 +11,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { seedV4Templates } from '@/lib/seedTemplates';
+import { seedDefaultTemplates } from '@/lib/seedTemplates';
 
 interface ChecklistItem {
   id: string;
@@ -55,6 +55,7 @@ export function OnboardingChecklistTab() {
         locationsResult,
         usersResult,
         rolesResult,
+        chargeTypesResult,
       ] = await Promise.all([
         supabase
           .from('tenant_company_settings')
@@ -90,6 +91,10 @@ export function OnboardingChecklistTab() {
           .from('user_roles') as any)
           .select('id, role, user_id')
           .in('role', ['admin', 'tenant_admin', 'manager']),
+        supabase
+          .from('charge_types')
+          .select('id')
+          .eq('tenant_id', profile.tenant_id),
       ]);
 
       const settings = settingsResult.data;
@@ -100,6 +105,7 @@ export function OnboardingChecklistTab() {
       const locations = locationsResult.data || [];
       const users = usersResult.data || [];
       const adminRoles = rolesResult.data || [];
+      const chargeTypes = chargeTypesResult.data || [];
 
       // Check 1: Organization Contact complete
       const hasContact = !!(settings?.company_email && settings?.company_phone);
@@ -126,12 +132,15 @@ export function OnboardingChecklistTab() {
       const hasEditedTemplate = templates.some(t => t.updated_at !== t.created_at);
       const templatesReady = hasTemplates && hasEditedTemplate;
 
-      // Check 6: Warehouses + default receiving location
+      // Check 6: Service rates configured (charge types exist)
+      const hasChargeTypes = chargeTypes.length > 0;
+
+      // Check 7: Warehouses + default receiving location
       const hasWarehouses = warehouses.length > 0;
       const hasDefaultReceiving = locations.some((l: { is_default_receiving?: boolean }) => l.is_default_receiving);
       const warehouseReady = hasWarehouses && hasDefaultReceiving;
 
-      // Check 7: Users with admin/manager roles
+      // Check 8: Users with admin/manager roles
       const tenantUserIds = new Set(users.map(u => u.id));
       const hasAdminUsers = adminRoles.some(r => tenantUserIds.has(r.user_id));
 
@@ -177,11 +186,23 @@ export function OnboardingChecklistTab() {
         },
         {
           id: 'templates',
-          label: 'Templates Present & Edited',
-          description: `${templates.length} template(s) found${hasEditedTemplate ? ', at least 1 customized' : ''}`,
-          complete: templatesReady,
+          label: 'Alert Templates Seeded',
+          description: hasTemplates
+            ? `${templates.length} template(s) found${hasEditedTemplate ? ', at least 1 customized' : ' — customize them in the Alerts tab'}`
+            : 'Use the "Seed Missing Templates" button below to add default templates',
+          complete: hasTemplates,
           goToTab: 'alerts',
           icon: 'description',
+        },
+        {
+          id: 'service-rates',
+          label: 'Service Rates Configured',
+          description: hasChargeTypes
+            ? `${chargeTypes.length} charge type(s) configured — set your prices in Service Rates`
+            : 'Add starter services via Quick Start or configure your own',
+          complete: hasChargeTypes,
+          goToTab: 'service-rates',
+          icon: 'attach_money',
         },
         {
           id: 'warehouses',
@@ -334,10 +355,10 @@ export function OnboardingChecklistTab() {
 
     setSeedingTemplates(true);
     try {
-      const result = await seedV4Templates(profile.tenant_id);
+      const result = await seedDefaultTemplates(profile.tenant_id);
       toast({
         title: 'Templates Seeded',
-        description: `Created ${result.created} alert(s) with v4 templates. ${result.skipped} already existed.`,
+        description: `Created ${result.created} alert(s) with default templates. ${result.skipped} already existed.`,
       });
       // Re-run checks to update the checklist
       await runChecks();
@@ -476,10 +497,10 @@ export function OnboardingChecklistTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MaterialIcon name="auto_fix_high" size="md" />
-            Seed v4 Templates
+            Seed Default Alert Templates
           </CardTitle>
           <CardDescription>
-            Populate missing alert templates with branded v4 defaults for all core trigger events
+            Populate missing alert templates with defaults for all core trigger events
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -495,7 +516,7 @@ export function OnboardingChecklistTab() {
             Seed Missing Templates
           </Button>
           <p className="text-xs text-muted-foreground mt-2">
-            This creates communication alerts and v4 branded email/SMS templates for any core triggers not yet configured. Existing alerts are left unchanged.
+            This creates communication alerts and default email/SMS templates for any core triggers not yet configured. Existing alerts are left unchanged.
           </p>
         </CardContent>
       </Card>

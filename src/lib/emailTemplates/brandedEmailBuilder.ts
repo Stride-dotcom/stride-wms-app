@@ -236,6 +236,7 @@ function escapeHtml(text: string): string {
 
 /**
  * Replaces [[token]] placeholders with values from a data map.
+ * Also handles legacy {{token}} format for backwards compatibility.
  * Used for preview (with sample data) and at send time (with real data).
  */
 export function replaceTokens(
@@ -244,7 +245,186 @@ export function replaceTokens(
 ): string {
   let result = text;
   Object.entries(data).forEach(([key, value]) => {
-    result = result.replace(new RegExp(`\\[\\[${key}\\]\\]`, 'g'), value);
+    result = result
+      .replace(new RegExp(`\\[\\[${key}\\]\\]`, 'g'), value)
+      .replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
   });
   return result;
+}
+
+/**
+ * Detects whether a body_template contains legacy full HTML
+ * (from the old buildEmailTemplate() system) rather than plain text.
+ */
+export function isLegacyHtmlTemplate(body: string): boolean {
+  const trimmed = body.trim();
+  return (
+    trimmed.startsWith('<!DOCTYPE') ||
+    trimmed.startsWith('<!doctype') ||
+    trimmed.startsWith('<html') ||
+    trimmed.startsWith('<HTML') ||
+    // Also detect partial HTML templates (v4 style without doctype)
+    (trimmed.includes('<table') && trimmed.includes('</table>') && trimmed.includes('style='))
+  );
+}
+
+/**
+ * Extracts plain text content from a legacy full HTML email template.
+ * Pulls out the heading, body text, CTA label/link, and converts
+ * {{tokens}} to [[tokens]].
+ */
+export function migrateLegacyHtmlToPlainText(html: string): {
+  heading: string;
+  body: string;
+  ctaLabel: string;
+  ctaLink: string;
+  subject: string;
+} {
+  // Normalize token format: {{token}} → [[token]]
+  let normalized = html.replace(/\{\{(\w+)\}\}/g, '[[$1]]');
+
+  // Extract heading from <h1> tag
+  const h1Match = normalized.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  let heading = '';
+  if (h1Match) {
+    heading = stripHtmlTags(h1Match[1]).trim();
+    // Clean up line breaks from <br> in heading
+    heading = heading.replace(/\s*\n\s*/g, ' ').trim();
+  }
+
+  // Extract title from <title> tag as fallback heading
+  if (!heading) {
+    const titleMatch = normalized.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    if (titleMatch) {
+      heading = stripHtmlTags(titleMatch[1]).trim();
+    }
+  }
+
+  // Extract CTA button label and link
+  let ctaLabel = '';
+  let ctaLink = '';
+  const ctaMatch = normalized.match(/<a[^>]*class=['"]cta['"][^>]*href=['"]([^'"]*)['"]/i)
+    || normalized.match(/<a[^>]*href=['"]([^'"]*)['"]\s+[^>]*class=['"]cta['"][^>]*/i)
+    || normalized.match(/<td[^>]*background-color[^>]*>\s*<a[^>]*href=['"]([^'"]*)['"][^>]*>([\s\S]*?)<\/a>/i);
+
+  if (ctaMatch) {
+    if (ctaMatch[2]) {
+      ctaLink = ctaMatch[1];
+      ctaLabel = stripHtmlTags(ctaMatch[2]).trim();
+    } else {
+      ctaLink = ctaMatch[1];
+      // Try to get label from the CTA link text
+      const ctaLinkMatch = normalized.match(/<a[^>]*class=['"]cta['"][^>]*>([\s\S]*?)<\/a>/i);
+      if (ctaLinkMatch) {
+        ctaLabel = stripHtmlTags(ctaLinkMatch[1]).trim();
+      }
+    }
+  }
+
+  // Extract body: look for content between description/body markers
+  let body = '';
+
+  // Try to find content div/section
+  const contentMatch = normalized.match(/<div\s+class=['"]content['"][^>]*>([\s\S]*?)<\/div>\s*<div\s+class=['"]footer/i);
+  if (contentMatch) {
+    body = extractBodyFromContentHtml(contentMatch[1], heading);
+  } else {
+    // Fallback: look for <p> tags after <h1>
+    const afterH1 = normalized.split(/<\/h1>/i)[1] || '';
+    body = extractBodyFromContentHtml(afterH1, heading);
+  }
+
+  // Clean up and normalize
+  body = body
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  // Extract subject from title
+  let subject = '';
+  const titleMatch = normalized.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (titleMatch) {
+    subject = `[[tenant_name]]: ${stripHtmlTags(titleMatch[1]).trim()}`;
+  }
+
+  return { heading, body, ctaLabel, ctaLink, subject };
+}
+
+/**
+ * Extract plain text body from an HTML content section.
+ * Handles <p>, <div>, badge/meta sections, and preserves tokens.
+ */
+function extractBodyFromContentHtml(html: string, heading: string): string {
+  const lines: string[] = [];
+
+  // Remove the h1 (already extracted as heading)
+  let cleaned = html.replace(/<h1[^>]*>[\s\S]*?<\/h1>/gi, '');
+
+  // Remove CTA button and its sub-text
+  cleaned = cleaned.replace(/<a[^>]*class=['"]cta['"][\s\S]*?<\/a>/gi, '');
+  cleaned = cleaned.replace(/<div[^>]*class=['"]cta-sub['"][\s\S]*?<\/div>/gi, '');
+
+  // Remove divider elements
+  cleaned = cleaned.replace(/<div[^>]*class=['"]divider['"][^>]*><\/div>/gi, '');
+
+  // Extract paragraphs
+  const pMatches = cleaned.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
+  for (const pMatch of pMatches) {
+    const text = stripHtmlTags(pMatch).trim();
+    if (text && !text.includes('copy/paste this link') && !text.includes('button doesn\'t work')) {
+      lines.push(text);
+    }
+  }
+
+  // Extract badge/meta data (key-value pairs)
+  const badgeMatches = cleaned.match(/<span[^>]*class=['"]badge['"][^>]*>([\s\S]*?)<\/span>\s*([\s\S]*?)(?=<(?:div|span)[^>]*class=['"]badge|<\/div>)/gi);
+  if (badgeMatches) {
+    for (const match of badgeMatches) {
+      const labelMatch = match.match(/<span[^>]*class=['"]badge['"][^>]*>([\s\S]*?)<\/span>/i);
+      if (labelMatch) {
+        const label = stripHtmlTags(labelMatch[1]).trim();
+        const afterBadge = match.substring(labelMatch[0].length);
+        const value = stripHtmlTags(afterBadge).trim();
+        if (label && value) {
+          lines.push(`**${label}:** ${value}`);
+        }
+      }
+    }
+  }
+
+  // Check for HTML tokens that should be preserved
+  const tokenMatches = cleaned.match(/\[\[\w+_(?:table_html|list_html)\]\]/g);
+  if (tokenMatches) {
+    for (const token of tokenMatches) {
+      if (!lines.some(l => l.includes(token))) {
+        lines.push('');
+        lines.push(token);
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
+
+function stripHtmlTags(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/tr>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * Normalizes legacy {{token}} format to [[token]] in any string.
+ */
+export function normalizeTokenFormat(text: string): string {
+  return text.replace(/\{\{(\w+)\}\}/g, '[[$1]]');
 }

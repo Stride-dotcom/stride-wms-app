@@ -29,6 +29,11 @@ import {
 } from '@/hooks/useCommunications';
 import { EmailPreviewModal, EmailLivePreview } from './EmailPreviewModal';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import {
+  isLegacyHtmlTemplate,
+  migrateLegacyHtmlToPlainText,
+  normalizeTokenFormat,
+} from '@/lib/emailTemplates/brandedEmailBuilder';
 
 // Link-type tokens for CTA button link dropdown
 const LINK_TOKENS = COMMUNICATION_VARIABLES.filter(
@@ -160,14 +165,29 @@ export function AlertTemplateEditor({
 
     // Load email data
     if (emailTemplate) {
-      setSubject(emailTemplate.subject_template || '');
-      setEmailBody(emailTemplate.body_template || '');
+      const rawBody = emailTemplate.body_template || '';
       const ed = emailTemplate.editor_json as Record<string, unknown> | null;
-      setEmailRecipients((ed?.recipients as string) || '');
-      setHeading((ed?.heading as string) || '');
-      setEmailCtaEnabled(!!(ed?.cta_enabled));
-      setEmailCtaLabel((ed?.cta_label as string) || '');
-      setEmailCtaLink((ed?.cta_link as string) || '');
+      const rawSubject = emailTemplate.subject_template || '';
+
+      // Detect legacy full HTML templates and auto-migrate to plain text
+      if (isLegacyHtmlTemplate(rawBody)) {
+        const migrated = migrateLegacyHtmlToPlainText(rawBody);
+        setSubject(normalizeTokenFormat(rawSubject) || migrated.subject);
+        setEmailBody(migrated.body);
+        setHeading(migrated.heading);
+        setEmailCtaEnabled(!!migrated.ctaLabel);
+        setEmailCtaLabel(migrated.ctaLabel);
+        setEmailCtaLink(migrated.ctaLink);
+        setEmailRecipients((ed?.recipients as string) || '');
+      } else {
+        setSubject(normalizeTokenFormat(rawSubject));
+        setEmailBody(normalizeTokenFormat(rawBody));
+        setEmailRecipients((ed?.recipients as string) || '');
+        setHeading((ed?.heading as string) || '');
+        setEmailCtaEnabled(!!(ed?.cta_enabled));
+        setEmailCtaLabel((ed?.cta_label as string) || '');
+        setEmailCtaLink((ed?.cta_link as string) || '');
+      }
     } else {
       setSubject('');
       setEmailBody('');

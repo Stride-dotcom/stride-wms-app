@@ -1312,13 +1312,7 @@ export default function ShipmentDetail() {
               <span className="sm:hidden">Coverage</span>
             </Button>
           )}
-          {/* Reassign Account */}
-          {shipment.account_id && (
-            <Button variant="outline" size="sm" onClick={() => setShowReassignDialog(true)}>
-              <MaterialIcon name="swap_horiz" size="sm" className="mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Reassign</span>
-            </Button>
-          )}
+          {/* Reassign Account - moved to selected items bar */}
           {/* Cancel Shipment - only for expected, pending, or receiving shipments */}
           {['expected', 'pending', 'receiving', 'in_progress'].includes(shipment.status) && (
             <Button variant="outline" size="sm" onClick={() => setShowCancelDialog(true)}>
@@ -1752,6 +1746,17 @@ export default function ShipmentDetail() {
                   <span className="hidden sm:inline">Create Task</span>
                   <span className="sm:hidden">Create</span>
                 </Button>
+                {shipment.account_id && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowReassignDialog(true)}
+                  >
+                    <MaterialIcon name="swap_horiz" size="sm" className="mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Reassign</span>
+                    <span className="sm:hidden">Reassign</span>
+                  </Button>
+                )}
               </div>
             )}
             </div>
@@ -2224,16 +2229,25 @@ export default function ShipmentDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Reassign Account Dialog */}
+      {/* Reassign Account Dialog - operates on selected items */}
       {shipment.account_id && (
         <ReassignAccountDialog
           open={showReassignDialog}
-          onOpenChange={setShowReassignDialog}
-          entityType="shipment"
-          entityIds={[shipment.id]}
+          onOpenChange={(open) => {
+            setShowReassignDialog(open);
+            if (!open) setSelectedItemIds(new Set());
+          }}
+          entityType="items"
+          entityIds={Array.from(selectedItemIds)}
           currentAccountId={shipment.account_id}
           currentAccountName={shipment.accounts?.account_name}
-          onSuccess={fetchShipment}
+          onSuccess={() => {
+            fetchShipment();
+            setSelectedItemIds(new Set());
+          }}
+          onShipmentCreated={(newShipmentId) => {
+            navigate(`/shipments/${newShipmentId}`);
+          }}
           tenantId={profile?.tenant_id}
           userId={profile?.id}
         />
