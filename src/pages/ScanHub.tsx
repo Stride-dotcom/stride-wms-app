@@ -28,6 +28,14 @@ import { ScanModeIcon } from '@/components/scan/ScanModeIcon';
 import { HelpButton } from '@/components/prompts';
 import { SOPValidationDialog, SOPBlocker } from '@/components/common/SOPValidationDialog';
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -96,6 +104,11 @@ export default function ScanHub() {
   // SOP Validation state
   const [sopValidationOpen, setSopValidationOpen] = useState(false);
   const [sopBlockers, setSopBlockers] = useState<SOPBlocker[]>([]);
+
+  // Quarantine warning state
+  const [quarantineWarningOpen, setQuarantineWarningOpen] = useState(false);
+  const [quarantineItem, setQuarantineItem] = useState<ScannedItem | null>(null);
+  const [quarantinePendingAction, setQuarantinePendingAction] = useState<(() => void) | null>(null);
 
   // Swipe confirmation state
   const [swipeProgress, setSwipeProgress] = useState(0);
@@ -212,6 +225,66 @@ export default function ScanHub() {
     return null;
   };
 
+  // Check if an item has a quarantine flag
+  const checkQuarantine = async (itemId: string): Promise<boolean> => {
+    if (!profile?.tenant_id) return false;
+    try {
+      // Look up the quarantine flag charge type
+      const { data: quarantineFlag } = await (supabase
+        .from('charge_types') as any)
+        .select('charge_code')
+        .eq('tenant_id', profile.tenant_id)
+        .eq('add_flag', true)
+        .eq('flag_is_indicator', true)
+        .ilike('charge_name', '%quarantine%')
+        .maybeSingle();
+
+      if (!quarantineFlag) return false;
+
+      const { data: flag } = await (supabase
+        .from('item_flags') as any)
+        .select('id')
+        .eq('item_id', itemId)
+        .eq('service_code', quarantineFlag.charge_code)
+        .maybeSingle();
+
+      return !!flag;
+    } catch {
+      return false;
+    }
+  };
+
+  // Handle quarantine override - log to activity history
+  const handleQuarantineOverride = () => {
+    if (!quarantineItem || !profile?.tenant_id || !profile?.id) return;
+
+    // Log the override
+    logItemActivity({
+      tenantId: profile.tenant_id,
+      itemId: quarantineItem.id,
+      actorUserId: profile.id,
+      eventType: 'quarantine_override',
+      eventLabel: `Quarantine warning overridden during scan (${mode} mode)`,
+      details: { scan_mode: mode, item_code: quarantineItem.item_code },
+    });
+
+    // Execute the pending action
+    if (quarantinePendingAction) {
+      quarantinePendingAction();
+    }
+
+    setQuarantineWarningOpen(false);
+    setQuarantineItem(null);
+    setQuarantinePendingAction(null);
+  };
+
+  // Dismiss quarantine warning (go back)
+  const handleQuarantineDismiss = () => {
+    setQuarantineWarningOpen(false);
+    setQuarantineItem(null);
+    setQuarantinePendingAction(null);
+  };
+
   const handleScanResult = async (data: string) => {
     if (processing) return;
 
@@ -223,6 +296,18 @@ export default function ScanHub() {
         const item = await lookupItem(input);
         if (item) {
           hapticMedium(); // Item found
+
+          // Check for quarantine
+          const isQuarantined = await checkQuarantine(item.id);
+          if (isQuarantined) {
+            hapticError();
+            setQuarantineItem(item);
+            setQuarantinePendingAction(() => () => navigate(`/inventory/${item.id}`));
+            setQuarantineWarningOpen(true);
+            setProcessing(false);
+            return;
+          }
+
           navigate(`/inventory/${item.id}`);
         } else {
           hapticError(); // Item not found
@@ -241,6 +326,25 @@ export default function ScanHub() {
           const item = await lookupItem(input);
           if (item) {
             hapticMedium(); // Item found
+
+            // Check for quarantine
+            const isQuarantined = await checkQuarantine(item.id);
+            if (isQuarantined) {
+              hapticError();
+              setQuarantineItem(item);
+              setQuarantinePendingAction(() => () => {
+                setScannedItem(item);
+                setPhase('scanning-location');
+                toast({
+                  title: `Found: ${item.item_code}`,
+                  description: 'Now scan the destination bay.',
+                });
+              });
+              setQuarantineWarningOpen(true);
+              setProcessing(false);
+              return;
+            }
+
             setScannedItem(item);
             setPhase('scanning-location');
             toast({
@@ -1447,6 +1551,35 @@ export default function ScanHub() {
         onOpenChange={setSopValidationOpen}
         blockers={sopBlockers}
       />
+
+      {/* Quarantine Warning Dialog */}
+      <AlertDialog open={quarantineWarningOpen} onOpenChange={handleQuarantineDismiss}>
+        <AlertDialogContent className="border-red-300 dark:border-red-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <MaterialIcon name="warning" size="md" />
+              Item Quarantined
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p className="text-base font-medium text-foreground">
+                {quarantineItem?.item_code} is under quarantine due to reported damage.
+              </p>
+              <p>
+                This item should not be moved, released, or processed until the issue is resolved.
+                Proceeding will log an override in the activity history.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={handleQuarantineDismiss}>
+              Go Back
+            </Button>
+            <Button variant="destructive" onClick={handleQuarantineOverride}>
+              Override &amp; Continue
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }

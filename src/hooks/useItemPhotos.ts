@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { queueItemDamagedAlert } from '@/lib/alertQueue';
 import { logItemActivity } from '@/lib/activity/logItemActivity';
 
 export interface ItemPhoto {
@@ -276,30 +275,11 @@ export function useItemPhotos(itemId: string | undefined, includeTaskPhotos: boo
 
       if (error) throw error;
 
-      // If marking as needs attention, update item's has_damage flag and create alert
+      // Visual flag only — damage status is determined by inspection pass/fail
       if (needsAttention) {
-        // Get item code for the alert
-        const { data: itemData } = await (supabase
-          .from('items') as any)
-          .select('item_code')
-          .eq('id', itemId)
-          .single();
-
-        await (supabase
-          .from('items') as any)
-          .update({ has_damage: true })
-          .eq('id', itemId);
-
-        // Queue damage alert using the centralized alert queue
-        await queueItemDamagedAlert(
-          profile.tenant_id,
-          itemId,
-          itemData?.item_code || 'Unknown'
-        );
-
         toast({
           title: 'Photo Flagged',
-          description: 'Photo has been flagged as needing attention. Alert sent to managers.',
+          description: 'Photo has been flagged as needing attention.',
           variant: 'destructive',
         });
       } else {
