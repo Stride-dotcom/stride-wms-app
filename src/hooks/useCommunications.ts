@@ -334,24 +334,27 @@ export function useCommunications() {
       
       if (error) throw error;
       
-      // Create default email and SMS templates using trigger event for proper styling
-      const defaultEmailBody = getDefaultEmailTemplate(alert.name, alert.trigger_event);
-      const defaultSmsBody = getDefaultSmsTemplate(alert.name, alert.trigger_event);
-      
+      // Create default email and SMS templates using plain text + tokens
+      const emailBody = getDefaultEmailBody(alert.trigger_event);
+      const smsBody = getDefaultSmsBody(alert.trigger_event);
+      const emailEditorJson = getDefaultEditorJson(alert.trigger_event);
+      const emailSubject = getDefaultSubject(alert.name, alert.trigger_event);
+
       await supabase.from('communication_templates').insert([
         {
           tenant_id: profile.tenant_id,
           alert_id: data.id,
           channel: 'email',
-          subject_template: `{{tenant_name}}: ${alert.name}`,
-          body_template: defaultEmailBody,
-          body_format: 'html',
+          subject_template: emailSubject,
+          body_template: emailBody,
+          body_format: 'text',
+          editor_json: emailEditorJson,
         },
         {
           tenant_id: profile.tenant_id,
           alert_id: data.id,
           channel: 'sms',
-          body_template: defaultSmsBody,
+          body_template: smsBody,
           body_format: 'text',
         },
       ]);
@@ -436,8 +439,8 @@ export function useCommunications() {
     try {
       const isEmail = channel === 'email';
       const defaultBody = isEmail
-        ? getDefaultEmailTemplate(alertName, triggerEvent)
-        : getDefaultSmsTemplate(alertName, triggerEvent);
+        ? getDefaultEmailBody(triggerEvent)
+        : getDefaultSmsBody(triggerEvent);
 
       const { data, error } = await supabase
         .from('communication_templates')
@@ -445,9 +448,10 @@ export function useCommunications() {
           tenant_id: profile.tenant_id,
           alert_id: alertId,
           channel,
-          subject_template: isEmail ? `{{tenant_name}}: ${alertName}` : null,
+          subject_template: isEmail ? getDefaultSubject(alertName, triggerEvent) : null,
           body_template: defaultBody,
-          body_format: isEmail ? 'html' : 'text',
+          body_format: 'text',
+          ...(isEmail ? { editor_json: getDefaultEditorJson(triggerEvent) } : {}),
         })
         .select()
         .single();
@@ -596,24 +600,28 @@ export function useCommunications() {
   };
 }
 
-import { buildEmailTemplate, buildSmsTemplate, EMAIL_TEMPLATE_CONFIGS } from '@/lib/emailIcons';
+import { getDefaultTemplate } from '@/lib/emailTemplates/defaultAlertTemplates';
 
-function getDefaultEmailTemplate(alertName: string, triggerEvent?: string): string {
-  // If we have a trigger event, use the Cowboy template
-  if (triggerEvent && EMAIL_TEMPLATE_CONFIGS[triggerEvent]) {
-    return buildEmailTemplate(triggerEvent);
-  }
-  
-  // Fallback for generic/custom alerts
-  return buildEmailTemplate('custom');
+function getDefaultEmailBody(triggerEvent?: string): string {
+  return getDefaultTemplate(triggerEvent).body;
 }
 
-function getDefaultSmsTemplate(alertName: string, triggerEvent?: string): string {
-  // If we have a trigger event, use the matching SMS template
-  if (triggerEvent && EMAIL_TEMPLATE_CONFIGS[triggerEvent]) {
-    return buildSmsTemplate(triggerEvent);
-  }
-  
-  // Fallback for generic/custom alerts
-  return buildSmsTemplate('custom');
+function getDefaultSmsBody(triggerEvent?: string): string {
+  return getDefaultTemplate(triggerEvent).smsBody;
+}
+
+function getDefaultEditorJson(triggerEvent?: string): Record<string, unknown> {
+  const defaults = getDefaultTemplate(triggerEvent);
+  return {
+    heading: defaults.heading,
+    recipients: '',
+    cta_enabled: !!defaults.ctaLabel,
+    cta_label: defaults.ctaLabel,
+    cta_link: defaults.ctaLink,
+  };
+}
+
+function getDefaultSubject(alertName: string, triggerEvent?: string): string {
+  const defaults = getDefaultTemplate(triggerEvent);
+  return defaults.subject || `[[tenant_name]]: ${alertName}`;
 }
