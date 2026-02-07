@@ -1182,9 +1182,38 @@ export const EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
   EMPLOYEE_INVITE,
 };
 
-// Helper to get template by key
+// Map trigger events (e.g., 'shipment.received') to template keys (e.g., 'SHIPMENT_RECEIVED')
+const TRIGGER_TO_TEMPLATE_KEY: Record<string, string> = {
+  'shipment.received': 'SHIPMENT_RECEIVED',
+  'shipment.completed': 'SHIPMENT_COMPLETED',
+  'shipment.status_changed': 'SHIPMENT_STATUS_CHANGED',
+  'item.received': 'ITEM_RECEIVED',
+  'item.damaged': 'ITEM_DAMAGED',
+  'item.location_changed': 'ITEM_LOCATION_CHANGED',
+  'task.created': 'TASK_CREATED',
+  'task.assigned': 'TASK_ASSIGNED',
+  'task.completed': 'TASK_COMPLETED',
+  'release.created': 'RELEASE_CREATED',
+  'release.approved': 'RELEASE_APPROVED',
+  'release.completed': 'RELEASE_COMPLETED',
+  'invoice.created': 'INVOICE_CREATED',
+  'invoice.sent': 'INVOICE_SENT',
+  'payment.received': 'PAYMENT_RECEIVED',
+  'employee.invited': 'EMPLOYEE_INVITE',
+};
+
+// Helper to get template by key or trigger event
 export function getEmailTemplate(key: string): EmailTemplate | undefined {
-  return EMAIL_TEMPLATES[key];
+  // Try direct key match first (e.g., 'INVOICE_SENT')
+  if (EMAIL_TEMPLATES[key]) {
+    return EMAIL_TEMPLATES[key];
+  }
+  // Try trigger event mapping (e.g., 'invoice.sent' -> 'INVOICE_SENT')
+  const mappedKey = TRIGGER_TO_TEMPLATE_KEY[key];
+  if (mappedKey) {
+    return EMAIL_TEMPLATES[mappedKey];
+  }
+  return undefined;
 }
 
 // Helper to get all template keys

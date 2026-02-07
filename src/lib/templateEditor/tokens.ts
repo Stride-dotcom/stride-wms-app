@@ -284,6 +284,20 @@ export const EMAIL_TOKENS: Token[] = [
     description: 'Company phone number',
     category: 'Brand'
   },
+  {
+    id: 'office_alert_emails',
+    label: 'Office Alerts Email(s)',
+    token: 'office_alert_emails',
+    description: 'Comma-separated office alert email addresses',
+    category: 'Brand'
+  },
+  {
+    id: 'office_alert_email_primary',
+    label: 'Office Alerts Email (Primary)',
+    token: 'office_alert_email_primary',
+    description: 'First office alert email address',
+    category: 'Brand'
+  },
 
   // Invoice Tokens
   {
@@ -477,6 +491,36 @@ export const EMAIL_TOKENS: Token[] = [
     category: 'Item'
   },
 
+  // Aggregates
+  {
+    id: 'items_count',
+    label: 'Items Count',
+    token: 'items_count',
+    description: 'Total number of items',
+    category: 'Aggregates'
+  },
+  {
+    id: 'items_table_html',
+    label: 'Items Table (HTML)',
+    token: 'items_table_html',
+    description: 'Formatted HTML table of items with columns',
+    category: 'Aggregates'
+  },
+  {
+    id: 'items_list_html',
+    label: 'Items List (HTML)',
+    token: 'items_list_html',
+    description: 'Formatted HTML list of items (card style)',
+    category: 'Aggregates'
+  },
+  {
+    id: 'items_list_text',
+    label: 'Items List (Text)',
+    token: 'items_list_text',
+    description: 'Plain text list of items',
+    category: 'Aggregates'
+  },
+
   // Task Tokens
   {
     id: 'task_title',
@@ -624,6 +668,8 @@ export const SAMPLE_DATA: Record<string, string> = {
   company_phone: '206-550-1848',
   company_email: 'warehouse@stridenw.com',
   company_logo: '/logo.png',
+  office_alert_emails: 'ops@stridenw.com, alerts@stridenw.com',
+  office_alert_email_primary: 'ops@stridenw.com',
 
   // Invoice
   invoice_number: 'INV-00001',
@@ -682,6 +728,12 @@ export const SAMPLE_DATA: Record<string, string> = {
   item_code: 'ITM-00123',
   item_description: 'Office Chair - Executive Black',
   location: 'A-01-02',
+
+  // Aggregates
+  items_count: '5',
+  items_table_html: '<table style="width:100%;border-collapse:collapse;"><tr style="background:#f8fafc;"><th style="padding:8px;text-align:left;border-bottom:1px solid #e2e8f0;">Item</th><th style="padding:8px;text-align:left;border-bottom:1px solid #e2e8f0;">Description</th></tr><tr><td style="padding:8px;border-bottom:1px solid #e2e8f0;">ITM-001</td><td style="padding:8px;border-bottom:1px solid #e2e8f0;">Office Chair</td></tr><tr><td style="padding:8px;border-bottom:1px solid #e2e8f0;">ITM-002</td><td style="padding:8px;border-bottom:1px solid #e2e8f0;">Standing Desk</td></tr></table>',
+  items_list_html: '<div><div style="padding:8px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;">ITM-001 - Office Chair</div><div style="padding:8px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;">ITM-002 - Standing Desk</div></div>',
+  items_list_text: '1x Office Chair, 1x Standing Desk',
 
   // Task
   task_title: 'Inventory Count - Zone A',

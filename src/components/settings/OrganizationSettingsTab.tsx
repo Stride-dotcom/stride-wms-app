@@ -419,8 +419,10 @@ export function OrganizationSettingsTab() {
                                   <MaterialIcon name="info" size="sm" className="text-muted-foreground" />
                                 </span>
                               </TooltipTrigger>
-                              <TooltipContent side="right" className="max-w-xs">
-                                <p>This email is used for office/internal notifications and can be referenced in alert templates. It is also the default fallback when an alert has no specific recipient configured.</p>
+                              <TooltipContent side="right" className="max-w-xs text-left">
+                                <p className="mb-1">Internal recipients for automated office alerts (quotes, claims, flags, system notices). Separate multiple emails with commas. This can be used as a template token.</p>
+                                <p className="font-mono text-xs opacity-80">[[office_alert_emails]] - full string</p>
+                                <p className="font-mono text-xs opacity-80">[[office_alert_email_primary]] - first email</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
