@@ -1,31 +1,36 @@
-# Stride WMS Email Templates v4
+# Stride WMS Email Templates (v4) — Missing Pack
 
-This folder contains the default **global** email/SMS templates used by the Stride WMS alert system.
+Drop these files into your repo at:
 
-## Rules
-- One template per `trigger_event`
-- Do **not** hardcode tenant branding. Use tokens.
-- HTML templates live in this folder. SMS templates live in `sms/`.
+- `supabase/email-templates/v4/` (HTML)
+- `supabase/email-templates/v4/sms/` (SMS)
 
-## Token standards (must be supported by the app)
-Global branding:
+## Token Standards (Required)
+Global / Branding:
 - {{tenant_name}}
 - {{brand_logo_url}}
 - {{brand_primary_color}}
 - {{brand_support_email}}
-- {{portal_base_url}}
-- {{tenant_terms_url}}
-- {{tenant_privacy_url}}
+- {{brand_terms_url}}
+- {{brand_privacy_url}}
 - {{tenant_company_address}}
-Office recipients (internal notifications):
-- {{office_alert_emails}}
-- {{office_alert_email_primary}}
+- {{portal_base_url}}
 
-Entity links (CTA):
-- {{shipment_link}}, {{portal_invoice_url}}, {{portal_claim_url}}, {{portal_release_url}}, {{portal_quote_url}}, etc.
+Common entity tokens (as applicable):
+- Shipments: {{shipment_number}}, {{shipment_status}}, {{shipment_link}}, {{scheduled_date}}, {{delivery_window}}, {{delay_reason}}, {{delivered_at}}
+- Releases: {{release_number}}, {{portal_release_url}}, {{pickup_hours}}, {{released_at}}
+- Inspections: {{inspection_number}}, {{portal_inspection_url}}, {{inspection_issues_count}}, {{shipment_number}}
+- Tasks: {{task_title}}, {{task_type}}, {{task_due_date}}, {{task_days_overdue}}, {{assigned_to_name}}, {{completed_by_name}}, {{task_link}}
+- Repairs: {{item_code}}, {{repair_type}}, {{repair_completed_at}}, {{repair_estimate_amount}}, {{portal_repair_url}}, {{item_photos_link}}
 
-Array/table tokens (pre-rendered HTML):
-- {{items_table_html}} (shipments/tasks/releases)
-- {{items_list_text}} (sms-friendly)
+Arrays / Tables (pre-rendered HTML recommended for v1):
+- {{items_table_html}}
+- {{inspection_findings_table_html}}
+- {{task_services_table_html}}
+- {{repair_actions_table_html}}
 
-The send-alerts edge function should replace both `{{token}}` and `[[token]]` syntaxes.
+CTA (optional):
+- {{cta_label}}
+- {{portal_action_url}}
+
+This pack includes a `manifest.json` mapping `trigger_event` → template files.

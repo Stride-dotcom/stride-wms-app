@@ -1,55 +1,78 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Task overdue</title>
-<style>
-  body{margin:0;padding:0;background:#F1F5F9;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
-  .container{max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;}
-  .header{padding:24px 28px;border-bottom:4px solid {{brand_primary_color}};display:flex;align-items:center;gap:14px;}
-  .logo{height:34px;max-width:180px;}
-  .brandname{font-size:18px;font-weight:800;color:#0F172A;letter-spacing:-0.2px;}
-  .content{padding:28px;}
-  h1{margin:0 0 10px;font-size:22px;color:#0F172A;letter-spacing:-0.2px;}
-  p{margin:0 0 14px;color:#475569;line-height:1.6;font-size:14px;}
-  .meta{margin:14px 0 18px;padding:14px 16px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;color:#0F172A;font-size:13px;}
-  .divider{height:1px;background:#E2E8F0;margin:20px 0;}
-  .cta{display:inline-block;background:{{brand_primary_color}};color:#fff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:700;font-size:14px;}
-  .cta-sub{font-size:12px;color:#64748B;margin-top:10px;}
-  .footer{padding:20px 28px;background:#0F172A;color:#CBD5E1;font-size:12px;line-height:1.5;}
-  .footer a{color:#CBD5E1;text-decoration:underline;}
-  .badge{display:inline-block;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:999px;padding:6px 10px;font-size:12px;color:#0F172A;margin-right:6px;}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Task Overdue</title>
 </head>
-<body>
-  <div style="padding:22px;">
-    <div class="container">
-      <div class="header">
-        <img class="logo" src="{{brand_logo_url}}" alt="{{tenant_name}}"/>
-        <div class="brandname">{{tenant_name}}</div>
-      </div>
-      <div class="content">
-        <h1>Task overdue</h1>
-        <p>A task is overdue and needs attention.</p>
-        <div class='meta'><div><span class='badge'>Task</span> {{task_title}}</div><div><span class='badge'>Days overdue</span> {{task_days_overdue}}</div><div><span class='badge'>Assigned To</span> {{assigned_to_name}}</div></div>
-        
-        <div class='divider'></div>
-        <a class='cta' href='{{task_link}}'>View task</a>
-        <div class='cta-sub'>If the button doesn’t work, copy/paste this link: <br/><a href='{{task_link}}'>{{task_link}}</a></div>
-      </div>
-      <div class="footer">
-        <div style="margin-bottom:8px;"><strong>{{tenant_name}}</strong> • <a href="{{portal_base_url}}">Customer Portal</a></div>
-        <div>Support: <a href="mailto:{{brand_support_email}}">{{brand_support_email}}</a></div>
-        <div style="margin-top:10px;">
-          <a href="{{tenant_terms_url}}">Terms</a> • <a href="{{tenant_privacy_url}}">Privacy</a>
+<body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+  <!-- Preheader -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">A task is overdue and needs attention.</div>
+
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f6f7f9;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="640" style="max-width:640px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e5e7eb;">
+          <!-- Header -->
+          <tr>
+            <td style="padding:18px 22px;border-bottom:4px solid {brand_primary_color};background:#ffffff;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td valign="middle">
+                    <div style="font-size:18px;font-weight:800;color:#111827;line-height:1.1;">{tenant_name}</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:4px;">Automated Notification</div>
+                  </td>
+                  <td align="right" valign="middle">
+                    <img src="{brand_logo_url}" alt="{tenant_name} logo" style="height:34px;max-width:180px;object-fit:contain;" />
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:22px;">
+              <div style="font-size:20px;font-weight:900;color:#111827;margin:0 0 10px 0;">Task overdue</div>
+<div style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 12px 0;">This task is overdue. Please review and update the status or due date.</div>
+<div style='margin:10px 0 6px 0;'><div style="display:inline-block;margin:0 8px 8px 0;padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#ffffff;">
+          <div style="font-size:11px;color:#6b7280;margin-bottom:2px;">Task</div>
+          <div style="font-size:13px;font-weight:700;color:#111827;">{{task_title}}</div>
+        </div><div style="display:inline-block;margin:0 8px 8px 0;padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#ffffff;">
+          <div style="font-size:11px;color:#6b7280;margin-bottom:2px;">Due</div>
+          <div style="font-size:13px;font-weight:700;color:#111827;">{{task_due_date}}</div>
+        </div><div style="display:inline-block;margin:0 8px 8px 0;padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#ffffff;">
+          <div style="font-size:11px;color:#6b7280;margin-bottom:2px;">Overdue</div>
+          <div style="font-size:13px;font-weight:700;color:#111827;">{{task_days_overdue}} days</div>
+        </div></div>
+<div style='height:1px;background:#e5e7eb;margin:16px 0;'></div>
+<div style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 12px 0;"><b>Assigned to</b> {{assigned_to_name}}</div>
+<div style="margin:18px 0 6px 0;">
+      <a href="{{task_link}}" style="display:inline-block;background:{brand_primary_color};color:#ffffff;text-decoration:none;font-weight:800;font-size:14px;padding:12px 16px;border-radius:12px;">
+        Open task
+      </a>
+    </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:18px 22px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+              <div style="font-size:12px;color:#6b7280;line-height:1.5;">
+                Need help? Contact <a href="mailto:{brand_support_email}" style="color:#111827;">{brand_support_email}</a><br/>
+                <a href="{brand_terms_url}" style="color:#6b7280;">Terms</a> ·
+                <a href="{brand_privacy_url}" style="color:#6b7280;">Privacy</a>
+              </div>
+              <div style="font-size:11px;color:#9ca3af;margin-top:10px;">{tenant_company_address}</div>
+            </td>
+          </tr>
+        </table>
+
+        <div style="font-size:11px;color:#9ca3af;margin-top:10px;">
+          Sent by {tenant_name} · Powered by Stride WMS
         </div>
-        
-      </div>
-    </div>
-    <div style="text-align:center;color:#94A3B8;font-size:11px;margin-top:10px;">
-      {tenant_company_address}
-    </div>
-  </div>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
