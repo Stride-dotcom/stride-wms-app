@@ -11,7 +11,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { seedV4Templates } from '@/lib/seedTemplates';
+import { seedDefaultTemplates } from '@/lib/seedTemplates';
 
 interface ChecklistItem {
   id: string;
@@ -334,10 +334,10 @@ export function OnboardingChecklistTab() {
 
     setSeedingTemplates(true);
     try {
-      const result = await seedV4Templates(profile.tenant_id);
+      const result = await seedDefaultTemplates(profile.tenant_id);
       toast({
         title: 'Templates Seeded',
-        description: `Created ${result.created} alert(s) with v4 templates. ${result.skipped} already existed.`,
+        description: `Created ${result.created} alert(s) with default templates. ${result.skipped} already existed.`,
       });
       // Re-run checks to update the checklist
       await runChecks();
@@ -476,10 +476,10 @@ export function OnboardingChecklistTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MaterialIcon name="auto_fix_high" size="md" />
-            Seed v4 Templates
+            Seed Default Alert Templates
           </CardTitle>
           <CardDescription>
-            Populate missing alert templates with branded v4 defaults for all core trigger events
+            Populate missing alert templates with defaults for all core trigger events
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -495,7 +495,7 @@ export function OnboardingChecklistTab() {
             Seed Missing Templates
           </Button>
           <p className="text-xs text-muted-foreground mt-2">
-            This creates communication alerts and v4 branded email/SMS templates for any core triggers not yet configured. Existing alerts are left unchanged.
+            This creates communication alerts and default email/SMS templates for any core triggers not yet configured. Existing alerts are left unchanged.
           </p>
         </CardContent>
       </Card>
