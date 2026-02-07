@@ -1,136 +1,142 @@
 
 
-# Implementation Plan: Class-Based Rates Table + "No Charge" Pricing Method
+# Fix Price List Options Section
 
 ## Scope
-
-Two feature changes and one form reorganization, all in a single file:
-- **`src/components/settings/pricing/AddServiceForm.tsx`**
+All changes in a single file: `src/components/settings/pricing/AddServiceForm.tsx`
 
 ---
 
-## Change 1: Class-Based Rates -- Card Grid to Table
+## Change 1: Mobile-Friendly Class-Based Rate Table
 
-### Current State (lines 938-1012)
-A 2x3 card grid showing a class badge + rate input per class. Service time is a single shared field at the bottom (not per-class).
+**Problem**: Rate ($) column has fixed `w-[140px]` and Service Time has `w-[130px]`, making inputs too narrow on mobile.
 
-### New Layout
-A proper table using the existing `Table` components from `@/components/ui/table`:
+**Fix (lines 1013-1016)**:
+- Remove fixed widths from Rate and Service Time `TableHead` columns
+- Add responsive classes: Rate gets `min-w-[100px]`, Service Time gets `min-w-[100px]`
+- Add `w-full` to the rate and service time `Input` components so they fill their cells
+
+---
+
+## Change 2: Rename Options Display Labels
+
+**Problem**: Currently shows "Show in Scan Hub" and "Create as Flag". Should be "Scan Hub" and "Flag".
+
+**Fix (lines 839-855)**:
+- "Show in Scan Hub" label becomes **"Scan Hub"**
+- "Create as Flag" label becomes **"Flag"**
+- No changes to billing trigger chips -- those stay as-is
+
+---
+
+## Change 3: Move All Visible Help Text Behind (?) Icons
+
+**Problem**: "Show in Scan Hub", "Create as Flag", and all three flag behavior options show their descriptions as visible `<p>` text. These should be behind `LabelWithTooltip` (?) icons only.
+
+The `LabelWithTooltip` component already uses a `Popover` (not a hover-only tooltip), so it works on tap/click for mobile and tablet out of the box.
+
+**Scan Hub (lines 839-845)**:
+- Replace `<Label>Show in Scan Hub</Label>` + `<p>Makes this service available...</p>` with:
+  `<LabelWithTooltip tooltip="Makes this service available in the Scan Hub service dropdown">Scan Hub</LabelWithTooltip>`
+- Remove the `<p>` description paragraph
+
+**Flag (lines 848-855)**:
+- Replace `<Label>Create as Flag</Label>` + `<p>Shows as a toggleable flag...</p>` with:
+  `<LabelWithTooltip tooltip="Shows as a toggleable flag on Item Details page">Flag</LabelWithTooltip>`
+- Remove the `<p>` description paragraph
+
+**Flag Behavior sub-options (lines 860-902)**:
+- All three options get their inline descriptions moved behind (?) icons (details in Change 4 below)
+
+---
+
+## Change 4: Flag Behaviors -- Independent Toggles Instead of Radio Buttons
+
+**Problem**: "Creates Billing Charge" and "Indicator Only" are mutually exclusive radio buttons. They should be independent since a flag can do both.
+
+### FormState Update (line 73)
+Replace:
+```
+flagBehavior: 'charge' | 'indicator';
+```
+With two booleans:
+```
+flagBilling: boolean;
+flagIndicator: boolean;
+```
+
+### Default Values (line 226)
+Replace:
+```
+flagBehavior: 'charge',
+```
+With:
+```
+flagBilling: false,
+flagIndicator: false,
+```
+
+### Edit Mode Loading (line 198)
+Replace:
+```
+flagBehavior: (editingChargeType as any).flag_is_indicator ? 'indicator' : 'charge',
+```
+With:
+```
+flagBilling: editingChargeType.pricing_rules?.some(r => Number(r.rate) > 0) ?? false,
+flagIndicator: (editingChargeType as any).flag_is_indicator ?? false,
+```
+
+### Save Logic (lines 448-449, 478-479)
+Replace:
+```
+flag_is_indicator: form.addFlag && form.flagBehavior === 'indicator',
+```
+With:
+```
+flag_is_indicator: form.addFlag && form.flagIndicator,
+```
+
+### Validation (line 296)
+Replace:
+```
+const isIndicatorFlag = form.addFlag && form.flagBehavior === 'indicator';
+```
+With:
+```
+const isIndicatorFlag = form.addFlag && !form.flagBilling;
+```
+This skips rate validation only when flag is on but billing is not checked.
+
+### New Flag Behavior UI (replaces lines 858-903)
+Three `Switch` toggle rows with `LabelWithTooltip` (?) icons. No visible description text -- all help text is behind the (?) icon:
 
 ```text
-RATES BY ITEM CLASS
-+--------+--------------+----------------+--------------------+
-| Class  | Name         | Rate ($)       | Service Time (min) |
-+--------+--------------+----------------+--------------------+
-| XS     | Extra Small  | [$ 10.00 ]     | [  5  ]            |
-| S      | Small        | [$ 25.00 ]     | [  5  ]            |
-| M      | Medium       | [$ 50.00 ]     | [  9  ]            |
-| L      | Large        | [$ 100.00]     | [  10 ]            |
-| XL     | Extra Large  | [$ 185.00]     | [  14 ]            |
-+--------+--------------+----------------+--------------------+
-Unit: [each v]   Min. Charge ($): [____]
+Flag Behavior
+  Billing    (?)  [switch]
+  Indicator  (?)  [switch]
+  Alert      (?)  [switch]
 ```
 
-### Technical Details
-- Import `Table, TableHeader, TableBody, TableHead, TableRow, TableCell` from `@/components/ui/table`
-- Replace the `grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4` div (lines 942-967) with a `Table` element
-- Column order: **Class** (Badge), **Name** (text), **Rate ($)** (input), **Service Time (min)** (input)
-- Each row maps to a `classRate` entry and calls `updateClassRate` for both `rate` and `serviceTimeMinutes`
-- Remove the shared "Service Time (min)" field from the bottom section (line 997-1008) since each class row now has its own
-- Keep Unit and Min. Charge at the bottom (reduce from 3-col to 2-col grid)
+Each row:
+1. **Billing** -- `LabelWithTooltip tooltip="When flagged on an item, creates a billing event at the configured rate"` + `Switch checked={form.flagBilling}`
+2. **Indicator** -- `LabelWithTooltip tooltip="Shows a bold visual marker like FRAGILE on the item details page"` + `Switch checked={form.flagIndicator}`
+3. **Alert** -- `LabelWithTooltip tooltip="Sends an email notification to the office when this flag is applied to an item"` + `Switch checked={form.flagAlertOffice}`
 
-### Edit Mode Race Condition Fix (lines 215-226)
-When editing a service, if `classes` loads after the form initializes, `classRates` starts empty and the `useEffect` repopulates with blank values, losing existing rates. The fix:
-- Check if `editingChargeType` exists and has `pricing_rules`
-- When populating blank `classRates` from newly-loaded `classes`, match each class against `editingChargeType.pricing_rules` to restore saved rate and service time values
-
-### Save Logic Fix (line 320)
-Change `form.classRates.filter(r => r.rate)` to `form.classRates.filter(r => r.rate !== '')` so that a rate of `"0"` is saved rather than silently discarded.
+All three are independent -- any combination can be active simultaneously.
 
 ---
 
-## Change 2: "No Charge" Pricing Method
+## Summary
 
-### Purpose
-For services that need tracking (name, code, flags, alerts, scan hub, service time) but have no billing. Example: a "Fragile" flag that alerts the office but costs nothing.
+| Area | Current | New |
+|---|---|---|
+| Class rate table columns | Fixed `w-[140px]`/`w-[130px]` | Responsive `min-w-[100px]` + `w-full` inputs |
+| Scan Hub label | "Show in Scan Hub" + visible description | "Scan Hub" + (?) tooltip |
+| Flag label | "Create as Flag" + visible description | "Flag" + (?) tooltip |
+| Flag behavior | Radio: "Creates Billing Charge" OR "Indicator Only" | 3 independent switches: Billing, Indicator, Alert |
+| Flag behavior help text | Visible `<p>` descriptions | Behind (?) tooltip icons |
+| Billing trigger chips | Unchanged | Unchanged |
 
-### New Pricing Method Card
-Add a 5th card to `PRICING_METHOD_CARDS`:
-```
-{ value: 'no_charge', label: 'No Charge', icon: 'money_off' }
-```
-The grid changes from `grid-cols-2` to accommodate 5 cards (wrap layout with `flex-wrap`).
-
-### Behavior When Selected
-- Rate configuration is **hidden entirely** (no rate, unit, or minimum charge)
-- A **Service Time** input is still shown (for scheduling/capacity planning)
-- An info note appears: "This service will not generate billing charges"
-- The **Billing Trigger** section (see Change 3) is hidden entirely
-- Trigger defaults to `'manual'`
-- Validation skips rate and trigger requirements
-
-### Type Changes
-- `FormState.pricingMethod`: change from `'class_based' | 'flat'` to `'class_based' | 'flat' | 'no_charge'`
-- `handlePricingMethodSelect`: add `'no_charge'` case -- sets `pricingMethod: 'no_charge'`, `unit: 'each'`, `trigger: 'manual'`
-- `getActivePricingCard`: return `'no_charge'` when `form.pricingMethod === 'no_charge'`
-
-### Save Behavior
-On save, creates a flat pricing rule with `rate: 0` for database consistency:
-```
-pricing_method: 'flat', rate: 0, unit: 'each',
-service_time_minutes: (from form if set)
-```
-
-### Edit Mode Detection
-When loading an existing service, detect "no charge" by checking if the only pricing rule has `rate === 0` AND `pricing_method === 'flat'` AND `default_trigger === 'manual'` AND not class-based.
-
-### Validation Changes (lines 250-268)
-- When `pricingMethod === 'no_charge'`: skip rate validation AND trigger validation
-- Other pricing methods: rate validation stays as-is
-
-### New Component: `NoChargeConfig`
-A simple component showing only a Service Time (min) input and an info message. No rate, unit, or min charge fields.
-
----
-
-## Change 3: Separate Category and Billing Trigger
-
-### Current State (lines 579-692)
-Section 2 is titled "Category & Auto Billing Trigger" and contains both the category chips and the trigger/flag/scan chips in one card.
-
-### New Layout (5 sections instead of 4)
-
-```text
-Section 1: Basic Information (unchanged)
-
-Section 2: Category
-  - Service category chips only
-  - Numbered circle: 2
-
-Section 3: Pricing (unchanged, but now numbered 3)
-  - 5 method cards including No Charge
-  - Rate config / table / NoChargeConfig
-
-Section 4: Billing Trigger            <-- NEW STANDALONE SECTION
-  - Auto billing trigger chips
-  - Flag / Scan chips
-  - Help text
-  - Entire section is HIDDEN when No Charge is selected
-
-Section 5: Options (unchanged content, renumbered from 4 to 5)
-```
-
-### What Moves
-- The auto billing trigger chips, flag/scan chips, and help text (lines 632-689) move from Section 2 into a new Section 4 card
-- Section 2 becomes "Category" only
-- When `form.pricingMethod === 'no_charge'`, the entire Section 4 card is not rendered
-- Section numbering updates: the Options card changes from circle "4" to circle "5"
-
----
-
-## No Database Changes Needed
-
-- "No Charge" services store as `pricing_method: 'flat'` with `rate: 0` in `pricing_rules` -- existing schema supports this
-- Flag/alert functionality is independent of pricing (driven by `add_flag`, `flag_is_indicator`, `alert_rule` on `charge_types`)
-- Per-class `service_time_minutes` is already a column on `pricing_rules`
-
+### No database changes needed
+`flag_is_indicator` boolean already supports the indicator toggle. Billing behavior is driven by the rate value. Alert is already driven by `alert_rule`.
