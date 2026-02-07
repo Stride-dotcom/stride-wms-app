@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StatusIndicator } from "@/components/ui/StatusIndicator";
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { PushToQuickBooksButton } from "@/components/billing/PushToQuickBooksButton";
 import { BillingEventForSync } from "@/hooks/useQuickBooks";
@@ -1227,18 +1228,9 @@ export function BillingReportTab() {
       }));
   }, [rows]);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "unbilled":
-        return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">Unbilled</Badge>;
-      case "invoiced":
-        return <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">Invoiced</Badge>;
-      case "void":
-        return <Badge variant="outline" className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20">Void</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  const getStatusBadge = (status: string) => (
+    <StatusIndicator status={status} size="sm" />
+  );
 
   // Sortable column header component
   const SortableHeader = ({ field, children, className = '' }: { field: SortField; children: React.ReactNode; className?: string }) => (

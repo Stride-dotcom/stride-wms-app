@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import {
   Select,
   SelectContent,
@@ -78,18 +79,9 @@ export function RepairQuoteSection({ itemId, canApprove = true }: RepairQuoteSec
     setApprovingId(null);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge variant="secondary"><MaterialIcon name="schedule" className="text-[12px] mr-1" />Pending</Badge>;
-      case 'approved':
-        return <Badge className="bg-green-100 text-green-800"><MaterialIcon name="check" className="text-[12px] mr-1" />Approved</Badge>;
-      case 'declined':
-        return <Badge variant="destructive"><MaterialIcon name="close" className="text-[12px] mr-1" />Declined</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  const getStatusBadge = (status: string) => (
+    <StatusIndicator status={status} size="sm" />
+  );
 
   if (loading) {
     return (

@@ -3,6 +3,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import {
   Dialog,
   DialogContent,
@@ -87,23 +88,10 @@ export function ClientPortalSection({ accountId, accountName }: ClientPortalSect
 
   const getStatusBadge = (invitation: ClientInvitation) => {
     const isExpired = new Date(invitation.expires_at) < new Date();
-
     if (isExpired && invitation.status !== 'accepted' && invitation.status !== 'cancelled') {
-      return <Badge variant="secondary">Expired</Badge>;
+      return <StatusIndicator status="expired" size="sm" />;
     }
-
-    switch (invitation.status) {
-      case 'pending':
-        return <Badge variant="secondary">Pending</Badge>;
-      case 'sent':
-        return <Badge variant="default">Sent</Badge>;
-      case 'accepted':
-        return <Badge className="bg-green-500">Accepted</Badge>;
-      case 'cancelled':
-        return <Badge variant="destructive">Cancelled</Badge>;
-      default:
-        return <Badge variant="secondary">{invitation.status}</Badge>;
-    }
+    return <StatusIndicator status={invitation.status} size="sm" />;
   };
 
   return (
