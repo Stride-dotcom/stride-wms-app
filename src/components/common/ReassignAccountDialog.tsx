@@ -191,7 +191,7 @@ export function ReassignAccountDialog({
               } = sourceShipment;
 
               const splitNote = `Split from shipment ${sourceShipment.shipment_number}`;
-              const { data: newShipment, error: createErr } = await supabase
+              const { data: newShipment, error: createErr } = await (supabase as any)
                 .from('shipments')
                 .insert({
                   ...shipmentDetails,
