@@ -145,6 +145,7 @@ export default function TaskDetailPage() {
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>('');
   const [creatingQuote, setCreatingQuote] = useState(false);
   const [billingRefreshKey, setBillingRefreshKey] = useState(0);
+  const [docRefetchKey, setDocRefetchKey] = useState(0);
   const [completionBlockedOpen, setCompletionBlockedOpen] = useState(false);
   const [completionValidationResult, setCompletionValidationResult] = useState<TaskCompletionValidationResult | null>(null);
 
@@ -1485,7 +1486,7 @@ export default function TaskDetailPage() {
                   <ScanDocumentButton
                     context={{ type: 'task', taskId: task.id, title: task.title }}
                     onSuccess={() => {
-                      // Documents are auto-refetched by DocumentList
+                      setDocRefetchKey(prev => prev + 1);
                     }}
                     label="Scan"
                     size="sm"
@@ -1494,7 +1495,7 @@ export default function TaskDetailPage() {
                   <DocumentUploadButton
                     context={{ type: 'task', taskId: task.id, title: task.title }}
                     onSuccess={() => {
-                      // Documents are auto-refetched by DocumentList
+                      setDocRefetchKey(prev => prev + 1);
                     }}
                     size="sm"
                   />
@@ -1504,6 +1505,7 @@ export default function TaskDetailPage() {
                 <DocumentList
                   contextType="task"
                   contextId={task.id}
+                  refetchKey={docRefetchKey}
                 />
               </CardContent>
             </Card>
