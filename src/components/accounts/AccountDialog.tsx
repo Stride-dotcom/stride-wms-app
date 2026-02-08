@@ -36,9 +36,11 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ClientPortalSection } from './ClientPortalSection';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
+import { AddCreditDialog } from '@/components/billing/AddCreditDialog';
 import { AccountPricingTab } from './AccountPricingTab';
 import { AccountInvoicesTab } from './AccountInvoicesTab';
 import { AccountActivityTab } from './AccountActivityTab';
@@ -317,8 +319,11 @@ export function AccountDialog({
   const [serviceSelectionOpen, setServiceSelectionOpen] = useState(false);
   const [accountCodeManuallyEdited, setAccountCodeManuallyEdited] = useState(false);
   const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
+  const [addCreditDialogOpen, setAddCreditDialogOpen] = useState(false);
   const { toast } = useToast();
   const { profile } = useAuth();
+  const { hasRole } = usePermissions();
+  const canAddCredit = hasRole('admin') || hasRole('tenant_admin');
   const { types: accountTypes } = useAccountTypes();
 
   const form = useForm<AccountFormData>({
@@ -1596,15 +1601,26 @@ export function AccountDialog({
 
               <DialogFooter className="pt-4 border-t mt-4">
                 {isEditing && accountId && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setAddAddonDialogOpen(true)}
-                    className="mr-auto"
-                  >
-                    <MaterialIcon name="attach_money" size="sm" className="mr-2" />
-                    Add Charge
-                  </Button>
+                  <div className="flex gap-2 mr-auto">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setAddAddonDialogOpen(true)}
+                    >
+                      <MaterialIcon name="attach_money" size="sm" className="mr-2" />
+                      Add Charge
+                    </Button>
+                    {canAddCredit && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setAddCreditDialogOpen(true)}
+                      >
+                        <MaterialIcon name="money_off" size="sm" className="mr-2" />
+                        Add Credit
+                      </Button>
+                    )}
+                  </div>
                 )}
                 <Button type="submit" disabled={loading}>
                   {loading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
@@ -1620,6 +1636,17 @@ export function AccountDialog({
           <AddAddonDialog
             open={addAddonDialogOpen}
             onOpenChange={setAddAddonDialogOpen}
+            accountId={accountId}
+            accountName={form.watch('account_name') || undefined}
+            onSuccess={onSuccess}
+          />
+        )}
+
+        {/* Add Credit Dialog - Admin Only */}
+        {isEditing && accountId && (
+          <AddCreditDialog
+            open={addCreditDialogOpen}
+            onOpenChange={setAddCreditDialogOpen}
             accountId={accountId}
             accountName={form.watch('account_name') || undefined}
             onSuccess={onSuccess}

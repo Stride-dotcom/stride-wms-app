@@ -47,6 +47,7 @@ import { useDocuments } from '@/hooks/useDocuments';
 import { ItemAdvancedTab } from '@/components/items/ItemAdvancedTab';
 import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { AddBillingChargeDialog } from '@/components/items/AddBillingChargeDialog';
+import { AddCreditDialog } from '@/components/billing/AddCreditDialog';
 import { LinkToShipmentDialog } from '@/components/items/LinkToShipmentDialog';
 import { CoverageSelector } from '@/components/coverage/CoverageSelector';
 import { ClaimCreateDialog } from '@/components/claims/ClaimCreateDialog';
@@ -181,6 +182,7 @@ export default function ItemDetail() {
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
   const [billingChargeDialogOpen, setBillingChargeDialogOpen] = useState(false);
+  const [addCreditDialogOpen, setAddCreditDialogOpen] = useState(false);
   const [linkShipmentDialogOpen, setLinkShipmentDialogOpen] = useState(false);
   const [claimDialogOpen, setClaimDialogOpen] = useState(false);
   const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
@@ -199,6 +201,7 @@ export default function ItemDetail() {
   // Permission checks
   const { hasRole } = usePermissions();
   const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
+  const canAddCredit = hasRole('admin') || hasRole('tenant_admin');
 
   // Get counts for tab indicators
   const { allPhotos: photoList } = useItemPhotos(id);
@@ -753,6 +756,11 @@ export default function ItemDetail() {
                   <DropdownMenuItem onClick={() => setBillingChargeDialogOpen(true)}>
                     💰 Add Charge
                   </DropdownMenuItem>
+                  {canAddCredit && (
+                    <DropdownMenuItem onClick={() => setAddCreditDialogOpen(true)}>
+                      💸 Add Credit
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setReassignDialogOpen(true)}>
                     <MaterialIcon name="swap_horiz" size="sm" className="mr-2" />
@@ -1263,6 +1271,24 @@ export default function ItemDetail() {
           setBillingRefreshKey(prev => prev + 1);
         }}
       />
+
+      {/* Add Credit Dialog - Admin Only */}
+      {item?.account_id && (
+        <AddCreditDialog
+          open={addCreditDialogOpen}
+          onOpenChange={setAddCreditDialogOpen}
+          accountId={item.account_id}
+          accountName={item.account?.account_name}
+          itemId={item.id}
+          itemCode={item.item_code}
+          sidemarkId={item.sidemark_id}
+          classId={item.class_id}
+          onSuccess={() => {
+            setAddCreditDialogOpen(false);
+            setBillingRefreshKey(prev => prev + 1);
+          }}
+        />
+      )}
 
       <LinkToShipmentDialog
         open={linkShipmentDialogOpen}

@@ -20,6 +20,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
+import { AddCreditDialog } from '@/components/billing/AddCreditDialog';
 import { BillingCalculator } from '@/components/billing/BillingCalculator';
 import { ShipmentCoverageDialog } from '@/components/shipments/ShipmentCoverageDialog';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -148,6 +149,8 @@ export default function ShipmentDetail() {
 
   // Only managers and admins can see billing fields
   const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
+  // Only admins can add credits
+  const canAddCredit = hasRole('admin') || hasRole('tenant_admin');
 
   // State
   const [loading, setLoading] = useState(true);
@@ -168,6 +171,7 @@ export default function ShipmentDetail() {
   const [editNotes, setEditNotes] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
+  const [addCreditDialogOpen, setAddCreditDialogOpen] = useState(false);
   const [coverageDialogOpen, setCoverageDialogOpen] = useState(false);
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
@@ -1304,6 +1308,14 @@ export default function ShipmentDetail() {
               <span className="sm:hidden">Charge</span>
             </Button>
           )}
+          {/* Add Credit Button - Admin Only */}
+          {shipment.account_id && canAddCredit && (
+            <Button variant="secondary" size="sm" onClick={() => setAddCreditDialogOpen(true)}>
+              <MaterialIcon name="money_off" size="sm" className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Add Credit</span>
+              <span className="sm:hidden">Credit</span>
+            </Button>
+          )}
           {/* Add Coverage button - only for inbound shipments with received items */}
           {shipment.account_id && canSeeBilling && isInbound && items.some(i => i.item_id) && (
             <Button variant="outline" size="sm" onClick={() => setCoverageDialogOpen(true)}>
@@ -2058,7 +2070,21 @@ export default function ShipmentDetail() {
           accountName={shipment.accounts?.account_name}
           shipmentId={shipment.id}
           onSuccess={() => {
-            // Refresh both shipment data and billing calculator
+            fetchShipment();
+            setBillingRefreshKey(prev => prev + 1);
+          }}
+        />
+      )}
+
+      {/* Add Credit Dialog - Admin Only */}
+      {shipment.account_id && canAddCredit && (
+        <AddCreditDialog
+          open={addCreditDialogOpen}
+          onOpenChange={setAddCreditDialogOpen}
+          accountId={shipment.account_id}
+          accountName={shipment.accounts?.account_name}
+          shipmentId={shipment.id}
+          onSuccess={() => {
             fetchShipment();
             setBillingRefreshKey(prev => prev + 1);
           }}
