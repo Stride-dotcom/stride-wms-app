@@ -93,6 +93,24 @@ const ERROR_CODE_LABELS: Record<ErrorCode, string> = {
   TOUR_STEP_FAILED: 'Tour Step Failed',
 };
 
+/** Short one-line explanation of each error code for the fix prompt */
+function getErrorCodeExplanation(code: string): string {
+  const explanations: Record<string, string> = {
+    SCROLL_LOCKED: 'The page content cannot be scrolled — the primary action button may be unreachable.',
+    INSUFFICIENT_SCROLL_BUFFER: 'Not enough padding below the last interactive element — buttons may be cut off or hidden behind fixed footers.',
+    PRIMARY_ACTION_NOT_REACHABLE: 'The main Save/Submit/Complete button is not visible or scrollable to within the viewport.',
+    HORIZONTAL_OVERFLOW: 'The page content extends horizontally beyond the viewport width, causing a horizontal scrollbar.',
+    BLANK_CONTENT: 'The page loaded but the main content area appears empty — data may not be loading.',
+    CONSOLE_ERROR: 'JavaScript errors were logged to the browser console during the page visit.',
+    UNCAUGHT_EXCEPTION: 'An unhandled runtime exception crashed or disrupted the page.',
+    NETWORK_FAILURE: 'One or more API/network requests failed during the page load or interaction.',
+    AXE_CRITICAL: 'Critical WCAG accessibility violations were found — these block users with assistive technology.',
+    AXE_SERIOUS: 'Serious WCAG accessibility violations were found — these significantly hinder accessibility.',
+    TOUR_STEP_FAILED: 'A scripted UI interaction (click, fill, assert) failed — usually a missing element or testid.',
+  };
+  return explanations[code] || 'An issue was detected during testing.';
+}
+
 interface UIIssue {
   code: ErrorCode;
   message: string;
@@ -124,6 +142,15 @@ interface SelectableIssue {
   issue: UIIssue;
   fileHints: string[];
   screenshot?: string;
+  // Rich context for AI fix prompts
+  consoleErrors?: string[];
+  exceptions?: string[];
+  networkFailures?: string[];
+  failedTourSteps?: { step: string; action: string; status: string; error?: string }[];
+  axeViolations?: { id: string; impact: string; description: string; nodes: number }[];
+  scrollBufferPx?: number;
+  overflow?: boolean;
+  routeDescription?: string;
 }
 
 // =============================================================================
@@ -977,6 +1004,8 @@ function UIVisualQATab() {
         const route = result.test_name.replace(/^\[P\d\]\s*/, '').split(' (')[0];
         const viewport = result.test_name.match(/\((\w+)\)$/)?.[1] || 'unknown';
 
+        const failedSteps = details.tourSteps?.filter(s => s.status === 'fail') || [];
+
         details.issues.forEach((issue, idx) => {
           issues.push({
             id: `${result.id}-${idx}`,
@@ -988,6 +1017,14 @@ function UIVisualQATab() {
             issue,
             fileHints: details.fileHints || [],
             screenshot: details.artifacts?.[0],
+            consoleErrors: details.consoleErrors?.length ? details.consoleErrors : undefined,
+            exceptions: details.exceptions?.length ? details.exceptions : undefined,
+            networkFailures: details.networkFailures?.length ? details.networkFailures : undefined,
+            failedTourSteps: failedSteps.length ? failedSteps : undefined,
+            axeViolations: details.axeViolations?.length ? details.axeViolations : undefined,
+            scrollBufferPx: details.scrollBufferPx,
+            overflow: details.overflow || undefined,
+            routeDescription: route,
           });
         });
       }
@@ -1035,71 +1072,277 @@ function UIVisualQATab() {
     const selected = allSelectableIssues.filter(si => selectedIssues.has(si.id));
     if (selected.length === 0) return;
 
+    // Collect unique files across all issues
+    const allFiles = new Set<string>();
+    selected.forEach(si => si.fileHints.forEach(f => allFiles.add(f)));
+
+    // Collect all console errors across issues
+    const allConsoleErrors = new Set<string>();
+    selected.forEach(si => si.consoleErrors?.forEach(e => allConsoleErrors.add(e)));
+
+    // Collect all exceptions
+    const allExceptions = new Set<string>();
+    selected.forEach(si => si.exceptions?.forEach(e => allExceptions.add(e)));
+
+    // Collect all network failures
+    const allNetworkFailures = new Set<string>();
+    selected.forEach(si => si.networkFailures?.forEach(n => allNetworkFailures.add(n)));
+
+    // Collect unique failed tour steps
+    const allFailedSteps: { step: string; action: string; error?: string; route: string }[] = [];
+    selected.forEach(si => {
+      si.failedTourSteps?.forEach(s => {
+        if (!allFailedSteps.some(existing => existing.step === s.step && existing.route === si.route)) {
+          allFailedSteps.push({ ...s, route: si.route });
+        }
+      });
+    });
+
+    // Collect all axe violations
+    const allAxeViolations: { id: string; impact: string; description: string; nodes: number; route: string }[] = [];
+    selected.forEach(si => {
+      si.axeViolations?.forEach(v => {
+        if (!allAxeViolations.some(existing => existing.id === v.id && existing.route === si.route)) {
+          allAxeViolations.push({ ...v, route: si.route });
+        }
+      });
+    });
+
     const lines: string[] = [
-      '# UI Visual QA - Bulk Fix Request',
+      '# UI Visual QA - Fix Request',
       '',
-      `**Run ID:** ${currentRun?.id || 'unknown'}`,
-      `**Total Issues:** ${selected.length}`,
-      `**Generated:** ${new Date().toISOString()}`,
+      '> Paste this into an AI code assistant (Claude, Cursor, etc.) to get help fixing these issues.',
       '',
-      '---',
+      '## Summary',
+      '',
+      `| Field | Value |`,
+      `|-------|-------|`,
+      `| **Run ID** | ${currentRun?.id || 'unknown'} |`,
+      `| **Total Issues** | ${selected.length} |`,
+      `| **Unique Routes Affected** | ${new Set(selected.map(s => s.route)).size} |`,
+      `| **P0 (Critical)** | ${selected.filter(s => s.priority === 'P0').length} |`,
+      `| **P1 (Important)** | ${selected.filter(s => s.priority === 'P1').length} |`,
+      `| **P2 (Info)** | ${selected.filter(s => s.priority === 'P2').length} |`,
+      `| **Generated** | ${new Date().toISOString()} |`,
       '',
     ];
 
-    // Group by error code for organization
+    // Console errors section
+    if (allConsoleErrors.size > 0) {
+      lines.push('## JavaScript Console Errors', '');
+      lines.push('These errors were logged to the browser console during testing:', '');
+      [...allConsoleErrors].forEach((err, i) => {
+        lines.push(`${i + 1}. \`${err}\``);
+      });
+      lines.push('');
+    }
+
+    // Uncaught exceptions
+    if (allExceptions.size > 0) {
+      lines.push('## Uncaught Exceptions', '');
+      lines.push('These runtime exceptions crashed during testing:', '');
+      [...allExceptions].forEach((ex, i) => {
+        lines.push(`${i + 1}. \`${ex}\``);
+      });
+      lines.push('');
+    }
+
+    // Network failures
+    if (allNetworkFailures.size > 0) {
+      lines.push('## Network Failures', '');
+      lines.push('These API/network requests failed during testing:', '');
+      [...allNetworkFailures].forEach((nf, i) => {
+        lines.push(`${i + 1}. \`${nf}\``);
+      });
+      lines.push('');
+    }
+
+    // Failed tour steps with full error detail
+    if (allFailedSteps.length > 0) {
+      lines.push('## Failed Interaction Steps', '');
+      lines.push('These scripted UI interactions failed (element not found, timeout, etc.):', '');
+      allFailedSteps.forEach((s, i) => {
+        lines.push(`### Step ${i + 1}: \`${s.action}\` on route \`${s.route}\``);
+        lines.push(`- **Selector/Target:** \`${s.step}\``);
+        if (s.error) {
+          lines.push(`- **Error:**`);
+          lines.push('```', s.error, '```');
+        }
+        lines.push('');
+      });
+    }
+
+    // Accessibility violations
+    if (allAxeViolations.length > 0) {
+      lines.push('## Accessibility Violations (axe-core / WCAG)', '');
+      allAxeViolations.forEach(v => {
+        lines.push(`- **${v.id}** (${v.impact}) on \`${v.route}\`: ${v.description} — ${v.nodes} element(s)`);
+      });
+      lines.push('');
+    }
+
+    lines.push('---', '');
+
+    // Group by error code for detailed breakdown
     const byErrorCode = selected.reduce((acc, si) => {
       if (!acc[si.issue.code]) acc[si.issue.code] = [];
       acc[si.issue.code].push(si);
       return acc;
     }, {} as Record<string, SelectableIssue[]>);
 
+    lines.push('## Issues by Category', '');
+
     Object.entries(byErrorCode).forEach(([code, issues]) => {
-      lines.push(`## ${ERROR_CODE_LABELS[code as ErrorCode] || code} (${issues.length} issues)`);
+      lines.push(`### ${ERROR_CODE_LABELS[code as ErrorCode] || code} (${issues.length} issue${issues.length > 1 ? 's' : ''})`);
+      lines.push('');
+      lines.push(getErrorCodeExplanation(code));
       lines.push('');
 
       issues.forEach((si, idx) => {
-        lines.push(`### Issue ${idx + 1}: ${si.route} (${si.viewport})`);
+        lines.push(`#### ${idx + 1}. \`${si.route}\` — ${si.viewport} viewport [${si.priority}]`);
         lines.push('');
-        lines.push(`- **Route:** \`${si.route}\``);
-        lines.push(`- **Viewport:** ${si.viewport}`);
-        lines.push(`- **Priority:** ${si.priority}`);
-        lines.push(`- **Error Code:** \`${si.issue.code}\``);
-        lines.push(`- **Message:** ${si.issue.message}`);
+        lines.push(`- **Error:** ${si.issue.message}`);
 
         if (si.issue.selector) {
-          lines.push(`- **Selector:** \`${si.issue.selector}\``);
+          lines.push(`- **CSS Selector:** \`${si.issue.selector}\``);
         }
         if (si.issue.measuredValue !== undefined) {
-          lines.push(`- **Measured Value:** ${si.issue.measuredValue}px`);
+          lines.push(`- **Measured:** ${si.issue.measuredValue}px`);
         }
         if (si.issue.expectedValue !== undefined) {
-          lines.push(`- **Expected Value:** ${si.issue.expectedValue}px`);
+          lines.push(`- **Expected:** ≥ ${si.issue.expectedValue}px`);
+        }
+        if (si.scrollBufferPx !== undefined) {
+          lines.push(`- **Scroll buffer:** ${si.scrollBufferPx}px (target: 80–120px)`);
+        }
+        if (si.overflow) {
+          lines.push(`- **Horizontal overflow:** Content extends beyond viewport`);
         }
         if (si.fileHints.length > 0) {
-          lines.push(`- **Files to check:**`);
+          lines.push(`- **Source files:**`);
           si.fileHints.forEach(f => lines.push(`  - \`${f}\``));
         }
         lines.push('');
       });
     });
 
-    lines.push('---');
-    lines.push('');
-    lines.push('## How to Fix');
-    lines.push('');
-    lines.push('Please analyze each issue above and provide fixes. For each fix:');
-    lines.push('1. Identify the root cause');
-    lines.push('2. Provide the code changes needed');
-    lines.push('3. Explain how the fix addresses the issue');
-    lines.push('');
-    lines.push('### Common Fixes by Error Code:');
-    lines.push('');
-    lines.push('- **SCROLL_LOCKED**: Check for `overflow: hidden` or missing scroll containers');
-    lines.push('- **INSUFFICIENT_SCROLL_BUFFER**: Add padding-bottom (80-120px) or use sticky footer');
-    lines.push('- **HORIZONTAL_OVERFLOW**: Add `overflow-x: auto` or fix fixed-width elements');
-    lines.push('- **CONSOLE_ERROR**: Debug the JavaScript error in browser console');
-    lines.push('- **AXE_CRITICAL/AXE_SERIOUS**: Fix accessibility issues (missing labels, contrast, etc.)');
-    lines.push('- **TOUR_STEP_FAILED**: Add missing data-testid attributes');
+    lines.push('---', '');
+
+    // All files to check - deduplicated summary
+    if (allFiles.size > 0) {
+      lines.push('## All Files to Check', '');
+      lines.push('These are the source files related to the affected routes:', '');
+      [...allFiles].sort().forEach(f => lines.push(`- \`${f}\``));
+      lines.push('');
+    }
+
+    // Technology stack context
+    lines.push(
+      '## Technology Stack',
+      '',
+      '- **Frontend:** React 18 + TypeScript + Vite',
+      '- **UI Library:** shadcn-ui + Radix UI + Tailwind CSS',
+      '- **Database:** Supabase (PostgreSQL + RLS)',
+      '- **Auth:** Supabase Auth (JWT)',
+      '- **State:** TanStack React Query v5',
+      '- **Forms:** React Hook Form + Zod',
+      '- **Testing:** Playwright + axe-core',
+      '',
+    );
+
+    // Detailed fix instructions by error code
+    lines.push(
+      '## Fix Instructions',
+      '',
+      'For each issue above, please:',
+      '',
+      '1. **Read** the error message and identify the root cause',
+      '2. **Open** the listed source file(s) and find the problematic code',
+      '3. **Explain** what is going wrong and why',
+      '4. **Provide** the minimal code change to fix it',
+      '5. **Verify** the fix does not break other functionality',
+      '',
+      '### Fix Patterns by Error Type',
+      '',
+    );
+
+    // Only include fix patterns for error codes that are present
+    const codeSet = new Set(Object.keys(byErrorCode));
+    if (codeSet.has('SCROLL_LOCKED')) {
+      lines.push('**SCROLL_LOCKED** — The page cannot scroll. Usually caused by:');
+      lines.push('- `overflow: hidden` on a parent container (body, main, or layout wrapper)');
+      lines.push('- Missing `overflow-y: auto` on the scrollable content area');
+      lines.push('- A `h-screen` / `h-full` container without scroll on the inner content');
+      lines.push('- Fix: Add `overflow-y: auto` to the main content wrapper in DashboardLayout or the page component');
+      lines.push('');
+    }
+    if (codeSet.has('INSUFFICIENT_SCROLL_BUFFER')) {
+      lines.push('**INSUFFICIENT_SCROLL_BUFFER** — Not enough space below the last interactive element (target: 80–120px). Caused by:');
+      lines.push('- Missing `pb-20` or `pb-24` on the page content container');
+      lines.push('- A sticky/fixed footer overlapping content');
+      lines.push('- Fix: Add `className="pb-24"` to the page\'s main content wrapper');
+      lines.push('');
+    }
+    if (codeSet.has('PRIMARY_ACTION_NOT_REACHABLE')) {
+      lines.push('**PRIMARY_ACTION_NOT_REACHABLE** — The main action button (Save/Submit/Complete) is not visible or scrollable to. Caused by:');
+      lines.push('- Button is below the fold and scroll is locked');
+      lines.push('- Button is behind a fixed header/footer');
+      lines.push('- Fix: Make the button sticky at the bottom, or fix the scroll issue so user can reach it');
+      lines.push('');
+    }
+    if (codeSet.has('HORIZONTAL_OVERFLOW')) {
+      lines.push('**HORIZONTAL_OVERFLOW** — Content extends past the right edge of the viewport. Caused by:');
+      lines.push('- A table or element with `min-width` larger than viewport');
+      lines.push('- Long unbroken text or URLs without `break-words`');
+      lines.push('- Fix: Wrap tables in `overflow-x-auto`, add `break-words` to text, or use responsive widths');
+      lines.push('');
+    }
+    if (codeSet.has('BLANK_CONTENT')) {
+      lines.push('**BLANK_CONTENT** — The page rendered but the content area is empty. Caused by:');
+      lines.push('- Data not loading (API error, missing tenant_id filter)');
+      lines.push('- Component render guard blocking content (loading state stuck)');
+      lines.push('- Fix: Check the data fetching hook for errors, verify RLS policies, add error states');
+      lines.push('');
+    }
+    if (codeSet.has('CONSOLE_ERROR')) {
+      lines.push('**CONSOLE_ERROR** — JavaScript errors in the browser console. Check the "Console Errors" section above for the exact messages. Common causes:');
+      lines.push('- Undefined property access (data not loaded yet)');
+      lines.push('- Failed API calls throwing unhandled errors');
+      lines.push('- Fix: Add null checks, error boundaries, or loading guards');
+      lines.push('');
+    }
+    if (codeSet.has('UNCAUGHT_EXCEPTION')) {
+      lines.push('**UNCAUGHT_EXCEPTION** — Unhandled runtime error that crashed the page. Check "Uncaught Exceptions" section above. Fix:');
+      lines.push('- Wrap the problematic code in try/catch');
+      lines.push('- Add React error boundaries');
+      lines.push('- Fix the underlying null/undefined access');
+      lines.push('');
+    }
+    if (codeSet.has('NETWORK_FAILURE')) {
+      lines.push('**NETWORK_FAILURE** — API requests failed. Check "Network Failures" section above. Common causes:');
+      lines.push('- Missing Supabase RLS policies');
+      lines.push('- Incorrect API endpoint or function name');
+      lines.push('- Authentication token expired');
+      lines.push('');
+    }
+    if (codeSet.has('AXE_CRITICAL') || codeSet.has('AXE_SERIOUS')) {
+      lines.push('**AXE_CRITICAL / AXE_SERIOUS** — WCAG accessibility violations. Common fixes:');
+      lines.push('- Add `alt` text to images');
+      lines.push('- Add `<label>` elements to form inputs');
+      lines.push('- Fix color contrast ratios (use WCAG AA: 4.5:1 for text)');
+      lines.push('- Add `aria-label` to icon-only buttons');
+      lines.push('- Ensure focus indicators are visible');
+      lines.push('');
+    }
+    if (codeSet.has('TOUR_STEP_FAILED')) {
+      lines.push('**TOUR_STEP_FAILED** — A scripted UI interaction could not be completed. Check "Failed Interaction Steps" above. Common causes:');
+      lines.push('- Missing `data-testid` attribute on the target element');
+      lines.push('- Element not rendered (hidden behind a condition or loading state)');
+      lines.push('- Element present but not visible (display:none, opacity:0, off-screen)');
+      lines.push('- Timing issue (element not ready within timeout)');
+      lines.push('- Fix: Add the missing `data-testid`, fix the render condition, or increase the step timeout');
+      lines.push('');
+    }
 
     setBulkFixPrompt(lines.join('\n'));
     setShowBulkFixDialog(true);

@@ -89,6 +89,14 @@ interface TourStepResult {
   status: 'pass' | 'fail' | 'skip';
   error?: string;
   screenshot?: string;
+  /** The CSS selector that was targeted (for debugging) */
+  selector?: string;
+  /** The value that was being used (for debugging) */
+  value?: string;
+  /** The current page URL when the step executed */
+  pageUrl?: string;
+  /** Duration in ms */
+  durationMs?: number;
 }
 
 interface TourCoverageReport {
@@ -421,10 +429,13 @@ async function executeTourStep(
   viewport: Viewport,
   route: string
 ): Promise<TourStepResult> {
+  const stepStartTime = Date.now();
   const result: TourStepResult = {
     step: step.note || step.action,
     action: step.action,
     status: 'pass',
+    selector: step.selector,
+    value: step.value,
   };
 
   const timeout = step.timeout || 5000;
@@ -787,9 +798,13 @@ async function executeTourStep(
       result.screenshot = await captureScreenshot(page, runId, viewport, route, `after_${step.note || step.action}`);
     }
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    result.durationMs = Date.now() - stepStartTime;
+    try { result.pageUrl = page.url(); } catch { /* page may be closed */ }
+
     if (step.optional) {
       result.status = 'skip';
-      result.error = error instanceof Error ? error.message : 'Unknown error';
+      result.error = errorMsg;
 
       if (step.selector && error instanceof Error && error.message.includes('locator')) {
         const existing = missingTestIds.get(step.selector);
@@ -807,8 +822,12 @@ async function executeTourStep(
       });
     } else {
       result.status = 'fail';
-      result.error = error instanceof Error ? error.message : 'Unknown error';
+      result.error = errorMsg;
     }
+  }
+
+  if (result.status === 'pass') {
+    result.durationMs = Date.now() - stepStartTime;
   }
 
   return result;
@@ -1007,34 +1026,44 @@ async function testRoute(
       });
     }
 
-    // Console/network errors
+    // Console/network errors — include actual error text for fix prompts
     if (consoleErrors.length > 0) {
+      const errorSummary = consoleErrors.slice(0, 10).join('\n');
       issues.push({
         code: ERROR_CODES.CONSOLE_ERROR,
-        message: `${consoleErrors.length} console error(s) detected`,
+        message: `${consoleErrors.length} console error(s) detected:\n${errorSummary}`,
       });
     }
 
     if (exceptions.length > 0) {
+      const exceptionSummary = exceptions.slice(0, 5).join('\n');
       issues.push({
         code: ERROR_CODES.UNCAUGHT_EXCEPTION,
-        message: `${exceptions.length} uncaught exception(s) detected`,
+        message: `${exceptions.length} uncaught exception(s) detected:\n${exceptionSummary}`,
       });
     }
 
     if (networkFailures.length > 0) {
+      const nfSummary = networkFailures.slice(0, 10).join('\n');
       issues.push({
         code: ERROR_CODES.NETWORK_FAILURE,
-        message: `${networkFailures.length} network request failure(s) detected`,
+        message: `${networkFailures.length} network request failure(s) detected:\n${nfSummary}`,
       });
     }
 
-    // Tour step failures
+    // Tour step failures — include selector, error message, and page URL for debugging
     const failedSteps = stepResults.filter(s => s.status === 'fail');
     if (failedSteps.length > 0) {
+      const stepDetails = failedSteps.map(s => {
+        const parts = [s.step];
+        if (s.selector) parts.push(`selector="${s.selector}"`);
+        if (s.error) parts.push(`error: ${s.error}`);
+        if (s.pageUrl) parts.push(`url: ${s.pageUrl}`);
+        return parts.join(' | ');
+      });
       issues.push({
         code: ERROR_CODES.TOUR_STEP_FAILED,
-        message: `${failedSteps.length} tour step(s) failed: ${failedSteps.map(s => s.step).join(', ')}`,
+        message: `${failedSteps.length} tour step(s) failed:\n${stepDetails.join('\n')}`,
       });
     }
 
@@ -1425,23 +1454,42 @@ test.describe('Deep E2E QA', () => {
         const issues: UIIssue[] = [];
 
         if (failedSteps.length > 0) {
+          // Include the actual error messages in the issue for richer fix prompts
+          const stepDetails = failedSteps.map(s => {
+            const parts = [s.step];
+            if (s.selector) parts.push(`selector="${s.selector}"`);
+            if (s.error) parts.push(`error: ${s.error}`);
+            if (s.pageUrl) parts.push(`url: ${s.pageUrl}`);
+            return parts.join(' | ');
+          });
           issues.push({
             code: ERROR_CODES.TOUR_STEP_FAILED,
-            message: `${failedSteps.length} deep E2E step(s) failed: ${failedSteps.map(s => s.step).join(', ')}`,
+            message: `${failedSteps.length} deep E2E step(s) failed:\n${stepDetails.join('\n')}`,
           });
         }
 
         if (consoleErrors.length > 0) {
+          // Include actual error texts (up to 10) for debugging
+          const errorSummary = consoleErrors.slice(0, 10).join('\n');
           issues.push({
             code: ERROR_CODES.CONSOLE_ERROR,
-            message: `${consoleErrors.length} console error(s) during deep test`,
+            message: `${consoleErrors.length} console error(s) during deep test:\n${errorSummary}`,
           });
         }
 
         if (exceptions.length > 0) {
+          const exceptionSummary = exceptions.slice(0, 5).join('\n');
           issues.push({
             code: ERROR_CODES.UNCAUGHT_EXCEPTION,
-            message: `${exceptions.length} uncaught exception(s) during deep test`,
+            message: `${exceptions.length} uncaught exception(s) during deep test:\n${exceptionSummary}`,
+          });
+        }
+
+        if (networkFailures.length > 0) {
+          const nfSummary = networkFailures.slice(0, 10).join('\n');
+          issues.push({
+            code: ERROR_CODES.NETWORK_FAILURE,
+            message: `${networkFailures.length} network failure(s) during deep test:\n${nfSummary}`,
           });
         }
 
