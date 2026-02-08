@@ -418,11 +418,19 @@ export function TaskTemplatesTab() {
                       {template.is_billable ? 'Billable' : 'Non-Billable'}
                     </Badge>
                     <div className="ml-auto mr-2 flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
+                      <span className={cn(
+                        'text-xs',
+                        template.is_billable && template.links.length === 0
+                          ? 'text-amber-600 dark:text-amber-400 font-medium'
+                          : 'text-muted-foreground'
+                      )}>
                         {template.links.length > 0
                           ? `${template.links.length} service${template.links.length !== 1 ? 's' : ''}`
-                          : 'No services'}
+                          : template.is_billable ? 'No services' : 'No services'}
                       </span>
+                      {template.is_billable && template.links.length === 0 && (
+                        <MaterialIcon name="warning" size="sm" className="text-amber-500" />
+                      )}
                       <ActiveBadge active={template.is_active} />
                     </div>
                   </div>
@@ -522,6 +530,8 @@ function TemplateEditForm({ template, chargeTypes, onSave, onCancel, onDelete }:
     setSearchQuery('');
     onCancel();
   };
+
+  const needsServicesWarning = isBillable && assignedIds.length === 0;
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -644,6 +654,16 @@ function TemplateEditForm({ template, chargeTypes, onSave, onCancel, onDelete }:
         </p>
       </div>
 
+      {/* Warning: billable task type with no services */}
+      {needsServicesWarning && (
+        <div className="flex items-start gap-2 p-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+          <MaterialIcon name="warning" size="sm" className="text-amber-600 mt-0.5 shrink-0" />
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            Billable task types need at least one service assigned. Tasks of this type won't be able to complete without services.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between pt-2 border-t">
         <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDelete}>
           <MaterialIcon name="delete" size="sm" className="mr-1" />
@@ -709,6 +729,8 @@ function AddTemplateForm({ chargeTypes, onSave, onCancel }: AddTemplateFormProps
       return a.charge_name.localeCompare(b.charge_name);
     });
   }, [chargeTypes, searchQuery, assignedIds]);
+
+  const needsServicesWarning = isBillable && assignedIds.length === 0;
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -805,6 +827,16 @@ function AddTemplateForm({ chargeTypes, onSave, onCancel }: AddTemplateFormProps
             {assignedIds.length} service{assignedIds.length !== 1 ? 's' : ''} selected
           </p>
         </div>
+
+        {/* Warning: billable task type with no services */}
+        {needsServicesWarning && (
+          <div className="flex items-start gap-2 p-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+            <MaterialIcon name="warning" size="sm" className="text-amber-600 mt-0.5 shrink-0" />
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              Billable task types need at least one service assigned. Tasks of this type won't be able to complete without services.
+            </p>
+          </div>
+        )}
 
         <div className="flex justify-end gap-2 pt-2 border-t">
           <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>

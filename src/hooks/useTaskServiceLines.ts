@@ -260,96 +260,60 @@ export function useTaskServiceLines(taskId: string | undefined) {
   }, [toast]);
 
   // Pre-populate service lines from task type template (task_type_charge_links)
-  // Falls back to the task type's billing_service_code if no charge links exist
-  const loadFromTemplate = useCallback(async (taskTypeId: string): Promise<void> => {
-    if (!taskId || !profile?.tenant_id || !profile?.id) return;
+  // Single source of truth — no fallback to billing_service_code
+  const loadFromTemplate = useCallback(async (taskTypeId: string): Promise<number> => {
+    if (!taskId || !profile?.tenant_id || !profile?.id) return 0;
 
-    let addedFromLinks = false;
+    let addedCount = 0;
 
     try {
-      // Fetch linked charge type IDs (no relationship joins)
+      // Fetch linked charge type IDs from task_type_charge_links
       const { data: links, error } = await (supabase as any)
         .from('task_type_charge_links')
         .select('charge_type_id')
         .eq('task_type_id', taskTypeId);
 
-      if (error && error.code !== 'PGRST200' && error.code !== '42P01') {
+      if (error) {
+        if (error.code === 'PGRST200' || error.code === '42P01') {
+          return 0;
+        }
         console.error('[useTaskServiceLines] loadFromTemplate links error:', error);
+        return 0;
       }
 
       const chargeTypeIds = [...new Set(((links || []) as any[]).map((link: any) => link.charge_type_id).filter(Boolean))] as string[];
+      if (chargeTypeIds.length === 0) return 0;
 
-      if (chargeTypeIds.length > 0) {
-        const { data: chargeTypes, error: chargeTypesError } = await supabase
-          .from('charge_types')
-          .select('*')
-          .in('id', chargeTypeIds);
+      const { data: chargeTypes, error: chargeTypesError } = await supabase
+        .from('charge_types')
+        .select('*')
+        .in('id', chargeTypeIds);
 
-        if (chargeTypesError || !chargeTypes) {
-          console.error('[useTaskServiceLines] loadFromTemplate charge types error:', chargeTypesError);
-        } else {
-          // Add each linked charge type as a service line (skip duplicates)
-          for (const ct of chargeTypes) {
-            const existing = serviceLines.find(sl => sl.charge_code === ct.charge_code);
-            if (existing) continue;
-
-            await addServiceLine({
-              charge_code: ct.charge_code,
-              charge_name: ct.charge_name,
-              charge_type_id: ct.id,
-              input_mode: ct.input_mode || 'qty',
-              qty: 1,
-              minutes: 0,
-            });
-            addedFromLinks = true;
-          }
-        }
+      if (chargeTypesError || !chargeTypes) {
+        console.error('[useTaskServiceLines] loadFromTemplate charge types error:', chargeTypesError);
+        return 0;
       }
-    } catch (error: any) {
-      console.error('[useTaskServiceLines] loadFromTemplate links error:', error);
-    }
 
-    // Fallback: if no charge links were found, look up the task type's billing_service_code
-    if (!addedFromLinks) {
-      try {
-        const { data: taskTypeData, error: ttError } = await (supabase
-          .from('task_types') as any)
-          .select('name, billing_service_code')
-          .eq('id', taskTypeId)
-          .maybeSingle();
-
-        if (ttError) {
-          console.error('[useTaskServiceLines] loadFromTemplate task type lookup error:', ttError);
-          return;
-        }
-
-        const serviceCode = taskTypeData?.billing_service_code;
-        if (!serviceCode) return;
-
-        // Check if already exists
-        const existing = serviceLines.find(sl => sl.charge_code === serviceCode);
-        if (existing) return;
-
-        // Look up the charge type for this service code to get full details
-        const { data: chargeType } = await supabase
-          .from('charge_types')
-          .select('*')
-          .eq('charge_code', serviceCode)
-          .eq('tenant_id', profile.tenant_id)
-          .maybeSingle();
+      // Add each linked charge type as a service line (skip duplicates)
+      for (const ct of chargeTypes) {
+        const existing = serviceLines.find(sl => sl.charge_code === ct.charge_code);
+        if (existing) continue;
 
         await addServiceLine({
-          charge_code: serviceCode,
-          charge_name: chargeType?.charge_name || taskTypeData?.name || serviceCode,
-          charge_type_id: chargeType?.id || null,
-          input_mode: chargeType?.input_mode || 'qty',
+          charge_code: ct.charge_code,
+          charge_name: ct.charge_name,
+          charge_type_id: ct.id,
+          input_mode: ct.input_mode || 'qty',
           qty: 1,
           minutes: 0,
         });
-      } catch (error: any) {
-        console.error('[useTaskServiceLines] loadFromTemplate billing_service_code fallback error:', error);
+        addedCount++;
       }
+    } catch (error: any) {
+      console.error('[useTaskServiceLines] loadFromTemplate error:', error);
     }
+
+    return addedCount;
   }, [taskId, profile?.tenant_id, profile?.id, serviceLines, addServiceLine]);
 
   return {

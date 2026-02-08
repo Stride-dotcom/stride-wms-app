@@ -538,24 +538,32 @@ export default function TaskDetailPage() {
       toast({ title: 'Task Started' });
       fetchTask();
 
-      // Auto-load template services (non-blocking)
+      // Auto-load template services from task_type_charge_links
       if (task?.task_type) {
         try {
           const { data: taskTypeData } = await (supabase
             .from('task_types') as any)
-            .select('id')
+            .select('id, is_billable')
             .eq('tenant_id', profile.tenant_id)
             .eq('name', task.task_type)
             .eq('is_active', true)
             .maybeSingle();
 
           if (taskTypeData?.id) {
-            await loadFromTemplate(taskTypeData.id);
+            const addedCount = await loadFromTemplate(taskTypeData.id);
             await fetchServiceLines();
+
+            // Guardrail: warn if billable task type has no linked services
+            if (taskTypeData.is_billable && addedCount === 0) {
+              toast({
+                variant: 'destructive',
+                title: 'No Billing Services Configured',
+                description: `The "${task.task_type}" task type has no services linked. Add services in Settings → Task Templates, or manually add services before completing.`,
+              });
+            }
           }
         } catch (templateError) {
-          // Non-blocking: template load failure should not prevent task start
-          console.error('Template auto-load failed (non-blocking):', templateError);
+          console.error('Template auto-load failed:', templateError);
         }
       }
     } catch (error) {
@@ -648,22 +656,6 @@ export default function TaskDetailPage() {
       console.error('Error completing task:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to complete task' });
       setActionLoading(false);
-    }
-  };
-
-  // Handle "Continue Without Services" (Option C legacy fallback)
-  const handleContinueWithoutServices = async () => {
-    if (!id) return;
-    setNoServicesDialogOpen(false);
-    setCompletionLoading(true);
-    try {
-      const success = await completeTaskWithServices(id, []);
-      if (success) {
-        fetchTask();
-        fetchTaskItems();
-      }
-    } finally {
-      setCompletionLoading(false);
     }
   };
 
@@ -1911,24 +1903,20 @@ export default function TaskDetailPage() {
         />
       )}
 
-      {/* No Services Confirmation Dialog (Option C) */}
+      {/* No Services Dialog — blocks completion until services are added */}
       <AlertDialog open={noServicesDialogOpen} onOpenChange={setNoServicesDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>No Services Added</AlertDialogTitle>
             <AlertDialogDescription>
-              This task has no services assigned. Completing now will use legacy billing
-              instead of service-line billing. You can add services using the Services
-              panel, or continue without them.
+              This task has no services assigned. Add at least one service using the
+              Services panel before completing. If this task type should auto-populate
+              services, configure it in Settings → Task Templates.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button variant="outline" onClick={() => setNoServicesDialogOpen(false)}>
+            <Button onClick={() => setNoServicesDialogOpen(false)}>
               Add Services
-            </Button>
-            <Button onClick={handleContinueWithoutServices} disabled={completionLoading}>
-              {completionLoading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
-              Continue Without Services
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
