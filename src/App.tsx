@@ -60,6 +60,9 @@ import ClientQuotes from "./pages/ClientQuotes";
 import ClientClaims from "./pages/ClientClaims";
 import ClientShipments from "./pages/ClientShipments";
 import ClientShipmentDetail from "./pages/ClientShipmentDetail";
+import ClientInboundCreate from "./pages/ClientInboundCreate";
+import ClientOutboundCreate from "./pages/ClientOutboundCreate";
+import ClientTaskCreate from "./pages/ClientTaskCreate";
 import ScanHub from "./pages/ScanHub";
 import ScanItemRedirect from "./pages/ScanItemRedirect";
 import PrintPreview from "./pages/PrintPreview";
@@ -146,7 +149,10 @@ const App = () => (
             <Route path="/client/items" element={<ProtectedRoute><RequireRole role="client_user"><ClientItems /></RequireRole></ProtectedRoute>} />
             <Route path="/client/quotes" element={<ProtectedRoute><RequireRole role="client_user"><ClientQuotes /></RequireRole></ProtectedRoute>} />
             <Route path="/client/shipments" element={<ProtectedRoute><RequireRole role="client_user"><ClientShipments /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/shipments/new" element={<ProtectedRoute><RequireRole role="client_user"><ClientInboundCreate /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/shipments/outbound/new" element={<ProtectedRoute><RequireRole role="client_user"><ClientOutboundCreate /></RequireRole></ProtectedRoute>} />
             <Route path="/client/shipments/:id" element={<ProtectedRoute><RequireRole role="client_user"><ClientShipmentDetail /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/tasks/new" element={<ProtectedRoute><RequireRole role="client_user"><ClientTaskCreate /></RequireRole></ProtectedRoute>} />
             <Route path="/client/claims" element={<ProtectedRoute><RequireRole role="client_user"><ClientClaims /></RequireRole></ProtectedRoute>} />
             <Route path="/components-demo" element={<ProtectedRoute><ComponentsDemo /></ProtectedRoute>} />
             <Route path="/material-icons" element={<ProtectedRoute><MaterialIconsSample /></ProtectedRoute>} />

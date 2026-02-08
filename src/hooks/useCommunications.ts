@@ -115,6 +115,12 @@ export const TRIGGER_EVENTS = [
   { value: 'repair_completed', label: 'Repair Completed' },
   { value: 'repair_requires_approval', label: 'Repair Requires Approval' },
   { value: 'repair.unable_to_complete', label: 'Repair Unable to Complete' },
+  // Client portal triggers
+  { value: 'client.inbound_shipment_created', label: 'Client Created Inbound Shipment' },
+  { value: 'client.outbound_shipment_created', label: 'Client Created Outbound Shipment' },
+  { value: 'client.task_created', label: 'Client Created Task' },
+  { value: 'client.claim_filed', label: 'Client Filed Claim' },
+  { value: 'client.item_reassigned', label: 'Client Reassigned Items' },
   { value: 'custom', label: 'Custom Event' },
 ];
 
