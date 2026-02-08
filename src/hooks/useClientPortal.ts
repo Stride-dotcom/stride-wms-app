@@ -197,8 +197,7 @@ export function useClientShipments() {
           total_items
         `)
         .eq('account_id', portalUser.account_id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];

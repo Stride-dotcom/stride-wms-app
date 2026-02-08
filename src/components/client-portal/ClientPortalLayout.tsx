@@ -34,9 +34,19 @@ const navItems = [
     icon: 'inventory_2',
   },
   {
+    title: 'Shipments',
+    href: '/client/shipments',
+    icon: 'local_shipping',
+  },
+  {
     title: 'Quotes',
     href: '/client/quotes',
     icon: 'request_quote',
+  },
+  {
+    title: 'Claims',
+    href: '/client/claims',
+    icon: 'gavel',
   },
 ];
 
