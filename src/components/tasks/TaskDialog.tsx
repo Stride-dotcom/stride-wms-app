@@ -99,7 +99,6 @@ export function TaskDialog({
     description: '',
     task_type: '',
     task_type_id: null as string | null,
-    primary_service_code: null as string | null,
     priority: 'normal',
     due_date: null as Date | null,
     assigned_to: 'unassigned',
@@ -143,7 +142,6 @@ export function TaskDialog({
         description: task.description || '',
         task_type: task.task_type,
         task_type_id: task.task_type_id || null,
-        primary_service_code: task.primary_service_code || null,
         priority: task.priority || 'normal',
         due_date: task.due_date ? new Date(task.due_date) : null,
         assigned_to: task.assigned_to || 'unassigned',
@@ -163,7 +161,6 @@ export function TaskDialog({
         description: '',
         task_type: initialTaskType,
         task_type_id: null,
-        primary_service_code: null,
         priority: 'normal',
         due_date: dueDate,
         assigned_to: 'unassigned',
@@ -182,28 +179,17 @@ export function TaskDialog({
     initializedRef.current = true;
   }, [task, open, preSelectedTaskType]);
 
-  // Resolve task_type_id and primary_service_code when preSelectedTaskType is set or form opens with a task_type but no task_type_id
+  // Resolve task_type_id when preSelectedTaskType is set or form opens with a task_type but no task_type_id
   useEffect(() => {
     if (!open || !formData.task_type || formData.task_type_id) return;
 
-    const resolveTaskTypeDefaults = async () => {
-      const matchedType = taskTypes.find(tt => tt.name === formData.task_type);
-      if (!matchedType) return;
+    const matchedType = taskTypes.find(tt => tt.name === formData.task_type);
+    if (!matchedType) return;
 
-      const { data: ttData } = await (supabase
-        .from('task_types') as any)
-        .select('default_service_code, billing_service_code')
-        .eq('id', matchedType.id)
-        .single();
-
-      setFormData(prev => ({
-        ...prev,
-        task_type_id: matchedType.id,
-        primary_service_code: ttData?.default_service_code || ttData?.billing_service_code || null,
-      }));
-    };
-
-    resolveTaskTypeDefaults();
+    setFormData(prev => ({
+      ...prev,
+      task_type_id: matchedType.id,
+    }));
   }, [open, formData.task_type, formData.task_type_id, taskTypes]);
 
   // Auto-populate account and warehouse when items are selected from inventory
@@ -294,32 +280,19 @@ export function TaskDialog({
     }
   };
 
-  const handleTaskTypeChange = async (value: string) => {
+  const handleTaskTypeChange = (value: string) => {
     if (value === 'new') {
       setShowNewTaskType(true);
       return;
     }
 
-    // Resolve task_type_id and primary_service_code from the selected task type
+    // Resolve task_type_id from the selected task type
     const matchedType = taskTypes.find(tt => tt.name === value);
-    let taskTypeId: string | null = matchedType?.id || null;
-    let primaryServiceCode: string | null = null;
-
-    if (taskTypeId) {
-      // Fetch default_service_code from task_types
-      const { data: ttData } = await (supabase
-        .from('task_types') as any)
-        .select('default_service_code, billing_service_code')
-        .eq('id', taskTypeId)
-        .single();
-      primaryServiceCode = ttData?.default_service_code || ttData?.billing_service_code || null;
-    }
 
     setFormData(prev => ({
       ...prev,
       task_type: value,
-      task_type_id: taskTypeId,
-      primary_service_code: primaryServiceCode,
+      task_type_id: matchedType?.id || null,
       due_date: getDueDateForTaskType(value),
     }));
   };
@@ -333,7 +306,6 @@ export function TaskDialog({
         ...prev,
         task_type: newType.name,
         task_type_id: newType.id,
-        primary_service_code: null,
         due_date: getDueDateForTaskType(newType.name),
       }));
       setShowNewTaskType(false);
@@ -437,8 +409,6 @@ export function TaskDialog({
           description: formData.description || null,
           task_type: formData.task_type,
           task_type_id: formData.task_type_id,
-          task_kind: formData.task_type ? formData.task_type.toLowerCase().trim() : null,
-          primary_service_code: formData.primary_service_code,
           priority: formData.priority,
           due_date: formData.due_date?.toISOString() || null,
           assigned_to: formData.assigned_to === 'unassigned' ? null : formData.assigned_to || null,
@@ -495,8 +465,6 @@ export function TaskDialog({
           description: formData.description || null,
           task_type: formData.task_type,
           task_type_id: formData.task_type_id,
-          task_kind: formData.task_type ? formData.task_type.toLowerCase().trim() : null,
-          primary_service_code: formData.primary_service_code,
           priority: formData.priority,
           due_date: formData.due_date?.toISOString() || null,
           assigned_to: formData.assigned_to === 'unassigned' ? null : formData.assigned_to || null,

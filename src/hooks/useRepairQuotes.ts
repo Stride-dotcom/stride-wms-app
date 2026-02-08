@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { queueRepairQuoteReadyAlert, queueRepairQuoteSentToClientAlert } from '@/lib/alertQueue';
+import { resolveRepairTaskTypeId, fetchRepairTaskTypeDetails } from '@/lib/tasks/resolveRepairTaskType';
 import { buildRepairQuoteReadyEmail } from '@/lib/email';
 import { getInvoiceStatusClasses } from '@/lib/statusColors';
 
@@ -309,13 +310,32 @@ export function useRepairQuotes(itemId: string | undefined) {
 
       if (hasOpenRepairTask) return;
 
+      // Resolve repair task type with precedence (account → org → fallback)
+      const repairTaskTypeId = await resolveRepairTaskTypeId({
+        tenantId: profile.tenant_id,
+        accountId: null,
+        purpose: 'quote',
+      });
+
+      if (!repairTaskTypeId) {
+        console.warn('[createRepairTaskIfNeeded] No repair task type available; cannot create repair task');
+        return;
+      }
+
+      const repairType = await fetchRepairTaskTypeDetails(repairTaskTypeId);
+      if (!repairType) {
+        console.error(`[createRepairTaskIfNeeded] Task type ${repairTaskTypeId} not found`);
+        return;
+      }
+
       // Create new repair task
       const { data: task } = await (supabase
         .from('tasks') as any)
         .insert({
           tenant_id: profile.tenant_id,
           title: 'Repair - 1 item',
-          task_type: 'Repair',
+          task_type: repairType.name,
+          task_type_id: repairType.id,
           status: 'pending',
           priority: 'normal',
         })

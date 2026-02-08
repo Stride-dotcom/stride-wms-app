@@ -750,6 +750,8 @@ export type Database = {
           auto_inspection_on_receiving: boolean | null
           auto_quarantine_damaged_items: boolean | null
           auto_repair_on_damage: boolean | null
+          repair_task_type_id_for_damage: string | null
+          repair_task_type_id_for_quote: string | null
           billing_address: string | null
           billing_address_line1: string | null
           billing_address_line2: string | null
@@ -835,6 +837,8 @@ export type Database = {
           auto_inspection_on_receiving?: boolean | null
           auto_quarantine_damaged_items?: boolean | null
           auto_repair_on_damage?: boolean | null
+          repair_task_type_id_for_damage?: string | null
+          repair_task_type_id_for_quote?: string | null
           billing_address?: string | null
           billing_address_line1?: string | null
           billing_address_line2?: string | null
@@ -920,6 +924,8 @@ export type Database = {
           auto_inspection_on_receiving?: boolean | null
           auto_quarantine_damaged_items?: boolean | null
           auto_repair_on_damage?: boolean | null
+          repair_task_type_id_for_damage?: string | null
+          repair_task_type_id_for_quote?: string | null
           billing_address?: string | null
           billing_address_line1?: string | null
           billing_address_line2?: string | null
@@ -10633,9 +10639,11 @@ export type Database = {
           is_active: boolean | null
           is_system: boolean | null
           name: string
+          primary_service_code: string | null
           requires_items: boolean | null
           requires_manual_rate: boolean | null
           sort_order: number | null
+          task_kind: string
           tenant_id: string
           updated_at: string | null
         }
@@ -10652,9 +10660,11 @@ export type Database = {
           is_active?: boolean | null
           is_system?: boolean | null
           name: string
+          primary_service_code?: string | null
           requires_items?: boolean | null
           requires_manual_rate?: boolean | null
           sort_order?: number | null
+          task_kind?: string
           tenant_id: string
           updated_at?: string | null
         }
@@ -10671,9 +10681,11 @@ export type Database = {
           is_active?: boolean | null
           is_system?: boolean | null
           name?: string
+          primary_service_code?: string | null
           requires_items?: boolean | null
           requires_manual_rate?: boolean | null
           sort_order?: number | null
+          task_kind?: string
           tenant_id?: string
           updated_at?: string | null
         }
@@ -10726,7 +10738,6 @@ export type Database = {
           overdue_alert_sent_at: string | null
           pallet_sale_applied: boolean | null
           parent_task_id: string | null
-          primary_service_code: string | null
           priority: string | null
           related_item_id: string | null
           service_date: string | null
@@ -10734,7 +10745,6 @@ export type Database = {
           started_at: string | null
           started_by: string | null
           status: string
-          task_kind: string | null
           task_notes: string | null
           task_type: string
           task_type_id: string | null
@@ -10779,7 +10789,6 @@ export type Database = {
           overdue_alert_sent_at?: string | null
           pallet_sale_applied?: boolean | null
           parent_task_id?: string | null
-          primary_service_code?: string | null
           priority?: string | null
           related_item_id?: string | null
           service_date?: string | null
@@ -10787,7 +10796,6 @@ export type Database = {
           started_at?: string | null
           started_by?: string | null
           status?: string
-          task_kind?: string | null
           task_notes?: string | null
           task_type: string
           task_type_id?: string | null
@@ -10832,7 +10840,6 @@ export type Database = {
           overdue_alert_sent_at?: string | null
           pallet_sale_applied?: boolean | null
           parent_task_id?: string | null
-          primary_service_code?: string | null
           priority?: string | null
           related_item_id?: string | null
           service_date?: string | null
@@ -10840,7 +10847,6 @@ export type Database = {
           started_at?: string | null
           started_by?: string | null
           status?: string
-          task_kind?: string | null
           task_notes?: string | null
           task_type?: string
           task_type_id?: string | null
@@ -11083,6 +11089,8 @@ export type Database = {
           company_website: string | null
           created_at: string
           created_by: string | null
+          default_repair_task_type_id_for_damage: string | null
+          default_repair_task_type_id_for_quote: string | null
           email_signature_custom_text: string | null
           email_signature_enabled: boolean
           id: string
@@ -11113,6 +11121,8 @@ export type Database = {
           company_website?: string | null
           created_at?: string
           created_by?: string | null
+          default_repair_task_type_id_for_damage?: string | null
+          default_repair_task_type_id_for_quote?: string | null
           email_signature_custom_text?: string | null
           email_signature_enabled?: boolean
           id?: string
@@ -11143,6 +11153,8 @@ export type Database = {
           company_website?: string | null
           created_at?: string
           created_by?: string | null
+          default_repair_task_type_id_for_damage?: string | null
+          default_repair_task_type_id_for_quote?: string | null
           email_signature_custom_text?: string | null
           email_signature_enabled?: boolean
           id?: string

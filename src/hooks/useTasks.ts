@@ -18,8 +18,6 @@ export interface Task {
   description: string | null;
   task_type: string;
   task_type_id: string | null;
-  task_kind: string | null;
-  primary_service_code: string | null;
   status: string;
   priority: string | null;
   due_date: string | null;
@@ -317,7 +315,7 @@ export function useTasks(filters?: {
       // First, fetch the task to check for billing config
       const { data: taskData } = await (supabase
         .from('tasks') as any)
-        .select('billing_rate, billing_rate_locked, title, metadata, primary_service_code')
+        .select('billing_rate, billing_rate_locked, title, metadata, task_type_id')
         .eq('id', taskId)
         .single();
 
@@ -341,15 +339,29 @@ export function useTasks(filters?: {
       const isPerTaskBilling = !!metadataServiceCode && billingQuantity > 0;
 
       // Get service code for this task type
-      // Priority: 1) Metadata service code, 2) Task primary_service_code, 3) DB lookup, 4) Hardcoded legacy defaults
+      // Priority: 1) Metadata service code, 2) task_types.primary_service_code (via task_type_id),
+      //           3) DB lookup (default_service_code / billing_service_code), 4) Hardcoded legacy defaults
       let serviceCode: string;
       if (metadataServiceCode) {
         serviceCode = metadataServiceCode;
-      } else if (taskData?.primary_service_code) {
-        serviceCode = taskData.primary_service_code;
       } else {
-        // Dynamic lookup from task_types table, falls back to hardcoded defaults
-        serviceCode = await getTaskTypeServiceCode(profile.tenant_id, taskType);
+        // Try direct primary_service_code lookup via task_type_id first
+        let foundPrimaryCode: string | null = null;
+        if (taskData?.task_type_id) {
+          const { data: taskTypeRow } = await (supabase
+            .from('task_types') as any)
+            .select('primary_service_code')
+            .eq('id', taskData.task_type_id)
+            .maybeSingle();
+          foundPrimaryCode = taskTypeRow?.primary_service_code || null;
+        }
+
+        if (foundPrimaryCode) {
+          serviceCode = foundPrimaryCode;
+        } else {
+          // Dynamic lookup from task_types table, falls back to hardcoded defaults
+          serviceCode = await getTaskTypeServiceCode(profile.tenant_id, taskType);
+        }
       }
 
       // Check if this service uses task-level billing (billing_unit === 'Task' or per-task from metadata)
