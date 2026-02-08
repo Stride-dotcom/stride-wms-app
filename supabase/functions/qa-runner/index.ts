@@ -2265,7 +2265,7 @@ const handler = async (req: Request): Promise<Response> => {
       .is('deleted_at', null);
 
     const isAdmin = userRoles?.some((ur: any) =>
-      ['admin', 'tenant_admin', 'manager'].includes(ur.roles?.name)
+      ['admin', 'tenant_admin', 'manager', 'admin_dev'].includes(ur.roles?.name)
     );
 
     if (!isAdmin) {
