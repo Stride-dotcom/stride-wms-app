@@ -10591,7 +10591,7 @@ export type Database = {
           {
             foreignKeyName: "task_type_charge_links_task_type_id_fkey"
             columns: ["task_type_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "task_types"
             referencedColumns: ["id"]
           },
