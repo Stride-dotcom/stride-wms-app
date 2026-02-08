@@ -33,12 +33,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAccountPricing, AccountServiceSetting } from '@/hooks/useAccountPricing';
+import { usePermissions } from '@/hooks/usePermissions';
 import { CreateAdjustmentDialog } from './CreateAdjustmentDialog';
 import { EditAdjustmentDialog } from './EditAdjustmentDialog';
 import { AccountPricingHistoryDialog } from './AccountPricingHistoryDialog';
 import { AccountPromoCodesSection } from './AccountPromoCodesSection';
 import { AccountCoverageOverridesSection } from './AccountCoverageOverridesSection';
 import { AddAccountChargeDialog } from './AddAccountChargeDialog';
+import { AddCreditDialog } from '@/components/billing/AddCreditDialog';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -48,6 +50,8 @@ interface AccountPricingTabProps {
 }
 
 export function AccountPricingTab({ accountId, accountName }: AccountPricingTabProps) {
+  const { hasRole } = usePermissions();
+  const canAddCredit = hasRole('admin') || hasRole('tenant_admin');
   const {
     adjustments,
     availableServices,
@@ -63,6 +67,7 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [chargeDialogOpen, setChargeDialogOpen] = useState(false);
+  const [creditDialogOpen, setCreditDialogOpen] = useState(false);
   const [selectedAdjustment, setSelectedAdjustment] = useState<AccountServiceSetting | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
@@ -176,6 +181,12 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
             <MaterialIcon name="attach_money" size="sm" className="mr-1" />
             Add Charge
           </Button>
+          {canAddCredit && (
+            <Button type="button" variant="outline" size="sm" onClick={() => setCreditDialogOpen(true)}>
+              <MaterialIcon name="money_off" size="sm" className="mr-1" />
+              Add Credit
+            </Button>
+          )}
           <Button type="button" variant="outline" size="sm" onClick={() => setHistoryDialogOpen(true)}>
             <MaterialIcon name="history" size="sm" className="mr-1" />
             History
@@ -489,6 +500,17 @@ export function AccountPricingTab({ accountId, accountName }: AccountPricingTabP
         accountName={accountName}
         onSuccess={() => {
           setChargeDialogOpen(false);
+        }}
+      />
+
+      {/* Add Credit Dialog - Admin Only */}
+      <AddCreditDialog
+        open={creditDialogOpen}
+        onOpenChange={setCreditDialogOpen}
+        accountId={accountId}
+        accountName={accountName}
+        onSuccess={() => {
+          setCreditDialogOpen(false);
         }}
       />
 

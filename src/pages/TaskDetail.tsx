@@ -42,6 +42,7 @@ import { PhotoScannerButton } from '@/components/common/PhotoScannerButton';
 import { PhotoUploadButton } from '@/components/common/PhotoUploadButton';
 import { TaggablePhotoGrid, TaggablePhoto, getPhotoUrls } from '@/components/common/TaggablePhotoGrid';
 import { AddAddonDialog } from '@/components/billing/AddAddonDialog';
+import { AddCreditDialog } from '@/components/billing/AddCreditDialog';
 import { BillingCalculator } from '@/components/billing/BillingCalculator';
 import { useTechnicians } from '@/hooks/useTechnicians';
 import { useRepairQuoteWorkflow } from '@/hooks/useRepairQuotes';
@@ -137,6 +138,7 @@ export default function TaskDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [unableDialogOpen, setUnableDialogOpen] = useState(false);
   const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
+  const [addCreditDialogOpen, setAddCreditDialogOpen] = useState(false);
   const [taskNotes, setTaskNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
   const [photos, setPhotos] = useState<(string | TaggablePhoto)[]>([]);
@@ -194,6 +196,8 @@ export default function TaskDetailPage() {
 
   // Only managers and admins can see billing
   const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
+  // Only admins can add credits
+  const canAddCredit = hasRole('admin') || hasRole('tenant_admin');
 
   // Rate cache for service lines (keyed by chargeCode|accountId|classCode)
   const ratesCache = useRef<Map<string, RateInfo>>(new Map());
@@ -1240,6 +1244,16 @@ export default function TaskDetailPage() {
                 Add Charge
               </Button>
             )}
+            {/* Add Credit Button - Admin Only */}
+            {task.account_id && canAddCredit && (
+              <Button
+                variant="secondary"
+                onClick={() => setAddCreditDialogOpen(true)}
+              >
+                <MaterialIcon name="money_off" size="sm" className="mr-2" />
+                Add Credit
+              </Button>
+            )}
           </div>
         )}
         
@@ -1265,6 +1279,16 @@ export default function TaskDetailPage() {
               >
                 <MaterialIcon name="attach_money" size="sm" className="mr-2" />
                 Add Charge
+              </Button>
+            )}
+            {/* Add Credit Button - Admin Only */}
+            {task.account_id && canAddCredit && (
+              <Button
+                variant="secondary"
+                onClick={() => setAddCreditDialogOpen(true)}
+              >
+                <MaterialIcon name="money_off" size="sm" className="mr-2" />
+                Add Credit
               </Button>
             )}
           </div>
@@ -1782,6 +1806,21 @@ export default function TaskDetailPage() {
           accountName={task.account?.account_name}
           taskId={task.id}
           onSuccess={fetchTask}
+        />
+      )}
+
+      {/* Add Credit Dialog - Admin Only */}
+      {task.account_id && (
+        <AddCreditDialog
+          open={addCreditDialogOpen}
+          onOpenChange={setAddCreditDialogOpen}
+          accountId={task.account_id}
+          accountName={task.account?.account_name}
+          taskId={task.id}
+          onSuccess={() => {
+            fetchTask();
+            setBillingRefreshKey(prev => prev + 1);
+          }}
         />
       )}
 
