@@ -643,8 +643,6 @@ export function TemplatesTab({
             </span>
           </div>
         )}
-      </div>
-
       </div>}
 
       {/* Variables Panel - Desktop only */}

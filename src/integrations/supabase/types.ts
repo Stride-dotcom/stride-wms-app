@@ -3370,6 +3370,7 @@ export type Database = {
           from_email: string | null
           from_name: string | null
           id: string
+          in_app_recipients: string | null
           sms_sender_id: string | null
           subject_template: string | null
           tenant_id: string
@@ -3385,6 +3386,7 @@ export type Database = {
           from_email?: string | null
           from_name?: string | null
           id?: string
+          in_app_recipients?: string | null
           sms_sender_id?: string | null
           subject_template?: string | null
           tenant_id: string
@@ -3400,6 +3402,7 @@ export type Database = {
           from_email?: string | null
           from_name?: string | null
           id?: string
+          in_app_recipients?: string | null
           sms_sender_id?: string | null
           subject_template?: string | null
           tenant_id?: string
@@ -13600,6 +13603,7 @@ export type Database = {
         Args: { p_account_id?: string; p_warehouse_id: string }
         Returns: Json
       }
+      seed_core_charge_types: { Args: { p_tenant_id: string }; Returns: number }
       seed_default_billable_services: {
         Args: { p_tenant_id: string }
         Returns: undefined
@@ -13623,6 +13627,11 @@ export type Database = {
         Returns: undefined
       }
       seed_standard_roles: { Args: { p_tenant_id: string }; Returns: undefined }
+      seed_starter_charge_types: {
+        Args: { p_tenant_id: string }
+        Returns: number
+      }
+      seed_starter_classes: { Args: { p_tenant_id: string }; Returns: number }
       seed_starter_service_events: {
         Args: { p_tenant_id: string }
         Returns: number
