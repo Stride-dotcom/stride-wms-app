@@ -375,7 +375,7 @@ export function useCommunications() {
       const emailEditorJson = getDefaultEditorJson(alert.trigger_event);
       const emailSubject = getDefaultSubject(alert.name, alert.trigger_event);
 
-      await supabase.from('communication_templates').insert([
+      await (supabase as any).from('communication_templates').insert([
         {
           tenant_id: profile.tenant_id,
           alert_id: data.id,
@@ -496,7 +496,7 @@ export function useCommunications() {
         defaultBody = getDefaultSmsBody(triggerEvent);
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('communication_templates')
         .insert({
           tenant_id: profile.tenant_id,
