@@ -1,67 +1,46 @@
 
 
-## Fix Inspection Task Issues: Notes, Documents/Photos, and Mobile Photo Tags
+## Fix: QA Runner Not Creating `shipment_items` Junction Records
 
-### Problem Summary
+### Root Cause
 
-Three issues were identified on the Task Detail page for Inspection tasks:
-
-1. **Notes do not save** -- The code reads/writes a `task_notes` column that does not exist in the database. The `tasks` table has no such column, so the "Save Notes" button silently fails.
-
-2. **Document photos and uploads appear not to save** -- Documents and photos actually *are* saving to the database (confirmed by checking the data). However, the user does not see the new document appear in the list because the `DocumentList` component is not told to refetch after a successful upload. The `refetchKey` pattern is not wired up on the Task Detail page.
-
-3. **Photo tag icons (Attention, Repair, Primary) are too small on mobile** -- The photo grid defaults to 4 columns on all screen sizes. On mobile, this makes each thumbnail very small, causing:
-   - The `PhotoIndicatorChip` badges to overflow or be unreadable
-   - The action buttons (star, attention, repair, delete) to be too small to tap reliably
-   - Poor overall usability for tagging photos
-
----
-
-### Plan
-
-#### Step 1: Add the `task_notes` column to the database
-
-Create a migration that adds the missing `task_notes` column to the `tasks` table:
+The `validate_shipment_receiving_completion` RPC counts items via the `shipment_items` junction table:
 
 ```sql
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS task_notes text;
+SELECT COUNT(*) INTO v_item_count
+FROM shipment_items
+WHERE shipment_id = p_shipment_id;
 ```
 
-This is the only change needed -- the existing code in `TaskDetail.tsx` already reads/writes this column correctly via `handleSaveNotes`. Once the column exists, notes will save.
+However, the QA runner's "Create inbound shipment with items" test (Test 1) only creates `items` rows with `receiving_shipment_id` set on the items table. It **never inserts** corresponding rows into the `shipment_items` junction table.
 
-#### Step 2: Wire up document refetch after upload
+This means the validator always sees zero items and returns the `NO_ITEMS` blocker.
 
-In `TaskDetail.tsx`, add a `docRefetchKey` state counter. Increment it when `ScanDocumentButton` or `DocumentUploadButton` succeed, and pass it to `DocumentList` as the `refetchKey` prop. This follows the established pattern used on the Shipment Detail page.
+### Fix
 
-Changes in `TaskDetail.tsx`:
-- Add state: `const [docRefetchKey, setDocRefetchKey] = useState(0);`
-- In `ScanDocumentButton.onSuccess`: call `setDocRefetchKey(prev => prev + 1)`
-- In `DocumentUploadButton.onSuccess`: call `setDocRefetchKey(prev => prev + 1)`
-- Pass `refetchKey={docRefetchKey}` to `DocumentList`
+After creating each item in the receiving flow test (lines 178-196 of `qa-runner/index.ts`), insert a matching `shipment_items` record linking the item to the shipment.
 
-#### Step 3: Make photo grid responsive for mobile
+### Changes
 
-In `TaggablePhotoGrid.tsx`:
-- Change the grid from a fixed 4-column layout to a responsive layout: 2 columns on mobile, 3 on medium, 4 on large screens.
-- On small thumbnails (mobile), hide the label text on `PhotoIndicatorChip` so only the icon shows, keeping badges compact.
+**File: `supabase/functions/qa-runner/index.ts`**
 
-In `PhotoIndicatorChip.tsx`:
-- No changes needed to the component itself; the `showLabel` prop already supports this.
+In the `runReceivingFlowTests` function, after each item is created and pushed to `itemIds`, add:
 
-In `TaggablePhotoGrid.tsx`:
-- Update the grid classes from `grid-cols-4` to `grid-cols-2 sm:grid-cols-3 lg:grid-cols-4`
-- Pass `showLabel={false}` to `PhotoIndicatorChip` when rendered inside the grid thumbnails (keep labels in the lightbox)
-- Increase mobile touch target sizes for the bottom action buttons from `p-1.5` to `p-2` and icons from `h-4 w-4` to `h-5 w-5`
+```typescript
+// Link item to shipment via junction table
+const { error: linkError } = await ctx.supabase
+  .from('shipment_items')
+  .insert({
+    shipment_id: shipmentId,
+    item_id: item.id,
+    expected_quantity: 1,
+    status: 'pending',
+  });
 
----
+if (linkError) throw new Error(`Failed to link item ${i + 1} to shipment: ${linkError.message}`);
+```
 
-### Technical Details
+This insert goes inside the existing `for` loop (after line 196), right after each item is created. This mirrors what the real application does in `ShipmentCreate` and `AddShipmentItemDialog` -- both create the item and then insert a `shipment_items` row.
 
-**Files to modify:**
-- `supabase/migrations/` -- new migration file for `task_notes` column
-- `src/pages/TaskDetail.tsx` -- add `docRefetchKey` state and wire it up
-- `src/components/common/TaggablePhotoGrid.tsx` -- responsive grid, larger mobile touch targets, compact indicator chips
-
-**Files to update (types):**
-- `src/integrations/supabase/types.ts` -- add `task_notes` to the Tasks type definition
+No other files need to change. The validator RPC, the `ShipmentDetail` page, and `useShipments` hook are all correct. The issue is purely that the QA test data setup was incomplete.
 
