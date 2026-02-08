@@ -194,6 +194,18 @@ async function runReceivingFlowTests(ctx: TestContext): Promise<TestResult[]> {
 
         if (itemError) throw new Error(`Failed to create item ${i + 1}: ${itemError.message}`);
         itemIds.push(item.id);
+
+        // Link item to shipment via junction table (mirrors ShipmentCreate behavior)
+        const { error: linkError } = await ctx.supabase
+          .from('shipment_items')
+          .insert({
+            shipment_id: shipmentId,
+            item_id: item.id,
+            expected_quantity: 1,
+            status: 'pending',
+          });
+
+        if (linkError) throw new Error(`Failed to link item ${i + 1} to shipment: ${linkError.message}`);
       }
 
       log(ctx, `Created ${itemIds.length} items`);
