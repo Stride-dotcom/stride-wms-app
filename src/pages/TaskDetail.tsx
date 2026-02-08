@@ -1259,20 +1259,25 @@ export default function TaskDetailPage() {
             )}
 
             {/* Inspection Summary */}
-            {task.task_type === 'Inspection' && taskItems.length > 0 && (
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium">Inspection Summary:</span>
-                    <div className="flex items-center gap-2">
-                      <StatusIndicator status="pass" label={`${taskItems.filter(ti => ti.item?.inspection_status === 'pass').length} Passed`} size="sm" />
-                      <StatusIndicator status="fail" label={`${taskItems.filter(ti => ti.item?.inspection_status === 'fail').length} Failed`} size="sm" />
-                      <StatusIndicator status="pending" label={`${taskItems.filter(ti => !ti.item?.inspection_status).length} Pending`} size="sm" />
+            {task.task_type === 'Inspection' && taskItems.length > 0 && (() => {
+              const passedCount = taskItems.filter(ti => ti.item?.inspection_status === 'pass').length;
+              const failedCount = taskItems.filter(ti => ti.item?.inspection_status === 'fail').length;
+              const pendingCount = taskItems.filter(ti => !ti.item?.inspection_status).length;
+              return (
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-medium">Inspection Summary:</span>
+                      <div className="flex items-center gap-2">
+                        {passedCount > 0 && <StatusIndicator status="pass" label={`${passedCount} Passed`} size="sm" />}
+                        {failedCount > 0 && <StatusIndicator status="fail" label={`${failedCount} Failed`} size="sm" />}
+                        {pendingCount > 0 && <StatusIndicator status="pending" label={`${pendingCount} Pending`} size="sm" />}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             {/* Items Table */}
             {taskItems.length > 0 && (
