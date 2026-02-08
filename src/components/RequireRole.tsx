@@ -30,6 +30,11 @@ export function RequireRole({ role, children, fallback = null }: RequireRoleProp
   if (!hasAnyRole) {
     if (fallback !== null) return <>{fallback}</>;
 
+    // Determine the appropriate home page based on the user's role
+    const isClient = hasRole('client_user');
+    const homePath = isClient ? '/client' : '/';
+    const homeLabel = isClient ? 'Go to Portal' : 'Go to Dashboard';
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="w-full max-w-md rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
@@ -40,19 +45,18 @@ export function RequireRole({ role, children, fallback = null }: RequireRoleProp
             <div className="flex-1">
               <h1 className="text-lg font-semibold">Access denied</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                Your account doesn’t have permission to view this page.
+                Your account doesn't have permission to view this page.
               </p>
               <div className="mt-4 flex flex-col gap-2">
-                <Button type="button" variant="outline" onClick={() => navigate('/qa')}
-                >
-                  Go to QA Center
+                <Button type="button" variant="outline" onClick={() => navigate(homePath)}>
+                  {homeLabel}
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={async () => {
                     await signOut();
-                    navigate('/auth');
+                    navigate(isClient ? '/client/login' : '/auth');
                   }}
                 >
                   Sign out

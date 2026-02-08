@@ -98,8 +98,8 @@ const App = () => (
             <Route path="/shipments/return/new" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentCreate /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments/outbound/new" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><OutboundCreate /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentDetail /></RequireRole></ProtectedRoute>} />
-            <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
-            <Route path="/tasks/:id" element={<ProtectedRoute><TaskDetail /></ProtectedRoute>} />
+            <Route path="/tasks" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Tasks /></RequireRole></ProtectedRoute>} />
+            <Route path="/tasks/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><TaskDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/scan" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ScanHub /></RequireRole></ProtectedRoute>} />
             <Route path="/scan/item/:codeOrId" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ScanItemRedirect /></RequireRole></ProtectedRoute>} />
             <Route path="/messages" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Messages /></RequireRole></ProtectedRoute>} />
@@ -140,10 +140,10 @@ const App = () => (
             <Route path="/quote/accept" element={<QuoteAcceptance />} />
             <Route path="/activate" element={<ClientActivate />} />
             <Route path="/client/login" element={<ClientLogin />} />
-            <Route path="/client" element={<ProtectedRoute><ClientDashboard /></ProtectedRoute>} />
-            <Route path="/client/items" element={<ProtectedRoute><ClientItems /></ProtectedRoute>} />
-            <Route path="/client/quotes" element={<ProtectedRoute><ClientQuotes /></ProtectedRoute>} />
-            <Route path="/client/claims" element={<ProtectedRoute><ClientClaims /></ProtectedRoute>} />
+            <Route path="/client" element={<ProtectedRoute><RequireRole role="client_user"><ClientDashboard /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/items" element={<ProtectedRoute><RequireRole role="client_user"><ClientItems /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/quotes" element={<ProtectedRoute><RequireRole role="client_user"><ClientQuotes /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/claims" element={<ProtectedRoute><RequireRole role="client_user"><ClientClaims /></RequireRole></ProtectedRoute>} />
             <Route path="/components-demo" element={<ProtectedRoute><ComponentsDemo /></ProtectedRoute>} />
             <Route path="/material-icons" element={<ProtectedRoute><MaterialIconsSample /></ProtectedRoute>} />
             <Route path="/print-preview" element={<PrintPreview />} />
