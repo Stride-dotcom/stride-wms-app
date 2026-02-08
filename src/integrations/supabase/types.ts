@@ -750,8 +750,6 @@ export type Database = {
           auto_inspection_on_receiving: boolean | null
           auto_quarantine_damaged_items: boolean | null
           auto_repair_on_damage: boolean | null
-          repair_task_type_id_for_damage: string | null
-          repair_task_type_id_for_quote: string | null
           billing_address: string | null
           billing_address_line1: string | null
           billing_address_line2: string | null
@@ -813,6 +811,8 @@ export type Database = {
           primary_contact_name: string | null
           primary_contact_phone: string | null
           read_only_access: boolean | null
+          repair_task_type_id_for_damage: string | null
+          repair_task_type_id_for_quote: string | null
           require_inspection_photos: boolean | null
           require_sidemark: boolean | null
           restrict_visible_columns: Json | null
@@ -837,8 +837,6 @@ export type Database = {
           auto_inspection_on_receiving?: boolean | null
           auto_quarantine_damaged_items?: boolean | null
           auto_repair_on_damage?: boolean | null
-          repair_task_type_id_for_damage?: string | null
-          repair_task_type_id_for_quote?: string | null
           billing_address?: string | null
           billing_address_line1?: string | null
           billing_address_line2?: string | null
@@ -900,6 +898,8 @@ export type Database = {
           primary_contact_name?: string | null
           primary_contact_phone?: string | null
           read_only_access?: boolean | null
+          repair_task_type_id_for_damage?: string | null
+          repair_task_type_id_for_quote?: string | null
           require_inspection_photos?: boolean | null
           require_sidemark?: boolean | null
           restrict_visible_columns?: Json | null
@@ -924,8 +924,6 @@ export type Database = {
           auto_inspection_on_receiving?: boolean | null
           auto_quarantine_damaged_items?: boolean | null
           auto_repair_on_damage?: boolean | null
-          repair_task_type_id_for_damage?: string | null
-          repair_task_type_id_for_quote?: string | null
           billing_address?: string | null
           billing_address_line1?: string | null
           billing_address_line2?: string | null
@@ -987,6 +985,8 @@ export type Database = {
           primary_contact_name?: string | null
           primary_contact_phone?: string | null
           read_only_access?: boolean | null
+          repair_task_type_id_for_damage?: string | null
+          repair_task_type_id_for_quote?: string | null
           require_inspection_photos?: boolean | null
           require_sidemark?: boolean | null
           restrict_visible_columns?: Json | null
@@ -1025,6 +1025,20 @@ export type Database = {
             columns: ["parent_account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_repair_task_type_id_for_damage_fkey"
+            columns: ["repair_task_type_id_for_damage"]
+            isOneToOne: false
+            referencedRelation: "task_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_repair_task_type_id_for_quote_fkey"
+            columns: ["repair_task_type_id_for_quote"]
+            isOneToOne: false
+            referencedRelation: "task_types"
             referencedColumns: ["id"]
           },
           {
@@ -10643,7 +10657,7 @@ export type Database = {
           requires_items: boolean | null
           requires_manual_rate: boolean | null
           sort_order: number | null
-          task_kind: string
+          task_kind: Database["public"]["Enums"]["task_kind"]
           tenant_id: string
           updated_at: string | null
         }
@@ -10664,7 +10678,7 @@ export type Database = {
           requires_items?: boolean | null
           requires_manual_rate?: boolean | null
           sort_order?: number | null
-          task_kind?: string
+          task_kind?: Database["public"]["Enums"]["task_kind"]
           tenant_id: string
           updated_at?: string | null
         }
@@ -10685,7 +10699,7 @@ export type Database = {
           requires_items?: boolean | null
           requires_manual_rate?: boolean | null
           sort_order?: number | null
-          task_kind?: string
+          task_kind?: Database["public"]["Enums"]["task_kind"]
           tenant_id?: string
           updated_at?: string | null
         }
@@ -11181,6 +11195,20 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_company_settings_default_repair_task_type_id_for_da_fkey"
+            columns: ["default_repair_task_type_id_for_damage"]
+            isOneToOne: false
+            referencedRelation: "task_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_company_settings_default_repair_task_type_id_for_qu_fkey"
+            columns: ["default_repair_task_type_id_for_quote"]
+            isOneToOne: false
+            referencedRelation: "task_types"
             referencedColumns: ["id"]
           },
           {
@@ -13834,6 +13862,7 @@ export type Database = {
         | "completed"
         | "cancelled"
       shipment_type_enum: "inbound" | "outbound" | "return" | "disposal"
+      task_kind: "inspection" | "assembly" | "repair" | "disposal" | "other"
       usage_limit_type: "unlimited" | "limited"
       user_status: "pending" | "active" | "inactive"
     }
@@ -14079,6 +14108,7 @@ export const Constants = {
         "cancelled",
       ],
       shipment_type_enum: ["inbound", "outbound", "return", "disposal"],
+      task_kind: ["inspection", "assembly", "repair", "disposal", "other"],
       usage_limit_type: ["unlimited", "limited"],
       user_status: ["pending", "active", "inactive"],
     },
