@@ -2060,7 +2060,7 @@ async function runRepairQuotesFlowTests(ctx: TestContext): Promise<TestResult[]>
           tenant_id: ctx.tenantId,
           warehouse_id: warehouseId,
           account_id: accountId,
-          task_number: generateCode('TSK'),
+          title: `Repair - QA Test ${generateCode('TSK')}`,
           task_type: 'Repair',
           status: 'pending',
           related_item_id: itemId,
