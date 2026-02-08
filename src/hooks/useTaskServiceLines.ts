@@ -260,11 +260,14 @@ export function useTaskServiceLines(taskId: string | undefined) {
   }, [toast]);
 
   // Pre-populate service lines from task type template (task_type_charge_links)
-  const loadFromTemplate = useCallback(async (taskTypeId: string): Promise<void> => {
-    if (!taskId || !profile?.tenant_id || !profile?.id) return;
+  // Single source of truth — no fallback to billing_service_code
+  const loadFromTemplate = useCallback(async (taskTypeId: string): Promise<number> => {
+    if (!taskId || !profile?.tenant_id || !profile?.id) return 0;
+
+    let addedCount = 0;
 
     try {
-      // Fetch linked charge type IDs (no relationship joins)
+      // Fetch linked charge type IDs from task_type_charge_links
       const { data: links, error } = await (supabase as any)
         .from('task_type_charge_links')
         .select('charge_type_id')
@@ -272,14 +275,14 @@ export function useTaskServiceLines(taskId: string | undefined) {
 
       if (error) {
         if (error.code === 'PGRST200' || error.code === '42P01') {
-          return;
+          return 0;
         }
         console.error('[useTaskServiceLines] loadFromTemplate links error:', error);
-        return;
+        return 0;
       }
 
-      const chargeTypeIds = [...new Set((links || []).map((link: any) => link.charge_type_id).filter(Boolean))] as string[];
-      if (chargeTypeIds.length === 0) return;
+      const chargeTypeIds = [...new Set(((links || []) as any[]).map((link: any) => link.charge_type_id).filter(Boolean))] as string[];
+      if (chargeTypeIds.length === 0) return 0;
 
       const { data: chargeTypes, error: chargeTypesError } = await supabase
         .from('charge_types')
@@ -288,7 +291,7 @@ export function useTaskServiceLines(taskId: string | undefined) {
 
       if (chargeTypesError || !chargeTypes) {
         console.error('[useTaskServiceLines] loadFromTemplate charge types error:', chargeTypesError);
-        return;
+        return 0;
       }
 
       // Add each linked charge type as a service line (skip duplicates)
@@ -304,10 +307,13 @@ export function useTaskServiceLines(taskId: string | undefined) {
           qty: 1,
           minutes: 0,
         });
+        addedCount++;
       }
     } catch (error: any) {
       console.error('[useTaskServiceLines] loadFromTemplate error:', error);
     }
+
+    return addedCount;
   }, [taskId, profile?.tenant_id, profile?.id, serviceLines, addServiceLine]);
 
   return {

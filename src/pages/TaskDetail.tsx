@@ -173,6 +173,7 @@ export default function TaskDetailPage() {
   const [completionLoading, setCompletionLoading] = useState(false);
   const [availableServices, setAvailableServices] = useState<ChargeTypeOption[]>([]);
   const [suggestedChargeTypeIds, setSuggestedChargeTypeIds] = useState<string[]>([]);
+  const [isTaskTypeBillable, setIsTaskTypeBillable] = useState(false);
 
   const { activeTechnicians } = useTechnicians();
   const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
@@ -410,18 +411,21 @@ export default function TaskDetailPage() {
         }));
         setAvailableServices(options);
 
-        // Fetch template suggestions from task_type_charge_links
+        // Fetch template suggestions and billable flag from task_type_charge_links
         const { data: taskTypeData } = await (supabase
           .from('task_types') as any)
-          .select('id')
+          .select('id, is_billable')
           .eq('tenant_id', profile.tenant_id)
           .eq('name', task.task_type)
           .eq('is_active', true)
           .maybeSingle();
 
-        if (taskTypeData?.id) {
-          const suggested = await getTaskTypeCharges(taskTypeData.id);
-          setSuggestedChargeTypeIds(suggested.map((s: any) => s.id));
+        if (taskTypeData) {
+          setIsTaskTypeBillable(taskTypeData.is_billable === true);
+          if (taskTypeData.id) {
+            const suggested = await getTaskTypeCharges(taskTypeData.id);
+            setSuggestedChargeTypeIds(suggested.map((s: any) => s.id));
+          }
         }
       } catch (error) {
         console.error('Error loading available services:', error);
@@ -538,24 +542,32 @@ export default function TaskDetailPage() {
       toast({ title: 'Task Started' });
       fetchTask();
 
-      // Auto-load template services (non-blocking)
+      // Auto-load template services from task_type_charge_links
       if (task?.task_type) {
         try {
           const { data: taskTypeData } = await (supabase
             .from('task_types') as any)
-            .select('id')
+            .select('id, is_billable')
             .eq('tenant_id', profile.tenant_id)
             .eq('name', task.task_type)
             .eq('is_active', true)
             .maybeSingle();
 
           if (taskTypeData?.id) {
-            await loadFromTemplate(taskTypeData.id);
+            const addedCount = await loadFromTemplate(taskTypeData.id);
             await fetchServiceLines();
+
+            // Guardrail: warn if billable task type has no linked services
+            if (taskTypeData.is_billable && addedCount === 0) {
+              toast({
+                variant: 'destructive',
+                title: 'No Billing Services Configured',
+                description: `The "${task.task_type}" task type has no services linked. Add services in Settings → Task Templates, or manually add services before completing.`,
+              });
+            }
           }
         } catch (templateError) {
-          // Non-blocking: template load failure should not prevent task start
-          console.error('Template auto-load failed (non-blocking):', templateError);
+          console.error('Template auto-load failed:', templateError);
         }
       }
     } catch (error) {
@@ -583,7 +595,7 @@ export default function TaskDetailPage() {
       }
     }
 
-    // If no service lines, show soft confirmation dialog (Option C)
+    // If no service lines, block completion — show dialog with admin escape hatch
     if (serviceLines.length === 0) {
       setNoServicesDialogOpen(true);
       return;
@@ -651,17 +663,31 @@ export default function TaskDetailPage() {
     }
   };
 
-  // Handle "Continue Without Services" (Option C legacy fallback)
-  const handleContinueWithoutServices = async () => {
-    if (!id) return;
+  // Admin escape hatch: complete task without billing (audit logged)
+  const handleCompleteWithoutBilling = async () => {
+    if (!id || !profile?.id || !profile?.tenant_id) return;
     setNoServicesDialogOpen(false);
     setCompletionLoading(true);
     try {
-      const success = await completeTaskWithServices(id, []);
-      if (success) {
-        fetchTask();
-        fetchTaskItems();
-      }
+      // Complete task without creating any billing events
+      const { error } = await (supabase.from('tasks') as any)
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          completed_by: profile.id,
+          task_notes: [task?.task_notes, `[ADMIN] Completed without billing — no services configured`].filter(Boolean).join('\n'),
+        })
+        .eq('id', id);
+      if (error) throw error;
+
+      toast({
+        title: 'Task Completed (No Billing)',
+        description: 'Task completed without billing. An audit note has been added.',
+      });
+      fetchTask();
+      fetchTaskItems();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to complete task' });
     } finally {
       setCompletionLoading(false);
     }
@@ -1259,20 +1285,25 @@ export default function TaskDetailPage() {
             )}
 
             {/* Inspection Summary */}
-            {task.task_type === 'Inspection' && taskItems.length > 0 && (
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium">Inspection Summary:</span>
-                    <div className="flex items-center gap-2">
-                      <StatusIndicator status="pass" label={`${taskItems.filter(ti => ti.item?.inspection_status === 'pass').length} Passed`} size="sm" />
-                      <StatusIndicator status="fail" label={`${taskItems.filter(ti => ti.item?.inspection_status === 'fail').length} Failed`} size="sm" />
-                      <StatusIndicator status="pending" label={`${taskItems.filter(ti => !ti.item?.inspection_status).length} Pending`} size="sm" />
+            {task.task_type === 'Inspection' && taskItems.length > 0 && (() => {
+              const passedCount = taskItems.filter(ti => ti.item?.inspection_status === 'pass').length;
+              const failedCount = taskItems.filter(ti => ti.item?.inspection_status === 'fail').length;
+              const pendingCount = taskItems.filter(ti => !ti.item?.inspection_status).length;
+              return (
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-medium">Inspection Summary:</span>
+                      <div className="flex items-center gap-2">
+                        {passedCount > 0 && <StatusIndicator status="pass" label={`${passedCount} Passed`} size="sm" />}
+                        {failedCount > 0 && <StatusIndicator status="fail" label={`${failedCount} Failed`} size="sm" />}
+                        {pendingCount > 0 && <StatusIndicator status="pending" label={`${pendingCount} Pending`} size="sm" />}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             {/* Items Table */}
             {taskItems.length > 0 && (
@@ -1556,6 +1587,26 @@ export default function TaskDetailPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Config Warning: billable task with no service lines */}
+            {isTaskTypeBillable && serviceLines.length === 0 && !serviceLinesLoading &&
+              task.status !== 'completed' && task.status !== 'unable_to_complete' && (
+              <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-start gap-3">
+                    <MaterialIcon name="warning" size="md" className="text-amber-600 mt-0.5 shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                        No Billing Services Configured
+                      </p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300">
+                        This task type has no services linked. Add at least one service below, or configure default services in Settings → Task Templates.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Services Card (Phase 2) */}
             <Card className="min-w-0">
@@ -1906,24 +1957,34 @@ export default function TaskDetailPage() {
         />
       )}
 
-      {/* No Services Confirmation Dialog (Option C) */}
+      {/* No Services Dialog — blocks completion until services are added */}
       <AlertDialog open={noServicesDialogOpen} onOpenChange={setNoServicesDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>No Services Added</AlertDialogTitle>
             <AlertDialogDescription>
-              This task has no services assigned. Completing now will use legacy billing
-              instead of service-line billing. You can add services using the Services
-              panel, or continue without them.
+              This task has no services assigned. Add at least one service using the
+              Services panel below before completing.{' '}
+              {isTaskTypeBillable && (
+                <>If this task type should auto-populate services, configure it in Settings → Task Templates.</>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button variant="outline" onClick={() => setNoServicesDialogOpen(false)}>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            {canSeeBilling && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground text-xs"
+                onClick={handleCompleteWithoutBilling}
+                disabled={completionLoading}
+              >
+                {completionLoading && <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />}
+                Complete Without Billing (Admin)
+              </Button>
+            )}
+            <Button onClick={() => setNoServicesDialogOpen(false)}>
               Add Services
-            </Button>
-            <Button onClick={handleContinueWithoutServices} disabled={completionLoading}>
-              {completionLoading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
-              Continue Without Services
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
