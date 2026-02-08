@@ -66,6 +66,7 @@ import { TaskCompletionPanel, CompletionLineValues } from '@/components/tasks/Ta
 import { getChargeTypes, getTaskTypeCharges, getEffectiveRate } from '@/lib/billing/chargeTypeUtils';
 import { logItemActivity } from '@/lib/activity/logItemActivity';
 import { queueRepairUnableToCompleteAlert } from '@/lib/alertQueue';
+import { resolveRepairTaskTypeId, fetchRepairTaskTypeDetails } from '@/lib/tasks/resolveRepairTaskType';
 
 interface TaskDetail {
   id: string;
@@ -826,13 +827,37 @@ export default function TaskDetailPage() {
         const inspectionPhotos = photos || [];
         const inspectionNotes = taskNotes || '';
 
+        // Resolve repair task type with precedence (account → org → fallback)
+        const repairTaskTypeId = await resolveRepairTaskTypeId({
+          tenantId: profile.tenant_id,
+          accountId,
+          purpose: 'damage',
+        });
+
+        if (!repairTaskTypeId) {
+          console.warn('[triggerDamageAutomations] No repair task type available; skipping repair task creation');
+          toast({
+            title: 'Damage Detected',
+            description: 'Could not create repair task (no repair type configured)',
+          });
+          return;
+        }
+
+        // Fetch the resolved task type details
+        const repairType = await fetchRepairTaskTypeDetails(repairTaskTypeId);
+        if (!repairType) {
+          console.error(`[triggerDamageAutomations] Task type ${repairTaskTypeId} not found after resolution`);
+          return;
+        }
+
         const { data: repairTask } = await (supabase
           .from('tasks') as any)
           .insert({
             tenant_id: profile.tenant_id,
             title: `Repair: ${itemData.description || itemData.item_code}`,
             description: inspectionNotes ? `Inspection Notes:\n${inspectionNotes}` : null,
-            task_type: 'Repair',
+            task_type: repairType.name,
+            task_type_id: repairType.id,
             status: 'pending',
             priority: 'high',
             account_id: accountId,

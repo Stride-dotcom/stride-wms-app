@@ -86,7 +86,19 @@ interface TaskType {
   category_id: string | null;
   requires_items: boolean;
   allow_rate_override: boolean;
+  // New fields for task categorization and billing
+  task_kind: string;
+  primary_service_code: string | null;
 }
+
+type TaskKindEnum = 'inspection' | 'assembly' | 'repair' | 'disposal' | 'other';
+const TASK_KIND_OPTIONS: { value: TaskKindEnum; label: string }[] = [
+  { value: 'inspection', label: 'Inspection' },
+  { value: 'assembly', label: 'Assembly' },
+  { value: 'repair', label: 'Repair' },
+  { value: 'disposal', label: 'Disposal' },
+  { value: 'other', label: 'Other' },
+];
 
 interface TaskTypeFormData {
   name: string;
@@ -95,6 +107,8 @@ interface TaskTypeFormData {
   requires_items: boolean;
   allow_rate_override: boolean;
   is_active: boolean;
+  task_kind: TaskKindEnum;
+  primary_service_code: string | null;
 }
 
 // ============================================================================
@@ -129,7 +143,24 @@ function TaskTypeDialog({
     requires_items: true,
     allow_rate_override: true,
     is_active: true,
+    task_kind: 'other',
+    primary_service_code: null,
   });
+  const [serviceCodeOptions, setServiceCodeOptions] = useState<string[]>([]);
+
+  // Load service code options from charge_types
+  useEffect(() => {
+    if (!open) return;
+    const loadServiceCodes = async () => {
+      const { data } = await (supabase
+        .from('charge_types') as any)
+        .select('charge_code')
+        .eq('is_active', true)
+        .order('charge_code');
+      setServiceCodeOptions(data?.map((d: { charge_code: string }) => d.charge_code) || []);
+    };
+    loadServiceCodes();
+  }, [open]);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -144,6 +175,8 @@ function TaskTypeDialog({
             requires_items: taskType.requires_items ?? true,
             allow_rate_override: taskType.allow_rate_override ?? true,
             is_active: true, // New clones are active by default
+            task_kind: (taskType.task_kind as TaskKindEnum) || 'other',
+            primary_service_code: taskType.primary_service_code,
           });
         } else {
           // Edit mode
@@ -154,6 +187,8 @@ function TaskTypeDialog({
             requires_items: taskType.requires_items ?? true,
             allow_rate_override: taskType.allow_rate_override ?? true,
             is_active: taskType.is_active,
+            task_kind: (taskType.task_kind as TaskKindEnum) || 'other',
+            primary_service_code: taskType.primary_service_code,
           });
         }
       } else {
@@ -165,6 +200,8 @@ function TaskTypeDialog({
           requires_items: true,
           allow_rate_override: true,
           is_active: true,
+          task_kind: 'other',
+          primary_service_code: null,
         });
       }
     }
@@ -288,6 +325,57 @@ function TaskTypeDialog({
                 placeholder="Optional description..."
                 rows={2}
               />
+            </div>
+
+            {/* Task Kind */}
+            <div className="space-y-2">
+              <Label>Task Kind *</Label>
+              <Select
+                value={formData.task_kind}
+                onValueChange={(value) => setFormData({
+                  ...formData,
+                  task_kind: value as TaskKindEnum,
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select kind..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {TASK_KIND_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Used for automation routing (e.g. damage creates repair tasks).
+              </p>
+            </div>
+
+            {/* Primary Service Code */}
+            <div className="space-y-2">
+              <Label>Primary Service Code (For Billing)</Label>
+              <Select
+                value={formData.primary_service_code || '__none__'}
+                onValueChange={(value) => setFormData({
+                  ...formData,
+                  primary_service_code: value === '__none__' ? null : value,
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="None (non-billable)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">
+                    <span className="text-muted-foreground">None (non-billable)</span>
+                  </SelectItem>
+                  {serviceCodeOptions.map((code: string) => (
+                    <SelectItem key={code} value={code}>{code}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Charge code used for billing when tasks of this type are completed.
+              </p>
             </div>
 
             {/* Category Selection - determines pricing lookup */}
@@ -442,7 +530,7 @@ export function TaskTypeManagementCard() {
       // Fetch task types
       const { data: taskTypesData, error: taskTypesError } = await (supabase
         .from('task_types') as any)
-        .select('id, tenant_id, name, description, is_system, is_active, sort_order, billing_service_code, category_id, default_service_code, requires_items, allow_rate_override')
+        .select('id, tenant_id, name, description, is_system, is_active, sort_order, billing_service_code, category_id, default_service_code, requires_items, allow_rate_override, task_kind, primary_service_code')
         .eq('tenant_id', profile.tenant_id)
         .order('sort_order')
         .order('name');
@@ -527,6 +615,8 @@ export function TaskTypeManagementCard() {
           requires_items: data.requires_items,
           allow_rate_override: data.allow_rate_override,
           is_active: data.is_active,
+          task_kind: data.task_kind,
+          primary_service_code: data.primary_service_code,
         };
 
         // Only update name if not system task
@@ -554,7 +644,7 @@ export function TaskTypeManagementCard() {
             name: data.name.trim(),
             description: data.description || null,
             category_id: data.category_id,
-            // No service code - pricing is determined by category + item class
+            // No legacy service code - pricing is determined by category + item class
             default_service_code: null,
             billing_service_code: null,
             requires_items: data.requires_items,
@@ -562,6 +652,8 @@ export function TaskTypeManagementCard() {
             is_active: data.is_active,
             is_system: false, // Clones and new tasks are always custom
             sort_order: taskTypes.length + 1,
+            task_kind: data.task_kind,
+            primary_service_code: data.primary_service_code,
           });
 
         if (error) throw error;

@@ -98,6 +98,7 @@ export function TaskDialog({
   const [formData, setFormData] = useState({
     description: '',
     task_type: '',
+    task_type_id: null as string | null,
     priority: 'normal',
     due_date: null as Date | null,
     assigned_to: 'unassigned',
@@ -140,6 +141,7 @@ export function TaskDialog({
       setFormData({
         description: task.description || '',
         task_type: task.task_type,
+        task_type_id: task.task_type_id || null,
         priority: task.priority || 'normal',
         due_date: task.due_date ? new Date(task.due_date) : null,
         assigned_to: task.assigned_to || 'unassigned',
@@ -154,10 +156,11 @@ export function TaskDialog({
       // Reset form and apply preSelectedTaskType if provided
       const initialTaskType = preSelectedTaskType || '';
       const dueDate = initialTaskType ? getDueDateForTaskType(initialTaskType) : null;
-      
+
       setFormData({
         description: '',
         task_type: initialTaskType,
+        task_type_id: null,
         priority: 'normal',
         due_date: dueDate,
         assigned_to: 'unassigned',
@@ -175,6 +178,19 @@ export function TaskDialog({
 
     initializedRef.current = true;
   }, [task, open, preSelectedTaskType]);
+
+  // Resolve task_type_id when preSelectedTaskType is set or form opens with a task_type but no task_type_id
+  useEffect(() => {
+    if (!open || !formData.task_type || formData.task_type_id) return;
+
+    const matchedType = taskTypes.find(tt => tt.name === formData.task_type);
+    if (!matchedType) return;
+
+    setFormData(prev => ({
+      ...prev,
+      task_type_id: matchedType.id,
+    }));
+  }, [open, formData.task_type, formData.task_type_id, taskTypes]);
 
   // Auto-populate account and warehouse when items are selected from inventory
   useEffect(() => {
@@ -270,9 +286,13 @@ export function TaskDialog({
       return;
     }
 
+    // Resolve task_type_id from the selected task type
+    const matchedType = taskTypes.find(tt => tt.name === value);
+
     setFormData(prev => ({
       ...prev,
       task_type: value,
+      task_type_id: matchedType?.id || null,
       due_date: getDueDateForTaskType(value),
     }));
   };
@@ -285,6 +305,7 @@ export function TaskDialog({
       setFormData(prev => ({
         ...prev,
         task_type: newType.name,
+        task_type_id: newType.id,
         due_date: getDueDateForTaskType(newType.name),
       }));
       setShowNewTaskType(false);
@@ -387,6 +408,7 @@ export function TaskDialog({
           title: `${formData.task_type} - Item ${index + 1}`,
           description: formData.description || null,
           task_type: formData.task_type,
+          task_type_id: formData.task_type_id,
           priority: formData.priority,
           due_date: formData.due_date?.toISOString() || null,
           assigned_to: formData.assigned_to === 'unassigned' ? null : formData.assigned_to || null,
@@ -442,6 +464,7 @@ export function TaskDialog({
           title: generateTitle(),
           description: formData.description || null,
           task_type: formData.task_type,
+          task_type_id: formData.task_type_id,
           priority: formData.priority,
           due_date: formData.due_date?.toISOString() || null,
           assigned_to: formData.assigned_to === 'unassigned' ? null : formData.assigned_to || null,

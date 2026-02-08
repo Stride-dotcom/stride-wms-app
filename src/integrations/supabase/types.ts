@@ -750,6 +750,8 @@ export type Database = {
           auto_inspection_on_receiving: boolean | null
           auto_quarantine_damaged_items: boolean | null
           auto_repair_on_damage: boolean | null
+          repair_task_type_id_for_damage: string | null
+          repair_task_type_id_for_quote: string | null
           billing_address: string | null
           billing_address_line1: string | null
           billing_address_line2: string | null
@@ -835,6 +837,8 @@ export type Database = {
           auto_inspection_on_receiving?: boolean | null
           auto_quarantine_damaged_items?: boolean | null
           auto_repair_on_damage?: boolean | null
+          repair_task_type_id_for_damage?: string | null
+          repair_task_type_id_for_quote?: string | null
           billing_address?: string | null
           billing_address_line1?: string | null
           billing_address_line2?: string | null
@@ -920,6 +924,8 @@ export type Database = {
           auto_inspection_on_receiving?: boolean | null
           auto_quarantine_damaged_items?: boolean | null
           auto_repair_on_damage?: boolean | null
+          repair_task_type_id_for_damage?: string | null
+          repair_task_type_id_for_quote?: string | null
           billing_address?: string | null
           billing_address_line1?: string | null
           billing_address_line2?: string | null
@@ -10633,9 +10639,11 @@ export type Database = {
           is_active: boolean | null
           is_system: boolean | null
           name: string
+          primary_service_code: string | null
           requires_items: boolean | null
           requires_manual_rate: boolean | null
           sort_order: number | null
+          task_kind: string
           tenant_id: string
           updated_at: string | null
         }
@@ -10652,9 +10660,11 @@ export type Database = {
           is_active?: boolean | null
           is_system?: boolean | null
           name: string
+          primary_service_code?: string | null
           requires_items?: boolean | null
           requires_manual_rate?: boolean | null
           sort_order?: number | null
+          task_kind?: string
           tenant_id: string
           updated_at?: string | null
         }
@@ -10671,9 +10681,11 @@ export type Database = {
           is_active?: boolean | null
           is_system?: boolean | null
           name?: string
+          primary_service_code?: string | null
           requires_items?: boolean | null
           requires_manual_rate?: boolean | null
           sort_order?: number | null
+          task_kind?: string
           tenant_id?: string
           updated_at?: string | null
         }
@@ -11077,6 +11089,8 @@ export type Database = {
           company_website: string | null
           created_at: string
           created_by: string | null
+          default_repair_task_type_id_for_damage: string | null
+          default_repair_task_type_id_for_quote: string | null
           email_signature_custom_text: string | null
           email_signature_enabled: boolean
           id: string
@@ -11107,6 +11121,8 @@ export type Database = {
           company_website?: string | null
           created_at?: string
           created_by?: string | null
+          default_repair_task_type_id_for_damage?: string | null
+          default_repair_task_type_id_for_quote?: string | null
           email_signature_custom_text?: string | null
           email_signature_enabled?: boolean
           id?: string
@@ -11137,6 +11153,8 @@ export type Database = {
           company_website?: string | null
           created_at?: string
           created_by?: string | null
+          default_repair_task_type_id_for_damage?: string | null
+          default_repair_task_type_id_for_quote?: string | null
           email_signature_custom_text?: string | null
           email_signature_enabled?: boolean
           id?: string
