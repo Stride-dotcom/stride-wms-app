@@ -95,7 +95,7 @@ export async function seedDefaultTemplates(tenantId: string): Promise<{ created:
         key: triggerDef.key,
         description: `Default template for ${triggerDef.name}`,
         is_enabled: true,
-        channels: { email: true, sms: true },
+        channels: { email: true, sms: true, in_app: false },
         trigger_event: triggerDef.trigger,
         timing_rule: 'immediate',
       })
@@ -133,6 +133,17 @@ export async function seedDefaultTemplates(tenantId: string): Promise<{ created:
       channel: 'sms',
       body_template: defaults.smsBody,
       body_format: 'text',
+    });
+
+    // Create in-app notification template (channel disabled by default, template ready)
+    await supabase.from('communication_templates').insert({
+      tenant_id: tenantId,
+      alert_id: alert.id,
+      channel: 'in_app',
+      subject_template: triggerDef.name,
+      body_template: defaults.inAppBody,
+      body_format: 'text',
+      in_app_recipients: defaults.inAppRecipients,
     });
 
     created++;
