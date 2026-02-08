@@ -27,10 +27,12 @@ The UI Visual QA system visits every screen in the Stride WMS app, runs scripted
 qa/ui/
 ├── README.md                 # This file
 ├── playwright.config.ts      # Playwright configuration
-├── ui-visual-qa.spec.ts      # Main test spec
-├── tours.ts                  # Page tour definitions
+├── ui-visual-qa.spec.ts      # Main test spec (safe + deep)
+├── tours.ts                  # Page tour definitions (safe + deep tours)
 ├── routeToFileHints.ts       # Route to source file mapping
 ├── run.ts                    # Orchestration script
+├── fixtures/                 # Test files for upload tests
+│   └── test-photo.jpg        # Placeholder image for photo upload tests
 └── upload-artifacts.ts       # Artifact upload for CI
 ```
 
@@ -181,6 +183,109 @@ A scripted interaction failed. Possible causes:
 - Missing data-testid attribute
 - Element not rendered
 - Timing issues (element not ready)
+
+## Deep E2E Testing Mode
+
+Deep mode goes beyond read-only visual checks. It exercises the **full application lifecycle** through the actual UI: creating accounts, shipments, tasks, claims, uploading photos, completing workflows, and verifying data persistence.
+
+### Running Deep E2E Tests
+
+```bash
+# Run deep E2E tests (desktop only, sequential)
+QA_DEEP_MODE=true npx playwright test --config=qa/ui/playwright.config.ts --project=desktop
+
+# Filter by feature tags
+QA_DEEP_MODE=true QA_DEEP_TAGS=shipments,tasks npx playwright test --config=qa/ui/playwright.config.ts --project=desktop
+
+# Run safe + deep together
+QA_DEEP_MODE=true npx playwright test --config=qa/ui/playwright.config.ts
+```
+
+### Available Tags
+
+Filter deep tests by area using `QA_DEEP_TAGS`:
+- `accounts` - Account creation
+- `shipments` - Inbound/outbound shipments
+- `receiving` - Receiving workflow
+- `outbound` - Outbound workflow
+- `tasks` - Task creation and completion
+- `claims` - Claims workflow
+- `stocktakes` - Cycle count creation
+- `billing` - Billing reports and invoices
+- `inventory` - Inventory browsing and editing
+- `photos` - Photo uploads
+- `settings` - Settings tabs
+- `scan` - Scan hub
+- `reports` - Analytics reports
+- `dashboard` - Dashboard tiles
+- `messages` - Messages center
+- `client-portal` - Client portal experience
+- `manifests` - Manifest management
+- `quotes` - Quote management
+- `foundation` - Setup/prerequisite data
+
+### Deep Tour Structure
+
+Deep tours run in dependency order. For example:
+1. `Deep: Create Test Account` (foundation)
+2. `Deep: Create Inbound Shipment` (depends on account)
+3. `Deep: Receive Shipment Items` (depends on shipment)
+4. `Deep: Create Outbound Shipment` (depends on received items)
+
+Tours share state via `storeValue`/`useStoredValue` (e.g., storing a created shipment's URL to navigate back to it later).
+
+### Deep Tour Actions
+
+In addition to the original safe actions, deep tours have access to:
+
+| Action | Description |
+|--------|-------------|
+| `fill` | Clear field then type a value |
+| `selectCombobox` | Open combobox, search, pick option |
+| `clickByText` | Click element containing specific text |
+| `uploadFile` | Attach file to input |
+| `assertText` | Assert selector contains text |
+| `assertToast` | Wait for toast notification |
+| `assertUrl` | Assert URL matches pattern |
+| `assertCount` | Assert element count |
+| `submitForm` | Click submit and wait for response |
+| `navigate` | Go to specific URL |
+| `storeValue` | Store page value for later use |
+| `useStoredValue` | Navigate using stored value |
+| `waitForNetwork` | Wait for requests to settle |
+| `checkCheckbox` | Check a checkbox |
+| `toggleSwitch` | Toggle a switch |
+| `selectTab` | Click tab by text |
+| `selectDate` | Fill date input |
+| `clickTableRow` | Click row containing text |
+| `pause` | Wait fixed milliseconds |
+
+### Test Fixtures
+
+Test photos and files for upload tests are in `qa/ui/fixtures/`.
+
+### Adding Deep Tours
+
+```typescript
+// In tours.ts - add to deepTours array
+{
+  route: '/your-page',
+  name: 'Deep: Your Feature Test',
+  roleContext: 'admin',
+  priority: 'P1',
+  mode: 'deep',
+  tags: ['your-tag'],
+  dependsOn: ['Deep: Prerequisite Tour'],
+  steps: [
+    { action: 'navigate', value: '/your-page' },
+    { action: 'waitForNetwork' },
+    { action: 'fill', selector: 'input[name="field"]', value: 'test data' },
+    { action: 'submitForm', selector: 'button[type="submit"]', value: 'Success' },
+    { action: 'assertToast', value: 'created', timeout: 10000 },
+    { action: 'screenshot', note: 'After creation' },
+  ],
+}
+```
 
 ## Maintenance
 
