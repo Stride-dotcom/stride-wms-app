@@ -13848,6 +13848,12 @@ export type Database = {
         | "expired"
         | "closed"
       service_scope_type: "all" | "selected"
+      task_kind:
+        | "inspection"
+        | "assembly"
+        | "repair"
+        | "disposal"
+        | "other"
       shipment_item_status_enum:
         | "pending"
         | "received"
