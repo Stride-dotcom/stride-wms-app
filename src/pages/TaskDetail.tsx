@@ -173,6 +173,7 @@ export default function TaskDetailPage() {
   const [completionLoading, setCompletionLoading] = useState(false);
   const [availableServices, setAvailableServices] = useState<ChargeTypeOption[]>([]);
   const [suggestedChargeTypeIds, setSuggestedChargeTypeIds] = useState<string[]>([]);
+  const [isTaskTypeBillable, setIsTaskTypeBillable] = useState(false);
 
   const { activeTechnicians } = useTechnicians();
   const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
@@ -410,18 +411,21 @@ export default function TaskDetailPage() {
         }));
         setAvailableServices(options);
 
-        // Fetch template suggestions from task_type_charge_links
+        // Fetch template suggestions and billable flag from task_type_charge_links
         const { data: taskTypeData } = await (supabase
           .from('task_types') as any)
-          .select('id')
+          .select('id, is_billable')
           .eq('tenant_id', profile.tenant_id)
           .eq('name', task.task_type)
           .eq('is_active', true)
           .maybeSingle();
 
-        if (taskTypeData?.id) {
-          const suggested = await getTaskTypeCharges(taskTypeData.id);
-          setSuggestedChargeTypeIds(suggested.map((s: any) => s.id));
+        if (taskTypeData) {
+          setIsTaskTypeBillable(taskTypeData.is_billable === true);
+          if (taskTypeData.id) {
+            const suggested = await getTaskTypeCharges(taskTypeData.id);
+            setSuggestedChargeTypeIds(suggested.map((s: any) => s.id));
+          }
         }
       } catch (error) {
         console.error('Error loading available services:', error);
@@ -656,6 +660,36 @@ export default function TaskDetailPage() {
       console.error('Error completing task:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to complete task' });
       setActionLoading(false);
+    }
+  };
+
+  // Admin escape hatch: complete task without billing (audit logged)
+  const handleCompleteWithoutBilling = async () => {
+    if (!id || !profile?.id || !profile?.tenant_id) return;
+    setNoServicesDialogOpen(false);
+    setCompletionLoading(true);
+    try {
+      // Complete task without creating any billing events
+      const { error } = await (supabase.from('tasks') as any)
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          completed_by: profile.id,
+          task_notes: [task?.task_notes, `[ADMIN] Completed without billing — no services configured`].filter(Boolean).join('\n'),
+        })
+        .eq('id', id);
+      if (error) throw error;
+
+      toast({
+        title: 'Task Completed (No Billing)',
+        description: 'Task completed without billing. An audit note has been added.',
+      });
+      fetchTask();
+      fetchTaskItems();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to complete task' });
+    } finally {
+      setCompletionLoading(false);
     }
   };
 
@@ -1554,6 +1588,26 @@ export default function TaskDetailPage() {
               </CardContent>
             </Card>
 
+            {/* Config Warning: billable task with no service lines */}
+            {isTaskTypeBillable && serviceLines.length === 0 && !serviceLinesLoading &&
+              task.status !== 'completed' && task.status !== 'unable_to_complete' && (
+              <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-start gap-3">
+                    <MaterialIcon name="warning" size="md" className="text-amber-600 mt-0.5 shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                        No Billing Services Configured
+                      </p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300">
+                        This task type has no services linked. Add at least one service below, or configure default services in Settings → Task Templates.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Services Card (Phase 2) */}
             <Card className="min-w-0">
               <CardHeader className="pb-3">
@@ -1910,11 +1964,25 @@ export default function TaskDetailPage() {
             <AlertDialogTitle>No Services Added</AlertDialogTitle>
             <AlertDialogDescription>
               This task has no services assigned. Add at least one service using the
-              Services panel before completing. If this task type should auto-populate
-              services, configure it in Settings → Task Templates.
+              Services panel below before completing.{' '}
+              {isTaskTypeBillable && (
+                <>If this task type should auto-populate services, configure it in Settings → Task Templates.</>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            {canSeeBilling && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground text-xs"
+                onClick={handleCompleteWithoutBilling}
+                disabled={completionLoading}
+              >
+                {completionLoading && <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />}
+                Complete Without Billing (Admin)
+              </Button>
+            )}
             <Button onClick={() => setNoServicesDialogOpen(false)}>
               Add Services
             </Button>

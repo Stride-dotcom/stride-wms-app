@@ -609,7 +609,9 @@ function TemplateEditForm({ template, chargeTypes, onSave, onCancel, onDelete }:
 
       {/* Assigned Services — checklist */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Assigned Services</Label>
+        <Label className="text-sm font-medium">
+          Billing Services{isBillable ? ' (required)' : ''}
+        </Label>
         <div className="relative">
           <MaterialIcon name="search" size="sm" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -783,7 +785,9 @@ function AddTemplateForm({ chargeTypes, onSave, onCancel }: AddTemplateFormProps
 
         {/* Assigned Services */}
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Assigned Services</Label>
+          <Label className="text-sm font-medium">
+            Billing Services{isBillable ? ' (required)' : ''}
+          </Label>
           <div className="relative">
             <MaterialIcon name="search" size="sm" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
