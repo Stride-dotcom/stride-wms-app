@@ -1,6 +1,6 @@
 import { test, expect, Page, BrowserContext } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { pageTours, PageTour, TourStep, RoleContext, Priority, ERROR_CODES, ErrorCode, shouldCheckScrollBuffer, shouldFailRun } from './tours';
+import { pageTours, deepTours, PageTour, TourStep, TourMode, RoleContext, Priority, ERROR_CODES, ErrorCode, shouldCheckScrollBuffer, shouldFailRun, getDeepToursOrdered } from './tours';
 import { getFileHintsForRoute, getAllRoutes } from './routeToFileHints';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
@@ -18,6 +18,8 @@ const QA_ADMIN_PASSWORD = process.env.QA_ADMIN_PASSWORD || '';
 const QA_CLIENT_EMAIL = process.env.QA_CLIENT_EMAIL || '';
 const QA_CLIENT_PASSWORD = process.env.QA_CLIENT_PASSWORD || '';
 const APP_BASE_URL = process.env.APP_BASE_URL || 'http://localhost:5173';
+const DEEP_MODE = process.env.QA_DEEP_MODE === 'true';
+const DEEP_TAGS_FILTER = process.env.QA_DEEP_TAGS ? process.env.QA_DEEP_TAGS.split(',').map(t => t.trim()) : [];
 
 // Buffer check constants
 const MIN_SCROLL_BUFFER_PX = 80;
@@ -121,6 +123,12 @@ let clientContext: BrowserContext;
 const testResults: TestResult[] = [];
 const missingTestIds: Map<string, { route: string; count: number }> = new Map();
 const skippedSteps: { route: string; step: string; reason: string }[] = [];
+
+/**
+ * Shared context store for deep tours. Allows tours to pass data between
+ * each other (e.g., store the URL of a created shipment to navigate back later).
+ */
+const sharedContext: Map<string, string> = new Map();
 
 // ============================================================
 // HELPER FUNCTIONS
@@ -423,11 +431,15 @@ async function executeTourStep(
 
   try {
     switch (step.action) {
+      // ===========================================
+      // ORIGINAL SAFE ACTIONS
+      // ===========================================
+
       case 'click':
         if (step.selector) {
-          const element = page.locator(step.selector).first();
-          await element.waitFor({ state: 'visible', timeout });
-          await element.click({ timeout });
+          const clickEl = page.locator(step.selector).first();
+          await clickEl.waitFor({ state: 'visible', timeout });
+          await clickEl.click({ timeout });
         }
         break;
 
@@ -493,6 +505,281 @@ async function executeTourStep(
           await page.keyboard.press(step.value);
           await page.waitForTimeout(200);
         }
+        break;
+
+      // ===========================================
+      // DEEP E2E ACTIONS
+      // ===========================================
+
+      case 'fill':
+        // Clear the field first, then type the value
+        if (step.selector && step.value) {
+          const fillEl = page.locator(step.selector).first();
+          await fillEl.waitFor({ state: 'visible', timeout });
+          await fillEl.click({ timeout });
+          await fillEl.fill('');
+          await fillEl.fill(step.value);
+        }
+        break;
+
+      case 'clearField':
+        if (step.selector) {
+          const clearEl = page.locator(step.selector).first();
+          await clearEl.waitFor({ state: 'visible', timeout });
+          await clearEl.fill('');
+        }
+        break;
+
+      case 'selectOption':
+        // For native <select> elements
+        if (step.selector && step.value) {
+          await page.selectOption(step.selector, { label: step.value }, { timeout });
+        }
+        break;
+
+      case 'selectCombobox':
+        // For SearchableSelect / Combobox components:
+        // 1. Click the trigger to open the popover
+        // 2. Type in the search field
+        // 3. Click the matching option
+        if (step.selector) {
+          const comboTrigger = page.locator(step.selector).first();
+          await comboTrigger.waitFor({ state: 'visible', timeout });
+          await comboTrigger.click({ timeout });
+          await page.waitForTimeout(300);
+
+          // Type search value if provided
+          if (step.value) {
+            // Try to find the search input inside the popover
+            const popoverInput = page.locator('[role="listbox"] input, [data-radix-popper-content-wrapper] input, [role="dialog"] input[placeholder*="Search" i], [cmdk-input]').first();
+            try {
+              await popoverInput.waitFor({ state: 'visible', timeout: 2000 });
+              await popoverInput.fill(step.value);
+              await page.waitForTimeout(500);
+            } catch {
+              // No search input - maybe it's a simple dropdown, try typing directly
+              await page.keyboard.type(step.value);
+              await page.waitForTimeout(500);
+            }
+
+            // Click the first matching option
+            const option = page.locator(`[role="option"]:has-text("${step.value}"), [role="listbox"] [class*="item"]:has-text("${step.value}"), [data-radix-popper-content-wrapper] [class*="item"]:has-text("${step.value}")`).first();
+            try {
+              await option.waitFor({ state: 'visible', timeout: 3000 });
+              await option.click({ timeout: 3000 });
+            } catch {
+              // If no option found, try pressing Enter
+              await page.keyboard.press('Enter');
+            }
+          }
+          await page.waitForTimeout(200);
+        }
+        break;
+
+      case 'clickByText':
+        if (step.value) {
+          const textEl = page.locator(`button:has-text("${step.value}"), a:has-text("${step.value}"), [role="button"]:has-text("${step.value}"), [role="menuitem"]:has-text("${step.value}")`).first();
+          await textEl.waitFor({ state: 'visible', timeout });
+          await textEl.click({ timeout });
+        }
+        break;
+
+      case 'uploadFile':
+        // Attach a file to an <input type="file">
+        if (step.selector && step.value) {
+          const fileInput = page.locator(step.selector).first();
+          // File inputs may be hidden; use setInputFiles which handles that
+          await fileInput.setInputFiles(step.value);
+        }
+        break;
+
+      case 'assertText':
+        // Assert that a selector contains specific text
+        if (step.selector && step.value) {
+          const textContainer = page.locator(step.selector).first();
+          await expect(textContainer).toContainText(step.value, { timeout });
+        }
+        break;
+
+      case 'assertVisible':
+        if (step.selector) {
+          await expect(page.locator(step.selector).first()).toBeVisible({ timeout });
+        }
+        break;
+
+      case 'assertHidden':
+        if (step.selector) {
+          await expect(page.locator(step.selector).first()).not.toBeVisible({ timeout });
+        }
+        break;
+
+      case 'assertUrl':
+        if (step.value) {
+          await expect(page).toHaveURL(new RegExp(step.value), { timeout });
+        }
+        break;
+
+      case 'assertToast':
+        // Wait for a toast notification containing specific text
+        if (step.value) {
+          const toast = page.locator(`[data-sonner-toast], [class*="toast"], [role="status"], [data-radix-toast-viewport] > *`).filter({ hasText: step.value }).first();
+          await toast.waitFor({ state: 'visible', timeout: timeout || 10000 });
+        }
+        break;
+
+      case 'assertCount':
+        if (step.selector && step.count !== undefined) {
+          const count = await page.locator(step.selector).count();
+          expect(count).toBe(step.count);
+        }
+        break;
+
+      case 'submitForm':
+        // Click a submit button and wait for either a navigation or a toast
+        if (step.selector) {
+          const submitBtn = page.locator(step.selector).first();
+          await submitBtn.waitFor({ state: 'visible', timeout });
+
+          // Set up a race: either URL changes or a toast appears
+          const currentUrl = page.url();
+          await submitBtn.click({ timeout });
+
+          // Wait for either navigation or toast
+          try {
+            if (step.value) {
+              // Wait for success toast
+              const successToast = page.locator(`[data-sonner-toast], [class*="toast"], [role="status"]`).filter({ hasText: step.value }).first();
+              await Promise.race([
+                successToast.waitFor({ state: 'visible', timeout: 15000 }),
+                page.waitForURL((url) => url.toString() !== currentUrl, { timeout: 15000 }),
+              ]);
+            } else {
+              await page.waitForURL((url) => url.toString() !== currentUrl, { timeout: 15000 });
+            }
+          } catch {
+            // Acceptable - some forms don't navigate or show toasts
+          }
+          await page.waitForTimeout(500);
+        }
+        break;
+
+      case 'navigate':
+        if (step.value) {
+          // If using stored value, resolve it
+          let url = step.value;
+          if (step.storeKey && sharedContext.has(step.storeKey)) {
+            url = sharedContext.get(step.storeKey)!;
+          }
+          if (!url.startsWith('http')) {
+            url = `${APP_BASE_URL}${url}`;
+          }
+          await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+        }
+        break;
+
+      case 'storeValue':
+        // Store a value from the page into the shared context
+        if (step.storeKey) {
+          if (step.selector === 'window.location.pathname') {
+            const pathname = new URL(page.url()).pathname;
+            sharedContext.set(step.storeKey, pathname);
+          } else if (step.selector) {
+            const el = page.locator(step.selector).first();
+            const text = await el.textContent({ timeout });
+            if (text) sharedContext.set(step.storeKey, text.trim());
+          }
+        }
+        break;
+
+      case 'useStoredValue':
+        // Navigate to a stored URL or use stored value in the current context
+        if (step.storeKey) {
+          const stored = sharedContext.get(step.storeKey);
+          if (stored) {
+            const navUrl = stored.startsWith('http') ? stored : `${APP_BASE_URL}${stored}`;
+            await page.goto(navUrl, { waitUntil: 'networkidle', timeout: 30000 });
+          }
+        }
+        break;
+
+      case 'waitForNavigation':
+        await page.waitForURL((url) => true, { timeout: timeout || 10000, waitUntil: 'networkidle' });
+        break;
+
+      case 'waitForNetwork':
+        await page.waitForLoadState('networkidle', { timeout: timeout || 15000 });
+        break;
+
+      case 'checkCheckbox':
+        if (step.selector) {
+          const checkbox = page.locator(step.selector).first();
+          await checkbox.waitFor({ state: 'visible', timeout });
+          if (!(await checkbox.isChecked())) {
+            await checkbox.check({ timeout });
+          }
+        }
+        break;
+
+      case 'uncheckCheckbox':
+        if (step.selector) {
+          const uncheckbox = page.locator(step.selector).first();
+          await uncheckbox.waitFor({ state: 'visible', timeout });
+          if (await uncheckbox.isChecked()) {
+            await uncheckbox.uncheck({ timeout });
+          }
+        }
+        break;
+
+      case 'toggleSwitch':
+        if (step.selector) {
+          const switchEl = page.locator(step.selector).first();
+          await switchEl.waitFor({ state: 'visible', timeout });
+          await switchEl.click({ timeout });
+        }
+        break;
+
+      case 'selectTab':
+        // Click a tab by text content
+        if (step.value) {
+          const tab = step.selector
+            ? page.locator(step.selector).filter({ hasText: step.value }).first()
+            : page.locator(`[role="tab"]:has-text("${step.value}")`).first();
+          await tab.waitFor({ state: 'visible', timeout });
+          await tab.click({ timeout });
+          await page.waitForTimeout(300);
+        }
+        break;
+
+      case 'selectDate':
+        // Fill a date input
+        if (step.selector && step.value) {
+          const dateInput = page.locator(step.selector).first();
+          await dateInput.waitFor({ state: 'visible', timeout });
+          await dateInput.fill(step.value);
+        }
+        break;
+
+      case 'clickTableRow':
+        // Click a table row that contains specific text
+        if (step.value) {
+          const row = step.selector
+            ? page.locator(step.selector).filter({ hasText: step.value }).first()
+            : page.locator(`table tbody tr:has-text("${step.value}")`).first();
+          await row.waitFor({ state: 'visible', timeout });
+          await row.click({ timeout });
+        }
+        break;
+
+      case 'dragAndDrop':
+        if (step.selector && step.targetSelector) {
+          const source = page.locator(step.selector).first();
+          const target = page.locator(step.targetSelector).first();
+          await source.dragTo(target, { timeout });
+        }
+        break;
+
+      case 'pause':
+        await page.waitForTimeout(step.count || 1000);
         break;
     }
 
@@ -892,7 +1179,8 @@ async function saveResultsToSupabase(results: TestResult[], runId: string, cover
 
 function generateCoverageReport(): TourCoverageReport {
   const allRoutes = getAllRoutes();
-  const routesWithTours = pageTours.map(t => t.route);
+  const allTours = [...pageTours, ...deepTours];
+  const routesWithTours = [...new Set(allTours.map(t => t.route))];
   const routesWithoutTours = allRoutes.filter(r => !routesWithTours.includes(r));
 
   const missingTestIdsList = Array.from(missingTestIds.entries())
@@ -907,9 +1195,9 @@ function generateCoverageReport(): TourCoverageReport {
     missingTestIds: missingTestIdsList,
     skippedSteps,
     coveragePercent: Math.round((routesWithTours.length / allRoutes.length) * 100),
-    p0Count: pageTours.filter(t => t.priority === 'P0').length,
-    p1Count: pageTours.filter(t => t.priority === 'P1').length,
-    p2Count: pageTours.filter(t => t.priority === 'P2').length,
+    p0Count: allTours.filter(t => t.priority === 'P0').length,
+    p1Count: allTours.filter(t => t.priority === 'P1').length,
+    p2Count: allTours.filter(t => t.priority === 'P2').length,
   };
 }
 
@@ -1007,5 +1295,192 @@ test.describe('UI Visual QA', () => {
         }
       });
     }
+  }
+});
+
+// ============================================================
+// DEEP E2E TESTS
+// ============================================================
+// These tests create real data, fill forms, upload photos, and exercise
+// the full application lifecycle through the UI. They run sequentially
+// in dependency order and only on desktop viewport (deep tests focus on
+// functional correctness, not responsive layout).
+//
+// Enable with: QA_DEEP_MODE=true
+// Filter by tags: QA_DEEP_TAGS=shipments,tasks
+// ============================================================
+
+test.describe('Deep E2E QA', () => {
+  // Only run when DEEP_MODE is enabled
+  test.skip(!DEEP_MODE, 'Deep E2E tests are disabled. Set QA_DEEP_MODE=true to enable.');
+
+  // Deep tests must run sequentially (they depend on each other)
+  test.describe.configure({ mode: 'serial' });
+
+  test.beforeAll(async ({ browser }) => {
+    if (!DEEP_MODE) return;
+
+    // Reuse or create contexts
+    if (!runId) runId = generateRunId();
+    console.log(`Starting Deep E2E QA run: ${runId}`);
+
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY && !supabase) {
+      supabase = await createSupabaseClient();
+    }
+
+    if (!adminContext) adminContext = await browser.newContext();
+    if (!clientContext) clientContext = await browser.newContext();
+
+    // Login admin
+    const adminPage = await adminContext.newPage();
+    const adminLoggedIn = await loginUser(adminPage, QA_ADMIN_EMAIL, QA_ADMIN_PASSWORD, false);
+    if (!adminLoggedIn) console.error('Deep E2E: Admin login failed');
+    await adminPage.close();
+
+    // Login client
+    if (QA_CLIENT_EMAIL && QA_CLIENT_PASSWORD) {
+      const clientPage = await clientContext.newPage();
+      const clientLoggedIn = await loginUser(clientPage, QA_CLIENT_EMAIL, QA_CLIENT_PASSWORD, true);
+      if (!clientLoggedIn) console.error('Deep E2E: Client login failed');
+      await clientPage.close();
+    }
+
+    // Clear shared context for a fresh run
+    sharedContext.clear();
+  });
+
+  test.afterAll(async () => {
+    if (!DEEP_MODE) return;
+
+    const coverageReport = generateCoverageReport();
+    await saveResultsToSupabase(testResults, runId, coverageReport);
+
+    const reportPath = path.join('screenshots', runId, 'deep_e2e_results.json');
+    const dir = path.dirname(reportPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    const deepResults = testResults.filter(r => r.suite === 'deep_e2e');
+    fs.writeFileSync(reportPath, JSON.stringify({
+      runId,
+      mode: 'deep',
+      totalTests: deepResults.length,
+      passed: deepResults.filter(r => r.status === 'pass').length,
+      failed: deepResults.filter(r => r.status === 'fail').length,
+      skipped: deepResults.filter(r => r.status === 'skip').length,
+      results: deepResults,
+      sharedContext: Object.fromEntries(sharedContext),
+    }, null, 2));
+
+    console.log(`Deep E2E results saved. Pass: ${deepResults.filter(r => r.status === 'pass').length}, Fail: ${deepResults.filter(r => r.status === 'fail').length}`);
+  });
+
+  // Generate deep tests in dependency order, desktop only
+  const orderedDeepTours = getDeepToursOrdered();
+  const filteredDeepTours = DEEP_TAGS_FILTER.length > 0
+    ? orderedDeepTours.filter(t => t.tags?.some(tag => DEEP_TAGS_FILTER.includes(tag)))
+    : orderedDeepTours;
+
+  for (const tour of filteredDeepTours) {
+    test(`[DEEP][${tour.priority}] ${tour.name}`, async () => {
+      const context = tour.roleContext === 'client' ? clientContext : adminContext;
+      const page = await context.newPage();
+
+      // Increase timeout for deep tests (they do real CRUD operations)
+      test.setTimeout(120_000);
+
+      try {
+        const startedAt = new Date().toISOString();
+        const consoleErrors: string[] = [];
+        const exceptions: string[] = [];
+        const networkFailures: string[] = [];
+        const stepResults: TourStepResult[] = [];
+        const artifacts: string[] = [];
+
+        // Capture errors
+        page.on('console', (msg) => {
+          if (msg.type() === 'error') consoleErrors.push(msg.text());
+        });
+        page.on('pageerror', (error) => {
+          exceptions.push(error.message);
+        });
+        page.on('requestfailed', (request) => {
+          networkFailures.push(`${request.method()} ${request.url()} - ${request.failure()?.errorText}`);
+        });
+
+        // Execute tour steps
+        for (const step of tour.steps) {
+          const stepResult = await executeTourStep(page, step, runId, 'desktop', tour.route);
+          stepResults.push(stepResult);
+          if (stepResult.screenshot) artifacts.push(stepResult.screenshot);
+
+          // For deep tours, stop on non-optional failures
+          if (stepResult.status === 'fail' && !step.optional) {
+            break;
+          }
+        }
+
+        const failedSteps = stepResults.filter(s => s.status === 'fail');
+        const issues: UIIssue[] = [];
+
+        if (failedSteps.length > 0) {
+          issues.push({
+            code: ERROR_CODES.TOUR_STEP_FAILED,
+            message: `${failedSteps.length} deep E2E step(s) failed: ${failedSteps.map(s => s.step).join(', ')}`,
+          });
+        }
+
+        if (consoleErrors.length > 0) {
+          issues.push({
+            code: ERROR_CODES.CONSOLE_ERROR,
+            message: `${consoleErrors.length} console error(s) during deep test`,
+          });
+        }
+
+        if (exceptions.length > 0) {
+          issues.push({
+            code: ERROR_CODES.UNCAUGHT_EXCEPTION,
+            message: `${exceptions.length} uncaught exception(s) during deep test`,
+          });
+        }
+
+        const testResult: TestResult = {
+          suite: 'deep_e2e',
+          test_name: tour.name,
+          route: tour.route,
+          viewport: 'desktop',
+          priority: tour.priority,
+          status: issues.length > 0 ? 'fail' : 'pass',
+          error_message: issues.length > 0 ? issues.map(i => `[${i.code}] ${i.message}`).join('; ') : undefined,
+          started_at: startedAt,
+          finished_at: new Date().toISOString(),
+          details: {
+            issues,
+            suggestions: [],
+            overflow: false,
+            scrollable: false,
+            consoleErrors,
+            exceptions,
+            networkFailures,
+            axeViolations: [],
+            artifacts,
+            tourSteps: stepResults,
+            fileHints: getFileHintsForRoute(tour.route)?.files || [],
+          },
+        };
+
+        testResults.push(testResult);
+
+        // P0 deep test failures fail the run
+        if (testResult.status === 'fail' && shouldFailRun(tour.priority)) {
+          expect(testResult.error_message).toBeUndefined();
+        } else if (testResult.status === 'fail') {
+          expect.soft(testResult.error_message).toBeUndefined();
+        }
+      } finally {
+        await page.close();
+      }
+    });
   }
 });
