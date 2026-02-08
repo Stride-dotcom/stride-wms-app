@@ -595,7 +595,7 @@ export default function TaskDetailPage() {
       }
     }
 
-    // If no service lines, show soft confirmation dialog (Option C)
+    // If no service lines, block completion — show dialog with admin escape hatch
     if (serviceLines.length === 0) {
       setNoServicesDialogOpen(true);
       return;
