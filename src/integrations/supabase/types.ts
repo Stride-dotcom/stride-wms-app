@@ -10733,6 +10733,7 @@ export type Database = {
           started_at: string | null
           started_by: string | null
           status: string
+          task_notes: string | null
           task_type: string
           task_type_id: string | null
           tenant_id: string
@@ -10783,6 +10784,7 @@ export type Database = {
           started_at?: string | null
           started_by?: string | null
           status?: string
+          task_notes?: string | null
           task_type: string
           task_type_id?: string | null
           tenant_id: string
@@ -10833,6 +10835,7 @@ export type Database = {
           started_at?: string | null
           started_by?: string | null
           status?: string
+          task_notes?: string | null
           task_type?: string
           task_type_id?: string | null
           tenant_id?: string

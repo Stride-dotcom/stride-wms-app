@@ -156,7 +156,9 @@ export function TaggablePhotoGrid({
     return null;
   }
 
-  const gridCols = columns === 3 ? 'grid-cols-3' : 'grid-cols-4';
+  const gridCols = columns === 3
+    ? 'grid-cols-2 sm:grid-cols-3'
+    : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4';
 
   return (
     <>
@@ -183,13 +185,13 @@ export function TaggablePhotoGrid({
               {enableTagging && (photo.isPrimary || photo.needsAttention || photo.isRepair) && (
                 <div className="absolute top-1 left-1 flex gap-1 flex-wrap">
                   {photo.isPrimary && (
-                    <PhotoIndicatorChip type="primary" />
+                    <PhotoIndicatorChip type="primary" showLabel={false} />
                   )}
                   {photo.needsAttention && (
-                    <PhotoIndicatorChip type="attention" />
+                    <PhotoIndicatorChip type="attention" showLabel={false} />
                   )}
                   {photo.isRepair && (
-                    <PhotoIndicatorChip type="repair" />
+                    <PhotoIndicatorChip type="repair" showLabel={false} />
                   )}
                 </div>
               )}
@@ -200,7 +202,7 @@ export function TaggablePhotoGrid({
               </div>
 
               {/* Action buttons - visible on mobile, hover on desktop */}
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                 <div className="flex gap-1 justify-end">
                   <button
                     type="button"
@@ -208,9 +210,9 @@ export function TaggablePhotoGrid({
                       e.stopPropagation();
                       handleDownload(photo.url, index);
                     }}
-                    className="p-1.5 text-white hover:text-blue-400"
+                    className="p-2 text-white hover:text-blue-400"
                   >
-                    <MaterialIcon name="download" className="h-4 w-4" />
+                    <MaterialIcon name="download" className="h-5 w-5" />
                   </button>
                   {enableTagging && !readonly && onPhotosChange && (
                     <>
@@ -221,9 +223,9 @@ export function TaggablePhotoGrid({
                             e.stopPropagation();
                             handleSetPrimary(photo.url);
                           }}
-                          className="p-1.5 text-amber-400 hover:text-amber-300"
+                          className="p-2 text-amber-400 hover:text-amber-300"
                         >
-                          <MaterialIcon name="star" className="h-4 w-4" />
+                          <MaterialIcon name="star" className="h-5 w-5" />
                         </button>
                       )}
                       <button
@@ -232,9 +234,9 @@ export function TaggablePhotoGrid({
                           e.stopPropagation();
                           handleToggleAttention(photo.url);
                         }}
-                        className={`p-1.5 ${photo.needsAttention ? 'text-red-400 bg-red-500/20 rounded' : 'text-white'} hover:text-red-400`}
+                        className={`p-2 ${photo.needsAttention ? 'text-red-400 bg-red-500/20 rounded' : 'text-white'} hover:text-red-400`}
                       >
-                        <MaterialIcon name="warning" className="h-4 w-4" />
+                        <MaterialIcon name="warning" className="h-5 w-5" />
                       </button>
                       <button
                         type="button"
@@ -242,9 +244,9 @@ export function TaggablePhotoGrid({
                           e.stopPropagation();
                           handleToggleRepair(photo.url);
                         }}
-                        className={`p-1.5 ${photo.isRepair ? 'text-green-400 bg-green-500/20 rounded' : 'text-white'} hover:text-green-400`}
+                        className={`p-2 ${photo.isRepair ? 'text-green-400 bg-green-500/20 rounded' : 'text-white'} hover:text-green-400`}
                       >
-                        <MaterialIcon name="build" className="h-4 w-4" />
+                        <MaterialIcon name="build" className="h-5 w-5" />
                       </button>
                     </>
                   )}
@@ -255,9 +257,9 @@ export function TaggablePhotoGrid({
                         e.stopPropagation();
                         handleDelete(photo.url);
                       }}
-                      className="p-1.5 text-white hover:text-destructive"
+                      className="p-2 text-white hover:text-destructive"
                     >
-                      <MaterialIcon name="close" className="h-4 w-4" />
+                      <MaterialIcon name="close" className="h-5 w-5" />
                     </button>
                   )}
                 </div>
