@@ -1,80 +1,67 @@
 
 
-# Fix Item Flags Display on Item Detail Page
+## Fix Inspection Task Issues: Notes, Documents/Photos, and Mobile Photo Tags
 
-## Scope
-Single file: `src/components/items/ItemFlagsSection.tsx`
+### Problem Summary
 
----
+Three issues were identified on the Task Detail page for Inspection tasks:
 
-## Change 1: Remove Visible Pricing
+1. **Notes do not save** -- The code reads/writes a `task_notes` column that does not exist in the database. The `tasks` table has no such column, so the "Save Notes" button silently fails.
 
-Remove the price text (`$XX.XX`) from flag rows. The `canViewPrices` variable and `usePermissions` import become unused and will be removed.
+2. **Document photos and uploads appear not to save** -- Documents and photos actually *are* saving to the database (confirmed by checking the data). However, the user does not see the new document appear in the list because the `DocumentList` component is not told to refetch after a successful upload. The `refetchKey` pattern is not wired up on the Task Detail page.
 
-**Lines 14, 37, 39-40**: Remove `usePermissions` import and `canViewPrices` variable.
-
-**Lines 500-518**: Replace the trailing icons block. Currently it shows either an INDICATOR badge (with text) or a price badge, plus an alert icon. The new version shows up to three small icon-only badges based on the flag's settings:
-- **Billing** (`attach_money`): shown when `!isIndicator` (i.e., the flag creates a billing charge)
-- **Indicator** (`warning`): shown when `isIndicator` (i.e., the flag is an indicator)
-- **Alert** (`notifications`): shown when `hasAlert` is true
-
-No price text anywhere.
+3. **Photo tag icons (Attention, Repair, Primary) are too small on mobile** -- The photo grid defaults to 4 columns on all screen sizes. On mobile, this makes each thumbnail very small, causing:
+   - The `PhotoIndicatorChip` badges to overflow or be unreadable
+   - The action buttons (star, attention, repair, delete) to be too small to tap reliably
+   - Poor overall usability for tagging photos
 
 ---
 
-## Change 2: Move Icons After Text, Add Flag Icon Before Text
+### Plan
 
-**Lines 490-498**: Replace the current leading icon (which switches between `flag` and `info` based on type) with a single `flag` icon for ALL flags. This tells users visually "these are flags."
+#### Step 1: Add the `task_notes` column to the database
 
-**Lines 499-518**: Restructure the label content so it reads:
+Create a migration that adds the missing `task_notes` column to the `tasks` table:
+
+```sql
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS task_notes text;
 ```
-[flag icon] [Service Name]  ... [$] [warning] [bell]
-```
-The behavior icons come after the text (they already do via `ml-auto`, this stays the same).
+
+This is the only change needed -- the existing code in `TaskDetail.tsx` already reads/writes this column correctly via `handleSaveNotes`. Once the column exists, notes will save.
+
+#### Step 2: Wire up document refetch after upload
+
+In `TaskDetail.tsx`, add a `docRefetchKey` state counter. Increment it when `ScanDocumentButton` or `DocumentUploadButton` succeed, and pass it to `DocumentList` as the `refetchKey` prop. This follows the established pattern used on the Shipment Detail page.
+
+Changes in `TaskDetail.tsx`:
+- Add state: `const [docRefetchKey, setDocRefetchKey] = useState(0);`
+- In `ScanDocumentButton.onSuccess`: call `setDocRefetchKey(prev => prev + 1)`
+- In `DocumentUploadButton.onSuccess`: call `setDocRefetchKey(prev => prev + 1)`
+- Pass `refetchKey={docRefetchKey}` to `DocumentList`
+
+#### Step 3: Make photo grid responsive for mobile
+
+In `TaggablePhotoGrid.tsx`:
+- Change the grid from a fixed 4-column layout to a responsive layout: 2 columns on mobile, 3 on medium, 4 on large screens.
+- On small thumbnails (mobile), hide the label text on `PhotoIndicatorChip` so only the icon shows, keeping badges compact.
+
+In `PhotoIndicatorChip.tsx`:
+- No changes needed to the component itself; the `showLabel` prop already supports this.
+
+In `TaggablePhotoGrid.tsx`:
+- Update the grid classes from `grid-cols-4` to `grid-cols-2 sm:grid-cols-3 lg:grid-cols-4`
+- Pass `showLabel={false}` to `PhotoIndicatorChip` when rendered inside the grid thumbnails (keep labels in the lightbox)
+- Increase mobile touch target sizes for the bottom action buttons from `p-1.5` to `p-2` and icons from `h-4 w-4` to `h-5 w-5`
 
 ---
 
-## Change 3: Standardize Behavior Icons
+### Technical Details
 
-| Icon | MaterialIcon name | Condition | Style |
-|---|---|---|---|
-| Billing ($) | `attach_money` | `!service.flag_is_indicator` | Small outline badge |
-| Indicator | `warning` | `service.flag_is_indicator` | Small amber outline badge |
-| Alert | `notifications` | `service.alert_rule !== 'none'` | Small outline badge (unchanged) |
+**Files to modify:**
+- `supabase/migrations/` -- new migration file for `task_notes` column
+- `src/pages/TaskDetail.tsx` -- add `docRefetchKey` state and wire it up
+- `src/components/common/TaggablePhotoGrid.tsx` -- responsive grid, larger mobile touch targets, compact indicator chips
 
-All three use the same small `Badge variant="outline"` with just the icon, no text.
-
----
-
-## Change 4: Mobile-Friendly Grid
-
-**Line 404** (loading skeleton): Change `grid-cols-2` to `grid-cols-1 sm:grid-cols-2`
-
-**Line 463** (flag grid): Change `grid-cols-2` to `grid-cols-1 sm:grid-cols-2`
-
----
-
-## Change 5: Update Legend -- Remove "Flag", Keep Other 3
-
-**Lines 525-538**: Update the legend to show only 3 items (remove the flag entry that was in the first plan). Keep:
-
-1. `[$]` Billing
-2. `[warning]` Indicator
-3. `[bell]` Alert
-
-Add `flex-wrap` so the legend wraps nicely on mobile.
-
----
-
-## Summary of All Changes
-
-| Area | Current | New |
-|---|---|---|
-| Leading icon | `flag` or `info` depending on type | Always `flag` for all flags |
-| Pricing text | `$XX.XX` shown to admins | Removed entirely |
-| Trailing icons | INDICATOR text badge OR price badge, plus alert | Three small icon-only badges: $, warning, bell |
-| Icon conditions | Based on indicator status + price > 0 | Based on flag settings (indicator, billing, alert) |
-| Grid | `grid-cols-2` always | `grid-cols-1 sm:grid-cols-2` |
-| Legend | 3 items (billing, indicator, alert) | Same 3 items with shorter labels, no "Flag" entry |
-| Unused code | `canViewPrices`, `usePermissions` | Removed |
+**Files to update (types):**
+- `src/integrations/supabase/types.ts` -- add `task_notes` to the Tasks type definition
 
