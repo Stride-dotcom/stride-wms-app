@@ -10726,6 +10726,7 @@ export type Database = {
           overdue_alert_sent_at: string | null
           pallet_sale_applied: boolean | null
           parent_task_id: string | null
+          primary_service_code: string | null
           priority: string | null
           related_item_id: string | null
           service_date: string | null
@@ -10733,6 +10734,7 @@ export type Database = {
           started_at: string | null
           started_by: string | null
           status: string
+          task_kind: string | null
           task_notes: string | null
           task_type: string
           task_type_id: string | null
@@ -10777,6 +10779,7 @@ export type Database = {
           overdue_alert_sent_at?: string | null
           pallet_sale_applied?: boolean | null
           parent_task_id?: string | null
+          primary_service_code?: string | null
           priority?: string | null
           related_item_id?: string | null
           service_date?: string | null
@@ -10784,6 +10787,7 @@ export type Database = {
           started_at?: string | null
           started_by?: string | null
           status?: string
+          task_kind?: string | null
           task_notes?: string | null
           task_type: string
           task_type_id?: string | null
@@ -10828,6 +10832,7 @@ export type Database = {
           overdue_alert_sent_at?: string | null
           pallet_sale_applied?: boolean | null
           parent_task_id?: string | null
+          primary_service_code?: string | null
           priority?: string | null
           related_item_id?: string | null
           service_date?: string | null
@@ -10835,6 +10840,7 @@ export type Database = {
           started_at?: string | null
           started_by?: string | null
           status?: string
+          task_kind?: string | null
           task_notes?: string | null
           task_type?: string
           task_type_id?: string | null

@@ -50,7 +50,7 @@ async function refreshTaskTypeCache(tenantId: string): Promise<void> {
   try {
     const { data, error } = await (supabase
       .from('task_types') as any)
-      .select('name, billing_service_code')
+      .select('name, default_service_code, billing_service_code')
       .eq('tenant_id', tenantId)
       .eq('is_active', true);
 
@@ -60,9 +60,10 @@ async function refreshTaskTypeCache(tenantId: string): Promise<void> {
     }
 
     const newCache = new Map<string, string | null>();
-    (data || []).forEach((tt: { name: string; billing_service_code: string | null }) => {
-      if (tt.billing_service_code) {
-        newCache.set(tt.name, tt.billing_service_code);
+    (data || []).forEach((tt: { name: string; default_service_code: string | null; billing_service_code: string | null }) => {
+      const code = tt.default_service_code || tt.billing_service_code;
+      if (code) {
+        newCache.set(tt.name, code);
       }
     });
 

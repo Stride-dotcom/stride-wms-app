@@ -17,6 +17,9 @@ export interface Task {
   title: string;
   description: string | null;
   task_type: string;
+  task_type_id: string | null;
+  task_kind: string | null;
+  primary_service_code: string | null;
   status: string;
   priority: string | null;
   due_date: string | null;
@@ -314,7 +317,7 @@ export function useTasks(filters?: {
       // First, fetch the task to check for billing config
       const { data: taskData } = await (supabase
         .from('tasks') as any)
-        .select('billing_rate, billing_rate_locked, title, metadata')
+        .select('billing_rate, billing_rate_locked, title, metadata, primary_service_code')
         .eq('id', taskId)
         .single();
 
@@ -338,10 +341,12 @@ export function useTasks(filters?: {
       const isPerTaskBilling = !!metadataServiceCode && billingQuantity > 0;
 
       // Get service code for this task type
-      // Priority: 1) Metadata service code, 2) DB lookup, 3) Hardcoded legacy defaults
+      // Priority: 1) Metadata service code, 2) Task primary_service_code, 3) DB lookup, 4) Hardcoded legacy defaults
       let serviceCode: string;
       if (metadataServiceCode) {
         serviceCode = metadataServiceCode;
+      } else if (taskData?.primary_service_code) {
+        serviceCode = taskData.primary_service_code;
       } else {
         // Dynamic lookup from task_types table, falls back to hardcoded defaults
         serviceCode = await getTaskTypeServiceCode(profile.tenant_id, taskType);

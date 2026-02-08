@@ -826,6 +826,15 @@ export default function TaskDetailPage() {
         const inspectionPhotos = photos || [];
         const inspectionNotes = taskNotes || '';
 
+        // Resolve task_type_id and primary_service_code for the Repair task type
+        const { data: repairType } = await (supabase
+          .from('task_types') as any)
+          .select('id, default_service_code, billing_service_code')
+          .eq('tenant_id', profile.tenant_id)
+          .eq('name', 'Repair')
+          .eq('is_active', true)
+          .maybeSingle();
+
         const { data: repairTask } = await (supabase
           .from('tasks') as any)
           .insert({
@@ -833,6 +842,9 @@ export default function TaskDetailPage() {
             title: `Repair: ${itemData.description || itemData.item_code}`,
             description: inspectionNotes ? `Inspection Notes:\n${inspectionNotes}` : null,
             task_type: 'Repair',
+            task_type_id: repairType?.id || null,
+            task_kind: 'repair',
+            primary_service_code: repairType?.default_service_code || repairType?.billing_service_code || null,
             status: 'pending',
             priority: 'high',
             account_id: accountId,
