@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { createBillingEventsBatch, CreateBillingEventParams } from '@/lib/billing/createBillingEvent';
+import { createCharges } from '@/services/billing';
 import { queueBillingEventAlert } from '@/lib/alertQueue';
 import { BILLING_DISABLED_ERROR, getEffectiveRate } from '@/lib/billing/chargeTypeUtils';
 
@@ -472,14 +472,31 @@ export function useOutboundShipments(filters?: {
         .eq('tenant_id', profile.tenant_id);
       const classMap = new Map((allClasses || []).map((c: any) => [c.id, c.code]));
 
-      const billingEvents: CreateBillingEventParams[] = [];
-      const alertsToQueue: Array<{
+      const chargeRequests: Array<{
+        tenantId: string;
+        accountId: string;
+        chargeCode: string;
+        eventType: 'will_call';
+        context: { type: 'shipment'; shipmentId: string; itemId: string };
+        description: string;
+        quantity: number;
+        classCode: string | null;
+        rateOverride: number;
+        hasRateError: boolean;
+        rateErrorMessage: string | undefined;
+        sidemarkId: string | null;
+        classId: string | null;
+        metadata: { class_code: string | null };
+        userId: string;
+      }> = [];
+      const alertRequests: Array<{
+        index: number;
+        tenantId: string;
         serviceName: string;
         itemCode: string;
         accountName: string;
         amount: number;
         description: string;
-        alertRule: string;
       }> = [];
 
       for (const si of shipmentItems) {
@@ -490,7 +507,7 @@ export function useOutboundShipments(filters?: {
         if (!accountId) continue;
 
         // Get item's class code for rate lookup
-        const classCode = item.class_id ? classMap.get(item.class_id) : null;
+        const classCode: string | null = item.class_id ? (classMap.get(item.class_id) ?? null) : null;
 
         // Get will call rate from Price List (includes alert_rule)
         const rateResult = await getRateFromPriceList(
@@ -501,62 +518,62 @@ export function useOutboundShipments(filters?: {
         );
 
         const quantity = si.expected_quantity || 1;
-        const unitRate = rateResult.rate;
-        const totalAmount = quantity * unitRate;
+        const totalAmount = quantity * rateResult.rate;
         const description = `Will Call: ${item.item_code}`;
 
-        billingEvents.push({
-          tenant_id: profile.tenant_id,
-          account_id: accountId,
-          sidemark_id: item.sidemark_id || null,
-          class_id: item.class_id || null,
-          item_id: item.id,
-          shipment_id: shipmentId,
-          event_type: 'will_call',
-          charge_type: 'Will_Call',
+        chargeRequests.push({
+          tenantId: profile.tenant_id,
+          accountId: accountId,
+          chargeCode: 'Will_Call',
+          eventType: 'will_call',
+          context: {
+            type: 'shipment',
+            shipmentId: shipmentId,
+            itemId: item.id,
+          },
           description,
           quantity,
-          unit_rate: unitRate,
-          total_amount: totalAmount,
-          status: 'unbilled',
-          occurred_at: new Date().toISOString(),
+          classCode,
+          rateOverride: rateResult.rate,
+          hasRateError: rateResult.hasError,
+          rateErrorMessage: rateResult.errorMessage,
+          sidemarkId: item.sidemark_id || null,
+          classId: item.class_id || null,
           metadata: {
             class_code: classCode,
           },
-          created_by: profile.id,
-          has_rate_error: rateResult.hasError,
-          rate_error_message: rateResult.errorMessage,
+          userId: profile.id,
         });
 
         // Track alerts to queue for services with email_office alert rule
         if (rateResult.alertRule === 'email_office') {
-          alertsToQueue.push({
+          alertRequests.push({
+            index: chargeRequests.length - 1,
+            tenantId: profile.tenant_id,
             serviceName: rateResult.serviceName,
             itemCode: item.item_code,
             accountName: item.account?.account_name || 'Unknown Account',
             amount: totalAmount,
             description,
-            alertRule: rateResult.alertRule,
           });
         }
       }
 
-      if (billingEvents.length > 0) {
-        const results = await createBillingEventsBatch(billingEvents);
+      if (chargeRequests.length > 0) {
+        const results = await createCharges(chargeRequests);
 
         // Queue alerts for services with email_office alert rule
-        for (let i = 0; i < alertsToQueue.length && i < results.length; i++) {
-          const alertInfo = alertsToQueue[i];
-          const billingEvent = results[i];
-          if (billingEvent?.id) {
+        for (const alert of alertRequests) {
+          const chargeResult = results[alert.index];
+          if (chargeResult?.success && chargeResult.billingEventId) {
             await queueBillingEventAlert(
-              profile.tenant_id,
-              billingEvent.id,
-              alertInfo.serviceName,
-              alertInfo.itemCode,
-              alertInfo.accountName,
-              alertInfo.amount,
-              alertInfo.description
+              alert.tenantId,
+              chargeResult.billingEventId,
+              alert.serviceName,
+              alert.itemCode,
+              alert.accountName,
+              alert.amount,
+              alert.description
             );
           }
         }
