@@ -309,42 +309,169 @@ export function useQATests() {
     }
   }, [profile?.tenant_id, toast]);
 
-  // Generate fix prompt for a failed test
+  // Generate fix prompt for a failed test - optimized for pasting into an AI builder
   const generateFixPrompt = useCallback((result: QATestResult): string => {
+    const suiteDef = TEST_SUITES.find(s => s.id === result.suite);
     const lines = [
-      '## QA Test Failure - Fix Request',
+      '# QA Test Failure - Fix Request',
       '',
-      `**Suite:** ${result.suite}`,
-      `**Test:** ${result.test_name}`,
-      `**Status:** ${result.status}`,
+      '> Paste this into an AI code assistant to get help fixing this issue.',
       '',
-      '### Error Details',
+      '## Context',
+      '',
+      `| Field | Value |`,
+      `|-------|-------|`,
+      `| **Suite** | ${result.suite} — ${suiteDef?.name || result.suite} |`,
+      `| **Test** | ${result.test_name} |`,
+      `| **Status** | ${result.status} |`,
+      `| **Run ID** | ${result.run_id} |`,
+      `| **Timestamp** | ${result.finished_at || result.started_at || 'N/A'} |`,
+      '',
+      '## Error',
+      '',
       '```',
-      result.error_message || 'No error message',
+      result.error_message || 'No error message captured',
       '```',
-      ''
+      '',
     ];
 
     if (result.error_stack) {
-      lines.push('### Stack Trace', '```', result.error_stack, '```', '');
+      lines.push(
+        '## Stack Trace',
+        '',
+        '```',
+        result.error_stack,
+        '```',
+        '',
+      );
     }
 
-    if (result.details && Object.keys(result.details).length > 0) {
-      lines.push('### Details', '```json', JSON.stringify(result.details, null, 2), '```', '');
+    // Include rich details if available
+    const details = result.details as Record<string, unknown> | undefined;
+    if (details) {
+      // Console errors
+      const consoleErrors = details.consoleErrors as string[] | undefined;
+      if (consoleErrors && consoleErrors.length > 0) {
+        lines.push('## Console Errors', '');
+        consoleErrors.forEach((err, i) => {
+          lines.push(`${i + 1}. \`${err}\``);
+        });
+        lines.push('');
+      }
+
+      // Uncaught exceptions
+      const exceptions = details.exceptions as string[] | undefined;
+      if (exceptions && exceptions.length > 0) {
+        lines.push('## Uncaught Exceptions', '');
+        exceptions.forEach((ex, i) => {
+          lines.push(`${i + 1}. \`${ex}\``);
+        });
+        lines.push('');
+      }
+
+      // Network failures
+      const networkFailures = details.networkFailures as string[] | undefined;
+      if (networkFailures && networkFailures.length > 0) {
+        lines.push('## Network Failures', '');
+        networkFailures.forEach((nf, i) => {
+          lines.push(`${i + 1}. \`${nf}\``);
+        });
+        lines.push('');
+      }
+
+      // Tour step failures (for UI Visual QA / Deep E2E)
+      const tourSteps = details.tourSteps as Array<{ step: string; action: string; status: string; error?: string }> | undefined;
+      if (tourSteps) {
+        const failedSteps = tourSteps.filter(s => s.status === 'fail');
+        if (failedSteps.length > 0) {
+          lines.push('## Failed Tour Steps', '');
+          failedSteps.forEach((s, i) => {
+            lines.push(`### Step ${i + 1}: \`${s.action}\` on \`${s.step}\``);
+            if (s.error) {
+              lines.push('```', s.error, '```');
+            }
+            lines.push('');
+          });
+        }
+      }
+
+      // Accessibility violations
+      const axeViolations = details.axeViolations as Array<{ id: string; impact: string; description: string; nodes: number }> | undefined;
+      if (axeViolations && axeViolations.length > 0) {
+        lines.push('## Accessibility Violations (axe-core)', '');
+        axeViolations.forEach(v => {
+          lines.push(`- **${v.id}** (${v.impact}): ${v.description} — ${v.nodes} element(s) affected`);
+        });
+        lines.push('');
+      }
+
+      // Issues array (for UI Visual QA)
+      const issues = details.issues as Array<{ code: string; message: string; selector?: string; measuredValue?: number; expectedValue?: number }> | undefined;
+      if (issues && issues.length > 0) {
+        lines.push('## Issues Detected', '');
+        issues.forEach((issue, i) => {
+          lines.push(`### ${i + 1}. [${issue.code}] ${issue.message}`);
+          if (issue.selector) lines.push(`- **Selector:** \`${issue.selector}\``);
+          if (issue.measuredValue !== undefined) lines.push(`- **Measured:** ${issue.measuredValue}px`);
+          if (issue.expectedValue !== undefined) lines.push(`- **Expected:** ${issue.expectedValue}px`);
+          lines.push('');
+        });
+      }
+
+      // Scroll/overflow info
+      if (details.scrollBufferPx !== undefined) {
+        lines.push(`**Scroll buffer:** ${details.scrollBufferPx}px (target: 80–120px)`);
+        lines.push('');
+      }
+      if (details.overflow) {
+        lines.push('**Horizontal overflow detected** — page content extends beyond viewport width.');
+        lines.push('');
+      }
+
+      // Remaining details as JSON (exclude already-formatted fields)
+      const excludeKeys = ['consoleErrors', 'exceptions', 'networkFailures', 'tourSteps', 'axeViolations', 'issues', 'artifacts', 'fileHints', 'scrollBufferPx', 'overflow', 'scrollable', 'suggestions', 'primaryActionReachable'];
+      const remainingDetails: Record<string, unknown> = {};
+      Object.entries(details).forEach(([k, v]) => {
+        if (!excludeKeys.includes(k) && v !== null && v !== undefined) {
+          remainingDetails[k] = v;
+        }
+      });
+      if (Object.keys(remainingDetails).length > 0) {
+        lines.push('## Additional Test Details', '', '```json', JSON.stringify(remainingDetails, null, 2), '```', '');
+      }
     }
 
     if (result.entity_ids && Object.keys(result.entity_ids).length > 0) {
-      lines.push('### Entity IDs Involved', '```json', JSON.stringify(result.entity_ids, null, 2), '```', '');
+      lines.push('## Entity IDs Created During Test', '', '```json', JSON.stringify(result.entity_ids, null, 2), '```', '');
     }
 
     lines.push(
-      '### Expected Behavior',
+      '## Expected Behavior',
+      '',
       getSuiteExpectedBehavior(result.suite, result.test_name),
       '',
-      '### Files to Check',
+      '## Files to Check',
+      '',
+      'Start investigating in these files:',
+      '',
       getSuiteFilesToCheck(result.suite),
       '',
-      `**Run ID:** ${result.run_id}`
+      '## Technology Stack',
+      '',
+      '- React 18 + TypeScript + Vite',
+      '- Supabase (PostgreSQL + Auth + Edge Functions)',
+      '- shadcn-ui + Radix UI + Tailwind CSS',
+      '- React Hook Form + Zod validation',
+      '- TanStack React Query v5',
+      '',
+      '## Instructions for AI',
+      '',
+      '1. Read the error and stack trace carefully',
+      '2. Open the files listed above and look for the root cause',
+      '3. Explain what is going wrong and why',
+      '4. Provide the minimal code change needed to fix it',
+      '5. If the fix requires database/RLS changes, note that separately',
+      '6. After fixing, verify the change does not break other tests',
     );
 
     return lines.join('\n');
