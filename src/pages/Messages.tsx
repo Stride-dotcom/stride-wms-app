@@ -187,11 +187,14 @@ export default function Messages() {
     if (!selectedConversationId || !text.trim()) return;
 
     setSending(true);
-    await sendMessage({
+    const success = await sendMessage({
       subject: 'Message',
       body: text,
       recipients: [{ type: 'user', id: selectedConversationId }],
     });
+    if (success) {
+      await refetchMessages();
+    }
     setSending(false);
   };
 
