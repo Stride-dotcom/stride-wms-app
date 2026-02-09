@@ -105,7 +105,53 @@ export function useMessages() {
         },
       }));
 
-      setMessages(transformed);
+      // Also fetch messages SENT by this user so they appear in conversations
+      if (!options?.archived) {
+        const { data: sentData } = await (supabase as any)
+          .from('messages')
+          .select(`
+            id, tenant_id, sender_id, subject, body, message_type, priority,
+            related_entity_type, related_entity_id, metadata, created_at,
+            sender:users!messages_sender_id_fkey (first_name, last_name, email),
+            recipients:message_recipients (id, message_id, recipient_type, recipient_id, user_id, is_read, read_at, is_archived, created_at)
+          `)
+          .eq('sender_id', profile.id)
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        const sentTransformed = (sentData || []).flatMap((msg: any) =>
+          (msg.recipients || []).map((r: any) => ({
+            ...r,
+            message: {
+              id: msg.id,
+              tenant_id: msg.tenant_id,
+              sender_id: msg.sender_id,
+              subject: msg.subject,
+              body: msg.body,
+              message_type: msg.message_type,
+              priority: msg.priority,
+              related_entity_type: msg.related_entity_type,
+              related_entity_id: msg.related_entity_id,
+              metadata: msg.metadata,
+              created_at: msg.created_at,
+              sender: msg.sender,
+            },
+          }))
+        );
+
+        // Merge and deduplicate by recipient record ID
+        const allMessages = [...transformed, ...sentTransformed];
+        const seen = new Set<string>();
+        const deduped = allMessages.filter((m) => {
+          if (seen.has(m.id)) return false;
+          seen.add(m.id);
+          return true;
+        });
+
+        setMessages(deduped);
+      } else {
+        setMessages(transformed);
+      }
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast({
