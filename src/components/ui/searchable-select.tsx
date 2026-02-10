@@ -91,7 +91,7 @@ function saveRecentSelection(key: string, value: string, maxItems: number): void
   }
 }
 
-export function SearchableSelect({
+function SearchableSelectInner({
   options,
   value,
   onChange,
@@ -194,11 +194,8 @@ export function SearchableSelect({
             aria-invalid={!!error}
             disabled={disabled || loading}
             className={cn(
-              // Mobile-first: proper touch target
               "w-full min-h-[44px] justify-between font-normal",
-              // Text size prevents iOS zoom
               "text-base",
-              // Error state
               error && "border-destructive focus:ring-destructive",
               className
             )}
@@ -219,12 +216,10 @@ export function SearchableSelect({
           </Button>
         </PopoverTrigger>
 
-        {/* Portal-based content - never clipped */}
         <PopoverContent
           className="w-[var(--radix-popover-trigger-width)] min-w-[200px] p-0"
           align="start"
           sideOffset={4}
-          // Ensure high z-index for modals
           style={{ zIndex: 100 }}
         >
           <Command shouldFilter={false}>
@@ -232,7 +227,7 @@ export function SearchableSelect({
               placeholder={searchPlaceholder}
               value={search}
               onValueChange={setSearch}
-              className="text-base" // Prevent iOS zoom
+              className="text-base"
             />
             <CommandList className="max-h-[280px] overflow-y-auto">
               {loading ? (
@@ -243,7 +238,6 @@ export function SearchableSelect({
                 <>
                   <CommandEmpty>{emptyText}</CommandEmpty>
 
-                  {/* Recent selections */}
                   {recentOptions.length > 0 && (
                     <CommandGroup heading="Recent">
                       {recentOptions.map((opt) => (
@@ -251,7 +245,7 @@ export function SearchableSelect({
                           key={`recent-${opt.value}`}
                           value={opt.value}
                           onSelect={() => handleSelect(opt.value)}
-                          className="min-h-[44px]" // Touch target
+                          className="min-h-[44px]"
                         >
                           <MaterialIcon
                             name="check"
@@ -267,14 +261,13 @@ export function SearchableSelect({
                     </CommandGroup>
                   )}
 
-                  {/* All options */}
                   <CommandGroup heading={recentOptions.length > 0 ? "All" : undefined}>
                     {filteredOptions.map((opt) => (
                       <CommandItem
                         key={opt.value}
                         value={opt.value}
                         onSelect={() => handleSelect(opt.value)}
-                        className="min-h-[44px]" // Touch target
+                        className="min-h-[44px]"
                       >
                         <MaterialIcon
                           name="check"
@@ -289,7 +282,6 @@ export function SearchableSelect({
                     ))}
                   </CommandGroup>
 
-                  {/* Clear option if clearable and has value */}
                   {clearable && value && (
                     <CommandGroup>
                       <CommandItem
@@ -308,12 +300,10 @@ export function SearchableSelect({
         </PopoverContent>
       </Popover>
 
-      {/* Hidden input for form association */}
       {name && (
         <input type="hidden" name={name} value={value} required={required} />
       )}
 
-      {/* Error message */}
       {error && (
         <p className="mt-1.5 text-xs font-medium text-destructive">{error}</p>
       )}
@@ -321,4 +311,11 @@ export function SearchableSelect({
   );
 }
 
-export { SearchableSelect as default };
+export const SearchableSelect = React.forwardRef<HTMLDivElement, SearchableSelectProps>(
+  function SearchableSelectForwardRef(props, _ref) {
+    return <SearchableSelectInner {...props} />;
+  }
+);
+SearchableSelect.displayName = "SearchableSelect";
+
+export default SearchableSelect;
