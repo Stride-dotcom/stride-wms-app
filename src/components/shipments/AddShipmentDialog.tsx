@@ -97,7 +97,7 @@ export function AddShipmentDialog({ open, onOpenChange }: AddShipmentDialogProps
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleCreate}>
+          <Button data-testid="shipment-type-continue" onClick={handleCreate}>
             Continue
           </Button>
         </DialogFooter>

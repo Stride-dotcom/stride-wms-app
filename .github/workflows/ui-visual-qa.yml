@@ -15,7 +15,7 @@ on:
         description: 'Enable deep E2E tests (creates real data, tests full CRUD lifecycle)'
         type: boolean
         required: false
-        default: false
+        default: true
       deep_tags:
         description: 'Filter deep tests by tags (comma-separated: shipments,tasks,claims)'
         required: false

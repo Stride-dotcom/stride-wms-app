@@ -269,6 +269,12 @@ export default function OutboundCreate() {
 
       if (shipment) {
         navigate(`/shipments/${shipment.id}`);
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to create outbound shipment. Please try again.',
+        });
       }
     } catch (err: any) {
       console.error('[OutboundCreate] submit error:', err);
@@ -323,6 +329,7 @@ export default function OutboundCreate() {
                   Account <span className="text-destructive">*</span>
                 </Label>
                 <SearchableSelect
+                  data-testid="account-select"
                   options={accountOptions}
                   value={accountId}
                   onChange={(v) => {
@@ -346,6 +353,7 @@ export default function OutboundCreate() {
                     Outbound Type <span className="text-destructive">*</span>
                   </Label>
                   <SearchableSelect
+                    data-testid="outbound-type-select"
                     options={outboundTypeOptions}
                     value={outboundTypeId}
                     onChange={(v) => {
@@ -364,6 +372,7 @@ export default function OutboundCreate() {
                     Warehouse <span className="text-destructive">*</span>
                   </Label>
                   <SearchableSelect
+                    data-testid="warehouse-select"
                     options={warehouseOptions}
                     value={warehouseId}
                     onChange={(v) => {
@@ -535,7 +544,7 @@ export default function OutboundCreate() {
             <Button type="button" variant="outline" onClick={() => navigate(-1)} disabled={saving}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || selectedItemIds.size === 0} className="min-w-[160px]">
+            <Button type="submit" data-testid="create-outbound-submit" disabled={saving || selectedItemIds.size === 0} className="min-w-[160px]">
               {saving ? (
                 <>
                   <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
