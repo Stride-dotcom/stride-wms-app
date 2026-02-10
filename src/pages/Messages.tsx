@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useMessages, MessageRecipient, InAppNotification } from '@/hooks/useMessages';
 import { useAppleBanner } from '@/hooks/useAppleBanner';
@@ -31,11 +31,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { ConversationView } from '@/components/messages/ConversationView';
 import { MessageInputBar } from '@/components/messages/MessageInputBar';
 
 export default function Messages() {
   const { profile } = useAuth();
+  const { toast } = useToast();
   const { banner, hideBanner } = useAppleBanner();
 
   // Auto-dismiss persistent message banners when landing on Messages page
@@ -91,7 +94,7 @@ export default function Messages() {
     priority: 'normal' as 'low' | 'normal' | 'high' | 'urgent',
   });
 
-  // Group messages into conversations by sender
+  // Group messages into conversations by sender (or by phone for SMS)
   const conversations = useMemo(() => {
     const convMap = new Map<string, {
       contactId: string;
@@ -100,17 +103,36 @@ export default function Messages() {
       lastMessageTime: string;
       unread: boolean;
       messages: MessageRecipient[];
+      isSms: boolean;
+      smsPhone: string | null;
     }>();
 
     for (const msg of messages) {
       const senderId = msg.message?.sender_id;
       if (!senderId) continue;
 
+      const metadata = msg.message?.metadata as Record<string, unknown> | undefined;
+      const isSmsMessage = metadata?.source === 'sms_reply';
+      const smsPhone = isSmsMessage ? (metadata?.from_phone as string || null) : null;
+      const smsContactName = isSmsMessage
+        ? (metadata?.contact_name as string || smsPhone || 'Unknown SMS')
+        : null;
+
       const isFromMe = senderId === profile?.id;
-      const contactId = isFromMe ? (msg.recipient_id || senderId) : senderId;
-      const contactName = isFromMe
-        ? 'Me'
-        : `${msg.message?.sender?.first_name || ''} ${msg.message?.sender?.last_name || ''}`.trim() || 'Unknown';
+
+      // For SMS messages, group by phone number; for normal messages, group by contact
+      let contactId: string;
+      let contactName: string;
+
+      if (isSmsMessage && smsPhone) {
+        contactId = `sms:${smsPhone}`;
+        contactName = smsContactName || smsPhone;
+      } else {
+        contactId = isFromMe ? (msg.recipient_id || senderId) : senderId;
+        contactName = isFromMe
+          ? 'Me'
+          : `${msg.message?.sender?.first_name || ''} ${msg.message?.sender?.last_name || ''}`.trim() || 'Unknown';
+      }
 
       const existing = convMap.get(contactId);
       if (existing) {
@@ -128,6 +150,8 @@ export default function Messages() {
           lastMessageTime: msg.created_at,
           unread: !msg.is_read && !isFromMe,
           messages: [msg],
+          isSms: isSmsMessage,
+          smsPhone,
         });
       }
     }
@@ -157,14 +181,28 @@ export default function Messages() {
     if (!selectedConversation) return [];
     return selectedConversation.messages
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-      .map((msg) => ({
-        id: msg.id,
-        content: msg.message?.body || '',
-        sender_id: msg.message?.sender_id || '',
-        sender_name: `${msg.message?.sender?.first_name || ''} ${msg.message?.sender?.last_name || ''}`.trim(),
-        created_at: msg.created_at,
-        is_sent: msg.message?.sender_id === profile?.id,
-      }));
+      .map((msg) => {
+        const metadata = msg.message?.metadata as Record<string, unknown> | undefined;
+        const isSmsInbound = metadata?.source === 'sms_reply';
+
+        // For SMS conversations: inbound SMS = received (left side), outbound = sent (right side)
+        // Outbound SMS are marked with metadata.source === 'sms_outbound'
+        const isSmsOutbound = metadata?.source === 'sms_outbound';
+        const isSent = isSmsInbound ? false : (isSmsOutbound ? true : msg.message?.sender_id === profile?.id);
+        const senderName = isSmsInbound
+          ? (metadata?.contact_name as string || metadata?.from_phone as string || 'SMS')
+          : `${msg.message?.sender?.first_name || ''} ${msg.message?.sender?.last_name || ''}`.trim();
+
+        return {
+          id: msg.id,
+          content: msg.message?.body || '',
+          sender_id: msg.message?.sender_id || '',
+          sender_name: senderName,
+          created_at: msg.created_at,
+          is_sent: isSent,
+          is_sms: isSmsInbound || isSmsOutbound,
+        };
+      });
   }, [selectedConversation, profile?.id]);
 
   // Handle selecting a conversation
@@ -182,21 +220,89 @@ export default function Messages() {
     }
   };
 
-  // Handle sending a message in conversation
+  // Handle sending a message in conversation (in-app or SMS)
   const handleSendInConversation = async (text: string) => {
     if (!selectedConversationId || !text.trim()) return;
 
     setSending(true);
-    const success = await sendMessage({
-      subject: 'Message',
-      body: text,
-      recipients: [{ type: 'user', id: selectedConversationId }],
-    });
-    if (success) {
-      await refetchMessages();
+
+    // Check if this is an SMS conversation
+    if (selectedConversation?.isSms && selectedConversation.smsPhone) {
+      await handleSendSmsReply(text, selectedConversation.smsPhone);
+    } else {
+      const success = await sendMessage({
+        subject: 'Message',
+        body: text,
+        recipients: [{ type: 'user', id: selectedConversationId }],
+      });
+      if (success) {
+        await refetchMessages();
+      }
     }
     setSending(false);
   };
+
+  // Send an SMS reply and record it in the messages table
+  const handleSendSmsReply = useCallback(async (text: string, toPhone: string) => {
+    if (!profile?.tenant_id || !profile?.id) return;
+
+    try {
+      // Send via edge function
+      const { data, error } = await supabase.functions.invoke('send-sms', {
+        body: {
+          tenant_id: profile.tenant_id,
+          to_phone: toPhone,
+          body: text,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Record the outbound SMS as a message so it appears in the conversation
+      const { data: message, error: msgError } = await supabase
+        .from('messages')
+        .insert({
+          tenant_id: profile.tenant_id,
+          sender_id: profile.id,
+          subject: `SMS to ${toPhone}`,
+          body: text,
+          message_type: 'system' as const,
+          priority: 'normal' as const,
+          metadata: {
+            source: 'sms_outbound',
+            to_phone: toPhone,
+            twilio_sid: data?.sid || null,
+          },
+        })
+        .select('id')
+        .single();
+
+      if (!msgError && message) {
+        // Add self as recipient so it appears in conversations
+        await supabase.from('message_recipients').insert({
+          message_id: message.id,
+          recipient_type: 'user',
+          recipient_id: profile.id,
+          user_id: profile.id,
+        });
+      }
+
+      await refetchMessages();
+
+      toast({
+        title: 'SMS Sent',
+        description: `Message sent to ${toPhone}`,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to send SMS';
+      toast({
+        variant: 'destructive',
+        title: 'SMS Failed',
+        description: msg,
+      });
+    }
+  }, [profile?.tenant_id, profile?.id, refetchMessages, toast]);
 
   // Handle sending a new compose message
   const handleSendMessage = async () => {
@@ -366,20 +472,35 @@ export default function Messages() {
                     )}
                     onClick={() => handleSelectConversation(conv.contactId)}
                   >
-                    <AvatarWithPresence
-                      status={getUserStatus(conv.contactId)}
-                      indicatorSize="sm"
-                    >
+                    {conv.isSms ? (
                       <Avatar className="h-10 w-10">
-                        <AvatarFallback className="text-sm font-semibold bg-primary/10 text-primary">
-                          {initial}
+                        <AvatarFallback className="text-sm font-semibold bg-green-100 text-green-700">
+                          <MaterialIcon name="sms" size="sm" />
                         </AvatarFallback>
                       </Avatar>
-                    </AvatarWithPresence>
+                    ) : (
+                      <AvatarWithPresence
+                        status={getUserStatus(conv.contactId)}
+                        indicatorSize="sm"
+                      >
+                        <Avatar className="h-10 w-10">
+                          <AvatarFallback className="text-sm font-semibold bg-primary/10 text-primary">
+                            {initial}
+                          </AvatarFallback>
+                        </Avatar>
+                      </AvatarWithPresence>
+                    )}
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold truncate">{conv.contactName}</span>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span className="text-sm font-semibold truncate">{conv.contactName}</span>
+                          {conv.isSms && (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 text-green-700 border-green-300 bg-green-50 shrink-0">
+                              SMS
+                            </Badge>
+                          )}
+                        </div>
                         <span className="text-xs text-muted-foreground shrink-0 ml-2">
                           {formatDate(conv.lastMessageTime)}
                         </span>
@@ -419,20 +540,37 @@ export default function Messages() {
                 >
                   <MaterialIcon name="arrow_back" size="md" />
                 </Button>
-                <AvatarWithPresence
-                  status={getUserStatus(selectedConversation.contactId)}
-                  indicatorSize="sm"
-                >
+                {selectedConversation.isSms ? (
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
-                      {selectedConversation.contactName.charAt(0).toUpperCase()}
+                    <AvatarFallback className="text-xs font-semibold bg-green-100 text-green-700">
+                      <MaterialIcon name="sms" size="sm" />
                     </AvatarFallback>
                   </Avatar>
-                </AvatarWithPresence>
+                ) : (
+                  <AvatarWithPresence
+                    status={getUserStatus(selectedConversation.contactId)}
+                    indicatorSize="sm"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
+                        {selectedConversation.contactName.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </AvatarWithPresence>
+                )}
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm truncate">{selectedConversation.contactName}</p>
-                  <p className="text-xs text-muted-foreground capitalize">
-                    {getUserStatus(selectedConversation.contactId)}
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-sm truncate">{selectedConversation.contactName}</p>
+                    {selectedConversation.isSms && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-green-700 border-green-300 bg-green-50">
+                        SMS
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedConversation.isSms
+                      ? selectedConversation.smsPhone
+                      : getUserStatus(selectedConversation.contactId)}
                   </p>
                 </div>
               </div>
@@ -447,6 +585,7 @@ export default function Messages() {
               <MessageInputBar
                 onSend={handleSendInConversation}
                 disabled={sending}
+                isSms={selectedConversation.isSms}
               />
             </>
           ) : (
