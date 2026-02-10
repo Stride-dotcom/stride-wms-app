@@ -12,6 +12,42 @@ interface TestSmsRequest {
   to_phone: string;
 }
 
+async function authenticateAndAuthorize(req: Request, tenant_id: string) {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new Error("UNAUTHORIZED");
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const token = authHeader.replace("Bearer ", "");
+  const { data, error } = await supabase.auth.getClaims(token);
+  if (error || !data?.claims) {
+    throw new Error("UNAUTHORIZED");
+  }
+
+  const userId = data.claims.sub as string;
+
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+  const { data: userData, error: userError } = await adminClient
+    .from("users")
+    .select("tenant_id")
+    .eq("id", userId)
+    .single();
+
+  if (userError || !userData || userData.tenant_id !== tenant_id) {
+    throw new Error("FORBIDDEN");
+  }
+
+  return { userId, adminClient };
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -24,6 +60,9 @@ const handler = async (req: Request): Promise<Response> => {
       return jsonResponse(400, { success: false, error: "Missing required fields: tenant_id, to_phone" });
     }
 
+    // Authenticate and verify tenant membership
+    const { adminClient: supabase } = await authenticateAndAuthorize(req, tenant_id);
+
     // Read auth token from Supabase secret (NEVER stored in DB)
     const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
     if (!twilioAuthToken) {
@@ -34,10 +73,6 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Fetch tenant SMS config from DB
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     const { data: settings, error: dbError } = await supabase
       .from("tenant_company_settings")
       .select("twilio_account_sid, twilio_messaging_service_sid, twilio_from_phone, sms_enabled, sms_sender_name")
@@ -95,7 +130,6 @@ const handler = async (req: Request): Promise<Response> => {
     formData.append("To", cleanPhone);
     formData.append("Body", "✅ Stride WMS test SMS successful.");
 
-    // Prefer Messaging Service SID, fall back to From phone
     if (messagingServiceSid) {
       formData.append("MessagingServiceSid", messagingServiceSid);
     } else {
@@ -134,6 +168,14 @@ const handler = async (req: Request): Promise<Response> => {
     return jsonResponse(200, { success: true, sid: twilioData.sid });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
+
+    if (message === "UNAUTHORIZED") {
+      return jsonResponse(401, { success: false, error: "Unauthorized" });
+    }
+    if (message === "FORBIDDEN") {
+      return jsonResponse(403, { success: false, error: "Forbidden: tenant mismatch" });
+    }
+
     console.error("send-sms-test error:", message);
     return jsonResponse(200, { success: false, error: message });
   }

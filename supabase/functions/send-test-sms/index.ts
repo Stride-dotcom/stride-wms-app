@@ -15,55 +15,68 @@ interface TestSmsRequest {
   entity_id?: string;
 }
 
+async function authenticateAndAuthorize(req: Request, tenant_id: string) {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new Error("UNAUTHORIZED");
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const token = authHeader.replace("Bearer ", "");
+  const { data, error } = await supabase.auth.getClaims(token);
+  if (error || !data?.claims) {
+    throw new Error("UNAUTHORIZED");
+  }
+
+  const userId = data.claims.sub as string;
+
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+  const { data: userData, error: userError } = await adminClient
+    .from("users")
+    .select("tenant_id")
+    .eq("id", userId)
+    .single();
+
+  if (userError || !userData || userData.tenant_id !== tenant_id) {
+    throw new Error("FORBIDDEN");
+  }
+
+  return { userId, adminClient };
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
-    const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-    const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
-
-    if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
-      console.error("Missing Twilio credentials:", {
-        hasAccountSid: !!twilioAccountSid,
-        hasAuthToken: !!twilioAuthToken,
-        hasPhoneNumber: !!twilioPhoneNumber,
-      });
-      throw new Error("Twilio credentials not configured. Please add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER secrets.");
-    }
-
-    // Validate Twilio Account SID format
-    if (!twilioAccountSid.startsWith('AC') || twilioAccountSid.length !== 34) {
-      console.error("Invalid TWILIO_ACCOUNT_SID format. Expected: AC + 32 hex characters");
-      throw new Error("TWILIO_ACCOUNT_SID appears invalid. It should start with 'AC' followed by 32 characters.");
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     const requestBody = await req.json();
-    console.log("Received request body:", JSON.stringify(requestBody));
-    
     const { to_phone, body, tenant_id, entity_type, entity_id }: TestSmsRequest = requestBody;
 
     if (!to_phone || !body || !tenant_id) {
       throw new Error("Missing required fields: to_phone, body, tenant_id");
     }
 
-    // Clean phone number - ensure it starts with +
-    let cleanPhone = to_phone.replace(/\D/g, '');
-    if (!cleanPhone.startsWith('+')) {
-      // Assume US if no country code
-      if (cleanPhone.length === 10) {
-        cleanPhone = '+1' + cleanPhone;
-      } else if (cleanPhone.length === 11 && cleanPhone.startsWith('1')) {
-        cleanPhone = '+' + cleanPhone;
-      } else {
-        cleanPhone = '+' + cleanPhone;
-      }
+    // Authenticate and verify tenant membership
+    const { adminClient: supabase } = await authenticateAndAuthorize(req, tenant_id);
+
+    const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+    const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+    const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
+
+    if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
+      throw new Error("Twilio credentials not configured. Please add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER secrets.");
+    }
+
+    if (!twilioAccountSid.startsWith('AC') || twilioAccountSid.length !== 34) {
+      throw new Error("TWILIO_ACCOUNT_SID appears invalid. It should start with 'AC' followed by 32 characters.");
     }
 
     // Fetch brand settings for sender ID
@@ -149,15 +162,24 @@ const handler = async (req: Request): Promise<Response> => {
     // Add [TEST] prefix
     const testMessage = `[TEST] ${messageBody}`;
 
-    // Use Twilio phone number or custom sender ID
-    const fromNumber = twilioPhoneNumber;
+    // Clean phone number
+    let cleanPhone = to_phone.replace(/\D/g, '');
+    if (!cleanPhone.startsWith('+')) {
+      if (cleanPhone.length === 10) {
+        cleanPhone = '+1' + cleanPhone;
+      } else if (cleanPhone.length === 11 && cleanPhone.startsWith('1')) {
+        cleanPhone = '+' + cleanPhone;
+      } else {
+        cleanPhone = '+' + cleanPhone;
+      }
+    }
 
     // Send SMS via Twilio REST API
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
     
     const formData = new URLSearchParams();
     formData.append('To', cleanPhone);
-    formData.append('From', fromNumber);
+    formData.append('From', twilioPhoneNumber);
     formData.append('Body', testMessage);
 
     const twilioResponse = await fetch(twilioUrl, {
@@ -174,7 +196,6 @@ const handler = async (req: Request): Promise<Response> => {
     if (!twilioResponse.ok) {
       console.error("Twilio error:", twilioData);
       
-      // Check for trial account unverified number error
       if (twilioData.code === 21608 || (twilioData.message && twilioData.message.includes('unverified'))) {
         throw new Error(
           `Trial account limitation: Your Twilio trial account can only send SMS to verified phone numbers. ` +
@@ -195,6 +216,18 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
   } catch (error: any) {
+    if (error.message === "UNAUTHORIZED") {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    if (error.message === "FORBIDDEN") {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: tenant mismatch" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
     console.error("Error sending test SMS:", error);
     return new Response(
       JSON.stringify({ error: error.message }),

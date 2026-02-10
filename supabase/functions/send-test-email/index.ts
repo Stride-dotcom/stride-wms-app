@@ -17,18 +17,55 @@ interface TestEmailRequest {
   tenant_id: string;
 }
 
+async function authenticateAndAuthorize(req: Request, tenant_id: string) {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new Error("UNAUTHORIZED");
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const token = authHeader.replace("Bearer ", "");
+  const { data, error } = await supabase.auth.getClaims(token);
+  if (error || !data?.claims) {
+    throw new Error("UNAUTHORIZED");
+  }
+
+  const userId = data.claims.sub as string;
+
+  // Verify tenant membership using service role
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+  const { data: userData, error: userError } = await adminClient
+    .from("users")
+    .select("tenant_id")
+    .eq("id", userId)
+    .single();
+
+  if (userError || !userData || userData.tenant_id !== tenant_id) {
+    throw new Error("FORBIDDEN");
+  }
+
+  return { userId, adminClient };
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     const { to_email, subject, body_html, from_name, from_email, tenant_id }: TestEmailRequest = await req.json();
+
+    // Authenticate and verify tenant membership
+    const { adminClient: supabase } = await authenticateAndAuthorize(req, tenant_id);
+
+    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
     // Fetch brand settings for wrapping
     const { data: brandSettings } = await supabase
@@ -91,7 +128,7 @@ const handler = async (req: Request): Promise<Response> => {
     
     const emailResponse = await resend.emails.send({
       from: `${senderName} <${senderEmail}>`,
-      to: to_email, // Resend accepts string or array
+      to: to_email,
       subject: `[TEST] ${subject}`,
       html: wrappedHtml,
     });
@@ -106,6 +143,18 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
   } catch (error: any) {
+    if (error.message === "UNAUTHORIZED") {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    if (error.message === "FORBIDDEN") {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: tenant mismatch" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
     console.error("Error sending test email:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
