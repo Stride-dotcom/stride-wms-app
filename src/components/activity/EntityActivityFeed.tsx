@@ -161,18 +161,29 @@ async function fetchShipmentComprehensiveActivity(shipmentId: string): Promise<A
   try {
     const { data: shipment } = await supabase
       .from('shipments')
-      .select(`
-        id, shipment_number, status, shipment_type, created_at, received_at, completed_at,
-        creator:created_by(first_name, last_name)
-      `)
+      .select('id, shipment_number, status, shipment_type, created_at, received_at, completed_at, created_by')
       .eq('id', shipmentId)
       .single();
 
     if (shipment) {
       const s = shipment as any;
+
+      // Resolve creator name separately
+      let creatorName: string | null = null;
+      if (s.created_by) {
+        try {
+          const { data: creator } = await supabase
+            .from('users')
+            .select('first_name, last_name')
+            .eq('id', s.created_by)
+            .single();
+          if (creator) creatorName = `${creator.first_name || ''} ${creator.last_name || ''}`.trim() || null;
+        } catch { /* ignore */ }
+      }
+
       allRows.push({
         id: 'shipment-created',
-        actor_name: s.creator ? `${s.creator.first_name} ${s.creator.last_name}` : null,
+        actor_name: creatorName,
         event_type: 'shipment_created',
         event_label: `${(s.shipment_type || '').replace('_', ' ')} shipment ${s.shipment_number} created`,
         details: { type: s.shipment_type },
@@ -212,8 +223,8 @@ async function fetchShipmentComprehensiveActivity(shipmentId: string): Promise<A
         });
       }
     }
-  } catch {
-    // Ignore errors
+  } catch (err) {
+    console.error('[EntityActivityFeed] shipment info fetch failed:', err);
   }
 
   // 3. Fetch billing events
@@ -236,26 +247,40 @@ async function fetchShipmentComprehensiveActivity(shipmentId: string): Promise<A
         });
       }
     }
-  } catch {
-    // Ignore
+  } catch (err) {
+    console.error('[EntityActivityFeed] billing_events fetch failed:', err);
   }
 
   // 4. Fetch receiving sessions
   try {
-    const { data: sessions } = await supabase
+    const { data: sessions, error: sessionsError } = await supabase
       .from('receiving_sessions')
-      .select(`
-        id, started_at, finished_at,
-        user:started_by(first_name, last_name)
-      `)
+      .select('id, started_at, finished_at, started_by')
       .eq('shipment_id', shipmentId)
       .order('started_at', { ascending: false });
 
+    if (sessionsError) {
+      console.error('[EntityActivityFeed] receiving_sessions query error:', sessionsError);
+    }
+
     if (sessions) {
+      // Batch resolve session user names
+      const sessionUserIds = [...new Set(sessions.map((s: any) => s.started_by).filter(Boolean))] as string[];
+      const sessionUserMap = new Map<string, string>();
+      if (sessionUserIds.length > 0) {
+        try {
+          const { data: users } = await supabase.from('users').select('id, first_name, last_name').in('id', sessionUserIds);
+          if (users) {
+            for (const u of users) sessionUserMap.set(u.id, `${u.first_name || ''} ${u.last_name || ''}`.trim());
+          }
+        } catch { /* ignore */ }
+      }
+
       for (const session of sessions as any[]) {
+        const userName = session.started_by ? (sessionUserMap.get(session.started_by) || null) : null;
         allRows.push({
           id: `session-start-${session.id}`,
-          actor_name: session.user ? `${session.user.first_name} ${session.user.last_name}` : null,
+          actor_name: userName,
           event_type: 'receiving_session_started',
           event_label: 'Receiving session started',
           details: {},
@@ -265,7 +290,7 @@ async function fetchShipmentComprehensiveActivity(shipmentId: string): Promise<A
         if (session.finished_at) {
           allRows.push({
             id: `session-end-${session.id}`,
-            actor_name: session.user ? `${session.user.first_name} ${session.user.last_name}` : null,
+            actor_name: userName,
             event_type: 'receiving_session_completed',
             event_label: 'Receiving session completed',
             details: {},
@@ -274,27 +299,40 @@ async function fetchShipmentComprehensiveActivity(shipmentId: string): Promise<A
         }
       }
     }
-  } catch {
-    // Ignore
+  } catch (err) {
+    console.error('[EntityActivityFeed] receiving_sessions fetch failed:', err);
   }
 
   // 5. Fetch photos
   try {
-    const { data: photos } = await (supabase as any)
+    const { data: photos, error: photosError } = await (supabase as any)
       .from('photos')
-      .select(`
-        id, created_at,
-        uploader:uploaded_by(first_name, last_name)
-      `)
+      .select('id, created_at, uploaded_by')
       .eq('entity_type', 'shipment')
       .eq('entity_id', shipmentId)
       .order('created_at', { ascending: false });
 
-    if (photos) {
+    if (photosError && photosError.code !== '42P01') {
+      console.error('[EntityActivityFeed] photos query error:', photosError);
+    }
+
+    if (photos && photos.length > 0) {
+      // Batch resolve uploader names
+      const uploaderIds = [...new Set(photos.map((p: any) => p.uploaded_by).filter(Boolean))] as string[];
+      const uploaderMap = new Map<string, string>();
+      if (uploaderIds.length > 0) {
+        try {
+          const { data: uploaders } = await supabase.from('users').select('id, first_name, last_name').in('id', uploaderIds);
+          if (uploaders) {
+            for (const u of uploaders) uploaderMap.set(u.id, `${u.first_name || ''} ${u.last_name || ''}`.trim());
+          }
+        } catch { /* ignore */ }
+      }
+
       for (const photo of photos) {
         allRows.push({
           id: `photo-${photo.id}`,
-          actor_name: photo.uploader ? `${photo.uploader.first_name} ${photo.uploader.last_name}` : null,
+          actor_name: photo.uploaded_by ? (uploaderMap.get(photo.uploaded_by) || null) : null,
           event_type: 'photo_added',
           event_label: 'Photo uploaded',
           details: {},
@@ -302,35 +340,58 @@ async function fetchShipmentComprehensiveActivity(shipmentId: string): Promise<A
         });
       }
     }
-  } catch {
-    // photos table may not exist
+  } catch (err) {
+    console.error('[EntityActivityFeed] photos fetch failed:', err);
   }
 
   // 6. Fetch audit log entries (scans, overrides, partial releases, status changes)
   try {
-    const { data: auditEntries } = await (supabase as any)
+    // First, fetch audit entries without the actor join (more reliable)
+    const { data: auditEntries, error: auditError } = await (supabase as any)
       .from('admin_audit_log')
-      .select(`
-        id, action, changes_json, created_at,
-        actor:actor_id(first_name, last_name)
-      `)
+      .select('id, action, changes_json, created_at, actor_id')
       .eq('entity_type', 'shipment')
       .eq('entity_id', shipmentId)
       .order('created_at', { ascending: false });
 
-    if (auditEntries) {
+    if (auditError) {
+      console.error('[EntityActivityFeed] audit_log query error:', auditError);
+    }
+
+    if (auditEntries && auditEntries.length > 0) {
+      // Batch-resolve actor names
+      const actorIds = [...new Set(auditEntries.map((e: any) => e.actor_id).filter(Boolean))] as string[];
+      const actorNameMap = new Map<string, string>();
+
+      if (actorIds.length > 0) {
+        try {
+          const { data: actors } = await supabase
+            .from('users')
+            .select('id, first_name, last_name')
+            .in('id', actorIds);
+          if (actors) {
+            for (const a of actors) {
+              actorNameMap.set(a.id, `${a.first_name || ''} ${a.last_name || ''}`.trim());
+            }
+          }
+        } catch {
+          // Actor name resolution is optional
+        }
+      }
+
       for (const entry of auditEntries) {
         const action = String(entry.action || 'audit_event');
 
         let label = '';
+        const changes = entry.changes_json || {};
         if (entry.action === 'account_reassigned') {
-          const fromName = entry.changes_json?.previous_account_name || 'Unknown';
-          const toName = entry.changes_json?.new_account_name || 'Unknown';
+          const fromName = changes.previous_account_name || 'Unknown';
+          const toName = changes.new_account_name || 'Unknown';
           label = `Account changed from "${fromName}" to "${toName}"`;
         } else if (entry.action === 'status_changed') {
-          const actionNote = entry.changes_json?.action || '';
-          const prevStatus = entry.changes_json?.previous_status || 'unknown';
-          const newStatus = entry.changes_json?.new_status || 'unknown';
+          const actionNote = changes.action || '';
+          const prevStatus = changes.previous_status || 'unknown';
+          const newStatus = changes.new_status || 'unknown';
           label = actionNote || `Status changed from ${prevStatus} to ${newStatus}`;
         } else if (entry.action === 'pull_manual_override') {
           label = 'Item manually marked as pulled';
@@ -341,9 +402,11 @@ async function fetchShipmentComprehensiveActivity(shipmentId: string): Promise<A
         } else if (entry.action === 'release_scan_success') {
           label = 'Item scanned and released';
         } else if (entry.action === 'scan_invalid') {
-          label = `Invalid scan: ${entry.changes_json?.message || 'wrong item'}`;
+          label = `Invalid scan: ${changes.message || 'wrong item'}`;
+        } else if (entry.action === 'scan_duplicate') {
+          label = `Duplicate scan: item already ${changes.message || 'processed'}`;
         } else if (entry.action === 'partial_release') {
-          label = `Partial release: ${entry.changes_json?.removed_items?.length || 0} item(s) removed`;
+          label = `Partial release: ${changes.removed_items?.length || 0} item(s) removed`;
         } else if (entry.action === 'pull_started') {
           label = 'Pull session started';
         } else if (entry.action === 'pull_completed') {
@@ -353,11 +416,14 @@ async function fetchShipmentComprehensiveActivity(shipmentId: string): Promise<A
         } else if (entry.action === 'release_scan_completed') {
           label = 'Release scanning completed - all items released';
         } else if (entry.action === 'shipment_completed') {
-          label = 'Shipment marked as shipped';
+          const overrides = changes.warnings_overridden;
+          label = overrides
+            ? `Shipment completed with ${overrides.length} warning override(s)`
+            : 'Shipment marked as shipped';
+        } else if (entry.action === 'scan_error') {
+          label = `Scan error: ${changes.error || 'unknown error'}`;
         } else {
-          label = entry.changes_json?.message
-            || entry.changes_json?.note
-            || action.replace(/_/g, ' ');
+          label = changes.message || changes.note || action.replace(/_/g, ' ');
         }
 
         // Skip duplicate created events (already captured from shipment table)
@@ -365,21 +431,21 @@ async function fetchShipmentComprehensiveActivity(shipmentId: string): Promise<A
 
         allRows.push({
           id: `audit-${entry.id}`,
-          actor_name: entry.actor ? `${entry.actor.first_name} ${entry.actor.last_name}` : null,
+          actor_name: entry.actor_id ? (actorNameMap.get(entry.actor_id) || null) : null,
           event_type: action,
           event_label: label,
-          details: entry.changes_json || {},
+          details: changes,
           created_at: entry.created_at,
         });
       }
     }
-  } catch {
-    // Ignore
+  } catch (err) {
+    console.error('[EntityActivityFeed] audit_log fetch failed:', err);
   }
 
   // 7. Fetch shipment items (additions)
   try {
-    const { data: shipmentItems } = await supabase
+    const { data: shipmentItems, error: siError } = await supabase
       .from('shipment_items')
       .select(`
         id, created_at, status, expected_quantity, actual_quantity,
@@ -387,6 +453,8 @@ async function fetchShipmentComprehensiveActivity(shipmentId: string): Promise<A
       `)
       .eq('shipment_id', shipmentId)
       .order('created_at', { ascending: false });
+
+    if (siError) console.error('[EntityActivityFeed] shipment_items query error:', siError);
 
     if (shipmentItems) {
       for (const si of shipmentItems as any[]) {
@@ -407,8 +475,8 @@ async function fetchShipmentComprehensiveActivity(shipmentId: string): Promise<A
         });
       }
     }
-  } catch {
-    // Ignore
+  } catch (err) {
+    console.error('[EntityActivityFeed] shipment_items fetch failed:', err);
   }
 
   // Deduplicate by id and sort newest first
