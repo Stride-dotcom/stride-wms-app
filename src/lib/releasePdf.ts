@@ -58,19 +58,6 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function formatReleaseType(type: string | null): string {
-  if (!type) return '-';
-  const labels: Record<string, string> = {
-    outbound_shipment: 'Outbound Shipment',
-    will_call: 'Will Call',
-    delivery: 'Delivery',
-    will_call_customer: 'Will Call',
-    will_call_third_party_carrier: 'Delivery',
-    will_call_stride_delivery: 'Delivery',
-  };
-  return labels[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
-
 function formatDateTime(dateStr: string): string {
   if (!dateStr) return '-';
   const date = new Date(dateStr);
@@ -212,7 +199,7 @@ export function generateReleasePdf(data: ReleasePdfData): jsPDF {
 
   const infoItems: { label: string; value: string }[] = [
     { label: 'Release Date:', value: formatDateTime(data.completedAt) },
-    { label: 'Release Type:', value: formatReleaseType(data.releaseType) },
+    { label: 'Release Type:', value: data.releaseType || '-' },
     { label: 'Carrier:', value: data.carrier || '-' },
     { label: 'Tracking:', value: data.trackingNumber || '-' },
     { label: 'PO Number:', value: data.poNumber || '-' },

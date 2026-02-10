@@ -124,7 +124,6 @@ interface Shipment {
   signature_data: string | null;
   signature_name: string | null;
   signature_timestamp: string | null;
-  customer_authorized: boolean | null;
   created_at: string;
   accounts?: { id: string; account_name: string; account_code: string } | null;
   warehouses?: { id: string; name: string } | null;
@@ -178,9 +177,6 @@ export default function ShipmentDetail() {
   const [editPoNumber, setEditPoNumber] = useState('');
   const [editExpectedArrival, setEditExpectedArrival] = useState<Date | undefined>(undefined);
   const [editNotes, setEditNotes] = useState('');
-  const [editReleaseType, setEditReleaseType] = useState('');
-  const [editReleasedTo, setEditReleasedTo] = useState('');
-  const [editCustomerAuthorized, setEditCustomerAuthorized] = useState(false);
   const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
   const [addCreditDialogOpen, setAddCreditDialogOpen] = useState(false);
   const [coverageDialogOpen, setCoverageDialogOpen] = useState(false);
@@ -1368,15 +1364,6 @@ export default function ShipmentDetail() {
     cancelled: 'Cancelled',
   };
 
-  const releaseTypeLabels: Record<string, string> = {
-    outbound_shipment: 'Outbound Shipment',
-    will_call: 'Will Call',
-    delivery: 'Delivery',
-    will_call_customer: 'Will Call',
-    will_call_third_party_carrier: 'Delivery',
-    will_call_stride_delivery: 'Delivery',
-  };
-
   // ------------------------------------------
   // Render loading state
   // ------------------------------------------
@@ -1432,7 +1419,7 @@ export default function ShipmentDetail() {
               <h1 className="text-xl sm:text-2xl font-bold truncate">{shipment.shipment_number}</h1>
               <StatusIndicator status={shipment.status} label={shipmentStatusLabels[shipment.status]} size="sm" />
               {shipment.release_type && (
-                <Badge variant="outline" className="text-xs">{releaseTypeLabels[shipment.release_type] || shipment.release_type}</Badge>
+                <Badge variant="outline" className="text-xs">{shipment.release_type}</Badge>
               )}
             </div>
             <p className="text-muted-foreground text-sm truncate">
@@ -1450,9 +1437,6 @@ export default function ShipmentDetail() {
               setEditPoNumber(shipment.po_number || '');
               setEditExpectedArrival(shipment.expected_arrival_date ? new Date(shipment.expected_arrival_date) : undefined);
               setEditNotes(shipment.notes || '');
-              setEditReleaseType(shipment.release_type || '');
-              setEditReleasedTo(shipment.released_to || '');
-              setEditCustomerAuthorized(!!shipment.customer_authorized);
             }
             setIsEditing(!isEditing);
           }}>
@@ -1735,47 +1719,6 @@ export default function ShipmentDetail() {
             <CardDescription>Update shipment details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Outbound-specific fields */}
-            {isOutbound && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Release Type <span className="text-destructive">*</span></Label>
-                  <Select value={editReleaseType} onValueChange={setEditReleaseType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select release type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="outbound_shipment">Outbound Shipment</SelectItem>
-                      <SelectItem value="will_call">Will Call</SelectItem>
-                      <SelectItem value="delivery">Delivery</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Released To / Driver Name <span className="text-destructive">*</span></Label>
-                  <Input
-                    value={editReleasedTo}
-                    onChange={(e) => setEditReleasedTo(e.target.value)}
-                    placeholder="Name of person picking up"
-                  />
-                </div>
-                <div className="sm:col-span-2 flex items-center gap-3 rounded-md border p-3">
-                  <Checkbox
-                    id="customer-authorized"
-                    checked={editCustomerAuthorized}
-                    onCheckedChange={(checked) => setEditCustomerAuthorized(!!checked)}
-                  />
-                  <div>
-                    <Label htmlFor="customer-authorized" className="cursor-pointer font-medium">
-                      Customer Authorized
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Check if the client authorized this release (via portal, phone, or email)
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Carrier</Label>
@@ -1801,33 +1744,31 @@ export default function ShipmentDetail() {
                   placeholder="Enter PO number"
                 />
               </div>
-              {!isOutbound && (
-                <div className="space-y-2">
-                  <Label>Expected Arrival</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          'w-full justify-start text-left font-normal',
-                          !editExpectedArrival && 'text-muted-foreground'
-                        )}
-                      >
-                        <MaterialIcon name="calendar_today" size="sm" className="mr-2" />
-                        {editExpectedArrival ? format(editExpectedArrival, 'PPP') : 'Select date'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={editExpectedArrival}
-                        onSelect={setEditExpectedArrival}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label>Expected Arrival</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !editExpectedArrival && 'text-muted-foreground'
+                      )}
+                    >
+                      <MaterialIcon name="calendar_today" size="sm" className="mr-2" />
+                      {editExpectedArrival ? format(editExpectedArrival, 'PPP') : 'Select date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={editExpectedArrival}
+                      onSelect={setEditExpectedArrival}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Notes</Label>
@@ -1841,27 +1782,15 @@ export default function ShipmentDetail() {
             <div className="flex gap-2">
               <SaveButton
                 onClick={async () => {
-                  const updates: Record<string, unknown> = {
-                    carrier: editCarrier || null,
-                    tracking_number: editTrackingNumber || null,
-                    po_number: editPoNumber || null,
-                    notes: editNotes || null,
-                  };
-                  if (!isOutbound) {
-                    updates.expected_arrival_date = editExpectedArrival?.toISOString() || null;
-                  }
-                  if (isOutbound) {
-                    updates.release_type = editReleaseType || null;
-                    updates.released_to = editReleasedTo || null;
-                    updates.customer_authorized = editCustomerAuthorized;
-                    if (editCustomerAuthorized) {
-                      updates.customer_authorized_at = new Date().toISOString();
-                      updates.customer_authorized_by = profile?.id || null;
-                    }
-                  }
                   const { error } = await supabase
                     .from('shipments')
-                    .update(updates)
+                    .update({
+                      carrier: editCarrier || null,
+                      tracking_number: editTrackingNumber || null,
+                      po_number: editPoNumber || null,
+                      expected_arrival_date: editExpectedArrival?.toISOString() || null,
+                      notes: editNotes || null,
+                    })
                     .eq('id', shipment.id);
                   if (error) throw error;
                   toast({ title: 'Shipment Updated' });
