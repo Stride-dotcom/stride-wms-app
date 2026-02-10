@@ -8,6 +8,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
  * Processes STOP, HELP, START/YES/OK/ACCEPT/APPROVE keywords to manage
  * opt-in/opt-out consent per phone number (TCPA compliance).
  *
+ * Non-keyword messages are routed to the in-app messaging system so
+ * office staff can see SMS replies in their Messages inbox.
+ *
  * Setup:
  * 1. Deploy this function to Supabase
  * 2. In Twilio Console → Phone Numbers → your number → Messaging → "A MESSAGE COMES IN"
@@ -66,7 +69,9 @@ const handler = async (req: Request): Promise<Response> => {
     const isOptIn = customKeywords.includes(body);
 
     if (!isStop && !isHelp && !isOptIn) {
-      // Not a recognized keyword - no action
+      // Not a recognized keyword - route as an SMS reply to in-app messages
+      const originalBody = (formData.get("Body") as string || "").trim();
+      await routeSmsReplyToMessages(supabase, tenantId, from, originalBody);
       return twimlResponse("");
     }
 
@@ -198,6 +203,106 @@ const handler = async (req: Request): Promise<Response> => {
     return twimlResponse("");
   }
 };
+
+/**
+ * Route a non-keyword SMS reply into the in-app messaging system.
+ * Creates a system message and notifies tenant admin users.
+ */
+async function routeSmsReplyToMessages(
+  supabase: ReturnType<typeof createClient>,
+  tenantId: string,
+  fromPhone: string,
+  messageBody: string
+): Promise<void> {
+  try {
+    // Look up contact name from sms_consent if available
+    const { data: consent } = await supabase
+      .from("sms_consent")
+      .select("contact_name, account_id")
+      .eq("tenant_id", tenantId)
+      .eq("phone_number", fromPhone)
+      .maybeSingle();
+
+    const senderLabel = consent?.contact_name
+      ? `${consent.contact_name} (${fromPhone})`
+      : fromPhone;
+
+    // Find a system/service user for the tenant to use as sender_id.
+    // We use the first admin user. Messages require a sender_id.
+    const { data: adminUsers } = await supabase
+      .from("users")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("role", "tenant_admin")
+      .limit(10);
+
+    if (!adminUsers || adminUsers.length === 0) {
+      console.log("No admin users found for tenant", tenantId);
+      return;
+    }
+
+    // Use first admin as the "sender" for the system message
+    const systemSenderId = adminUsers[0].id;
+
+    // Create the message
+    const { data: message, error: msgError } = await supabase
+      .from("messages")
+      .insert({
+        tenant_id: tenantId,
+        sender_id: systemSenderId,
+        subject: `SMS from ${senderLabel}`,
+        body: messageBody,
+        message_type: "system",
+        priority: "normal",
+        metadata: {
+          source: "sms_reply",
+          from_phone: fromPhone,
+          contact_name: consent?.contact_name || null,
+          account_id: consent?.account_id || null,
+        },
+      })
+      .select("id")
+      .single();
+
+    if (msgError) {
+      console.error("Error creating SMS reply message:", msgError);
+      return;
+    }
+
+    // Create message_recipients for all admin users
+    const recipientInserts = adminUsers.map((user: { id: string }) => ({
+      message_id: message.id,
+      recipient_type: "user",
+      recipient_id: user.id,
+      user_id: user.id,
+    }));
+
+    await supabase.from("message_recipients").insert(recipientInserts);
+
+    // Also create in_app_notifications for admin users
+    const notifInserts = adminUsers.map((user: { id: string }) => ({
+      tenant_id: tenantId,
+      user_id: user.id,
+      title: `SMS Reply from ${senderLabel}`,
+      body: messageBody.length > 100
+        ? messageBody.substring(0, 100) + "..."
+        : messageBody,
+      category: "sms_reply",
+      priority: "normal",
+      icon: "sms",
+      action_url: "/messages",
+      related_entity_type: "sms_reply",
+    }));
+
+    await supabase.from("in_app_notifications").insert(notifInserts);
+
+    console.log(
+      `SMS reply from ${fromPhone} routed to ${adminUsers.length} admin user(s) for tenant ${tenantId}`
+    );
+  } catch (error) {
+    console.error("Error routing SMS reply to messages:", error);
+  }
+}
 
 /** Return a TwiML XML response */
 function twimlResponse(message: string): Response {

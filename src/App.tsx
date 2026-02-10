@@ -52,6 +52,7 @@ import QuoteBuilder from "./pages/QuoteBuilder";
 import QuoteAcceptance from "./pages/QuoteAcceptance";
 import ClientQuoteReview from "./pages/ClientQuoteReview";
 import ClientActivate from "./pages/ClientActivate";
+import SmsOptIn from "./pages/SmsOptIn";
 import ClaimAcceptance from "./pages/ClaimAcceptance";
 import ClientLogin from "./pages/ClientLogin";
 import ClientDashboard from "./pages/ClientDashboard";
@@ -139,6 +140,7 @@ const App = () => (
             <Route path="/claim/accept/:token" element={<ClaimAcceptance />} />
             <Route path="/quote/accept" element={<QuoteAcceptance />} />
             <Route path="/activate" element={<ClientActivate />} />
+            <Route path="/sms/opt-in" element={<SmsOptIn />} />
             <Route path="/client/login" element={<ClientLogin />} />
             <Route path="/client" element={<ProtectedRoute><ClientDashboard /></ProtectedRoute>} />
             <Route path="/client/items" element={<ProtectedRoute><ClientItems /></ProtectedRoute>} />
