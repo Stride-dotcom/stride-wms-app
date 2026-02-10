@@ -1368,6 +1368,15 @@ export default function ShipmentDetail() {
     cancelled: 'Cancelled',
   };
 
+  const releaseTypeLabels: Record<string, string> = {
+    outbound_shipment: 'Outbound Shipment',
+    will_call: 'Will Call',
+    delivery: 'Delivery',
+    will_call_customer: 'Will Call',
+    will_call_third_party_carrier: 'Delivery',
+    will_call_stride_delivery: 'Delivery',
+  };
+
   // ------------------------------------------
   // Render loading state
   // ------------------------------------------
@@ -1423,7 +1432,7 @@ export default function ShipmentDetail() {
               <h1 className="text-xl sm:text-2xl font-bold truncate">{shipment.shipment_number}</h1>
               <StatusIndicator status={shipment.status} label={shipmentStatusLabels[shipment.status]} size="sm" />
               {shipment.release_type && (
-                <Badge variant="outline" className="text-xs">{shipment.release_type}</Badge>
+                <Badge variant="outline" className="text-xs">{releaseTypeLabels[shipment.release_type] || shipment.release_type}</Badge>
               )}
             </div>
             <p className="text-muted-foreground text-sm truncate">
@@ -1736,9 +1745,9 @@ export default function ShipmentDetail() {
                       <SelectValue placeholder="Select release type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="will_call_customer">Will Call - Customer</SelectItem>
-                      <SelectItem value="will_call_third_party_carrier">Will Call - Third Party Carrier</SelectItem>
-                      <SelectItem value="will_call_stride_delivery">Will Call - Stride Delivery</SelectItem>
+                      <SelectItem value="outbound_shipment">Outbound Shipment</SelectItem>
+                      <SelectItem value="will_call">Will Call</SelectItem>
+                      <SelectItem value="delivery">Delivery</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
