@@ -37,6 +37,7 @@ interface AddShipmentItemDialogProps {
   tenantId?: string;
   onSuccess: () => void;
   classes?: ClassOption[];
+  classOptional?: boolean;
 }
 
 export function AddShipmentItemDialog({
@@ -49,6 +50,7 @@ export function AddShipmentItemDialog({
   tenantId,
   onSuccess,
   classes = [],
+  classOptional = false,
 }: AddShipmentItemDialogProps) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -73,16 +75,18 @@ export function AddShipmentItemDialog({
       return;
     }
 
-    if (!selectedClass.trim()) {
+    if (!classOptional && !selectedClass.trim()) {
       toast({ title: 'Class required', variant: 'destructive' });
       return;
     }
 
     setSaving(true);
     try {
-      // Find the class by code or ID
-      const matchedClass = classes.find(c => c.code === selectedClass || c.id === selectedClass);
-      if (!matchedClass) {
+      // Find the class by code or ID (optional for client submissions)
+      const matchedClass = selectedClass.trim()
+        ? classes.find(c => c.code === selectedClass || c.id === selectedClass)
+        : null;
+      if (!classOptional && !matchedClass) {
         toast({ title: 'Invalid class', description: `Class "${selectedClass}" not found. Select a valid class.`, variant: 'destructive' });
         setSaving(false);
         return;
@@ -100,7 +104,7 @@ export function AddShipmentItemDialog({
           description: description.trim(),
           vendor: vendor.trim() || null,
           quantity: itemQuantity,
-          class_id: matchedClass.id,
+          class_id: matchedClass?.id || null,
           sidemark_id: sidemarkId || null,
           receiving_shipment_id: shipmentId,
           status: 'pending_receipt',
@@ -126,7 +130,7 @@ export function AddShipmentItemDialog({
         expected_description: description.trim(),
         expected_vendor: vendor.trim() || null,
         expected_sidemark: sidemark.trim() || null,
-        expected_class_id: matchedClass.id,
+        expected_class_id: matchedClass?.id || null,
         expected_quantity: itemQuantity,
         status: 'pending',
       });
@@ -202,7 +206,7 @@ export function AddShipmentItemDialog({
 
           <div className="grid gap-4 grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="class">Class *</Label>
+              <Label htmlFor="class">Class{!classOptional && ' *'}</Label>
               <AutocompleteInput
                 value={selectedClass}
                 onChange={setSelectedClass}

@@ -59,6 +59,11 @@ import ClientDashboard from "./pages/ClientDashboard";
 import ClientItems from "./pages/ClientItems";
 import ClientQuotes from "./pages/ClientQuotes";
 import ClientClaims from "./pages/ClientClaims";
+import ClientShipments from "./pages/ClientShipments";
+import ClientShipmentDetail from "./pages/ClientShipmentDetail";
+import ClientInboundCreate from "./pages/ClientInboundCreate";
+import ClientOutboundCreate from "./pages/ClientOutboundCreate";
+import ClientTaskCreate from "./pages/ClientTaskCreate";
 import ScanHub from "./pages/ScanHub";
 import ScanItemRedirect from "./pages/ScanItemRedirect";
 import PrintPreview from "./pages/PrintPreview";
@@ -99,8 +104,8 @@ const App = () => (
             <Route path="/shipments/return/new" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentCreate /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments/outbound/new" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><OutboundCreate /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentDetail /></RequireRole></ProtectedRoute>} />
-            <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
-            <Route path="/tasks/:id" element={<ProtectedRoute><TaskDetail /></ProtectedRoute>} />
+            <Route path="/tasks" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Tasks /></RequireRole></ProtectedRoute>} />
+            <Route path="/tasks/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><TaskDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/scan" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ScanHub /></RequireRole></ProtectedRoute>} />
             <Route path="/scan/item/:codeOrId" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ScanItemRedirect /></RequireRole></ProtectedRoute>} />
             <Route path="/messages" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Messages /></RequireRole></ProtectedRoute>} />
@@ -142,10 +147,15 @@ const App = () => (
             <Route path="/activate" element={<ClientActivate />} />
             <Route path="/sms/opt-in" element={<SmsOptIn />} />
             <Route path="/client/login" element={<ClientLogin />} />
-            <Route path="/client" element={<ProtectedRoute><ClientDashboard /></ProtectedRoute>} />
-            <Route path="/client/items" element={<ProtectedRoute><ClientItems /></ProtectedRoute>} />
-            <Route path="/client/quotes" element={<ProtectedRoute><ClientQuotes /></ProtectedRoute>} />
-            <Route path="/client/claims" element={<ProtectedRoute><ClientClaims /></ProtectedRoute>} />
+            <Route path="/client" element={<ProtectedRoute><RequireRole role="client_user"><ClientDashboard /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/items" element={<ProtectedRoute><RequireRole role="client_user"><ClientItems /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/quotes" element={<ProtectedRoute><RequireRole role="client_user"><ClientQuotes /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/shipments" element={<ProtectedRoute><RequireRole role="client_user"><ClientShipments /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/shipments/new" element={<ProtectedRoute><RequireRole role="client_user"><ClientInboundCreate /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/shipments/outbound/new" element={<ProtectedRoute><RequireRole role="client_user"><ClientOutboundCreate /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/shipments/:id" element={<ProtectedRoute><RequireRole role="client_user"><ClientShipmentDetail /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/tasks/new" element={<ProtectedRoute><RequireRole role="client_user"><ClientTaskCreate /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/claims" element={<ProtectedRoute><RequireRole role="client_user"><ClientClaims /></RequireRole></ProtectedRoute>} />
             <Route path="/components-demo" element={<ProtectedRoute><ComponentsDemo /></ProtectedRoute>} />
             <Route path="/material-icons" element={<ProtectedRoute><MaterialIconsSample /></ProtectedRoute>} />
             <Route path="/print-preview" element={<PrintPreview />} />

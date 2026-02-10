@@ -42,6 +42,7 @@ export interface ExpectedItemCardProps {
   vendorSuggestions: string[];
   descriptionSuggestions?: { value: string; label: string }[];
   classes?: ClassOption[];
+  classOptional?: boolean;
   errors?: ExpectedItemErrors;
   canDelete: boolean;
   onUpdate: (id: string, field: keyof ExpectedItemData, value: string | number) => void;
@@ -56,6 +57,7 @@ export function ExpectedItemCard({
   vendorSuggestions,
   descriptionSuggestions = [],
   classes = [],
+  classOptional = false,
   errors,
   canDelete,
   onUpdate,
@@ -137,7 +139,7 @@ export function ExpectedItemCard({
             error={errors?.quantity}
           />
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Class *</label>
+            <label className="text-sm font-medium">Class{!classOptional && ' *'}</label>
             <AutocompleteInput
               suggestions={classSuggestionOptions}
               value={item.classCode || ""}

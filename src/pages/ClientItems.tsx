@@ -1,10 +1,12 @@
 import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -37,12 +39,14 @@ import { formatDistanceToNow } from 'date-fns';
 
 export default function ClientItems() {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const { portalUser, account, tenant } = useClientPortalContext();
   const { data: items = [], isLoading } = useClientItems();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [quoteRequestState, setQuoteRequestState] = useState<{
     loading: boolean;
     existingQuoteId: string | null;
@@ -205,6 +209,32 @@ export default function ClientItems() {
     }
   };
 
+  // Multi-select helpers
+  const toggleItemSelection = (itemId: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(itemId)) newSelected.delete(itemId);
+    else newSelected.add(itemId);
+    setSelectedItems(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedItems.size === filteredItems.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(filteredItems.map((item: any) => item.id)));
+    }
+  };
+
+  const handleOutbound = () => {
+    const firstItem = items.find((i: any) => selectedItems.has(i.id));
+    navigate('/client/shipments/outbound/new', {
+      state: {
+        itemIds: Array.from(selectedItems),
+        accountId: firstItem?.account_id || account?.id,
+      },
+    });
+  };
+
   return (
     <ClientPortalLayout
       accountName={account?.name}
@@ -212,11 +242,33 @@ export default function ClientItems() {
       userName={userName}
     >
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">My Items</h1>
-          <p className="text-muted-foreground">
-            View all items stored in your account
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">My Items</h1>
+            <p className="text-muted-foreground">
+              View and manage items stored in your account
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {selectedItems.size > 0 && (
+              <>
+                <span className="text-sm text-muted-foreground mr-1">
+                  {selectedItems.size} selected
+                </span>
+                <Button variant="outline" size="sm" onClick={handleOutbound}>
+                  <MaterialIcon name="local_shipping" size="sm" className="mr-1.5" />
+                  Outbound
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => navigate('/client/tasks/new', { state: { itemIds: Array.from(selectedItems), accountId: account?.id } })}>
+                  <MaterialIcon name="assignment" size="sm" className="mr-1.5" />
+                  Task
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedItems(new Set())}>
+                  Clear
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         <Card>
@@ -275,15 +327,23 @@ export default function ClientItems() {
                 {filteredItems.map((item: any) => (
                   <div
                     key={item.id}
-                    className="border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    className={`border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors ${selectedItems.has(item.id) ? 'bg-muted/30 border-primary/30' : ''}`}
                     onClick={() => handleSelectItem(item)}
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="font-medium">{item.item_code}</p>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {item.description || 'No description'}
-                        </p>
+                      <div className="flex items-start gap-3">
+                        <div onClick={(e) => e.stopPropagation()} className="pt-0.5">
+                          <Checkbox
+                            checked={selectedItems.has(item.id)}
+                            onCheckedChange={() => toggleItemSelection(item.id)}
+                          />
+                        </div>
+                        <div>
+                          <p className="font-medium">{item.item_code}</p>
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {item.description || 'No description'}
+                          </p>
+                        </div>
                       </div>
                       {getStatusBadge(item.status)}
                     </div>
@@ -307,6 +367,12 @@ export default function ClientItems() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={filteredItems.length > 0 && selectedItems.size === filteredItems.length}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </TableHead>
                       <TableHead>Item Code</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Sidemark</TableHead>
@@ -320,9 +386,15 @@ export default function ClientItems() {
                     {filteredItems.map((item: any) => (
                       <TableRow
                         key={item.id}
-                        className="cursor-pointer hover:bg-muted/50"
+                        className={`cursor-pointer hover:bg-muted/50 ${selectedItems.has(item.id) ? 'bg-muted/30' : ''}`}
                         onClick={() => handleSelectItem(item)}
                       >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedItems.has(item.id)}
+                            onCheckedChange={() => toggleItemSelection(item.id)}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">{item.item_code}</TableCell>
                         <TableCell className="max-w-xs truncate">
                           {item.description || '-'}
