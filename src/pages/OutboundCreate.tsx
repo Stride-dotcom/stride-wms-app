@@ -498,9 +498,13 @@ export default function OutboundCreate() {
                               className="cursor-pointer hover:bg-muted/50"
                               onClick={() => toggleItemSelection(item.id)}
                             >
-                              <TableCell className="pointer-events-none">
-                                <Checkbox
+                              <TableCell>
+                                <input
+                                  type="checkbox"
                                   checked={selectedItemIds.has(item.id)}
+                                  onChange={() => toggleItemSelection(item.id)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="h-4 w-4 rounded border border-primary accent-primary cursor-pointer"
                                 />
                               </TableCell>
                               <TableCell className="font-medium">{item.item_code}</TableCell>
