@@ -306,7 +306,7 @@ export function useOutboundShipments(filters?: {
           customer_authorized: true,
           customer_authorized_at: new Date().toISOString(),
           customer_authorized_by: profile.id,
-          release_type: 'Customer Pickup', // Default release type for outbound
+          release_type: 'will_call', // Must be 'will_call', 'disposal', or 'return' per database constraint
         })
         .select('*')
         .single();
