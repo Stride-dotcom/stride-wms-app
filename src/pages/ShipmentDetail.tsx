@@ -1194,12 +1194,10 @@ export default function ShipmentDetail() {
 
         const pdfItems: ReleasePdfItem[] = activeOutboundItems.map(si => ({
           itemCode: si.item?.item_code || si.expected_description || '-',
+          quantity: si.actual_quantity ?? si.expected_quantity ?? 1,
           description: si.item?.description || si.expected_description || null,
           vendor: si.item?.vendor || si.expected_vendor || null,
           sidemark: si.item?.sidemark || si.expected_sidemark || null,
-          room: si.item?.room || null,
-          className: si.item?.class?.name || null,
-          location: si.item?.current_location?.code || null,
         }));
 
         // Fetch tenant settings for branding
