@@ -110,6 +110,7 @@ export async function createCharge(params: CreateChargeParams): Promise<ChargeRe
     total_amount: totalAmount,
     has_rate_error: hasRateError,
     rate_error_message: rateErrorMessage,
+    skip_promo: params.skipPromo,
     metadata: {
       ...params.metadata,
       billing_context: params.context.type,

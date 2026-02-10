@@ -58,6 +58,9 @@ export interface CreateChargeParams {
   userId?: string;
   metadata?: Record<string, any>;
 
+  // Promo control
+  skipPromo?: boolean;
+
   // Error passthrough (from upstream callers that already know the rate status)
   hasRateError?: boolean;
   rateErrorMessage?: string | null;
