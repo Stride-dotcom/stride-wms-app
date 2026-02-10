@@ -77,11 +77,15 @@ export function attachErrorTracking(page: Page): ErrorTracking {
     const resourceType = request.resourceType();
     if (resourceType !== 'xhr' && resourceType !== 'fetch') return;
 
+    const method = request.method();
+    if (method === 'HEAD') return;
+
+    const failureText = request.failure()?.errorText ?? 'unknown';
+    if (/net::ERR_ABORTED/i.test(failureText)) return;
+
     const url = request.url();
     if (!isRelevantRequest(url)) return;
 
-    const method = request.method();
-    const failureText = request.failure()?.errorText ?? 'unknown';
     tracking.requestFailures.push(`${method} ${url} :: ${failureText}`);
   };
 
