@@ -437,7 +437,94 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
   let shipmentId: string | null = null;
   const itemIds: string[] = [];
 
+  // Test 0: Validate release_type constraint (contract test)
+  // This test verifies the DB constraint matches what the frontend expects.
+  // The frontend hook useOutbound.ts createOutbound() uses release_type: 'will_call'.
+  // If anyone changes that value, this test should catch the mismatch.
+  {
+    const testName = 'Validate release_type DB constraint';
+    const startedAt = new Date().toISOString();
+    try {
+      log(ctx, `Running test: ${testName}`);
+      const warehouseId = await getOrCreateWarehouse(ctx);
+      const accountId = await getOrCreateAccount(ctx);
+
+      // Try inserting with an INVALID release_type that previously caused a bug
+      const invalidValues = ['Customer Pickup', 'pickup', 'Will Call', 'ship'];
+      const rejectedValues: string[] = [];
+
+      for (const badValue of invalidValues) {
+        const { error } = await ctx.supabase
+          .from('shipments')
+          .insert({
+            tenant_id: ctx.tenantId,
+            warehouse_id: warehouseId,
+            account_id: accountId,
+            shipment_number: generateCode('TST'),
+            shipment_type: 'outbound',
+            status: 'pending',
+            release_type: badValue,
+            metadata: { qa_test: true, qa_run_id: ctx.runId }
+          });
+
+        if (error && error.code === '23514') {
+          rejectedValues.push(badValue);
+        } else if (!error) {
+          // Shouldn't have succeeded - clean up
+          throw new Error(`release_type constraint did NOT reject invalid value: '${badValue}'. The shipments_release_type_check constraint may be missing or broken.`);
+        }
+      }
+
+      // Now verify the VALID value used by the frontend hook works
+      const { data: validShipment, error: validError } = await ctx.supabase
+        .from('shipments')
+        .insert({
+          tenant_id: ctx.tenantId,
+          warehouse_id: warehouseId,
+          account_id: accountId,
+          shipment_number: generateCode('TST'),
+          shipment_type: 'outbound',
+          status: 'pending',
+          release_type: 'will_call', // Must match useOutbound.ts createOutbound()
+          customer_authorized: true,
+          metadata: { qa_test: true, qa_run_id: ctx.runId }
+        })
+        .select()
+        .single();
+
+      if (validError) throw new Error(`Frontend release_type 'will_call' was rejected by DB: ${validError.message}. The useOutbound.ts hook value no longer matches the DB constraint.`);
+
+      // Clean up the valid test shipment
+      if (validShipment) {
+        await ctx.supabase.from('shipments').delete().eq('id', validShipment.id);
+      }
+
+      log(ctx, `Constraint correctly rejected ${rejectedValues.length} invalid values and accepted 'will_call'`);
+
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'pass',
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        details: { rejected_values: rejectedValues, accepted_value: 'will_call' }
+      });
+    } catch (error) {
+      results.push({
+        suite,
+        test_name: testName,
+        status: 'fail',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        error_stack: error instanceof Error ? error.stack : undefined,
+        started_at: startedAt,
+        finished_at: new Date().toISOString()
+      });
+    }
+  }
+
   // Test 1: Create outbound shipment with items
+  // NOTE: Insert fields below must match useOutbound.ts createOutbound() exactly.
+  // If you change fields here, update the hook too (and vice versa).
   {
     const testName = 'Create outbound shipment with items';
     const startedAt = new Date().toISOString();
@@ -469,7 +556,7 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
         itemIds.push(item.id);
       }
 
-      // Create outbound shipment with required authorization fields
+      // Create outbound shipment — fields must match useOutbound.ts createOutbound()
       const { data: shipment, error: shipmentError } = await ctx.supabase
         .from('shipments')
         .insert({
@@ -480,7 +567,7 @@ async function runOutboundFlowTests(ctx: TestContext): Promise<TestResult[]> {
           shipment_type: 'outbound',
           status: 'pending',
           customer_authorized: true,
-          release_type: 'will_call',
+          release_type: 'will_call', // Must match useOutbound.ts
           released_to: 'QA Test Customer',
           metadata: { qa_test: true, qa_run_id: ctx.runId }
         })

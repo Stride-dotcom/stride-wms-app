@@ -63,8 +63,8 @@ function StatusBadge({ status }: { status: string }) {
 
   return (
     <Badge variant={config.variant} className={cn(
-      status === 'pass' && 'bg-green-100 text-green-800 hover:bg-green-100',
-      status === 'completed' && 'bg-green-100 text-green-800 hover:bg-green-100'
+      status === 'pass' && 'bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/30',
+      status === 'completed' && 'bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/30'
     )}>
       {config.label}
     </Badge>
@@ -435,7 +435,7 @@ function ErrorResultsTab({ qa }: { qa: QAHook }) {
                         <span className="font-medium">{suiteInfo?.name || suite}</span>
                         <div className="flex items-center gap-2 ml-auto mr-4">
                           {passCount > 0 && (
-                            <Badge variant="secondary" className="bg-green-100 text-green-800">
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
                               {passCount} pass
                             </Badge>
                           )}
@@ -459,9 +459,9 @@ function ErrorResultsTab({ qa }: { qa: QAHook }) {
                             key={result.id}
                             className={cn(
                               "flex items-center justify-between p-3 rounded-lg border",
-                              result.status === 'fail' && "border-red-200 bg-red-50",
-                              result.status === 'pass' && "border-green-200 bg-green-50",
-                              result.status === 'skip' && "border-gray-200 bg-gray-50"
+                              result.status === 'fail' && "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/50",
+                              result.status === 'pass' && "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/50",
+                              result.status === 'skip' && "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/50"
                             )}
                           >
                             <div className="flex items-center gap-3">
@@ -524,7 +524,7 @@ function ErrorResultsTab({ qa }: { qa: QAHook }) {
                 {selectedResult.error_message && (
                   <div>
                     <Label className="text-muted-foreground">Error Message</Label>
-                    <pre className="mt-1 p-3 bg-red-50 border border-red-200 rounded-lg text-sm overflow-x-auto">
+                    <pre className="mt-1 p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg text-sm overflow-x-auto">
                       {selectedResult.error_message}
                     </pre>
                   </div>
@@ -1098,15 +1098,15 @@ function UIVisualResultsTab() {
                   <div className="text-3xl font-bold">{coverageData.totalRoutes}</div>
                   <div className="text-sm text-muted-foreground">Total Routes</div>
                 </div>
-                <div className="text-center p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="text-center p-4 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg">
                   <div className="text-3xl font-bold text-red-600">{coverageData.p0Count || 0}</div>
                   <div className="text-sm text-muted-foreground">P0 (Critical)</div>
                 </div>
-                <div className="text-center p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="text-center p-4 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-lg">
                   <div className="text-3xl font-bold text-amber-600">{coverageData.p1Count || 0}</div>
                   <div className="text-sm text-muted-foreground">P1 (Important)</div>
                 </div>
-                <div className="text-center p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="text-center p-4 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div className="text-3xl font-bold text-gray-600">{coverageData.p2Count || 0}</div>
                   <div className="text-sm text-muted-foreground">P2 (Info)</div>
                 </div>
@@ -1121,7 +1121,7 @@ function UIVisualResultsTab() {
                   {coverageData.routesWithoutTours?.length > 0 && (
                     <div>
                       <Label className="text-muted-foreground">Routes Without Tours</Label>
-                      <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-lg">
                         <div className="flex flex-wrap gap-2">
                           {coverageData.routesWithoutTours.slice(0, 20).map(route => (
                             <Badge key={route} variant="outline">{route}</Badge>
@@ -1376,7 +1376,7 @@ function UIVisualResultsTab() {
                         <span className="font-mono text-sm">{route}</span>
                         <div className="flex items-center gap-2 ml-auto mr-4">
                           {passCount > 0 && (
-                            <Badge variant="secondary" className="bg-green-100 text-green-800">
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
                               {passCount} pass
                             </Badge>
                           )}
@@ -1396,8 +1396,8 @@ function UIVisualResultsTab() {
                               key={result.id}
                               className={cn(
                                 "p-4 rounded-lg border",
-                                result.status === 'fail' && "border-red-200 bg-red-50",
-                                result.status === 'pass' && "border-green-200 bg-green-50",
+                                result.status === 'fail' && "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/50",
+                                result.status === 'pass' && "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/50",
                                 priority === 'P0' && "border-l-4 border-l-red-500",
                                 priority === 'P1' && "border-l-4 border-l-amber-500"
                               )}
@@ -1447,7 +1447,7 @@ function UIVisualResultsTab() {
 
                               {/* Suggestions (advisory) */}
                               {details?.suggestions && details.suggestions.length > 0 && (
-                                <div className="mb-2 p-2 bg-blue-50 rounded border border-blue-200">
+                                <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-950/50 rounded border border-blue-200 dark:border-blue-800">
                                   <div className="text-xs font-medium text-blue-700 mb-1">Suggestions (advisory)</div>
                                   {details.suggestions.map((s, idx) => (
                                     <div key={idx} className="text-sm text-blue-600 flex items-start gap-2">
