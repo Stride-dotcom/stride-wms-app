@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { createCharge } from '@/services/billing';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -144,29 +144,29 @@ export function AddCreditDialog({
       if (taskId) metadata.task_id = taskId;
       if (shipmentId) metadata.shipment_id = shipmentId;
 
-      const payload: Record<string, unknown> = {
-        tenant_id: profile.tenant_id,
-        account_id: accountId,
-        item_id: itemId || null,
-        task_id: taskId || null,
-        shipment_id: shipmentId || null,
-        sidemark_id: sidemarkId || null,
-        class_id: classId || null,
-
-        event_type: 'addon',
-        charge_type: 'CREDIT',
+      const result = await createCharge({
+        tenantId: profile.tenant_id,
+        accountId: accountId,
+        chargeCode: 'CREDIT',
+        eventType: 'addon',
+        context: {
+          type: 'manual',
+          itemId: itemId || undefined,
+          taskId: taskId || undefined,
+          shipmentId: shipmentId || undefined,
+        },
         description: `Credit \u2013 ${reason}`,
         quantity: 1,
-        unit_rate: negativeAmount,
-        total_amount: negativeAmount,
-        status: 'unbilled',
-        occurred_at: new Date().toISOString(),
-        metadata,
-        created_by: profile.id,
-      };
+        rateOverride: negativeAmount,
+        sidemarkId: sidemarkId || null,
+        classId: classId || null,
+        userId: profile.id,
+        metadata: metadata as Record<string, any>,
+      });
 
-      const { error } = await supabase.from('billing_events' as any).insert(payload);
-      if (error) throw error;
+      if (!result.success) {
+        throw new Error(result.errorMessage || 'Failed to add credit.');
+      }
 
       toast({
         title: 'Credit added',
