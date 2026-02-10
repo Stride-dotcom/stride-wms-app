@@ -82,7 +82,7 @@ export function useSmsConsent() {
 
     try {
       const now = new Date().toISOString();
-      const insertData: Record<string, unknown> = {
+      const insertData = {
         tenant_id: profile.tenant_id,
         phone_number: params.phone_number,
         account_id: params.account_id || null,
@@ -90,17 +90,13 @@ export function useSmsConsent() {
         status: params.status || 'pending',
         consent_method: params.consent_method || 'admin_manual',
         created_by: profile.id,
+        opted_in_at: params.status === 'opted_in' ? now : null,
+        opted_out_at: params.status === 'opted_out' ? now : null,
       };
-
-      if (params.status === 'opted_in') {
-        insertData.opted_in_at = now;
-      } else if (params.status === 'opted_out') {
-        insertData.opted_out_at = now;
-      }
 
       const { data, error } = await supabase
         .from('sms_consent')
-        .insert(insertData)
+        .insert(insertData as any)
         .select()
         .single();
 
@@ -117,7 +113,7 @@ export function useSmsConsent() {
         method: params.consent_method || 'admin_manual',
         new_status: record.status,
         actor_user_id: profile.id,
-        actor_name: profile.full_name || profile.email || null,
+        actor_name: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email || null,
       });
 
       setRecords((prev) => [record, ...prev]);
@@ -184,7 +180,7 @@ export function useSmsConsent() {
         previous_status: existing.status,
         new_status: params.status,
         actor_user_id: profile.id,
-        actor_name: profile.full_name || profile.email || null,
+        actor_name: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email || null,
       });
 
       setRecords((prev) =>
