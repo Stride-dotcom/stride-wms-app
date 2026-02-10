@@ -91,7 +91,7 @@ function saveRecentSelection(key: string, value: string, maxItems: number): void
   }
 }
 
-export function SearchableSelect({
+export const SearchableSelect = React.forwardRef<HTMLDivElement, SearchableSelectProps>(({
   options,
   value,
   onChange,
@@ -107,7 +107,7 @@ export function SearchableSelect({
   name,
   required,
   clearable = false,
-}: SearchableSelectProps) {
+}, ref) => {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const triggerRef = React.useRef<HTMLButtonElement>(null);
@@ -319,6 +319,8 @@ export function SearchableSelect({
       )}
     </div>
   );
-}
+});
+
+SearchableSelect.displayName = "SearchableSelect";
 
 export { SearchableSelect as default };
