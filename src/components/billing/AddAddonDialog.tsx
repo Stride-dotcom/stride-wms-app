@@ -26,6 +26,7 @@ import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useServiceEvents, ServiceEventForScan } from '@/hooks/useServiceEvents';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { SaveButton } from '@/components/ui/SaveButton';
 
 interface AddAddonDialogProps {
   open: boolean;
@@ -331,10 +332,14 @@ export function AddAddonDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
-            {loading ? <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" /> : null}
-            Add Charge
-          </Button>
+          <SaveButton
+            onClick={handleSubmit}
+            label="Add Charge"
+            savingLabel="Adding..."
+            savedLabel="Charge Added"
+            icon="attach_money"
+            saveDisabled={loading}
+          />
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -33,6 +33,7 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { SaveButton } from '@/components/ui/SaveButton';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithRoles, Role } from '@/hooks/useUsers';
@@ -538,10 +539,14 @@ export function UserDialog({
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
-                  Save Changes
-                </Button>
+                <SaveButton
+                  type="button"
+                  onClick={() => form.handleSubmit(onSubmit)()}
+                  label="Save Changes"
+                  savingLabel="Saving..."
+                  savedLabel="Saved"
+                  saveDisabled={loading}
+                />
               </DialogFooter>
             </form>
           </Form>

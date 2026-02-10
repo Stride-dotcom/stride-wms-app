@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { SaveButton } from '@/components/ui/SaveButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -45,7 +46,6 @@ export function PromoCodeDialog({
   promoCode,
   onSave,
 }: PromoCodeDialogProps) {
-  const [saving, setSaving] = useState(false);
   const { serviceEvents } = useServiceEvents();
 
   // Form state
@@ -90,31 +90,23 @@ export function PromoCodeDialog({
     }
   }, [open, promoCode]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
+  const handleSave = async () => {
+    const input: PromoCodeInput = {
+      code,
+      discount_type: discountType,
+      discount_value: parseFloat(discountValue) || 0,
+      expiration_type: expirationType,
+      expiration_date: expirationType === 'date' ? expirationDate : null,
+      service_scope: serviceScope,
+      selected_services: serviceScope === 'selected' ? selectedServices : null,
+      usage_limit_type: usageLimitType,
+      usage_limit: usageLimitType === 'limited' ? parseInt(usageLimit) || null : null,
+      is_active: isActive,
+    };
 
-    try {
-      const input: PromoCodeInput = {
-        code,
-        discount_type: discountType,
-        discount_value: parseFloat(discountValue) || 0,
-        expiration_type: expirationType,
-        expiration_date: expirationType === 'date' ? expirationDate : null,
-        service_scope: serviceScope,
-        selected_services: serviceScope === 'selected' ? selectedServices : null,
-        usage_limit_type: usageLimitType,
-        usage_limit: usageLimitType === 'limited' ? parseInt(usageLimit) || null : null,
-        is_active: isActive,
-      };
-
-      const success = await onSave(input);
-      if (success) {
-        onOpenChange(false);
-      }
-    } finally {
-      setSaving(false);
-    }
+    const success = await onSave(input);
+    if (!success) throw new Error('Failed to save promo code');
+    onOpenChange(false);
   };
 
   const toggleService = (serviceCode: string) => {
@@ -144,7 +136,7 @@ export function PromoCodeDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
           {/* Code */}
           <div className="space-y-2">
             <Label htmlFor="code">Promo Code</Label>
@@ -291,10 +283,13 @@ export function PromoCodeDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !isValid}>
-              {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
-              {promoCode ? 'Save Changes' : 'Create Promo Code'}
-            </Button>
+            <SaveButton
+              onClick={handleSave}
+              label={promoCode ? 'Save Changes' : 'Create Promo Code'}
+              savingLabel={promoCode ? 'Saving...' : 'Creating...'}
+              savedLabel={promoCode ? 'Saved' : 'Created'}
+              saveDisabled={!isValid}
+            />
           </DialogFooter>
         </form>
       </DialogContent>

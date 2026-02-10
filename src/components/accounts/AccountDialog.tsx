@@ -33,6 +33,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { SaveButton } from '@/components/ui/SaveButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -313,7 +314,6 @@ export function AccountDialog({
   accountId,
   onSuccess,
 }: AccountDialogProps) {
-  const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [serviceSelectionOpen, setServiceSelectionOpen] = useState(false);
@@ -474,8 +474,6 @@ export function AccountDialog({
     }
 
     try {
-      setLoading(true);
-
       const accountData = {
         account_code: data.account_code,
         account_name: data.account_name,
@@ -580,8 +578,7 @@ export function AccountDialog({
         title: 'Error',
         description: errorMessage,
       });
-    } finally {
-      setLoading(false);
+      throw error;
     }
   };
 
@@ -1622,10 +1619,13 @@ export function AccountDialog({
                     )}
                   </div>
                 )}
-                <Button type="submit" disabled={loading}>
-                  {loading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
-                  {isEditing ? 'Update Account' : 'Create Account'}
-                </Button>
+                <SaveButton
+                  type="button"
+                  onClick={() => form.handleSubmit(onSubmit)()}
+                  label={isEditing ? 'Update Account' : 'Create Account'}
+                  savingLabel={isEditing ? 'Updating...' : 'Creating...'}
+                  savedLabel={isEditing ? 'Updated' : 'Created'}
+                />
               </DialogFooter>
             </form>
           </Form>

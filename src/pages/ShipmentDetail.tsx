@@ -36,8 +36,8 @@ import { ItemLabelData } from '@/lib/labelGenerator';
 import { AddShipmentItemDialog } from '@/components/shipments/AddShipmentItemDialog';
 import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
-import { ShipmentHistoryTab } from '@/components/shipments/ShipmentHistoryTab';
 import { EntityActivityFeed } from '@/components/activity/EntityActivityFeed';
+import { SaveButton } from '@/components/ui/SaveButton';
 import { QRScanner } from '@/components/scan/QRScanner';
 import { useLocations } from '@/hooks/useLocations';
 import { hapticError, hapticSuccess } from '@/lib/haptics';
@@ -169,7 +169,6 @@ export default function ShipmentDetail() {
   const [editPoNumber, setEditPoNumber] = useState('');
   const [editExpectedArrival, setEditExpectedArrival] = useState<Date | undefined>(undefined);
   const [editNotes, setEditNotes] = useState('');
-  const [savingEdit, setSavingEdit] = useState(false);
   const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false);
   const [addCreditDialogOpen, setAddCreditDialogOpen] = useState(false);
   const [coverageDialogOpen, setCoverageDialogOpen] = useState(false);
@@ -190,7 +189,7 @@ export default function ShipmentDetail() {
   const [processingScan, setProcessingScan] = useState(false);
   const [lastScan, setLastScan] = useState<LastScanResult | null>(null);
   const [manualScanValue, setManualScanValue] = useState('');
-  const [manualOverrideItemId, setManualOverrideItemId] = useState('');
+  const [manualOverrideItemIds, setManualOverrideItemIds] = useState<Set<string>>(new Set());
   const [showPartialReleaseDialog, setShowPartialReleaseDialog] = useState(false);
   const [partialReleaseNote, setPartialReleaseNote] = useState('');
   const [partialReleaseItems, setPartialReleaseItems] = useState<Set<string>>(new Set());
@@ -982,40 +981,49 @@ export default function ShipmentDetail() {
   };
 
   const handleManualOverride = async (mode: 'pull' | 'release') => {
-    if (!manualOverrideItemId) return;
-    const targetItem = items.find(item => item.item?.id === manualOverrideItemId);
-    if (!targetItem || !targetItem.item?.id) return;
+    if (manualOverrideItemIds.size === 0) return;
+    const targetItems = items.filter(item => item.item?.id && manualOverrideItemIds.has(item.item.id));
+    if (targetItems.length === 0) return;
     try {
+      for (const targetItem of targetItems) {
+        if (!targetItem.item?.id) continue;
+
+        if (mode === 'pull') {
+          if (!outboundDockLocation?.id) return;
+          await updateItemLocation(targetItem.item.id, outboundDockLocation.id);
+          await logShipmentAudit('pull_manual_override', {
+            shipment_item_id: targetItem.id,
+            item_id: targetItem.item.id,
+          });
+        }
+
+        if (mode === 'release') {
+          if (!releasedLocation?.id) return;
+          await updateItemLocation(targetItem.item.id, releasedLocation.id);
+          await updateItemReleasedState(targetItem.item.id);
+          await updateShipmentItemRelease(targetItem.id);
+          await logShipmentAudit('release_manual_override', {
+            shipment_item_id: targetItem.id,
+            item_id: targetItem.item.id,
+          });
+        }
+      }
+
+      const count = targetItems.length;
       if (mode === 'pull') {
-        if (!outboundDockLocation?.id) return;
-        await updateItemLocation(targetItem.item.id, outboundDockLocation.id);
-        await logShipmentAudit('pull_manual_override', {
-          shipment_item_id: targetItem.id,
-          item_id: targetItem.item.id,
-        });
-        toast({ title: 'Item staged', description: 'Marked as Outbound Dock.' });
+        toast({ title: `${count} item${count > 1 ? 's' : ''} staged`, description: 'Marked as Outbound Dock.' });
+      } else {
+        toast({ title: `${count} item${count > 1 ? 's' : ''} released`, description: 'Marked as Released.' });
       }
 
-      if (mode === 'release') {
-        if (!releasedLocation?.id) return;
-        await updateItemLocation(targetItem.item.id, releasedLocation.id);
-        await updateItemReleasedState(targetItem.item.id);
-        await updateShipmentItemRelease(targetItem.id);
-        await logShipmentAudit('release_manual_override', {
-          shipment_item_id: targetItem.id,
-          item_id: targetItem.item.id,
-        });
-        toast({ title: 'Item released', description: 'Marked as Released.' });
-      }
-
-      setManualOverrideItemId('');
+      setManualOverrideItemIds(new Set());
       await fetchShipment();
     } catch (error) {
       console.error('Error applying manual override:', error);
       toast({
         variant: 'destructive',
         title: 'Manual override failed',
-        description: 'Unable to update this item.',
+        description: 'Unable to update items.',
       });
     }
   };
@@ -1033,6 +1041,8 @@ export default function ShipmentDetail() {
     setSubmittingPartialRelease(true);
     try {
       const ids = Array.from(partialReleaseItems);
+
+      // 1. Update shipment_items status to cancelled
       const { error } = await (supabase.from('shipment_items') as any)
         .update({
           status: 'cancelled',
@@ -1041,16 +1051,42 @@ export default function ShipmentDetail() {
         .in('id', ids);
 
       if (error) throw error;
+
+      // 2. Restore items to their account's default location (remove from outbound dock)
+      // Get the item_ids for the cancelled shipment items
+      const cancelledShipmentItems = items.filter(si => ids.includes(si.id) && si.item_id);
+      const itemIds = cancelledShipmentItems.map(si => si.item_id).filter(Boolean) as string[];
+
+      if (itemIds.length > 0) {
+        // Find a default warehouse location to restore items to (first non-special location or warehouse default)
+        const defaultLocation = locations.find(l =>
+          l.type === 'storage' || (l.type === 'default' && !isOutboundDock(l.code) && !isReleasedLocation(l.code))
+        ) || locations.find(l => !isOutboundDock(l.code) && !isReleasedLocation(l.code) && l.type !== 'release');
+
+        if (defaultLocation?.id) {
+          await (supabase.from('items') as any)
+            .update({ current_location_id: defaultLocation.id })
+            .in('id', itemIds);
+        }
+
+        // Reset item status back to stored (from any outbound staging status)
+        await (supabase.from('items') as any)
+          .update({ status: 'stored' })
+          .in('id', itemIds)
+          .in('status', ['staged', 'pulling']);
+      }
+
       await logShipmentAudit('partial_release', {
         shipment_id: shipment.id,
         removed_items: ids,
+        restored_item_ids: itemIds,
         note: partialReleaseNote || null,
       });
       setPartialReleaseItems(new Set());
       setPartialReleaseNote('');
       setShowPartialReleaseDialog(false);
       await fetchShipment();
-      toast({ title: 'Items removed', description: 'Shipment updated for partial release.' });
+      toast({ title: 'Items removed', description: `${ids.length} item(s) removed from shipment and restored to storage.` });
     } catch (error) {
       console.error('Error applying partial release:', error);
       toast({
@@ -1470,27 +1506,62 @@ export default function ShipmentDetail() {
                 )}
                 <div className="space-y-2">
                   <Label className="text-sm">Manual override</Label>
-                  <Select value={manualOverrideItemId} onValueChange={setManualOverrideItemId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an item..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(pullSessionActive
+                  <div className="max-h-40 overflow-y-auto rounded-md border p-2 space-y-1">
+                    {(() => {
+                      const overrideCandidates = pullSessionActive
                         ? activeOutboundItems.filter(item => !isOutboundDock(item.item?.current_location?.code))
-                        : activeOutboundItems.filter(item => !isReleasedLocation(item.item?.current_location?.code))
-                      ).map(item => (
-                        <SelectItem key={item.id} value={item.item?.id || ''}>
-                          {item.item?.item_code || item.expected_description || 'Unknown item'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        : activeOutboundItems.filter(item => !isReleasedLocation(item.item?.current_location?.code));
+                      if (overrideCandidates.length === 0) {
+                        return <p className="text-xs text-muted-foreground py-1">All items already {pullSessionActive ? 'pulled' : 'released'}.</p>;
+                      }
+                      return (
+                        <>
+                          <div className="flex items-center gap-2 pb-1 border-b mb-1">
+                            <Checkbox
+                              checked={overrideCandidates.every(item => item.item?.id && manualOverrideItemIds.has(item.item.id))}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setManualOverrideItemIds(new Set(overrideCandidates.map(item => item.item!.id)));
+                                } else {
+                                  setManualOverrideItemIds(new Set());
+                                }
+                              }}
+                            />
+                            <span className="text-xs font-medium">Select All ({overrideCandidates.length})</span>
+                          </div>
+                          {overrideCandidates.map(item => (
+                            <div key={item.id} className="flex items-center gap-2">
+                              <Checkbox
+                                checked={!!item.item?.id && manualOverrideItemIds.has(item.item.id)}
+                                onCheckedChange={(checked) => {
+                                  if (!item.item?.id) return;
+                                  setManualOverrideItemIds(prev => {
+                                    const next = new Set(prev);
+                                    if (checked) {
+                                      next.add(item.item!.id);
+                                    } else {
+                                      next.delete(item.item!.id);
+                                    }
+                                    return next;
+                                  });
+                                }}
+                              />
+                              <span className="text-sm">{item.item?.item_code || item.expected_description || 'Unknown item'}</span>
+                            </div>
+                          ))}
+                        </>
+                      );
+                    })()}
+                  </div>
+                  {manualOverrideItemIds.size > 0 && (
+                    <p className="text-xs text-muted-foreground">{manualOverrideItemIds.size} item{manualOverrideItemIds.size > 1 ? 's' : ''} selected</p>
+                  )}
                   <Button
                     variant="outline"
                     onClick={() => handleManualOverride(pullSessionActive ? 'pull' : 'release')}
-                    disabled={!manualOverrideItemId}
+                    disabled={manualOverrideItemIds.size === 0}
                   >
-                    Mark {pullSessionActive ? 'Pulled' : 'Released'}
+                    Mark {pullSessionActive ? 'Pulled' : 'Released'} ({manualOverrideItemIds.size})
                   </Button>
                 </div>
                 {releaseSessionActive && (
@@ -1573,35 +1644,25 @@ export default function ShipmentDetail() {
               />
             </div>
             <div className="flex gap-2">
-              <Button
+              <SaveButton
                 onClick={async () => {
-                  setSavingEdit(true);
-                  try {
-                    const { error } = await supabase
-                      .from('shipments')
-                      .update({
-                        carrier: editCarrier || null,
-                        tracking_number: editTrackingNumber || null,
-                        po_number: editPoNumber || null,
-                        expected_arrival_date: editExpectedArrival?.toISOString() || null,
-                        notes: editNotes || null,
-                      })
-                      .eq('id', shipment.id);
-                    if (error) throw error;
-                    toast({ title: 'Shipment Updated' });
-                    setIsEditing(false);
-                    fetchShipment();
-                  } catch (error) {
-                    toast({ variant: 'destructive', title: 'Error', description: 'Failed to update shipment' });
-                  } finally {
-                    setSavingEdit(false);
-                  }
+                  const { error } = await supabase
+                    .from('shipments')
+                    .update({
+                      carrier: editCarrier || null,
+                      tracking_number: editTrackingNumber || null,
+                      po_number: editPoNumber || null,
+                      expected_arrival_date: editExpectedArrival?.toISOString() || null,
+                      notes: editNotes || null,
+                    })
+                    .eq('id', shipment.id);
+                  if (error) throw error;
+                  toast({ title: 'Shipment Updated' });
+                  fetchShipment();
                 }}
-                disabled={savingEdit}
-              >
-                {savingEdit && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
-                Save Changes
-              </Button>
+                label="Save Changes"
+                savedLabel="Saved"
+              />
               <Button variant="outline" onClick={() => setIsEditing(false)}>
                 Cancel
               </Button>
@@ -1980,14 +2041,9 @@ export default function ShipmentDetail() {
         </Card>
       )}
 
-      {/* Shipment Activity */}
+      {/* Shipment Activity - Comprehensive timeline of all events */}
       <div className="mt-6">
-        <EntityActivityFeed entityType="shipment" entityId={shipment.id} title="Activity" description="Billing and operational activity for this shipment" />
-      </div>
-
-      {/* Shipment History */}
-      <div className="mt-6">
-        <ShipmentHistoryTab shipmentId={shipment.id} />
+        <EntityActivityFeed entityType="shipment" entityId={shipment.id} title="Activity" description="Complete timeline of billing, operations, and status changes for this shipment" />
       </div>
 
       {/* Finish Receiving Dialog */}

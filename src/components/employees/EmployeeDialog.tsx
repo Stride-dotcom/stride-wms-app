@@ -37,6 +37,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { SaveButton } from '@/components/ui/SaveButton';
 
 const employeeSchema = z.object({
   email: z.string().email('Valid email required'),
@@ -96,7 +97,6 @@ export function EmployeeDialog({
   const { profile } = useAuth();
   const { toast } = useToast();
   const { warehouses } = useWarehouses();
-  const [loading, setLoading] = useState(false);
   const [roles, setRoles] = useState<Role[]>([]);
   const [payData, setPayData] = useState<{
     id?: string;
@@ -215,7 +215,6 @@ export function EmployeeDialog({
   const onSubmit = async (data: EmployeeFormData) => {
     if (!profile?.tenant_id) return;
 
-    setLoading(true);
     try {
       const userData: any = {
         first_name: data.first_name || null,
@@ -314,8 +313,7 @@ export function EmployeeDialog({
         title: 'Error',
         description: error.message || 'Failed to save employee',
       });
-    } finally {
-      setLoading(false);
+      throw error;
     }
   };
 
@@ -714,18 +712,13 @@ export function EmployeeDialog({
             <Separator />
 
             <DialogFooter>
-              <Button type="submit" disabled={loading}>
-                {loading ? (
-                  <>
-                    <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : employee ? (
-                  'Save Changes'
-                ) : (
-                  'Add Employee'
-                )}
-              </Button>
+              <SaveButton
+                type="button"
+                onClick={() => form.handleSubmit(onSubmit)()}
+                label={employee ? 'Save Changes' : 'Add Employee'}
+                savingLabel={employee ? 'Saving...' : 'Adding...'}
+                savedLabel={employee ? 'Saved' : 'Added'}
+              />
             </DialogFooter>
           </form>
         </Form>

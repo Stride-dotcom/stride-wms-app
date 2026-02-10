@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { SaveButton } from '@/components/ui/SaveButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -48,7 +49,6 @@ export function ClaimEditDialog({
   const { toast } = useToast();
   const { profile } = useAuth();
   const { updateClaim } = useClaims();
-  const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
 
   // Form state
@@ -100,12 +100,9 @@ export function ClaimEditDialog({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleSave = async () => {
     if (!profile?.tenant_id) return;
 
-    setSaving(true);
     try {
       // Build update object, only including changed fields
       const updateData: Record<string, unknown> = {};
@@ -196,8 +193,7 @@ export function ClaimEditDialog({
         title: 'Error',
         description: error.message || 'Failed to update claim',
       });
-    } finally {
-      setSaving(false);
+      throw error;
     }
   };
 
@@ -216,7 +212,7 @@ export function ClaimEditDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-hidden flex flex-col">
+        <form onSubmit={(e) => e.preventDefault()} className="flex-1 overflow-hidden flex flex-col">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
             <TabsList className="flex-shrink-0">
               <TabsTrigger value="details">Details</TabsTrigger>
@@ -440,10 +436,12 @@ export function ClaimEditDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
-              {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
-              Save Changes
-            </Button>
+            <SaveButton
+              onClick={handleSave}
+              label="Save Changes"
+              savingLabel="Saving..."
+              savedLabel="Saved"
+            />
           </DialogFooter>
         </form>
       </DialogContent>

@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { SaveButton } from '@/components/ui/SaveButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Warehouse } from '@/hooks/useWarehouses';
@@ -401,10 +402,14 @@ export function LocationDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} onClick={form.handleSubmit(onSubmit)}>
-              {loading && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
-              {isEditing ? 'Update Location' : 'Create Location'}
-            </Button>
+            <SaveButton
+              type="button"
+              onClick={() => form.handleSubmit(onSubmit)()}
+              label={isEditing ? 'Update Location' : 'Create Location'}
+              savingLabel={isEditing ? 'Updating...' : 'Creating...'}
+              savedLabel={isEditing ? 'Updated' : 'Created'}
+              saveDisabled={loading}
+            />
           </DialogFooter>
         )}
       </DialogContent>
