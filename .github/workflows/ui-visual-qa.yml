@@ -34,6 +34,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Show branch info
+        run: |
+          echo "## Branch Info" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **SHA:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo ""
+          echo "Running on branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -42,6 +51,33 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify Playwright is installed
+        run: |
+          if ! npx playwright --version 2>/dev/null; then
+            echo "::error::@playwright/test is not installed. Make sure you are running this workflow from a branch that has @playwright/test in package.json devDependencies."
+            echo "## Setup Error" >> $GITHUB_STEP_SUMMARY
+            echo "@playwright/test is not installed. Run this workflow from a branch that includes the Playwright dependencies." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "Playwright version: $(npx playwright --version)"
+
+      - name: Verify required secrets
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          QA_ADMIN_EMAIL: ${{ secrets.QA_ADMIN_EMAIL }}
+        run: |
+          MISSING=""
+          if [ -z "$APP_BASE_URL" ]; then MISSING="$MISSING APP_BASE_URL"; fi
+          if [ -z "$QA_ADMIN_EMAIL" ]; then MISSING="$MISSING QA_ADMIN_EMAIL"; fi
+          if [ -n "$MISSING" ]; then
+            echo "::warning::Missing secrets:$MISSING - tests may fail. Go to Settings > Secrets and variables > Actions to configure."
+            echo "## Missing Secrets" >> $GITHUB_STEP_SUMMARY
+            echo "The following secrets are not configured:$MISSING" >> $GITHUB_STEP_SUMMARY
+            echo "Go to **Settings > Secrets and variables > Actions** to add them." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "All required secrets are configured."
+          fi
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
