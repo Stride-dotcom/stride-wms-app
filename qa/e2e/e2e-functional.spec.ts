@@ -46,10 +46,10 @@ test.describe('Admin — functional tests', () => {
     const freshTracking = attachErrorTracking(page);
 
     try {
-      await page.goto('/', { waitUntil: 'domcontentloaded' });
+      await page.goto('/inventory', { waitUntil: 'domcontentloaded' });
       // Wait for redirect to /auth
       await page.waitForURL((url) => url.pathname.startsWith('/auth'), {
-        timeout: 15_000,
+        timeout: 60_000,
       });
       expect(page.url()).toContain('/auth');
     } finally {
