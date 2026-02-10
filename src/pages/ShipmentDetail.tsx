@@ -1100,57 +1100,10 @@ export default function ShipmentDetail() {
   };
 
   // ------------------------------------------
-  // Handle complete outbound shipment
+  // Execute the actual outbound completion (called after validation passes or override)
   // ------------------------------------------
-  const handleCompleteOutbound = async () => {
+  const executeOutboundCompletion = async (overriddenWarnings?: SOPBlocker[]) => {
     if (!shipment) return;
-
-    // Call SOP validator RPC first
-    try {
-      const { data: validationResult, error: rpcError } = await (supabase as any).rpc(
-        'validate_shipment_outbound_completion',
-        { p_shipment_id: shipment.id }
-      );
-
-      if (rpcError) {
-        console.error('Validation RPC error:', rpcError);
-        toast({
-          variant: 'destructive',
-          title: 'Validation Error',
-          description: 'Failed to validate outbound completion. Please try again.',
-        });
-        return;
-      }
-
-      const result = validationResult as { ok: boolean; blockers: SOPBlocker[] };
-      const blockers = (result?.blockers || []).filter(
-        (b: SOPBlocker) => b.severity === 'blocking' || !b.severity
-      );
-
-      if (!result?.ok && blockers.length > 0) {
-        setSopBlockers(result.blockers);
-        setSopValidationOpen(true);
-        setShowOutboundCompleteDialog(false);
-        return;
-      }
-    } catch (err) {
-      console.error('Validation error:', err);
-      toast({
-        variant: 'destructive',
-        title: 'Validation Error',
-        description: 'An unexpected error occurred during validation.',
-      });
-      return;
-    }
-
-    if (activeOutboundItems.length > 0 && !allReleased) {
-      toast({
-        variant: 'destructive',
-        title: 'Release scanning incomplete',
-        description: 'All items must be scanned as Released before completion.',
-      });
-      return;
-    }
 
     setCompletingOutbound(true);
     try {
@@ -1199,10 +1152,20 @@ export default function ShipmentDetail() {
 
       if (shipmentItemsError) throw shipmentItemsError;
 
+      // Log completion - include any overridden warnings in the audit trail
       await logShipmentAudit('shipment_completed', {
         shipment_id: shipment.id,
         item_count: activeOutboundItems.length,
+        ...(overriddenWarnings && overriddenWarnings.length > 0 && {
+          warnings_overridden: overriddenWarnings.map(w => ({
+            code: w.code,
+            message: w.message,
+          })),
+          override_by: profile?.id || null,
+          override_at: now,
+        }),
       });
+
       toast({ title: 'Shipment Shipped', description: 'Items have been released.' });
       setShowOutboundCompleteDialog(false);
       fetchShipment();
@@ -1212,6 +1175,74 @@ export default function ShipmentDetail() {
     } finally {
       setCompletingOutbound(false);
     }
+  };
+
+  // ------------------------------------------
+  // Handle complete outbound shipment (validates, then executes or shows dialog)
+  // ------------------------------------------
+  const handleCompleteOutbound = async () => {
+    if (!shipment) return;
+
+    // Call SOP validator RPC first
+    try {
+      const { data: validationResult, error: rpcError } = await (supabase as any).rpc(
+        'validate_shipment_outbound_completion',
+        { p_shipment_id: shipment.id }
+      );
+
+      if (rpcError) {
+        console.error('Validation RPC error:', rpcError);
+        toast({
+          variant: 'destructive',
+          title: 'Validation Error',
+          description: 'Failed to validate outbound completion. Please try again.',
+        });
+        return;
+      }
+
+      const result = validationResult as { ok: boolean; blockers: SOPBlocker[] };
+      const allBlockers = result?.blockers || [];
+      const hardBlockers = allBlockers.filter(
+        (b: SOPBlocker) => b.severity === 'blocking' || !b.severity
+      );
+      const warnings = allBlockers.filter((b: SOPBlocker) => b.severity === 'warning');
+
+      // If there are hard blockers, show the dialog (no override)
+      if (hardBlockers.length > 0) {
+        setSopBlockers(allBlockers);
+        setSopValidationOpen(true);
+        setShowOutboundCompleteDialog(false);
+        return;
+      }
+
+      // If there are warnings (but no hard blockers), show the dialog with override option
+      if (warnings.length > 0) {
+        setSopBlockers(allBlockers);
+        setSopValidationOpen(true);
+        setShowOutboundCompleteDialog(false);
+        return;
+      }
+    } catch (err) {
+      console.error('Validation error:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Validation Error',
+        description: 'An unexpected error occurred during validation.',
+      });
+      return;
+    }
+
+    if (activeOutboundItems.length > 0 && !allReleased) {
+      toast({
+        variant: 'destructive',
+        title: 'Release scanning incomplete',
+        description: 'All items must be scanned as Released before completion.',
+      });
+      return;
+    }
+
+    // No blockers, no warnings - proceed directly
+    await executeOutboundCompletion();
   };
 
   // ------------------------------------------
@@ -2340,6 +2371,10 @@ export default function ShipmentDetail() {
         open={sopValidationOpen}
         onOpenChange={setSopValidationOpen}
         blockers={sopBlockers}
+        onOverride={() => {
+          const warnings = sopBlockers.filter(b => b.severity === 'warning');
+          executeOutboundCompletion(warnings);
+        }}
       />
     </DashboardLayout>
   );

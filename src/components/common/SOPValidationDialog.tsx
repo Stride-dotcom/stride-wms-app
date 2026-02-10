@@ -22,27 +22,44 @@ interface SOPValidationDialogProps {
   blockers: SOPBlocker[];
   title?: string;
   description?: string;
+  /** Called when user chooses to override warnings and proceed. Only shown when there are no blocking items. */
+  onOverride?: () => void;
+  /** Label for the override button (default: "Override & Continue") */
+  overrideLabel?: string;
 }
 
 export function SOPValidationDialog({
   open,
   onOpenChange,
   blockers,
-  title = "Can't Complete Yet",
-  description = 'Fix the items below, then try again.',
+  title,
+  description,
+  onOverride,
+  overrideLabel = 'Override & Continue',
 }: SOPValidationDialogProps) {
   const blockingItems = blockers.filter(b => b.severity === 'blocking' || !b.severity);
   const warningItems = blockers.filter(b => b.severity === 'warning');
+
+  const hasOnlyWarnings = blockingItems.length === 0 && warningItems.length > 0;
+  const canOverride = hasOnlyWarnings && !!onOverride;
+
+  const displayTitle = title || (hasOnlyWarnings ? 'Warnings' : "Can't Complete Yet");
+  const displayDescription = description || (hasOnlyWarnings
+    ? 'Review the warnings below. You may override and proceed.'
+    : 'Fix the items below, then try again.');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-destructive">
-            <MaterialIcon name="error" size="md" />
-            {title}
+          <DialogTitle className={cn(
+            'flex items-center gap-2',
+            hasOnlyWarnings ? 'text-yellow-600 dark:text-yellow-400' : 'text-destructive'
+          )}>
+            <MaterialIcon name={hasOnlyWarnings ? 'warning' : 'error'} size="md" />
+            {displayTitle}
           </DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogDescription>{displayDescription}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 max-h-[300px] overflow-y-auto">
@@ -110,8 +127,21 @@ export function SOPValidationDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
+            {canOverride ? 'Cancel' : 'Close'}
           </Button>
+          {canOverride && (
+            <Button
+              variant="default"
+              className="bg-yellow-600 hover:bg-yellow-700 text-white"
+              onClick={() => {
+                onOpenChange(false);
+                onOverride();
+              }}
+            >
+              <MaterialIcon name="warning" size="sm" className="mr-2" />
+              {overrideLabel}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

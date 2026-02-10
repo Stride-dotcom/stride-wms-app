@@ -101,8 +101,8 @@ BEGIN
     v_blockers := v_blockers || jsonb_build_array(
       jsonb_build_object(
         'code', 'UNRESOLVED_TASKS',
-        'message', format('%s blocking task(s) (inspection/repair/assembly) must be completed first.', v_unresolved_tasks),
-        'severity', 'blocking'
+        'message', format('%s open task(s) (inspection/repair/assembly) are linked to items on this shipment. You can override and proceed with the release.', v_unresolved_tasks),
+        'severity', 'warning'
       )
     );
   END IF;
