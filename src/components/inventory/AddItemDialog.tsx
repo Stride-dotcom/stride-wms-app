@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { SaveButton } from '@/components/ui/SaveButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -52,7 +53,6 @@ export function AddItemDialog({
   const { profile } = useAuth();
   const { accounts } = useAccounts();
   const { warehouses } = useWarehouses();
-  const [saving, setSaving] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   // Form state
@@ -100,9 +100,7 @@ export function AddItemDialog({
     onOpenChange(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleSave = async () => {
     // Validate required fields
     if (!accountId) {
       toast({
@@ -110,12 +108,11 @@ export function AddItemDialog({
         title: 'Account Required',
         description: 'Please select an account for this item.',
       });
-      return;
+      throw new Error('Account required');
     }
 
     if (!profile?.tenant_id) return;
 
-    setSaving(true);
     try {
       // Generate item code
       const prefix = 'INV';
@@ -172,8 +169,7 @@ export function AddItemDialog({
         title: 'Error',
         description: error.message || 'Failed to add item',
       });
-    } finally {
-      setSaving(false);
+      throw error;
     }
   };
 
@@ -191,7 +187,7 @@ export function AddItemDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-2">
+          <form onSubmit={(e) => e.preventDefault()} className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-2">
             {/* Account - Required */}
             <div className="space-y-2">
               <Label htmlFor="account" className="flex items-center gap-1">
@@ -281,10 +277,13 @@ export function AddItemDialog({
             <Button type="button" variant="outline" onClick={() => handleClose(true)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={saving}>
-              {saving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
-              Add Item
-            </Button>
+            <SaveButton
+              onClick={handleSave}
+              label="Add Item"
+              savingLabel="Adding..."
+              savedLabel="Added"
+              icon="add"
+            />
           </DialogFooter>
         </DialogContent>
       </Dialog>

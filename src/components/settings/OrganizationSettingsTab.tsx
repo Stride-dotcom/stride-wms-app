@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { SaveButton } from '@/components/ui/SaveButton';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -83,8 +83,6 @@ export function OrganizationSettingsTab() {
   const { toast } = useToast();
   const [tenant, setTenant] = useState<TenantInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
   const {
     settings: tenantSettings,
     loading: tenantSettingsLoading,
@@ -162,45 +160,40 @@ export function OrganizationSettingsTab() {
   };
 
   const onSubmit = async (data: OrganizationFormData) => {
-    setSaving(true);
-    try {
-      // Normalize office_alert_emails: trim, lowercase, dedupe
-      const normalizedOfficeEmails = data.office_alert_emails
-        ? [...new Set(
-            data.office_alert_emails
-              .split(',')
-              .map(e => e.trim().toLowerCase())
-              .filter(e => EMAIL_REGEX.test(e))
-          )].join(', ')
-        : null;
+    // Normalize office_alert_emails: trim, lowercase, dedupe
+    const normalizedOfficeEmails = data.office_alert_emails
+      ? [...new Set(
+          data.office_alert_emails
+            .split(',')
+            .map(e => e.trim().toLowerCase())
+            .filter(e => EMAIL_REGEX.test(e))
+        )].join(', ')
+      : null;
 
-      const success = await updateSettings({
-        company_name: data.company_name || null,
-        company_email: data.company_email || null,
-        company_phone: data.company_phone || null,
-        company_website: data.company_website || null,
-        company_address: data.company_address || null,
-        office_alert_emails: normalizedOfficeEmails || null,
-        remit_address_line1: data.remit_address_line1 || null,
-        remit_address_line2: data.remit_address_line2 || null,
-        remit_city: data.remit_city || null,
-        remit_state: data.remit_state || null,
-        remit_zip: data.remit_zip || null,
-        app_base_url: data.app_base_url || null,
-        app_subdomain: data.app_subdomain || null,
-        email_signature_enabled: data.email_signature_enabled ?? true,
-        email_signature_custom_text: data.email_signature_custom_text || null,
-      });
+    const success = await updateSettings({
+      company_name: data.company_name || null,
+      company_email: data.company_email || null,
+      company_phone: data.company_phone || null,
+      company_website: data.company_website || null,
+      company_address: data.company_address || null,
+      office_alert_emails: normalizedOfficeEmails || null,
+      remit_address_line1: data.remit_address_line1 || null,
+      remit_address_line2: data.remit_address_line2 || null,
+      remit_city: data.remit_city || null,
+      remit_state: data.remit_state || null,
+      remit_zip: data.remit_zip || null,
+      app_base_url: data.app_base_url || null,
+      app_subdomain: data.app_subdomain || null,
+      email_signature_enabled: data.email_signature_enabled ?? true,
+      email_signature_custom_text: data.email_signature_custom_text || null,
+    });
 
-      if (success) {
-        toast({
-          title: 'Settings Saved',
-          description: 'Organization settings have been updated.',
-        });
-      }
-    } finally {
-      setSaving(false);
-    }
+    if (!success) throw new Error('Failed to save settings');
+
+    toast({
+      title: 'Settings Saved',
+      description: 'Organization settings have been updated.',
+    });
   };
 
   if (loading || tenantSettingsLoading) {
@@ -409,19 +402,13 @@ export function OrganizationSettingsTab() {
                   />
 
                   <div className="flex justify-end">
-                    <Button type="submit" disabled={saving}>
-                      {saving ? (
-                        <>
-                          <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <MaterialIcon name="save" size="sm" className="mr-2" />
-                          Save Changes
-                        </>
-                      )}
-                    </Button>
+                    <SaveButton
+                      type="button"
+                      onClick={() => form.handleSubmit(onSubmit)()}
+                      label="Save Changes"
+                      savingLabel="Saving..."
+                      savedLabel="Saved"
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -561,19 +548,13 @@ export function OrganizationSettingsTab() {
                   </div>
 
                   <div className="flex justify-end">
-                    <Button type="submit" disabled={saving}>
-                      {saving ? (
-                        <>
-                          <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <MaterialIcon name="save" size="sm" className="mr-2" />
-                          Save Changes
-                        </>
-                      )}
-                    </Button>
+                    <SaveButton
+                      type="button"
+                      onClick={() => form.handleSubmit(onSubmit)()}
+                      label="Save Changes"
+                      savingLabel="Saving..."
+                      savedLabel="Saved"
+                    />
                   </div>
                 </CardContent>
               </Card>

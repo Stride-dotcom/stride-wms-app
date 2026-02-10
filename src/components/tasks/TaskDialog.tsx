@@ -39,6 +39,7 @@ import { useWarehouses } from '@/hooks/useWarehouses';
 import { useUsers } from '@/hooks/useUsers';
 import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { SaveButton } from '@/components/ui/SaveButton';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -82,7 +83,6 @@ export function TaskDialog({
   const { warehouses } = useWarehouses();
   const { users } = useUsers();
 
-  const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedItems, setSelectedItems] = useState<InventoryItem[]>([]);
   const [showNewTaskType, setShowNewTaskType] = useState(false);
@@ -390,8 +390,6 @@ export function TaskDialog({
     if (!profile?.tenant_id || !formData.task_type) return;
 
     try {
-      setLoading(true);
-
       // Collect all item IDs
       const allItemIds = isFromInventory
         ? selectedItemIds
@@ -539,8 +537,7 @@ export function TaskDialog({
         title: 'Could not save task',
         description: error?.message || 'Please try again.',
       });
-    } finally {
-      setLoading(false);
+      throw error;
     }
   };
 
@@ -892,19 +889,13 @@ export function TaskDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleSubmit} 
-            disabled={loading || !formData.task_type}
-          >
-            {loading ? (
-              <>
-                <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              task ? 'Update Task' : 'Create Task'
-            )}
-          </Button>
+          <SaveButton
+            onClick={handleSubmit}
+            label={task ? 'Update Task' : 'Create Task'}
+            savingLabel={task ? 'Updating...' : 'Creating...'}
+            savedLabel={task ? 'Updated' : 'Created'}
+            saveDisabled={!formData.task_type}
+          />
         </DialogFooter>
       </DialogContent>
 

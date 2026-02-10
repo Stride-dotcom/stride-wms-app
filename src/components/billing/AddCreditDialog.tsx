@@ -8,6 +8,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { SaveButton } from '@/components/ui/SaveButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,7 +23,6 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
-import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 const CREDIT_REASONS = [
   'Courtesy / Waived Fee',
@@ -91,7 +91,14 @@ export function AddCreditDialog({
   };
 
   const handleSubmit = async () => {
-    if (!profile?.tenant_id) return;
+    if (!profile?.tenant_id) {
+      toast({
+        title: 'Session error',
+        description: 'Unable to determine your account. Please refresh and try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     if (!accountId) {
       toast({
@@ -146,7 +153,7 @@ export function AddCreditDialog({
         sidemark_id: sidemarkId || null,
         class_id: classId || null,
 
-        event_type: 'credit',
+        event_type: 'addon',
         charge_type: 'CREDIT',
         description: `Credit \u2013 ${reason}`,
         quantity: 1,
@@ -169,7 +176,9 @@ export function AddCreditDialog({
       onSuccess?.();
       onOpenChange(false);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to add credit.';
+      const message = error && typeof error === 'object' && 'message' in error
+        ? String((error as { message: string }).message)
+        : 'Failed to add credit.';
       toast({
         title: 'Error',
         description: message,
@@ -262,10 +271,14 @@ export function AddCreditDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
-            {loading ? <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" /> : null}
-            Add Credit
-          </Button>
+          <SaveButton
+            onClick={handleSubmit}
+            label="Add Credit"
+            savingLabel="Adding..."
+            savedLabel="Credit Added"
+            icon="money_off"
+            saveDisabled={loading}
+          />
         </DialogFooter>
       </DialogContent>
     </Dialog>
