@@ -560,8 +560,8 @@ function QARunStatusPanel({ onRunUIVisual, onTabChange }: QARunStatusPanelProps)
                 key={status.suite}
                 className={cn(
                   "p-4 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50",
-                  status.lastRun?.status === 'failed' && "border-red-200 bg-red-50/50",
-                  status.lastRun?.status === 'completed' && status.lastRun.fail_count === 0 && "border-green-200 bg-green-50/50"
+                  status.lastRun?.status === 'failed' && "border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/30",
+                  status.lastRun?.status === 'completed' && status.lastRun.fail_count === 0 && "border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/30"
                 )}
                 onClick={() => handleViewResults(status.suite)}
               >
@@ -1634,15 +1634,15 @@ function UIVisualQATab() {
                   <div className="text-3xl font-bold">{coverageData.totalRoutes}</div>
                   <div className="text-sm text-muted-foreground">Total Routes</div>
                 </div>
-                <div className="text-center p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="text-center p-4 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg">
                   <div className="text-3xl font-bold text-red-600">{coverageData.p0Count || 0}</div>
                   <div className="text-sm text-muted-foreground">P0 (Critical)</div>
                 </div>
-                <div className="text-center p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="text-center p-4 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-lg">
                   <div className="text-3xl font-bold text-amber-600">{coverageData.p1Count || 0}</div>
                   <div className="text-sm text-muted-foreground">P1 (Important)</div>
                 </div>
-                <div className="text-center p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="text-center p-4 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div className="text-3xl font-bold text-gray-600">{coverageData.p2Count || 0}</div>
                   <div className="text-sm text-muted-foreground">P2 (Info)</div>
                 </div>
@@ -1657,7 +1657,7 @@ function UIVisualQATab() {
                   {coverageData.routesWithoutTours?.length > 0 && (
                     <div>
                       <Label className="text-muted-foreground">Routes Without Tours</Label>
-                      <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-lg">
                         <div className="flex flex-wrap gap-2">
                           {coverageData.routesWithoutTours.slice(0, 20).map(route => (
                             <Badge key={route} variant="outline">{route}</Badge>
@@ -1763,8 +1763,8 @@ function UIVisualQATab() {
                           value={suggestion.id}
                           className={cn(
                             "border rounded-lg px-4",
-                            suggestion.severity === 'high' && "border-red-200 bg-red-50/50",
-                            suggestion.severity === 'medium' && "border-amber-200 bg-amber-50/50",
+                            suggestion.severity === 'high' && "border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/30",
+                            suggestion.severity === 'medium' && "border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/30",
                             suggestion.severity === 'low' && "border-gray-200"
                           )}
                         >
@@ -1913,8 +1913,8 @@ function UIVisualQATab() {
                             value={`ai-${idx}`}
                             className={cn(
                               "border rounded-lg px-4",
-                              suggestion.severity === 'high' && "border-red-200 bg-red-50/50",
-                              suggestion.severity === 'medium' && "border-amber-200 bg-amber-50/50"
+                              suggestion.severity === 'high' && "border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/30",
+                              suggestion.severity === 'medium' && "border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/30"
                             )}
                           >
                             <AccordionTrigger className="hover:no-underline py-3">
@@ -1949,7 +1949,7 @@ function UIVisualQATab() {
                   )}
 
                   {aiReview.status === 'failed' && aiReview.error && (
-                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="p-4 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg">
                       <div className="flex items-center gap-2 text-red-600">
                         <MaterialIcon name="error" size="sm" />
                         <span className="font-medium">Review Failed</span>
@@ -2190,7 +2190,7 @@ function UIVisualQATab() {
                         <span className="font-mono text-sm">{route}</span>
                         <div className="flex items-center gap-2 ml-auto mr-4">
                           {passCount > 0 && (
-                            <Badge variant="secondary" className="bg-green-100 text-green-800">
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
                               {passCount} pass
                             </Badge>
                           )}
@@ -2213,8 +2213,8 @@ function UIVisualQATab() {
                               key={result.id}
                               className={cn(
                                 "p-4 rounded-lg border",
-                                result.status === 'fail' && "border-red-200 bg-red-50",
-                                result.status === 'pass' && "border-green-200 bg-green-50"
+                                result.status === 'fail' && "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/50",
+                                result.status === 'pass' && "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/50"
                               )}
                             >
                               <div className="flex items-start justify-between mb-2">
