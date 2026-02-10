@@ -24,8 +24,8 @@ export default async function globalSetup(config: FullConfig) {
 
   try {
     // --- ADMIN LOGIN ---
-    const adminEmail = requireEnv('QA_ADMIN_EMAIL');
-    const adminPassword = requireEnv('QA_ADMIN_PASSWORD');
+    const adminEmail = optionalEnv('QA_ADMIN_EMAIL');
+    const adminPassword = optionalEnv('QA_ADMIN_PASSWORD');
 
     const adminContext = await browser.newContext();
     const adminPage = await adminContext.newPage();
