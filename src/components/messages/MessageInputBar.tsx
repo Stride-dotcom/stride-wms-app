@@ -4,9 +4,10 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 interface MessageInputBarProps {
   onSend: (message: string) => void;
   disabled?: boolean;
+  isSms?: boolean;
 }
 
-export function MessageInputBar({ onSend, disabled }: MessageInputBarProps) {
+export function MessageInputBar({ onSend, disabled, isSms }: MessageInputBarProps) {
   const [text, setText] = useState('');
 
   const handleSend = useCallback(() => {
@@ -43,21 +44,23 @@ export function MessageInputBar({ onSend, disabled }: MessageInputBarProps) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Message..."
+          placeholder={isSms ? 'SMS Reply...' : 'Message...'}
           disabled={disabled}
           className="flex-1 h-9 rounded-[24px] border border-input bg-background px-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
         />
 
-        {/* Send button */}
+        {/* Send button - green for SMS, blue for in-app */}
         <button
           onClick={handleSend}
           disabled={!hasText || disabled}
           className="flex items-center justify-center h-9 w-9 rounded-full shrink-0 transition-colors"
           style={{
-            backgroundColor: hasText ? '#007AFF' : '#8e8e93',
+            backgroundColor: hasText
+              ? (isSms ? '#34C759' : '#007AFF')
+              : '#8e8e93',
             opacity: hasText ? 1 : 0.6,
           }}
-          aria-label="Send message"
+          aria-label={isSms ? 'Send SMS' : 'Send message'}
           type="button"
         >
           <MaterialIcon name="arrow_upward" size="sm" className="text-white" />
