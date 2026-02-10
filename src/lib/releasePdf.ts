@@ -40,12 +40,10 @@ export interface ReleasePdfData {
 
 export interface ReleasePdfItem {
   itemCode: string;
+  quantity: number;
   description: string | null;
   vendor: string | null;
   sidemark: string | null;
-  room: string | null;
-  className: string | null;
-  location: string | null;
 }
 
 function formatDate(dateStr: string): string {
@@ -232,38 +230,35 @@ export function generateReleasePdf(data: ReleasePdfData): jsPDF {
   doc.setFillColor(...veryLightGray);
   doc.rect(margin, y - 5, contentWidth, 10, 'F');
 
-  // Table headers
+  // Table headers — Item Code, Qty, Vendor, Description, Sidemark
   doc.setTextColor(...darkGray);
-  setFont(8, 'bold');
+  setFont(9, 'bold');
   const colWidths = {
-    num: 12,
-    code: 40,
-    description: 50,
-    vendor: 30,
-    sidemark: 25,
-    room: 20,
-    location: contentWidth - 12 - 40 - 50 - 30 - 25 - 20,
+    code: 45,
+    qty: 15,
+    vendor: 35,
+    description: contentWidth - 45 - 15 - 35 - 35,
+    sidemark: 35,
   };
 
   let tableX = margin;
-  doc.text('#', tableX + 2, y);
-  tableX += colWidths.num;
   doc.text('Item Code', tableX + 2, y);
   tableX += colWidths.code;
-  doc.text('Description', tableX + 2, y);
-  tableX += colWidths.description;
+  doc.text('Qty', tableX + 2, y);
+  tableX += colWidths.qty;
   doc.text('Vendor', tableX + 2, y);
   tableX += colWidths.vendor;
+  doc.text('Description', tableX + 2, y);
+  tableX += colWidths.description;
   doc.text('Sidemark', tableX + 2, y);
-  tableX += colWidths.sidemark;
-  doc.text('Room', tableX + 2, y);
-  tableX += colWidths.room;
-  doc.text('Location', tableX + 2, y);
 
   y += 8;
 
   // Table rows
-  setFont(8, 'normal');
+  setFont(9, 'normal');
+  const truncate = (text: string, maxLen: number) =>
+    text.length > maxLen ? text.substring(0, maxLen - 2) + '..' : text;
+
   for (let i = 0; i < data.items.length; i++) {
     checkNewPage(10);
 
@@ -275,23 +270,15 @@ export function generateReleasePdf(data: ReleasePdfData): jsPDF {
 
     tableX = margin;
     doc.setTextColor(...darkGray);
-    doc.text(String(i + 1), tableX + 2, y);
-    tableX += colWidths.num;
-
-    const truncate = (text: string, maxLen: number) =>
-      text.length > maxLen ? text.substring(0, maxLen - 2) + '..' : text;
-
-    doc.text(truncate(item.itemCode || '-', 22), tableX + 2, y);
+    doc.text(truncate(item.itemCode || '-', 24), tableX + 2, y);
     tableX += colWidths.code;
-    doc.text(truncate(item.description || '-', 28), tableX + 2, y);
-    tableX += colWidths.description;
-    doc.text(truncate(item.vendor || '-', 16), tableX + 2, y);
+    doc.text(String(item.quantity), tableX + 2, y);
+    tableX += colWidths.qty;
+    doc.text(truncate(item.vendor || '-', 18), tableX + 2, y);
     tableX += colWidths.vendor;
-    doc.text(truncate(item.sidemark || '-', 14), tableX + 2, y);
-    tableX += colWidths.sidemark;
-    doc.text(truncate(item.room || '-', 10), tableX + 2, y);
-    tableX += colWidths.room;
-    doc.text(truncate(item.location || '-', 10), tableX + 2, y);
+    doc.text(truncate(item.description || '-', 32), tableX + 2, y);
+    tableX += colWidths.description;
+    doc.text(truncate(item.sidemark || '-', 18), tableX + 2, y);
 
     y += 7;
   }
@@ -309,57 +296,79 @@ export function generateReleasePdf(data: ReleasePdfData): jsPDF {
   doc.text(`Total Items Released: ${data.items.length}`, pageWidth - margin, y, { align: 'right' });
   y += 15;
 
-  // ============ SIGNATURE SECTION ============
+  // ============ SIGNATURE SECTION (two columns) ============
 
-  checkNewPage(70);
+  checkNewPage(80);
 
-  doc.setTextColor(...darkGray);
-  setFont(12, 'bold');
-  y = addText('Pickup Signature', margin, y);
-  y += 5;
+  // Divider above signature
+  doc.setDrawColor(220, 220, 220);
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 10;
 
-  // Signature box
+  const sigLeftX = margin;
+  const sigRightX = margin + contentWidth * 0.55 + 10;
+  const sigBoxWidth = contentWidth * 0.55;
   const sigBoxHeight = 50;
+
+  // Left column: Picked Up Signature
+  doc.setTextColor(...darkGray);
+  setFont(10, 'bold');
+  doc.text('Picked Up Signature', sigLeftX, y);
+
+  // Right column: Picked Up By
+  doc.text('Picked Up By', sigRightX, y);
+  y += 8;
+
+  const sigBoxTop = y;
+
+  // Signature box (left)
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.5);
-  doc.rect(margin, y, contentWidth * 0.6, sigBoxHeight);
+  doc.rect(sigLeftX, sigBoxTop, sigBoxWidth, sigBoxHeight);
 
   // Draw the signature image if present
   if (data.signatureData) {
     try {
-      doc.addImage(data.signatureData, 'PNG', margin + 2, y + 2, contentWidth * 0.6 - 4, sigBoxHeight - 4);
-    } catch {
-      // If image fails, show typed name in the box
-      doc.setTextColor(...darkGray);
-      setFont(20, 'bold');
-      doc.text(data.signatureName || '-', margin + 10, y + sigBoxHeight / 2 + 5);
+      // Strip data URL prefix if needed for compatibility
+      const imgData = data.signatureData;
+      doc.addImage(imgData, 'PNG', sigLeftX + 2, sigBoxTop + 2, sigBoxWidth - 4, sigBoxHeight - 4);
+    } catch (e) {
+      // Fallback: show name text in the box
+      doc.setTextColor(...lightGray);
+      setFont(14, 'bold');
+      doc.text(data.signatureName || data.releasedTo || '(signature)', sigLeftX + 8, sigBoxTop + sigBoxHeight / 2 + 4);
     }
   } else if (data.signatureName) {
-    // Typed signature
+    // Typed electronic signature
     doc.setTextColor(...darkGray);
-    setFont(20, 'bold');
-    doc.text(data.signatureName, margin + 10, y + sigBoxHeight / 2 + 5);
+    setFont(18, 'bold');
+    const sigText = doc.splitTextToSize(data.signatureName, sigBoxWidth - 16);
+    doc.text(sigText, sigLeftX + 8, sigBoxTop + sigBoxHeight / 2 + 4);
   }
 
-  y += sigBoxHeight + 5;
+  // Right column: Name, date, warehouse staff info
+  let infoY = sigBoxTop + 2;
 
-  // Name and date below signature
+  doc.setTextColor(...darkGray);
+  setFont(14, 'bold');
+  infoY = addText(data.signatureName || data.releasedTo || '-', sigRightX, infoY);
+  infoY += 4;
+
   doc.setTextColor(...lightGray);
   setFont(9, 'normal');
-  y = addText(`Name: ${data.signatureName || data.releasedTo || '-'}`, margin, y);
-  y = addText(`Date: ${formatDateTime(data.signedAt)}`, margin, y);
+  infoY = addText(`Date: ${formatDateTime(data.signedAt)}`, sigRightX, infoY);
+  infoY += 2;
 
-  // Warehouse staff on the right
   if (data.completedByName) {
-    const staffY = y - 10;
-    doc.setTextColor(...lightGray);
     setFont(9, 'bold');
-    doc.text('Warehouse Staff:', pageWidth - margin - 60, staffY);
+    doc.text('Released By:', sigRightX, infoY);
     setFont(9, 'normal');
-    doc.text(data.completedByName, pageWidth - margin, staffY, { align: 'right' });
+    doc.text(data.completedByName, sigRightX + 30, infoY);
+    infoY += 5;
   }
 
-  y += 10;
+  y = Math.max(sigBoxTop + sigBoxHeight, infoY) + 10;
 
   // ============ FOOTER ============
 

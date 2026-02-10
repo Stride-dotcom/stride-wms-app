@@ -8,6 +8,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { SignaturePad } from './SignaturePad';
 
@@ -27,21 +29,24 @@ export function SignatureDialog({
   onConfirm,
 }: SignatureDialogProps) {
   const [signatureData, setSignatureData] = useState<string | null>(null);
-  const [signatureName, setSignatureName] = useState('');
+  const [typedSigName, setTypedSigName] = useState('');
+  const [pickedUpBy, setPickedUpBy] = useState(releasedToName || '');
   const [submitting, setSubmitting] = useState(false);
 
-  const hasSignature = !!signatureData || !!signatureName.trim();
+  const hasSignature = !!signatureData || !!typedSigName.trim();
+  const hasName = !!pickedUpBy.trim();
 
   const handleSignatureChange = (data: { signatureData: string | null; signatureName: string }) => {
     setSignatureData(data.signatureData);
-    setSignatureName(data.signatureName);
+    setTypedSigName(data.signatureName);
   };
 
   const handleConfirm = async () => {
-    if (!hasSignature) return;
+    if (!hasSignature || !hasName) return;
     setSubmitting(true);
     try {
-      await onConfirm({ signatureData, signatureName });
+      // Send signature data (drawn or null) and the picked-up-by name
+      await onConfirm({ signatureData, signatureName: pickedUpBy.trim() });
     } finally {
       setSubmitting(false);
     }
@@ -51,7 +56,8 @@ export function SignatureDialog({
     if (submitting) return;
     if (!nextOpen) {
       setSignatureData(null);
-      setSignatureName('');
+      setTypedSigName('');
+      setPickedUpBy(releasedToName || '');
     }
     onOpenChange(nextOpen);
   };
@@ -62,19 +68,29 @@ export function SignatureDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MaterialIcon name="draw" size="sm" />
-            Driver / Pickup Signature
+            Pickup Signature
           </DialogTitle>
           <DialogDescription>
-            {releasedToName
-              ? `${releasedToName} is picking up ${itemCount} item${itemCount !== 1 ? 's' : ''}. A signature is required to complete the release.`
-              : `A signature is required to release ${itemCount} item${itemCount !== 1 ? 's' : ''}.`}
+            A signature is required to release {itemCount} item{itemCount !== 1 ? 's' : ''}.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-2">
+        <div className="space-y-4 py-2">
+          {/* Picked Up By - always editable */}
+          <div className="space-y-2">
+            <Label htmlFor="picked-up-by">Picked Up By <span className="text-destructive">*</span></Label>
+            <Input
+              id="picked-up-by"
+              value={pickedUpBy}
+              onChange={(e) => setPickedUpBy(e.target.value)}
+              placeholder="Name of person picking up"
+            />
+          </div>
+
+          {/* Signature pad */}
           <SignaturePad
             onSignatureChange={handleSignatureChange}
-            initialName={releasedToName || ''}
+            initialName=""
           />
         </div>
 
@@ -88,7 +104,7 @@ export function SignatureDialog({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={!hasSignature || submitting}
+            disabled={!hasSignature || !hasName || submitting}
           >
             {submitting ? (
               <>
