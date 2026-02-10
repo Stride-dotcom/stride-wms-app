@@ -179,13 +179,11 @@ test.describe('Admin — functional tests', () => {
     await page.goto('/shipments', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('main')).toBeVisible({ timeout: 15_000 });
 
-    // Find and click a create/new button
+    // Resilient fallback chain: prefer data-testid, fall back to text match
     const createButton = page.locator(
-      'button:has-text("New"), button:has-text("Create"), a:has-text("New"), a:has-text("Create")',
+      '[data-testid="create-shipment-button"], button:has-text("Create"), button:has-text("New"), button:has-text("Add"), a:has-text("Create"), a:has-text("New"), a:has-text("Add")',
     );
-    const buttonCount = await createButton.count();
-    expect(buttonCount).toBeGreaterThan(0);
-
+    await expect(createButton.first()).toBeVisible({ timeout: 10_000 });
     await createButton.first().click();
 
     // Verify either a dialog opened or we navigated to a create page
