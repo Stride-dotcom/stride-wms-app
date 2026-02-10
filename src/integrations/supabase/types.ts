@@ -5836,8 +5836,10 @@ export type Database = {
           account_id: string | null
           assembly_status: string | null
           assembly_tier_id: string | null
+          category: string | null
           class_id: string | null
           client_account: string | null
+          condition: string | null
           coverage_deductible: number | null
           coverage_rate: number | null
           coverage_selected_at: string | null
@@ -5845,6 +5847,7 @@ export type Database = {
           coverage_source: string | null
           coverage_type: string | null
           created_at: string
+          current_location: string | null
           current_location_id: string | null
           declared_value: number | null
           deleted_at: string | null
@@ -5861,6 +5864,7 @@ export type Database = {
           item_type_id: string | null
           last_storage_invoiced_through: string | null
           link: string | null
+          location_id: string | null
           metadata: Json | null
           minor_touchup_status: string | null
           needs_inspection: boolean | null
@@ -5869,6 +5873,7 @@ export type Database = {
           needs_warehouse_assembly: boolean | null
           notify_dispatch: boolean | null
           photo_urls: Json | null
+          photos: Json | null
           primary_photo_url: string | null
           quantity: number
           received_at: string | null
@@ -5895,8 +5900,10 @@ export type Database = {
           account_id?: string | null
           assembly_status?: string | null
           assembly_tier_id?: string | null
+          category?: string | null
           class_id?: string | null
           client_account?: string | null
+          condition?: string | null
           coverage_deductible?: number | null
           coverage_rate?: number | null
           coverage_selected_at?: string | null
@@ -5904,6 +5911,7 @@ export type Database = {
           coverage_source?: string | null
           coverage_type?: string | null
           created_at?: string
+          current_location?: string | null
           current_location_id?: string | null
           declared_value?: number | null
           deleted_at?: string | null
@@ -5920,6 +5928,7 @@ export type Database = {
           item_type_id?: string | null
           last_storage_invoiced_through?: string | null
           link?: string | null
+          location_id?: string | null
           metadata?: Json | null
           minor_touchup_status?: string | null
           needs_inspection?: boolean | null
@@ -5928,6 +5937,7 @@ export type Database = {
           needs_warehouse_assembly?: boolean | null
           notify_dispatch?: boolean | null
           photo_urls?: Json | null
+          photos?: Json | null
           primary_photo_url?: string | null
           quantity?: number
           received_at?: string | null
@@ -5954,8 +5964,10 @@ export type Database = {
           account_id?: string | null
           assembly_status?: string | null
           assembly_tier_id?: string | null
+          category?: string | null
           class_id?: string | null
           client_account?: string | null
+          condition?: string | null
           coverage_deductible?: number | null
           coverage_rate?: number | null
           coverage_selected_at?: string | null
@@ -5963,6 +5975,7 @@ export type Database = {
           coverage_source?: string | null
           coverage_type?: string | null
           created_at?: string
+          current_location?: string | null
           current_location_id?: string | null
           declared_value?: number | null
           deleted_at?: string | null
@@ -5979,6 +5992,7 @@ export type Database = {
           item_type_id?: string | null
           last_storage_invoiced_through?: string | null
           link?: string | null
+          location_id?: string | null
           metadata?: Json | null
           minor_touchup_status?: string | null
           needs_inspection?: boolean | null
@@ -5987,6 +6001,7 @@ export type Database = {
           needs_warehouse_assembly?: boolean | null
           notify_dispatch?: boolean | null
           photo_urls?: Json | null
+          photos?: Json | null
           primary_photo_url?: string | null
           quantity?: number
           received_at?: string | null
@@ -6029,6 +6044,13 @@ export type Database = {
             columns: ["item_type_id"]
             isOneToOne: false
             referencedRelation: "item_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
           {
@@ -9199,6 +9221,7 @@ export type Database = {
           customer_authorized_at: string | null
           customer_authorized_by: string | null
           deleted_at: string | null
+          destination_name: string | null
           driver_name: string | null
           expected_arrival_date: string | null
           highlight_notes: boolean | null
@@ -9206,6 +9229,7 @@ export type Database = {
           liability_accepted: boolean | null
           metadata: Json | null
           notes: string | null
+          origin_name: string | null
           outbound_type_id: string | null
           payment_amount: number | null
           payment_method: string | null
@@ -9224,6 +9248,7 @@ export type Database = {
           release_type: string | null
           released_to: string | null
           return_type: string | null
+          scheduled_date: string | null
           shipment_number: string
           shipment_type: string
           shipped_at: string | null
@@ -9234,6 +9259,7 @@ export type Database = {
           signature_timestamp: string | null
           status: string
           tenant_id: string
+          total_items: number | null
           tracking_number: string | null
           updated_at: string
           warehouse_id: string | null
@@ -9258,6 +9284,7 @@ export type Database = {
           customer_authorized_at?: string | null
           customer_authorized_by?: string | null
           deleted_at?: string | null
+          destination_name?: string | null
           driver_name?: string | null
           expected_arrival_date?: string | null
           highlight_notes?: boolean | null
@@ -9265,6 +9292,7 @@ export type Database = {
           liability_accepted?: boolean | null
           metadata?: Json | null
           notes?: string | null
+          origin_name?: string | null
           outbound_type_id?: string | null
           payment_amount?: number | null
           payment_method?: string | null
@@ -9283,6 +9311,7 @@ export type Database = {
           release_type?: string | null
           released_to?: string | null
           return_type?: string | null
+          scheduled_date?: string | null
           shipment_number: string
           shipment_type?: string
           shipped_at?: string | null
@@ -9293,6 +9322,7 @@ export type Database = {
           signature_timestamp?: string | null
           status?: string
           tenant_id: string
+          total_items?: number | null
           tracking_number?: string | null
           updated_at?: string
           warehouse_id?: string | null
@@ -9317,6 +9347,7 @@ export type Database = {
           customer_authorized_at?: string | null
           customer_authorized_by?: string | null
           deleted_at?: string | null
+          destination_name?: string | null
           driver_name?: string | null
           expected_arrival_date?: string | null
           highlight_notes?: boolean | null
@@ -9324,6 +9355,7 @@ export type Database = {
           liability_accepted?: boolean | null
           metadata?: Json | null
           notes?: string | null
+          origin_name?: string | null
           outbound_type_id?: string | null
           payment_amount?: number | null
           payment_method?: string | null
@@ -9342,6 +9374,7 @@ export type Database = {
           release_type?: string | null
           released_to?: string | null
           return_type?: string | null
+          scheduled_date?: string | null
           shipment_number?: string
           shipment_type?: string
           shipped_at?: string | null
@@ -9352,6 +9385,7 @@ export type Database = {
           signature_timestamp?: string | null
           status?: string
           tenant_id?: string
+          total_items?: number | null
           tracking_number?: string | null
           updated_at?: string
           warehouse_id?: string | null
