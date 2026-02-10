@@ -32,8 +32,8 @@ export default async function globalSetup(config: FullConfig) {
 
     await adminPage.goto(`${baseURL}/auth`, { waitUntil: 'domcontentloaded' });
 
-    await adminPage.fill('input[name="email"]', adminEmail);
-    await adminPage.fill('input[name="password"]', adminPassword);
+    await adminPage.fill('input[placeholder*="example"]', adminEmail);
+    await adminPage.fill('input[type="password"]', adminPassword);
     await adminPage.locator('button[type="submit"]').click();
 
     // Wait to leave /auth
