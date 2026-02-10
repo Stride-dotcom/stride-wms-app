@@ -86,7 +86,7 @@ export default function Shipments() {
           .from('shipments')
           .select('id', { count: 'exact', head: true })
           .eq('shipment_type', 'outbound')
-          .in('status', ['expected', 'in_progress'])
+          .in('status', ['pending', 'expected', 'in_progress'])
           .is('deleted_at', null),
         // Recent received
         supabase
@@ -118,7 +118,7 @@ export default function Shipments() {
           .from('shipments')
           .select('id, shipment_number, status, created_at, carrier, accounts(account_name)')
           .eq('shipment_type', 'outbound')
-          .in('status', ['expected', 'in_progress'])
+          .in('status', ['pending', 'expected', 'in_progress'])
           .is('deleted_at', null)
           .order('created_at', { ascending: false })
           .limit(10),
@@ -289,7 +289,7 @@ export default function Shipments() {
             accentText="Console"
             description="Manage incoming and outbound shipments"
           />
-          <Button onClick={() => setAddShipmentDialogOpen(true)}>
+          <Button data-testid="create-shipment-button" onClick={() => setAddShipmentDialogOpen(true)}>
             <MaterialIcon name="add" size="sm" className="mr-2" />
             Add Shipment
           </Button>

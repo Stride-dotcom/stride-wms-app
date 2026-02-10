@@ -334,11 +334,11 @@ export const pageTours: PageTour[] = [
     steps: [
       { action: 'screenshot', note: 'Shipments hub initial' },
       { action: 'expectVisible', selector: '[data-testid="page-header"]' },
-      { action: 'click', selector: '[data-testid="create-shipment-button"]', note: 'Open create shipment', optional: true },
-      { action: 'screenshot', note: 'Create dialog open', screenshotAfter: true },
+      { action: 'click', selector: '[data-testid="create-shipment-button"]', note: 'Open create shipment' },
+      { action: 'screenshot', note: 'Create dialog open' },
+      // Verify dialog has all shipment type options
+      { action: 'expectVisible', selector: '[data-testid="shipment-type-continue"]', note: 'Continue button visible', optional: true },
       { action: 'pressKey', value: 'Escape', note: 'Close dialog' },
-      { action: 'click', selector: '[data-testid="shipments-tab-incoming"]', screenshotAfter: true, note: 'Click incoming tab', optional: true },
-      { action: 'click', selector: '[data-testid="shipments-tab-outbound"]', screenshotAfter: true, note: 'Click outbound tab', optional: true },
       { action: 'scrollToBottom', note: 'Scroll to bottom' },
       { action: 'screenshot', note: 'Final shipments state' },
     ],
@@ -1112,12 +1112,12 @@ export const deepTours: PageTour[] = [
       { action: 'waitForNetwork' },
       { action: 'screenshot', note: 'Outbound create form' },
 
-      // Select account
-      { action: 'selectCombobox', selector: 'input[placeholder*="Select account" i], [data-testid="account-select"]', value: 'QA-DEEP', note: 'Select QA test account' },
+      // Select account (required - not optional)
+      { action: 'selectCombobox', selector: '[data-testid="account-select"] button[role="combobox"], input[placeholder*="Select account" i]', value: 'QA-DEEP', note: 'Select QA test account' },
       { action: 'pause', count: 500 },
 
-      // Select outbound type
-      { action: 'selectCombobox', selector: 'input[placeholder*="Select type" i], [data-testid="outbound-type-select"]', value: 'Will Call', note: 'Select Will Call type', optional: true },
+      // Select outbound type (required - not optional)
+      { action: 'selectCombobox', selector: '[data-testid="outbound-type-select"] button[role="combobox"], input[placeholder*="Select type" i]', value: 'Will Call', note: 'Select Will Call type' },
       { action: 'pause', count: 500 },
       { action: 'screenshot', note: 'Account and type selected' },
 
@@ -1129,13 +1129,13 @@ export const deepTours: PageTour[] = [
       { action: 'scrollToBottom' },
       { action: 'screenshot', note: 'Items section' },
 
-      // Select items (check first checkbox)
-      { action: 'checkCheckbox', selector: 'table tbody tr:first-child input[type="checkbox"], input[type="checkbox"]:first-of-type', note: 'Select first item', optional: true },
+      // Select items (required - not optional)
+      { action: 'checkCheckbox', selector: 'table tbody tr:first-child input[type="checkbox"], input[type="checkbox"]:first-of-type', note: 'Select first item' },
       { action: 'pause', count: 300 },
       { action: 'screenshot', note: 'Item selected' },
 
-      // Submit
-      { action: 'submitForm', selector: 'button[type="submit"], button:has-text("Create")', value: 'created', note: 'Submit outbound shipment' },
+      // Submit (required - not optional)
+      { action: 'submitForm', selector: '[data-testid="create-outbound-submit"], button[type="submit"]', value: 'created', note: 'Submit outbound shipment' },
       { action: 'screenshot', note: 'Outbound shipment created' },
       { action: 'assertUrl', value: '/shipments/', note: 'Verify redirected to shipment detail' },
       { action: 'storeValue', selector: 'window.location.pathname', storeKey: 'outbound_shipment_url', note: 'Store outbound URL' },

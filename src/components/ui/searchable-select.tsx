@@ -64,6 +64,8 @@ export interface SearchableSelectProps {
   required?: boolean;
   /** Allow clearing selection */
   clearable?: boolean;
+  /** Test ID for QA automation */
+  "data-testid"?: string;
 }
 
 // Local storage helpers for recent selections
@@ -107,6 +109,7 @@ export function SearchableSelect({
   name,
   required,
   clearable = false,
+  "data-testid": dataTestId,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
@@ -182,7 +185,7 @@ export function SearchableSelect({
   };
 
   return (
-    <div className="relative">
+    <div className="relative" data-testid={dataTestId}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
