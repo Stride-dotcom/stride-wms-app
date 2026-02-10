@@ -71,7 +71,7 @@ const handler = async (req: Request): Promise<Response> => {
  * see SMS replies in the Messages page and bell icon notifications.
  */
 async function routeSmsReplyToMessages(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   tenantId: string,
   fromPhone: string,
   messageBody: string
