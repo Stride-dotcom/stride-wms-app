@@ -9471,58 +9471,51 @@ export type Database = {
       }
       sms_consent: {
         Row: {
-          id: string
-          tenant_id: string
-          phone_number: string
           account_id: string | null
-          contact_name: string | null
-          status: string
           consent_method: string | null
+          contact_name: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          last_keyword: string | null
           opted_in_at: string | null
           opted_out_at: string | null
-          last_keyword: string | null
-          created_at: string
+          phone_number: string
+          status: string
+          tenant_id: string
           updated_at: string
-          created_by: string | null
         }
         Insert: {
-          id?: string
-          tenant_id: string
-          phone_number: string
           account_id?: string | null
-          contact_name?: string | null
-          status?: string
           consent_method?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_keyword?: string | null
           opted_in_at?: string | null
           opted_out_at?: string | null
-          last_keyword?: string | null
-          created_at?: string
+          phone_number: string
+          status?: string
+          tenant_id: string
           updated_at?: string
-          created_by?: string | null
         }
         Update: {
-          id?: string
-          tenant_id?: string
-          phone_number?: string
           account_id?: string | null
-          contact_name?: string | null
-          status?: string
           consent_method?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_keyword?: string | null
           opted_in_at?: string | null
           opted_out_at?: string | null
-          last_keyword?: string | null
-          created_at?: string
+          phone_number?: string
+          status?: string
+          tenant_id?: string
           updated_at?: string
-          created_by?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "sms_consent_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "sms_consent_account_id_fkey"
             columns: ["account_id"]
@@ -9531,68 +9524,61 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "sms_consent_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: "sms_consent_tenant_id_fkey"
+            columns: ["tenant_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
       }
       sms_consent_log: {
         Row: {
-          id: string
-          tenant_id: string
-          consent_id: string
-          phone_number: string
           action: string
-          method: string | null
-          keyword: string | null
-          previous_status: string | null
-          new_status: string | null
-          actor_user_id: string | null
           actor_name: string | null
-          ip_address: string | null
+          actor_user_id: string | null
+          consent_id: string
           created_at: string
+          id: string
+          ip_address: string | null
+          keyword: string | null
+          method: string | null
+          new_status: string | null
+          phone_number: string
+          previous_status: string | null
+          tenant_id: string
         }
         Insert: {
-          id?: string
-          tenant_id: string
-          consent_id: string
-          phone_number: string
           action: string
-          method?: string | null
-          keyword?: string | null
-          previous_status?: string | null
-          new_status?: string | null
-          actor_user_id?: string | null
           actor_name?: string | null
-          ip_address?: string | null
+          actor_user_id?: string | null
+          consent_id: string
           created_at?: string
+          id?: string
+          ip_address?: string | null
+          keyword?: string | null
+          method?: string | null
+          new_status?: string | null
+          phone_number: string
+          previous_status?: string | null
+          tenant_id: string
         }
         Update: {
-          id?: string
-          tenant_id?: string
-          consent_id?: string
-          phone_number?: string
           action?: string
-          method?: string | null
-          keyword?: string | null
-          previous_status?: string | null
-          new_status?: string | null
-          actor_user_id?: string | null
           actor_name?: string | null
-          ip_address?: string | null
+          actor_user_id?: string | null
+          consent_id?: string
           created_at?: string
+          id?: string
+          ip_address?: string | null
+          keyword?: string | null
+          method?: string | null
+          new_status?: string | null
+          phone_number?: string
+          previous_status?: string | null
+          tenant_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "sms_consent_log_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "sms_consent_log_consent_id_fkey"
             columns: ["consent_id"]
@@ -9601,10 +9587,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "sms_consent_log_actor_user_id_fkey"
-            columns: ["actor_user_id"]
+            foreignKeyName: "sms_consent_log_tenant_id_fkey"
+            columns: ["tenant_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
