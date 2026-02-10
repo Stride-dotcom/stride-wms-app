@@ -28,6 +28,20 @@ export interface TenantCompanySettings {
   twilio_from_phone: string | null;
   sms_sender_name: string | null;
   sms_enabled: boolean;
+  sms_opt_in_message: string | null;
+  sms_help_message: string | null;
+  sms_stop_message: string | null;
+  sms_opt_in_keywords: string | null;
+  sms_privacy_policy_url: string | null;
+  sms_terms_conditions_url: string | null;
+  sms_use_case_description: string | null;
+  sms_sample_message: string | null;
+  sms_estimated_monthly_volume: string | null;
+  sms_opt_in_type: string | null;
+  sms_use_case_categories: string | null;
+  sms_notification_email: string | null;
+  sms_proof_of_consent_url: string | null;
+  sms_additional_info: string | null;
   created_at: string;
   updated_at: string;
 }
