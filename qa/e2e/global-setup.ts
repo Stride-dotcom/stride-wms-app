@@ -32,14 +32,27 @@ export default async function globalSetup(config: FullConfig) {
 
     await adminPage.goto(`${baseURL}/auth`, { waitUntil: 'domcontentloaded' });
 
-    await adminPage.fill('input[placeholder*="example"]', adminEmail);
-    await adminPage.fill('input[type="password"]', adminPassword);
-    await adminPage.locator('button[type="submit"]').click();
+    // Prefer Dev Quick Login buttons (most stable in CI)
+await adminPage.waitForSelector('text=DEV QUICK LOGIN', { timeout: 60_000 });
 
-    // Wait to leave /auth
-    await adminPage.waitForURL((url) => !url.pathname.startsWith('/auth'), {
-      timeout: 20_000,
-    });
+// Try Admin Dev first, fallback to Admin
+const adminDevBtn = adminPage
+  .locator('button:has-text("Admin Dev"), [role="button"]:has-text("Admin Dev")')
+  .first();
+
+if (await adminDevBtn.isVisible().catch(() => false)) {
+  await adminDevBtn.click();
+} else {
+  await adminPage
+    .locator('button:has-text("Admin"), [role="button"]:has-text("Admin")')
+    .first()
+    .click();
+}
+
+// Wait until we leave /auth (login redirect)
+await adminPage.waitForURL((u) => !u.pathname.startsWith('/auth'), {
+  timeout: 60_000,
+});
 
     await adminContext.storageState({ path: path.join(AUTH_DIR, 'admin.json') });
     await adminContext.close();
