@@ -10,7 +10,10 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test --config=qa/e2e/playwright.config.ts",
+    "test:e2e:list": "playwright test --config=qa/e2e/playwright.config.ts --list",
+    "test:e2e:install": "playwright install --with-deps chromium"
   },
   "dependencies": {
     "@capacitor-mlkit/document-scanner": "^8.0.0",
