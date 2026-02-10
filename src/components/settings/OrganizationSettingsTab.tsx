@@ -36,6 +36,7 @@ import { PreferencesContent } from './preferences/PreferencesContent';
 import { LegalLinksSection } from './preferences/LegalLinksSection';
 import { EmailDomainSection } from './preferences/EmailDomainSection';
 import { TwilioSmsCard } from './TwilioSmsCard';
+import { SmsConsentPanel } from './SmsConsentPanel';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -437,6 +438,9 @@ export function OrganizationSettingsTab() {
                 tenantId={profile?.tenant_id || ''}
                 onUpdate={updateSettings}
               />
+
+              {/* SMS Consent Tracking */}
+              <SmsConsentPanel />
             </TabsContent>
 
             {/* Address Tab */}

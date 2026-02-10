@@ -9469,6 +9469,146 @@ export type Database = {
           },
         ]
       }
+      sms_consent: {
+        Row: {
+          id: string
+          tenant_id: string
+          phone_number: string
+          account_id: string | null
+          contact_name: string | null
+          status: string
+          consent_method: string | null
+          opted_in_at: string | null
+          opted_out_at: string | null
+          last_keyword: string | null
+          created_at: string
+          updated_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          phone_number: string
+          account_id?: string | null
+          contact_name?: string | null
+          status?: string
+          consent_method?: string | null
+          opted_in_at?: string | null
+          opted_out_at?: string | null
+          last_keyword?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          phone_number?: string
+          account_id?: string | null
+          contact_name?: string | null
+          status?: string
+          consent_method?: string | null
+          opted_in_at?: string | null
+          opted_out_at?: string | null
+          last_keyword?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_consent_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_consent_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_consent_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_consent_log: {
+        Row: {
+          id: string
+          tenant_id: string
+          consent_id: string
+          phone_number: string
+          action: string
+          method: string | null
+          keyword: string | null
+          previous_status: string | null
+          new_status: string | null
+          actor_user_id: string | null
+          actor_name: string | null
+          ip_address: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          consent_id: string
+          phone_number: string
+          action: string
+          method?: string | null
+          keyword?: string | null
+          previous_status?: string | null
+          new_status?: string | null
+          actor_user_id?: string | null
+          actor_name?: string | null
+          ip_address?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          consent_id?: string
+          phone_number?: string
+          action?: string
+          method?: string | null
+          keyword?: string | null
+          previous_status?: string | null
+          new_status?: string | null
+          actor_user_id?: string | null
+          actor_name?: string | null
+          ip_address?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_consent_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_consent_log_consent_id_fkey"
+            columns: ["consent_id"]
+            isOneToOne: false
+            referencedRelation: "sms_consent"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_consent_log_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stocktake_items: {
         Row: {
           counted_at: string | null
@@ -11116,8 +11256,22 @@ export type Database = {
           remit_city: string | null
           remit_state: string | null
           remit_zip: string | null
+          sms_additional_info: string | null
           sms_enabled: boolean
+          sms_estimated_monthly_volume: string | null
+          sms_help_message: string | null
+          sms_notification_email: string | null
+          sms_opt_in_keywords: string | null
+          sms_opt_in_message: string | null
+          sms_opt_in_type: string | null
+          sms_privacy_policy_url: string | null
+          sms_proof_of_consent_url: string | null
+          sms_sample_message: string | null
           sms_sender_name: string | null
+          sms_stop_message: string | null
+          sms_terms_conditions_url: string | null
+          sms_use_case_categories: string | null
+          sms_use_case_description: string | null
           tenant_id: string
           twilio_account_sid: string | null
           twilio_from_phone: string | null
@@ -11148,8 +11302,22 @@ export type Database = {
           remit_city?: string | null
           remit_state?: string | null
           remit_zip?: string | null
+          sms_additional_info?: string | null
           sms_enabled?: boolean
+          sms_estimated_monthly_volume?: string | null
+          sms_help_message?: string | null
+          sms_notification_email?: string | null
+          sms_opt_in_keywords?: string | null
+          sms_opt_in_message?: string | null
+          sms_opt_in_type?: string | null
+          sms_privacy_policy_url?: string | null
+          sms_proof_of_consent_url?: string | null
+          sms_sample_message?: string | null
           sms_sender_name?: string | null
+          sms_stop_message?: string | null
+          sms_terms_conditions_url?: string | null
+          sms_use_case_categories?: string | null
+          sms_use_case_description?: string | null
           tenant_id: string
           twilio_account_sid?: string | null
           twilio_from_phone?: string | null
@@ -11180,8 +11348,22 @@ export type Database = {
           remit_city?: string | null
           remit_state?: string | null
           remit_zip?: string | null
+          sms_additional_info?: string | null
           sms_enabled?: boolean
+          sms_estimated_monthly_volume?: string | null
+          sms_help_message?: string | null
+          sms_notification_email?: string | null
+          sms_opt_in_keywords?: string | null
+          sms_opt_in_message?: string | null
+          sms_opt_in_type?: string | null
+          sms_privacy_policy_url?: string | null
+          sms_proof_of_consent_url?: string | null
+          sms_sample_message?: string | null
           sms_sender_name?: string | null
+          sms_stop_message?: string | null
+          sms_terms_conditions_url?: string | null
+          sms_use_case_categories?: string | null
+          sms_use_case_description?: string | null
           tenant_id?: string
           twilio_account_sid?: string | null
           twilio_from_phone?: string | null
