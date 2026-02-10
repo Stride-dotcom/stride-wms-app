@@ -38,6 +38,8 @@ import { ShipmentItemRow } from '@/components/shipments/ShipmentItemRow';
 import { ReassignAccountDialog } from '@/components/common/ReassignAccountDialog';
 import { EntityActivityFeed } from '@/components/activity/EntityActivityFeed';
 import { SaveButton } from '@/components/ui/SaveButton';
+import { SignatureDialog } from '@/components/shipments/SignatureDialog';
+import { generateReleasePdf, ReleasePdfData, ReleasePdfItem } from '@/lib/releasePdf';
 import { QRScanner } from '@/components/scan/QRScanner';
 import { useLocations } from '@/hooks/useLocations';
 import { hapticError, hapticSuccess } from '@/lib/haptics';
@@ -109,13 +111,19 @@ interface Shipment {
   po_number: string | null;
   expected_arrival_date: string | null;
   received_at: string | null;
+  shipped_at: string | null;
   notes: string | null;
   receiving_notes: string | null;
   receiving_photos: (string | TaggablePhoto)[] | null;
   receiving_documents: string[] | null;
   release_type: string | null;
+  released_to: string | null;
+  release_to_phone: string | null;
   sidemark_id: string | null;
   sidemark: string | null;
+  signature_data: string | null;
+  signature_name: string | null;
+  signature_timestamp: string | null;
   created_at: string;
   accounts?: { id: string; account_name: string; account_code: string } | null;
   warehouses?: { id: string; name: string } | null;
@@ -195,6 +203,8 @@ export default function ShipmentDetail() {
   const [partialReleaseItems, setPartialReleaseItems] = useState<Set<string>>(new Set());
   const [sopValidationOpen, setSopValidationOpen] = useState(false);
   const [sopBlockers, setSopBlockers] = useState<SOPBlocker[]>([]);
+  const [showSignatureDialog, setShowSignatureDialog] = useState(false);
+  const [pendingOverrideWarnings, setPendingOverrideWarnings] = useState<SOPBlocker[] | undefined>(undefined);
   const [submittingPartialRelease, setSubmittingPartialRelease] = useState(false);
   const [accountSettings, setAccountSettings] = useState<{
     default_shipment_notes: string | null;
@@ -1100,15 +1110,18 @@ export default function ShipmentDetail() {
   };
 
   // ------------------------------------------
-  // Execute the actual outbound completion (called after validation passes or override)
+  // Execute the actual outbound completion with signature capture
   // ------------------------------------------
-  const executeOutboundCompletion = async (overriddenWarnings?: SOPBlocker[]) => {
+  const executeOutboundCompletion = async (
+    signatureInfo: { signatureData: string | null; signatureName: string },
+    overriddenWarnings?: SOPBlocker[]
+  ) => {
     if (!shipment) return;
 
     setCompletingOutbound(true);
     try {
       const now = new Date().toISOString();
-      // Update shipment status to completed
+      // Update shipment with signature and completion data
       const { error: shipmentError } = await supabase
         .from('shipments')
         .update({
@@ -1116,6 +1129,9 @@ export default function ShipmentDetail() {
           shipped_at: now,
           completed_at: now,
           completed_by: profile?.id || null,
+          signature_data: signatureInfo.signatureData,
+          signature_name: signatureInfo.signatureName,
+          signature_timestamp: now,
         })
         .eq('id', shipment.id);
 
@@ -1140,7 +1156,7 @@ export default function ShipmentDetail() {
         if (itemsError) throw itemsError;
       }
 
-      // Update shipment_items status to released (valid values: pending, received, released, cancelled)
+      // Update shipment_items status to released
       const { error: shipmentItemsError } = await supabase
         .from('shipment_items')
         .update({
@@ -1152,10 +1168,12 @@ export default function ShipmentDetail() {
 
       if (shipmentItemsError) throw shipmentItemsError;
 
-      // Log completion - include any overridden warnings in the audit trail
+      // Log completion with signature + any overridden warnings
       await logShipmentAudit('shipment_completed', {
         shipment_id: shipment.id,
         item_count: activeOutboundItems.length,
+        signature_captured: true,
+        signature_name: signatureInfo.signatureName,
         ...(overriddenWarnings && overriddenWarnings.length > 0 && {
           warnings_overridden: overriddenWarnings.map(w => ({
             code: w.code,
@@ -1166,8 +1184,93 @@ export default function ShipmentDetail() {
         }),
       });
 
-      toast({ title: 'Shipment Shipped', description: 'Items have been released.' });
+      // Generate release PDF and upload as a document
+      try {
+        const staffName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || null;
+
+        const pdfItems: ReleasePdfItem[] = activeOutboundItems.map(si => ({
+          itemCode: si.item?.item_code || si.expected_description || '-',
+          description: si.item?.description || si.expected_description || null,
+          vendor: si.item?.vendor || si.expected_vendor || null,
+          sidemark: si.item?.sidemark || si.expected_sidemark || null,
+          room: si.item?.room || null,
+          className: si.item?.class?.name || null,
+          location: si.item?.current_location?.code || null,
+        }));
+
+        // Fetch tenant settings for branding
+        const { data: tenantSettings } = await supabase
+          .from('tenant_company_settings')
+          .select('company_name, company_address, company_phone, company_email, logo_url')
+          .eq('tenant_id', profile?.tenant_id || '')
+          .maybeSingle();
+
+        const pdfData: ReleasePdfData = {
+          shipmentNumber: shipment.shipment_number,
+          shipmentType: shipment.shipment_type,
+          releaseType: shipment.release_type,
+          releasedTo: shipment.released_to || null,
+          releaseToPhone: shipment.release_to_phone || null,
+          carrier: shipment.carrier,
+          trackingNumber: shipment.tracking_number,
+          poNumber: shipment.po_number,
+          accountName: shipment.accounts?.account_name || null,
+          accountCode: shipment.accounts?.account_code || null,
+          companyName: tenantSettings?.company_name || 'Warehouse',
+          companyAddress: tenantSettings?.company_address || null,
+          companyPhone: tenantSettings?.company_phone || null,
+          companyEmail: tenantSettings?.company_email || null,
+          companyLogo: tenantSettings?.logo_url || null,
+          warehouseName: shipment.warehouses?.name || null,
+          items: pdfItems,
+          signatureData: signatureInfo.signatureData,
+          signatureName: signatureInfo.signatureName,
+          signedAt: now,
+          completedByName: staffName,
+          completedAt: now,
+        };
+
+        const doc = generateReleasePdf(pdfData);
+        const pdfBlob = doc.output('blob');
+        const fileName = `Release_${shipment.shipment_number}_${Date.now()}.pdf`;
+        const storagePath = `${profile?.tenant_id}/shipment/${shipment.id}/${fileName}`;
+
+        // Upload PDF to storage
+        const { error: uploadError } = await supabase.storage
+          .from('documents-private')
+          .upload(storagePath, pdfBlob, {
+            contentType: 'application/pdf',
+            upsert: false,
+          });
+
+        if (!uploadError) {
+          // Create document record via edge function
+          await supabase.functions.invoke('create-document', {
+            body: {
+              context_type: 'shipment',
+              context_id: shipment.id,
+              file_name: fileName,
+              storage_key: storagePath,
+              file_size: pdfBlob.size,
+              page_count: 1,
+              mime_type: 'application/pdf',
+              label: `Release Document - ${shipment.shipment_number}`,
+              notes: `Release signed by ${signatureInfo.signatureName || shipment.released_to || 'Driver'}`,
+              is_sensitive: false,
+            },
+          });
+        } else {
+          console.error('Failed to upload release PDF:', uploadError);
+        }
+      } catch (pdfErr) {
+        console.error('Error generating release PDF (non-blocking):', pdfErr);
+      }
+
+      toast({ title: 'Shipment Shipped', description: 'Items have been released and release document generated.' });
       setShowOutboundCompleteDialog(false);
+      setShowSignatureDialog(false);
+      setPendingOverrideWarnings(undefined);
+      setDocumentRefreshKey(prev => prev + 1);
       fetchShipment();
     } catch (error) {
       console.error('Error completing outbound shipment:', error);
@@ -1241,8 +1344,10 @@ export default function ShipmentDetail() {
       return;
     }
 
-    // No blockers, no warnings - proceed directly
-    await executeOutboundCompletion();
+    // No blockers, no warnings - show signature dialog to capture signature before completing
+    setPendingOverrideWarnings(undefined);
+    setShowOutboundCompleteDialog(false);
+    setShowSignatureDialog(true);
   };
 
   // ------------------------------------------
@@ -1755,20 +1860,26 @@ export default function ShipmentDetail() {
                 <Label className="text-muted-foreground">PO Number</Label>
                 <p className="font-medium">{shipment.po_number || '-'}</p>
               </div>
+              {!isOutbound && (
+                <div>
+                  <Label className="text-muted-foreground">Expected Arrival</Label>
+                  <p className="font-medium">
+                    {shipment.expected_arrival_date
+                      ? format(new Date(shipment.expected_arrival_date), 'MMM d, yyyy')
+                      : '-'}
+                  </p>
+                </div>
+              )}
               <div>
-                <Label className="text-muted-foreground">Expected Arrival</Label>
+                <Label className="text-muted-foreground">
+                  {isOutbound ? 'Released To' : 'Received At'}
+                </Label>
                 <p className="font-medium">
-                  {shipment.expected_arrival_date 
-                    ? format(new Date(shipment.expected_arrival_date), 'MMM d, yyyy')
-                    : '-'}
-                </p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Received At</Label>
-                <p className="font-medium">
-                  {shipment.received_at 
-                    ? format(new Date(shipment.received_at), 'MMM d, yyyy h:mm a')
-                    : '-'}
+                  {isOutbound
+                    ? shipment.released_to || '-'
+                    : shipment.received_at
+                      ? format(new Date(shipment.received_at), 'MMM d, yyyy h:mm a')
+                      : '-'}
                 </p>
               </div>
             </div>
@@ -1791,12 +1902,33 @@ export default function ShipmentDetail() {
               <span className="text-muted-foreground">Expected Items</span>
               <span className="font-medium">{items.length}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Received Items</span>
-              <span className="font-medium">
-                {items.filter(i => i.status === 'received').length}
-              </span>
-            </div>
+            {isOutbound ? (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Released Items</span>
+                  <span className="font-medium">
+                    {items.filter(i => i.status === 'released').length}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Released At</span>
+                  <span className="font-medium">
+                    {shipment.signature_timestamp
+                      ? format(new Date(shipment.signature_timestamp), 'MMM d, yyyy h:mm a')
+                      : shipment.shipped_at
+                        ? format(new Date(shipment.shipped_at), 'MMM d, yyyy h:mm a')
+                        : '-'}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Received Items</span>
+                <span className="font-medium">
+                  {items.filter(i => i.status === 'received').length}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Created</span>
               <span className="font-medium">
@@ -2373,9 +2505,27 @@ export default function ShipmentDetail() {
         blockers={sopBlockers}
         onOverride={() => {
           const warnings = sopBlockers.filter(b => b.severity === 'warning');
-          executeOutboundCompletion(warnings);
+          setPendingOverrideWarnings(warnings);
+          setSopValidationOpen(false);
+          setShowSignatureDialog(true);
         }}
       />
+
+      {/* Signature Dialog - shown after validation passes, before completing outbound */}
+      {isOutbound && (
+        <SignatureDialog
+          open={showSignatureDialog}
+          onOpenChange={(open) => {
+            setShowSignatureDialog(open);
+            if (!open) setPendingOverrideWarnings(undefined);
+          }}
+          releasedToName={shipment?.released_to || undefined}
+          itemCount={activeOutboundItems.length}
+          onConfirm={async (sigData) => {
+            await executeOutboundCompletion(sigData, pendingOverrideWarnings);
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }
