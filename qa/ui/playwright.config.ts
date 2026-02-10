@@ -36,20 +36,24 @@ export default defineConfig({
         viewport: { width: 1440, height: 900 },
       },
     },
-    // Tablet viewport (834x1194 - iPad Pro)
+    // Tablet viewport (834x1194 - iPad Pro dimensions, Chromium engine)
     {
       name: 'tablet',
       use: {
-        ...devices['iPad Pro'],
+        ...devices['Desktop Chrome'],
         viewport: { width: 834, height: 1194 },
+        isMobile: true,
+        hasTouch: true,
       },
     },
-    // Mobile viewport (390x844 - iPhone 14 Pro)
+    // Mobile viewport (390x844 - iPhone 14 Pro dimensions, Chromium engine)
     {
       name: 'mobile',
       use: {
-        ...devices['iPhone 14 Pro'],
+        ...devices['Desktop Chrome'],
         viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
       },
     },
   ],

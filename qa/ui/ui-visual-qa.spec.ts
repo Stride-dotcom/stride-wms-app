@@ -1264,6 +1264,8 @@ test.describe('UI Visual QA', () => {
   });
 
   test.afterAll(async () => {
+    if (!runId) runId = generateRunId();
+
     const coverageReport = generateCoverageReport();
     await saveResultsToSupabase(testResults, runId, coverageReport);
 
@@ -1380,6 +1382,7 @@ test.describe('Deep E2E QA', () => {
 
   test.afterAll(async () => {
     if (!DEEP_MODE) return;
+    if (!runId) runId = generateRunId();
 
     const coverageReport = generateCoverageReport();
     await saveResultsToSupabase(testResults, runId, coverageReport);
