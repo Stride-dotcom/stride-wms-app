@@ -91,7 +91,7 @@ function saveRecentSelection(key: string, value: string, maxItems: number): void
   }
 }
 
-function SearchableSelectInner({
+export function SearchableSelect({
   options,
   value,
   onChange,
@@ -320,10 +320,5 @@ function SearchableSelectInner({
     </div>
   );
 }
-
-export const SearchableSelect = React.forwardRef<HTMLDivElement, SearchableSelectProps>(
-  (props, _ref) => <SearchableSelectInner {...props} />
-);
-SearchableSelect.displayName = "SearchableSelect";
 
 export { SearchableSelect as default };
