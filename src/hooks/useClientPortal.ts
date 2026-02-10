@@ -111,6 +111,7 @@ export function useClientItems() {
         .from('items')
         .select(`
           id,
+          account_id,
           item_code,
           description,
           status,
