@@ -17,6 +17,9 @@ playwright-report/
 playwright-results.json
 test-results/
 screenshots/
+e2e-report/
+e2e-results.json
+qa/e2e/.auth/*.json
 
 # Editor directories and files
 .vscode/*
