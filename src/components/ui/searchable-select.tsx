@@ -91,7 +91,7 @@ function saveRecentSelection(key: string, value: string, maxItems: number): void
   }
 }
 
-export const SearchableSelect = React.forwardRef<HTMLDivElement, SearchableSelectProps>(({
+function SearchableSelectInner({
   options,
   value,
   onChange,
@@ -107,7 +107,7 @@ export const SearchableSelect = React.forwardRef<HTMLDivElement, SearchableSelec
   name,
   required,
   clearable = false,
-}, ref) => {
+}: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const triggerRef = React.useRef<HTMLButtonElement>(null);
@@ -319,8 +319,11 @@ export const SearchableSelect = React.forwardRef<HTMLDivElement, SearchableSelec
       )}
     </div>
   );
-});
+}
 
+export const SearchableSelect = React.forwardRef<HTMLDivElement, SearchableSelectProps>(
+  (props, _ref) => <SearchableSelectInner {...props} />
+);
 SearchableSelect.displayName = "SearchableSelect";
 
 export { SearchableSelect as default };
