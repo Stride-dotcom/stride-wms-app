@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useServiceEvents, ServiceEvent } from '@/hooks/useServiceEvents';
 import { useAuth } from '@/contexts/AuthContext';
 import { createEventRaw, deleteUnbilledEventsByFilter } from '@/services/billing';
+import type { RawBillingEventPayload } from '@/services/billing';
 import { useToast } from '@/hooks/use-toast';
 import { ItemPreviewCard } from '@/components/items/ItemPreviewCard';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
@@ -407,7 +408,7 @@ export function ShipmentItemRow({
           created_by: profile.id,
           has_rate_error: rateInfo.hasError,
           rate_error_message: rateInfo.errorMessage,
-        });
+        } as RawBillingEventPayload);
 
         setEnabledFlags(prev => new Set([...prev, service.service_code]));
         toast({ title: `${service.service_name} added` });
