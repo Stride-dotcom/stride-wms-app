@@ -73,6 +73,8 @@ import QACenter from "./pages/QACenter";
 import Messages from "./pages/Messages";
 import ComponentsDemo from "./pages/ComponentsDemo";
 import MaterialIconsSample from "./pages/MaterialIconsSample";
+import LocationDetail from "./pages/LocationDetail";
+import ContainerDetail from "./pages/ContainerDetail";
 import NotFound from "./pages/NotFound";
 import { AIBotSwitch } from "./components/ai/AIBotSwitch";
 
@@ -93,6 +95,8 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Dashboard /></RequireRole></ProtectedRoute>} />
             <Route path="/inventory" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Inventory /></RequireRole></ProtectedRoute>} />
             <Route path="/inventory/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ItemDetail /></RequireRole></ProtectedRoute>} />
+            <Route path="/locations/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><LocationDetail /></RequireRole></ProtectedRoute>} />
+            <Route path="/containers/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ContainerDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Shipments /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments/list" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentsList /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments/incoming" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentsList /></RequireRole></ProtectedRoute>} />
