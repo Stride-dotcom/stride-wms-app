@@ -672,11 +672,11 @@ export default function QuoteBuilder() {
   };
 
   // Export to PDF
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     const pdfData = buildExportData();
     if (!pdfData) return;
 
-    downloadQuotePdf(pdfData);
+    await downloadQuotePdf(pdfData);
     toast({
       title: 'PDF Downloaded',
       description: `Quote ${quote!.quote_number} has been downloaded as PDF.`,

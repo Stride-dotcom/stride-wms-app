@@ -103,9 +103,10 @@ function parseHexColor(hex: string | undefined, fallback: [number, number, numbe
 /**
  * Generate a professional PDF quote
  */
-export function generateQuotePdf(data: QuotePdfData): jsPDF {
+export async function generateQuotePdf(data: QuotePdfData): Promise<jsPDF> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
   const margin = 20;
   const contentWidth = pageWidth - margin * 2;
   let y = margin;
@@ -124,11 +125,29 @@ export function generateQuotePdf(data: QuotePdfData): jsPDF {
 
   // ============ HEADER SECTION ============
 
-  // Logo (if provided)
+  // Logo (if provided) - smart aspect-ratio-aware sizing
   let logoRendered = false;
   if (data.companyLogo) {
     try {
-      doc.addImage(data.companyLogo, 'JPEG', margin, y - 5, 40, 20);
+      // Measure natural dimensions to preserve aspect ratio
+      const logoDims = await new Promise<{ w: number; h: number }>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxW = 35;
+          const maxH = 20;
+          const ratio = img.naturalWidth / img.naturalHeight;
+          let w: number, h: number;
+          if (ratio > maxW / maxH) {
+            w = maxW; h = maxW / ratio;
+          } else {
+            h = maxH; w = maxH * ratio;
+          }
+          resolve({ w, h });
+        };
+        img.onerror = () => reject(new Error('Logo failed to load'));
+        img.src = data.companyLogo!;
+      });
+      doc.addImage(data.companyLogo, 'JPEG', margin, y - 2, logoDims.w, logoDims.h);
       logoRendered = true;
     } catch {
       // Logo failed to load, skip it
@@ -136,7 +155,7 @@ export function generateQuotePdf(data: QuotePdfData): jsPDF {
   }
 
   // Company name (large, bold) - offset if logo rendered
-  const companyNameY = logoRendered ? y + 20 : y;
+  const companyNameY = logoRendered ? y + 22 : y;
   doc.setTextColor(...darkGray);
   setFont(24, 'bold');
   doc.text(data.companyName, margin, companyNameY);
@@ -325,9 +344,27 @@ export function generateQuotePdf(data: QuotePdfData): jsPDF {
   let rowCount = 0;
   for (const line of data.serviceLines) {
     // Check if we need a new page
-    if (y > doc.internal.pageSize.height - 80) {
+    if (y > pageHeight - 25) {
       doc.addPage();
       y = margin;
+
+      // Re-render table column headers on new page
+      doc.setFillColor(...veryLightGray);
+      doc.rect(margin, y - 5, contentWidth, 10, 'F');
+      doc.setTextColor(...darkGray);
+      setFont(9, 'bold');
+      let hdrX = margin;
+      doc.text('Service', hdrX + 2, y);
+      hdrX += colWidths.service;
+      doc.text('Class', hdrX + 2, y);
+      hdrX += colWidths.class;
+      doc.text('Rate', hdrX + colWidths.rate - 2, y, { align: 'right' });
+      hdrX += colWidths.rate;
+      doc.text('Qty', hdrX + colWidths.qty - 2, y, { align: 'right' });
+      hdrX += colWidths.qty;
+      doc.text('Total', hdrX + colWidths.total - 2, y, { align: 'right' });
+      y += 8;
+      setFont(9, 'normal');
     }
 
     // Alternating row background
@@ -453,16 +490,16 @@ export function generateQuotePdf(data: QuotePdfData): jsPDF {
 
   // ============ FOOTER ============
 
-  const footerY = doc.internal.pageSize.height - 15;
+  const footerY = pageHeight - 12;
   doc.setTextColor(...lightGray);
-  setFont(8, 'normal');
+  setFont(7, 'normal');
   doc.text(
     'This quote is valid for 30 days unless otherwise specified.',
     pageWidth / 2,
     footerY,
     { align: 'center' }
   );
-  doc.text(`Thank you for your business!`, pageWidth / 2, footerY + 5, { align: 'center' });
+  doc.text('Thank you for your business!', pageWidth / 2, footerY + 4, { align: 'center' });
 
   return doc;
 }
@@ -470,16 +507,16 @@ export function generateQuotePdf(data: QuotePdfData): jsPDF {
 /**
  * Download the PDF quote
  */
-export function downloadQuotePdf(data: QuotePdfData): void {
-  const doc = generateQuotePdf(data);
+export async function downloadQuotePdf(data: QuotePdfData): Promise<void> {
+  const doc = await generateQuotePdf(data);
   doc.save(`Quote_${data.quoteNumber}.pdf`);
 }
 
 /**
  * Open PDF in new tab for printing
  */
-export function printQuotePdf(data: QuotePdfData): void {
-  const doc = generateQuotePdf(data);
+export async function printQuotePdf(data: QuotePdfData): Promise<void> {
+  const doc = await generateQuotePdf(data);
   const pdfUrl = doc.output('bloburl');
   window.open(pdfUrl.toString(), '_blank');
 }
