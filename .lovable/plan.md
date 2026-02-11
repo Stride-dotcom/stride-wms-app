@@ -1,129 +1,170 @@
 
 
-# Quote PDF and Excel: Complete Services, Dynamic Branding, Clean Rate Column
+# Unified PDF Template Formatting: Quote PDF + Invoice PDF
 
-## Summary of Changes
+## Scope Confirmation
 
-Three files will be modified:
-1. **`src/lib/quotes/export.ts`** -- PDF/Excel generation with dynamic branding and rate column fix
-2. **`src/pages/QuoteBuilder.tsx`** -- Feed complete service data (including class-based) and tenant branding into exports
-3. No other files touched
+This plan applies ALL formatting changes to BOTH templates:
 
----
+1. **Quote PDF** (`src/lib/quotes/export.ts`) -- already has smart logo sizing, but still needs:
+   - Side-by-side logo + company name layout (currently stacked)
+   - "WMS" badge in bold brand color
+   - Reduced font sizes (24pt to 16pt company name, 28pt to 20pt title)
+   - Tightened header spacing (pre-divider 10pt to 4pt, post-divider 10pt to 6pt)
+   - Fallback "Warehouse Services" changed to "Your Company"
 
-## What Changes
+2. **Invoice PDF** (`src/lib/invoicePdf.ts`) -- needs everything:
+   - Async function for smart logo sizing (aspect-ratio-aware, 20x16pt bounding box)
+   - Side-by-side logo + company name layout
+   - "WMS" badge in bold brand color
+   - Brand color support (new `brandColor` field + `parseHexColor` helper)
+   - Reduced font sizes (24pt to 16pt company name, 28pt to 20pt title)
+   - Tightened header spacing
+   - Lower page break threshold (60pt to 25pt)
+   - Re-render table headers on new pages
+   - Compact footer (font 8 to 7, tighter positioning)
+   - Async `downloadInvoicePdf` and `printInvoicePdf`
 
-### 1. Dynamic Branding from Tenant Settings (not hardcoded)
+3. **5 caller files** -- pass `brandColor` and add `await`:
+   - `src/pages/Invoices.tsx`
+   - `src/components/reports/RevenueLedgerTab.tsx`
+   - `src/components/invoices/SavedInvoicesTab.tsx`
+   - `src/components/invoices/InvoiceDetailDialog.tsx`
+   - `src/components/accounts/AccountInvoicesTab.tsx`
 
-Currently the quote PDF hardcodes blue `[59, 130, 246]`. The invoice PDF hardcodes orange `[220, 88, 42]`. Neither pulls from the tenant's actual settings.
-
-**Fix:** QuoteBuilder.tsx will fetch:
-- **Logo URL** from `tenant_company_settings.logo_url` (already available via `useTenantSettings`)
-- **Brand accent color** from `communication_brand_settings.brand_primary_color` (available via `useCommunications`)
-
-These will be passed into the PDF/Excel data so every tenant gets their own branding. The `QuotePdfData` interface will add `companyLogo`, `companyWebsite`, and a new `brandColor` field (hex string). The PDF generator will parse the hex color into RGB and use it as `primaryColor` instead of a hardcoded value. Fallback: `#FD5A2A` (the system default orange).
-
-### 2. Show ALL Services (Class-Based + Non-Class)
-
-**Current bug:** `handleExportPdf` only maps `quote.selected_services` (non-class "Other Services"). Class-based service selections (Receiving per Large, Disposal per Medium, etc.) are calculated in `calculation.service_totals` but never passed to the export.
-
-**Fix:** Build `serviceLines` from `calculation.service_totals` which already contains every service -- both class-based and non-class -- with correct names, rates, quantities, and totals. For class-based services that have per-class detail, we will also iterate `class_service_selections` to produce one row per class (e.g., "Receiving | Large | $15.00 | 10 | $150.00").
-
-### 3. Remove Billing Unit from Rate Column
-
-**Current:** Rate shows `$15.00 / piece`
-**Fix:** Rate shows just `$15.00`
-
-Remove the `getBillingUnitLabel()` call from the PDF services table rate column. The billing unit info is unnecessary clutter on a customer-facing document.
-
-### 4. Single-Sheet Excel Matching PDF Layout
-
-Replace the current 3-tab Excel (Summary, Item Quantities, Services) with a single sheet that mirrors the PDF layout: header info at top, class quantities, full services table, totals, and notes -- all on one page.
+4. **Quote fallback** (`src/lib/quotes/export.ts` line 640) -- change "Warehouse Services" to "Your Company"
 
 ---
 
-## Column Layout Clarification
+## Header Layout (applies to BOTH templates identically)
 
-The screenshot you shared is just the ASCII text mockup wrapping on your phone screen. The actual PDF uses jsPDF with fixed pixel coordinates, so the columns (Service, Class, Rate, Qty, Total) will render in a clean, aligned table regardless of device. No column layout issue exists in the real PDF output.
+The new header for both Quote and Invoice PDFs will look like this:
+
+```text
++------------------------------------------------------------------+
+|                                                                    |
+|  [LOGO] Acme Logistics  WMS                        QUOTE          |
+|  123 Warehouse Blvd, Houston TX                   #QTE-00006      |
+|  (555) 123-4567 | info@acme.com                                   |
+|  ________________________[brand color line]_____________________   |
+|                                                                    |
+```
+
+For the Invoice template, the right side says "INVOICE" and "#INV-00123" instead.
+
+- Logo on the left margin, aspect-ratio-aware (max 20x16pt bounding box)
+- Company name (16pt bold, dark gray) immediately to the right of the logo
+- "WMS" (16pt bold, brand color) right after the company name on the same baseline
+- Address and contact info below (9pt, gray)
+- Title ("QUOTE" or "INVOICE") right-aligned at 20pt in brand color
+- Document number right-aligned below title at 9pt
+- Divider line in brand color, 4pt gap above, 6pt gap below
 
 ---
 
-## Updated PDF Mockup (Markdown Table)
+## Detailed File Changes
 
-| | |
-|---|---|
-| **[YOUR LOGO]** | |
-| **Your Company Name** | **QUOTE** |
-| 123 Warehouse Blvd, Houston TX 77001 | #QT-2025-0042 |
-| (555) 123-4567 \| info@company.com | |
+### File 1: `src/lib/quotes/export.ts` (Quote PDF)
+
+**Header rewrite (lines 126-195):**
+- After the existing smart logo measurement (keep as-is), change the rendering:
+  - Place logo at `(margin, y - 2)` with measured dimensions (already done)
+  - Set `companyNameX = margin + logoDims.w + 4` if logo rendered, else `margin`
+  - Company name: change from 24pt to 16pt bold at `(companyNameX, y + 4)`
+  - Add "WMS": 16pt bold in `primaryColor`, positioned using `doc.getTextWidth(data.companyName)` to calculate horizontal offset
+  - Remove the 22pt vertical gap (`companyNameY = logoRendered ? y + 22 : y` becomes same-line positioning)
+  - Address/contact info starts at `y + 10` (below company name line), not `y + 22 + 8`
+  - "QUOTE" title: reduce from 28pt to 20pt, position at `margin + 3` instead of `margin + 5`
+  - Quote number: 9pt at `margin + 10` instead of 10pt at `margin + 14`
+  - Pre-divider gap: `y += 4` (already 10, change to 4)
+  - Post-divider gap: `y += 6` (already 10, change to 6)
+
+**Fallback (line 640):**
+- Change `'Warehouse Services'` to `'Your Company'`
+
+### File 2: `src/lib/invoicePdf.ts` (Invoice PDF)
+
+**A. Interface update:**
+- Add `brandColor?: string` to `InvoicePdfData`
+
+**B. Add `parseHexColor` helper:**
+- Copy the same function from quotes/export.ts (supports #RGB, #RRGGBB, falls back to orange)
+
+**C. Make `generateInvoicePdf` async:**
+- Change signature to `async function generateInvoicePdf(data: InvoicePdfData): Promise<jsPDF>`
+- Use `parseHexColor(data.brandColor)` instead of hardcoded `[220, 88, 42]`
+- Add `pageHeight` variable
+
+**D. New header (lines 93-133) -- matching quote layout exactly:**
+- Smart logo sizing: load into `Image()`, measure aspect ratio, scale within 20x16pt box
+- Side-by-side: logo left, company name (16pt bold) to its right, "WMS" (16pt bold, brand color) after that
+- Address/contact info below (9pt gray)
+- "INVOICE" right-aligned at 20pt in brand color
+- Invoice number right-aligned at 9pt
+- Pre-divider gap: 4pt
+- Post-divider gap: 6pt
+
+**E. Page break improvements (line 250):**
+- Change threshold from `pageHeight - 60` to `pageHeight - 25`
+- After page break, re-render table column headers (Service, Description, Qty, Rate, Total)
+
+**F. Compact footer (lines 367-374):**
+- Font size 8 to 7
+- Position at `pageHeight - 12` instead of `pageHeight - 15`
+- Second line at `footerY + 4` instead of `footerY + 5`
+
+**G. Async helpers (lines 412-424):**
+- `downloadInvoicePdf` becomes async, awaits `generateInvoicePdf`
+- `printInvoicePdf` becomes async, awaits `generateInvoicePdf`
+
+### File 3: `src/pages/Invoices.tsx`
+
+- Import `useCommunications` hook (or wherever `brandSettings` is accessed)
+- In `buildPdfData` (line 693): add `brandColor: brandSettings?.brand_primary_color`
+- `handleDownloadPdf` and `handlePrintPdf`: add `await` to the now-async calls
+
+### File 4: `src/components/reports/RevenueLedgerTab.tsx`
+
+- Import `useCommunications` for brand settings
+- Pass `brandColor` in PDF data construction
+- Add `await` to download/print calls
+
+### File 5: `src/components/invoices/SavedInvoicesTab.tsx`
+
+- Import `useCommunications` for brand settings
+- Pass `brandColor` in PDF data
+- Add `await` to download call
+
+### File 6: `src/components/invoices/InvoiceDetailDialog.tsx`
+
+- Import `useCommunications` for brand settings
+- Pass `brandColor` in `generatePdfData`
+- Add `await` to download/print calls
+
+### File 7: `src/components/accounts/AccountInvoicesTab.tsx`
+
+- Import `useCommunications` for brand settings
+- Pass `brandColor` in PDF data
+- Add `await` to download call
 
 ---
 
-| PREPARED FOR | QUOTE DETAILS |
-|---|---|
-| **Acme Corporation** | Quote Date: Feb 11, 2025 |
-| Account: ACME-001 | Valid Until: Mar 13, 2025 |
-| Contact: John Smith | Storage Days: 30 |
-| john@acme.com | Status: Draft |
+## Summary: What Both Templates Will Share
 
-**Item Quantities by Size Class**
-
-| Size Class | Description | Quantity |
+| Feature | Quote PDF | Invoice PDF |
 |---|---|---|
-| Large | Over 50 cu ft | 10 |
-| Medium | 20-50 cu ft | 25 |
-| Small | Under 20 cu ft | 15 |
-| **Total Items** | | **50** |
+| Smart logo sizing (aspect-ratio) | Already done, keep | Adding new |
+| Side-by-side logo + name | Adding new | Adding new |
+| "WMS" bold badge in brand color | Adding new | Adding new |
+| Company name 16pt (was 24pt) | Adding new | Adding new |
+| Title 20pt (was 28pt) | Adding new | Adding new |
+| Brand color from tenant settings | Already done | Adding new |
+| Pre-divider gap 4pt (was 10pt) | Adding new | Adding new |
+| Post-divider gap 6pt (was 10pt) | Adding new | Adding new |
+| Page break threshold 25pt | Already done | Adding new |
+| Re-render headers on new page | Already done | Adding new |
+| Compact footer (7pt, tighter) | Already done | Adding new |
+| Async function | Already done | Adding new |
 
-**Services**
-
-| Service | Class | Rate | Qty | Total |
-|---|---|---|---|---|
-| Receiving | Large | $15.00 | 10 | $150.00 |
-| Receiving | Medium | $10.00 | 25 | $250.00 |
-| Receiving | Small | $5.00 | 15 | $75.00 |
-| Disposal | Large | $25.00 | 10 | $250.00 |
-| Disposal | Medium | $18.00 | 25 | $450.00 |
-| Disposal | Small | $12.00 | 15 | $180.00 |
-| Storage | Large | $2.00 | 10 | $600.00 |
-| Storage | Medium | $1.50 | 25 | $1,125.00 |
-| Storage | Small | $1.00 | 15 | $450.00 |
-| Kitting | - | $200.00 | 1 | $200.00 |
-
-| | |
-|---|---|
-| Subtotal: | $3,730.00 |
-| Discount (10%): | -$373.00 |
-| Tax (8.25%): | $277.00 |
-| **Grand Total:** | **$3,634.00** |
-
-*Notes: Climate controlled storage required for Large items.*
-
-*This quote is valid for 30 days unless otherwise specified.*
-*Thank you for your business!*
-
----
-
-Note: The accent color on divider lines, "QUOTE" header, and "Grand Total" label will use your tenant's brand color (pulled from Settings > Alerts > Template Editor). The logo will render in the top-left corner (pulled from Settings > Organization). Rate column shows dollar amount only -- no "/ piece" or "/ day" suffix.
-
----
-
-## Technical Details
-
-### File 1: `src/lib/quotes/export.ts`
-
-- Add `brandColor?: string` and `companyLogo?: string` to `QuotePdfData` interface
-- In `generateQuotePdf`: parse `data.brandColor` hex to RGB for `primaryColor`, fallback to `[220, 88, 42]`
-- Remove `getBillingUnitLabel()` usage from services table rate column -- just show `formatCurrency(line.rate)`
-- If `data.companyLogo` is provided, add logo image to top-left of PDF header
-- Restructure `exportQuoteToExcel` to produce a single sheet with header, classes, services, totals, and notes sections
-
-### File 2: `src/pages/QuoteBuilder.tsx`
-
-- Import `useTenantSettings` and `useCommunications` hooks
-- In `handleExportPdf` and `handleExportExcel`:
-  - Build per-class service lines from `calculation` data and `class_service_selections` + `rates` to produce one row per service-class combination
-  - Pass `brandColor` from `brandSettings.brand_primary_color`
-  - Pass `companyLogo` from `tenantSettings.logo_url`
-  - Pass `companyWebsite` from `tenantSettings.company_website`
+Total: 7 files modified. Both PDF templates will have identical header formatting.
 
