@@ -286,7 +286,7 @@ export default function ItemDetail() {
       const { data, error } = await (supabase.from('items') as any)
         .select(`
           *,
-          locations(id, code, name),
+          locations!items_current_location_id_fkey(id, code, name),
           warehouses(id, name),
           item_types(id, name),
           accounts:account_id(id, account_name, account_code)
