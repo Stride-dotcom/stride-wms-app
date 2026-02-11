@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { queueClaimFiledAlert, queueClaimStatusChangedAlert, queueClaimApprovedAlert, queueClaimDeniedAlert } from '@/lib/alertQueue';
+import { createEventRaw } from '@/services/billing';
 import type { Database, Json } from '@/integrations/supabase/types';
 
 type ClaimRow = Database['public']['Tables']['claims']['Row'];
@@ -458,11 +459,11 @@ export function useClaims(filters?: ClaimFilters) {
 
         if (claimSettings?.enable_claim_assistance && claimSettings?.claim_assistance_flat_fee > 0) {
           // Create billing event for claim assistance
-          await supabase.from('billing_events').insert([{
+          await createEventRaw({
             tenant_id: profile.tenant_id,
             account_id: data.account_id,
             claim_id: result.id,
-            event_type: 'claim_assistance',
+            event_type: 'claim_assistance' as any,
             charge_type: 'claim_assistance',
             description: `Claim Assistance – Shipping Damage (${result.claim_number})`,
             quantity: 1,
@@ -476,7 +477,7 @@ export function useClaims(filters?: ClaimFilters) {
               claim_category: 'shipping_damage',
             },
             created_by: profile.id,
-          }]);
+          });
 
           // Mark assistance fee as billed
           await (supabase as any)

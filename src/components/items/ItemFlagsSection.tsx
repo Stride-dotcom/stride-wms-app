@@ -15,6 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useServiceEvents, ServiceEvent } from '@/hooks/useServiceEvents';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toastShim';
+import { createEventRaw, deleteUnbilledEventsByFilter } from '@/services/billing';
 import { queueBillingEventAlert, queueFlagAddedAlert } from '@/lib/alertQueue';
 import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
@@ -241,15 +242,13 @@ export function ItemFlagsSection({
   const handleBillingFlagToggle = async (service: ServiceEvent, currentlyEnabled: boolean) => {
     if (currentlyEnabled) {
       // Remove the billing event for this flag
-      const { error } = await (supabase
-        .from('billing_events') as any)
-        .delete()
-        .eq('item_id', itemId)
-        .eq('charge_type', service.service_code)
-        .eq('event_type', 'flag_change')
-        .eq('status', 'unbilled');
+      const deleteResult = await deleteUnbilledEventsByFilter({
+        itemId: itemId,
+        chargeType: service.service_code,
+        eventType: 'flag_change',
+      });
 
-      if (error) throw error;
+      if (!deleteResult.success) throw new Error(deleteResult.error || 'Failed to delete billing event');
 
       toast.success(`${service.service_name} removed`);
 
@@ -310,31 +309,27 @@ export function ItemFlagsSection({
       }
 
       // Create a billing event for this flag
-      const { data: billingEvent, error } = await (supabase
-        .from('billing_events') as any)
-        .insert({
-          tenant_id: profile!.tenant_id,
-          account_id: itemAccountId,
-          item_id: itemId,
-          sidemark_id: itemData?.sidemark_id || null,
-          event_type: 'flag_change',
-          charge_type: service.service_code,
-          description: `${service.service_name}`,
-          quantity: 1,
-          unit_rate: rateInfo.rate,
-          total_amount: rateInfo.rate,
-          status: 'unbilled',
-          created_by: profile!.id,
-          has_rate_error: rateInfo.hasError,
-          rate_error_message: rateInfo.errorMessage,
-        })
-        .select('id')
-        .single();
+      const result = await createEventRaw({
+        tenant_id: profile!.tenant_id,
+        account_id: itemAccountId,
+        item_id: itemId,
+        sidemark_id: itemData?.sidemark_id || null,
+        event_type: 'flag_change',
+        charge_type: service.service_code,
+        description: `${service.service_name}`,
+        quantity: 1,
+        unit_rate: rateInfo.rate,
+        total_amount: rateInfo.rate,
+        status: 'unbilled',
+        created_by: profile!.id,
+        has_rate_error: rateInfo.hasError,
+        rate_error_message: rateInfo.errorMessage,
+      });
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error || 'Failed to create billing event');
 
       // Queue alert if service has alert rule
-      if (service.alert_rule && service.alert_rule !== 'none' && billingEvent?.id) {
+      if (service.alert_rule && service.alert_rule !== 'none' && result.billingEventId) {
         await queueFlagAddedAlert({
           tenantId: profile!.tenant_id,
           itemId,

@@ -18,6 +18,8 @@ import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { supabase } from '@/integrations/supabase/client';
 import { useServiceEvents, ServiceEvent } from '@/hooks/useServiceEvents';
 import { useAuth } from '@/contexts/AuthContext';
+import { createEventRaw, deleteUnbilledEventsByFilter } from '@/services/billing';
+import type { RawBillingEventPayload } from '@/services/billing';
 import { useToast } from '@/hooks/use-toast';
 import { ItemPreviewCard } from '@/components/items/ItemPreviewCard';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
@@ -371,12 +373,11 @@ export function ShipmentItemRow({
 
     try {
       if (currentlyEnabled) {
-        await (supabase.from('billing_events') as any)
-          .delete()
-          .eq('item_id', item.item_id)
-          .eq('charge_type', service.service_code)
-          .eq('event_type', 'flag_change')
-          .eq('status', 'unbilled');
+        await deleteUnbilledEventsByFilter({
+          itemId: item.item_id,
+          chargeType: service.service_code,
+          eventType: 'flag_change',
+        });
 
         setEnabledFlags(prev => {
           const next = new Set(prev);
@@ -393,22 +394,21 @@ export function ShipmentItemRow({
         const classCode = itemData?.class?.code || null;
         const rateInfo = getServiceRate(service.service_code, classCode);
 
-        await (supabase.from('billing_events') as any)
-          .insert({
-            tenant_id: profile.tenant_id,
-            account_id: itemData?.account_id,
-            item_id: item.item_id,
-            sidemark_id: itemData?.sidemark_id || null,
-            event_type: 'flag_change',
-            charge_type: service.service_code,
-            description: service.service_name,
-            quantity: 1,
-            unit_rate: rateInfo.rate,
-            status: 'unbilled',
-            created_by: profile.id,
-            has_rate_error: rateInfo.hasError,
-            rate_error_message: rateInfo.errorMessage,
-          });
+        await createEventRaw({
+          tenant_id: profile.tenant_id,
+          account_id: itemData?.account_id,
+          item_id: item.item_id,
+          sidemark_id: itemData?.sidemark_id || null,
+          event_type: 'flag_change',
+          charge_type: service.service_code,
+          description: service.service_name,
+          quantity: 1,
+          unit_rate: rateInfo.rate,
+          status: 'unbilled',
+          created_by: profile.id,
+          has_rate_error: rateInfo.hasError,
+          rate_error_message: rateInfo.errorMessage,
+        } as RawBillingEventPayload);
 
         setEnabledFlags(prev => new Set([...prev, service.service_code]));
         toast({ title: `${service.service_name} added` });

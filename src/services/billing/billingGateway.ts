@@ -31,7 +31,14 @@ import type {
   ChargePreview,
   MoveChargesParams,
   MoveChargesResult,
+  RawBillingEventPayload,
+  RawEventResult,
+  RawEventsResult,
+  DeleteBillingEventFilters,
+  DeleteResult,
 } from './types';
+
+import { supabase } from '@/integrations/supabase/client';
 
 // =============================================================================
 // createCharge
@@ -230,4 +237,145 @@ export async function moveCharges(params: MoveChargesParams): Promise<MoveCharge
     movedCount: result.movedCount,
     invoicedCount: result.invoicedCount,
   };
+}
+
+// =============================================================================
+// createEventRaw — direct passthrough insert (no promos, no field mutation)
+// =============================================================================
+
+/**
+ * Insert a single billing_events row exactly as provided.
+ * No rate resolution, no promo processing, no field mutation.
+ */
+export async function createEventRaw(payload: RawBillingEventPayload): Promise<RawEventResult> {
+  const SHADOW = import.meta.env.VITE_BILLING_SHADOW_MODE === 'true';
+  if (SHADOW) {
+    console.log('[BillingGateway Shadow]', {
+      fn: 'createEventRaw',
+      operation: 'insert',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  try {
+    const { data, error } = await (supabase
+      .from('billing_events') as any)
+      .insert(payload)
+      .select('id')
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, billingEventId: data?.id };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
+}
+
+// =============================================================================
+// createEventsRaw — batch passthrough insert (no promos, no field mutation)
+// =============================================================================
+
+/**
+ * Insert multiple billing_events rows exactly as provided.
+ * Preserves order. No rate resolution, no promo processing, no field mutation.
+ */
+export async function createEventsRaw(payloads: RawBillingEventPayload[]): Promise<RawEventsResult> {
+  const SHADOW = import.meta.env.VITE_BILLING_SHADOW_MODE === 'true';
+  if (SHADOW) {
+    console.log('[BillingGateway Shadow]', {
+      fn: 'createEventsRaw',
+      operation: 'batch_insert',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  try {
+    const { data, error } = await (supabase
+      .from('billing_events') as any)
+      .insert(payloads)
+      .select('id');
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return {
+      success: true,
+      billingEventIds: data?.map((d: any) => d.id) || [],
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
+}
+
+// =============================================================================
+// deleteUnbilledEventsByFilter — hard delete (NOT void)
+// =============================================================================
+
+/**
+ * Hard-delete unbilled billing_events matching the provided filters.
+ * Always adds .eq('status', 'unbilled'). Only provided filters are applied.
+ * This is a HARD DELETE — not a soft void.
+ */
+export async function deleteUnbilledEventsByFilter(
+  filters: DeleteBillingEventFilters,
+): Promise<DeleteResult> {
+  const SHADOW = import.meta.env.VITE_BILLING_SHADOW_MODE === 'true';
+  if (SHADOW) {
+    console.log('[BillingGateway Shadow]', {
+      fn: 'deleteUnbilledEventsByFilter',
+      operation: 'delete',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  try {
+    // Step 1: Select ids matching filters
+    let selectQuery = (supabase.from('billing_events') as any)
+      .select('id')
+      .eq('status', 'unbilled');
+
+    if (filters.itemId) selectQuery = selectQuery.eq('item_id', filters.itemId);
+    if (filters.shipmentId) selectQuery = selectQuery.eq('shipment_id', filters.shipmentId);
+    if (filters.chargeType) selectQuery = selectQuery.eq('charge_type', filters.chargeType);
+    if (filters.eventType) selectQuery = selectQuery.eq('event_type', filters.eventType);
+
+    const { data: matchingEvents, error: selectError } = await selectQuery;
+
+    if (selectError) {
+      return { success: false, deletedCount: 0, error: selectError.message };
+    }
+
+    if (!matchingEvents || matchingEvents.length === 0) {
+      return { success: true, deletedCount: 0 };
+    }
+
+    const ids = matchingEvents.map((e: any) => e.id);
+
+    // Step 2: Hard delete by ids
+    const { error: deleteError } = await (supabase.from('billing_events') as any)
+      .delete()
+      .in('id', ids);
+
+    if (deleteError) {
+      return { success: false, deletedCount: 0, error: deleteError.message };
+    }
+
+    return { success: true, deletedCount: ids.length };
+  } catch (err) {
+    return {
+      success: false,
+      deletedCount: 0,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
 }

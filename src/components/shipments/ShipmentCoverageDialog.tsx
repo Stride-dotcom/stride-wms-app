@@ -28,6 +28,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { createEventRaw, deleteUnbilledEventsByFilter } from '@/services/billing';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
 // Canonical coverage types
@@ -189,12 +190,10 @@ export function ShipmentCoverageDialog({
       // STEP 1: Void/delete existing coverage billing events for this shipment
       // This prevents double billing when changing coverage
       if (profile?.tenant_id) {
-        await supabase
-          .from('billing_events')
-          .delete()
-          .eq('shipment_id', shipmentId)
-          .eq('event_type', 'coverage')
-          .eq('status', 'unbilled');
+        await deleteUnbilledEventsByFilter({
+          shipmentId: shipmentId,
+          eventType: 'coverage',
+        });
       }
 
       // STEP 2: Update shipment with coverage info
@@ -260,11 +259,11 @@ export function ShipmentCoverageDialog({
 
         const coveredItemCount = shipmentItems?.length || itemCount;
 
-        await supabase.from('billing_events').insert([{
+        await createEventRaw({
           tenant_id: profile.tenant_id,
           account_id: accountId,
           shipment_id: shipmentId,
-          event_type: 'coverage',
+          event_type: 'coverage' as any,
           charge_type: 'handling_coverage',
           description: `Shipment Coverage: ${COVERAGE_LABELS[coverageType]} (${shipmentNumber})`,
           quantity: 1,
@@ -283,7 +282,7 @@ export function ShipmentCoverageDialog({
             scope: applyToItems ? 'items' : 'shipment',
           },
           created_by: profile.id,
-        }]);
+        });
       }
 
       toast({

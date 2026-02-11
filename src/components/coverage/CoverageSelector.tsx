@@ -24,6 +24,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { createEventRaw } from '@/services/billing';
 import { useCurrentUserRole } from '@/hooks/useRoles';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 
@@ -307,13 +308,13 @@ export function CoverageSelector({
         if (pendingChange && pendingChange.delta !== 0) {
           if (pendingChange.delta > 0) {
             // Additional charge
-            await supabase.from('billing_events').insert([{
+            await createEventRaw({
               tenant_id: profile.tenant_id,
               account_id: accountId,
               sidemark_id: sidemarkId,
               class_id: classId,
               item_id: itemId,
-              event_type: 'coverage',
+              event_type: 'coverage' as any,
               charge_type: 'handling_coverage',
               description: `Coverage adjustment: ${COVERAGE_LABELS[coverageType]}`,
               quantity: 1,
@@ -328,7 +329,7 @@ export function CoverageSelector({
                 is_adjustment: true,
               },
               created_by: profile.id,
-            }]);
+            });
           } else {
             // Credit
             await supabase.from('account_credits').insert([{
@@ -341,13 +342,13 @@ export function CoverageSelector({
           }
         } else if (!currentCoverage || currentCoverage === 'standard' || currentCoverage === 'pending') {
           // Initial coverage charge
-          await supabase.from('billing_events').insert([{
+          await createEventRaw({
             tenant_id: profile.tenant_id,
             account_id: accountId,
             sidemark_id: sidemarkId,
             class_id: classId,
             item_id: itemId,
-            event_type: 'coverage',
+            event_type: 'coverage' as any,
             charge_type: 'handling_coverage',
             description: `Coverage: ${COVERAGE_LABELS[coverageType]} on declared value $${dv.toFixed(2)}`,
             quantity: 1,
@@ -361,7 +362,7 @@ export function CoverageSelector({
               declared_value: dv,
             },
             created_by: profile.id,
-          }]);
+          });
         }
       }
 
