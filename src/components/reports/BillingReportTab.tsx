@@ -742,7 +742,7 @@ export function BillingReportTab() {
       const rate = parseFloat(rowEdits[row.id].unit_rate) || 0;
       return qty * rate;
     }
-    return row.total_amount;
+    return row.total_amount ?? 0;
   };
 
   // Get sidemark name for display
