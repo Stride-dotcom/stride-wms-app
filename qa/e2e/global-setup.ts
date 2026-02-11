@@ -24,35 +24,52 @@ export default async function globalSetup(config: FullConfig) {
 
   try {
     // --- ADMIN LOGIN ---
-    const adminEmail = optionalEnv('QA_ADMIN_EMAIL');
-    const adminPassword = optionalEnv('QA_ADMIN_PASSWORD');
-
     const adminContext = await browser.newContext();
     const adminPage = await adminContext.newPage();
 
     await adminPage.goto(`${baseURL}/auth`, { waitUntil: 'domcontentloaded' });
 
-    // Prefer Dev Quick Login buttons (most stable in CI)
-await adminPage.waitForSelector('text=DEV QUICK LOGIN', { timeout: 60_000 });
+    // Wait for either DEV QUICK LOGIN or email input to appear (10s timeout)
+    const devQuickLoginLocator = adminPage.getByText('DEV QUICK LOGIN');
+    const emailInputLocator = adminPage.locator('input[type="email"], input[name="email"]').first();
+    const firstVisible = devQuickLoginLocator.or(emailInputLocator);
 
-// Try Admin Dev first, fallback to Admin
-const adminDevBtn = adminPage
-  .locator('button:has-text("Admin Dev"), [role="button"]:has-text("Admin Dev")')
-  .first();
+    await firstVisible.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {
+      throw new Error(
+        'Neither DEV QUICK LOGIN nor email login form found on auth page. ' +
+          'Check APP_BASE_URL and VITE_ENABLE_DEV_QUICK_LOGIN.',
+      );
+    });
 
-if (await adminDevBtn.isVisible().catch(() => false)) {
-  await adminDevBtn.click();
-} else {
-  await adminPage
-    .locator('button:has-text("Admin"), [role="button"]:has-text("Admin")')
-    .first()
-    .click();
-}
+    if (await devQuickLoginLocator.isVisible().catch(() => false)) {
+      // Primary path: DEV QUICK LOGIN buttons
+      // Try Admin Dev first, fallback to Admin
+      const adminDevBtn = adminPage
+        .locator('button:has-text("Admin Dev"), [role="button"]:has-text("Admin Dev")')
+        .first();
 
-// Wait until we leave /auth (login redirect)
-await adminPage.waitForURL((u) => !u.pathname.startsWith('/auth'), {
-  timeout: 60_000,
-});
+      if (await adminDevBtn.isVisible().catch(() => false)) {
+        await adminDevBtn.click();
+      } else {
+        await adminPage
+          .locator('button:has-text("Admin"), [role="button"]:has-text("Admin")')
+          .first()
+          .click();
+      }
+    } else {
+      // Fallback path: email/password login
+      const adminEmail = requireEnv('QA_ADMIN_EMAIL');
+      const adminPassword = requireEnv('QA_ADMIN_PASSWORD');
+
+      await emailInputLocator.fill(adminEmail);
+      await adminPage.locator('input[type="password"], input[name="password"]').first().fill(adminPassword);
+      await adminPage.locator('button[type="submit"]').click();
+    }
+
+    // Wait until we leave /auth (login redirect)
+    await adminPage.waitForURL((u) => !u.pathname.startsWith('/auth'), {
+      timeout: 60_000,
+    });
 
     await adminContext.storageState({ path: path.join(AUTH_DIR, 'admin.json') });
     await adminContext.close();
