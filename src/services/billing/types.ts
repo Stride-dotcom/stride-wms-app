@@ -99,6 +99,64 @@ export interface ChargePreview {
 }
 
 // =============================================================================
+// RAW EVENT (no rate resolution, no promos — direct passthrough)
+// =============================================================================
+
+/** Payload for createEventRaw / createEventsRaw — inserted as-is. */
+export interface RawBillingEventPayload {
+  tenant_id: string;
+  account_id: string | null;
+  item_id?: string | null;
+  task_id?: string | null;
+  shipment_id?: string | null;
+  claim_id?: string | null;
+  sidemark_id?: string | null;
+  class_id?: string | null;
+  event_type: string;
+  charge_type: string;
+  description?: string | null;
+  quantity: number;
+  unit_rate: number;
+  total_amount: number;
+  status?: string;
+  occurred_at?: string;
+  metadata?: Record<string, any>;
+  created_by?: string;
+  has_rate_error?: boolean;
+  rate_error_message?: string | null;
+}
+
+export interface RawEventResult {
+  success: boolean;
+  billingEventId?: string;
+  error?: string;
+}
+
+export interface RawEventsResult {
+  success: boolean;
+  billingEventIds?: string[];
+  error?: string;
+}
+
+// =============================================================================
+// DELETE UNBILLED EVENTS
+// =============================================================================
+
+/** Filters for deleteUnbilledEventsByFilter. Only provided filters are applied. */
+export interface DeleteBillingEventFilters {
+  itemId?: string;
+  shipmentId?: string;
+  chargeType?: string;
+  eventType?: string;
+}
+
+export interface DeleteResult {
+  success: boolean;
+  deletedCount: number;
+  error?: string;
+}
+
+// =============================================================================
 // MOVE CHARGES
 // =============================================================================
 

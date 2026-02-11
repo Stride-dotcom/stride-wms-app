@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { BILLING_DISABLED_ERROR } from '@/lib/billing/chargeTypeUtils';
 import { useAuth } from '@/contexts/AuthContext';
+import { createEventRaw } from '@/services/billing';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { logItemActivity } from '@/lib/activity/logItemActivity';
 
@@ -177,8 +178,8 @@ export function AddBillingChargeDialog({
         }
       }
 
-      const { error } = await supabase.from('billing_events' as any).insert(payload);
-      if (error) throw error;
+      const result = await createEventRaw(payload);
+      if (!result.success) throw new Error(result.error || 'Failed to create billing event');
 
       toast({
         title: 'Add-on added',

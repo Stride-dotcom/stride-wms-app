@@ -13,6 +13,9 @@ export {
   previewCharges,
   voidCharge,
   moveCharges,
+  createEventRaw,
+  createEventsRaw,
+  deleteUnbilledEventsByFilter,
 } from './billingGateway';
 
 // Types
@@ -26,4 +29,9 @@ export type {
   ChargePreview,
   MoveChargesParams,
   MoveChargesResult,
+  RawBillingEventPayload,
+  RawEventResult,
+  RawEventsResult,
+  DeleteBillingEventFilters,
+  DeleteResult,
 } from './types';
