@@ -126,15 +126,14 @@ export async function generateQuotePdf(data: QuotePdfData): Promise<jsPDF> {
   // ============ HEADER SECTION ============
 
   // Logo (if provided) - smart aspect-ratio-aware sizing
-  let logoRendered = false;
+  let companyNameX = margin;
   if (data.companyLogo) {
     try {
-      // Measure natural dimensions to preserve aspect ratio
       const logoDims = await new Promise<{ w: number; h: number }>((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
-          const maxW = 35;
-          const maxH = 20;
+          const maxW = 20;
+          const maxH = 16;
           const ratio = img.naturalWidth / img.naturalHeight;
           let w: number, h: number;
           if (ratio > maxW / maxH) {
@@ -148,18 +147,22 @@ export async function generateQuotePdf(data: QuotePdfData): Promise<jsPDF> {
         img.src = data.companyLogo!;
       });
       doc.addImage(data.companyLogo, 'JPEG', margin, y - 2, logoDims.w, logoDims.h);
-      logoRendered = true;
+      companyNameX = margin + logoDims.w + 4;
     } catch {
       // Logo failed to load, skip it
     }
   }
 
-  // Company name (large, bold) - offset if logo rendered
-  const companyNameY = logoRendered ? y + 22 : y;
+  // Company name (16pt bold) side-by-side with logo
   doc.setTextColor(...darkGray);
-  setFont(24, 'bold');
-  doc.text(data.companyName, margin, companyNameY);
-  y = companyNameY + 8;
+  setFont(16, 'bold');
+  doc.text(data.companyName, companyNameX, y + 4);
+  // "WMS" badge in brand color
+  const companyNameWidth = doc.getTextWidth(data.companyName);
+  doc.setTextColor(...primaryColor);
+  setFont(16, 'bold');
+  doc.text('WMS', companyNameX + companyNameWidth + 3, y + 4);
+  y += 10;
 
   // Company contact info (smaller, gray)
   doc.setTextColor(...lightGray);
@@ -178,21 +181,21 @@ export async function generateQuotePdf(data: QuotePdfData): Promise<jsPDF> {
 
   // QUOTE title on the right
   doc.setTextColor(...primaryColor);
-  setFont(28, 'bold');
-  doc.text('QUOTE', pageWidth - margin, margin + 5, { align: 'right' });
+  setFont(20, 'bold');
+  doc.text('QUOTE', pageWidth - margin, margin + 3, { align: 'right' });
 
   // Quote number below
   doc.setTextColor(...darkGray);
-  setFont(10, 'normal');
-  doc.text(`#${data.quoteNumber}`, pageWidth - margin, margin + 14, { align: 'right' });
+  setFont(9, 'normal');
+  doc.text(`#${data.quoteNumber}`, pageWidth - margin, margin + 10, { align: 'right' });
 
-  y += 10;
+  y += 4;
 
   // ============ DIVIDER LINE ============
   doc.setDrawColor(...primaryColor);
   doc.setLineWidth(1);
   doc.line(margin, y, pageWidth - margin, y);
-  y += 10;
+  y += 6;
 
   // ============ PREPARED FOR & QUOTE DETAILS ============
 
@@ -637,7 +640,7 @@ export function transformQuoteToPdfData(
     estimatedStorageDays: quote.storage_days || 0,
     status: quote.status,
 
-    companyName: quote.tenant?.name || 'Warehouse Services',
+    companyName: quote.tenant?.name || 'Your Company',
     companyAddress: quote.tenant?.address,
     companyPhone: quote.tenant?.phone,
     companyEmail: quote.tenant?.email,
