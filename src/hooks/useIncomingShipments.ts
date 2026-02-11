@@ -1,0 +1,78 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import type { Database } from '@/integrations/supabase/types';
+
+type ShipmentRow = Database['public']['Tables']['shipments']['Row'];
+
+export type InboundKind = 'manifest' | 'expected' | 'dock_intake';
+
+export interface IncomingShipment extends ShipmentRow {
+  account_name?: string | null;
+  open_items_count?: number;
+  received_items_sum?: number;
+}
+
+export interface IncomingFilters {
+  inbound_kind: InboundKind;
+  search?: string;
+  status?: string;
+}
+
+export function useIncomingShipments(filters: IncomingFilters) {
+  const [shipments, setShipments] = useState<IncomingShipment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchShipments = useCallback(async () => {
+    try {
+      setLoading(true);
+      let query = supabase
+        .from('shipments')
+        .select('*, accounts(account_name)')
+        .eq('shipment_type', 'inbound')
+        .eq('inbound_kind', filters.inbound_kind)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+
+      if (filters.status && filters.status !== 'all') {
+        query = query.eq('inbound_status', filters.status);
+      }
+
+      if (filters.search) {
+        query = query.or(
+          `shipment_number.ilike.%${filters.search}%,vendor_name.ilike.%${filters.search}%`
+        );
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const mapped: IncomingShipment[] = (data || []).map((row) => {
+        const acct = row.accounts as unknown as { account_name: string } | null;
+        return {
+          ...row,
+          account_name: acct?.account_name || null,
+          accounts: undefined,
+        } as unknown as IncomingShipment;
+      });
+
+      setShipments(mapped);
+    } catch (error) {
+      console.error('Error fetching incoming shipments:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load incoming shipments.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [filters.inbound_kind, filters.search, filters.status, toast]);
+
+  useEffect(() => {
+    fetchShipments();
+  }, [fetchShipments]);
+
+  return { shipments, loading, refetch: fetchShipments };
+}

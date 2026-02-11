@@ -4597,6 +4597,47 @@ export type Database = {
           },
         ]
       }
+      inbound_links: {
+        Row: {
+          confidence_score: number | null
+          dock_intake_id: string
+          id: string
+          link_type: string
+          linked_at: string
+          linked_by: string | null
+          linked_shipment_id: string
+          tenant_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          dock_intake_id: string
+          id?: string
+          link_type: string
+          linked_at?: string
+          linked_by?: string | null
+          linked_shipment_id: string
+          tenant_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          dock_intake_id?: string
+          id?: string
+          link_type?: string
+          linked_at?: string
+          linked_by?: string | null
+          linked_shipment_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbound_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_column_configs: {
         Row: {
           account_id: string | null
@@ -9198,9 +9239,111 @@ export type Database = {
           },
         ]
       }
+      shipment_item_allocations: {
+        Row: {
+          allocated_qty: number
+          created_at: string
+          created_by: string | null
+          expected_shipment_id: string
+          expected_shipment_item_id: string
+          id: string
+          manifest_shipment_id: string
+          manifest_shipment_item_id: string
+          tenant_id: string
+        }
+        Insert: {
+          allocated_qty: number
+          created_at?: string
+          created_by?: string | null
+          expected_shipment_id: string
+          expected_shipment_item_id: string
+          id?: string
+          manifest_shipment_id: string
+          manifest_shipment_item_id: string
+          tenant_id: string
+        }
+        Update: {
+          allocated_qty?: number
+          created_at?: string
+          created_by?: string | null
+          expected_shipment_id?: string
+          expected_shipment_item_id?: string
+          id?: string
+          manifest_shipment_id?: string
+          manifest_shipment_item_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_item_allocations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipment_item_photos: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          id: string
+          is_primary: boolean
+          mime_type: string | null
+          shipment_item_id: string
+          storage_key: string
+          storage_url: string | null
+          tenant_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          is_primary?: boolean
+          mime_type?: string | null
+          shipment_item_id: string
+          storage_key: string
+          storage_url?: string | null
+          tenant_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          is_primary?: boolean
+          mime_type?: string | null
+          shipment_item_id?: string
+          storage_key?: string
+          storage_url?: string | null
+          tenant_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_item_photos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_item_photos_shipment_item_id_fkey"
+            columns: ["shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shipment_items: {
         Row: {
           actual_quantity: number | null
+          allocated_qty: number
           created_at: string
           expected_class_id: string | null
           expected_description: string | null
@@ -9214,14 +9357,17 @@ export type Database = {
           item_id: string | null
           item_type_id: string | null
           notes: string | null
+          primary_photo_id: string | null
           received_at: string | null
           released_at: string | null
+          room: string | null
           shipment_id: string
           status: string
           updated_at: string
         }
         Insert: {
           actual_quantity?: number | null
+          allocated_qty?: number
           created_at?: string
           expected_class_id?: string | null
           expected_description?: string | null
@@ -9235,14 +9381,17 @@ export type Database = {
           item_id?: string | null
           item_type_id?: string | null
           notes?: string | null
+          primary_photo_id?: string | null
           received_at?: string | null
           released_at?: string | null
+          room?: string | null
           shipment_id: string
           status?: string
           updated_at?: string
         }
         Update: {
           actual_quantity?: number | null
+          allocated_qty?: number
           created_at?: string
           expected_class_id?: string | null
           expected_description?: string | null
@@ -9256,8 +9405,10 @@ export type Database = {
           item_id?: string | null
           item_type_id?: string | null
           notes?: string | null
+          primary_photo_id?: string | null
           received_at?: string | null
           released_at?: string | null
+          room?: string | null
           shipment_id?: string
           status?: string
           updated_at?: string
@@ -9385,6 +9536,51 @@ export type Database = {
           },
         ]
       }
+      shipment_external_refs: {
+        Row: {
+          created_at: string
+          id: string
+          normalized_value: string
+          ref_type: string
+          shipment_id: string
+          tenant_id: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          normalized_value: string
+          ref_type: string
+          shipment_id: string
+          tenant_id: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          normalized_value?: string
+          ref_type?: string
+          shipment_id?: string
+          tenant_id?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_external_refs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_external_refs_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shipments: {
         Row: {
           account_id: string | null
@@ -9408,9 +9604,14 @@ export type Database = {
           deleted_at: string | null
           destination_name: string | null
           driver_name: string | null
+          eta_end: string | null
+          eta_start: string | null
           expected_arrival_date: string | null
+          expected_pieces: number | null
           highlight_notes: boolean | null
           id: string
+          inbound_kind: string | null
+          inbound_status: string | null
           liability_accepted: boolean | null
           metadata: Json | null
           notes: string | null
@@ -9423,6 +9624,7 @@ export type Database = {
           po_number: string | null
           portal_request_id: string | null
           received_at: string | null
+          received_pieces: number | null
           receiving_documents: Json | null
           receiving_notes: string | null
           receiving_photos: Json | null
@@ -9442,11 +9644,13 @@ export type Database = {
           signature_data: string | null
           signature_name: string | null
           signature_timestamp: string | null
+          signed_pieces: number | null
           status: string
           tenant_id: string
           total_items: number | null
           tracking_number: string | null
           updated_at: string
+          vendor_name: string | null
           warehouse_id: string | null
         }
         Insert: {
@@ -9471,9 +9675,14 @@ export type Database = {
           deleted_at?: string | null
           destination_name?: string | null
           driver_name?: string | null
+          eta_end?: string | null
+          eta_start?: string | null
           expected_arrival_date?: string | null
+          expected_pieces?: number | null
           highlight_notes?: boolean | null
           id?: string
+          inbound_kind?: string | null
+          inbound_status?: string | null
           liability_accepted?: boolean | null
           metadata?: Json | null
           notes?: string | null
@@ -9486,6 +9695,7 @@ export type Database = {
           po_number?: string | null
           portal_request_id?: string | null
           received_at?: string | null
+          received_pieces?: number | null
           receiving_documents?: Json | null
           receiving_notes?: string | null
           receiving_photos?: Json | null
@@ -9505,11 +9715,13 @@ export type Database = {
           signature_data?: string | null
           signature_name?: string | null
           signature_timestamp?: string | null
+          signed_pieces?: number | null
           status?: string
           tenant_id: string
           total_items?: number | null
           tracking_number?: string | null
           updated_at?: string
+          vendor_name?: string | null
           warehouse_id?: string | null
         }
         Update: {
@@ -9534,9 +9746,14 @@ export type Database = {
           deleted_at?: string | null
           destination_name?: string | null
           driver_name?: string | null
+          eta_end?: string | null
+          eta_start?: string | null
           expected_arrival_date?: string | null
+          expected_pieces?: number | null
           highlight_notes?: boolean | null
           id?: string
+          inbound_kind?: string | null
+          inbound_status?: string | null
           liability_accepted?: boolean | null
           metadata?: Json | null
           notes?: string | null
@@ -9549,6 +9766,7 @@ export type Database = {
           po_number?: string | null
           portal_request_id?: string | null
           received_at?: string | null
+          received_pieces?: number | null
           receiving_documents?: Json | null
           receiving_notes?: string | null
           receiving_photos?: Json | null
@@ -9568,11 +9786,13 @@ export type Database = {
           signature_data?: string | null
           signature_name?: string | null
           signature_timestamp?: string | null
+          signed_pieces?: number | null
           status?: string
           tenant_id?: string
           total_items?: number | null
           tracking_number?: string | null
           updated_at?: string
+          vendor_name?: string | null
           warehouse_id?: string | null
         }
         Relationships: [
@@ -14129,6 +14349,40 @@ export type Database = {
       }
       rpc_get_location_capacity: {
         Args: { p_location_id: string }
+        Returns: Json
+      }
+      rpc_normalize_ref_value: {
+        Args: { p_value: string }
+        Returns: string
+      }
+      rpc_allocate_manifest_items_to_expected: {
+        Args: {
+          p_manifest_item_ids: string[]
+          p_expected_shipment_id: string
+          p_quantities: number[]
+        }
+        Returns: Json
+      }
+      rpc_deallocate_manifest_item: {
+        Args: { p_allocation_id: string }
+        Returns: Json
+      }
+      rpc_find_inbound_candidates: {
+        Args: {
+          p_account_id?: string
+          p_vendor_name?: string
+          p_ref_value?: string
+          p_pieces?: number
+        }
+        Returns: Json
+      }
+      rpc_link_dock_intake_to_shipment: {
+        Args: {
+          p_dock_intake_id: string
+          p_linked_shipment_id: string
+          p_link_type: string
+          p_confidence_score?: number
+        }
         Returns: Json
       }
       validate_movement_event: {
