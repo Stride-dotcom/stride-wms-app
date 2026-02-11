@@ -3450,34 +3450,46 @@ export type Database = {
           container_code: string
           container_type: string | null
           created_at: string
+          created_by: string | null
           deleted_at: string | null
+          footprint_cu_ft: number | null
           id: string
           is_active: boolean
           location_id: string | null
+          status: string
           tenant_id: string
           updated_at: string
+          warehouse_id: string | null
         }
         Insert: {
           container_code: string
           container_type?: string | null
           created_at?: string
+          created_by?: string | null
           deleted_at?: string | null
+          footprint_cu_ft?: number | null
           id?: string
           is_active?: boolean
           location_id?: string | null
+          status?: string
           tenant_id: string
           updated_at?: string
+          warehouse_id?: string | null
         }
         Update: {
           container_code?: string
           container_type?: string | null
           created_at?: string
+          created_by?: string | null
           deleted_at?: string | null
+          footprint_cu_ft?: number | null
           id?: string
           is_active?: boolean
           location_id?: string | null
+          status?: string
           tenant_id?: string
           updated_at?: string
+          warehouse_id?: string | null
         }
         Relationships: [
           {
@@ -3492,6 +3504,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "containers_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
         ]
@@ -4631,6 +4650,166 @@ export type Database = {
           },
           {
             foreignKeyName: "inventory_column_configs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_movements: {
+        Row: {
+          container_id: string | null
+          created_at: string
+          created_by: string | null
+          from_location_id: string | null
+          id: string
+          movement_type: string
+          tenant_id: string
+          to_location_id: string | null
+          unit_id: string
+        }
+        Insert: {
+          container_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          from_location_id?: string | null
+          id?: string
+          movement_type: string
+          tenant_id: string
+          to_location_id?: string | null
+          unit_id: string
+        }
+        Update: {
+          container_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          from_location_id?: string | null
+          id?: string
+          movement_type?: string
+          tenant_id?: string
+          to_location_id?: string | null
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_container_id_fkey"
+            columns: ["container_id"]
+            isOneToOne: false
+            referencedRelation: "containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_units: {
+        Row: {
+          account_id: string
+          class: string | null
+          container_id: string | null
+          created_at: string
+          created_by: string | null
+          dims_h: number | null
+          dims_l: number | null
+          dims_w: number | null
+          ic_code: string
+          id: string
+          location_id: string
+          shipment_id: string | null
+          shipment_item_id: string | null
+          status: string
+          tenant_id: string
+          unit_cu_ft: number | null
+          updated_at: string
+          updated_by: string | null
+          volume_source: string | null
+        }
+        Insert: {
+          account_id: string
+          class?: string | null
+          container_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          dims_h?: number | null
+          dims_l?: number | null
+          dims_w?: number | null
+          ic_code: string
+          id?: string
+          location_id: string
+          shipment_id?: string | null
+          shipment_item_id?: string | null
+          status?: string
+          tenant_id: string
+          unit_cu_ft?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          volume_source?: string | null
+        }
+        Update: {
+          account_id?: string
+          class?: string | null
+          container_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          dims_h?: number | null
+          dims_l?: number | null
+          dims_w?: number | null
+          ic_code?: string
+          id?: string
+          location_id?: string
+          shipment_id?: string | null
+          shipment_item_id?: string | null
+          status?: string
+          tenant_id?: string
+          unit_cu_ft?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          volume_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_units_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_units_container_id_fkey"
+            columns: ["container_id"]
+            isOneToOne: false
+            referencedRelation: "containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_units_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_units_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_units_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -6134,6 +6313,8 @@ export type Database = {
       locations: {
         Row: {
           capacity: number | null
+          capacity_cu_ft: number | null
+          capacity_sq_ft: number | null
           code: string
           created_at: string
           current_utilization: number | null
@@ -6151,6 +6332,8 @@ export type Database = {
         }
         Insert: {
           capacity?: number | null
+          capacity_cu_ft?: number | null
+          capacity_sq_ft?: number | null
           code: string
           created_at?: string
           current_utilization?: number | null
@@ -6168,6 +6351,8 @@ export type Database = {
         }
         Update: {
           capacity?: number | null
+          capacity_cu_ft?: number | null
+          capacity_sq_ft?: number | null
           code?: string
           created_at?: string
           current_utilization?: number | null
@@ -13926,6 +14111,26 @@ export type Database = {
       }
       user_is_admin_dev: { Args: { p_user_id: string }; Returns: boolean }
       user_tenant_id: { Args: never; Returns: string }
+      generate_ic_code: {
+        Args: { p_tenant_id: string }
+        Returns: string
+      }
+      rpc_move_container: {
+        Args: { p_container_id: string; p_new_location_id: string }
+        Returns: Json
+      }
+      rpc_remove_unit_from_container: {
+        Args: { p_unit_id: string }
+        Returns: Json
+      }
+      rpc_add_unit_to_container: {
+        Args: { p_unit_id: string; p_container_id: string }
+        Returns: Json
+      }
+      rpc_get_location_capacity: {
+        Args: { p_location_id: string }
+        Returns: Json
+      }
       validate_movement_event: {
         Args: { p_destination_location_id: string; p_item_ids: string[] }
         Returns: Json
