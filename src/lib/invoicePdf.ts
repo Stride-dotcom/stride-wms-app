@@ -17,6 +17,9 @@ export interface InvoicePdfData {
   companyWebsite?: string;
   companyLogo?: string;
 
+  // Brand color (hex string, e.g. "#FD5A2A")
+  brandColor?: string;
+
   // Account (customer) info
   accountName: string;
   accountCode: string;
@@ -59,17 +62,42 @@ export interface InvoiceLineItem {
 }
 
 /**
+ * Parse a hex color string to RGB tuple
+ */
+function parseHexColor(hex: string | undefined, fallback: [number, number, number] = [220, 88, 42]): [number, number, number] {
+  if (!hex) return fallback;
+  const clean = hex.replace('#', '');
+  let r: number, g: number, b: number;
+
+  if (clean.length === 3) {
+    r = parseInt(clean[0] + clean[0], 16);
+    g = parseInt(clean[1] + clean[1], 16);
+    b = parseInt(clean[2] + clean[2], 16);
+  } else if (clean.length === 6) {
+    r = parseInt(clean.substring(0, 2), 16);
+    g = parseInt(clean.substring(2, 4), 16);
+    b = parseInt(clean.substring(4, 6), 16);
+  } else {
+    return fallback;
+  }
+
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return fallback;
+  return [r, g, b];
+}
+
+/**
  * Generate a professional PDF invoice
  */
-export function generateInvoicePdf(data: InvoicePdfData): jsPDF {
+export async function generateInvoicePdf(data: InvoicePdfData): Promise<jsPDF> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
   const margin = 20;
   const contentWidth = pageWidth - margin * 2;
   let y = margin;
 
-  // Colors
-  const primaryColor: [number, number, number] = [220, 88, 42]; // Orange accent (matches Stride WMS)
+  // Colors - use tenant brand color with fallback to orange
+  const primaryColor = parseHexColor(data.brandColor);
   const darkGray: [number, number, number] = [51, 51, 51];
   const lightGray: [number, number, number] = [128, 128, 128];
   const veryLightGray: [number, number, number] = [245, 245, 245];
@@ -90,13 +118,73 @@ export function generateInvoicePdf(data: InvoicePdfData): jsPDF {
     return currentY + 5;
   };
 
+  // Column widths for table (used in header rendering on new pages too)
+  const colWidths = {
+    service: 35,
+    description: 70,
+    qty: 20,
+    rate: 25,
+    total: contentWidth - 35 - 70 - 20 - 25,
+  };
+
+  const renderTableHeaders = (startY: number): number => {
+    doc.setFillColor(...veryLightGray);
+    doc.rect(margin, startY - 5, contentWidth, 10, 'F');
+    doc.setTextColor(...darkGray);
+    setFont(9, 'bold');
+    let tableX = margin;
+    doc.text('Service', tableX + 2, startY);
+    tableX += colWidths.service;
+    doc.text('Description', tableX + 2, startY);
+    tableX += colWidths.description;
+    doc.text('Qty', tableX + colWidths.qty - 2, startY, { align: 'right' });
+    tableX += colWidths.qty;
+    doc.text('Rate', tableX + colWidths.rate - 2, startY, { align: 'right' });
+    tableX += colWidths.rate;
+    doc.text('Total', tableX + colWidths.total - 2, startY, { align: 'right' });
+    return startY + 8;
+  };
+
   // ============ HEADER SECTION ============
 
-  // Company name (large, bold)
+  // Logo (if provided) - smart aspect-ratio-aware sizing
+  let companyNameX = margin;
+  if (data.companyLogo) {
+    try {
+      const logoDims = await new Promise<{ w: number; h: number }>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxW = 20;
+          const maxH = 16;
+          const ratio = img.naturalWidth / img.naturalHeight;
+          let w: number, h: number;
+          if (ratio > maxW / maxH) {
+            w = maxW; h = maxW / ratio;
+          } else {
+            h = maxH; w = maxH * ratio;
+          }
+          resolve({ w, h });
+        };
+        img.onerror = () => reject(new Error('Logo failed to load'));
+        img.src = data.companyLogo!;
+      });
+      doc.addImage(data.companyLogo, 'JPEG', margin, y - 2, logoDims.w, logoDims.h);
+      companyNameX = margin + logoDims.w + 4;
+    } catch {
+      // Logo failed to load, skip it
+    }
+  }
+
+  // Company name (16pt bold) side-by-side with logo
   doc.setTextColor(...darkGray);
-  setFont(24, 'bold');
-  y = addText(data.companyName, margin, y);
-  y += 2;
+  setFont(16, 'bold');
+  doc.text(data.companyName, companyNameX, y + 4);
+  // "WMS" badge in brand color
+  const companyNameWidth = doc.getTextWidth(data.companyName);
+  doc.setTextColor(...primaryColor);
+  setFont(16, 'bold');
+  doc.text('WMS', companyNameX + companyNameWidth + 3, y + 4);
+  y += 10;
 
   // Company contact info (smaller, gray)
   doc.setTextColor(...lightGray);
@@ -116,21 +204,21 @@ export function generateInvoicePdf(data: InvoicePdfData): jsPDF {
 
   // INVOICE title on the right
   doc.setTextColor(...primaryColor);
-  setFont(28, 'bold');
-  doc.text('INVOICE', pageWidth - margin, margin + 5, { align: 'right' });
+  setFont(20, 'bold');
+  doc.text('INVOICE', pageWidth - margin, margin + 3, { align: 'right' });
 
   // Invoice number below
   doc.setTextColor(...darkGray);
-  setFont(10, 'normal');
-  doc.text(`#${data.invoiceNumber}`, pageWidth - margin, margin + 14, { align: 'right' });
+  setFont(9, 'normal');
+  doc.text(`#${data.invoiceNumber}`, pageWidth - margin, margin + 10, { align: 'right' });
 
-  y += 10;
+  y += 4;
 
   // ============ DIVIDER LINE ============
   doc.setDrawColor(...primaryColor);
   doc.setLineWidth(1);
   doc.line(margin, y, pageWidth - margin, y);
-  y += 10;
+  y += 6;
 
   // ============ BILLING INFO SECTION ============
 
@@ -214,42 +302,17 @@ export function generateInvoicePdf(data: InvoicePdfData): jsPDF {
 
   // ============ LINE ITEMS TABLE ============
 
-  // Table header background
-  doc.setFillColor(...veryLightGray);
-  doc.rect(margin, y - 5, contentWidth, 10, 'F');
-
-  // Table headers
-  doc.setTextColor(...darkGray);
-  setFont(9, 'bold');
-  const colWidths = {
-    service: 35,
-    description: 70,
-    qty: 20,
-    rate: 25,
-    total: contentWidth - 35 - 70 - 20 - 25,
-  };
-
-  let tableX = margin;
-  doc.text('Service', tableX + 2, y);
-  tableX += colWidths.service;
-  doc.text('Description', tableX + 2, y);
-  tableX += colWidths.description;
-  doc.text('Qty', tableX + colWidths.qty - 2, y, { align: 'right' });
-  tableX += colWidths.qty;
-  doc.text('Rate', tableX + colWidths.rate - 2, y, { align: 'right' });
-  tableX += colWidths.rate;
-  doc.text('Total', tableX + colWidths.total - 2, y, { align: 'right' });
-
-  y += 8;
+  y = renderTableHeaders(y);
 
   // Table rows
   setFont(9, 'normal');
   let rowCount = 0;
   for (const line of data.lines) {
     // Check if we need a new page
-    if (y > doc.internal.pageSize.height - 60) {
+    if (y > pageHeight - 25) {
       doc.addPage();
       y = margin;
+      y = renderTableHeaders(y);
     }
 
     // Alternating row background
@@ -258,7 +321,7 @@ export function generateInvoicePdf(data: InvoicePdfData): jsPDF {
       doc.rect(margin, y - 4, contentWidth, 8, 'F');
     }
 
-    tableX = margin;
+    let tableX = margin;
     doc.setTextColor(...darkGray);
     doc.text(line.serviceCode || '-', tableX + 2, y);
     tableX += colWidths.service;
@@ -332,7 +395,7 @@ export function generateInvoicePdf(data: InvoicePdfData): jsPDF {
 
   if (data.notes || data.paymentTerms) {
     // Check if we need a new page
-    if (y > doc.internal.pageSize.height - 40) {
+    if (y > pageHeight - 40) {
       doc.addPage();
       y = margin;
     }
@@ -366,11 +429,11 @@ export function generateInvoicePdf(data: InvoicePdfData): jsPDF {
 
   // ============ FOOTER ============
 
-  const footerY = doc.internal.pageSize.height - 15;
+  const footerY = pageHeight - 12;
   doc.setTextColor(...lightGray);
-  setFont(8, 'normal');
+  setFont(7, 'normal');
   doc.text('Thank you for your business!', pageWidth / 2, footerY, { align: 'center' });
-  doc.text(`Generated by ${data.companyName}`, pageWidth / 2, footerY + 5, { align: 'center' });
+  doc.text(`Generated by ${data.companyName}`, pageWidth / 2, footerY + 4, { align: 'center' });
 
   return doc;
 }
@@ -409,16 +472,16 @@ function formatInvoiceType(type: string): string {
 /**
  * Download the PDF
  */
-export function downloadInvoicePdf(data: InvoicePdfData): void {
-  const doc = generateInvoicePdf(data);
+export async function downloadInvoicePdf(data: InvoicePdfData): Promise<void> {
+  const doc = await generateInvoicePdf(data);
   doc.save(`Invoice_${data.invoiceNumber}.pdf`);
 }
 
 /**
  * Open PDF in new tab for printing
  */
-export function printInvoicePdf(data: InvoicePdfData): void {
-  const doc = generateInvoicePdf(data);
+export async function printInvoicePdf(data: InvoicePdfData): Promise<void> {
+  const doc = await generateInvoicePdf(data);
   const pdfUrl = doc.output('bloburl');
   window.open(pdfUrl.toString(), '_blank');
 }

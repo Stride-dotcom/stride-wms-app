@@ -41,6 +41,7 @@ interface TenantCompanySettings {
   company_email: string | null;
   company_website: string | null;
   logo_url: string | null;
+  brand_color?: string | null;
 }
 
 interface Sidemark {
@@ -143,16 +144,26 @@ export function RevenueLedgerTab() {
     loadAccounts();
   }, [profile?.tenant_id]);
 
-  // Load tenant company settings
+  // Load tenant company settings + brand color
   useEffect(() => {
     async function loadTenantSettings() {
       if (!profile?.tenant_id) return;
-      const { data } = await supabase
-        .from("tenant_company_settings")
-        .select("company_name, company_address, company_phone, company_email, company_website, logo_url")
-        .eq("tenant_id", profile.tenant_id)
-        .maybeSingle();
-      setTenantSettings(data);
+      const [settingsRes, brandRes] = await Promise.all([
+        supabase
+          .from("tenant_company_settings")
+          .select("company_name, company_address, company_phone, company_email, company_website, logo_url")
+          .eq("tenant_id", profile.tenant_id)
+          .maybeSingle(),
+        supabase
+          .from("communication_brand_settings")
+          .select("brand_primary_color")
+          .eq("tenant_id", profile.tenant_id)
+          .maybeSingle(),
+      ]);
+      setTenantSettings({
+        ...settingsRes.data,
+        brand_color: brandRes.data?.brand_primary_color || null,
+      } as TenantCompanySettings);
     }
     loadTenantSettings();
   }, [profile?.tenant_id]);
@@ -627,6 +638,7 @@ export function RevenueLedgerTab() {
       companyEmail: tenantSettings?.company_email || undefined,
       companyWebsite: tenantSettings?.company_website || undefined,
       companyLogo: tenantSettings?.logo_url || undefined,
+      brandColor: tenantSettings?.brand_color || undefined,
 
       accountName: account.account_name,
       accountCode: account.account_code,
@@ -656,20 +668,20 @@ export function RevenueLedgerTab() {
     };
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (!selectedInvoice) return;
     const pdfData = buildPdfData(selectedInvoice, sortedLines);
     if (pdfData) {
-      downloadInvoicePdf(pdfData);
+      await downloadInvoicePdf(pdfData);
       toast({ title: "PDF Downloaded", description: `Invoice ${selectedInvoice.invoice_number} downloaded.` });
     }
   };
 
-  const handlePrintPdf = () => {
+  const handlePrintPdf = async () => {
     if (!selectedInvoice) return;
     const pdfData = buildPdfData(selectedInvoice, sortedLines);
     if (pdfData) {
-      printInvoicePdf(pdfData);
+      await printInvoicePdf(pdfData);
     }
   };
 

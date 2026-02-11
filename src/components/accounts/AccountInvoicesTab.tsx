@@ -11,6 +11,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { downloadInvoicePdf, InvoicePdfData } from '@/lib/invoicePdf';
 
+interface BrandInfo {
+  brand_color: string | null;
+}
+
 interface AccountInvoicesTabProps {
   accountId: string;
   accountName: string;
@@ -47,6 +51,7 @@ export function AccountInvoicesTab({ accountId, accountName }: AccountInvoicesTa
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [brandInfo, setBrandInfo] = useState<BrandInfo>({ brand_color: null });
 
   const loadInvoices = useCallback(async () => {
     if (!profile?.tenant_id) {
@@ -70,7 +75,18 @@ export function AccountInvoicesTab({ accountId, accountName }: AccountInvoicesTa
 
   useEffect(() => {
     loadInvoices();
-  }, [loadInvoices]);
+    // Load brand color
+    if (profile?.tenant_id) {
+      supabase
+        .from('communication_brand_settings')
+        .select('brand_primary_color')
+        .eq('tenant_id', profile.tenant_id)
+        .maybeSingle()
+        .then(({ data }) => {
+          setBrandInfo({ brand_color: data?.brand_primary_color || null });
+        });
+    }
+  }, [loadInvoices, profile?.tenant_id]);
 
   const filteredInvoices = useMemo(() => {
     if (statusFilter === 'all') return invoices;
@@ -113,6 +129,7 @@ export function AccountInvoicesTab({ accountId, accountName }: AccountInvoicesTa
         companyName: 'Stride Warehouse',
         accountName: accountName,
         accountCode: '',
+        brandColor: brandInfo.brand_color || undefined,
         lines: (lines || []).map((l: InvoiceLine) => ({
           date: l.occurred_at?.slice(0, 10) || '',
           description: l.description || l.charge_type || '',
@@ -126,7 +143,7 @@ export function AccountInvoicesTab({ accountId, accountName }: AccountInvoicesTa
         subtotal: invoice.total_amount || 0,
         total: invoice.total_amount || 0,
       };
-      downloadInvoicePdf(pdfData);
+      await downloadInvoicePdf(pdfData);
     } catch (err) {
       console.error('Error downloading invoice:', err);
       toast({ title: 'Error downloading invoice', variant: 'destructive' });

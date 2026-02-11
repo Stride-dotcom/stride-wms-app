@@ -98,14 +98,14 @@ export function InvoiceDetailDialog({
   const handleDownloadPdf = async () => {
     const pdfData = await generatePdfData();
     if (pdfData) {
-      downloadInvoicePdf(pdfData);
+      await downloadInvoicePdf(pdfData);
     }
   };
 
   const handlePrintPdf = async () => {
     const pdfData = await generatePdfData();
     if (pdfData) {
-      printInvoicePdf(pdfData);
+      await printInvoicePdf(pdfData);
     }
   };
 

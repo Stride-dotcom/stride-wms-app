@@ -30,6 +30,7 @@ interface TenantCompanySettings {
   company_phone: string | null;
   company_email: string | null;
   logo_url: string | null;
+  brand_color?: string | null;
 }
 
 interface InvoiceWithDetails extends Invoice {
@@ -124,13 +125,23 @@ export function SavedInvoicesTab() {
   const loadTenantSettings = useCallback(async () => {
     if (!profile?.tenant_id) return;
 
-    const { data } = await supabase
-      .from('tenant_company_settings')
-      .select('company_name, company_address, company_phone, company_email, logo_url')
-      .eq('tenant_id', profile.tenant_id)
-      .maybeSingle();
+    const [settingsRes, brandRes] = await Promise.all([
+      supabase
+        .from('tenant_company_settings')
+        .select('company_name, company_address, company_phone, company_email, logo_url')
+        .eq('tenant_id', profile.tenant_id)
+        .maybeSingle(),
+      supabase
+        .from('communication_brand_settings')
+        .select('brand_primary_color')
+        .eq('tenant_id', profile.tenant_id)
+        .maybeSingle(),
+    ]);
 
-    setTenantSettings(data);
+    setTenantSettings({
+      ...settingsRes.data,
+      brand_color: brandRes.data?.brand_primary_color || null,
+    } as TenantCompanySettings);
   }, [profile?.tenant_id]);
 
   useEffect(() => {
@@ -359,6 +370,7 @@ export function SavedInvoicesTab() {
       companyPhone: tenantSettings?.company_phone || '',
       companyEmail: tenantSettings?.company_email || '',
       companyLogo: tenantSettings?.logo_url || undefined,
+      brandColor: tenantSettings?.brand_color || undefined,
       lines: lines.map(l => ({
         date: (l.occurred_at as string)?.slice(0, 10) || '',
         description: (l.description as string) || (l.charge_type as string) || '',
@@ -375,7 +387,7 @@ export function SavedInvoicesTab() {
       notes: invoice.notes || '',
     };
 
-    downloadInvoicePdf(pdfData);
+    await downloadInvoicePdf(pdfData);
   };
 
   const handleVoidInvoice = async (invoice: InvoiceWithDetails) => {
