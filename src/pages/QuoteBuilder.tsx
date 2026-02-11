@@ -47,7 +47,9 @@ import {
   ClassServiceSelection,
 } from '@/lib/quotes/types';
 import { calculateQuote, formatCurrency, computeStorageDays } from '@/lib/quotes/calculator';
-import { downloadQuotePdf, exportQuoteToExcel, transformQuoteToPdfData } from '@/lib/quotes/export';
+import { downloadQuotePdf, exportQuoteToExcel, transformQuoteToPdfData, QuotePdfData } from '@/lib/quotes/export';
+import { useTenantSettings } from '@/hooks/useTenantSettings';
+import { useCommunications } from '@/hooks/useCommunications';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,6 +75,8 @@ export default function QuoteBuilder() {
   const { services, classBasedServices, nonClassBasedServices, loading: servicesLoading } = useQuoteServices();
   const { rates, loading: ratesLoading } = useQuoteServiceRates();
   const { accounts } = useAccounts();
+  const { settings: tenantSettings } = useTenantSettings();
+  const { brandSettings } = useCommunications();
 
   // Edit lock
   const { lock, lockedByOther, acquireLock } = useEditLock('quote', isNew ? null : id);
@@ -530,93 +534,164 @@ export default function QuoteBuilder() {
     setShowDiscountDialog(false);
   };
 
+  // Build per-class service lines from calculation engine data
+  const buildServiceLines = (): QuotePdfData['serviceLines'] => {
+    if (!calculation) return [];
+    const lines: QuotePdfData['serviceLines'] = [];
+
+    // Process each service total from the calculation engine
+    for (const st of calculation.service_totals) {
+      const service = services.find((s) => s.id === st.service_id);
+      if (!service) continue;
+
+      // Check if this service has per-class selections
+      const classSelections = formData.class_service_selections.filter(
+        (css) => css.service_id === st.service_id && css.is_selected && (css.qty_override ?? 0) > 0
+      );
+
+      // Also check if it's a class-based service from selectedServices (per_piece/per_class/per_day storage)
+      const isClassBased = service.billing_unit === 'per_piece' || service.billing_unit === 'per_class' ||
+        (service.billing_unit === 'per_day' && service.is_storage_service);
+      const hasClassRates = rates.some((r) => r.service_id === st.service_id && r.class_id !== null);
+      const isSelectedService = formData.selected_services.some(
+        (ss) => ss.service_id === st.service_id && ss.is_selected
+      );
+
+      if (classSelections.length > 0) {
+        // Class-based service selections: one row per class
+        const storageDays = calculation.storage_days;
+        for (const css of classSelections) {
+          const cls = classes.find((c) => c.id === css.class_id);
+          const rate = getApplicableRateForExport(st.service_id, css.class_id);
+          const qty = css.qty_override ?? 0;
+          const lineTotal = service.is_storage_service && service.billing_unit === 'per_day'
+            ? qty * storageDays * rate
+            : qty * rate;
+
+          lines.push({
+            serviceName: st.service_name,
+            category: st.category,
+            className: cls?.name || '-',
+            billingUnit: st.billing_unit,
+            rate,
+            quantity: qty,
+            lineTotal,
+            isTaxable: true,
+          });
+        }
+      } else if (isSelectedService && isClassBased && hasClassRates) {
+        // Selected service with class-specific rates: break out per class
+        const storageDays = calculation.storage_days;
+        for (const classLine of formData.class_lines) {
+          if ((classLine.qty || 0) <= 0) continue;
+          const cls = classes.find((c) => c.id === classLine.class_id);
+          const rate = getApplicableRateForExport(st.service_id, classLine.class_id);
+          const qty = classLine.qty;
+          const lineTotal = service.is_storage_service && service.billing_unit === 'per_day'
+            ? qty * storageDays * rate
+            : qty * rate;
+
+          lines.push({
+            serviceName: st.service_name,
+            category: st.category,
+            className: cls?.name || '-',
+            billingUnit: st.billing_unit,
+            rate,
+            quantity: qty,
+            lineTotal,
+            isTaxable: true,
+          });
+        }
+      } else {
+        // Non-class service: single aggregated row
+        lines.push({
+          serviceName: st.service_name,
+          category: st.category,
+          className: undefined,
+          billingUnit: st.billing_unit,
+          rate: st.rate,
+          quantity: st.billable_qty,
+          lineTotal: st.total,
+          isTaxable: true,
+        });
+      }
+    }
+
+    return lines;
+  };
+
+  // Helper to get rate for a service/class combo (mirrors calculator logic)
+  const getApplicableRateForExport = (serviceId: string, classId: string | null): number => {
+    // Check overrides first
+    const override = formData.rate_overrides.find(
+      (o) => o.service_id === serviceId && (o.class_id === classId || o.class_id === null)
+    );
+    if (override) return override.override_rate_amount;
+
+    // Try class-specific rate
+    if (classId) {
+      const classRate = rates.find(
+        (r) => r.service_id === serviceId && r.class_id === classId && r.is_current
+      );
+      if (classRate) return classRate.rate_amount;
+    }
+
+    // Fall back to default rate
+    const defaultRate = rates.find(
+      (r) => r.service_id === serviceId && r.class_id === null && r.is_current
+    );
+    return defaultRate?.rate_amount ?? 0;
+  };
+
+  // Build common export data
+  const buildExportData = (): QuotePdfData | null => {
+    if (!quote) return null;
+
+    return transformQuoteToPdfData(
+      {
+        ...quote,
+        quote_class_lines: quote.class_lines.map((line) => ({
+          ...line,
+          id: line.class_id,
+          quote_id: quote.id,
+          class_id: line.class_id,
+          quantity: line.qty,
+          rate_amount: 0,
+          line_total: 0,
+          created_at: quote.created_at,
+          quote_class: classes.find((c) => c.id === line.class_id),
+        })),
+      },
+      {
+        serviceLines: buildServiceLines(),
+        brandColor: brandSettings?.brand_primary_color,
+        companyLogo: tenantSettings?.logo_url || undefined,
+        companyWebsite: tenantSettings?.company_website || undefined,
+      }
+    );
+  };
+
   // Export to PDF
   const handleExportPdf = () => {
-    if (!quote) return;
-
-    const pdfData = transformQuoteToPdfData({
-      ...quote,
-      quote_class_lines: quote.class_lines.map((line) => ({
-        ...line,
-        id: line.class_id,
-        quote_id: quote.id,
-        class_id: line.class_id,
-        quantity: line.qty,
-        rate_amount: 0,
-        line_total: 0,
-        created_at: quote.created_at,
-        quote_class: classes.find((c) => c.id === line.class_id),
-      })),
-      quote_selected_services: quote.selected_services
-        .filter((ss) => ss.is_selected)
-        .map((ss) => {
-          const service = services.find((s) => s.id === ss.service_id);
-          const serviceTotal = calculation?.service_totals.find((st) => st.service_id === ss.service_id);
-          return {
-            id: ss.service_id,
-            quote_id: quote.id,
-            service_id: ss.service_id,
-            is_selected: ss.is_selected,
-            hours_input: ss.hours_input,
-            computed_billable_qty: serviceTotal?.billable_qty || 1,
-            applied_rate_amount: serviceTotal?.rate || 0,
-            line_total: serviceTotal?.total || 0,
-            created_at: quote.created_at,
-            updated_at: quote.updated_at,
-            quote_service: service,
-          };
-        }) as any,
-    });
+    const pdfData = buildExportData();
+    if (!pdfData) return;
 
     downloadQuotePdf(pdfData);
     toast({
       title: 'PDF Downloaded',
-      description: `Quote ${quote.quote_number} has been downloaded as PDF.`,
+      description: `Quote ${quote!.quote_number} has been downloaded as PDF.`,
     });
   };
 
   // Export to Excel
   const handleExportExcel = () => {
-    if (!quote) return;
-
-    const pdfData = transformQuoteToPdfData({
-      ...quote,
-      quote_class_lines: quote.class_lines.map((line) => ({
-        ...line,
-        id: line.class_id,
-        quote_id: quote.id,
-        class_id: line.class_id,
-        quantity: line.qty,
-        rate_amount: 0,
-        line_total: 0,
-        created_at: quote.created_at,
-        quote_class: classes.find((c) => c.id === line.class_id),
-      })),
-      quote_selected_services: quote.selected_services
-        .filter((ss) => ss.is_selected)
-        .map((ss) => {
-          const service = services.find((s) => s.id === ss.service_id);
-          const serviceTotal = calculation?.service_totals.find((st) => st.service_id === ss.service_id);
-          return {
-            id: ss.service_id,
-            quote_id: quote.id,
-            service_id: ss.service_id,
-            is_selected: ss.is_selected,
-            hours_input: ss.hours_input,
-            computed_billable_qty: serviceTotal?.billable_qty || 1,
-            applied_rate_amount: serviceTotal?.rate || 0,
-            line_total: serviceTotal?.total || 0,
-            created_at: quote.created_at,
-            updated_at: quote.updated_at,
-            quote_service: service,
-          };
-        }) as any,
-    });
+    const pdfData = buildExportData();
+    if (!pdfData) return;
 
     exportQuoteToExcel(pdfData);
     toast({
       title: 'Excel Downloaded',
-      description: `Quote ${quote.quote_number} has been downloaded as Excel.`,
+      description: `Quote ${quote!.quote_number} has been downloaded as Excel.`,
     });
   };
 
