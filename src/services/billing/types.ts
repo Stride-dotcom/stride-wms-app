@@ -117,7 +117,7 @@ export interface RawBillingEventPayload {
   description?: string | null;
   quantity: number;
   unit_rate: number;
-  total_amount: number;
+  total_amount?: number;
   status?: string;
   occurred_at?: string;
   metadata?: Record<string, any>;
