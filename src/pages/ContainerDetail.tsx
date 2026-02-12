@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -30,15 +31,29 @@ import {
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { HelpTip } from '@/components/ui/help-tip';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { ScanToContainerDialog } from '@/components/containers/ScanToContainerDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useContainerUnits } from '@/hooks/useContainerUnits';
 import { useContainerActions } from '@/hooks/useContainerActions';
+import { useContainers } from '@/hooks/useContainers';
 import { useLocations } from '@/hooks/useLocations';
 import type { Database } from '@/integrations/supabase/types';
 
 type ContainerRow = Database['public']['Tables']['containers']['Row'];
+
+interface UnitWithDescription {
+  id: string;
+  ic_code: string;
+  status: string;
+  class: string | null;
+  unit_cu_ft: number | null;
+  dims_l: number | null;
+  dims_w: number | null;
+  dims_h: number | null;
+  description: string | null;
+}
 
 export default function ContainerDetail() {
   const { id } = useParams<{ id: string }>();
@@ -50,9 +65,15 @@ export default function ContainerDetail() {
   const [pageLoading, setPageLoading] = useState(true);
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
+  const [scanDialogOpen, setScanDialogOpen] = useState(false);
+  const [editingFootprint, setEditingFootprint] = useState(false);
+  const [footprintValue, setFootprintValue] = useState<string>('');
+  const [savingFootprint, setSavingFootprint] = useState(false);
+  const [unitsWithDesc, setUnitsWithDesc] = useState<UnitWithDescription[]>([]);
 
   const { units, loading: unitsLoading, refetch: refetchUnits } = useContainerUnits(id);
   const { moveContainer, removeUnitFromContainer, loading: actionLoading } = useContainerActions();
+  const { updateContainer } = useContainers();
   const { locations } = useLocations();
 
   useEffect(() => {
@@ -60,6 +81,88 @@ export default function ContainerDetail() {
       fetchContainer(id);
     }
   }, [id]);
+
+  // Fetch units with descriptions from shipment_items
+  useEffect(() => {
+    if (units.length > 0) {
+      fetchUnitsWithDescriptions();
+    } else {
+      setUnitsWithDesc([]);
+    }
+  }, [units]);
+
+  const fetchUnitsWithDescriptions = async () => {
+    try {
+      const unitIds = units.map((u) => u.id);
+      const { data, error } = await supabase
+        .from('inventory_units')
+        .select(`
+          id, ic_code, status, class, unit_cu_ft, dims_l, dims_w, dims_h,
+          shipment_items!inventory_units_shipment_item_id_fkey(expected_description)
+        `)
+        .in('id', unitIds)
+        .order('ic_code');
+
+      if (error) {
+        // Fallback without join
+        setUnitsWithDesc(
+          units.map((u) => ({
+            id: u.id,
+            ic_code: u.ic_code,
+            status: u.status,
+            class: u.class,
+            unit_cu_ft: u.unit_cu_ft,
+            dims_l: u.dims_l,
+            dims_w: u.dims_w,
+            dims_h: u.dims_h,
+            description: null,
+          }))
+        );
+        return;
+      }
+
+      const mapped: UnitWithDescription[] = (data || []).map((row) => {
+        const si = (row as Record<string, unknown>).shipment_items as {
+          expected_description: string | null;
+        } | null;
+        return {
+          id: row.id,
+          ic_code: row.ic_code,
+          status: row.status,
+          class: row.class,
+          unit_cu_ft: row.unit_cu_ft,
+          dims_l: row.dims_l,
+          dims_w: row.dims_w,
+          dims_h: row.dims_h,
+          description: si?.expected_description || null,
+        };
+      });
+
+      // Sort by IC code numeric
+      mapped.sort((a, b) => {
+        const numA = parseInt(a.ic_code.replace(/\D/g, ''), 10) || 0;
+        const numB = parseInt(b.ic_code.replace(/\D/g, ''), 10) || 0;
+        return numA - numB;
+      });
+
+      setUnitsWithDesc(mapped);
+    } catch (error) {
+      console.error('Error fetching unit descriptions:', error);
+      setUnitsWithDesc(
+        units.map((u) => ({
+          id: u.id,
+          ic_code: u.ic_code,
+          status: u.status,
+          class: u.class,
+          unit_cu_ft: u.unit_cu_ft,
+          dims_l: u.dims_l,
+          dims_w: u.dims_w,
+          dims_h: u.dims_h,
+          description: null,
+        }))
+      );
+    }
+  };
 
   const fetchContainer = async (containerId: string) => {
     try {
@@ -72,6 +175,7 @@ export default function ContainerDetail() {
 
       if (error) throw error;
       setContainer(data);
+      setFootprintValue(data.footprint_cu_ft != null ? String(data.footprint_cu_ft) : '');
 
       // Fetch location code
       if (data.location_id) {
@@ -102,7 +206,6 @@ export default function ContainerDetail() {
     if (result) {
       setMoveDialogOpen(false);
       setSelectedLocationId('');
-      // Refresh container and units
       fetchContainer(container.id);
       refetchUnits();
     }
@@ -141,6 +244,26 @@ export default function ContainerDetail() {
     }
   };
 
+  const handleSaveFootprint = async () => {
+    if (!container) return;
+    setSavingFootprint(true);
+    try {
+      const value = footprintValue.trim() ? Number(footprintValue) : null;
+      const result = await updateContainer(container.id, { footprint_cu_ft: value });
+      if (result) {
+        setContainer((prev) => prev ? { ...prev, footprint_cu_ft: value } : prev);
+        setEditingFootprint(false);
+      }
+    } finally {
+      setSavingFootprint(false);
+    }
+  };
+
+  const handleRefreshAll = () => {
+    refetchUnits();
+    if (id) fetchContainer(id);
+  };
+
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
       active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
@@ -177,7 +300,7 @@ export default function ContainerDetail() {
     );
   }
 
-  const totalVolume = units.reduce((sum, u) => sum + (u.unit_cu_ft || 0), 0);
+  const totalVolume = unitsWithDesc.reduce((sum, u) => sum + (u.unit_cu_ft || 0), 0);
 
   return (
     <DashboardLayout>
@@ -242,7 +365,7 @@ export default function ContainerDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="font-medium">{units.length} unit{units.length !== 1 ? 's' : ''}</p>
+              <p className="font-medium">{unitsWithDesc.length} unit{unitsWithDesc.length !== 1 ? 's' : ''}</p>
               {totalVolume > 0 && (
                 <p className="text-xs text-muted-foreground">{totalVolume.toFixed(1)} cu ft total</p>
               )}
@@ -251,15 +374,67 @@ export default function ContainerDetail() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground">
-                <HelpTip tooltip="The physical footprint volume of the container itself, used in bounded footprint capacity calculations.">
+                <HelpTip tooltip="The physical footprint volume of the container itself, used in bounded footprint capacity calculations. Click the edit icon to update.">
                   Footprint
                 </HelpTip>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="font-medium">
-                {container.footprint_cu_ft != null ? `${container.footprint_cu_ft} cu ft` : 'Not set'}
-              </p>
+              {editingFootprint ? (
+                <div className="flex gap-2 items-center">
+                  <Input
+                    type="number"
+                    step="0.1"
+                    placeholder="cu ft"
+                    value={footprintValue}
+                    onChange={(e) => setFootprintValue(e.target.value)}
+                    className="w-24 h-8 text-sm"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveFootprint();
+                      if (e.key === 'Escape') {
+                        setEditingFootprint(false);
+                        setFootprintValue(container.footprint_cu_ft != null ? String(container.footprint_cu_ft) : '');
+                      }
+                    }}
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    onClick={handleSaveFootprint}
+                    disabled={savingFootprint}
+                  >
+                    <MaterialIcon name="check" size="sm" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    onClick={() => {
+                      setEditingFootprint(false);
+                      setFootprintValue(container.footprint_cu_ft != null ? String(container.footprint_cu_ft) : '');
+                    }}
+                  >
+                    <MaterialIcon name="close" size="sm" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">
+                    {container.footprint_cu_ft != null ? `${container.footprint_cu_ft} cu ft` : 'Not set'}
+                  </p>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    onClick={() => setEditingFootprint(true)}
+                    title="Edit footprint"
+                  >
+                    <MaterialIcon name="edit" size="sm" />
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -273,6 +448,14 @@ export default function ContainerDetail() {
           >
             <MaterialIcon name="move_item" size="sm" className="mr-2" />
             Move Container
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setScanDialogOpen(true)}
+            disabled={container.status === 'archived'}
+          >
+            <MaterialIcon name="qr_code_scanner" size="sm" className="mr-2" />
+            Scan Units Into Container
           </Button>
           {container.status === 'active' && (
             <Button variant="outline" onClick={handleCloseContainer}>
@@ -291,7 +474,7 @@ export default function ContainerDetail() {
               </HelpTip>
             </CardTitle>
             <CardDescription>
-              {units.length} unit{units.length !== 1 ? 's' : ''} in this container
+              {unitsWithDesc.length} unit{unitsWithDesc.length !== 1 ? 's' : ''} in this container
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -299,7 +482,7 @@ export default function ContainerDetail() {
               <div className="flex items-center justify-center h-24">
                 <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-muted-foreground" />
               </div>
-            ) : units.length === 0 ? (
+            ) : unitsWithDesc.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
                 This container is empty.
               </p>
@@ -308,6 +491,7 @@ export default function ContainerDetail() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>IC Code</TableHead>
+                    <TableHead>Description</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Class</TableHead>
                     <TableHead>Volume</TableHead>
@@ -316,12 +500,15 @@ export default function ContainerDetail() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {units.map((unit) => (
+                  {unitsWithDesc.map((unit) => (
                     <TableRow key={unit.id}>
                       <TableCell className="font-medium">
                         <code className="text-sm bg-muted px-1.5 py-0.5 rounded">
                           {unit.ic_code}
                         </code>
+                      </TableCell>
+                      <TableCell className="text-sm max-w-[200px] truncate">
+                        {unit.description || '—'}
                       </TableCell>
                       <TableCell>
                         <StatusIndicator status={unit.status} size="sm" />
@@ -363,7 +550,7 @@ export default function ContainerDetail() {
             <DialogTitle>Move Container</DialogTitle>
             <DialogDescription>
               Select a new location for container <strong>{container.container_code}</strong>.
-              All {units.length} unit{units.length !== 1 ? 's' : ''} inside will be moved automatically.
+              All {unitsWithDesc.length} unit{unitsWithDesc.length !== 1 ? 's' : ''} inside will be moved automatically.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -398,6 +585,15 @@ export default function ContainerDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Scan to Container Dialog */}
+      <ScanToContainerDialog
+        open={scanDialogOpen}
+        onOpenChange={setScanDialogOpen}
+        containerId={container.id}
+        containerCode={container.container_code}
+        onSuccess={handleRefreshAll}
+      />
     </DashboardLayout>
   );
 }

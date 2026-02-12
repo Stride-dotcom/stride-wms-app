@@ -115,6 +115,7 @@ interface BillingCalculatorProps {
 
   // Context details
   taskType?: string;
+  taskTypeId?: string;
   shipmentDirection?: 'inbound' | 'outbound' | 'return';
 
   // Service line preview (NEW - takes precedence over legacy task billing preview)
@@ -142,6 +143,7 @@ export function BillingCalculator({
   itemId,
   accountId,
   taskType,
+  taskTypeId,
   shipmentDirection = 'inbound',
   serviceLinePreview,
   refreshKey = 0,
@@ -297,12 +299,19 @@ export function BillingCalculator({
         let effectiveServiceCode: string | null = null;
         let requiresManualRate = false;
 
-        const { data: taskTypeData } = await (supabase
-          .from('task_types') as any)
-          .select('category_id, primary_service_code, default_service_code, requires_manual_rate')
-          .eq('tenant_id', profile.tenant_id)
-          .eq('name', taskType)
-          .maybeSingle();
+        // Query by task_type_id (precise) if available, otherwise fall back to name
+        let taskTypeQuery = (supabase.from('task_types') as any)
+          .select('category_id, primary_service_code, default_service_code, requires_manual_rate');
+
+        if (taskTypeId) {
+          taskTypeQuery = taskTypeQuery.eq('id', taskTypeId);
+        } else {
+          taskTypeQuery = taskTypeQuery
+            .eq('tenant_id', profile.tenant_id)
+            .eq('name', taskType);
+        }
+
+        const { data: taskTypeData } = await taskTypeQuery.maybeSingle();
 
         if (taskTypeData) {
           categoryId = taskTypeData.category_id;

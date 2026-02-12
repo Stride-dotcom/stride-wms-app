@@ -668,6 +668,7 @@ export default function QuoteBuilder() {
         brandColor: brandSettings?.brand_primary_color,
         companyLogo: tenantSettings?.logo_url || undefined,
         companyWebsite: tenantSettings?.company_website || undefined,
+        companyName: tenantSettings?.company_name || undefined,
       }
     );
   };

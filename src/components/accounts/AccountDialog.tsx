@@ -642,7 +642,7 @@ export function AccountDialog({
                           <FormItem>
                             <FormLabel>Client Account Name *</FormLabel>
                             <FormControl>
-                              <Input placeholder="Alchemy Collections" {...field} />
+                              <Input placeholder="Account Name" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

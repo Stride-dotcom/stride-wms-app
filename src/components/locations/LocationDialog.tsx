@@ -43,10 +43,12 @@ import { Location } from '@/hooks/useLocations';
 const locationSchema = z.object({
   code: z.string().min(1, 'Code is required').max(50).regex(/^[A-Z0-9_-]+$/i, 'Code must be alphanumeric with dashes or underscores'),
   name: z.string().optional(),
-  type: z.enum(['zone', 'aisle', 'bay', 'bin', 'shelf', 'release']),
+  type: z.enum(['zone', 'aisle', 'bay', 'bin', 'shelf', 'release', 'dock']),
   warehouse_id: z.string().min(1, 'Warehouse is required'),
   parent_location_id: z.string().optional(),
   capacity: z.number().optional(),
+  capacity_sq_ft: z.number().optional(),
+  capacity_cu_ft: z.number().optional(),
   status: z.enum(['active', 'inactive', 'full']),
 });
 
@@ -68,6 +70,7 @@ const LOCATION_TYPES = [
   { value: 'bay', label: 'Bay', description: 'Section of an aisle' },
   { value: 'shelf', label: 'Shelf', description: 'Individual shelf level' },
   { value: 'bin', label: 'Bin', description: 'Specific storage location' },
+  { value: 'dock', label: 'Dock', description: 'Receiving or shipping dock' },
   { value: 'release', label: 'Release', description: 'Items moved here are automatically released' },
 ];
 
@@ -115,6 +118,8 @@ export function LocationDialog({
       warehouse_id: defaultWarehouseId || '',
       parent_location_id: 'none',
       capacity: undefined,
+      capacity_sq_ft: undefined,
+      capacity_cu_ft: undefined,
       status: 'active',
     },
   });
@@ -161,6 +166,8 @@ export function LocationDialog({
         warehouse_id: defaultWarehouseId || (warehouses.length > 0 ? warehouses[0].id : ''),
         parent_location_id: 'none',
         capacity: undefined,
+        capacity_sq_ft: undefined,
+        capacity_cu_ft: undefined,
         status: 'active',
       });
       resetMeasurements();
@@ -182,10 +189,12 @@ export function LocationDialog({
       form.reset({
         code: data.code,
         name: data.name || '',
-        type: data.type as 'zone' | 'aisle' | 'bay' | 'bin' | 'shelf' | 'release',
+        type: data.type as 'zone' | 'aisle' | 'bay' | 'bin' | 'shelf' | 'release' | 'dock',
         warehouse_id: data.warehouse_id,
         parent_location_id: data.parent_location_id || 'none',
         capacity: data.capacity ? Number(data.capacity) : undefined,
+        capacity_sq_ft: data.capacity_sq_ft ? Number(data.capacity_sq_ft) : undefined,
+        capacity_cu_ft: data.capacity_cu_ft ? Number(data.capacity_cu_ft) : undefined,
         status: data.status as 'active' | 'inactive' | 'full',
       });
 
@@ -239,6 +248,8 @@ export function LocationDialog({
         warehouse_id: data.warehouse_id,
         parent_location_id: data.parent_location_id === 'none' ? null : data.parent_location_id || null,
         capacity: data.capacity || null,
+        capacity_sq_ft: data.capacity_sq_ft ?? null,
+        capacity_cu_ft: data.capacity_cu_ft ?? null,
         status: data.status,
         length_in: allDimsPresent ? lenIn : null,
         width_in: allDimsPresent ? widIn : null,
@@ -442,13 +453,13 @@ export function LocationDialog({
                 )}
               />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="capacity"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Capacity</FormLabel>
+                      <FormLabel>Max Items</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -460,7 +471,6 @@ export function LocationDialog({
                           }
                         />
                       </FormControl>
-                      <FormDescription>Max items</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -468,22 +478,45 @@ export function LocationDialog({
 
                 <FormField
                   control={form.control}
-                  name="status"
+                  name="capacity_sq_ft"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Status *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="inactive">Inactive</SelectItem>
-                          <SelectItem value="full">Full</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Capacity (sq ft)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          placeholder="0"
+                          {...field}
+                          value={field.value ?? ''}
+                          onChange={(e) =>
+                            field.onChange(e.target.value ? Number(e.target.value) : undefined)
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="capacity_cu_ft"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Capacity (cu ft)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          placeholder="0"
+                          {...field}
+                          value={field.value ?? ''}
+                          onChange={(e) =>
+                            field.onChange(e.target.value ? Number(e.target.value) : undefined)
+                          }
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -618,6 +651,29 @@ export function LocationDialog({
                   </div>
                 </CollapsibleContent>
               </Collapsible>
+
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="full">Full</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
             </form>
           </Form>

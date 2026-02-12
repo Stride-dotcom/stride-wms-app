@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Location } from '@/hooks/useLocations';
 import { Warehouse } from '@/hooks/useWarehouses';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -72,6 +73,7 @@ export function LocationsSettingsTab({
 }: LocationsSettingsTabProps) {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // State
@@ -448,6 +450,7 @@ export function LocationsSettingsTab({
       bay: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
       bin: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
       shelf: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+      dock: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
       release: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
     };
     return (
@@ -722,6 +725,8 @@ export function LocationsSettingsTab({
                       <TableHead>Warehouse</TableHead>
                       <TableHead>Capacity</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Sq Ft</TableHead>
+                      <TableHead className="text-right">Cu Ft</TableHead>
                       <TableHead className="w-[60px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -730,8 +735,12 @@ export function LocationsSettingsTab({
                       const warehouse = warehouseMap.get(location.warehouse_id);
                       const isActive = (location as any).is_active !== false;
                       return (
-                        <TableRow key={location.id} className={!isActive ? 'opacity-60' : ''}>
-                          <TableCell>
+                        <TableRow
+                          key={location.id}
+                          className={`${!isActive ? 'opacity-60' : ''} cursor-pointer hover:bg-muted/50`}
+                          onClick={() => navigate(`/locations/${location.id}`)}
+                        >
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox
                               checked={selectedIds.has(location.id)}
                               onCheckedChange={() => toggleSelect(location.id)}
@@ -751,7 +760,13 @@ export function LocationsSettingsTab({
                               : '\u2014'}
                           </TableCell>
                           <TableCell>{getStatusBadge(location.status, isActive)}</TableCell>
-                          <TableCell>
+                          <TableCell className="text-right text-sm text-muted-foreground">
+                            {location.capacity_sq_ft != null ? location.capacity_sq_ft : '—'}
+                          </TableCell>
+                          <TableCell className="text-right text-sm text-muted-foreground">
+                            {location.capacity_cu_ft != null ? location.capacity_cu_ft : '—'}
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8">

@@ -13,7 +13,10 @@ import { ClaimSettingsSection } from './ClaimSettingsSection';
 import { DisplaySettingsSection } from './DisplaySettingsSection';
 import { LabelCustomizationSection } from './LabelCustomizationSection';
 import { AccountTypesSection } from './AccountTypesSection';
+import { SpaceTrackingSection } from './SpaceTrackingSection';
 import { SortableCard } from './SortableCard';
+import { useOrgPreferences } from '@/hooks/useOrgPreferences';
+import type { SpaceTrackingMode, ContainerVolumeMode } from '@/hooks/useOrgPreferences';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -35,6 +38,7 @@ import {
 
 // Define the card IDs and their default order
 const DEFAULT_CARD_ORDER = [
+  'space-tracking',
   'storage-inspection',
   'display-settings',
   'label-customization',
@@ -51,6 +55,7 @@ const DEFAULT_CARD_ORDER = [
 export function PreferencesContent() {
   const { preferences, loading, saving, updatePreferences } = useTenantPreferences();
   const { getCardOrder, setCardOrder, loading: prefsLoading } = useUserPreferences();
+  const { preferences: orgPrefs, updatePreference: updateOrgPref } = useOrgPreferences();
   
   // Card order state
   const [cardOrder, setCardOrderState] = useState<string[]>(DEFAULT_CARD_ORDER);
@@ -162,6 +167,16 @@ export function PreferencesContent() {
 
   // Card components mapped by ID
   const cardComponents: Record<string, React.ReactNode> = {
+    'space-tracking': (
+      <SortableCard id="space-tracking" key="space-tracking">
+        <SpaceTrackingSection
+          spaceTrackingMode={orgPrefs.space_tracking_mode}
+          containerVolumeMode={orgPrefs.container_volume_mode}
+          onSpaceTrackingModeChange={(mode) => updateOrgPref('space_tracking_mode', mode)}
+          onContainerVolumeModeChange={(mode) => updateOrgPref('container_volume_mode', mode)}
+        />
+      </SortableCard>
+    ),
     'storage-inspection': (
       <SortableCard id="storage-inspection" key="storage-inspection">
         <StorageInspectionSection

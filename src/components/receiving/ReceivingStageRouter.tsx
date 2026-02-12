@@ -9,8 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Stage1DockIntake } from './Stage1DockIntake';
+import type { MatchingParamsUpdate } from './Stage1DockIntake';
 import { ConfirmationGuard } from './ConfirmationGuard';
 import { Stage2DetailedReceiving } from './Stage2DetailedReceiving';
+import type { ItemMatchingParams } from './Stage2DetailedReceiving';
 import { IssuesTab } from './IssuesTab';
 import { useReceivingDiscrepancies } from '@/hooks/useReceivingDiscrepancies';
 import DockIntakeMatchingPanel from '@/components/incoming/DockIntakeMatchingPanel';
@@ -55,6 +57,12 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
   const [pdfRetrying, setPdfRetrying] = useState(false);
   const { openCount } = useReceivingDiscrepancies(shipmentId);
 
+  // Live matching params from Stage 1 fields (updated as user types)
+  const [liveMatchingParams, setLiveMatchingParams] = useState<MatchingParamsUpdate | null>(null);
+
+  // Item-level matching params from Stage 2 (updated as user enters item details)
+  const [itemMatchingParams, setItemMatchingParams] = useState<ItemMatchingParams | null>(null);
+
   const fetchShipment = useCallback(async () => {
     if (!shipmentId) return;
     setLoading(true);
@@ -72,10 +80,10 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
       if ((data as any).account_id) {
         const { data: account } = await supabase
           .from('accounts')
-          .select('name')
+          .select('account_name')
           .eq('id', (data as any).account_id)
           .single();
-        setAccountName(account?.name || null);
+        setAccountName(account?.account_name || null);
       }
     } catch (err) {
       console.error('[ReceivingStageRouter] fetch error:', err);
@@ -89,14 +97,26 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
   }, [fetchShipment]);
 
   const handleStageChange = () => {
+    // Reset item-level params when transitioning stages
+    setItemMatchingParams(null);
     fetchShipment();
   };
+
+  // Handle live matching param updates from Stage 1
+  const handleMatchingParamsChange = useCallback((params: MatchingParamsUpdate) => {
+    setLiveMatchingParams(params);
+  }, []);
+
+  // Handle item-level matching param updates from Stage 2
+  const handleItemMatchingParamsChange = useCallback((params: ItemMatchingParams) => {
+    setItemMatchingParams(params);
+  }, []);
 
   const buildPdfData = async (s: ShipmentData): Promise<ReceivingPdfData> => {
     // Fetch company info for PDF
     const { data: company } = await supabase
       .from('tenant_company_settings')
-      .select('company_name, address, phone, email, logo_url')
+      .select('company_name, company_address, company_phone, company_email, logo_url')
       .eq('tenant_id', profile!.tenant_id)
       .maybeSingle();
 
@@ -132,9 +152,9 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
       receivedPieces: s.received_pieces,
       driverName: s.driver_name,
       companyName: company?.company_name || 'Stride WMS',
-      companyAddress: company?.address || null,
-      companyPhone: company?.phone || null,
-      companyEmail: company?.email || null,
+      companyAddress: company?.company_address || null,
+      companyPhone: company?.company_phone || null,
+      companyEmail: company?.company_email || null,
       warehouseName,
       signatureData: s.signature_data,
       signatureName: s.signature_name || null,
@@ -258,74 +278,44 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
 
   const status = (shipment.inbound_status || 'draft') as InboundStatus;
 
-  // Matching panel params for Stage 1
+  // Build matching params: use live values from Stage 1 form when available, fallback to persisted shipment data
   const matchingParams: CandidateParams = {
-    accountId: shipment.account_id,
-    vendorName: shipment.vendor_name,
-    pieces: shipment.signed_pieces,
+    accountId: liveMatchingParams?.accountId ?? shipment.account_id,
+    vendorName: liveMatchingParams?.vendorName ?? shipment.vendor_name,
+    pieces: liveMatchingParams?.pieces ?? shipment.signed_pieces,
+    // Item-level params from Stage 2
+    itemDescription: itemMatchingParams?.itemDescription || null,
+    itemVendor: itemMatchingParams?.itemVendor || null,
   };
 
   const hasPdf = !!(shipment.metadata as Record<string, unknown> | null)?.receiving_pdf_key;
+
+  // Should we show the matching panel? Yes for draft (Stage 1) and receiving (Stage 2)
+  const showMatchingPanel = status === 'draft' || status === 'receiving';
+
+  // Shared matching panel component
+  const matchingPanelContent = showMatchingPanel ? (
+    <DockIntakeMatchingPanel
+      dockIntakeId={shipmentId}
+      params={matchingParams}
+      onLinked={fetchShipment}
+      showItemRefinement={status === 'receiving'}
+    />
+  ) : null;
 
   // Render based on inbound_status
   const renderStageContent = () => {
     switch (status) {
       case 'draft':
         return (
-          <>
-            <div className="grid gap-6 lg:grid-cols-[1fr,380px]">
-              <Stage1DockIntake
-                shipmentId={shipmentId}
-                shipmentNumber={shipment.shipment_number}
-                shipment={shipment as any}
-                onComplete={handleStageChange}
-                onRefresh={fetchShipment}
-              />
-              {/* Desktop: inline matching panel */}
-              <div className="hidden lg:block">
-                <div className="sticky top-4">
-                  <DockIntakeMatchingPanel
-                    dockIntakeId={shipmentId}
-                    params={matchingParams}
-                    onLinked={fetchShipment}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Mobile: FAB to open matching panel */}
-            <div className="fixed bottom-6 right-6 lg:hidden z-40">
-              <Button
-                size="lg"
-                className="rounded-full h-14 w-14 shadow-lg"
-                onClick={() => setMobileMatchingOpen(true)}
-              >
-                <MaterialIcon name="search" size="md" />
-              </Button>
-            </div>
-
-            {/* Mobile: matching bottom sheet */}
-            <Sheet open={mobileMatchingOpen} onOpenChange={setMobileMatchingOpen}>
-              <SheetContent
-                side="bottom"
-                className="h-auto max-h-[85vh] rounded-t-xl"
-              >
-                <SheetHeader>
-                  <SheetTitle>Matching Candidates</SheetTitle>
-                </SheetHeader>
-                <div className="mt-4 overflow-y-auto max-h-[calc(85vh-80px)]">
-                  <DockIntakeMatchingPanel
-                    dockIntakeId={shipmentId}
-                    params={matchingParams}
-                    onLinked={() => {
-                      fetchShipment();
-                      setMobileMatchingOpen(false);
-                    }}
-                  />
-                </div>
-              </SheetContent>
-            </Sheet>
-          </>
+          <Stage1DockIntake
+            shipmentId={shipmentId}
+            shipmentNumber={shipment.shipment_number}
+            shipment={shipment as any}
+            onComplete={handleStageChange}
+            onRefresh={fetchShipment}
+            onMatchingParamsChange={handleMatchingParamsChange}
+          />
         );
 
       case 'stage1_complete':
@@ -348,6 +338,7 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
             shipment={shipment as any}
             onComplete={handleReceivingComplete}
             onRefresh={fetchShipment}
+            onItemMatchingParamsChange={handleItemMatchingParamsChange}
           />
         );
 
@@ -410,7 +401,55 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
       </TabsList>
 
       <TabsContent value="receiving">
-        {renderStageContent()}
+        {showMatchingPanel ? (
+          <>
+            <div className="grid gap-6 lg:grid-cols-[1fr,380px]">
+              {renderStageContent()}
+              {/* Desktop: inline matching panel */}
+              <div className="hidden lg:block">
+                <div className="sticky top-4">
+                  {matchingPanelContent}
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile: FAB to open matching panel */}
+            <div className="fixed bottom-6 right-6 lg:hidden z-40">
+              <Button
+                size="lg"
+                className="rounded-full h-14 w-14 shadow-lg"
+                onClick={() => setMobileMatchingOpen(true)}
+              >
+                <MaterialIcon name="search" size="md" />
+              </Button>
+            </div>
+
+            {/* Mobile: matching bottom sheet */}
+            <Sheet open={mobileMatchingOpen} onOpenChange={setMobileMatchingOpen}>
+              <SheetContent
+                side="bottom"
+                className="h-auto max-h-[85vh] rounded-t-xl"
+              >
+                <SheetHeader>
+                  <SheetTitle>Matching Candidates</SheetTitle>
+                </SheetHeader>
+                <div className="mt-4 overflow-y-auto max-h-[calc(85vh-80px)]">
+                  <DockIntakeMatchingPanel
+                    dockIntakeId={shipmentId}
+                    params={matchingParams}
+                    onLinked={() => {
+                      fetchShipment();
+                      setMobileMatchingOpen(false);
+                    }}
+                    showItemRefinement={status === 'receiving'}
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
+          </>
+        ) : (
+          renderStageContent()
+        )}
       </TabsContent>
 
       <TabsContent value="issues">

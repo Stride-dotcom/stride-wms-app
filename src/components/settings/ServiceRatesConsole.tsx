@@ -42,7 +42,7 @@ export function ServiceRatesConsole() {
         </div>
         <div>
           <h3 className="text-lg font-semibold">Service Rates</h3>
-          <p className="text-sm text-muted-foreground">Manage your pricing, categories, classes, and task templates</p>
+          <p className="text-sm text-muted-foreground">Manage your pricing, categories, and classes</p>
         </div>
       </div>
 
