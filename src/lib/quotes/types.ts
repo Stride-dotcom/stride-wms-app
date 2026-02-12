@@ -17,7 +17,9 @@ export type QuoteEventType =
   | 'accepted'
   | 'declined'
   | 'expired'
-  | 'voided';
+  | 'voided'
+  | 'attachment_added'
+  | 'attachment_removed';
 
 // Quote Class (master list)
 export interface QuoteClass {
@@ -180,6 +182,18 @@ export interface EditLock {
   expires_at: string | null;
 }
 
+// Quote Attachment (derived from quote_events)
+export interface QuoteAttachment {
+  file_name: string;
+  file_url: string;
+  file_size: number;
+  mime_type: string;
+  storage_path: string;
+  uploaded_by: string | null;
+  uploaded_by_name?: string | null;
+  uploaded_at: string;
+}
+
 // Quote with all relations (for full display)
 export interface QuoteWithDetails extends Quote {
   class_lines: QuoteClassLine[];
@@ -187,6 +201,11 @@ export interface QuoteWithDetails extends Quote {
   class_service_selections: ClassServiceSelection[];
   rate_overrides: QuoteRateOverride[];
   events: QuoteEvent[];
+  attachments: QuoteAttachment[];
+  // Audit trail resolved names
+  created_by_name?: string | null;
+  last_updated_by_name?: string | null;
+  last_updated_at?: string | null;
 }
 
 // Per-class service selection for class-based services

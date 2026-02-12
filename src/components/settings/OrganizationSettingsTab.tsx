@@ -30,6 +30,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantSettings } from '@/hooks/useTenantSettings';
+import { useCommunications } from '@/hooks/useCommunications';
 import { OrganizationLogoUpload } from './OrganizationLogoUpload';
 import { DueDateRulesSettingsTab } from './DueDateRulesSettingsTab';
 import { PreferencesContent } from './preferences/PreferencesContent';
@@ -91,6 +92,12 @@ export function OrganizationSettingsTab() {
     removeLogo,
     updateSettings,
   } = useTenantSettings();
+  const {
+    brandSettings,
+    updateBrandSettings,
+    loading: brandLoading,
+  } = useCommunications();
+  const [accentColor, setAccentColor] = useState(brandSettings?.brand_primary_color || '#FD5A2A');
 
   const form = useForm<OrganizationFormData>({
     resolver: zodResolver(organizationSchema),
@@ -118,6 +125,12 @@ export function OrganizationSettingsTab() {
       fetchTenantData();
     }
   }, [profile?.tenant_id]);
+
+  useEffect(() => {
+    if (brandSettings?.brand_primary_color) {
+      setAccentColor(brandSettings.brand_primary_color);
+    }
+  }, [brandSettings?.brand_primary_color]);
 
   useEffect(() => {
     if (tenantSettings) {
@@ -189,6 +202,11 @@ export function OrganizationSettingsTab() {
     });
 
     if (!success) throw new Error('Failed to save settings');
+
+    // Sync brand accent color if changed
+    if (accentColor !== brandSettings?.brand_primary_color) {
+      await updateBrandSettings({ brand_primary_color: accentColor });
+    }
 
     toast({
       title: 'Settings Saved',
@@ -347,6 +365,46 @@ export function OrganizationSettingsTab() {
                         </FormItem>
                       )}
                     />
+                  </div>
+
+                  {/* Brand Accent Color */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-sm font-medium">Brand Accent Color</label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help">
+                              <MaterialIcon name="info" size="sm" className="text-muted-foreground" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs text-left">
+                            <p>Your primary brand color used in email headers, buttons, and template accents. Changes here sync with the Alerts &gt; Template Editor.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={accentColor}
+                        onChange={(e) => setAccentColor(e.target.value)}
+                        className="w-10 h-10 rounded border cursor-pointer flex-shrink-0"
+                      />
+                      <Input
+                        value={accentColor}
+                        onChange={(e) => setAccentColor(e.target.value)}
+                        className="w-32"
+                        placeholder="#FD5A2A"
+                      />
+                      <div
+                        className="h-10 flex-1 rounded border"
+                        style={{ backgroundColor: accentColor }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Used for email header bars, CTA buttons, and communication templates
+                    </p>
                   </div>
 
                   <Separator />
