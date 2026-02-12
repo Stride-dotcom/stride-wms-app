@@ -78,6 +78,7 @@ import ContainerDetail from "./pages/ContainerDetail";
 import IncomingManager from "./pages/IncomingManager";
 import InboundManifestDetail from "./pages/InboundManifestDetail";
 import ExpectedShipmentDetail from "./pages/ExpectedShipmentDetail";
+import DockIntakeReceiving from "./pages/DockIntakeReceiving";
 import NotFound from "./pages/NotFound";
 import { AIBotSwitch } from "./components/ai/AIBotSwitch";
 
@@ -103,6 +104,7 @@ const App = () => (
             <Route path="/incoming" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><IncomingManager /></RequireRole></ProtectedRoute>} />
             <Route path="/incoming/manifest/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><InboundManifestDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/incoming/expected/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ExpectedShipmentDetail /></RequireRole></ProtectedRoute>} />
+            <Route path="/incoming/dock-intake/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><DockIntakeReceiving /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Shipments /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments/list" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentsList /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments/incoming" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentsList /></RequireRole></ProtectedRoute>} />

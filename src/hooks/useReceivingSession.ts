@@ -3,40 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { queueShipmentReceivedAlert, queueShipmentCompletedAlert } from '@/lib/alertQueue';
-import { BILLING_DISABLED_ERROR, getEffectiveRate } from '@/lib/billing/chargeTypeUtils';
-
-// Helper to get rate via unified pricing (new system first, legacy fallback)
-async function getRateFromPriceList(
-  tenantId: string,
-  serviceCode: string,
-  classCode: string | null,
-  accountId?: string | null
-): Promise<{ rate: number; hasError: boolean; errorMessage?: string }> {
-  try {
-    const result = await getEffectiveRate({
-      tenantId,
-      chargeCode: serviceCode,
-      accountId: accountId || undefined,
-      classCode: classCode || undefined,
-    });
-
-    return {
-      rate: result.effective_rate,
-      hasError: result.has_error,
-      errorMessage: result.error_message || undefined,
-    };
-  } catch (error: any) {
-    if (error?.message === BILLING_DISABLED_ERROR) {
-      throw error;
-    }
-    console.error('[getRateFromPriceList] Error:', error);
-    return {
-      rate: 0,
-      hasError: true,
-      errorMessage: 'Error looking up rate from Price List',
-    };
-  }
-}
 
 interface ReceivingSession {
   id: string;
@@ -277,11 +243,9 @@ export function useReceivingSession(shipmentId: string | undefined) {
 
           for (const item of verificationData.received_items) {
             let currentItemId: string | null = null;
-            let itemClassId: string | null = null; // Track class_id for billing
 
             // Check if this item already exists (created during shipment creation)
             // by looking up the shipment_item to see if it has an item_id
-            let existingItemClassId: string | null = null;
             if (item.shipment_item_id) {
               const { data: shipmentItem } = await (supabase
                 .from('shipment_items') as any)
@@ -316,15 +280,6 @@ export function useReceivingSession(shipmentId: string | undefined) {
 
                 currentItemId = shipmentItem.item_id;
                 createdItemIds.push(currentItemId);
-
-                // Get the item's class_id for billing lookups
-                const { data: existingItem } = await (supabase
-                  .from('items') as any)
-                  .select('class_id')
-                  .eq('id', shipmentItem.item_id)
-                  .single();
-                existingItemClassId = existingItem?.class_id || shipmentItem.expected_class_id || null;
-                itemClassId = existingItemClassId;
 
                 // Update shipment_item status
                 await (supabase.from('shipment_items') as any)
@@ -371,10 +326,9 @@ export function useReceivingSession(shipmentId: string | undefined) {
                 continue;
               }
 
-              // Track created item ID and class_id for label printing and link to shipment_item
+              // Track created item ID for label printing and link to shipment_item
               if (newItemData) {
                 currentItemId = newItemData.id;
-                itemClassId = newItemData.class_id || null;
                 createdItemIds.push(newItemData.id);
 
                 // Link the created item back to the shipment_item
@@ -390,9 +344,8 @@ export function useReceivingSession(shipmentId: string | undefined) {
               }
             }
 
-            // Use currentItemId for the rest of the logic (tasks, billing, etc.)
-            // Also track class_id for billing lookups
-            const newItem = currentItemId ? { id: currentItemId, class_id: itemClassId } : null;
+            // Use currentItemId for the rest of the logic (tasks, etc.)
+            const newItem = currentItemId ? { id: currentItemId } : null;
 
             // Create inspection task if tenant preference or account setting is enabled
             if (shouldCreateInspections && newItem) {
@@ -456,91 +409,7 @@ export function useReceivingSession(shipmentId: string | undefined) {
               }
             }
 
-            // Determine service type based on shipment type (return shipments use Returns Processing)
-            const isReturnShipment = (shipment as any).shipment_type === 'return';
-            const serviceCode = isReturnShipment ? 'Returns' : 'RCVG';
-            const chargeDescription = isReturnShipment ? 'Returns Processing' : 'Receiving';
-
-            // Get class code for rate lookup (if item has a class assigned)
-            let classCode: string | null = null;
-            if (newItem?.class_id) {
-              const { data: classData } = await (supabase
-                .from('classes') as any)
-                .select('code')
-                .eq('id', newItem.class_id)
-                .maybeSingle();
-              classCode = classData?.code || null;
-            }
-
-            // Get rate from Price List
-            try {
-              const rateResult = await getRateFromPriceList(
-                profile.tenant_id,
-                serviceCode,
-                classCode,
-                shipment.account_id
-              );
-
-              const totalAmount = rateResult.rate * item.quantity;
-
-              // Create billing event for receiving/returns processing with actual rates
-              await (supabase
-                .from('billing_events') as any)
-                .insert({
-                  tenant_id: profile.tenant_id,
-                  account_id: shipment.account_id,
-                  shipment_id: session.shipment_id,
-                  class_id: newItem?.class_id || null,
-                  item_id: newItem?.id,
-                  event_type: isReturnShipment ? 'returns_processing' : 'receiving',
-                  charge_type: serviceCode,
-                  description: `${chargeDescription}: ${item.description}`,
-                  quantity: item.quantity,
-                  unit_rate: rateResult.rate,
-                  total_amount: totalAmount,
-                  created_by: profile.id,
-                  has_rate_error: rateResult.hasError,
-                  rate_error_message: rateResult.errorMessage,
-                  metadata: { shipment_id: session.shipment_id },
-                });
-
-              // Create billing event for "Received Without ID" if flag is set
-              if (item.receivedWithoutId && newItem) {
-                const noIdRateResult = await getRateFromPriceList(
-                  profile.tenant_id,
-                  'RECEIVED_WITHOUT_ID', // Flag service in Price List
-                  null, // No class-based pricing for this flag
-                  shipment.account_id
-                );
-
-                await (supabase
-                  .from('billing_events') as any)
-                  .insert({
-                    tenant_id: profile.tenant_id,
-                    account_id: shipment.account_id,
-                    shipment_id: session.shipment_id,
-                    class_id: newItem?.class_id || null,
-                    item_id: newItem?.id,
-                    event_type: 'flag_change',
-                    charge_type: 'RECEIVED_WITHOUT_ID',
-                    description: `Received Without ID: ${item.description}`,
-                    quantity: 1,
-                    unit_rate: noIdRateResult.rate,
-                    total_amount: noIdRateResult.rate,
-                    created_by: profile.id,
-                    has_rate_error: noIdRateResult.hasError,
-                    rate_error_message: noIdRateResult.errorMessage,
-                    metadata: { shipment_id: session.shipment_id },
-                  });
-              }
-            } catch (billingErr: any) {
-              if (billingErr?.message === BILLING_DISABLED_ERROR) {
-                console.warn(`[useReceivingSession] Billing disabled for ${serviceCode} on account ${shipment.account_id}, skipping billing event`);
-                toast({ variant: 'destructive', title: 'Billing Disabled', description: BILLING_DISABLED_ERROR });
-              } else {
-                console.error('[useReceivingSession] Error creating billing event:', billingErr);
-              }
-            }
+            // NOTE: Billing event creation is handled separately (not in receiving flow)
           }
         }
       }
