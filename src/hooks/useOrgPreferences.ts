@@ -62,16 +62,16 @@ export function useOrgPreferences() {
 
     try {
       // Upsert the key-value pair
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('tenant_settings')
         .upsert(
-          {
+          [{
             tenant_id: profile.tenant_id,
             setting_key: key,
-            setting_value: value as unknown as Record<string, unknown>,
+            setting_value: value,
             updated_by: profile.id,
             updated_at: new Date().toISOString(),
-          },
+          }],
           { onConflict: 'tenant_id,setting_key' }
         );
 

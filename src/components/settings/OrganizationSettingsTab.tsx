@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { HelpTip } from '@/components/ui/help-tip';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -289,7 +290,11 @@ export function OrganizationSettingsTab() {
                     name="company_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Display Name</FormLabel>
+                        <FormLabel>
+                          <HelpTip tooltip="This name will be displayed on quotes, invoices, and alert templates sent to your customers.">
+                            Display Name
+                          </HelpTip>
+                        </FormLabel>
                         <FormControl>
                           <Input placeholder="Company display name for emails and reports" {...field} />
                         </FormControl>
