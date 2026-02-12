@@ -6,8 +6,11 @@
  * 2. Actual billing_events that already EXIST in the database
  *
  * This is a READ-ONLY view - use the page-level "Add Charge" button to add charges.
- * 
+ *
  * Allows voiding of unbilled addon charges directly inline for immediate corrections.
+ *
+ * BUILD-38: Adds "Waive Charges" toggle with reason/notes modal, voiding of all
+ * unbilled billing_events, and invoiced-lock.
  *
  * Uses shared logic from: src/lib/billing/billingCalculation.ts
  */
@@ -17,6 +20,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +39,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { PERMISSIONS, usePermissions } from '@/hooks/usePermissions';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
@@ -38,6 +65,22 @@ import {
   BillingPreview,
 } from '@/lib/billing/billingCalculation';
 import { getTaskTypeServiceCode } from '@/lib/billing/taskServiceLookup';
+import { logActivity, logBillingActivity } from '@/lib/activity/logActivity';
+
+// ============================================================================
+// WAIVE REASONS
+// ============================================================================
+
+const WAIVE_REASONS = [
+  'Customer Courtesy',
+  'Damage Responsibility Dispute',
+  'Internal Error',
+  'Promotional Waiver',
+  'Warranty Coverage',
+  'Other',
+] as const;
+
+type WaiveReason = typeof WAIVE_REASONS[number];
 
 // ============================================================================
 // TYPES
@@ -115,11 +158,21 @@ export function BillingCalculator({
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<BillingPreview | null>(null);
   const [existingEvents, setExistingEvents] = useState<ExistingBillingEvent[]>([]);
-  
+
   // Void confirmation state
   const [voidingEventId, setVoidingEventId] = useState<string | null>(null);
   const [voidConfirmOpen, setVoidConfirmOpen] = useState(false);
   const [isVoiding, setIsVoiding] = useState(false);
+
+  // BUILD-38: Waive charges state
+  const [waiveCharges, setWaiveCharges] = useState(false);
+  const [waiveReason, setWaiveReason] = useState<string | null>(null);
+  const [waiveNotes, setWaiveNotes] = useState<string | null>(null);
+  const [waiveModalOpen, setWaiveModalOpen] = useState(false);
+  const [waiveModalReason, setWaiveModalReason] = useState<WaiveReason | ''>('');
+  const [waiveModalNotes, setWaiveModalNotes] = useState('');
+  const [waiveSaving, setWaiveSaving] = useState(false);
+  const [waiveInvoicedLock, setWaiveInvoicedLock] = useState(false);
 
   // Permission check - only billing managers/admins can void manual (addon) charges
   // Use capabilities first (more reliable than role names), but keep role-name fallback.
@@ -131,11 +184,49 @@ export function BillingCalculator({
     hasRole('admin') ||
     hasRole('owner');
 
+  // BUILD-38: Waive toggle permissions (admin/tenant_admin/manager)
+  const canWaiveCharges =
+    hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
+
   // Determine context
   const isTask = !!taskId;
   const isShipment = !!shipmentId && !taskId;
   const isItem = !!itemId && !taskId && !shipmentId;
   const isAccount = !!accountId && !taskId && !shipmentId && !itemId;
+
+  // BUILD-38: Fetch task waive state + invoiced lock
+  const fetchWaiveState = useCallback(async () => {
+    if (!taskId || !profile?.tenant_id) return;
+
+    try {
+      // Fetch task waive fields
+      const { data: taskData } = await (supabase
+        .from('tasks') as any)
+        .select('waive_charges, waived_at, waived_by, waive_reason, waive_notes, tenant_id')
+        .eq('id', taskId)
+        .single();
+
+      if (taskData) {
+        setWaiveCharges(taskData.waive_charges === true);
+        setWaiveReason(taskData.waive_reason || null);
+        setWaiveNotes(taskData.waive_notes || null);
+      }
+
+      // Check if any billing_event for this task is invoiced (locks toggle)
+      const tenantId = taskData?.tenant_id || profile.tenant_id;
+      const { data: invoicedEvents } = await (supabase
+        .from('billing_events') as any)
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('task_id', taskId)
+        .or('status.eq.invoiced,invoice_id.not.is.null')
+        .limit(1);
+
+      setWaiveInvoicedLock(!!invoicedEvents && invoicedEvents.length > 0);
+    } catch (error) {
+      console.error('[BillingCalculator] Error fetching waive state:', error);
+    }
+  }, [taskId, profile?.tenant_id]);
 
   // Fetch existing billing events from database
   const fetchExistingEvents = useCallback(async () => {
@@ -193,6 +284,11 @@ export function BillingCalculator({
     try {
       // Fetch existing events first
       await fetchExistingEvents();
+
+      // BUILD-38: Fetch waive state for task context
+      if (isTask && taskId) {
+        await fetchWaiveState();
+      }
 
       let result: BillingPreview;
 
@@ -288,12 +384,13 @@ export function BillingCalculator({
     taskType,
     shipmentDirection,
     fetchExistingEvents,
+    fetchWaiveState,
   ]);
 
   // Void a billing event
   const handleVoidCharge = async () => {
     if (!voidingEventId) return;
-    
+
     setIsVoiding(true);
     try {
       const { error } = await supabase
@@ -301,14 +398,14 @@ export function BillingCalculator({
         .update({ status: 'void' })
         .eq('id', voidingEventId)
         .eq('status', 'unbilled'); // Only void unbilled charges
-      
+
       if (error) throw error;
-      
+
       toast({
         title: 'Charge voided',
         description: 'The charge has been removed from billing.',
       });
-      
+
       // Refresh the list
       await fetchExistingEvents();
       onChargesChange?.();
@@ -325,11 +422,295 @@ export function BillingCalculator({
       setVoidingEventId(null);
     }
   };
-  
+
   // Check if an event can be voided
   const canVoidEvent = (event: ExistingBillingEvent) => {
     // Can only void unbilled addon charges
     return canVoidCharges && event.status === 'unbilled' && event.event_type === 'addon';
+  };
+
+  // ========================================================================
+  // BUILD-38: Waive Charges toggle handlers
+  // ========================================================================
+
+  const handleWaiveToggle = (checked: boolean) => {
+    if (waiveInvoicedLock) return;
+    if (checked) {
+      // Toggle ON: open modal for reason/notes
+      setWaiveModalReason('');
+      setWaiveModalNotes('');
+      setWaiveModalOpen(true);
+    } else {
+      // Toggle OFF: confirm and clear waive state
+      handleWaiveOff();
+    }
+  };
+
+  const handleWaiveOn = async () => {
+    if (!taskId || !profile?.tenant_id || !profile?.id) return;
+    if (!waiveModalReason) {
+      toast({ variant: 'destructive', title: 'Reason required', description: 'Please select a waive reason.' });
+      return;
+    }
+    if (waiveModalReason === 'Other' && !waiveModalNotes.trim()) {
+      toast({ variant: 'destructive', title: 'Notes required', description: 'Please provide notes when reason is "Other".' });
+      return;
+    }
+
+    setWaiveSaving(true);
+    try {
+      // Fetch task tenant_id for proper scoping
+      const { data: taskRow } = await (supabase
+        .from('tasks') as any)
+        .select('tenant_id, account_id')
+        .eq('id', taskId)
+        .single();
+
+      const tenantId = taskRow?.tenant_id || profile.tenant_id;
+
+      // RE-CHECK invoiced state (race condition prevention)
+      const { data: invoicedCheck } = await (supabase
+        .from('billing_events') as any)
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('task_id', taskId)
+        .or('status.eq.invoiced,invoice_id.not.is.null')
+        .limit(1);
+
+      if (invoicedCheck && invoicedCheck.length > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Cannot waive',
+          description: 'Cannot waive — charges were invoiced while editing.',
+        });
+        setWaiveModalOpen(false);
+        setWaiveSaving(false);
+        // Refresh lock state
+        setWaiveInvoicedLock(true);
+        return;
+      }
+
+      // Persist waive ON to tasks (server-confirmed)
+      const waiveData = {
+        waive_charges: true,
+        waived_at: new Date().toISOString(),
+        waived_by: profile.id,
+        waive_reason: waiveModalReason,
+        waive_notes: waiveModalNotes.trim() || null,
+      };
+
+      const { error: updateError } = await (supabase
+        .from('tasks') as any)
+        .update(waiveData)
+        .eq('id', taskId);
+
+      if (updateError) throw updateError;
+
+      // Immediately void ALL unbilled billing_events for this task (Phase 4C)
+      const { data: unbilledEvents } = await (supabase
+        .from('billing_events') as any)
+        .select('id, metadata')
+        .eq('tenant_id', tenantId)
+        .eq('task_id', taskId)
+        .eq('status', 'unbilled');
+
+      if (unbilledEvents && unbilledEvents.length > 0) {
+        for (const event of unbilledEvents) {
+          const voidMetadata = {
+            ...(event.metadata || {}),
+            void_reason: 'waived',
+            waived_by: profile.id,
+            waived_at: new Date().toISOString(),
+            waive_reason: waiveModalReason,
+            waive_notes: waiveModalNotes.trim() || null,
+          };
+
+          await (supabase
+            .from('billing_events') as any)
+            .update({
+              status: 'void',
+              metadata: voidMetadata,
+            })
+            .eq('id', event.id)
+            .eq('status', 'unbilled');
+        }
+      }
+
+      // Update local state (server-confirmed)
+      setWaiveCharges(true);
+      setWaiveReason(waiveModalReason);
+      setWaiveNotes(waiveModalNotes.trim() || null);
+      setWaiveModalOpen(false);
+
+      // Activity logging (fire-and-forget)
+      logWaiveActivity(tenantId, taskId, taskRow?.account_id, 'billing_waived_on', 'Billing charges waived', {
+        reason: waiveModalReason,
+        notes: waiveModalNotes.trim() || null,
+        previous_state: false,
+        new_state: true,
+        voided_count: unbilledEvents?.length || 0,
+      });
+
+      toast({
+        title: 'Charges Waived',
+        description: `All unbilled charges for this task have been voided.${unbilledEvents?.length ? ` (${unbilledEvents.length} voided)` : ''}`,
+      });
+
+      // Refresh events
+      await fetchExistingEvents();
+      onChargesChange?.();
+    } catch (error: any) {
+      console.error('[BillingCalculator] Error waiving charges:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to waive charges',
+      });
+    } finally {
+      setWaiveSaving(false);
+    }
+  };
+
+  const handleWaiveOff = async () => {
+    if (!taskId || !profile?.tenant_id || !profile?.id) return;
+
+    setWaiveSaving(true);
+    try {
+      const { data: taskRow } = await (supabase
+        .from('tasks') as any)
+        .select('tenant_id, account_id')
+        .eq('id', taskId)
+        .single();
+
+      const tenantId = taskRow?.tenant_id || profile.tenant_id;
+
+      // RE-CHECK invoiced state at save time
+      const { data: invoicedCheck } = await (supabase
+        .from('billing_events') as any)
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('task_id', taskId)
+        .or('status.eq.invoiced,invoice_id.not.is.null')
+        .limit(1);
+
+      if (invoicedCheck && invoicedCheck.length > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Cannot remove waiver',
+          description: 'Cannot remove waiver — charges were invoiced.',
+        });
+        setWaiveInvoicedLock(true);
+        setWaiveSaving(false);
+        return;
+      }
+
+      // Persist waive OFF to tasks
+      const { error: updateError } = await (supabase
+        .from('tasks') as any)
+        .update({
+          waive_charges: false,
+          waived_at: null,
+          waived_by: null,
+          waive_reason: null,
+          waive_notes: null,
+        })
+        .eq('id', taskId);
+
+      if (updateError) throw updateError;
+
+      const previousReason = waiveReason;
+      const previousNotes = waiveNotes;
+
+      // Update local state
+      setWaiveCharges(false);
+      setWaiveReason(null);
+      setWaiveNotes(null);
+
+      // Activity logging (fire-and-forget)
+      logWaiveActivity(tenantId, taskId, taskRow?.account_id, 'billing_waived_off', 'Billing waiver removed', {
+        reason: previousReason,
+        notes: previousNotes,
+        previous_state: true,
+        new_state: false,
+      });
+
+      toast({
+        title: 'Waiver Removed',
+        description: 'Charges are no longer waived. Previously voided charges remain void.',
+      });
+
+      // Refresh
+      await fetchExistingEvents();
+      onChargesChange?.();
+    } catch (error: any) {
+      console.error('[BillingCalculator] Error removing waive:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to remove waiver',
+      });
+    } finally {
+      setWaiveSaving(false);
+    }
+  };
+
+  // Activity logging for waive events - fan-out to task, account, and item activities
+  const logWaiveActivity = async (
+    tenantId: string,
+    tId: string,
+    accountId: string | null,
+    eventType: string,
+    eventLabel: string,
+    details: Record<string, unknown>,
+  ) => {
+    try {
+      // Log to task_activity
+      logActivity({
+        entityType: 'task',
+        tenantId,
+        entityId: tId,
+        actorUserId: profile?.id,
+        eventType,
+        eventLabel,
+        details,
+      });
+
+      // Log to account_activity if task has an account
+      if (accountId) {
+        logActivity({
+          entityType: 'account',
+          tenantId,
+          entityId: accountId,
+          actorUserId: profile?.id,
+          eventType,
+          eventLabel,
+          details: { ...details, task_id: tId },
+        });
+      }
+
+      // Log to item_activity for every linked item via task_items
+      const { data: taskItems } = await (supabase
+        .from('task_items') as any)
+        .select('item_id')
+        .eq('task_id', tId);
+
+      if (taskItems && taskItems.length > 0) {
+        for (const ti of taskItems) {
+          logActivity({
+            entityType: 'item',
+            tenantId,
+            entityId: ti.item_id,
+            actorUserId: profile?.id,
+            eventType,
+            eventLabel,
+            details: { ...details, task_id: tId },
+          });
+        }
+      }
+    } catch (err) {
+      console.error('[BillingCalculator] Activity logging error:', err);
+      // Fire-and-forget: don't block the caller
+    }
   };
 
   // Recalculate when dependencies change
@@ -338,7 +719,9 @@ export function BillingCalculator({
   }, [calculatePreview, refreshKey]);
 
   // Calculate totals - existing events from DB + preview
-  const existingEventsTotal = existingEvents.reduce((sum, e) => sum + (e.total_amount || e.unit_rate * e.quantity), 0);
+  // BUILD-38: When waived, filter out void events from total calculation
+  const nonVoidEvents = existingEvents.filter(e => e.status !== 'void');
+  const existingEventsTotal = waiveCharges ? 0 : nonVoidEvents.reduce((sum, e) => sum + (e.total_amount || (e.unit_rate || 0) * e.quantity), 0);
 
   // Calculate service line preview total when provided
   const serviceLinePreviewTotal = serviceLinePreview?.reduce((sum, item) => sum + item.totalAmount, 0) ?? 0;
@@ -356,7 +739,8 @@ export function BillingCalculator({
         e.event_type === 'receiving' || e.event_type === 'returns_processing'
       ).length === 0);
 
-  const grandTotal = existingEventsTotal + (showPreview ? previewTotal : 0);
+  // BUILD-38: When waived, grand total is $0
+  const grandTotal = waiveCharges ? 0 : (existingEventsTotal + (showPreview ? previewTotal : 0));
 
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -391,9 +775,76 @@ export function BillingCalculator({
           <CardTitle className={compact ? 'text-sm font-medium flex items-center gap-2' : ''}>
             <MaterialIcon name="attach_money" size="sm" />
             {title}
+            {/* BUILD-38: Charges Waived badge */}
+            {waiveCharges && (
+              <Badge variant="destructive" className="text-[10px] ml-2">
+                Charges Waived
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className={compact ? 'px-4 pb-3 space-y-3' : 'space-y-4'}>
+
+          {/* BUILD-38: Waive Charges Toggle — always visible for tasks when user has permission */}
+          {isTask && taskId && canWaiveCharges && (
+            <div className="flex items-center justify-between py-2 px-3 border rounded-lg bg-muted/30">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="waive-toggle" className="text-sm font-medium cursor-pointer">
+                  Waive Charges
+                </Label>
+                {!waiveCharges && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <MaterialIcon name="info" size="sm" className="text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[280px]">
+                        <p className="text-xs">
+                          Removing waiver does not restore previously voided charges. Use Add Charge or re-complete after reopening.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
+              <Switch
+                id="waive-toggle"
+                checked={waiveCharges}
+                onCheckedChange={handleWaiveToggle}
+                disabled={waiveInvoicedLock || waiveSaving}
+              />
+            </div>
+          )}
+
+          {/* BUILD-38: Invoiced lock notice */}
+          {isTask && taskId && canWaiveCharges && waiveInvoicedLock && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <MaterialIcon name="lock" size="sm" />
+              Waive toggle locked — charges have been invoiced.
+            </p>
+          )}
+
+          {/* BUILD-38: Waive details display */}
+          {waiveCharges && waiveReason && (
+            <div className="p-3 border border-amber-300 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
+              <div className="flex items-start gap-2">
+                <MaterialIcon name="money_off" size="sm" className="text-amber-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    Charges Waived
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                    Reason: {waiveReason}
+                  </p>
+                  {waiveNotes && (
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                      Notes: {waiveNotes}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Service Line Preview (NEW - takes precedence over legacy preview) */}
           {showPreview && hasServiceLinePreview && serviceLinePreview.length > 0 && (
@@ -407,7 +858,7 @@ export function BillingCalculator({
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className="truncate">{item.chargeName}</span>
                     <Badge variant="outline" className="text-xs shrink-0">{item.chargeCode}</Badge>
-                    <span className="text-muted-foreground shrink-0">×{item.quantity}</span>
+                    <span className="text-muted-foreground shrink-0">&times;{item.quantity}</span>
                     {item.hasError && (
                       <MaterialIcon name="warning" size="sm" className="text-amber-500 shrink-0" />
                     )}
@@ -476,7 +927,7 @@ export function BillingCalculator({
                       {classCode && (
                         <Badge variant="outline" className="text-xs">{classCode}</Badge>
                       )}
-                      <span className="text-muted-foreground">×{data.qty}</span>
+                      <span className="text-muted-foreground">&times;{data.qty}</span>
                       {data.hasError && (
                         <MaterialIcon name="warning" size="sm" className="text-amber-500" />
                       )}
@@ -569,7 +1020,8 @@ export function BillingCalculator({
           {existingEvents.length === 0 &&
             (!showPreview ||
               (hasServiceLinePreview && serviceLinePreview.length === 0) ||
-              (!hasServiceLinePreview && (!preview || (preview.lineItems.length === 0 && !preview.errorMessage)))) && (
+              (!hasServiceLinePreview && (!preview || (preview.lineItems.length === 0 && !preview.errorMessage)))) &&
+            !waiveCharges && (
             <div className="text-center py-4 text-sm text-muted-foreground">
               No billing charges yet
             </div>
@@ -578,13 +1030,13 @@ export function BillingCalculator({
           {/* Total */}
           <div className="flex items-center justify-between pt-3 border-t">
             <span className="text-sm font-semibold">Total</span>
-            <span className="text-lg font-bold text-primary">
+            <span className={`text-lg font-bold ${waiveCharges ? 'text-muted-foreground line-through' : 'text-primary'}`}>
               {formatCurrency(grandTotal)}
             </span>
           </div>
 
           {/* Breakdown */}
-          {(existingEventsTotal > 0 || (showPreview && previewTotal > 0)) && (
+          {!waiveCharges && (existingEventsTotal > 0 || (showPreview && previewTotal > 0)) && (
             <div className="text-xs text-muted-foreground text-right space-x-2">
               {showPreview && previewTotal > 0 && <span>Preview: {formatCurrency(previewTotal)}</span>}
               {existingEventsTotal > 0 && <span>Recorded: {formatCurrency(existingEventsTotal)}</span>}
@@ -604,8 +1056,8 @@ export function BillingCalculator({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isVoiding}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleVoidCharge} 
+            <AlertDialogAction
+              onClick={handleVoidCharge}
               disabled={isVoiding}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
@@ -614,6 +1066,72 @@ export function BillingCalculator({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* BUILD-38: Waive Charges Modal */}
+      <Dialog open={waiveModalOpen} onOpenChange={(open) => { if (!waiveSaving) setWaiveModalOpen(open); }}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MaterialIcon name="money_off" size="md" className="text-amber-600" />
+              Waive Charges
+            </DialogTitle>
+            <DialogDescription>
+              All unbilled charges for this task will be voided. This action is logged for audit purposes.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="waive-reason">Reason *</Label>
+              <Select
+                value={waiveModalReason || '_none'}
+                onValueChange={(val) => setWaiveModalReason(val === '_none' ? '' : val as WaiveReason)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a reason..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none" disabled>Select a reason...</SelectItem>
+                  {WAIVE_REASONS.map((reason) => (
+                    <SelectItem key={reason} value={reason}>{reason}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="waive-notes">
+                Notes {waiveModalReason === 'Other' ? '*' : '(optional)'}
+              </Label>
+              <Textarea
+                id="waive-notes"
+                placeholder="Additional context for this waiver..."
+                value={waiveModalNotes}
+                onChange={(e) => setWaiveModalNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setWaiveModalOpen(false)}
+              disabled={waiveSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleWaiveOn}
+              disabled={waiveSaving || !waiveModalReason || (waiveModalReason === 'Other' && !waiveModalNotes.trim())}
+              variant="destructive"
+            >
+              {waiveSaving && <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />}
+              Waive All Charges
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

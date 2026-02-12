@@ -563,14 +563,14 @@ export default function TaskDetailPage() {
             const addedCount = await loadFromTemplate(taskTypeData.id);
             await fetchServiceLines();
 
-            // Guardrail: warn if billable task type has no linked services
-            if (taskTypeData.is_billable && addedCount === 0) {
-              toast({
-                variant: 'destructive',
-                title: 'No Billing Services Configured',
-                description: `The "${task.task_type}" task type has no services linked. Add services in Settings → Task Templates, or manually add services before completing.`,
-              });
-            }
+            // BUILD-38: template dependency removed — tasks bill via task_types.primary_service_code
+            // if (taskTypeData.is_billable && addedCount === 0) {
+            //   toast({
+            //     variant: 'destructive',
+            //     title: 'No Billing Services Configured',
+            //     description: `The "${task.task_type}" task type has no services linked. Add services in Settings → Task Templates, or manually add services before completing.`,
+            //   });
+            // }
           }
         } catch (templateError) {
           console.error('Template auto-load failed:', templateError);
@@ -601,11 +601,11 @@ export default function TaskDetailPage() {
       }
     }
 
-    // If no service lines, block completion — show dialog with admin escape hatch
-    if (serviceLines.length === 0) {
-      setNoServicesDialogOpen(true);
-      return;
-    }
+    // BUILD-38: template dependency removed — tasks bill via task_types.primary_service_code
+    // if (serviceLines.length === 0) {
+    //   setNoServicesDialogOpen(true);
+    //   return;
+    // }
 
     // Note: Assembly/Repair no longer have hardcoded validation here.
     // Service lines now handle quantity validation through the completion panel.
@@ -659,9 +659,24 @@ export default function TaskDetailPage() {
         return;
       }
 
-      // All validations passed — show completion panel with service line qty/time inputs
-      setCompletionPanelOpen(true);
-      setActionLoading(false);
+      // All validations passed
+      // BUILD-38: If service lines exist, show completion panel for qty/time inputs.
+      // Otherwise, complete directly via primary_service_code billing.
+      if (serviceLines.length > 0) {
+        setCompletionPanelOpen(true);
+        setActionLoading(false);
+      } else {
+        // No service lines — complete with empty completionValues (triggers primary billing fallback)
+        try {
+          const success = await completeTaskWithServices(id, []);
+          if (success) {
+            fetchTask();
+            fetchTaskItems();
+          }
+        } finally {
+          setActionLoading(false);
+        }
+      }
     } catch (error) {
       console.error('Error completing task:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to complete task' });
@@ -1639,8 +1654,9 @@ export default function TaskDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Config Warning: billable task with no service lines */}
-            {isTaskTypeBillable && serviceLines.length === 0 && !serviceLinesLoading &&
+            {/* BUILD-38: template dependency removed — tasks bill via task_types.primary_service_code */}
+            {/* Config Warning: billable task with no service lines — disabled */}
+            {/* {isTaskTypeBillable && serviceLines.length === 0 && !serviceLinesLoading &&
               task.status !== 'completed' && task.status !== 'unable_to_complete' && (
               <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
                 <CardContent className="pt-4 pb-4">
@@ -1657,7 +1673,7 @@ export default function TaskDetailPage() {
                   </div>
                 </CardContent>
               </Card>
-            )}
+            )} */}
 
             {/* Services Card (Phase 2) */}
             <Card className="min-w-0">
