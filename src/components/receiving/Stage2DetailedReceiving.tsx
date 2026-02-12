@@ -399,7 +399,7 @@ export function Stage2DetailedReceiving({
             .insert({
               tenant_id: profile.tenant_id,
               unit_id: unit.id,
-              movement_type: 'receiving',
+              movement_type: 'RECEIVED',
               to_location_id: receivingLocationId,
               created_by: profile.id,
             });

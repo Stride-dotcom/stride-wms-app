@@ -5,6 +5,9 @@ import { useToast } from '@/hooks/use-toast';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Stage1DockIntake } from './Stage1DockIntake';
 import { ConfirmationGuard } from './ConfirmationGuard';
 import { Stage2DetailedReceiving } from './Stage2DetailedReceiving';
@@ -12,8 +15,8 @@ import { IssuesTab } from './IssuesTab';
 import { useReceivingDiscrepancies } from '@/hooks/useReceivingDiscrepancies';
 import DockIntakeMatchingPanel from '@/components/incoming/DockIntakeMatchingPanel';
 import type { CandidateParams } from '@/hooks/useInboundCandidates';
-import { generateReceivingPdf, storeReceivingPdf, type ReceivingPdfData } from '@/lib/receivingPdf';
-import { queueReceivingDiscrepancyAlert, queueReceivingExceptionAlert } from '@/lib/alertQueue';
+import { downloadReceivingPdf, storeReceivingPdf, type ReceivingPdfData } from '@/lib/receivingPdf';
+import { queueReceivingDiscrepancyAlert } from '@/lib/alertQueue';
 
 interface ShipmentData {
   id: string;
@@ -43,10 +46,13 @@ type InboundStatus = 'draft' | 'stage1_complete' | 'receiving' | 'closed';
 export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [shipment, setShipment] = useState<ShipmentData | null>(null);
   const [accountName, setAccountName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('receiving');
+  const [mobileMatchingOpen, setMobileMatchingOpen] = useState(false);
+  const [pdfRetrying, setPdfRetrying] = useState(false);
   const { openCount } = useReceivingDiscrepancies(shipmentId);
 
   const fetchShipment = useCallback(async () => {
@@ -86,19 +92,74 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
     fetchShipment();
   };
 
+  const buildPdfData = async (s: ShipmentData): Promise<ReceivingPdfData> => {
+    // Fetch company info for PDF
+    const { data: company } = await supabase
+      .from('tenant_company_settings')
+      .select('company_name, address, phone, email, logo_url')
+      .eq('tenant_id', profile!.tenant_id)
+      .maybeSingle();
+
+    // Fetch warehouse name
+    let warehouseName: string | null = null;
+    if (s.warehouse_id) {
+      const { data: wh } = await supabase
+        .from('warehouses')
+        .select('name')
+        .eq('id', s.warehouse_id)
+        .single();
+      warehouseName = wh?.name || null;
+    }
+
+    // Fetch items
+    const { data: items } = await (supabase as any)
+      .from('shipment_items')
+      .select('expected_description, actual_quantity, expected_vendor, expected_sidemark')
+      .eq('shipment_id', shipmentId)
+      .eq('status', 'received');
+
+    // Fetch discrepancies for summary
+    const { data: discrepancies } = await (supabase as any)
+      .from('receiving_discrepancies')
+      .select('type, details, status')
+      .eq('shipment_id', shipmentId);
+
+    return {
+      shipmentNumber: s.shipment_number,
+      vendorName: s.vendor_name,
+      accountName: accountName,
+      signedPieces: s.signed_pieces,
+      receivedPieces: s.received_pieces,
+      driverName: s.driver_name,
+      companyName: company?.company_name || 'Stride WMS',
+      companyAddress: company?.address || null,
+      companyPhone: company?.phone || null,
+      companyEmail: company?.email || null,
+      warehouseName,
+      signatureData: s.signature_data,
+      signatureName: s.signature_name || null,
+      items: (items || []).map((i: any) => ({
+        description: i.expected_description || '-',
+        quantity: i.actual_quantity || 0,
+        vendor: i.expected_vendor || null,
+        sidemark: i.expected_sidemark || null,
+      })),
+      receivedAt: new Date().toISOString(),
+    };
+  };
+
   const handleReceivingComplete = async () => {
-    // Generate PDF (non-blocking)
+    // Generate + store PDF (non-blocking)
     if (shipment && profile?.tenant_id) {
       try {
-        await generateAndStoreReceivingPdf(shipment);
+        const pdfData = await buildPdfData(shipment);
+        await storeReceivingPdf(pdfData, shipmentId, profile.tenant_id, profile.id);
       } catch {
-        // PDF failure is non-blocking
         console.warn('[ReceivingStageRouter] PDF generation failed (non-blocking)');
       }
 
       // Fire alerts (non-blocking)
       try {
-        // Check if there were discrepancies
         const { data: discrepancies } = await (supabase as any)
           .from('receiving_discrepancies')
           .select('type')
@@ -121,58 +182,61 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
     fetchShipment();
   };
 
-  const generateAndStoreReceivingPdf = async (s: ShipmentData) => {
-    if (!profile?.tenant_id) return;
+  // PDF download for closed shipments
+  const handleDownloadPdf = async () => {
+    if (!shipment || !profile?.tenant_id) return;
 
-    // Fetch company info for PDF
-    const { data: company } = await supabase
-      .from('tenant_company_settings')
-      .select('company_name, address, phone, email, logo_url')
-      .eq('tenant_id', profile.tenant_id)
-      .maybeSingle();
+    // Check if PDF exists in metadata
+    const meta = shipment.metadata as Record<string, unknown> | null;
+    const pdfKey = meta?.receiving_pdf_key as string | undefined;
 
-    // Fetch warehouse name
-    let warehouseName: string | null = null;
-    if (s.warehouse_id) {
-      const { data: wh } = await supabase
-        .from('warehouses')
-        .select('name')
-        .eq('id', s.warehouse_id)
-        .single();
-      warehouseName = wh?.name || null;
+    if (pdfKey) {
+      // Download from storage
+      const { data, error } = await supabase.storage
+        .from('documents-private')
+        .createSignedUrl(pdfKey, 300);
+
+      if (!error && data?.signedUrl) {
+        window.open(data.signedUrl, '_blank');
+        return;
+      }
     }
 
-    // Fetch items
-    const { data: items } = await (supabase as any)
-      .from('shipment_items')
-      .select('expected_description, actual_quantity, expected_vendor, expected_sidemark')
-      .eq('shipment_id', shipmentId)
-      .eq('status', 'received');
+    // Fallback: generate + download directly
+    try {
+      const pdfData = await buildPdfData(shipment);
+      downloadReceivingPdf(pdfData);
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'PDF Error',
+        description: err?.message || 'Failed to generate PDF',
+      });
+    }
+  };
 
-    const pdfData: ReceivingPdfData = {
-      shipmentNumber: s.shipment_number,
-      vendorName: s.vendor_name,
-      accountName: accountName,
-      signedPieces: s.signed_pieces,
-      receivedPieces: s.received_pieces,
-      driverName: s.driver_name,
-      companyName: company?.company_name || 'Stride WMS',
-      companyAddress: company?.address || null,
-      companyPhone: company?.phone || null,
-      companyEmail: company?.email || null,
-      warehouseName,
-      signatureData: s.signature_data,
-      signatureName: s.signature_name || null,
-      items: (items || []).map((i: any) => ({
-        description: i.expected_description || '-',
-        quantity: i.actual_quantity || 0,
-        vendor: i.expected_vendor || null,
-        sidemark: i.expected_sidemark || null,
-      })),
-      receivedAt: new Date().toISOString(),
-    };
-
-    await storeReceivingPdf(pdfData, shipmentId, profile.tenant_id, profile.id);
+  // Retry PDF generation for closed shipments
+  const handleRetryPdf = async () => {
+    if (!shipment || !profile?.tenant_id) return;
+    setPdfRetrying(true);
+    try {
+      const pdfData = await buildPdfData(shipment);
+      const result = await storeReceivingPdf(pdfData, shipmentId, profile.tenant_id, profile.id);
+      if (result.success) {
+        toast({ title: 'PDF Generated', description: 'Receiving PDF has been stored.' });
+        fetchShipment(); // Refresh metadata
+      } else {
+        throw new Error('Storage failed');
+      }
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'PDF Retry Failed',
+        description: err?.message || 'Could not generate PDF. Try again later.',
+      });
+    } finally {
+      setPdfRetrying(false);
+    }
   };
 
   if (loading) {
@@ -201,29 +265,67 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
     pieces: shipment.signed_pieces,
   };
 
+  const hasPdf = !!(shipment.metadata as Record<string, unknown> | null)?.receiving_pdf_key;
+
   // Render based on inbound_status
   const renderStageContent = () => {
     switch (status) {
       case 'draft':
         return (
-          <div className="grid gap-6 lg:grid-cols-[1fr,380px]">
-            <Stage1DockIntake
-              shipmentId={shipmentId}
-              shipmentNumber={shipment.shipment_number}
-              shipment={shipment as any}
-              onComplete={handleStageChange}
-              onRefresh={fetchShipment}
-            />
-            <div className="hidden lg:block">
-              <div className="sticky top-4">
-                <DockIntakeMatchingPanel
-                  dockIntakeId={shipmentId}
-                  params={matchingParams}
-                  onLinked={fetchShipment}
-                />
+          <>
+            <div className="grid gap-6 lg:grid-cols-[1fr,380px]">
+              <Stage1DockIntake
+                shipmentId={shipmentId}
+                shipmentNumber={shipment.shipment_number}
+                shipment={shipment as any}
+                onComplete={handleStageChange}
+                onRefresh={fetchShipment}
+              />
+              {/* Desktop: inline matching panel */}
+              <div className="hidden lg:block">
+                <div className="sticky top-4">
+                  <DockIntakeMatchingPanel
+                    dockIntakeId={shipmentId}
+                    params={matchingParams}
+                    onLinked={fetchShipment}
+                  />
+                </div>
               </div>
             </div>
-          </div>
+
+            {/* Mobile: FAB to open matching panel */}
+            <div className="fixed bottom-6 right-6 lg:hidden z-40">
+              <Button
+                size="lg"
+                className="rounded-full h-14 w-14 shadow-lg"
+                onClick={() => setMobileMatchingOpen(true)}
+              >
+                <MaterialIcon name="search" size="md" />
+              </Button>
+            </div>
+
+            {/* Mobile: matching bottom sheet */}
+            <Sheet open={mobileMatchingOpen} onOpenChange={setMobileMatchingOpen}>
+              <SheetContent
+                side="bottom"
+                className="h-auto max-h-[85vh] rounded-t-xl"
+              >
+                <SheetHeader>
+                  <SheetTitle>Matching Candidates</SheetTitle>
+                </SheetHeader>
+                <div className="mt-4 overflow-y-auto max-h-[calc(85vh-80px)]">
+                  <DockIntakeMatchingPanel
+                    dockIntakeId={shipmentId}
+                    params={matchingParams}
+                    onLinked={() => {
+                      fetchShipment();
+                      setMobileMatchingOpen(false);
+                    }}
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
+          </>
         );
 
       case 'stage1_complete':
@@ -260,6 +362,22 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
             <div className="flex items-center justify-center gap-4 mt-4 text-sm">
               <span>Signed: {shipment.signed_pieces ?? '-'}</span>
               <span>Received: {shipment.received_pieces ?? '-'}</span>
+            </div>
+            <div className="flex items-center justify-center gap-3 mt-6">
+              <Button variant="outline" onClick={handleDownloadPdf}>
+                <MaterialIcon name="picture_as_pdf" size="sm" className="mr-2" />
+                {hasPdf ? 'Download PDF' : 'Generate PDF'}
+              </Button>
+              {!hasPdf && (
+                <Button variant="outline" onClick={handleRetryPdf} disabled={pdfRetrying}>
+                  {pdfRetrying ? (
+                    <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                  ) : (
+                    <MaterialIcon name="refresh" size="sm" className="mr-2" />
+                  )}
+                  Retry PDF
+                </Button>
+              )}
             </div>
           </div>
         );
