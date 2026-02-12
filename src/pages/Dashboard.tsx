@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardStats, PutAwayItem, TaskItem, ShipmentItem } from '@/hooks/useDashboardStats';
 import { useCountUp } from '@/hooks/useCountUp';
+import { CapacityCard } from '@/components/dashboard/CapacityCard';
 
 /** Animated count display for dashboard tiles */
 function AnimatedCount({ value, delay = 0, className }: { value: number; delay?: number; className?: string }) {
@@ -252,6 +253,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <CapacityCard />
             {tiles.map((t, tileIndex) => {
               const isExpanded = expandedCard === t.key;
               const items = getExpandedItems(t.key);

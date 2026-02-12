@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -28,6 +28,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { SaveButton } from '@/components/ui/SaveButton';
 import { supabase } from '@/integrations/supabase/client';
@@ -66,6 +71,19 @@ const LOCATION_TYPES = [
   { value: 'release', label: 'Release', description: 'Items moved here are automatically released' },
 ];
 
+/** Convert total inches to { ft, inches } for display. Returns undefined pair if null. */
+function decomposeInches(totalIn: number | null | undefined): { ft: number | undefined; inches: number | undefined } {
+  if (totalIn == null || totalIn <= 0) return { ft: undefined, inches: undefined };
+  return { ft: Math.floor(totalIn / 12), inches: totalIn % 12 };
+}
+
+/** Convert ft + in to total inches. Returns null when both are empty. */
+function composeTotalInches(ft: number | undefined, inches: number | undefined): number | null {
+  if (ft == null && inches == null) return null;
+  const total = ((ft || 0) * 12) + (inches || 0);
+  return total > 0 ? total : null;
+}
+
 export function LocationDialog({
   open,
   onOpenChange,
@@ -78,6 +96,15 @@ export function LocationDialog({
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const { toast } = useToast();
+
+  // Measurement state (ft + inches decomposition)
+  const [measurementsOpen, setMeasurementsOpen] = useState(false);
+  const [lengthFt, setLengthFt] = useState<number | undefined>();
+  const [lengthInField, setLengthInField] = useState<number | undefined>();
+  const [widthFt, setWidthFt] = useState<number | undefined>();
+  const [widthInField, setWidthInField] = useState<number | undefined>();
+  const [heightFt, setHeightFt] = useState<number | undefined>();
+  const [heightInField, setHeightInField] = useState<number | undefined>();
 
   const form = useForm<LocationFormData>({
     resolver: zodResolver(locationSchema),
@@ -99,6 +126,30 @@ export function LocationDialog({
     (l) => l.warehouse_id === selectedWarehouseId && l.id !== locationId
   );
 
+  // Live capacity computations
+  const lengthTotal = composeTotalInches(lengthFt, lengthInField);
+  const widthTotal = composeTotalInches(widthFt, widthInField);
+  const heightTotal = composeTotalInches(heightFt, heightInField);
+
+  const liveFootprint = useMemo(() => {
+    if (lengthTotal == null || widthTotal == null) return null;
+    return (lengthTotal * widthTotal) / 144;
+  }, [lengthTotal, widthTotal]);
+
+  const liveCapacity = useMemo(() => {
+    if (lengthTotal == null || widthTotal == null || heightTotal == null) return null;
+    return (lengthTotal * widthTotal * heightTotal) / 1728;
+  }, [lengthTotal, widthTotal, heightTotal]);
+
+  const resetMeasurements = () => {
+    setLengthFt(undefined);
+    setLengthInField(undefined);
+    setWidthFt(undefined);
+    setWidthInField(undefined);
+    setHeightFt(undefined);
+    setHeightInField(undefined);
+  };
+
   useEffect(() => {
     if (open && locationId) {
       fetchLocation(locationId);
@@ -112,6 +163,8 @@ export function LocationDialog({
         capacity: undefined,
         status: 'active',
       });
+      resetMeasurements();
+      setMeasurementsOpen(false);
     }
   }, [open, locationId, defaultWarehouseId, warehouses]);
 
@@ -135,6 +188,25 @@ export function LocationDialog({
         capacity: data.capacity ? Number(data.capacity) : undefined,
         status: data.status as 'active' | 'inactive' | 'full',
       });
+
+      // Prefill measurement fields from DB inches
+      const d = data as any;
+      const lenDec = decomposeInches(d.length_in);
+      setLengthFt(lenDec.ft);
+      setLengthInField(lenDec.inches);
+      const widDec = decomposeInches(d.width_in);
+      setWidthFt(widDec.ft);
+      setWidthInField(widDec.inches);
+      const htDec = decomposeInches(d.usable_height_in);
+      setHeightFt(htDec.ft);
+      setHeightInField(htDec.inches);
+
+      // Auto-open measurements section when location has dimensions
+      if (d.length_in || d.width_in || d.usable_height_in) {
+        setMeasurementsOpen(true);
+      } else {
+        setMeasurementsOpen(false);
+      }
     } catch (error) {
       console.error('Error fetching location:', error);
       toast({
@@ -152,7 +224,15 @@ export function LocationDialog({
     try {
       setLoading(true);
 
-      const locationData = {
+      // Compute measurement inches
+      const lenIn = composeTotalInches(lengthFt, lengthInField);
+      const widIn = composeTotalInches(widthFt, widthInField);
+      const htIn = composeTotalInches(heightFt, heightInField);
+
+      // If any dim is missing → send NULL for all three
+      const allDimsPresent = lenIn != null && widIn != null && htIn != null;
+
+      const locationData: Record<string, unknown> = {
         code: data.code,
         name: data.name || null,
         type: data.type,
@@ -160,11 +240,14 @@ export function LocationDialog({
         parent_location_id: data.parent_location_id === 'none' ? null : data.parent_location_id || null,
         capacity: data.capacity || null,
         status: data.status,
+        length_in: allDimsPresent ? lenIn : null,
+        width_in: allDimsPresent ? widIn : null,
+        usable_height_in: allDimsPresent ? htIn : null,
       };
 
       if (locationId) {
-        const { error } = await supabase
-          .from('locations')
+        const { error } = await (supabase
+          .from('locations') as any)
           .update(locationData)
           .eq('id', locationId);
 
@@ -175,7 +258,7 @@ export function LocationDialog({
           description: `${data.code} has been updated successfully.`,
         });
       } else {
-        const { error } = await supabase.from('locations').insert([locationData]);
+        const { error } = await (supabase.from('locations') as any).insert([locationData]);
 
         if (error) throw error;
 
@@ -203,6 +286,25 @@ export function LocationDialog({
   };
 
   const isEditing = !!locationId;
+
+  /** Height preset helper */
+  const applyHeightPreset = (totalInches: number) => {
+    setHeightFt(Math.floor(totalInches / 12));
+    setHeightInField(totalInches % 12);
+  };
+
+  /** Constrain inches input to 0-11 */
+  const clampInches = (val: string): number | undefined => {
+    if (!val) return undefined;
+    const n = Math.max(0, Math.min(11, parseInt(val, 10)));
+    return isNaN(n) ? undefined : n;
+  };
+
+  const parseFeet = (val: string): number | undefined => {
+    if (!val) return undefined;
+    const n = Math.max(0, parseInt(val, 10));
+    return isNaN(n) ? undefined : n;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -388,10 +490,139 @@ export function LocationDialog({
                 />
               </div>
 
+              {/* ---- Capacity / Measurements (Optional) ---- */}
+              <Collapsible open={measurementsOpen} onOpenChange={setMeasurementsOpen}>
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center justify-between w-full py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <MaterialIcon name="straighten" size="sm" />
+                      Capacity / Measurements (Optional)
+                    </span>
+                    <MaterialIcon
+                      name="expand_more"
+                      size="sm"
+                      className={`transition-transform duration-200 ${measurementsOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-4 pt-2">
+                  {/* Length */}
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Length</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min={0}
+                          placeholder="0"
+                          value={lengthFt ?? ''}
+                          onChange={(e) => setLengthFt(parseFeet(e.target.value))}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">ft</span>
+                      </div>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={11}
+                          placeholder="0"
+                          value={lengthInField ?? ''}
+                          onChange={(e) => setLengthInField(clampInches(e.target.value))}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">in</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Width */}
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Width</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min={0}
+                          placeholder="0"
+                          value={widthFt ?? ''}
+                          onChange={(e) => setWidthFt(parseFeet(e.target.value))}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">ft</span>
+                      </div>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={11}
+                          placeholder="0"
+                          value={widthInField ?? ''}
+                          onChange={(e) => setWidthInField(clampInches(e.target.value))}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">in</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Usable Height */}
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Usable Height</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min={0}
+                          placeholder="0"
+                          value={heightFt ?? ''}
+                          onChange={(e) => setHeightFt(parseFeet(e.target.value))}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">ft</span>
+                      </div>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={11}
+                          placeholder="0"
+                          value={heightInField ?? ''}
+                          onChange={(e) => setHeightInField(clampInches(e.target.value))}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">in</span>
+                      </div>
+                    </div>
+                    {/* Preset buttons */}
+                    <div className="flex gap-2 mt-1">
+                      <Button type="button" variant="outline" size="sm" className="text-xs h-7" onClick={() => applyHeightPreset(108)}>
+                        Ground 9 ft
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" className="text-xs h-7" onClick={() => applyHeightPreset(50)}>
+                        Rack 50 in
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" className="text-xs h-7" onClick={() => applyHeightPreset(72)}>
+                        Top rack 6 ft
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Live display */}
+                  <div className="flex gap-4 text-sm text-muted-foreground border-t pt-3">
+                    <div>
+                      <span className="font-medium">Footprint:</span>{' '}
+                      {liveFootprint != null ? `${liveFootprint.toFixed(1)} sqft` : '\u2014'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Capacity:</span>{' '}
+                      {liveCapacity != null ? `${liveCapacity.toFixed(1)} cuft` : '\u2014'}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
             </form>
           </Form>
         )}
-        
+
         {!fetching && (
           <DialogFooter className="pt-4 border-t mt-4 flex-shrink-0">
             <Button
