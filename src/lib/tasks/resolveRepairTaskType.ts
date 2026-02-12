@@ -17,7 +17,6 @@ export interface ResolvedRepairTaskType {
   name: string;
   primary_service_code: string | null;
   default_service_code: string | null;
-  billing_service_code: string | null;
 }
 
 export async function resolveRepairTaskTypeId(params: {
@@ -148,7 +147,7 @@ export async function fetchRepairTaskTypeDetails(
   try {
     const { data, error } = await (supabase
       .from('task_types') as any)
-      .select('id, name, primary_service_code, default_service_code, billing_service_code')
+      .select('id, name, primary_service_code, default_service_code')
       .eq('id', taskTypeId)
       .maybeSingle();
 
