@@ -5,7 +5,6 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { PriceListTab } from './pricing/PriceListTab';
 import { CategoriesTab } from './pricing/CategoriesTab';
 import { ClassesTab } from './pricing/ClassesTab';
-import { TaskTemplatesTab } from './pricing/TaskTemplatesTab';
 import { QuickStartTab } from './pricing/QuickStartTab';
 import { FlagsTab } from './pricing/FlagsTab';
 
@@ -14,7 +13,6 @@ const SUB_TABS = [
   { value: 'categories', label: 'Categories', icon: 'folder' },
   { value: 'classes', label: 'Classes', icon: 'label' },
   { value: 'flags', label: 'Flags', icon: 'flag' },
-  { value: 'task-templates', label: 'Task Templates', icon: 'assignment' },
   { value: 'quick-start', label: 'Quick Start', icon: 'rocket_launch' },
 ] as const;
 
@@ -78,10 +76,6 @@ export function ServiceRatesConsole() {
 
         <TabsContent value="flags" className="mt-6">
           <FlagsTab />
-        </TabsContent>
-
-        <TabsContent value="task-templates" className="mt-6">
-          <TaskTemplatesTab />
         </TabsContent>
 
         <TabsContent value="quick-start" className="mt-6">

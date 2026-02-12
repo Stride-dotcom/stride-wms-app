@@ -5,8 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { queueTaskCreatedAlert, queueTaskAssignedAlert, queueTaskCompletedAlert, queueInspectionCompletedAlert, queueBillingEventAlert } from '@/lib/alertQueue';
 import { logItemActivity } from '@/lib/activity/logItemActivity';
 import { createBillingEventsBatch, CreateBillingEventParams } from '@/lib/billing/createBillingEvent';
-import { TASK_TYPE_TO_SERVICE_CODE, getRateFromPriceList } from '@/lib/billing/billingCalculation';
-import { getTaskTypeServiceCode } from '@/lib/billing/taskServiceLookup';
+import { getRateFromPriceList } from '@/lib/billing/billingCalculation';
 import { BILLING_DISABLED_ERROR, getEffectiveRate } from '@/lib/billing/chargeTypeUtils';
 import { fetchTaskServiceLinesStatic, isServiceLineRow } from '@/hooks/useTaskServiceLines';
 import type { CompletionLineValues } from '@/components/tasks/TaskCompletionPanel';
@@ -355,40 +354,25 @@ export function useTasks(filters?: {
       const hasManualRate = taskData?.billing_rate_locked && taskData?.billing_rate !== null;
       const manualRate = taskData?.billing_rate;
 
-      // Check metadata for per-task billing (service code + quantity set by UI)
-      const metadataServiceCode = taskData?.metadata?.billing_service_code || null;
-      const billingQuantity = taskData?.metadata?.billing_quantity || 0;
-      const isPerTaskBilling = !!metadataServiceCode && billingQuantity > 0;
-
-      // Get service code for this task type
-      // Priority: 1) Metadata service code, 2) task_types.primary_service_code (via task_type_id),
-      //           3) DB lookup (default_service_code / billing_service_code), 4) Hardcoded legacy defaults
-      let serviceCode: string;
-      if (metadataServiceCode) {
-        serviceCode = metadataServiceCode;
-      } else {
-        // Try direct primary_service_code lookup via task_type_id first
-        let foundPrimaryCode: string | null = null;
-        if (taskData?.task_type_id) {
-          const { data: taskTypeRow } = await (supabase
-            .from('task_types') as any)
-            .select('primary_service_code')
-            .eq('id', taskData.task_type_id)
-            .maybeSingle();
-          foundPrimaryCode = taskTypeRow?.primary_service_code || null;
-        }
-
-        if (foundPrimaryCode) {
-          serviceCode = foundPrimaryCode;
-        } else {
-          // Dynamic lookup from task_types table, falls back to hardcoded defaults
-          serviceCode = await getTaskTypeServiceCode(profile.tenant_id, taskType);
-        }
+      // Get service code for this task type via primary_service_code (with default_service_code fallback)
+      let serviceCode: string | null = null;
+      if (taskData?.task_type_id) {
+        const { data: taskTypeRow } = await (supabase
+          .from('task_types') as any)
+          .select('primary_service_code, default_service_code')
+          .eq('id', taskData.task_type_id)
+          .maybeSingle();
+        serviceCode = taskTypeRow?.primary_service_code || taskTypeRow?.default_service_code || null;
       }
 
-      // Check if this service uses task-level billing (billing_unit === 'Task' or per-task from metadata)
+      // If no service code found, task type is non-billable — skip billing
+      if (!serviceCode) {
+        return;
+      }
+
+      // Check if this service uses task-level billing (billing_unit === 'Task')
       const serviceInfo = await getRateFromPriceList(profile.tenant_id, serviceCode, null, accountId);
-      const isTaskLevelBilling = serviceInfo.billingUnit === 'Task' || isPerTaskBilling;
+      const isTaskLevelBilling = serviceInfo.billingUnit === 'Task';
 
       // Fetch all classes to map class_id to code
       const { data: allClasses } = await supabase
@@ -419,59 +403,7 @@ export function useTasks(filters?: {
         description: string;
       }> = [];
 
-      // For per-task billing (metadata has service code + quantity), create single billing event
-      if (isPerTaskBilling) {
-        const firstItem = taskItems[0]?.items;
-        const taskAccountId = accountId || firstItem?.account_id;
-
-        if (taskAccountId && billingQuantity > 0) {
-          const itemCodes = taskItems
-            .map((ti: any) => ti.items?.item_code)
-            .filter(Boolean);
-          const itemCodesStr = itemCodes.join(', ');
-
-          // SAFETY BILLING: For manual-rate task types without a rate set, use NULL
-          // This creates a "pending pricing" state that blocks invoicing until rate is entered
-          const needsPendingRate = isManualRateTaskType && !hasManualRate;
-          const unitRate = needsPendingRate ? null : (hasManualRate ? manualRate : serviceInfo.rate);
-          const totalAmount = unitRate !== null ? unitRate * billingQuantity : null;
-
-          // Description includes RATE REQUIRED notice if pending
-          const description = needsPendingRate
-            ? `RATE REQUIRED – ${serviceInfo.serviceName}: ${taskData?.title || itemCodesStr}`
-            : `${serviceInfo.serviceName}: ${taskData?.title || itemCodesStr}`;
-
-          billingEvents.push({
-            tenant_id: profile.tenant_id,
-            account_id: taskAccountId,
-            sidemark_id: firstItem?.sidemark_id || null,
-            class_id: null,
-            item_id: null, // Task-level, not item-specific
-            task_id: taskId,
-            event_type: 'task_completion',
-            charge_type: serviceCode,
-            description,
-            quantity: billingQuantity,
-            unit_rate: unitRate,
-            total_amount: totalAmount,
-            status: 'unbilled',
-            occurred_at: new Date().toISOString(),
-            metadata: {
-              task_type: taskType,
-              billing_unit: 'Task',
-              service_code: serviceCode,
-              manual_rate: hasManualRate,
-              pending_rate: needsPendingRate, // Flag for UI to show rate entry
-              task_item_codes: itemCodes, // Store item codes for display in reports
-            },
-            created_by: profile.id,
-            has_rate_error: needsPendingRate ? true : (hasManualRate ? false : serviceInfo.hasError),
-            rate_error_message: needsPendingRate
-              ? 'Rate not set – set price before invoicing'
-              : (hasManualRate ? null : serviceInfo.errorMessage),
-          });
-        }
-      } else if (isTaskLevelBilling && hasManualRate) {
+      if (isTaskLevelBilling && hasManualRate) {
         // For other task-level billing with manual rate
         const firstItem = taskItems[0]?.items;
         const taskAccountId = accountId || firstItem?.account_id;

@@ -85,52 +85,6 @@ import {
   logPricingFallbackExternal,
 } from '@/lib/billing/chargeTypeUtils';
 
-// ============================================================================
-// LEGACY SERVICE CODE MAPPINGS (for backward compatibility)
-// These are kept for historical data and shipments
-// New task billing uses category_id + class_code lookup
-// ============================================================================
-
-/**
- * @deprecated Use category-based lookup instead
- * Map task types to service codes in the Price List
- * Only used as fallback for legacy tasks without category_id
- */
-// Case-insensitive lookup helper
-const normalizeTaskType = (taskType: string): string => {
-  // Map lowercase DB values to title case for lookup
-  const normalized = taskType.toLowerCase();
-  const titleCaseMap: Record<string, string> = {
-    'inspection': 'Inspection',
-    'will call': 'Will Call',
-    'will_call': 'Will Call',
-    'disposal': 'Disposal',
-    'assembly': 'Assembly',
-    'repair': 'Repair',
-    'receiving': 'Receiving',
-    'returns': 'Returns',
-  };
-  return titleCaseMap[normalized] || taskType;
-};
-
-export const TASK_TYPE_TO_SERVICE_CODE: Record<string, string> = {
-  'Inspection': 'INSP',
-  'Will Call': 'Will_Call',
-  'Disposal': 'Disposal',
-  'Assembly': '15MA', // Default - can be overridden per task via billing_service_code
-  'Repair': '1HRO',   // Default - can be overridden per task via billing_service_code
-  'Receiving': 'RCVG',
-  'Returns': 'Returns',
-};
-
-/**
- * Get service code for a task type (case-insensitive)
- */
-export function getServiceCodeForTaskType(taskType: string): string {
-  const normalized = normalizeTaskType(taskType);
-  return TASK_TYPE_TO_SERVICE_CODE[normalized] || 'INSP';
-}
-
 /**
  * Map shipment direction to service codes
  * Outbound uses Will_Call for class-based pickup/release fees
@@ -399,7 +353,7 @@ export async function calculateTaskBillingPreview(
   let subtotal = 0;
   let hasErrors = false;
   let serviceName = 'Unknown';
-  let serviceCode = overrideServiceCode || TASK_TYPE_TO_SERVICE_CODE[taskType] || 'UNKNOWN';
+  let serviceCode = overrideServiceCode || 'UNKNOWN';
 
   // Note: Assembly/Repair are no longer hardcoded special cases.
   // Per-task billing is handled via service lines with explicit quantities.
@@ -423,8 +377,8 @@ export async function calculateTaskBillingPreview(
         // NEW: Category-based billing
         rateResult = await getRateByCategoryAndClass(tenantId, categoryId, classCode);
       } else {
-        // LEGACY: Service code-based billing (case-insensitive)
-        const legacyServiceCode = overrideServiceCode || getServiceCodeForTaskType(taskType);
+        // LEGACY: Service code-based billing
+        const legacyServiceCode = overrideServiceCode || 'UNKNOWN';
         rateResult = await getRateFromPriceList(tenantId, legacyServiceCode, classCode);
       }
 

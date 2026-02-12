@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,14 +18,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import {
   Select,
   SelectContent,
@@ -60,10 +52,6 @@ import { TaskCompletionBlockedDialog } from '@/components/tasks/TaskCompletionBl
 import { HelpButton } from '@/components/prompts';
 import { PromptWorkflow } from '@/types/guidedPrompts';
 import { validateTaskCompletion, TaskCompletionValidationResult } from '@/lib/billing/taskCompletionValidation';
-import { useTaskServiceLines } from '@/hooks/useTaskServiceLines';
-import { TaskServiceLinesEditor, ChargeTypeOption, RateInfo } from '@/components/tasks/TaskServiceLinesEditor';
-import { TaskCompletionPanel, CompletionLineValues } from '@/components/tasks/TaskCompletionPanel';
-import { getChargeTypes, getTaskTypeCharges, getEffectiveRate } from '@/lib/billing/chargeTypeUtils';
 import { logItemActivity } from '@/lib/activity/logItemActivity';
 import { queueRepairUnableToCompleteAlert } from '@/lib/alertQueue';
 import { resolveRepairTaskTypeId, fetchRepairTaskTypeDetails } from '@/lib/tasks/resolveRepairTaskType';
@@ -87,7 +75,6 @@ interface TaskDetail {
   inspection_status: string | null;
   metadata: {
     photos?: (string | TaggablePhoto)[];
-    billing_service_code?: string;
     billing_quantity?: number;
   } | null;
   created_at: string;
@@ -171,39 +158,15 @@ export default function TaskDetailPage() {
   const [savingRate, setSavingRate] = useState(false);
 
 
-  // Service lines state
-  const [noServicesDialogOpen, setNoServicesDialogOpen] = useState(false);
-  const [completionPanelOpen, setCompletionPanelOpen] = useState(false);
-  const [completionLoading, setCompletionLoading] = useState(false);
-  const [availableServices, setAvailableServices] = useState<ChargeTypeOption[]>([]);
-  const [suggestedChargeTypeIds, setSuggestedChargeTypeIds] = useState<string[]>([]);
-  const [isTaskTypeBillable, setIsTaskTypeBillable] = useState(false);
-
   const { activeTechnicians } = useTechnicians();
   const { createWorkflowQuote, sendToTechnician } = useRepairQuoteWorkflow();
   const { hasRole } = usePermissions();
   const { completeTask, completeTaskWithServices, startTask: startTaskHook } = useTasks();
 
-  // Service lines hook
-  const {
-    serviceLines,
-    loading: serviceLinesLoading,
-    fetchServiceLines,
-    addServiceLine,
-    updateServiceLine,
-    removeServiceLine,
-    loadFromTemplate,
-  } = useTaskServiceLines(id);
-
   // Only managers and admins can see billing
   const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
   // Only admins can add credits
   const canAddCredit = hasRole('admin') || hasRole('tenant_admin');
-
-  // Rate cache for service lines (keyed by chargeCode|accountId|classCode)
-  const ratesCache = useRef<Map<string, RateInfo>>(new Map());
-  const [ratesMap, setRatesMap] = useState<Map<string, RateInfo>>(new Map());
-  const [ratesLoading, setRatesLoading] = useState(false);
 
   const fetchTask = useCallback(async () => {
     if (!id) return;
@@ -397,49 +360,7 @@ export default function TaskDetailPage() {
   useEffect(() => {
     fetchTask();
     fetchTaskItems();
-    fetchServiceLines();
-  }, [fetchTask, fetchTaskItems, fetchServiceLines]);
-
-  // Fetch available charge types and template suggestions
-  useEffect(() => {
-    if (!profile?.tenant_id || !task) return;
-
-    const loadServices = async () => {
-      try {
-        const chargeTypes = await getChargeTypes(profile.tenant_id);
-        const options: ChargeTypeOption[] = chargeTypes.map((ct: any) => ({
-          id: ct.id,
-          charge_code: ct.charge_code,
-          charge_name: ct.charge_name,
-          category: ct.category || 'service',
-          input_mode: ct.input_mode || 'qty',
-          notes: ct.notes || null,
-        }));
-        setAvailableServices(options);
-
-        // Fetch template suggestions and billable flag from task_type_charge_links
-        const { data: taskTypeData } = await (supabase
-          .from('task_types') as any)
-          .select('id, is_billable')
-          .eq('tenant_id', profile.tenant_id)
-          .eq('name', task.task_type)
-          .eq('is_active', true)
-          .maybeSingle();
-
-        if (taskTypeData) {
-          setIsTaskTypeBillable(taskTypeData.is_billable === true);
-          if (taskTypeData.id) {
-            const suggested = await getTaskTypeCharges(taskTypeData.id);
-            setSuggestedChargeTypeIds(suggested.map((s: any) => s.id));
-          }
-        }
-      } catch (error) {
-        console.error('Error loading available services:', error);
-      }
-    };
-
-    loadServices();
-  }, [profile?.tenant_id, task?.task_type]);
+  }, [fetchTask, fetchTaskItems]);
 
   // Fetch pending-rate events when task loads and is completed (for Safety Billing)
   useEffect(() => {
@@ -447,95 +368,6 @@ export default function TaskDetailPage() {
       fetchPendingRateBillingEvents();
     }
   }, [task?.status, fetchPendingRateBillingEvents]);
-
-  // Get classCode from first task item (for rate lookup)
-  const classCode = useMemo(() => {
-    if (taskItems.length === 0) return null;
-    const firstItem = taskItems[0]?.item;
-    if (!firstItem) return null;
-    // We don't have class directly on item, but class_id
-    // We'd need to fetch classes to get the code, but for now return null
-    // The rate lookup will work without it (falls back to flat rate)
-    return null;
-  }, [taskItems]);
-
-  // Fetch rates for service lines (for editor and billing preview)
-  useEffect(() => {
-    if (!profile?.tenant_id || !canSeeBilling || serviceLines.length === 0) {
-      setRatesMap(new Map());
-      return;
-    }
-
-    const fetchRates = async () => {
-      setRatesLoading(true);
-      const newRatesMap = new Map<string, RateInfo>();
-      const accountId = task?.account_id || undefined;
-
-      for (const line of serviceLines) {
-        const cacheKey = `${line.charge_code}|${accountId || ''}|${classCode || ''}`;
-
-        // Check cache first
-        if (ratesCache.current.has(cacheKey)) {
-          const cached = ratesCache.current.get(cacheKey)!;
-          newRatesMap.set(line.charge_code, cached);
-          continue;
-        }
-
-        try {
-          const result = await getEffectiveRate({
-            tenantId: profile.tenant_id,
-            chargeCode: line.charge_code,
-            accountId: accountId,
-            classCode: classCode || undefined,
-          });
-
-          const rateInfo: RateInfo = {
-            rate: result.effective_rate,
-            serviceName: result.charge_name || line.charge_name,
-            hasError: result.has_error,
-          };
-
-          ratesCache.current.set(cacheKey, rateInfo);
-          newRatesMap.set(line.charge_code, rateInfo);
-        } catch (error) {
-          console.error(`[TaskDetail] Rate lookup error for ${line.charge_code}:`, error);
-          const rateInfo: RateInfo = {
-            rate: 0,
-            serviceName: line.charge_name,
-            hasError: true,
-          };
-          ratesCache.current.set(cacheKey, rateInfo);
-          newRatesMap.set(line.charge_code, rateInfo);
-        }
-      }
-
-      setRatesMap(newRatesMap);
-      setRatesLoading(false);
-    };
-
-    fetchRates();
-  }, [profile?.tenant_id, canSeeBilling, serviceLines, task?.account_id, classCode]);
-
-  // Build service line preview for BillingCalculator
-  const serviceLinePreview = useMemo(() => {
-    if (!canSeeBilling || serviceLines.length === 0) {
-      return undefined; // Return undefined to fall back to legacy behavior
-    }
-
-    return serviceLines.map(line => {
-      const rateInfo = ratesMap.get(line.charge_code);
-      const rate = rateInfo?.rate ?? 0;
-      const qty = line.qty || 1;
-      return {
-        chargeCode: line.charge_code,
-        chargeName: line.charge_name,
-        quantity: qty,
-        unitRate: rate,
-        totalAmount: rateInfo?.hasError ? 0 : rate * qty,
-        hasError: rateInfo?.hasError ?? true,
-      };
-    });
-  }, [canSeeBilling, serviceLines, ratesMap]);
 
   const handleStartTask = async () => {
     if (!id || !profile?.id || !profile?.tenant_id) return;
@@ -547,35 +379,6 @@ export default function TaskDetailPage() {
       if (error) throw error;
       toast({ title: 'Task Started' });
       fetchTask();
-
-      // Auto-load template services from task_type_charge_links
-      if (task?.task_type) {
-        try {
-          const { data: taskTypeData } = await (supabase
-            .from('task_types') as any)
-            .select('id, is_billable')
-            .eq('tenant_id', profile.tenant_id)
-            .eq('name', task.task_type)
-            .eq('is_active', true)
-            .maybeSingle();
-
-          if (taskTypeData?.id) {
-            const addedCount = await loadFromTemplate(taskTypeData.id);
-            await fetchServiceLines();
-
-            // BUILD-38: template dependency removed — tasks bill via task_types.primary_service_code
-            // if (taskTypeData.is_billable && addedCount === 0) {
-            //   toast({
-            //     variant: 'destructive',
-            //     title: 'No Billing Services Configured',
-            //     description: `The "${task.task_type}" task type has no services linked. Add services in Settings → Task Templates, or manually add services before completing.`,
-            //   });
-            // }
-          }
-        } catch (templateError) {
-          console.error('Template auto-load failed:', templateError);
-        }
-      }
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to start task' });
     } finally {
@@ -600,15 +403,6 @@ export default function TaskDetailPage() {
         return;
       }
     }
-
-    // BUILD-38: template dependency removed — tasks bill via task_types.primary_service_code
-    // if (serviceLines.length === 0) {
-    //   setNoServicesDialogOpen(true);
-    //   return;
-    // }
-
-    // Note: Assembly/Repair no longer have hardcoded validation here.
-    // Service lines now handle quantity validation through the completion panel.
 
     setActionLoading(true);
     try {
@@ -659,23 +453,15 @@ export default function TaskDetailPage() {
         return;
       }
 
-      // All validations passed
-      // BUILD-38: If service lines exist, show completion panel for qty/time inputs.
-      // Otherwise, complete directly via primary_service_code billing.
-      if (serviceLines.length > 0) {
-        setCompletionPanelOpen(true);
-        setActionLoading(false);
-      } else {
-        // No service lines — complete with empty completionValues (triggers primary billing fallback)
-        try {
-          const success = await completeTaskWithServices(id, []);
-          if (success) {
-            fetchTask();
-            fetchTaskItems();
-          }
-        } finally {
-          setActionLoading(false);
+      // All validations passed — complete with primary_service_code billing
+      try {
+        const success = await completeTaskWithServices(id, []);
+        if (success) {
+          fetchTask();
+          fetchTaskItems();
         }
+      } finally {
+        setActionLoading(false);
       }
     } catch (error) {
       console.error('Error completing task:', error);
@@ -683,53 +469,6 @@ export default function TaskDetailPage() {
       setActionLoading(false);
     }
   };
-
-  // Admin escape hatch: complete task without billing (audit logged)
-  const handleCompleteWithoutBilling = async () => {
-    if (!id || !profile?.id || !profile?.tenant_id) return;
-    setNoServicesDialogOpen(false);
-    setCompletionLoading(true);
-    try {
-      // Complete task without creating any billing events
-      const { error } = await (supabase.from('tasks') as any)
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          completed_by: profile.id,
-          task_notes: [task?.task_notes, `[ADMIN] Completed without billing — no services configured`].filter(Boolean).join('\n'),
-        })
-        .eq('id', id);
-      if (error) throw error;
-
-      toast({
-        title: 'Task Completed (No Billing)',
-        description: 'Task completed without billing. An audit note has been added.',
-      });
-      fetchTask();
-      fetchTaskItems();
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to complete task' });
-    } finally {
-      setCompletionLoading(false);
-    }
-  };
-
-  // Handle completion panel confirm
-  const handleCompletionConfirm = async (values: CompletionLineValues[]) => {
-    if (!id) return;
-    setCompletionLoading(true);
-    try {
-      const success = await completeTaskWithServices(id, values);
-      if (success) {
-        setCompletionPanelOpen(false);
-        fetchTask();
-        fetchTaskItems();
-      }
-    } finally {
-      setCompletionLoading(false);
-    }
-  };
-
 
   const handleUnableToComplete = async (note: string) => {
     if (!id || !profile?.id || !profile?.tenant_id) return false;
@@ -1654,63 +1393,6 @@ export default function TaskDetailPage() {
               </CardContent>
             </Card>
 
-            {/* BUILD-38: template dependency removed — tasks bill via task_types.primary_service_code */}
-            {/* Config Warning: billable task with no service lines — disabled */}
-            {/* {isTaskTypeBillable && serviceLines.length === 0 && !serviceLinesLoading &&
-              task.status !== 'completed' && task.status !== 'unable_to_complete' && (
-              <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
-                <CardContent className="pt-4 pb-4">
-                  <div className="flex items-start gap-3">
-                    <MaterialIcon name="warning" size="md" className="text-amber-600 mt-0.5 shrink-0" />
-                    <div className="flex-1 space-y-2">
-                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                        No Billing Services Configured
-                      </p>
-                      <p className="text-xs text-amber-700 dark:text-amber-300">
-                        This task type has no services linked. Add at least one service below, or configure default services in Settings → Task Templates.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )} */}
-
-            {/* Services Card (Phase 2) */}
-            <Card className="min-w-0">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <MaterialIcon name="build" size="sm" />
-                  Services ({serviceLines.length})
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Services determine billing for this task.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
-                <TaskServiceLinesEditor
-                  serviceLines={serviceLines}
-                  availableServices={availableServices}
-                  suggestedChargeTypeIds={suggestedChargeTypeIds}
-                  onAdd={(service) => {
-                    addServiceLine({
-                      charge_code: service.charge_code,
-                      charge_name: service.charge_name,
-                      charge_type_id: service.id,
-                      input_mode: service.input_mode,
-                      qty: 1,
-                      minutes: 0,
-                    });
-                  }}
-                  onRemove={removeServiceLine}
-                  onUpdate={updateServiceLine}
-                  rates={ratesMap}
-                  showRates={canSeeBilling}
-                  disabled={task.status === 'completed' || task.status === 'unable_to_complete'}
-                  loading={serviceLinesLoading}
-                />
-              </CardContent>
-            </Card>
-
             {/* Safety Billing: Set Task Rate Card - Shows when there are pending-rate billing events */}
             {canSeeBilling && task.status === 'completed' && pendingRateBillingEvents.length > 0 && (
               <Card className="border-red-300 bg-red-50 dark:bg-red-950/30">
@@ -1744,7 +1426,6 @@ export default function TaskDetailPage() {
                 taskType={task.task_type}
                 refreshKey={billingRefreshKey}
                 title="Billing Calculator"
-                serviceLinePreview={serviceLinePreview}
               />
             )}
           </div>
@@ -2026,51 +1707,6 @@ export default function TaskDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Task Completion Panel (Phase 2 — service line qty/time confirmation) */}
-      {task && (
-        <TaskCompletionPanel
-          open={completionPanelOpen}
-          onOpenChange={setCompletionPanelOpen}
-          taskTitle={task.title}
-          taskType={task.task_type}
-          serviceLines={serviceLines}
-          onConfirm={handleCompletionConfirm}
-          loading={completionLoading}
-        />
-      )}
-
-      {/* No Services Dialog — blocks completion until services are added */}
-      <AlertDialog open={noServicesDialogOpen} onOpenChange={setNoServicesDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>No Services Added</AlertDialogTitle>
-            <AlertDialogDescription>
-              This task has no services assigned. Add at least one service using the
-              Services panel below before completing.{' '}
-              {isTaskTypeBillable && (
-                <>If this task type should auto-populate services, configure it in Settings → Task Templates.</>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            {canSeeBilling && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground text-xs"
-                onClick={handleCompleteWithoutBilling}
-                disabled={completionLoading}
-              >
-                {completionLoading && <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />}
-                Complete Without Billing (Admin)
-              </Button>
-            )}
-            <Button onClick={() => setNoServicesDialogOpen(false)}>
-              Add Services
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </DashboardLayout>
   );
 }

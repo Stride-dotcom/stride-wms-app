@@ -64,7 +64,6 @@ import {
   calculateShipmentBillingPreview,
   BillingPreview,
 } from '@/lib/billing/billingCalculation';
-import { getTaskTypeServiceCode } from '@/lib/billing/taskServiceLookup';
 import { logActivity, logBillingActivity } from '@/lib/activity/logActivity';
 
 // ============================================================================
@@ -300,7 +299,7 @@ export function BillingCalculator({
 
         const { data: taskTypeData } = await (supabase
           .from('task_types') as any)
-          .select('category_id, default_service_code, billing_service_code, requires_manual_rate')
+          .select('category_id, primary_service_code, default_service_code, requires_manual_rate')
           .eq('tenant_id', profile.tenant_id)
           .eq('name', taskType)
           .maybeSingle();
@@ -311,21 +310,27 @@ export function BillingCalculator({
           // Only use database flag - no hardcoded task type names
           requiresManualRate = taskTypeData.requires_manual_rate === true;
 
-          // Only use legacy service code lookup if no category is set
+          // Use primary_service_code with default_service_code fallback
           if (!categoryId && !effectiveServiceCode) {
-            effectiveServiceCode = taskTypeData.default_service_code ||
-                                   taskTypeData.billing_service_code ||
-                                   await getTaskTypeServiceCode(profile.tenant_id, taskType);
+            effectiveServiceCode = taskTypeData.primary_service_code ||
+                                   taskTypeData.default_service_code ||
+                                   null;
           }
-        } else if (!effectiveServiceCode) {
-          // Fallback to legacy hardcoded lookup
-          effectiveServiceCode = await getTaskTypeServiceCode(profile.tenant_id, taskType);
-          // requiresManualRate stays false - no hardcoded task type checks
         }
+        // If no task type found, effectiveServiceCode stays null (non-billable)
 
-        // SAFETY BILLING: For manual-rate task types, show rate required banner
-        // This only applies when serviceLinePreview is NOT provided (legacy path)
-        if (requiresManualRate) {
+        // Non-billable: no category and no service code configured
+        if (!categoryId && !effectiveServiceCode && !requiresManualRate) {
+          result = {
+            lineItems: [],
+            subtotal: 0,
+            hasErrors: false,
+            serviceCode: '',
+            serviceName: '',
+            errorMessage: 'No primary service configured for this task type.',
+          };
+        } else if (requiresManualRate) {
+          // SAFETY BILLING: For manual-rate task types, show rate required banner
           result = {
             lineItems: [],
             subtotal: 0,
