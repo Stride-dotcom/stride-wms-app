@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
+import { WarehouseProvider } from "@/contexts/WarehouseContext";
 import { AppleBannerProvider } from "@/contexts/AppleBannerContext";
 import { PromptProvider } from "@/components/prompts";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -91,6 +92,7 @@ const App = () => (
       <BrowserRouter>
         <AppleBannerProvider>
         <AuthProvider>
+          <WarehouseProvider>
           <PromptProvider>
           <SidebarProvider>
           <Routes>
@@ -176,6 +178,7 @@ const App = () => (
           <AIBotSwitch />
           </SidebarProvider>
           </PromptProvider>
+          </WarehouseProvider>
         </AuthProvider>
         </AppleBannerProvider>
       </BrowserRouter>
