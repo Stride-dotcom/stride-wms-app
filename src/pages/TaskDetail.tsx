@@ -62,6 +62,7 @@ interface TaskDetail {
   title: string;
   description: string | null;
   task_type: string;
+  task_type_id: string;
   status: string;
   priority: string | null;
   due_date: string | null;
@@ -1424,6 +1425,7 @@ export default function TaskDetailPage() {
               <BillingCalculator
                 taskId={task.id}
                 taskType={task.task_type}
+                taskTypeId={task.task_type_id}
                 refreshKey={billingRefreshKey}
                 title="Billing Calculator"
               />
