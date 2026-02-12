@@ -1585,6 +1585,24 @@ export function useTasks(filters?: {
         await convertTaskCustomChargesToBillingEvents(taskId, accountId);
       }
 
+      // Log task completion per linked item
+      {
+        const { data: taskItemsForLog } = await (supabase.from('task_items') as any)
+          .select('item_id').eq('task_id', taskId);
+        if (taskItemsForLog) {
+          for (const ti of taskItemsForLog) {
+            logItemActivity({
+              tenantId: profile.tenant_id,
+              itemId: ti.item_id,
+              actorUserId: profile.id,
+              eventType: 'task_completed',
+              eventLabel: `${taskType} task completed`,
+              details: { task_id: taskId, task_type: taskType },
+            });
+          }
+        }
+      }
+
       toast({
         title: 'Task Completed',
         description: 'Task has been marked as completed.',
