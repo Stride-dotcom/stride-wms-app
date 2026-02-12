@@ -323,7 +323,7 @@ export function PreferencesContent() {
 
       {/* Save Button */}
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving}>
+        <Button type="button" onClick={handleSave} disabled={saving}>
           {saving ? (
             <>
               <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />

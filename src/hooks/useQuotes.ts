@@ -17,6 +17,7 @@ import {
   QuoteWithDetails,
   QuoteFormData,
   QuoteStatus,
+  QuoteAttachment,
   EditLock,
 } from '@/lib/quotes/types';
 import { computeStorageDays, formatCurrency } from '@/lib/quotes/calculator';
@@ -395,6 +396,59 @@ export function useQuotes() {
           .eq('quote_id', quoteId)
           .order('created_at', { ascending: false });
 
+        // Resolve user names for audit trail
+        const userIdsToResolve = new Set<string>();
+        if (quote.created_by) userIdsToResolve.add(quote.created_by);
+        if (events?.length) {
+          events.forEach((evt: QuoteEvent) => {
+            if (evt.created_by) userIdsToResolve.add(evt.created_by);
+          });
+        }
+
+        let userNameMap: Record<string, string> = {};
+        if (userIdsToResolve.size > 0) {
+          const { data: users } = await supabase
+            .from('users')
+            .select('id, first_name, last_name')
+            .in('id', Array.from(userIdsToResolve));
+          if (users) {
+            users.forEach((u: { id: string; first_name: string | null; last_name: string | null }) => {
+              const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || 'Unknown';
+              userNameMap[u.id] = name;
+            });
+          }
+        }
+
+        // Find last update event
+        const lastUpdateEvent = events?.find((evt: QuoteEvent) => evt.event_type === 'updated');
+
+        // Derive attachments from events
+        const addedAttachments = new Map<string, QuoteAttachment>();
+        const removedPaths = new Set<string>();
+
+        // Process events in chronological order (oldest first) to build current state
+        const chronologicalEvents = [...(events || [])].reverse();
+        for (const evt of chronologicalEvents) {
+          if (evt.event_type === 'attachment_removed' && evt.payload_json?.storage_path) {
+            removedPaths.add(evt.payload_json.storage_path as string);
+          }
+          if (evt.event_type === 'attachment_added' && evt.payload_json?.storage_path) {
+            const storagePath = evt.payload_json.storage_path as string;
+            if (!removedPaths.has(storagePath)) {
+              addedAttachments.set(storagePath, {
+                file_name: (evt.payload_json.file_name as string) || 'Unknown',
+                file_url: (evt.payload_json.file_url as string) || '',
+                file_size: (evt.payload_json.file_size as number) || 0,
+                mime_type: (evt.payload_json.mime_type as string) || '',
+                storage_path: storagePath,
+                uploaded_by: evt.created_by,
+                uploaded_by_name: evt.created_by ? userNameMap[evt.created_by] || null : null,
+                uploaded_at: evt.created_at,
+              });
+            }
+          }
+        }
+
         return {
           ...(quote as Quote),
           class_lines: (classLines as QuoteClassLine[]) || [],
@@ -402,6 +456,10 @@ export function useQuotes() {
           class_service_selections: (classServiceSelections || []) as { class_id: string; service_id: string; is_selected: boolean; qty_override: number | null }[],
           rate_overrides: (rateOverrides as QuoteRateOverride[]) || [],
           events: (events as QuoteEvent[]) || [],
+          attachments: Array.from(addedAttachments.values()),
+          created_by_name: quote.created_by ? userNameMap[quote.created_by] || null : null,
+          last_updated_by_name: lastUpdateEvent?.created_by ? userNameMap[lastUpdateEvent.created_by] || null : null,
+          last_updated_at: lastUpdateEvent?.created_at || null,
         };
       } catch (e: any) {
         // Silently handle "table not found" errors (quotes table may not exist yet)
@@ -618,6 +676,9 @@ export function useQuotes() {
           updateData.tax_amount = calculatedTotals.tax;
           updateData.grand_total = calculatedTotals.grand_total;
         }
+
+        // Track who last updated the quote
+        updateData.updated_by = profile.id;
 
         if (Object.keys(updateData).length > 0) {
           const { error } = await (supabase as any)
@@ -963,6 +1024,114 @@ export function useQuotes() {
     [profile?.tenant_id, profile?.id, fetchQuoteDetails, toast]
   );
 
+  // Upload attachment to a quote
+  const uploadQuoteAttachment = useCallback(
+    async (quoteId: string, file: File): Promise<QuoteAttachment | null> => {
+      if (!profile?.tenant_id || !profile?.id) return null;
+
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${generateUUID()}.${fileExt}`;
+        const storagePath = `${profile.tenant_id}/quotes/${quoteId}/${fileName}`;
+
+        // Upload to storage
+        const { error: uploadError } = await supabase.storage
+          .from('documents-private')
+          .upload(storagePath, file, { contentType: file.type });
+
+        if (uploadError) throw uploadError;
+
+        // Get the URL
+        const { data: urlData } = supabase.storage
+          .from('documents-private')
+          .getPublicUrl(storagePath);
+
+        const fileUrl = urlData.publicUrl;
+
+        // Log attachment event
+        await (supabase as any).from('quote_events').insert({
+          tenant_id: profile.tenant_id,
+          quote_id: quoteId,
+          event_type: 'attachment_added',
+          payload_json: {
+            file_name: file.name,
+            file_url: fileUrl,
+            file_size: file.size,
+            mime_type: file.type,
+            storage_path: storagePath,
+          },
+          created_by: profile.id,
+        });
+
+        toast({
+          title: 'File Uploaded',
+          description: `${file.name} has been attached to the quote.`,
+        });
+
+        return {
+          file_name: file.name,
+          file_url: fileUrl,
+          file_size: file.size,
+          mime_type: file.type,
+          storage_path: storagePath,
+          uploaded_by: profile.id,
+          uploaded_at: new Date().toISOString(),
+        };
+      } catch (e) {
+        console.error('Error uploading quote attachment:', e);
+        toast({
+          title: 'Error',
+          description: 'Failed to upload attachment',
+          variant: 'destructive',
+        });
+        return null;
+      }
+    },
+    [profile?.tenant_id, profile?.id, toast]
+  );
+
+  // Remove attachment from a quote
+  const removeQuoteAttachment = useCallback(
+    async (quoteId: string, attachment: QuoteAttachment): Promise<boolean> => {
+      if (!profile?.tenant_id || !profile?.id) return false;
+
+      try {
+        // Remove from storage
+        await supabase.storage
+          .from('documents-private')
+          .remove([attachment.storage_path]);
+
+        // Log removal event
+        await (supabase as any).from('quote_events').insert({
+          tenant_id: profile.tenant_id,
+          quote_id: quoteId,
+          event_type: 'attachment_removed',
+          payload_json: {
+            file_name: attachment.file_name,
+            storage_path: attachment.storage_path,
+          },
+          created_by: profile.id,
+        });
+
+        toast({
+          title: 'Attachment Removed',
+          description: `${attachment.file_name} has been removed.`,
+        });
+
+        return true;
+      } catch (e) {
+        console.error('Error removing quote attachment:', e);
+        toast({
+          title: 'Error',
+          description: 'Failed to remove attachment',
+          variant: 'destructive',
+        });
+        return false;
+      }
+    },
+    [profile?.tenant_id, profile?.id, toast]
+  );
+
   return {
     quotes,
     loading,
@@ -973,6 +1142,8 @@ export function useQuotes() {
     voidQuote,
     duplicateQuote,
     sendQuote,
+    uploadQuoteAttachment,
+    removeQuoteAttachment,
   };
 }
 

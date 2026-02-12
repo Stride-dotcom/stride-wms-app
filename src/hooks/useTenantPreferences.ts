@@ -168,7 +168,8 @@ export function useTenantPreferences() {
       const { error } = await supabase
         .from('tenant_preferences')
         .update(updates as Record<string, unknown>)
-        .eq('id', preferences.id);
+        .eq('id', preferences.id)
+        .eq('tenant_id', profile.tenant_id);
 
       if (error) throw error;
 

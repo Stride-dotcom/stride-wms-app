@@ -50,6 +50,7 @@ import { calculateQuote, formatCurrency, computeStorageDays } from '@/lib/quotes
 import { downloadQuotePdf, exportQuoteToExcel, transformQuoteToPdfData, QuotePdfData } from '@/lib/quotes/export';
 import { useTenantSettings } from '@/hooks/useTenantSettings';
 import { useCommunications } from '@/hooks/useCommunications';
+import { QuoteAttachments } from '@/components/quotes/QuoteAttachments';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,7 +71,7 @@ export default function QuoteBuilder() {
   const isNew = !id || id === 'new';
 
   // Data hooks
-  const { fetchQuoteDetails, createQuote, updateQuote, sendQuote } = useQuotes();
+  const { fetchQuoteDetails, createQuote, updateQuote, sendQuote, uploadQuoteAttachment, removeQuoteAttachment } = useQuotes();
   const { classes, loading: classesLoading } = useQuoteClasses();
   const { services, classBasedServices, nonClassBasedServices, loading: servicesLoading } = useQuoteServices();
   const { rates, loading: ratesLoading } = useQuoteServiceRates();
@@ -821,6 +822,28 @@ export default function QuoteBuilder() {
           </div>
         </div>
 
+        {/* Audit Trail */}
+        {!isNew && quote && (
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
+            {quote.created_by_name && (
+              <span className="flex items-center gap-1">
+                <MaterialIcon name="person_add" size="sm" />
+                Created by <span className="font-medium text-foreground">{quote.created_by_name}</span>
+                {' '}on {new Date(quote.created_at).toLocaleDateString()}{' '}
+                at {new Date(quote.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+            {quote.last_updated_by_name && quote.last_updated_at && (
+              <span className="flex items-center gap-1">
+                <MaterialIcon name="edit" size="sm" />
+                Last edited by <span className="font-medium text-foreground">{quote.last_updated_by_name}</span>
+                {' '}on {new Date(quote.last_updated_at).toLocaleDateString()}{' '}
+                at {new Date(quote.last_updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -1359,6 +1382,20 @@ export default function QuoteBuilder() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Attachments */}
+            {!isNew && quote && (
+              <QuoteAttachments
+                attachments={quote.attachments || []}
+                canEdit={!!canEdit}
+                onUpload={(file) => uploadQuoteAttachment(id!, file)}
+                onRemove={(attachment) => removeQuoteAttachment(id!, attachment)}
+                onAttachmentsChanged={async () => {
+                  const updated = await fetchQuoteDetails(id!);
+                  if (updated) setQuote(updated);
+                }}
+              />
+            )}
           </div>
 
           {/* Summary Panel */}
