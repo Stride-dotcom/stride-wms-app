@@ -313,51 +313,76 @@ export default function ShipmentDetail() {
       // Build class lookup map
       const classById = new Map((classesData || []).map(c => [c.id, c]));
 
-      // Fetch shipment items - avoid nested class joins that fail with PostgREST
-      const { data: itemsData, error: itemsError } = await (supabase
-        .from('shipment_items') as any)
-        .select(`
-          id,
-          expected_description,
-          expected_vendor,
-          expected_sidemark,
-          expected_class_id,
-          expected_quantity,
-          actual_quantity,
-          status,
-          item_id,
-          item:items(
-            id,
-            item_code,
-            description,
-            vendor,
-            sidemark,
-            room,
-            class_id,
-            declared_value,
-            coverage_type,
-            current_location:locations(code),
-            account:accounts(account_name)
-          )
-        `)
+      // Fetch shipment items - use flat queries to avoid nested PostgREST join failures with RLS
+      const { data: shipmentItemsRaw, error: itemsError } = await supabase
+        .from('shipment_items')
+        .select('id, expected_description, expected_vendor, expected_sidemark, expected_class_id, expected_quantity, actual_quantity, status, item_id')
         .eq('shipment_id', id)
         .order('created_at');
 
       if (itemsError) {
-        console.error('[ShipmentDetail] fetch items failed:', itemsError);
+        console.error('[ShipmentDetail] fetch shipment_items failed:', itemsError);
       }
 
-      // Map classes manually to avoid PostgREST join issues
-      const mappedItems = ((itemsData || []) as any[]).map(si => {
-        // Map expected_class from expected_class_id
-        if (si.expected_class_id) {
-          si.expected_class = classById.get(si.expected_class_id) || null;
+      // Fetch linked items separately to avoid nested join issues
+      const itemIds = (shipmentItemsRaw || []).map(si => si.item_id).filter(Boolean) as string[];
+      const itemsById = new Map<string, any>();
+
+      if (itemIds.length > 0) {
+        const { data: itemsRows, error: itemsFetchError } = await supabase
+          .from('items')
+          .select('id, item_code, description, vendor, sidemark, room, class_id, declared_value, coverage_type, current_location_id, account_id')
+          .in('id', itemIds);
+
+        if (itemsFetchError) {
+          console.error('[ShipmentDetail] fetch items failed:', itemsFetchError);
         }
-        // Map item.class from item.class_id
-        if (si.item?.class_id) {
-          si.item.class = classById.get(si.item.class_id) || null;
+
+        if (itemsRows && itemsRows.length > 0) {
+          // Fetch locations and accounts separately
+          const locationIds = [...new Set(itemsRows.map(i => i.current_location_id).filter(Boolean))] as string[];
+          const accountIds = [...new Set(itemsRows.map(i => i.account_id).filter(Boolean))] as string[];
+
+          const [locResult, accResult] = await Promise.all([
+            locationIds.length > 0
+              ? supabase.from('locations').select('id, code').in('id', locationIds)
+              : Promise.resolve({ data: [] as { id: string; code: string }[] }),
+            accountIds.length > 0
+              ? supabase.from('accounts').select('id, account_name').in('id', accountIds)
+              : Promise.resolve({ data: [] as { id: string; account_name: string }[] }),
+          ]);
+
+          const locMap = new Map((locResult.data || []).map(l => [l.id, l]));
+          const accMap = new Map((accResult.data || []).map(a => [a.id, a]));
+
+          for (const row of itemsRows) {
+            const loc = row.current_location_id ? locMap.get(row.current_location_id) : null;
+            const acc = row.account_id ? accMap.get(row.account_id) : null;
+            itemsById.set(row.id, {
+              id: row.id,
+              item_code: row.item_code,
+              description: row.description,
+              vendor: row.vendor,
+              sidemark: row.sidemark,
+              room: row.room,
+              class_id: row.class_id,
+              declared_value: row.declared_value,
+              coverage_type: row.coverage_type,
+              current_location: loc ? { code: loc.code } : null,
+              account: acc ? { account_name: acc.account_name } : null,
+            });
+          }
         }
-        return si;
+      }
+
+      // Combine shipment items with their linked item data and class lookups
+      const mappedItems = (shipmentItemsRaw || []).map(si => {
+        const item = si.item_id ? itemsById.get(si.item_id) || null : null;
+        const expected_class = si.expected_class_id ? classById.get(si.expected_class_id) || null : null;
+        if (item?.class_id) {
+          item.class = classById.get(item.class_id) || null;
+        }
+        return { ...si, expected_class, item };
       });
 
       setShipment(shipmentData as unknown as Shipment);

@@ -446,9 +446,9 @@ export default function Inventory() {
                           {item.primary_photo_url ? <img src={item.primary_photo_url} alt={item.item_code} className="h-8 w-8 rounded object-cover cursor-pointer" /> : <div className="h-8 w-8 rounded bg-muted flex items-center justify-center text-sm">📦</div>}
                         </ItemPreviewCard>
                       </TableCell>
-                      <TableCell className="font-medium" onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="font-medium">
                         <ItemPreviewCard itemId={item.id}>
-                          <span className="text-primary hover:underline cursor-pointer inline-flex items-center gap-1" onClick={() => navigate(`/inventory/${item.id}`)}>
+                          <span className="text-primary hover:underline cursor-pointer inline-flex items-center gap-1" onClick={(e) => { e.stopPropagation(); navigate(`/inventory/${item.id}`); }}>
                             {item.has_indicator_flags && <span title="Has indicator flags">{'\u26A0\uFE0F'}</span>}
                             {item.item_code}
                           </span>
