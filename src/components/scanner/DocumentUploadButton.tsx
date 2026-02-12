@@ -6,6 +6,7 @@
 import { useRef, useState } from 'react';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Button } from '@/components/ui/button';
+import { DropZone } from '@/components/common/DropZone';
 import { useToast } from '@/hooks/use-toast';
 import { uploadDocument } from '@/lib/scanner/uploadService';
 import { fileToDataUrl, resizeImage, createWebScanOutput } from '@/lib/scanner/webScanner';
@@ -34,14 +35,11 @@ export function DocumentUploadButton({
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
+  const processFiles = async (files: File[]) => {
+    if (files.length === 0) return;
     setUploading(true);
-
     try {
-      for (const file of Array.from(files)) {
+      for (const file of files) {
         if (file.type.startsWith('image/')) {
           // Convert image to PDF
           const dataUrl = await fileToDataUrl(file);
@@ -122,12 +120,23 @@ export function DocumentUploadButton({
       });
     } finally {
       setUploading(false);
-      e.target.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await processFiles(Array.from(files));
+  };
+
   return (
-    <>
+    <DropZone
+      onFiles={processFiles}
+      accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
+      disabled={uploading}
+      hint="Drag and drop documents here, or click to upload"
+    >
       <Button
         variant={variant}
         size={size}
@@ -150,6 +159,6 @@ export function DocumentUploadButton({
         className="hidden"
         onChange={handleFileChange}
       />
-    </>
+    </DropZone>
   );
 }

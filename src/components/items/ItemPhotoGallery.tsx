@@ -18,6 +18,7 @@ import { PhotoScanner } from '@/components/common/PhotoScanner';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { DropZone } from '@/components/common/DropZone';
 
 interface ItemPhotoGalleryProps {
   itemId: string;
@@ -71,6 +72,16 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
         variant: 'destructive',
       });
     }
+  };
+
+  const processDroppedFiles = async (files: File[]) => {
+    const imageFiles = files.filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+    setUploading(true);
+    for (const file of imageFiles) {
+      await addPhoto(file, photoType);
+    }
+    setUploading(false);
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -287,6 +298,12 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
 
   return (
     <>
+      <DropZone
+        onFiles={processDroppedFiles}
+        accept="image/*"
+        disabled={uploading || isClientUser}
+        hint={!isClientUser ? 'Drag and drop photos here, or use the buttons above' : undefined}
+      >
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -401,6 +418,7 @@ export function ItemPhotoGallery({ itemId, isClientUser = false }: ItemPhotoGall
           )}
         </CardContent>
       </Card>
+      </DropZone>
 
       {/* Lightbox Dialog */}
       <Dialog open={!!lightboxPhoto} onOpenChange={() => setLightboxPhoto(null)}>

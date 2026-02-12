@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { DropZone } from '@/components/common/DropZone';
 
 interface PendingPhoto {
   id: string;
@@ -180,7 +181,34 @@ export function MultiPhotoCapture({
     }
   }, [pendingPhotos, savedPhotos, entityType, entityId, tenantId, onPhotosSaved, toast]);
 
+  const handleDroppedFiles = useCallback((files: File[]) => {
+    const remainingSlots = maxPhotos - totalPhotos;
+    if (remainingSlots <= 0) {
+      toast({
+        title: 'Maximum photos reached',
+        description: `You can only have up to ${maxPhotos} photos.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const imageFiles = files.filter(f => f.type.startsWith('image/')).slice(0, remainingSlots);
+    const newPendingPhotos: PendingPhoto[] = imageFiles.map(file => ({
+      id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+
+    setPendingPhotos(prev => [...prev, ...newPendingPhotos]);
+  }, [totalPhotos, maxPhotos, toast]);
+
   return (
+    <DropZone
+      onFiles={handleDroppedFiles}
+      accept="image/*"
+      disabled={saving}
+      hint={canAddMore ? 'Drag and drop photos here, or use the buttons below' : undefined}
+    >
     <div className="space-y-4">
       {label && <Label className="text-base font-medium">{label}</Label>}
 
@@ -310,5 +338,6 @@ export function MultiPhotoCapture({
         {totalPhotos}/{maxPhotos} photos ({savedPhotos.length} saved, {pendingPhotos.length} pending)
       </p>
     </div>
+    </DropZone>
   );
 }

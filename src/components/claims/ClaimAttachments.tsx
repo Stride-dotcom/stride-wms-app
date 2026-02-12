@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useClaims, ClaimAttachment } from '@/hooks/useClaims';
 import { useAuth } from '@/contexts/AuthContext';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { DropZone } from '@/components/common/DropZone';
 import { format } from 'date-fns';
 
 interface ClaimAttachmentsProps {
@@ -39,22 +40,23 @@ export function ClaimAttachments({ claimId, isStaff = true, readOnly = false }: 
     setLoading(false);
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files?.length) return;
-
+  const processFiles = async (files: File[]) => {
     setUploading(true);
     try {
-      for (const file of Array.from(files)) {
+      for (const file of files) {
         await uploadAttachment(claimId, file, true);
       }
       await loadAttachments();
     } finally {
       setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    await processFiles(Array.from(files));
   };
 
   const handleDownload = async (attachment: ClaimAttachment) => {
@@ -112,39 +114,45 @@ export function ClaimAttachments({ claimId, isStaff = true, readOnly = false }: 
   }
 
   return (
-    <div className="space-y-4">
-      {/* Upload Button */}
-      {!readOnly && (
-        <div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleFileSelect}
-            accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx"
-          />
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-          >
-            {uploading ? (
-              <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />
-            ) : (
-              <MaterialIcon name="upload" size="sm" className="mr-2" />
-            )}
-            Upload Files
-          </Button>
-        </div>
-      )}
+    <DropZone
+      onFiles={processFiles}
+      accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx"
+      disabled={readOnly || uploading}
+      hint={!readOnly ? 'Drag and drop files here, or click Upload Files' : undefined}
+    >
+      <div className="space-y-4">
+        {/* Upload Button */}
+        {!readOnly && (
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+              accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx"
+            />
+            <Button
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <MaterialIcon name="progress_activity" size="sm" className="animate-spin mr-2" />
+              ) : (
+                <MaterialIcon name="upload" size="sm" className="mr-2" />
+              )}
+              Upload Files
+            </Button>
+          </div>
+        )}
 
-      {/* Attachments List */}
-      {attachments.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
-          No attachments yet
-        </div>
-      ) : (
+        {/* Attachments List */}
+        {attachments.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No attachments yet
+          </div>
+        ) : (
         <div className="space-y-2">
           {attachments.map((attachment) => (
             <div
@@ -215,6 +223,7 @@ export function ClaimAttachments({ claimId, isStaff = true, readOnly = false }: 
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </DropZone>
   );
 }
