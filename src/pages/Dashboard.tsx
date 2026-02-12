@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/ui/page-header';
@@ -7,10 +7,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardStats, PutAwayItem, TaskItem, ShipmentItem } from '@/hooks/useDashboardStats';
 import { useCountUp } from '@/hooks/useCountUp';
+import { useWarehouses } from '@/hooks/useWarehouses';
+import { CapacityCard } from '@/components/dashboard/CapacityCard';
 
 /** Animated count display for dashboard tiles */
 function AnimatedCount({ value, delay = 0, className }: { value: number; delay?: number; className?: string }) {
@@ -54,7 +63,16 @@ export default function Dashboard() {
     loading,
     refetch
   } = useDashboardStats();
+  const { warehouses, loading: whLoading } = useWarehouses();
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>();
   const [expandedCard, setExpandedCard] = useState<ExpandedCard>(null);
+
+  // Auto-select first warehouse when loaded
+  useEffect(() => {
+    if (!selectedWarehouseId && warehouses.length > 0) {
+      setSelectedWarehouseId(warehouses[0].id);
+    }
+  }, [warehouses, selectedWarehouseId]);
 
   const toggleCard = (key: ExpandedCard) => {
     setExpandedCard(expandedCard === key ? null : key);
@@ -240,10 +258,26 @@ export default function Dashboard() {
             description={`Welcome back${profile?.first_name ? `, ${profile.first_name}` : ''}.`}
             data-testid="page-header"
           />
-          <Button variant="outline" size="sm" onClick={refetch} disabled={loading} data-testid="refresh-button">
-            <MaterialIcon name={loading ? "sync" : "refresh"} size="sm" className={cn("mr-2", loading && "animate-spin")} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            {warehouses.length > 1 && (
+              <Select value={selectedWarehouseId ?? ''} onValueChange={setSelectedWarehouseId}>
+                <SelectTrigger className="w-[180px] h-9 text-xs">
+                  <SelectValue placeholder="Warehouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  {warehouses.map((wh) => (
+                    <SelectItem key={wh.id} value={wh.id}>
+                      {wh.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button variant="outline" size="sm" onClick={refetch} disabled={loading} data-testid="refresh-button">
+              <MaterialIcon name={loading ? "sync" : "refresh"} size="sm" className={cn("mr-2", loading && "animate-spin")} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {loading ? (
@@ -252,6 +286,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <CapacityCard warehouseId={selectedWarehouseId} />
             {tiles.map((t, tileIndex) => {
               const isExpanded = expandedCard === t.key;
               const items = getExpandedItems(t.key);

@@ -26,7 +26,7 @@
 -- ASSUMPTIONS:
 --   A1: items.size is the cubic_ft equivalent (from prior migration).
 --   A2: items.item_code serves as the SKU equivalent (from prior migration).
---   A3: locations.tenant_id exists (from prior migration).
+--   A3: locations does NOT have tenant_id. Tenant scoping via warehouses.tenant_id.
 --   A4: item_flags.service_code is the flag identifier for item requirements.
 --   A5: location_flag_links.service_code is the flag identifier for location capabilities.
 --   A6: flag_compliant = TRUE when item requirement service_codes ⊆ location capability service_codes.
@@ -50,8 +50,8 @@ DO $$ BEGIN
 END $$;
 
 -- Index for tenant+warehouse+group_code lookups (used by RPC)
-CREATE INDEX IF NOT EXISTS idx_locations_tenant_wh_group
-  ON public.locations(tenant_id, warehouse_id, group_code);
+CREATE INDEX IF NOT EXISTS idx_locations_wh_group
+  ON public.locations(warehouse_id, group_code);
 
 
 -- ============================================================
@@ -117,8 +117,8 @@ GRANT ALL ON public.location_flag_links TO authenticated;
 -- SECTION C: RLS ON location_capacity_cache
 --
 -- ALREADY ENABLED in prior migration (20260212160000) with policies:
---   - location_capacity_cache_tenant_select (SELECT via locations.tenant_id)
---   - location_capacity_cache_tenant_modify (ALL via locations.tenant_id)
+--   - location_capacity_cache_tenant_select (SELECT via warehouses.tenant_id)
+--   - location_capacity_cache_tenant_modify (ALL via warehouses.tenant_id)
 -- No additional changes needed. Documented here for traceability.
 -- ============================================================
 
@@ -264,8 +264,7 @@ BEGIN
   SELECT count(*) INTO v_eligible_count
   FROM public.locations l
   JOIN public.location_capacity_cache c ON c.location_id = l.id
-  WHERE l.tenant_id = p_tenant_id
-    AND l.warehouse_id = p_warehouse_id
+  WHERE l.warehouse_id = p_warehouse_id
     AND l.capacity_cuft IS NOT NULL
     AND l.deleted_at IS NULL
     AND c.utilization_pct < 0.90;
@@ -347,8 +346,7 @@ BEGIN
     LEFT JOIN loc_flag_match lfm ON lfm.loc_id = l.id
     LEFT JOIN account_volume av ON av.loc_id = l.id
     LEFT JOIN sku_vendor_match svm ON svm.loc_id = l.id
-    WHERE l.tenant_id = p_tenant_id
-      AND l.warehouse_id = p_warehouse_id
+    WHERE l.warehouse_id = p_warehouse_id
       AND l.capacity_cuft IS NOT NULL
       AND l.deleted_at IS NULL
       AND c.utilization_pct < 0.90
@@ -418,8 +416,7 @@ BEGIN
     FROM public.locations l
     JOIN public.location_capacity_cache c ON c.location_id = l.id
     LEFT JOIN loc_flag_match_overflow lfmo ON lfmo.loc_id = l.id
-    WHERE l.tenant_id = p_tenant_id
-      AND l.warehouse_id = p_warehouse_id
+    WHERE l.warehouse_id = p_warehouse_id
       AND l.capacity_cuft IS NOT NULL
       AND l.deleted_at IS NULL
     ORDER BY

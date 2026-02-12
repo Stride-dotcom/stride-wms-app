@@ -723,6 +723,7 @@ export function LocationsSettingsTab({
                       <TableHead>Name</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Warehouse</TableHead>
+                      <TableHead>Capacity</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Sq Ft</TableHead>
                       <TableHead className="text-right">Cu Ft</TableHead>
@@ -752,6 +753,11 @@ export function LocationsSettingsTab({
                           <TableCell>{getTypeBadge(location.type)}</TableCell>
                           <TableCell className="text-muted-foreground text-sm">
                             {warehouse?.name || '—'}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {(location as any).capacity_cuft != null
+                              ? `${Number((location as any).capacity_cuft).toFixed(1)} cuft`
+                              : '\u2014'}
                           </TableCell>
                           <TableCell>{getStatusBadge(location.status, isActive)}</TableCell>
                           <TableCell className="text-right text-sm text-muted-foreground">
