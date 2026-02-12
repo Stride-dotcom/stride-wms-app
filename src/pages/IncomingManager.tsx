@@ -25,6 +25,10 @@ import {
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { HelpTip } from '@/components/ui/help-tip';
 import { useIncomingShipments, type InboundKind, type IncomingShipment } from '@/hooks/useIncomingShipments';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { DraftQueueList } from '@/components/receiving/DraftQueueList';
 
 type TabValue = 'manifests' | 'expected' | 'dock_intakes';
 
@@ -162,13 +166,43 @@ export default function IncomingManager() {
     setSearch('');
   };
 
+  const { profile } = useAuth();
+  const { toast } = useToast();
+
   const handleRowClick = (id: string) => {
     if (activeTab === 'manifests') {
       navigate(`/incoming/manifest/${id}`);
     } else if (activeTab === 'expected') {
       navigate(`/incoming/expected/${id}`);
     } else {
-      navigate(`/incoming/manifest/${id}`);
+      navigate(`/incoming/dock-intake/${id}`);
+    }
+  };
+
+  const handleCreateDockIntake = async () => {
+    if (!profile?.tenant_id) return;
+    try {
+      const { data, error } = await supabase
+        .from('shipments')
+        .insert({
+          tenant_id: profile.tenant_id,
+          shipment_type: 'inbound',
+          status: 'expected',
+          inbound_kind: 'dock_intake',
+          inbound_status: 'draft',
+          created_by: profile.id,
+        } as any)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      navigate(`/incoming/dock-intake/${data.id}`);
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err?.message || 'Failed to create dock intake',
+      });
     }
   };
 
@@ -253,13 +287,23 @@ export default function IncomingManager() {
             />
           </TabsContent>
 
-          <TabsContent value="dock_intakes" className="mt-4">
-            <ShipmentList
-              shipments={shipments}
-              loading={loading}
-              kind="dock_intake"
-              onRowClick={handleRowClick}
+          <TabsContent value="dock_intakes" className="mt-4 space-y-6">
+            {/* Draft Queue */}
+            <DraftQueueList
+              onSelect={(id) => navigate(`/incoming/dock-intake/${id}`)}
+              onCreateNew={handleCreateDockIntake}
             />
+
+            {/* All dock intakes (including closed) */}
+            <div>
+              <h3 className="font-medium text-sm text-muted-foreground mb-3">All Dock Intakes</h3>
+              <ShipmentList
+                shipments={shipments}
+                loading={loading}
+                kind="dock_intake"
+                onRowClick={handleRowClick}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </div>

@@ -636,3 +636,39 @@ export async function queueClaimRequiresApprovalAlert(
     recipientEmails,
   });
 }
+
+/**
+ * Queue a receiving discrepancy alert
+ */
+export async function queueReceivingDiscrepancyAlert(
+  tenantId: string,
+  shipmentId: string,
+  shipmentNumber: string,
+  discrepancyCount: number
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'receiving.discrepancy_created',
+    entityType: 'shipment',
+    entityId: shipmentId,
+    subject: `Receiving discrepancy on ${shipmentNumber} (${discrepancyCount} issue${discrepancyCount !== 1 ? 's' : ''})`,
+  });
+}
+
+/**
+ * Queue a receiving exception noted alert
+ */
+export async function queueReceivingExceptionAlert(
+  tenantId: string,
+  shipmentId: string,
+  shipmentNumber: string,
+  exceptionType: string
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'receiving.exception_noted',
+    entityType: 'shipment',
+    entityId: shipmentId,
+    subject: `Receiving exception on ${shipmentNumber}: ${exceptionType}`,
+  });
+}

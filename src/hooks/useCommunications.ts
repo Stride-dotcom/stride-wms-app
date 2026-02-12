@@ -122,6 +122,9 @@ export const TRIGGER_EVENTS = [
   { value: 'client.task_created', label: 'Client Created Task' },
   { value: 'client.claim_filed', label: 'Client Filed Claim' },
   { value: 'client.item_reassigned', label: 'Client Reassigned Items' },
+  // Receiving triggers
+  { value: 'receiving.discrepancy_created', label: 'Receiving Discrepancy Created' },
+  { value: 'receiving.exception_noted', label: 'Receiving Exception Noted' },
   { value: 'custom', label: 'Custom Event' },
 ];
 
