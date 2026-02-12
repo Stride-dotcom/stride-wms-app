@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -20,12 +22,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { HelpTip } from '@/components/ui/help-tip';
 import { isValidUuid } from '@/lib/utils';
 import { useInboundManifestDetail, type ManifestItem } from '@/hooks/useInboundManifestDetail';
 import { useExternalRefs, type RefType } from '@/hooks/useExternalRefs';
 import { useAllocation } from '@/hooks/useAllocation';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import AllocationPicker from '@/components/incoming/AllocationPicker';
 import ManifestImportDialog from '@/components/incoming/ManifestImportDialog';
 
@@ -58,6 +71,8 @@ export default function InboundManifestDetail() {
   }
 
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const { toast } = useToast();
   const { manifest, items, refs: manifestRefs, loading, refetch } = useInboundManifestDetail(id);
   const { refs, addRef, removeRef } = useExternalRefs(id);
   const { deallocate, loading: deallocating } = useAllocation();
@@ -65,8 +80,26 @@ export default function InboundManifestDetail() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showAllocationPicker, setShowAllocationPicker] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showAddItemDialog, setShowAddItemDialog] = useState(false);
   const [newRefType, setNewRefType] = useState<RefType>('BOL');
   const [newRefValue, setNewRefValue] = useState('');
+
+  // Editable header fields
+  const [editingHeader, setEditingHeader] = useState(false);
+  const [headerVendor, setHeaderVendor] = useState('');
+  const [headerEtaStart, setHeaderEtaStart] = useState('');
+  const [headerEtaEnd, setHeaderEtaEnd] = useState('');
+  const [headerPieces, setHeaderPieces] = useState('');
+  const [headerSaving, setHeaderSaving] = useState(false);
+
+  // Add item form
+  const [addItemDesc, setAddItemDesc] = useState('');
+  const [addItemVendor, setAddItemVendor] = useState('');
+  const [addItemSidemark, setAddItemSidemark] = useState('');
+  const [addItemRoom, setAddItemRoom] = useState('');
+  const [addItemQty, setAddItemQty] = useState('1');
+  const [addItemNotes, setAddItemNotes] = useState('');
+  const [addingItem, setAddingItem] = useState(false);
 
   const unallocatedItems = useMemo(
     () => items.filter((i) => (i.allocated_qty ?? 0) < (i.expected_quantity ?? 0)),
@@ -117,6 +150,80 @@ export default function InboundManifestDetail() {
   const handleImportComplete = () => {
     setShowImportDialog(false);
     refetch();
+  };
+
+  const handleEditHeader = () => {
+    if (!manifest) return;
+    setHeaderVendor(manifest.vendor_name || '');
+    setHeaderEtaStart(manifest.eta_start ? String(manifest.eta_start).split('T')[0] : '');
+    setHeaderEtaEnd(manifest.eta_end ? String(manifest.eta_end).split('T')[0] : '');
+    setHeaderPieces(manifest.expected_pieces?.toString() || '');
+    setEditingHeader(true);
+  };
+
+  const handleSaveHeader = async () => {
+    if (!manifest) return;
+    try {
+      setHeaderSaving(true);
+      const { error } = await supabase
+        .from('shipments')
+        .update({
+          vendor_name: headerVendor || null,
+          eta_start: headerEtaStart || null,
+          eta_end: headerEtaEnd || null,
+          expected_pieces: headerPieces ? Number(headerPieces) : null,
+        } as Record<string, unknown>)
+        .eq('id', manifest.id);
+      if (error) throw error;
+      toast({ title: 'Manifest Updated' });
+      setEditingHeader(false);
+      refetch();
+    } catch (err: unknown) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to update manifest',
+      });
+    } finally {
+      setHeaderSaving(false);
+    }
+  };
+
+  const handleAddItem = async () => {
+    if (!profile?.tenant_id || !id) return;
+    try {
+      setAddingItem(true);
+      const { error } = await supabase
+        .from('shipment_items')
+        .insert({
+          tenant_id: profile.tenant_id,
+          shipment_id: id,
+          expected_description: addItemDesc || null,
+          expected_vendor: addItemVendor || null,
+          expected_sidemark: addItemSidemark || null,
+          room: addItemRoom || null,
+          expected_quantity: Number(addItemQty) || 1,
+          notes: addItemNotes || null,
+        } as Record<string, unknown>);
+      if (error) throw error;
+      toast({ title: 'Item Added' });
+      setShowAddItemDialog(false);
+      setAddItemDesc('');
+      setAddItemVendor('');
+      setAddItemSidemark('');
+      setAddItemRoom('');
+      setAddItemQty('1');
+      setAddItemNotes('');
+      refetch();
+    } catch (err: unknown) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to add item',
+      });
+    } finally {
+      setAddingItem(false);
+    }
   };
 
   if (loading) {
@@ -176,13 +283,75 @@ export default function InboundManifestDetail() {
               Created {formatDate(manifest.created_at)}
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={handleEditHeader}>
+              <MaterialIcon name="edit" size="sm" className="mr-1" />
+              Edit Details
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
               <MaterialIcon name="upload_file" size="sm" className="mr-1" />
               Import Items
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowAddItemDialog(true)}>
+              <MaterialIcon name="add" size="sm" className="mr-1" />
+              Add Item
+            </Button>
           </div>
         </div>
+
+        {/* Edit Header Panel */}
+        {editingHeader && (
+          <Card className="border-primary/30">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Edit Manifest Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-xs">Vendor Name</Label>
+                  <Input
+                    value={headerVendor}
+                    onChange={(e) => setHeaderVendor(e.target.value)}
+                    placeholder="Enter vendor..."
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ETA Start</Label>
+                  <Input
+                    type="date"
+                    value={headerEtaStart}
+                    onChange={(e) => setHeaderEtaStart(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ETA End</Label>
+                  <Input
+                    type="date"
+                    value={headerEtaEnd}
+                    onChange={(e) => setHeaderEtaEnd(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Expected Pieces</Label>
+                  <Input
+                    type="number"
+                    value={headerPieces}
+                    onChange={(e) => setHeaderPieces(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <Button size="sm" onClick={handleSaveHeader} disabled={headerSaving}>
+                  {headerSaving ? 'Saving...' : 'Save'}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setEditingHeader(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ETA + Pieces info cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -313,9 +482,9 @@ export default function InboundManifestDetail() {
                       <TableHead>Vendor</TableHead>
                       <TableHead>Sidemark</TableHead>
                       <TableHead>Room</TableHead>
+                      <TableHead>Notes</TableHead>
                       <TableHead className="text-right">Qty</TableHead>
                       <TableHead>Allocation</TableHead>
-                      <TableHead className="w-10" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -338,6 +507,9 @@ export default function InboundManifestDetail() {
                           <TableCell>{item.expected_vendor || '-'}</TableCell>
                           <TableCell>{item.expected_sidemark || '-'}</TableCell>
                           <TableCell>{item.room || '-'}</TableCell>
+                          <TableCell className="max-w-[150px] truncate text-muted-foreground text-sm">
+                            {item.notes || '-'}
+                          </TableCell>
                           <TableCell className="text-right">{item.expected_quantity}</TableCell>
                           <TableCell>
                             <Badge variant={allocationBadgeVariant(item)}>
@@ -363,7 +535,6 @@ export default function InboundManifestDetail() {
                               </div>
                             )}
                           </TableCell>
-                          <TableCell />
                         </TableRow>
                       );
                     })}
@@ -382,6 +553,82 @@ export default function InboundManifestDetail() {
           onClose={handleImportComplete}
         />
       )}
+
+      {/* Add Item Dialog */}
+      <Dialog open={showAddItemDialog} onOpenChange={setShowAddItemDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Manifest Item</DialogTitle>
+            <DialogDescription>
+              Manually add an item to this manifest.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Description</Label>
+                <Input
+                  value={addItemDesc}
+                  onChange={(e) => setAddItemDesc(e.target.value)}
+                  placeholder="Item description"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Vendor</Label>
+                <Input
+                  value={addItemVendor}
+                  onChange={(e) => setAddItemVendor(e.target.value)}
+                  placeholder="Vendor name"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <Label>Sidemark</Label>
+                <Input
+                  value={addItemSidemark}
+                  onChange={(e) => setAddItemSidemark(e.target.value)}
+                  placeholder="Sidemark"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Room</Label>
+                <Input
+                  value={addItemRoom}
+                  onChange={(e) => setAddItemRoom(e.target.value)}
+                  placeholder="Room"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Quantity</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={addItemQty}
+                  onChange={(e) => setAddItemQty(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Notes</Label>
+              <Textarea
+                value={addItemNotes}
+                onChange={(e) => setAddItemNotes(e.target.value)}
+                placeholder="Optional notes for this item..."
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddItemDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddItem} disabled={addingItem || !addItemDesc.trim()}>
+              {addingItem ? 'Adding...' : 'Add Item'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

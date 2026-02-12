@@ -40,7 +40,7 @@ const TAB_TO_KIND: Record<TabValue, InboundKind> = {
 
 const MANIFEST_STATUSES = ['all', 'draft', 'submitted', 'partially_allocated', 'fully_allocated', 'completed'];
 const EXPECTED_STATUSES = ['all', 'open', 'partially_received', 'completed', 'cancelled'];
-const DOCK_INTAKE_STATUSES = ['all', 'pending', 'matched', 'completed'];
+const DOCK_INTAKE_STATUSES = ['all', 'draft', 'stage1_complete', 'receiving', 'matched', 'completed'];
 
 function statusBadgeVariant(status: string | null | undefined): 'default' | 'secondary' | 'destructive' | 'outline' {
   if (!status) return 'outline';
@@ -53,6 +53,8 @@ function statusBadgeVariant(status: string | null | undefined): 'default' | 'sec
     case 'partially_received':
     case 'submitted':
     case 'open':
+    case 'receiving':
+    case 'stage1_complete':
       return 'secondary';
     case 'cancelled':
       return 'destructive';
@@ -66,14 +68,21 @@ function formatDate(dateStr: string | null | undefined): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
-interface ShipmentListProps {
-  shipments: IncomingShipment[];
-  loading: boolean;
-  kind: InboundKind;
-  onRowClick: (id: string) => void;
+function formatStatus(status: string | null | undefined): string {
+  if (!status) return 'draft';
+  return status.replace(/_/g, ' ');
 }
 
-function ShipmentList({ shipments, loading, kind, onRowClick }: ShipmentListProps) {
+/* ── Manifest List ── */
+function ManifestList({
+  shipments,
+  loading,
+  onRowClick,
+}: {
+  shipments: IncomingShipment[];
+  loading: boolean;
+  onRowClick: (id: string) => void;
+}) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -85,8 +94,8 @@ function ShipmentList({ shipments, loading, kind, onRowClick }: ShipmentListProp
   if (shipments.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
-        <MaterialIcon name="inbox" size="xl" className="mb-2 opacity-40" />
-        <p>No {kind === 'manifest' ? 'manifests' : kind === 'expected' ? 'expected shipments' : 'dock intakes'} found.</p>
+        <MaterialIcon name="list_alt" size="xl" className="mb-2 opacity-40" />
+        <p>No manifests found.</p>
       </div>
     );
   }
@@ -96,11 +105,12 @@ function ShipmentList({ shipments, loading, kind, onRowClick }: ShipmentListProp
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Shipment #</TableHead>
+            <TableHead>Manifest #</TableHead>
             <TableHead>Account</TableHead>
             <TableHead>Vendor</TableHead>
-            {kind !== 'dock_intake' && <TableHead>ETA</TableHead>}
+            <TableHead>ETA</TableHead>
             <TableHead className="text-right">Pieces</TableHead>
+            <TableHead className="text-right">Items</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Created</TableHead>
           </TableRow>
@@ -115,13 +125,14 @@ function ShipmentList({ shipments, loading, kind, onRowClick }: ShipmentListProp
               <TableCell className="font-mono font-medium">{s.shipment_number}</TableCell>
               <TableCell>{s.account_name || '-'}</TableCell>
               <TableCell>{s.vendor_name || '-'}</TableCell>
-              {kind !== 'dock_intake' && (
-                <TableCell>{formatDate(s.eta_start)}</TableCell>
-              )}
+              <TableCell>{formatDate(s.eta_start)}</TableCell>
               <TableCell className="text-right">{s.expected_pieces ?? '-'}</TableCell>
+              <TableCell className="text-right text-muted-foreground">
+                {s.open_items_count ?? '-'}
+              </TableCell>
               <TableCell>
                 <Badge variant={statusBadgeVariant(s.inbound_status)}>
-                  {s.inbound_status || 'draft'}
+                  {formatStatus(s.inbound_status)}
                 </Badge>
               </TableCell>
               <TableCell className="text-muted-foreground text-sm">
@@ -135,15 +146,170 @@ function ShipmentList({ shipments, loading, kind, onRowClick }: ShipmentListProp
   );
 }
 
+/* ── Expected Shipments List ── */
+function ExpectedList({
+  shipments,
+  loading,
+  onRowClick,
+}: {
+  shipments: IncomingShipment[];
+  loading: boolean;
+  onRowClick: (id: string) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (shipments.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <MaterialIcon name="schedule" size="xl" className="mb-2 opacity-40" />
+        <p>No expected shipments found.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Expected #</TableHead>
+            <TableHead>Account</TableHead>
+            <TableHead>Vendor</TableHead>
+            <TableHead>ETA Window</TableHead>
+            <TableHead className="text-right">Expected Pieces</TableHead>
+            <TableHead className="text-right">Items</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Created</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {shipments.map((s) => (
+            <TableRow
+              key={s.id}
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => onRowClick(s.id)}
+            >
+              <TableCell className="font-mono font-medium">{s.shipment_number}</TableCell>
+              <TableCell>{s.account_name || '-'}</TableCell>
+              <TableCell>{s.vendor_name || '-'}</TableCell>
+              <TableCell>
+                {s.eta_start || s.eta_end ? (
+                  <span className="text-sm">
+                    {formatDate(s.eta_start)}
+                    {s.eta_end ? ` – ${formatDate(s.eta_end)}` : ''}
+                  </span>
+                ) : (
+                  '-'
+                )}
+              </TableCell>
+              <TableCell className="text-right">{s.expected_pieces ?? '-'}</TableCell>
+              <TableCell className="text-right text-muted-foreground">
+                {s.open_items_count ?? '-'}
+              </TableCell>
+              <TableCell>
+                <Badge variant={statusBadgeVariant(s.inbound_status)}>
+                  {formatStatus(s.inbound_status)}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-muted-foreground text-sm">
+                {formatDate(s.created_at)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/* ── Dock Intakes List ── */
+function DockIntakeList({
+  shipments,
+  loading,
+  onRowClick,
+}: {
+  shipments: IncomingShipment[];
+  loading: boolean;
+  onRowClick: (id: string) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <MaterialIcon name="progress_activity" size="lg" className="animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (shipments.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <MaterialIcon name="local_shipping" size="xl" className="mb-2 opacity-40" />
+        <p>No dock intakes found.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Intake #</TableHead>
+            <TableHead>Account</TableHead>
+            <TableHead>Vendor</TableHead>
+            <TableHead className="text-right">Signed Pieces</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Arrived</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {shipments.map((s) => (
+            <TableRow
+              key={s.id}
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => onRowClick(s.id)}
+            >
+              <TableCell className="font-mono font-medium">{s.shipment_number}</TableCell>
+              <TableCell>
+                {s.account_name || (
+                  <span className="text-muted-foreground italic">Unknown</span>
+                )}
+              </TableCell>
+              <TableCell>{s.vendor_name || '-'}</TableCell>
+              <TableCell className="text-right">{s.signed_pieces ?? '-'}</TableCell>
+              <TableCell>
+                <Badge variant={statusBadgeVariant(s.inbound_status)}>
+                  {formatStatus(s.inbound_status)}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-muted-foreground text-sm">
+                {formatDate(s.created_at)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/* ── Main IncomingManager page ── */
 export default function IncomingManager() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabValue>('manifests');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [creating, setCreating] = useState(false);
 
   const currentKind = TAB_TO_KIND[activeTab];
 
-  const { shipments, loading } = useIncomingShipments({
+  const { shipments, loading, refetch } = useIncomingShipments({
     inbound_kind: currentKind,
     search: search || undefined,
     status: statusFilter !== 'all' ? statusFilter : undefined,
@@ -179,30 +345,47 @@ export default function IncomingManager() {
     }
   };
 
-  const handleCreateDockIntake = async () => {
+  const handleCreateInbound = async (kind: InboundKind) => {
     if (!profile?.tenant_id) return;
     try {
+      setCreating(true);
+      const statusMap: Record<InboundKind, string> = {
+        manifest: 'draft',
+        expected: 'open',
+        dock_intake: 'draft',
+      };
+
       const { data, error } = await supabase
         .from('shipments')
         .insert({
           tenant_id: profile.tenant_id,
           shipment_type: 'inbound',
           status: 'expected',
-          inbound_kind: 'dock_intake',
-          inbound_status: 'draft',
+          inbound_kind: kind,
+          inbound_status: statusMap[kind],
           created_by: profile.id,
-        } as any)
+        } as Record<string, unknown>)
         .select('id')
         .single();
 
       if (error) throw error;
-      navigate(`/incoming/dock-intake/${data.id}`);
-    } catch (err: any) {
+
+      const routeMap: Record<InboundKind, string> = {
+        manifest: `/incoming/manifest/${data.id}`,
+        expected: `/incoming/expected/${data.id}`,
+        dock_intake: `/incoming/dock-intake/${data.id}`,
+      };
+
+      navigate(routeMap[kind]);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to create record';
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: err?.message || 'Failed to create dock intake',
+        description: message,
       });
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -264,25 +447,46 @@ export default function IncomingManager() {
                   </SelectContent>
                 </Select>
 
+                <div className="flex gap-2 ml-auto">
+                  {activeTab === 'manifests' && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleCreateInbound('manifest')}
+                      disabled={creating}
+                    >
+                      <MaterialIcon name="add" size="sm" className="mr-1" />
+                      New Manifest
+                    </Button>
+                  )}
+                  {activeTab === 'expected' && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleCreateInbound('expected')}
+                      disabled={creating}
+                    >
+                      <MaterialIcon name="add" size="sm" className="mr-1" />
+                      New Expected Shipment
+                    </Button>
+                  )}
+                </div>
+
                 <HelpTip tooltip="Filter and search inbound shipments. Click a row to view details, allocate items, or manage references." />
               </div>
             </CardContent>
           </Card>
 
           <TabsContent value="manifests" className="mt-4">
-            <ShipmentList
+            <ManifestList
               shipments={shipments}
               loading={loading}
-              kind="manifest"
               onRowClick={handleRowClick}
             />
           </TabsContent>
 
           <TabsContent value="expected" className="mt-4">
-            <ShipmentList
+            <ExpectedList
               shipments={shipments}
               loading={loading}
-              kind="expected"
               onRowClick={handleRowClick}
             />
           </TabsContent>
@@ -291,16 +495,15 @@ export default function IncomingManager() {
             {/* Draft Queue */}
             <DraftQueueList
               onSelect={(id) => navigate(`/incoming/dock-intake/${id}`)}
-              onCreateNew={handleCreateDockIntake}
+              onCreateNew={() => handleCreateInbound('dock_intake')}
             />
 
             {/* All dock intakes (including closed) */}
             <div>
               <h3 className="font-medium text-sm text-muted-foreground mb-3">All Dock Intakes</h3>
-              <ShipmentList
+              <DockIntakeList
                 shipments={shipments}
                 loading={loading}
-                kind="dock_intake"
                 onRowClick={handleRowClick}
               />
             </div>
