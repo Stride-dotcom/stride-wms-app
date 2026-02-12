@@ -6,6 +6,7 @@
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { DropZone } from '@/components/common/DropZone';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -38,10 +39,7 @@ export function PhotoUploadButton({
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
+  const processFiles = async (files: File[]) => {
     const remainingSlots = maxPhotos - existingPhotos.length;
     if (remainingSlots <= 0) {
       toast({
@@ -52,15 +50,13 @@ export function PhotoUploadButton({
       return;
     }
 
-    const filesToProcess = Array.from(files).slice(0, remainingSlots);
+    const filesToProcess = files.filter(f => f.type.startsWith('image/')).slice(0, remainingSlots);
+    if (filesToProcess.length === 0) return;
+
     setUploading(true);
 
     try {
       const uploadPromises = filesToProcess.map(async (file) => {
-        if (!file.type.startsWith('image/')) {
-          throw new Error('Only image files are allowed');
-        }
-
         const path = tenantId ? `tenants/${tenantId}` : entityType;
         const fileName = `${path}/${entityId || 'temp'}/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
 
@@ -95,12 +91,23 @@ export function PhotoUploadButton({
       });
     } finally {
       setUploading(false);
-      e.target.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await processFiles(Array.from(files));
+  };
+
   return (
-    <>
+    <DropZone
+      onFiles={processFiles}
+      accept="image/*"
+      disabled={uploading}
+      hint="Drag and drop photos here, or click to upload"
+    >
       <Button
         variant={variant}
         size={size}
@@ -123,6 +130,6 @@ export function PhotoUploadButton({
         className="hidden"
         onChange={handleFileChange}
       />
-    </>
+    </DropZone>
   );
 }

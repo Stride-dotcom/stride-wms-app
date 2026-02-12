@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { DropZone } from '@/components/common/DropZone';
 
 interface PhotoCaptureProps {
   entityType: 'item' | 'shipment' | 'receiving' | 'inspection' | 'repair';
@@ -57,10 +58,7 @@ export function PhotoCapture({
     }
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
+  const processFiles = async (files: File[]) => {
     const remainingSlots = maxPhotos - photos.length;
     if (remainingSlots <= 0) {
       toast({
@@ -71,7 +69,7 @@ export function PhotoCapture({
       return;
     }
 
-    const filesToUpload = Array.from(files).slice(0, remainingSlots);
+    const filesToUpload = files.slice(0, remainingSlots);
     setUploading(true);
 
     try {
@@ -96,10 +94,15 @@ export function PhotoCapture({
       });
     } finally {
       setUploading(false);
-      // Reset input
       if (fileInputRef.current) fileInputRef.current.value = '';
       if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await processFiles(Array.from(files));
   };
 
   const removePhoto = async (urlToRemove: string) => {
@@ -152,6 +155,12 @@ export function PhotoCapture({
   };
 
   return (
+    <DropZone
+      onFiles={processFiles}
+      accept={acceptTypes}
+      disabled={uploading}
+      hint={photos.length < maxPhotos ? `Drag and drop ${acceptDocuments ? 'files' : 'photos'} here, or use the buttons below` : undefined}
+    >
     <div className="space-y-3">
       {label && <Label>{label}</Label>}
 
@@ -254,5 +263,6 @@ export function PhotoCapture({
         {photos.length}/{maxPhotos} {acceptDocuments ? 'files' : 'photos'} uploaded
       </p>
     </div>
+    </DropZone>
   );
 }

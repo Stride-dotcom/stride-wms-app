@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { DropZone } from '@/components/common/DropZone';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,26 +34,21 @@ export function OrganizationLogoUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [removing, setRemoving] = useState(false);
 
+  const processFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    if (file.size > 5 * 1024 * 1024) return;
+    await onUpload(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    await processFile(file);
+  };
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      return;
-    }
-
-    await onUpload(file);
-
-    // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+  const handleDroppedFiles = async (files: File[]) => {
+    if (files.length > 0) await processFile(files[0]);
   };
 
   const handleRemove = async () => {
@@ -74,6 +70,13 @@ export function OrganizationLogoUpload({
   };
 
   return (
+    <DropZone
+      onFiles={handleDroppedFiles}
+      accept="image/*"
+      multiple={false}
+      disabled={uploading}
+      hint="Drag and drop a logo image, or click Upload Logo"
+    >
     <div className="space-y-4">
       <Label>Organization Logo</Label>
       <div className="flex items-center gap-6">
@@ -153,5 +156,6 @@ export function OrganizationLogoUpload({
         </div>
       </div>
     </div>
+    </DropZone>
   );
 }
