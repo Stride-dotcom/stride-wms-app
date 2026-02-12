@@ -29,7 +29,9 @@ import { HelpButton } from '@/components/prompts';
 import { SOPValidationDialog, SOPBlocker } from '@/components/common/SOPValidationDialog';
 import { useLocationSuggestions, type LocationSuggestion } from '@/hooks/useLocationSuggestions';
 import { SuggestionPanel } from '@/components/scanhub/SuggestionPanel';
+import { CrossWarehouseBanner } from '@/components/scanhub/CrossWarehouseBanner';
 import { OverrideConfirmModal, type OverrideReason } from '@/components/scanhub/OverrideConfirmModal';
+import { useSelectedWarehouse } from '@/contexts/WarehouseContext';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -80,6 +82,7 @@ export default function ScanHub() {
   const { scanServiceEvents, getServiceRate, createBillingEvents, loading: serviceEventsLoading } = useServiceEvents();
   const { collapseSidebar } = useSidebar();
   const { hasRole } = usePermissions();
+  const { selectedWarehouseId, warehouses: contextWarehouses } = useSelectedWarehouse();
 
   // Role-based visibility for billing features (managers and above)
   const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
@@ -117,6 +120,13 @@ export default function ScanHub() {
   const [suggestionsWarehouseId, setSuggestionsWarehouseId] = useState<string | undefined>();
   const [suggestionsWarning, setSuggestionsWarning] = useState<string | null>(null);
 
+  // Cross-warehouse mismatch state
+  const [crossWarehouseInfo, setCrossWarehouseInfo] = useState<{
+    itemWarehouse: string;
+    destWarehouse: string;
+    isMixedBatch?: boolean;
+  } | null>(null);
+
   // Override modal state
   const [overrideModalOpen, setOverrideModalOpen] = useState(false);
   const [overrideBlockingReasons, setOverrideBlockingReasons] = useState<OverrideReason[]>([]);
@@ -129,8 +139,8 @@ export default function ScanHub() {
   const swipeStartX = useRef(0);
   const swipeContainerRef = useRef<HTMLDivElement>(null);
 
-  // Derive warehouse_id from the scanned item's current location for suggestions
-  // No fallback — if we can't determine warehouse, suggestions are disabled.
+  // Derive warehouse_id for suggestions.
+  // Precedence: item-derived (authoritative) → selectedWarehouseId (fallback) → disabled.
   useEffect(() => {
     setSuggestionsWarning(null);
 
@@ -138,11 +148,16 @@ export default function ScanHub() {
       if (scannedItem.current_location_code) {
         const loc = locations.find(l => l.code === scannedItem.current_location_code);
         if (loc) {
+          // Item warehouse is authoritative
           setSuggestionsWarehouseId(loc.warehouse_id);
           return;
         }
       }
-      // Item has no resolvable location — can't determine warehouse
+      // Can't derive from item — fall back to shared selection
+      if (selectedWarehouseId) {
+        setSuggestionsWarehouseId(selectedWarehouseId);
+        return;
+      }
       setSuggestionsWarehouseId(undefined);
       return;
     }
@@ -162,7 +177,7 @@ export default function ScanHub() {
       }
 
       if (warehouseIds.size > 1) {
-        setSuggestionsWarning('Batch contains items from multiple warehouses. Suggestions disabled.');
+        setSuggestionsWarning('Items span multiple warehouses. Suggestions unavailable \u2014 select a single-warehouse batch.');
         setSuggestionsWarehouseId(undefined);
         return;
       }
@@ -172,8 +187,13 @@ export default function ScanHub() {
       return;
     }
 
-    setSuggestionsWarehouseId(undefined);
-  }, [scannedItem, batchItems, locations, mode]);
+    // No items scanned yet — use shared selection if available
+    if (selectedWarehouseId) {
+      setSuggestionsWarehouseId(selectedWarehouseId);
+    } else {
+      setSuggestionsWarehouseId(undefined);
+    }
+  }, [scannedItem, batchItems, locations, mode, selectedWarehouseId]);
 
   // Location suggestions hook
   const suggestionsEnabled =
@@ -192,6 +212,65 @@ export default function ScanHub() {
     itemIds: mode === 'batch' ? batchItems.map(i => i.id) : undefined,
     enabled: suggestionsEnabled,
   });
+
+  // Cross-warehouse mismatch detection
+  useEffect(() => {
+    if (!targetLocation) {
+      setCrossWarehouseInfo(null);
+      return;
+    }
+
+    const destLoc = locations.find(l => l.id === targetLocation.id);
+    if (!destLoc?.warehouse_id) {
+      setCrossWarehouseInfo(null);
+      return;
+    }
+
+    // Determine item warehouse
+    let itemWarehouseId: string | undefined;
+    let itemWarehouseName: string | undefined;
+    let isMixedBatch = false;
+
+    if (mode === 'move' && scannedItem) {
+      const itemLoc = locations.find(l => l.code === scannedItem.current_location_code);
+      itemWarehouseId = itemLoc?.warehouse_id;
+      itemWarehouseName = scannedItem.warehouse_name || undefined;
+    } else if (mode === 'batch' && batchItems.length > 0) {
+      const warehouseIds = new Set<string>();
+      for (const item of batchItems) {
+        if (item.current_location_code) {
+          const loc = locations.find(l => l.code === item.current_location_code);
+          if (loc) warehouseIds.add(loc.warehouse_id);
+        }
+      }
+      if (warehouseIds.size === 1) {
+        itemWarehouseId = [...warehouseIds][0];
+      } else if (warehouseIds.size > 1) {
+        isMixedBatch = true;
+      }
+    }
+
+    if (isMixedBatch) {
+      const destWh = contextWarehouses.find(w => w.id === destLoc.warehouse_id);
+      setCrossWarehouseInfo({
+        itemWarehouse: 'multiple warehouses',
+        destWarehouse: destWh?.name || 'Unknown',
+        isMixedBatch: true,
+      });
+      return;
+    }
+
+    if (itemWarehouseId && destLoc.warehouse_id !== itemWarehouseId) {
+      const destWh = contextWarehouses.find(w => w.id === destLoc.warehouse_id);
+      const itemWh = contextWarehouses.find(w => w.id === itemWarehouseId);
+      setCrossWarehouseInfo({
+        itemWarehouse: itemWarehouseName || itemWh?.name || 'Unknown',
+        destWarehouse: destWh?.name || 'Unknown',
+      });
+    } else {
+      setCrossWarehouseInfo(null);
+    }
+  }, [targetLocation, scannedItem, batchItems, locations, mode, contextWarehouses]);
 
   // Override modal helpers
   const openOverrideModalAndAwait = (
@@ -1748,6 +1827,15 @@ export default function ScanHub() {
                 )}
               </CardContent>
             </Card>
+          )}
+
+          {/* Cross-warehouse mismatch banner */}
+          {crossWarehouseInfo && (
+            <CrossWarehouseBanner
+              itemWarehouse={crossWarehouseInfo.itemWarehouse}
+              destWarehouse={crossWarehouseInfo.destWarehouse}
+              isMixedBatch={crossWarehouseInfo.isMixedBatch}
+            />
           )}
 
           {/* Location Suggestions Panel */}
