@@ -115,6 +115,7 @@ export default function ScanHub() {
 
   // Location suggestions state
   const [suggestionsWarehouseId, setSuggestionsWarehouseId] = useState<string | undefined>();
+  const [suggestionsWarning, setSuggestionsWarning] = useState<string | null>(null);
 
   // Override modal state
   const [overrideModalOpen, setOverrideModalOpen] = useState(false);
@@ -129,22 +130,50 @@ export default function ScanHub() {
   const swipeContainerRef = useRef<HTMLDivElement>(null);
 
   // Derive warehouse_id from the scanned item's current location for suggestions
+  // No fallback — if we can't determine warehouse, suggestions are disabled.
   useEffect(() => {
-    const item = scannedItem || (batchItems.length > 0 ? batchItems[0] : null);
-    if (item?.current_location_code) {
-      const loc = locations.find(l => l.code === item.current_location_code);
-      if (loc) {
-        setSuggestionsWarehouseId(loc.warehouse_id);
+    setSuggestionsWarning(null);
+
+    if (mode === 'move' && scannedItem) {
+      if (scannedItem.current_location_code) {
+        const loc = locations.find(l => l.code === scannedItem.current_location_code);
+        if (loc) {
+          setSuggestionsWarehouseId(loc.warehouse_id);
+          return;
+        }
+      }
+      // Item has no resolvable location — can't determine warehouse
+      setSuggestionsWarehouseId(undefined);
+      return;
+    }
+
+    if (mode === 'batch' && batchItems.length > 0) {
+      const warehouseIds = new Set<string>();
+      for (const item of batchItems) {
+        if (item.current_location_code) {
+          const loc = locations.find(l => l.code === item.current_location_code);
+          if (loc) warehouseIds.add(loc.warehouse_id);
+        }
+      }
+
+      if (warehouseIds.size === 1) {
+        setSuggestionsWarehouseId([...warehouseIds][0]);
         return;
       }
-    }
-    // Fallback: use first location's warehouse if item has no location
-    if (item && locations.length > 0) {
-      setSuggestionsWarehouseId(locations[0].warehouse_id);
-    } else {
+
+      if (warehouseIds.size > 1) {
+        setSuggestionsWarning('Batch contains items from multiple warehouses. Suggestions disabled.');
+        setSuggestionsWarehouseId(undefined);
+        return;
+      }
+
+      // No items had a resolvable warehouse
       setSuggestionsWarehouseId(undefined);
+      return;
     }
-  }, [scannedItem, batchItems, locations]);
+
+    setSuggestionsWarehouseId(undefined);
+  }, [scannedItem, batchItems, locations, mode]);
 
   // Location suggestions hook
   const suggestionsEnabled =
@@ -1722,13 +1751,20 @@ export default function ScanHub() {
           )}
 
           {/* Location Suggestions Panel */}
-          {(mode === 'move' || mode === 'batch') && suggestionsEnabled && (
+          {(mode === 'move' || mode === 'batch') && suggestionsWarning && (
+            <div className="w-full max-w-md mt-3 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 flex items-center gap-2">
+              <MaterialIcon name="warning" size="sm" />
+              {suggestionsWarning}
+            </div>
+          )}
+          {(mode === 'move' || mode === 'batch') && suggestionsEnabled && !suggestionsWarning && (
             <SuggestionPanel
               suggestions={suggestions}
               loading={suggestionsLoading}
               error={suggestionsError}
               mode={mode === 'batch' ? 'batch' : 'single'}
               onRefresh={refetchSuggestions}
+              matchChipLabel={scannedItem?.item_code ? 'SKU match' : 'Item match'}
             />
           )}
 

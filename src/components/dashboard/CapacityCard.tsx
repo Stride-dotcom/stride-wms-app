@@ -4,6 +4,10 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+interface CapacityCardProps {
+  warehouseId?: string;
+}
+
 interface CapacityData {
   measuredCount: number;
   totalCount: number;
@@ -12,7 +16,7 @@ interface CapacityData {
   utilization: number;
 }
 
-export function CapacityCard() {
+export function CapacityCard({ warehouseId }: CapacityCardProps) {
   const { profile } = useAuth();
   const [data, setData] = useState<CapacityData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,17 +25,18 @@ export function CapacityCard() {
     let cancelled = false;
 
     const fetchCapacity = async () => {
-      if (!profile?.tenant_id) return;
+      if (!profile?.tenant_id || !warehouseId) return;
 
       try {
         setLoading(true);
 
-        // Fetch all active locations (capacity_cuft may be null for unmeasured)
-        const { data: locations, error: locError } = await (
-          supabase.from('locations') as any
-        )
+        // Fetch active locations scoped to the selected warehouse
+        let locQuery = (supabase.from('locations') as any)
           .select('id, capacity_cuft')
-          .is('deleted_at', null);
+          .is('deleted_at', null)
+          .eq('warehouse_id', warehouseId);
+
+        const { data: locations, error: locError } = await locQuery;
 
         if (locError) throw locError;
         if (cancelled) return;
@@ -85,7 +90,28 @@ export function CapacityCard() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [profile?.tenant_id]);
+  }, [profile?.tenant_id, warehouseId]);
+
+  // ---- No warehouse selected ----
+  if (!warehouseId) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pr-10">
+          <CardTitle className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+            WAREHOUSE CAPACITY
+          </CardTitle>
+          <div className="emoji-tile emoji-tile-lg rounded-lg bg-card border border-border shadow-sm">
+            📐
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Select a warehouse to view capacity
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   // ---- Loading ----
   if (loading) {

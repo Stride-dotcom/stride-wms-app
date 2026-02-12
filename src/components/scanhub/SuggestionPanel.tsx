@@ -9,6 +9,7 @@ interface SuggestionPanelProps {
   error: string | null;
   mode: 'single' | 'batch';
   onRefresh?: () => void;
+  matchChipLabel?: string;
 }
 
 export function SuggestionPanel({
@@ -17,6 +18,7 @@ export function SuggestionPanel({
   error,
   mode,
   onRefresh,
+  matchChipLabel = 'Item match',
 }: SuggestionPanelProps) {
   const isOverflow =
     suggestions.length > 0 && suggestions.every((s) => s.overflow);
@@ -138,7 +140,7 @@ export function SuggestionPanel({
                   variant="outline"
                   className="text-[10px] px-1.5 py-0"
                 >
-                  SKU match
+                  {matchChipLabel}
                 </Badge>
               )}
               {s.group_match && (
