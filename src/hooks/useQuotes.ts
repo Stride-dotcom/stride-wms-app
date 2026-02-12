@@ -643,6 +643,7 @@ export function useQuotes() {
         // Update quote fields
         const updateData: Record<string, unknown> = {};
 
+        if (formData.account_id !== undefined) updateData.account_id = formData.account_id;
         if (formData.currency !== undefined) updateData.currency = formData.currency;
         if (formData.tax_enabled !== undefined) updateData.tax_enabled = formData.tax_enabled;
         if (formData.tax_rate_percent !== undefined)
