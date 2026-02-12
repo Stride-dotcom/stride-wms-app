@@ -677,8 +677,8 @@ export function useQuotes() {
           updateData.grand_total = calculatedTotals.grand_total;
         }
 
-        // Track who last updated the quote
-        updateData.updated_by = profile.id;
+        // Track update timestamp
+        updateData.updated_at = new Date().toISOString();
 
         if (Object.keys(updateData).length > 0) {
           const { error } = await (supabase as any)
