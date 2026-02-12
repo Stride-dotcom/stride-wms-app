@@ -4630,6 +4630,41 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "inbound_links_dock_intake_id_fkey"
+            columns: ["dock_intake_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_links_dock_intake_id_fkey"
+            columns: ["dock_intake_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_links_linked_by_fkey"
+            columns: ["linked_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_links_linked_shipment_id_fkey"
+            columns: ["linked_shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_links_linked_shipment_id_fkey"
+            columns: ["linked_shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inbound_links_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -4734,13 +4769,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "inventory_movements_unit_id_fkey"
-            columns: ["unit_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_units"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "inventory_movements_container_id_fkey"
             columns: ["container_id"]
             isOneToOne: false
@@ -4748,10 +4776,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inventory_movements_from_location_id_fkey"
+            columns: ["from_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inventory_movements_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_to_location_id_fkey"
+            columns: ["to_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_units"
             referencedColumns: ["id"]
           },
         ]
@@ -4847,6 +4896,20 @@ export type Database = {
             columns: ["shipment_id"]
             isOneToOne: false
             referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_units_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_units_shipment_item_id_fkey"
+            columns: ["shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items"
             referencedColumns: ["id"]
           },
           {
@@ -8245,6 +8308,84 @@ export type Database = {
           },
         ]
       }
+      receiving_discrepancies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          details: Json
+          id: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          shipment_id: string
+          status: string
+          tenant_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          details?: Json
+          id?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          shipment_id: string
+          status?: string
+          tenant_id: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          details?: Json
+          id?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          shipment_id?: string
+          status?: string
+          tenant_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receiving_discrepancies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receiving_discrepancies_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receiving_discrepancies_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receiving_discrepancies_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receiving_discrepancies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       receiving_sessions: {
         Row: {
           created_at: string
@@ -9239,6 +9380,58 @@ export type Database = {
           },
         ]
       }
+      shipment_external_refs: {
+        Row: {
+          created_at: string
+          id: string
+          normalized_value: string
+          ref_type: string
+          shipment_id: string
+          tenant_id: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          normalized_value: string
+          ref_type: string
+          shipment_id: string
+          tenant_id: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          normalized_value?: string
+          ref_type?: string
+          shipment_id?: string
+          tenant_id?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_external_refs_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_external_refs_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_external_refs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shipment_item_allocations: {
         Row: {
           allocated_qty: number
@@ -9274,6 +9467,55 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "shipment_item_allocations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_item_allocations_expected_shipment_id_fkey"
+            columns: ["expected_shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_item_allocations_expected_shipment_id_fkey"
+            columns: ["expected_shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_item_allocations_expected_shipment_item_id_fkey"
+            columns: ["expected_shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_item_allocations_manifest_shipment_id_fkey"
+            columns: ["manifest_shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_item_allocations_manifest_shipment_id_fkey"
+            columns: ["manifest_shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_item_allocations_manifest_shipment_item_id_fkey"
+            columns: ["manifest_shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shipment_item_allocations_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -9325,6 +9567,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "shipment_item_photos_shipment_item_id_fkey"
+            columns: ["shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "shipment_item_photos_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -9332,10 +9581,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "shipment_item_photos_shipment_item_id_fkey"
-            columns: ["shipment_item_id"]
+            foreignKeyName: "shipment_item_photos_uploaded_by_fkey"
+            columns: ["uploaded_by"]
             isOneToOne: false
-            referencedRelation: "shipment_items"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -9536,47 +9785,73 @@ export type Database = {
           },
         ]
       }
-      shipment_external_refs: {
+      shipment_photos: {
         Row: {
+          category: string
           created_at: string
+          file_name: string
+          file_size: number | null
           id: string
-          normalized_value: string
-          ref_type: string
+          is_primary: boolean
+          mime_type: string | null
           shipment_id: string
+          storage_key: string
           tenant_id: string
-          value: string
+          uploaded_by: string | null
         }
         Insert: {
+          category: string
           created_at?: string
+          file_name: string
+          file_size?: number | null
           id?: string
-          normalized_value: string
-          ref_type: string
+          is_primary?: boolean
+          mime_type?: string | null
           shipment_id: string
+          storage_key: string
           tenant_id: string
-          value: string
+          uploaded_by?: string | null
         }
         Update: {
+          category?: string
           created_at?: string
+          file_name?: string
+          file_size?: number | null
           id?: string
-          normalized_value?: string
-          ref_type?: string
+          is_primary?: boolean
+          mime_type?: string | null
           shipment_id?: string
+          storage_key?: string
           tenant_id?: string
-          value?: string
+          uploaded_by?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "shipment_external_refs_tenant_id_fkey"
+            foreignKeyName: "shipment_photos_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_photos_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_photos_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "shipment_external_refs_shipment_id_fkey"
-            columns: ["shipment_id"]
+            foreignKeyName: "shipment_photos_uploaded_by_fkey"
+            columns: ["uploaded_by"]
             isOneToOne: false
-            referencedRelation: "shipments"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -9603,6 +9878,7 @@ export type Database = {
           customer_authorized_by: string | null
           deleted_at: string | null
           destination_name: string | null
+          dock_intake_breakdown: Json | null
           driver_name: string | null
           eta_end: string | null
           eta_start: string | null
@@ -9674,6 +9950,7 @@ export type Database = {
           customer_authorized_by?: string | null
           deleted_at?: string | null
           destination_name?: string | null
+          dock_intake_breakdown?: Json | null
           driver_name?: string | null
           eta_end?: string | null
           eta_start?: string | null
@@ -9745,6 +10022,7 @@ export type Database = {
           customer_authorized_by?: string | null
           deleted_at?: string | null
           destination_name?: string | null
+          dock_intake_breakdown?: Json | null
           driver_name?: string | null
           eta_end?: string | null
           eta_start?: string | null
@@ -14052,6 +14330,7 @@ export type Database = {
         Returns: Json
       }
       generate_claim_number: { Args: never; Returns: string }
+      generate_ic_code: { Args: { p_tenant_id: string }; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_item_code:
         | { Args: never; Returns: string }
@@ -14266,8 +14545,55 @@ export type Database = {
           success: boolean
         }[]
       }
+      rpc_add_unit_to_container: {
+        Args: { p_container_id: string; p_unit_id: string }
+        Returns: Json
+      }
+      rpc_allocate_manifest_items_to_expected: {
+        Args: {
+          p_expected_shipment_id: string
+          p_manifest_item_ids: string[]
+          p_quantities: number[]
+        }
+        Returns: Json
+      }
       rpc_assign_receiving_location_for_shipment: {
         Args: { p_location_id?: string; p_note?: string; p_shipment_id: string }
+        Returns: Json
+      }
+      rpc_deallocate_manifest_item: {
+        Args: { p_allocation_id: string }
+        Returns: Json
+      }
+      rpc_find_inbound_candidates: {
+        Args: {
+          p_account_id?: string
+          p_pieces?: number
+          p_ref_value?: string
+          p_vendor_name?: string
+        }
+        Returns: Json
+      }
+      rpc_get_location_capacity: {
+        Args: { p_location_id: string }
+        Returns: Json
+      }
+      rpc_link_dock_intake_to_shipment: {
+        Args: {
+          p_confidence_score?: number
+          p_dock_intake_id: string
+          p_link_type: string
+          p_linked_shipment_id: string
+        }
+        Returns: Json
+      }
+      rpc_move_container: {
+        Args: { p_container_id: string; p_new_location_id: string }
+        Returns: Json
+      }
+      rpc_normalize_ref_value: { Args: { p_value: string }; Returns: string }
+      rpc_remove_unit_from_container: {
+        Args: { p_unit_id: string }
         Returns: Json
       }
       rpc_resolve_receiving_location: {
@@ -14346,60 +14672,6 @@ export type Database = {
       }
       user_is_admin_dev: { Args: { p_user_id: string }; Returns: boolean }
       user_tenant_id: { Args: never; Returns: string }
-      generate_ic_code: {
-        Args: { p_tenant_id: string }
-        Returns: string
-      }
-      rpc_move_container: {
-        Args: { p_container_id: string; p_new_location_id: string }
-        Returns: Json
-      }
-      rpc_remove_unit_from_container: {
-        Args: { p_unit_id: string }
-        Returns: Json
-      }
-      rpc_add_unit_to_container: {
-        Args: { p_unit_id: string; p_container_id: string }
-        Returns: Json
-      }
-      rpc_get_location_capacity: {
-        Args: { p_location_id: string }
-        Returns: Json
-      }
-      rpc_normalize_ref_value: {
-        Args: { p_value: string }
-        Returns: string
-      }
-      rpc_allocate_manifest_items_to_expected: {
-        Args: {
-          p_manifest_item_ids: string[]
-          p_expected_shipment_id: string
-          p_quantities: number[]
-        }
-        Returns: Json
-      }
-      rpc_deallocate_manifest_item: {
-        Args: { p_allocation_id: string }
-        Returns: Json
-      }
-      rpc_find_inbound_candidates: {
-        Args: {
-          p_account_id?: string
-          p_vendor_name?: string
-          p_ref_value?: string
-          p_pieces?: number
-        }
-        Returns: Json
-      }
-      rpc_link_dock_intake_to_shipment: {
-        Args: {
-          p_dock_intake_id: string
-          p_linked_shipment_id: string
-          p_link_type: string
-          p_confidence_score?: number
-        }
-        Returns: Json
-      }
       validate_movement_event: {
         Args: { p_destination_location_id: string; p_item_ids: string[] }
         Returns: Json

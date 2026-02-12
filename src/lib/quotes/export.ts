@@ -631,6 +631,7 @@ export function transformQuoteToPdfData(
     brandColor?: string;
     companyLogo?: string;
     companyWebsite?: string;
+    companyName?: string;
   }
 ): QuotePdfData {
   return {
@@ -640,7 +641,7 @@ export function transformQuoteToPdfData(
     estimatedStorageDays: quote.storage_days || 0,
     status: quote.status,
 
-    companyName: quote.tenant?.name || 'Your Company',
+    companyName: overrides?.companyName || quote.tenant?.name || 'Your Company',
     companyAddress: quote.tenant?.address,
     companyPhone: quote.tenant?.phone,
     companyEmail: quote.tenant?.email,

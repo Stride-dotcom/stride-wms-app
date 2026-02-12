@@ -72,10 +72,10 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
       if ((data as any).account_id) {
         const { data: account } = await supabase
           .from('accounts')
-          .select('name')
+          .select('account_name')
           .eq('id', (data as any).account_id)
           .single();
-        setAccountName(account?.name || null);
+        setAccountName(account?.account_name || null);
       }
     } catch (err) {
       console.error('[ReceivingStageRouter] fetch error:', err);
@@ -96,7 +96,7 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
     // Fetch company info for PDF
     const { data: company } = await supabase
       .from('tenant_company_settings')
-      .select('company_name, address, phone, email, logo_url')
+      .select('company_name, company_address, company_phone, company_email, logo_url')
       .eq('tenant_id', profile!.tenant_id)
       .maybeSingle();
 
@@ -132,9 +132,9 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
       receivedPieces: s.received_pieces,
       driverName: s.driver_name,
       companyName: company?.company_name || 'Stride WMS',
-      companyAddress: company?.address || null,
-      companyPhone: company?.phone || null,
-      companyEmail: company?.email || null,
+      companyAddress: company?.company_address || null,
+      companyPhone: company?.company_phone || null,
+      companyEmail: company?.company_email || null,
       warehouseName,
       signatureData: s.signature_data,
       signatureName: s.signature_name || null,
