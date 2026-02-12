@@ -29,7 +29,7 @@ export function useIncomingShipments(filters: IncomingFilters) {
       setLoading(true);
       let query = supabase
         .from('shipments')
-        .select('*, accounts(account_name)')
+        .select('*, accounts(account_name), shipment_items(id)')
         .eq('shipment_type', 'inbound')
         .eq('inbound_kind', filters.inbound_kind)
         .is('deleted_at', null)
@@ -49,11 +49,14 @@ export function useIncomingShipments(filters: IncomingFilters) {
       if (error) throw error;
 
       const mapped: IncomingShipment[] = (data || []).map((row) => {
-        const acct = row.accounts as unknown as { account_name: string } | null;
+        const acct = (row as Record<string, unknown>).accounts as { account_name: string } | null;
+        const items = (row as Record<string, unknown>).shipment_items as { id: string }[] | null;
         return {
           ...row,
           account_name: acct?.account_name || null,
+          open_items_count: items?.length ?? 0,
           accounts: undefined,
+          shipment_items: undefined,
         } as unknown as IncomingShipment;
       });
 
