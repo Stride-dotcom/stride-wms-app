@@ -32,7 +32,8 @@
 -- ASSUMPTIONS:
 --   A1: items.size represents cubic feet volume (the only numeric volume column).
 --   A2: items.item_code serves as the SKU equivalent for sku_match.
---   A3: locations.tenant_id exists (confirmed via INSERT in migration 20260124005714).
+--   A3: locations does NOT have tenant_id. Tenant scoping goes through
+--       warehouses (locations.warehouse_id → warehouses.tenant_id).
 --   A4: pg_cron extension is available (enabled in migration 20260119202512).
 -- =============================================================================
 
@@ -93,7 +94,8 @@ CREATE TABLE IF NOT EXISTS public.location_capacity_cache (
 -- Enable RLS on new cache table
 ALTER TABLE public.location_capacity_cache ENABLE ROW LEVEL SECURITY;
 
--- RLS policy: tenants can only SELECT cache rows for their locations
+-- RLS policy: tenants can only SELECT cache rows for their locations.
+-- locations does not have tenant_id; scope via warehouses.tenant_id.
 DROP POLICY IF EXISTS "location_capacity_cache_tenant_select" ON public.location_capacity_cache;
 CREATE POLICY "location_capacity_cache_tenant_select"
   ON public.location_capacity_cache
@@ -101,7 +103,8 @@ CREATE POLICY "location_capacity_cache_tenant_select"
   USING (
     location_id IN (
       SELECT l.id FROM public.locations l
-      WHERE l.tenant_id = public.user_tenant_id()
+      JOIN public.warehouses w ON l.warehouse_id = w.id
+      WHERE w.tenant_id = public.user_tenant_id()
     )
   );
 
@@ -113,13 +116,15 @@ CREATE POLICY "location_capacity_cache_tenant_modify"
   USING (
     location_id IN (
       SELECT l.id FROM public.locations l
-      WHERE l.tenant_id = public.user_tenant_id()
+      JOIN public.warehouses w ON l.warehouse_id = w.id
+      WHERE w.tenant_id = public.user_tenant_id()
     )
   )
   WITH CHECK (
     location_id IN (
       SELECT l.id FROM public.locations l
-      WHERE l.tenant_id = public.user_tenant_id()
+      JOIN public.warehouses w ON l.warehouse_id = w.id
+      WHERE w.tenant_id = public.user_tenant_id()
     )
   );
 
@@ -400,7 +405,9 @@ BEGIN
     SELECT 1
     FROM jsonb_to_recordset(p_deltas) AS d(location_id UUID, delta_used_cuft NUMERIC)
     WHERE d.location_id NOT IN (
-      SELECT l.id FROM public.locations l WHERE l.tenant_id = p_tenant_id
+      SELECT l.id FROM public.locations l
+      JOIN public.warehouses w ON l.warehouse_id = w.id
+      WHERE w.tenant_id = p_tenant_id
     )
   ) THEN
     RAISE EXCEPTION 'TENANT_MISMATCH: One or more locations do not belong to tenant %', p_tenant_id;
@@ -484,18 +491,19 @@ BEGIN
   -- Backfill cache rows for measured locations (capacity_cuft IS NOT NULL).
   -- Tenant-scoped to avoid RLS and cross-tenant risk.
   -- Idempotent: ON CONFLICT upsert overwrites stale data.
+  -- Tenant scoping via warehouses join (locations has no tenant_id).
   WITH location_usage AS (
     SELECT
       l.id AS location_id,
       l.capacity_cuft,
       COALESCE(SUM(COALESCE(i.size, 0)), 0) AS used_cuft
     FROM public.locations l
+    JOIN public.warehouses w ON l.warehouse_id = w.id AND w.tenant_id = p_tenant_id
     LEFT JOIN public.items i
       ON i.location_id = l.id
       AND i.tenant_id = p_tenant_id
       AND i.deleted_at IS NULL
-    WHERE l.tenant_id = p_tenant_id
-      AND l.capacity_cuft IS NOT NULL
+    WHERE l.capacity_cuft IS NOT NULL
       AND l.deleted_at IS NULL
       AND (p_warehouse_id IS NULL OR l.warehouse_id = p_warehouse_id)
     GROUP BY l.id, l.capacity_cuft
@@ -520,8 +528,8 @@ BEGIN
   DELETE FROM public.location_capacity_cache
   WHERE location_id IN (
     SELECT l.id FROM public.locations l
-    WHERE l.tenant_id = p_tenant_id
-      AND l.capacity_cuft IS NULL
+    JOIN public.warehouses w ON l.warehouse_id = w.id AND w.tenant_id = p_tenant_id
+    WHERE l.capacity_cuft IS NULL
       AND (p_warehouse_id IS NULL OR l.warehouse_id = p_warehouse_id)
   );
 
@@ -553,19 +561,19 @@ DECLARE
   v_deleted   INT := 0;
 BEGIN
   -- Recompute used_cuft from base inventory (items table).
-  -- Scoped to p_tenant_id and optionally p_warehouse_id.
+  -- Scoped to p_tenant_id (via warehouses) and optionally p_warehouse_id.
   WITH location_usage AS (
     SELECT
       l.id AS location_id,
       l.capacity_cuft,
       COALESCE(SUM(COALESCE(i.size, 0)), 0) AS used_cuft
     FROM public.locations l
+    JOIN public.warehouses w ON l.warehouse_id = w.id AND w.tenant_id = p_tenant_id
     LEFT JOIN public.items i
       ON i.location_id = l.id
       AND i.tenant_id = p_tenant_id
       AND i.deleted_at IS NULL
-    WHERE l.tenant_id = p_tenant_id
-      AND l.capacity_cuft IS NOT NULL
+    WHERE l.capacity_cuft IS NOT NULL
       AND l.deleted_at IS NULL
       AND (p_warehouse_id IS NULL OR l.warehouse_id = p_warehouse_id)
     GROUP BY l.id, l.capacity_cuft
@@ -591,8 +599,8 @@ BEGIN
   DELETE FROM public.location_capacity_cache
   WHERE location_id IN (
     SELECT l.id FROM public.locations l
-    WHERE l.tenant_id = p_tenant_id
-      AND l.capacity_cuft IS NULL
+    JOIN public.warehouses w ON l.warehouse_id = w.id AND w.tenant_id = p_tenant_id
+    WHERE l.capacity_cuft IS NULL
       AND (p_warehouse_id IS NULL OR l.warehouse_id = p_warehouse_id)
   );
 
@@ -720,8 +728,7 @@ BEGIN
   SELECT count(*) INTO v_eligible_count
   FROM public.locations l
   JOIN public.location_capacity_cache c ON c.location_id = l.id
-  WHERE l.tenant_id = p_tenant_id
-    AND l.warehouse_id = p_warehouse_id
+  WHERE l.warehouse_id = p_warehouse_id
     AND l.capacity_cuft IS NOT NULL
     AND l.deleted_at IS NULL
     AND c.utilization_pct < 0.90;
@@ -781,8 +788,7 @@ BEGIN
     JOIN public.location_capacity_cache c ON c.location_id = l.id
     LEFT JOIN account_volume av ON av.loc_id = l.id
     LEFT JOIN sku_vendor_match svm ON svm.loc_id = l.id
-    WHERE l.tenant_id = p_tenant_id
-      AND l.warehouse_id = p_warehouse_id
+    WHERE l.warehouse_id = p_warehouse_id
       AND l.capacity_cuft IS NOT NULL
       AND l.deleted_at IS NULL
       AND c.utilization_pct < 0.90
@@ -822,8 +828,7 @@ BEGIN
       TRUE                                                    AS overflow
     FROM public.locations l
     JOIN public.location_capacity_cache c ON c.location_id = l.id
-    WHERE l.tenant_id = p_tenant_id
-      AND l.warehouse_id = p_warehouse_id
+    WHERE l.warehouse_id = p_warehouse_id
       AND l.capacity_cuft IS NOT NULL
       AND l.deleted_at IS NULL
     ORDER BY
@@ -847,9 +852,9 @@ CREATE INDEX IF NOT EXISTS idx_items_location
 CREATE INDEX IF NOT EXISTS idx_items_tenant_location
   ON public.items(tenant_id, location_id);
 
--- 3) For location filtering by tenant + warehouse
-CREATE INDEX IF NOT EXISTS idx_locations_tenant_warehouse
-  ON public.locations(tenant_id, warehouse_id);
+-- 3) For location filtering by warehouse (locations has no tenant_id; warehouse_id → warehouses.tenant_id)
+CREATE INDEX IF NOT EXISTS idx_locations_warehouse
+  ON public.locations(warehouse_id);
 
 -- 4) For utilization filtering in RPC
 CREATE INDEX IF NOT EXISTS idx_capacity_cache_utilization
