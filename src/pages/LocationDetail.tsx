@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -24,6 +25,8 @@ import {
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { HelpTip } from '@/components/ui/help-tip';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { CreateContainerDialog } from '@/components/containers/CreateContainerDialog';
+import { ScanToContainerDialog } from '@/components/containers/ScanToContainerDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,6 +34,7 @@ import { useContainersAtLocation } from '@/hooks/useContainersAtLocation';
 import { useUnitsAtLocation, type UnitFilters } from '@/hooks/useUnitsAtLocation';
 import { useLocationCapacity } from '@/hooks/useLocationCapacity';
 import { useOrgPreferences } from '@/hooks/useOrgPreferences';
+import { useContainerActions } from '@/hooks/useContainerActions';
 import type { Database } from '@/integrations/supabase/types';
 
 type LocationRow = Database['public']['Tables']['locations']['Row'];
@@ -42,17 +46,27 @@ export default function LocationDetail() {
   const { profile } = useAuth();
   const [location, setLocation] = useState<LocationRow | null>(null);
   const [warehouseName, setWarehouseName] = useState<string>('');
+  const [warehouseId, setWarehouseId] = useState<string>('');
   const [parentPath, setParentPath] = useState<string>('');
   const [pageLoading, setPageLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [containerFilter, setContainerFilter] = useState<string>('');
+  const [createContainerOpen, setCreateContainerOpen] = useState(false);
+  const [scanContainerId, setScanContainerId] = useState<string | null>(null);
+  const [scanContainerCode, setScanContainerCode] = useState<string>('');
+
+  // Container unit counts (fetched separately for display)
+  const [containerUnitCounts, setContainerUnitCounts] = useState<Record<string, number>>({});
 
   const { containers, loading: containersLoading, refetch: refetchContainers } = useContainersAtLocation(id);
+  const { moveContainer } = useContainerActions();
 
   const unitFilters: UnitFilters = useMemo(() => ({
     search: search || undefined,
     status: statusFilter && statusFilter !== 'all' ? statusFilter : undefined,
-  }), [search, statusFilter]);
+    containerId: containerFilter && containerFilter !== 'all' ? containerFilter : undefined,
+  }), [search, statusFilter, containerFilter]);
 
   const { units, loading: unitsLoading, refetch: refetchUnits } = useUnitsAtLocation(id, unitFilters);
   const { capacity, loading: capacityLoading, fetchCapacity } = useLocationCapacity(id);
@@ -64,6 +78,36 @@ export default function LocationDetail() {
       fetchCapacity(id);
     }
   }, [id]);
+
+  // Fetch container unit counts when containers change
+  useEffect(() => {
+    if (containers.length > 0) {
+      fetchContainerUnitCounts();
+    }
+  }, [containers]);
+
+  const fetchContainerUnitCounts = async () => {
+    if (!id) return;
+    try {
+      const { data, error } = await supabase
+        .from('inventory_units')
+        .select('container_id')
+        .eq('location_id', id)
+        .not('container_id', 'is', null);
+
+      if (error) throw error;
+
+      const counts: Record<string, number> = {};
+      (data || []).forEach((row) => {
+        if (row.container_id) {
+          counts[row.container_id] = (counts[row.container_id] || 0) + 1;
+        }
+      });
+      setContainerUnitCounts(counts);
+    } catch (error) {
+      console.error('Error fetching container unit counts:', error);
+    }
+  };
 
   const fetchLocation = async (locationId: string) => {
     try {
@@ -79,6 +123,7 @@ export default function LocationDetail() {
 
       // Fetch warehouse name
       if (data.warehouse_id) {
+        setWarehouseId(data.warehouse_id);
         const { data: wh } = await supabase
           .from('warehouses')
           .select('name')
@@ -126,6 +171,7 @@ export default function LocationDetail() {
       bay: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
       bin: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
       shelf: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+      dock: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
       release: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
     };
     return (
@@ -133,6 +179,21 @@ export default function LocationDetail() {
         {type.charAt(0).toUpperCase() + type.slice(1)}
       </Badge>
     );
+  };
+
+  const formatLocationDisplay = (containerCode: string | null) => {
+    if (!location) return '';
+    if (containerCode) {
+      return `${location.code} (in ${containerCode})`;
+    }
+    return location.code;
+  };
+
+  const handleRefreshAll = () => {
+    refetchContainers();
+    refetchUnits();
+    fetchContainerUnitCounts();
+    if (id) fetchCapacity(id);
   };
 
   if (pageLoading) {
@@ -157,6 +218,8 @@ export default function LocationDetail() {
       </DashboardLayout>
     );
   }
+
+  const utilizationPct = capacity?.utilization_pct ?? null;
 
   return (
     <DashboardLayout>
@@ -203,7 +266,7 @@ export default function LocationDetail() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">
-                <HelpTip tooltip="Shows the volume utilization of this location based on inventory units and containers stored here.">
+                <HelpTip tooltip="Shows the volume utilization of this location based on inventory units and containers stored here. Calculated using the org-level capacity mode (bounded footprint or units-only).">
                   Capacity Utilization
                 </HelpTip>
               </CardTitle>
@@ -215,25 +278,47 @@ export default function LocationDetail() {
                   Loading capacity data...
                 </div>
               ) : capacity ? (
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Used</p>
-                    <p className="text-lg font-semibold">
-                      {capacity.used_cu_ft != null ? `${capacity.used_cu_ft.toFixed(1)} cu ft` : 'N/A'}
-                    </p>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Used (cu ft)</p>
+                      <p className="text-lg font-semibold">
+                        {capacity.used_cu_ft != null ? capacity.used_cu_ft.toFixed(1) : 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Capacity (cu ft)</p>
+                      <p className="text-lg font-semibold">
+                        {capacity.capacity_cu_ft != null ? capacity.capacity_cu_ft.toFixed(1) : 'Not set'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Capacity (sq ft)</p>
+                      <p className="text-lg font-semibold">
+                        {location.capacity_sq_ft != null ? Number(location.capacity_sq_ft).toFixed(1) : 'Not set'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Utilization</p>
+                      <p className="text-lg font-semibold">
+                        {utilizationPct != null ? `${utilizationPct.toFixed(1)}%` : 'N/A'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Capacity</p>
-                    <p className="text-lg font-semibold">
-                      {capacity.capacity_cu_ft != null ? `${capacity.capacity_cu_ft.toFixed(1)} cu ft` : 'Not set'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Utilization</p>
-                    <p className="text-lg font-semibold">
-                      {capacity.utilization_pct != null ? `${capacity.utilization_pct.toFixed(1)}%` : 'N/A'}
-                    </p>
-                  </div>
+                  {/* Utilization Bar */}
+                  {utilizationPct != null && (
+                    <div className="space-y-1">
+                      <Progress
+                        value={Math.min(utilizationPct, 100)}
+                        className="h-2"
+                      />
+                      {utilizationPct > 90 && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          This location is {utilizationPct >= 100 ? 'at or over' : 'near'} capacity.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">No capacity data available.</p>
@@ -257,14 +342,28 @@ export default function LocationDetail() {
           <TabsContent value="containers" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">
-                  <HelpTip tooltip="Containers currently located at this storage location. Move containers between locations to relocate all their contents at once.">
-                    Containers at Location
-                  </HelpTip>
-                </CardTitle>
-                <CardDescription>
-                  {containers.length} container{containers.length !== 1 ? 's' : ''} at this location
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">
+                      <HelpTip tooltip="Containers currently located at this storage location. Move containers between locations to relocate all their contents at once.">
+                        Containers at Location
+                      </HelpTip>
+                    </CardTitle>
+                    <CardDescription>
+                      {containers.length} container{containers.length !== 1 ? 's' : ''} at this location
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCreateContainerOpen(true)}
+                    >
+                      <MaterialIcon name="add" size="sm" className="mr-1" />
+                      Create Container
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {containersLoading ? (
@@ -281,9 +380,10 @@ export default function LocationDetail() {
                       <TableRow>
                         <TableHead>Code</TableHead>
                         <TableHead>Type</TableHead>
+                        <TableHead>Units</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Footprint</TableHead>
-                        <TableHead className="w-[70px]"></TableHead>
+                        <TableHead className="w-[120px]"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -301,6 +401,11 @@ export default function LocationDetail() {
                           </TableCell>
                           <TableCell>{container.container_type || '—'}</TableCell>
                           <TableCell>
+                            <Badge variant="secondary">
+                              {containerUnitCounts[container.id] || 0}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
                             <StatusIndicator status={container.status} size="sm" />
                           </TableCell>
                           <TableCell>
@@ -309,14 +414,29 @@ export default function LocationDetail() {
                               : '—'}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => navigate(`/containers/${container.id}`)}
-                            >
-                              <MaterialIcon name="open_in_new" size="sm" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="Scan units into container"
+                                onClick={() => {
+                                  setScanContainerId(container.id);
+                                  setScanContainerCode(container.container_code);
+                                }}
+                              >
+                                <MaterialIcon name="qr_code_scanner" size="sm" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => navigate(`/containers/${container.id}`)}
+                                title="Open container detail"
+                              >
+                                <MaterialIcon name="open_in_new" size="sm" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -334,7 +454,7 @@ export default function LocationDetail() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-base">
-                      <HelpTip tooltip="All inventory units physically present at this location, whether in containers or loose. Based on unit.location_id, not display-only.">
+                      <HelpTip tooltip="All inventory units physically present at this location, whether in containers or loose. Based on unit.location_id truth — not display-only.">
                         Inventory Units
                       </HelpTip>
                     </CardTitle>
@@ -343,9 +463,9 @@ export default function LocationDetail() {
                     </CardDescription>
                   </div>
                 </div>
-                <div className="flex gap-2 mt-2">
+                <div className="flex flex-wrap gap-2 mt-2">
                   <Input
-                    placeholder="Search IC code..."
+                    placeholder="Search IC code, vendor, description..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="max-w-xs"
@@ -364,6 +484,19 @@ export default function LocationDetail() {
                       <SelectItem value="RELEASED">Released</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Select value={containerFilter} onValueChange={setContainerFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="All containers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All containers</SelectItem>
+                      {containers.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.container_code}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardHeader>
               <CardContent>
@@ -376,50 +509,79 @@ export default function LocationDetail() {
                     No inventory units at this location.
                   </p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>IC Code</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Class</TableHead>
-                        <TableHead>Container</TableHead>
-                        <TableHead>Volume</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {units.map((unit) => (
-                        <TableRow key={unit.id}>
-                          <TableCell className="font-medium">
-                            <code className="text-sm bg-muted px-1.5 py-0.5 rounded">
-                              {unit.ic_code}
-                            </code>
-                          </TableCell>
-                          <TableCell>
-                            <StatusIndicator status={unit.status} size="sm" />
-                          </TableCell>
-                          <TableCell>{unit.class || '—'}</TableCell>
-                          <TableCell>
-                            {unit.container_code ? (
-                              <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                                {unit.container_code}
-                              </code>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {unit.unit_cu_ft != null ? `${unit.unit_cu_ft} cu ft` : '—'}
-                          </TableCell>
+                  <div className="rounded-md border max-h-[600px] overflow-auto">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background">
+                        <TableRow>
+                          <TableHead>IC Code</TableHead>
+                          <TableHead>Vendor</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Class</TableHead>
+                          <TableHead>Location</TableHead>
+                          <TableHead>Volume</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {units.map((unit) => (
+                          <TableRow key={unit.id}>
+                            <TableCell className="font-medium">
+                              <code className="text-sm bg-muted px-1.5 py-0.5 rounded">
+                                {unit.ic_code}
+                              </code>
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {unit.vendor || '—'}
+                            </TableCell>
+                            <TableCell className="text-sm max-w-[200px] truncate">
+                              {unit.description || '—'}
+                            </TableCell>
+                            <TableCell>
+                              <StatusIndicator status={unit.status} size="sm" />
+                            </TableCell>
+                            <TableCell>{unit.class || '—'}</TableCell>
+                            <TableCell className="text-sm">
+                              {formatLocationDisplay(unit.container_code)}
+                            </TableCell>
+                            <TableCell>
+                              {unit.unit_cu_ft != null ? `${unit.unit_cu_ft} cu ft` : '—'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Create Container Dialog */}
+      <CreateContainerDialog
+        open={createContainerOpen}
+        onOpenChange={setCreateContainerOpen}
+        warehouseId={warehouseId}
+        locationId={id}
+        onSuccess={handleRefreshAll}
+      />
+
+      {/* Scan to Container Dialog */}
+      {scanContainerId && (
+        <ScanToContainerDialog
+          open={!!scanContainerId}
+          onOpenChange={(open) => {
+            if (!open) {
+              setScanContainerId(null);
+              setScanContainerCode('');
+            }
+          }}
+          containerId={scanContainerId}
+          containerCode={scanContainerCode}
+          onSuccess={handleRefreshAll}
+        />
+      )}
     </DashboardLayout>
   );
 }

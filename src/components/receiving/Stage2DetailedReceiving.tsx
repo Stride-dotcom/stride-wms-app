@@ -54,6 +54,11 @@ interface ReceivedItem {
   packages: number; // 0 = no container, 1 = single, 2+ = multi-package
 }
 
+export interface ItemMatchingParams {
+  itemDescription: string | null;
+  itemVendor: string | null;
+}
+
 interface Stage2DetailedReceivingProps {
   shipmentId: string;
   shipmentNumber: string;
@@ -66,6 +71,8 @@ interface Stage2DetailedReceivingProps {
   };
   onComplete: () => void;
   onRefresh: () => void;
+  /** Called when item details change to refine matching panel candidates */
+  onItemMatchingParamsChange?: (params: ItemMatchingParams) => void;
 }
 
 export function Stage2DetailedReceiving({
@@ -74,6 +81,7 @@ export function Stage2DetailedReceiving({
   shipment,
   onComplete,
   onRefresh,
+  onItemMatchingParamsChange,
 }: Stage2DetailedReceivingProps) {
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -82,6 +90,28 @@ export function Stage2DetailedReceiving({
   // Items
   const [items, setItems] = useState<ReceivedItem[]>([]);
   const [receivedPieces, setReceivedPieces] = useState<number>(0);
+
+  // Emit item-level matching params whenever items change
+  useEffect(() => {
+    if (!onItemMatchingParamsChange) return;
+
+    // Aggregate unique descriptions and vendors from current items for matching refinement
+    const descriptions = items
+      .map((i) => i.description.trim())
+      .filter((d) => d.length >= 2);
+    const vendors = items
+      .map((i) => i.vendor.trim())
+      .filter((v) => v.length >= 2);
+
+    // Use the most recently entered (last) non-empty value for each — that's what the user is actively typing
+    const lastDescription = descriptions.length > 0 ? descriptions[descriptions.length - 1] : null;
+    const lastVendor = vendors.length > 0 ? vendors[vendors.length - 1] : null;
+
+    onItemMatchingParamsChange({
+      itemDescription: lastDescription,
+      itemVendor: lastVendor,
+    });
+  }, [items, onItemMatchingParamsChange]);
 
   // Manifest selector
   const [showManifestSelector, setShowManifestSelector] = useState(false);

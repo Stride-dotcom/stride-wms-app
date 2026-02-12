@@ -37,6 +37,12 @@ const EXCEPTION_OPTIONS: { value: ExceptionType; label: string; icon: string }[]
   { value: 'OTHER', label: 'Other', icon: 'more_horiz' },
 ];
 
+export interface MatchingParamsUpdate {
+  vendorName: string;
+  pieces: number;
+  accountId: string | null;
+}
+
 interface Stage1DockIntakeProps {
   shipmentId: string;
   shipmentNumber: string;
@@ -52,6 +58,8 @@ interface Stage1DockIntakeProps {
   };
   onComplete: () => void;
   onRefresh: () => void;
+  /** Called whenever fields that affect matching change, so the matching panel can update reactively */
+  onMatchingParamsChange?: (params: MatchingParamsUpdate) => void;
 }
 
 export function Stage1DockIntake({
@@ -60,6 +68,7 @@ export function Stage1DockIntake({
   shipment,
   onComplete,
   onRefresh,
+  onMatchingParamsChange,
 }: Stage1DockIntakeProps) {
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -105,6 +114,15 @@ export function Stage1DockIntake({
   // File input refs
   const paperworkInputRef = useRef<HTMLInputElement>(null);
   const conditionInputRef = useRef<HTMLInputElement>(null);
+
+  // Emit matching params whenever relevant fields change
+  useEffect(() => {
+    onMatchingParamsChange?.({
+      vendorName,
+      pieces: signedPieces,
+      accountId: shipment.account_id,
+    });
+  }, [vendorName, signedPieces, shipment.account_id]);
 
   // Autosave handlers
   const handleVendorNameChange = (value: string) => {
