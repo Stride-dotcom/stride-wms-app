@@ -11335,6 +11335,11 @@ export type Database = {
           unable_to_complete_note: string | null
           unable_to_complete_reason: string | null
           updated_at: string | null
+          waive_charges: boolean
+          waive_notes: string | null
+          waive_reason: string | null
+          waived_at: string | null
+          waived_by: string | null
           warehouse_id: string | null
         }
         Insert: {
@@ -11386,6 +11391,11 @@ export type Database = {
           unable_to_complete_note?: string | null
           unable_to_complete_reason?: string | null
           updated_at?: string | null
+          waive_charges?: boolean
+          waive_notes?: string | null
+          waive_reason?: string | null
+          waived_at?: string | null
+          waived_by?: string | null
           warehouse_id?: string | null
         }
         Update: {
@@ -11437,6 +11447,11 @@ export type Database = {
           unable_to_complete_note?: string | null
           unable_to_complete_reason?: string | null
           updated_at?: string | null
+          waive_charges?: boolean
+          waive_notes?: string | null
+          waive_reason?: string | null
+          waived_at?: string | null
+          waived_by?: string | null
           warehouse_id?: string | null
         }
         Relationships: [

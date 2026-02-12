@@ -312,12 +312,34 @@ export function useTasks(filters?: {
     if (!profile?.tenant_id || !profile?.id) return;
 
     try {
-      // First, fetch the task to check for billing config
+      // First, fetch the task to check for billing config (including waive state)
       const { data: taskData } = await (supabase
         .from('tasks') as any)
-        .select('billing_rate, billing_rate_locked, title, metadata, task_type_id')
+        .select('billing_rate, billing_rate_locked, title, metadata, task_type_id, waive_charges, tenant_id')
         .eq('id', taskId)
         .single();
+
+      // BUILD-38: If task has waive_charges=true, skip primary billing event creation
+      if (taskData?.waive_charges === true) {
+        return;
+      }
+
+      // BUILD-38: DUPLICATE SAFETY — check for existing billing_event for this tenant+task
+      // with status IN ('unbilled','invoiced') regardless of charge_type
+      const tenantId = taskData?.tenant_id || profile.tenant_id;
+      const { data: existingPrimary } = await (supabase
+        .from('billing_events') as any)
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('task_id', taskId)
+        .eq('event_type', 'task_completion')
+        .in('status', ['unbilled', 'invoiced'])
+        .limit(1);
+
+      if (existingPrimary && existingPrimary.length > 0) {
+        // Already has a primary billing event — do not create another
+        return;
+      }
 
       // Check if task type requires manual rate entry (Safety Billing)
       // Only use the database flag — no hardcoded task type name checks
@@ -1543,16 +1565,43 @@ export function useTasks(filters?: {
         await clearDamageAndQuarantine(taskId);
       }
 
-      // Create billing events from service lines
-      if (completionValues.length > 0) {
-        await createServiceLineBillingEvents(taskId, taskType, accountId, completionValues);
-      } else {
-        // Fallback to legacy billing if no service lines
-        await createTaskBillingEvents(taskId, taskType, accountId);
+      // BUILD-38: Check waive_charges before creating billing events
+      const { data: waiveCheck } = await (supabase
+        .from('tasks') as any)
+        .select('waive_charges')
+        .eq('id', taskId)
+        .single();
+
+      if (waiveCheck?.waive_charges !== true) {
+        // Create billing events from service lines
+        if (completionValues.length > 0) {
+          await createServiceLineBillingEvents(taskId, taskType, accountId, completionValues);
+        } else {
+          // Fallback to legacy billing (primary_service_code) if no service lines
+          await createTaskBillingEvents(taskId, taskType, accountId);
+        }
+
+        // Convert remaining custom charges
+        await convertTaskCustomChargesToBillingEvents(taskId, accountId);
       }
 
-      // Convert remaining custom charges
-      await convertTaskCustomChargesToBillingEvents(taskId, accountId);
+      // Log task completion per linked item
+      {
+        const { data: taskItemsForLog } = await (supabase.from('task_items') as any)
+          .select('item_id').eq('task_id', taskId);
+        if (taskItemsForLog) {
+          for (const ti of taskItemsForLog) {
+            logItemActivity({
+              tenantId: profile.tenant_id,
+              itemId: ti.item_id,
+              actorUserId: profile.id,
+              eventType: 'task_completed',
+              eventLabel: `${taskType} task completed`,
+              details: { task_id: taskId, task_type: taskType },
+            });
+          }
+        }
+      }
 
       toast({
         title: 'Task Completed',
