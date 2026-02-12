@@ -63,6 +63,27 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- ============================================================================
+-- INBOUND STATUS STATE MACHINE (PHASE 3 — RECEIVING EXECUTION LAYER)
+--
+-- IMPORTANT:
+-- inbound_status transitions are STRICTLY enforced by this trigger.
+--
+-- Valid transitions:
+--   NULL → draft
+--   draft → stage1_complete
+--   stage1_complete → receiving
+--   stage1_complete → draft      (Go Back from confirmation guard)
+--   receiving → closed
+--
+-- ANY other transition will RAISE EXCEPTION.
+--
+-- Developers:
+-- Do NOT update inbound_status directly in application code without ensuring
+-- the transition is valid per this state machine.
+-- If modifying receiving logic, update this trigger accordingly.
+-- ============================================================================
+
 -- 3) Attach trigger (idempotent: drop first if exists)
 DROP TRIGGER IF EXISTS trg_validate_inbound_status ON public.shipments;
 
