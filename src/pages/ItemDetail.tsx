@@ -146,14 +146,70 @@ interface ShipmentLink {
   received_at?: string | null;
 }
 
+// Resolves non-UUID item_code params to UUID and redirects
+function ItemCodeResolver({ itemCode }: { itemCode: string }) {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { profile } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const lookup = async () => {
+      if (!profile?.tenant_id) return;
+
+      const { data, error: fetchError } = await supabase
+        .from('items')
+        .select('id')
+        .eq('item_code', itemCode)
+        .eq('tenant_id', profile.tenant_id)
+        .is('deleted_at', null)
+        .maybeSingle();
+
+      if (fetchError || !data) {
+        setError('Item not found');
+        toast({
+          variant: 'destructive',
+          title: 'Item Not Found',
+          description: `No item found with code "${itemCode}".`,
+        });
+        setTimeout(() => navigate('/inventory', { replace: true }), 2000);
+        return;
+      }
+
+      navigate(`/inventory/${data.id}`, { replace: true });
+    };
+    lookup();
+  }, [itemCode, profile?.tenant_id, navigate, toast]);
+
+  return (
+    <DashboardLayout>
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        {error ? (
+          <>
+            <p className="text-destructive font-medium">{error}</p>
+            <p className="text-muted-foreground text-sm">Redirecting to inventory...</p>
+          </>
+        ) : (
+          <p className="text-muted-foreground">Looking up item...</p>
+        )}
+      </div>
+    </DashboardLayout>
+  );
+}
+
 export default function ItemDetail() {
   const { id } = useParams<{ id: string }>();
 
   // ============================================
-  // RENDER-TIME UUID GUARD - executes before any hooks
+  // RENDER-TIME GUARDS - execute before any hooks
   // ============================================
-  if (!id || !isValidUuid(id)) {
+  if (!id) {
     return <Navigate to="/inventory" replace />;
+  }
+
+  // If param is not a UUID, try to resolve it as an item_code
+  if (!isValidUuid(id)) {
+    return <ItemCodeResolver itemCode={id} />;
   }
 
   // Now we know id is a valid UUID - safe to use hooks
