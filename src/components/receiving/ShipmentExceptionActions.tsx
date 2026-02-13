@@ -84,11 +84,11 @@ export function ShipmentExceptionActions({
         throw new Error('Cross-tenant account assignment rejected');
       }
 
-      const { error } = await (supabase.from('shipments') as any)
+      const { error } = await supabase
+        .from('shipments')
         .update({
           account_id: resolveAccountId,
           shipment_exception_type: null,
-          updated_by: profile.id,
         })
         .eq('id', shipmentId);
 
