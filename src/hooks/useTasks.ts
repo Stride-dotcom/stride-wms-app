@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { queueTaskCreatedAlert, queueTaskAssignedAlert, queueTaskCompletedAlert, queueInspectionCompletedAlert, queueBillingEventAlert } from '@/lib/alertQueue';
 import { logItemActivity } from '@/lib/activity/logItemActivity';
-import { createBillingEventsBatch, CreateBillingEventParams } from '@/lib/billing/createBillingEvent';
+import { createCharges, type CreateChargeParams } from '@/services/billing';
 import { getRateFromPriceList } from '@/lib/billing/billingCalculation';
 import { BILLING_DISABLED_ERROR, getEffectiveRate } from '@/lib/billing/chargeTypeUtils';
 import { fetchTaskServiceLinesStatic, isServiceLineRow } from '@/hooks/useTaskServiceLines';
@@ -393,8 +393,8 @@ export function useTasks(filters?: {
 
       if (!taskItems || taskItems.length === 0) return;
 
-      // Build billing events
-      const billingEvents: CreateBillingEventParams[] = [];
+      // Build charge params for billing gateway
+      const chargeParams: CreateChargeParams[] = [];
       const alertsToQueue: Array<{
         serviceName: string;
         itemCode: string;
@@ -415,30 +415,26 @@ export function useTasks(filters?: {
           const itemCodesStr = itemCodes.join(', ');
           const description = `${taskType}: ${taskData?.title || itemCodesStr}`;
 
-          billingEvents.push({
-            tenant_id: profile.tenant_id,
-            account_id: taskAccountId,
-            sidemark_id: firstItem?.sidemark_id || null,
-            class_id: null,
-            item_id: null,
-            task_id: taskId,
-            event_type: 'task_completion',
-            charge_type: serviceCode,
+          chargeParams.push({
+            tenantId: profile.tenant_id,
+            accountId: taskAccountId,
+            chargeCode: serviceCode,
+            eventType: 'task_completion',
+            context: { type: 'task', taskId },
             description,
             quantity: 1,
-            unit_rate: manualRate,
-            total_amount: manualRate,
-            status: 'unbilled',
-            occurred_at: new Date().toISOString(),
+            rateOverride: manualRate,
+            sidemarkId: firstItem?.sidemark_id || null,
+            classId: null,
+            userId: profile.id,
             metadata: {
               task_type: taskType,
               billing_unit: 'Task',
               manual_rate: true,
               task_item_codes: itemCodes, // Store item codes for display in reports
             },
-            created_by: profile.id,
-            has_rate_error: false,
-            rate_error_message: null,
+            hasRateError: false,
+            rateErrorMessage: null,
           });
         }
       } else {
@@ -474,29 +470,25 @@ export function useTasks(filters?: {
           const totalAmount = quantity * unitRate;
           const description = `${taskType}: ${item.item_code}`;
 
-          billingEvents.push({
-            tenant_id: profile.tenant_id,
-            account_id: itemAccountId,
-            sidemark_id: item.sidemark_id || null,
-            class_id: item.class_id || null,
-            item_id: item.id,
-            task_id: taskId,
-            event_type: 'task_completion',
-            charge_type: serviceCode,
+          chargeParams.push({
+            tenantId: profile.tenant_id,
+            accountId: itemAccountId,
+            chargeCode: serviceCode,
+            eventType: 'task_completion',
+            context: { type: 'task', taskId, itemId: item.id },
             description,
             quantity,
-            unit_rate: unitRate,
-            total_amount: totalAmount,
-            status: 'unbilled',
-            occurred_at: new Date().toISOString(),
+            rateOverride: unitRate,
+            sidemarkId: item.sidemark_id || null,
+            classId: item.class_id || null,
+            userId: profile.id,
             metadata: {
               task_type: taskType,
               class_code: classCode,
               manual_rate: hasManualRate,
             },
-            created_by: profile.id,
-            has_rate_error: hasManualRate ? false : rateResult.hasError,
-            rate_error_message: hasManualRate ? null : rateResult.errorMessage,
+            hasRateError: hasManualRate ? false : rateResult.hasError,
+            rateErrorMessage: hasManualRate ? null : rateResult.errorMessage,
           });
 
           // Track alerts to queue for services with email_office alert rule
@@ -512,17 +504,17 @@ export function useTasks(filters?: {
         }
       }
 
-      if (billingEvents.length > 0) {
-        const results = await createBillingEventsBatch(billingEvents);
+      if (chargeParams.length > 0) {
+        const results = await createCharges(chargeParams);
 
         // Queue alerts for services with email_office alert rule
         for (let i = 0; i < alertsToQueue.length && i < results.length; i++) {
           const alertInfo = alertsToQueue[i];
-          const billingEvent = results[i];
-          if (billingEvent?.id) {
+          const chargeResult = results[i];
+          if (chargeResult?.billingEventId) {
             await queueBillingEventAlert(
               profile.tenant_id,
-              billingEvent.id,
+              chargeResult.billingEventId,
               alertInfo.serviceName,
               alertInfo.itemCode,
               alertInfo.accountName,
@@ -574,30 +566,26 @@ export function useTasks(filters?: {
       const sidemarkId = firstItem?.items?.sidemark_id || null;
       const itemId = firstItem?.item_id || null;
 
-      // Build billing events for each custom charge (excluding service lines)
-      const billingEvents: CreateBillingEventParams[] = regularCharges.map((charge: any) => ({
-        tenant_id: profile.tenant_id,
-        account_id: accountId,
-        sidemark_id: sidemarkId,
-        item_id: itemId,
-        task_id: taskId,
-        event_type: 'addon',
-        charge_type: charge.charge_type || 'addon',
+      // Build charge params for each custom charge (excluding service lines)
+      const chargeParams: CreateChargeParams[] = regularCharges.map((charge: any) => ({
+        tenantId: profile.tenant_id,
+        accountId: accountId as string,
+        chargeCode: charge.charge_type || 'addon',
+        eventType: 'addon' as const,
+        context: { type: 'task' as const, taskId, itemId: itemId || undefined },
         description: charge.charge_description || charge.charge_name,
         quantity: 1,
-        unit_rate: charge.charge_amount,
-        total_amount: charge.charge_amount,
-        status: 'unbilled',
-        occurred_at: new Date().toISOString(),
+        rateOverride: charge.charge_amount,
+        sidemarkId: sidemarkId,
+        userId: profile.id,
         metadata: {
           custom_charge_id: charge.id,
           template_id: charge.template_id,
         },
-        created_by: profile.id,
       }));
 
-      if (billingEvents.length > 0) {
-        await createBillingEventsBatch(billingEvents);
+      if (chargeParams.length > 0) {
+        await createCharges(chargeParams);
       }
     } catch (error) {
       console.error('Error converting custom charges to billing events:', error);
@@ -1325,7 +1313,7 @@ export function useTasks(filters?: {
       const sidemarkId = firstItem?.sidemark_id || null;
       const classCode = firstItem?.class_id ? classMap.get(firstItem.class_id) : null;
 
-      const billingEvents: CreateBillingEventParams[] = [];
+      const chargeParams: CreateChargeParams[] = [];
 
       for (const lineVal of completionValues) {
         const quantity = lineVal.input_mode === 'time'
@@ -1359,24 +1347,20 @@ export function useTasks(filters?: {
           rateErrorMessage = rateError?.message || 'Rate lookup failed';
         }
 
-        const totalAmount = unitRate * quantity;
         const description = `${lineVal.charge_name}: ${taskType}`;
 
-        billingEvents.push({
-          tenant_id: profile.tenant_id,
-          account_id: accountId,
-          sidemark_id: sidemarkId,
-          class_id: firstItem?.class_id || null,
-          item_id: firstItem?.id || null,
-          task_id: taskId,
-          event_type: 'task_completion',
-          charge_type: lineVal.charge_code,
+        chargeParams.push({
+          tenantId: profile.tenant_id,
+          accountId: accountId as string,
+          chargeCode: lineVal.charge_code,
+          eventType: 'task_completion',
+          context: { type: 'task', taskId, itemId: firstItem?.id || undefined },
           description,
           quantity,
-          unit_rate: unitRate,
-          total_amount: totalAmount,
-          status: 'unbilled',
-          occurred_at: new Date().toISOString(),
+          rateOverride: unitRate,
+          sidemarkId: sidemarkId,
+          classId: firstItem?.class_id || null,
+          userId: profile.id,
           metadata: {
             task_type: taskType,
             service_line_id: lineVal.lineId,
@@ -1384,14 +1368,13 @@ export function useTasks(filters?: {
             input_mode: lineVal.input_mode,
             minutes: lineVal.minutes,
           },
-          created_by: profile.id,
-          has_rate_error: hasRateError,
-          rate_error_message: rateErrorMessage,
+          hasRateError,
+          rateErrorMessage,
         });
       }
 
-      if (billingEvents.length > 0) {
-        await createBillingEventsBatch(billingEvents);
+      if (chargeParams.length > 0) {
+        await createCharges(chargeParams);
       }
     } catch (error: any) {
       console.error('[createServiceLineBillingEvents] Error:', error);

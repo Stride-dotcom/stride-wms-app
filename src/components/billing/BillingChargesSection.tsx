@@ -30,6 +30,7 @@ import { useServiceEvents, ServiceEvent } from '@/hooks/useServiceEvents';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { updateBillingEventFields, updateBillingEventStatus } from '@/services/billing';
 
 interface BillingCharge {
   id: string;
@@ -459,15 +460,16 @@ export function BillingChargesSection({
 
     setSavingId(chargeId);
     try {
-      const { error } = await (supabase.from('billing_events') as any)
-        .update({
+      const result = await updateBillingEventFields({
+        eventId: chargeId,
+        patch: {
           unit_rate: amount,
           quantity: 1,
           total_amount: amount,
-        })
-        .eq('id', chargeId);
+        },
+      });
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
 
       setCharges(prev => prev.map(c =>
         c.id === chargeId
@@ -487,11 +489,9 @@ export function BillingChargesSection({
   const handleDeleteCharge = async (chargeId: string) => {
     setSavingId(chargeId);
     try {
-      const { error } = await (supabase.from('billing_events') as any)
-        .update({ status: 'void' })
-        .eq('id', chargeId);
+      const result = await updateBillingEventStatus({ eventId: chargeId, status: 'void' });
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
 
       setCharges(prev => prev.filter(c => c.id !== chargeId));
       toast({ title: 'Charge removed' });
