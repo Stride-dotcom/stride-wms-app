@@ -3379,45 +3379,6 @@ export type Database = {
           },
         ]
       }
-      communication_trigger_catalog: {
-        Row: {
-          id: string
-          key: string
-          display_name: string
-          description: string | null
-          module_group: string
-          audience: string
-          default_channels: string[]
-          severity: string
-          is_active: boolean
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          key: string
-          display_name: string
-          description?: string | null
-          module_group: string
-          audience?: string
-          default_channels?: string[]
-          severity?: string
-          is_active?: boolean
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          key?: string
-          display_name?: string
-          description?: string | null
-          module_group?: string
-          audience?: string
-          default_channels?: string[]
-          severity?: string
-          is_active?: boolean
-          created_at?: string
-        }
-        Relationships: []
-      }
       communication_templates: {
         Row: {
           alert_id: string
@@ -3483,6 +3444,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      communication_trigger_catalog: {
+        Row: {
+          audience: string
+          created_at: string
+          default_channels: string[]
+          description: string | null
+          display_name: string
+          id: string
+          is_active: boolean
+          key: string
+          module_group: string
+          severity: string
+        }
+        Insert: {
+          audience?: string
+          created_at?: string
+          default_channels?: string[]
+          description?: string | null
+          display_name: string
+          id?: string
+          is_active?: boolean
+          key: string
+          module_group: string
+          severity?: string
+        }
+        Update: {
+          audience?: string
+          created_at?: string
+          default_channels?: string[]
+          description?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          key?: string
+          module_group?: string
+          severity?: string
+        }
+        Relationships: []
       }
       containers: {
         Row: {
@@ -4853,7 +4853,6 @@ export type Database = {
           created_by: string | null
           dims_h: number | null
           dims_l: number | null
-          dims_uom: string | null
           dims_w: number | null
           ic_code: string
           id: string
@@ -4875,7 +4874,6 @@ export type Database = {
           created_by?: string | null
           dims_h?: number | null
           dims_l?: number | null
-          dims_uom?: string | null
           dims_w?: number | null
           ic_code: string
           id?: string
@@ -4897,7 +4895,6 @@ export type Database = {
           created_by?: string | null
           dims_h?: number | null
           dims_l?: number | null
-          dims_uom?: string | null
           dims_w?: number | null
           ic_code?: string
           id?: string
@@ -9968,7 +9965,6 @@ export type Database = {
           total_items: number | null
           tracking_number: string | null
           updated_at: string
-          updated_by: string | null
           vendor_name: string | null
           warehouse_id: string | null
         }
@@ -10041,7 +10037,6 @@ export type Database = {
           total_items?: number | null
           tracking_number?: string | null
           updated_at?: string
-          updated_by?: string | null
           vendor_name?: string | null
           warehouse_id?: string | null
         }
@@ -10114,7 +10109,6 @@ export type Database = {
           total_items?: number | null
           tracking_number?: string | null
           updated_at?: string
-          updated_by?: string | null
           vendor_name?: string | null
           warehouse_id?: string | null
         }
