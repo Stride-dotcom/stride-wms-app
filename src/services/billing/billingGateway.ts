@@ -36,6 +36,8 @@ import type {
   RawEventsResult,
   DeleteBillingEventFilters,
   DeleteResult,
+  UpdateResult,
+  BatchUpdateResult,
 } from './types';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -375,6 +377,210 @@ export async function deleteUnbilledEventsByFilter(
     return {
       success: false,
       deletedCount: 0,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
+}
+
+// =============================================================================
+// updateBillingEventFields — UNGUARDED PATCH BY ID (Phase B4)
+// =============================================================================
+
+/**
+ * Update arbitrary fields on a single billing_events row by id.
+ * No status guard — mirrors unguarded edit patterns in BillingChargesSection,
+ * BillingReportTab, and TaskDetail.
+ */
+export async function updateBillingEventFields(args: {
+  eventId: string;
+  patch: Record<string, any>;
+}): Promise<UpdateResult> {
+  // No-op for empty patch
+  if (!args.patch || Object.keys(args.patch).length === 0) {
+    return { success: true };
+  }
+
+  try {
+    const { error } = await (supabase
+      .from('billing_events') as any)
+      .update(args.patch)
+      .eq('id', args.eventId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
+}
+
+// =============================================================================
+// updateBillingEventStatus — UNGUARDED STATUS UPDATE BY ID (Phase B4)
+// =============================================================================
+
+/**
+ * Update only the status field on a single billing_events row by id.
+ * No status guard — mirrors unguarded status update in BillingReports.tsx.
+ */
+export async function updateBillingEventStatus(args: {
+  eventId: string;
+  status: string;
+}): Promise<UpdateResult> {
+  try {
+    const { error } = await (supabase
+      .from('billing_events') as any)
+      .update({ status: args.status })
+      .eq('id', args.eventId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
+}
+
+// =============================================================================
+// voidBillingEventWithMetadataMerge — GUARDED: ONLY UNBILLED (Phase B4)
+// =============================================================================
+
+/**
+ * Void a single billing_events row, ONLY if status='unbilled'.
+ * Merges provided metadata fields into the existing metadata object.
+ * Mirrors the BillingCalculator waive-void pattern exactly.
+ */
+export async function voidBillingEventWithMetadataMerge(args: {
+  eventId: string;
+  metadataMerge: Record<string, any>;
+}): Promise<UpdateResult> {
+  try {
+    // Step 1: Read existing metadata with unbilled guard
+    const { data: existing, error: selectError } = await (supabase
+      .from('billing_events') as any)
+      .select('metadata')
+      .eq('id', args.eventId)
+      .eq('status', 'unbilled')
+      .maybeSingle();
+
+    if (selectError) {
+      return { success: false, error: selectError.message };
+    }
+
+    if (!existing) {
+      return { success: false, error: 'Event not found or not unbilled' };
+    }
+
+    // Step 2: Merge metadata
+    const merged = {
+      ...(existing.metadata ?? {}),
+      ...(args.metadataMerge ?? {}),
+    };
+
+    // Step 3: Update with unbilled guard
+    const { data: updateData, error: updateError } = await (supabase
+      .from('billing_events') as any)
+      .update({ status: 'void', metadata: merged })
+      .eq('id', args.eventId)
+      .eq('status', 'unbilled')
+      .select('id');
+
+    if (updateError) {
+      return { success: false, error: updateError.message };
+    }
+
+    if (!updateData || updateData.length === 0) {
+      return { success: false, error: 'Event not unbilled' };
+    }
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
+}
+
+// =============================================================================
+// voidBillingEventsBatch — UNGUARDED BATCH VOID BY IDS (Phase B4)
+// =============================================================================
+
+/**
+ * Soft-void multiple billing_events rows by ids (unguarded).
+ * Mirrors the unguarded batch void in BillingReportTab.
+ */
+export async function voidBillingEventsBatch(args: {
+  eventIds: string[];
+}): Promise<BatchUpdateResult> {
+  if (!args.eventIds || args.eventIds.length === 0) {
+    return { success: true, updated: 0 };
+  }
+
+  try {
+    const { error } = await (supabase
+      .from('billing_events') as any)
+      .update({ status: 'void' })
+      .in('id', args.eventIds);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, updated: args.eventIds.length };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
+}
+
+// =============================================================================
+// markBillingEventsInvoiced — BATCH INVOICE MARK (Phase B4)
+// =============================================================================
+
+/**
+ * Mark billing_events as invoiced in batch by ids.
+ * Sets status='invoiced', invoice_id, and invoiced_at.
+ * Mirrors the useInvoiceBuilder mark-invoiced pattern exactly.
+ */
+export async function markBillingEventsInvoiced(args: {
+  eventIds: string[];
+  invoiceId: string;
+  invoicedAt: string;
+}): Promise<BatchUpdateResult> {
+  if (!args.eventIds || args.eventIds.length === 0) {
+    return { success: true, updated: 0 };
+  }
+
+  try {
+    const { error } = await (supabase
+      .from('billing_events') as any)
+      .update({
+        status: 'invoiced',
+        invoice_id: args.invoiceId,
+        invoiced_at: args.invoicedAt,
+      })
+      .in('id', args.eventIds);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, updated: args.eventIds.length };
+  } catch (err) {
+    return {
+      success: false,
       error: err instanceof Error ? err.message : 'Unknown error',
     };
   }
