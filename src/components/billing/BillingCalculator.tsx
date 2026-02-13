@@ -406,6 +406,15 @@ export function BillingCalculator({
   const handleVoidCharge = async () => {
     if (!voidingEventId) return;
 
+    // Guard: prevent voiding invoiced events (race condition safety)
+    const targetEvent = existingEvents.find(e => e.id === voidingEventId);
+    if (targetEvent?.status === 'invoiced') {
+      toast({ title: 'Cannot void', description: 'Invoiced charges cannot be voided.', variant: 'destructive' });
+      setVoidConfirmOpen(false);
+      setVoidingEventId(null);
+      return;
+    }
+
     setIsVoiding(true);
     try {
       const result = await voidCharge(voidingEventId); // Only voids unbilled charges (guarded)
