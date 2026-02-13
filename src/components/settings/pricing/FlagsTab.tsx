@@ -15,7 +15,6 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { ActiveBadge } from '@/components/ui/active-badge';
 import { useToast } from '@/hooks/use-toast';
 import { useChargeTypes, type ChargeType } from '@/hooks/useChargeTypes';
-import { useAuth } from '@/contexts/AuthContext';
 import { ensureFlagAlertTrigger } from '@/lib/flagAlertTrigger';
 import { HelpTip } from '@/components/ui/help-tip';
 import { cn } from '@/lib/utils';
@@ -23,7 +22,6 @@ import { cn } from '@/lib/utils';
 export function FlagsTab() {
   const { chargeTypes, loading, refetch, createChargeType, updateChargeType } = useChargeTypes();
   const { toast } = useToast();
-  const { profile } = useAuth();
   const [expandedItem, setExpandedItem] = useState<string>('');
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -67,15 +65,9 @@ export function FlagsTab() {
               default_trigger: 'manual',
               category: 'service',
             });
-            if (result && profile?.tenant_id) {
-              // Auto-create/update per-flag alert trigger
-              await ensureFlagAlertTrigger({
-                tenantId: profile.tenant_id,
-                chargeTypeId: result.id,
-                chargeCode: data.charge_code,
-                chargeName: data.charge_name,
-                enabled: data.triggers_alert,
-              });
+            if (result) {
+              // Auto-create/update per-flag alert trigger (tenant derived server-side)
+              await ensureFlagAlertTrigger(result.id);
               setShowAddForm(false);
               refetch();
             }
@@ -160,15 +152,9 @@ export function FlagsTab() {
                         alert_rule: data.triggers_alert ? 'email_office' : 'none',
                         is_active: data.is_active,
                       });
-                      if (success && profile?.tenant_id) {
-                        // Auto-create/disable per-flag alert trigger
-                        await ensureFlagAlertTrigger({
-                          tenantId: profile.tenant_id,
-                          chargeTypeId: flag.id,
-                          chargeCode: flag.charge_code,
-                          chargeName: flag.charge_name,
-                          enabled: data.triggers_alert,
-                        });
+                      if (success) {
+                        // Auto-create/disable per-flag alert trigger (tenant derived server-side)
+                        await ensureFlagAlertTrigger(flag.id);
                         setExpandedItem('');
                         refetch();
                       }

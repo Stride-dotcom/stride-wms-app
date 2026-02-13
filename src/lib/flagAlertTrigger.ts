@@ -9,11 +9,28 @@
  *   key:           "flag_alert_{CHARGE_CODE}"
  *   trigger_event: "item.flag_added.{CHARGE_CODE}"
  *
- * This ensures per-flag granularity — only flags with active triggers fire alerts.
+ * TENANT SAFETY: All writes go through the server-side RPC
+ * `rpc_ensure_flag_alert_trigger` which derives tenant_id from
+ * `auth.uid()` via `user_tenant_id()`.  No tenantId is accepted
+ * from the client.
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { getDefaultTemplate, type DefaultAlertTemplate } from '@/lib/emailTemplates/defaultAlertTemplates';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface EnsureFlagAlertTriggerResult {
+  ok: boolean;
+  error_code?: string;
+  message?: string;
+  alert_id?: string;
+  key?: string;
+  trigger_event?: string;
+  is_enabled?: boolean;
+  created?: boolean;
+}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -22,116 +39,48 @@ import { getDefaultTemplate, type DefaultAlertTemplate } from '@/lib/emailTempla
 /**
  * Ensure a communication_alerts trigger exists (or is disabled) for a flag.
  *
- * - If enabled=true and trigger missing  → create trigger + default templates
- * - If enabled=true and trigger exists   → ensure is_enabled=true (idempotent)
- * - If enabled=false and trigger exists  → set is_enabled=false (disable, not delete)
- * - If enabled=false and trigger missing → no-op
+ * Delegates entirely to the SECURITY DEFINER RPC which:
+ * - Derives tenant_id from auth session (no spoofing possible)
+ * - Validates charge_type ownership against that tenant
+ * - Upserts the trigger row idempotently (UNIQUE constraint + ON CONFLICT)
+ * - Creates default templates on first creation
  *
- * Returns the communication_alerts.id if one exists / was created, null otherwise.
+ * @param chargeTypeId  UUID of the charge_type (flag) to ensure trigger for
+ * @returns The result from the RPC, or null on network/unexpected error
  */
-export async function ensureFlagAlertTrigger(params: {
-  tenantId: string;
-  chargeTypeId: string;
-  chargeCode: string;
-  chargeName: string;
-  enabled: boolean;
-}): Promise<string | null> {
-  const { tenantId, chargeTypeId, chargeCode, chargeName, enabled } = params;
-  const triggerKey = buildTriggerKey(chargeCode);
-  const triggerEvent = buildTriggerEvent(chargeCode);
-
+export async function ensureFlagAlertTrigger(
+  chargeTypeId: string,
+): Promise<EnsureFlagAlertTriggerResult | null> {
   try {
-    // Check if trigger already exists for this flag
-    const { data: existing } = await (supabase as any)
-      .from('communication_alerts')
-      .select('id, is_enabled')
-      .eq('tenant_id', tenantId)
-      .eq('key', triggerKey)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc(
+      'rpc_ensure_flag_alert_trigger',
+      { p_charge_type_id: chargeTypeId },
+    );
 
-    if (existing) {
-      // Trigger exists — update is_enabled if necessary
-      if (existing.is_enabled !== enabled) {
-        await (supabase as any)
-          .from('communication_alerts')
-          .update({ is_enabled: enabled, updated_at: new Date().toISOString() })
-          .eq('id', existing.id);
-      }
-      return existing.id;
-    }
-
-    // No existing trigger
-    if (!enabled) return null; // Don't create disabled triggers
-
-    // Create new trigger + templates
-    const alertName = `Flag Alert: ${chargeName}`;
-
-    const { data: alert, error: alertError } = await (supabase as any)
-      .from('communication_alerts')
-      .insert({
-        tenant_id: tenantId,
-        name: alertName,
-        key: triggerKey,
-        description: `Automatically created trigger for the "${chargeName}" flag.`,
-        is_enabled: true,
-        channels: { email: true, sms: false, in_app: true },
-        trigger_event: triggerEvent,
-        timing_rule: 'immediate',
-      })
-      .select('id')
-      .single();
-
-    if (alertError) {
-      // Unique constraint violation means it already exists (race condition)
-      if (alertError.code === '23505') {
-        const { data: raceExisting } = await (supabase as any)
-          .from('communication_alerts')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .eq('key', triggerKey)
-          .maybeSingle();
-        return raceExisting?.id ?? null;
-      }
-      console.error('[ensureFlagAlertTrigger] Failed to create alert:', alertError);
+    if (error) {
+      console.error('[ensureFlagAlertTrigger] RPC error:', error);
       return null;
     }
 
-    // Create default templates (email, sms, in_app) using the flag_added defaults
-    await createDefaultTemplatesForFlag(tenantId, alert.id, chargeName, triggerEvent);
+    const result = data as unknown as EnsureFlagAlertTriggerResult;
 
-    return alert.id;
-  } catch (error) {
-    console.error('[ensureFlagAlertTrigger] Unexpected error:', error);
+    if (!result?.ok) {
+      console.error(
+        '[ensureFlagAlertTrigger] RPC returned error:',
+        result?.error_code,
+        result?.message,
+      );
+    }
+
+    return result;
+  } catch (err) {
+    console.error('[ensureFlagAlertTrigger] Unexpected error:', err);
     return null;
   }
 }
 
-/**
- * Check whether a per-flag trigger exists and is enabled.
- * Used before queuing an alert to prevent spam.
- */
-export async function isFlagTriggerEnabled(
-  tenantId: string,
-  chargeCode: string,
-): Promise<boolean> {
-  const triggerKey = buildTriggerKey(chargeCode);
-
-  try {
-    const { data } = await (supabase as any)
-      .from('communication_alerts')
-      .select('is_enabled')
-      .eq('tenant_id', tenantId)
-      .eq('key', triggerKey)
-      .maybeSingle();
-
-    return data?.is_enabled === true;
-  } catch {
-    return false;
-  }
-}
-
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers (still used by alertQueue.ts for guard checks)
 // ---------------------------------------------------------------------------
 
 /** Deterministic key used for unique constraint on communication_alerts */
@@ -142,57 +91,4 @@ export function buildTriggerKey(chargeCode: string): string {
 /** Deterministic trigger_event used to match in send-alerts edge function */
 export function buildTriggerEvent(chargeCode: string): string {
   return `item.flag_added.${chargeCode}`;
-}
-
-/**
- * Create default email / sms / in_app templates for a per-flag alert.
- * Uses the generic 'item.flag_added' defaults as a base, but customises
- * the subject line to include the specific flag name.
- */
-async function createDefaultTemplatesForFlag(
-  tenantId: string,
-  alertId: string,
-  flagName: string,
-  triggerEvent: string,
-): Promise<void> {
-  // Fall back to generic item.flag_added template
-  const defaults: DefaultAlertTemplate =
-    getDefaultTemplate('item.flag_added');
-
-  const subject = `[[tenant_name]]: Flag "${flagName}" Added — [[item_code]]`;
-
-  const templateRows = [
-    {
-      tenant_id: tenantId,
-      alert_id: alertId,
-      channel: 'email',
-      subject_template: subject,
-      body_template: defaults.body,
-      body_format: 'text',
-    },
-    {
-      tenant_id: tenantId,
-      alert_id: alertId,
-      channel: 'sms',
-      body_template: defaults.smsBody,
-      body_format: 'text',
-    },
-    {
-      tenant_id: tenantId,
-      alert_id: alertId,
-      channel: 'in_app',
-      subject_template: `Flag "${flagName}" added`,
-      body_template: `Flag "${flagName}" added to item [[item_code]].`,
-      body_format: 'text',
-      in_app_recipients: defaults.inAppRecipients,
-    },
-  ];
-
-  const { error } = await (supabase as any)
-    .from('communication_templates')
-    .insert(templateRows);
-
-  if (error) {
-    console.error('[ensureFlagAlertTrigger] Failed to create templates:', error);
-  }
 }

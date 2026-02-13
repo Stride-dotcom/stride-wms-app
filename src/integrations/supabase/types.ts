@@ -14565,6 +14565,10 @@ export type Database = {
         Args: { p_allocation_id: string }
         Returns: Json
       }
+      rpc_ensure_flag_alert_trigger: {
+        Args: { p_charge_type_id: string }
+        Returns: Json
+      }
       rpc_find_inbound_candidates: {
         Args: {
           p_account_id?: string
