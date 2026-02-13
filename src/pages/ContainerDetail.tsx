@@ -505,8 +505,7 @@ export default function ContainerDetail() {
               <p className="text-sm text-muted-foreground text-center py-8">
                 This container is empty.
               </p>
-            ) : (
-              {preferences.inventory_line_format === 'single_line' ? (
+            ) : preferences.inventory_line_format === 'single_line' ? (
                 <div className="divide-y">
                   {unitsWithDesc.map((unit) => (
                     <div key={unit.id} className="px-3 py-1.5 text-sm flex items-center gap-1.5 hover:bg-muted/30">
@@ -593,7 +592,7 @@ export default function ContainerDetail() {
                   </TableBody>
                 </Table>
               )}
-            )}
+
           </CardContent>
         </Card>
       </div>
