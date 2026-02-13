@@ -478,6 +478,7 @@ export default function InboundManifestDetail() {
                           className="rounded border-muted-foreground"
                         />
                       </TableHead>
+                      <TableHead className="w-12"></TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Vendor</TableHead>
                       <TableHead>Sidemark</TableHead>
@@ -500,6 +501,17 @@ export default function InboundManifestDetail() {
                               disabled={isFullyAllocated}
                               className="rounded border-muted-foreground"
                             />
+                          </TableCell>
+                          <TableCell className="p-1">
+                            {item.photo_url ? (
+                              <img
+                                src={item.photo_url}
+                                alt=""
+                                className="w-10 h-10 object-cover rounded"
+                              />
+                            ) : (
+                              <div className="w-10 h-10" />
+                            )}
                           </TableCell>
                           <TableCell className="font-medium max-w-[200px] truncate">
                             {item.expected_description || '-'}

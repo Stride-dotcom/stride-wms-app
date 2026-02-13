@@ -21,6 +21,8 @@ export interface AllocationInfo {
 
 export interface ManifestItem extends ShipmentItemRow {
   allocations: AllocationInfo[];
+  /** Thumbnail URL from primary_photo_id join — undefined if no photo */
+  photo_url?: string | null;
 }
 
 export function useInboundManifestDetail(shipmentId?: string) {
@@ -95,9 +97,25 @@ export function useInboundManifestDetail(shipmentId?: string) {
         }
       }
 
+      // Batch-fetch primary photo URLs (single query, no N+1)
+      const photoIds = (itemData || [])
+        .map((i) => i.primary_photo_id)
+        .filter((pid): pid is string => pid != null);
+      const photoUrlMap = new Map<string, string>();
+      if (photoIds.length > 0) {
+        const { data: photoData } = await supabase
+          .from('shipment_item_photos')
+          .select('id, storage_url')
+          .in('id', photoIds);
+        for (const p of photoData || []) {
+          if (p.storage_url) photoUrlMap.set(p.id, p.storage_url);
+        }
+      }
+
       const mapped: ManifestItem[] = (itemData || []).map((item) => ({
         ...item,
         allocations: allocationsByItem.get(item.id) || [],
+        photo_url: item.primary_photo_id ? photoUrlMap.get(item.primary_photo_id) ?? null : null,
       }));
 
       setItems(mapped);
