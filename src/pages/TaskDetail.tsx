@@ -166,7 +166,7 @@ export default function TaskDetailPage() {
   const { completeTask, completeTaskWithServices, startTask: startTaskHook } = useTasks();
 
   // Only managers and admins can see billing
-  const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
+  const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager') || hasRole('admin_dev');
   // Only admins can add credits
   const canAddCredit = hasRole('admin') || hasRole('tenant_admin');
 
