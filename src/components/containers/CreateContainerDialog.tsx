@@ -200,6 +200,7 @@ export function CreateContainerDialog({
                 savingLabel="Creating..."
                 savedLabel="Created"
                 saveDisabled={saving}
+                onClick={() => {}}
               />
             </DialogFooter>
           </form>

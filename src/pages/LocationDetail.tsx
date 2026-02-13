@@ -541,8 +541,7 @@ export default function LocationDetail() {
                   <p className="text-sm text-muted-foreground text-center py-8">
                     No inventory units at this location.
                   </p>
-                ) : (
-                  {preferences.inventory_line_format === 'single_line' ? (
+                ) : preferences.inventory_line_format === 'single_line' ? (
                     /* ── Single-line compact format ── */
                     <div className="rounded-md border max-h-[600px] overflow-auto">
                       {(() => {
@@ -662,7 +661,7 @@ export default function LocationDetail() {
                       })()}
                     </div>
                   )}
-                )}
+
               </CardContent>
             </Card>
           </TabsContent>
