@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+export type MatchTier = 'tier_1' | 'tier_2' | 'tier_3' | 'unknown_account' | 'no_match';
+
 export interface InboundCandidate {
   shipment_id: string;
   inbound_kind: string;
@@ -14,6 +16,8 @@ export interface InboundCandidate {
   shipment_number: string;
   confidence_score: number;
   confidence_label: string;
+  /** Structured tier classification from RPC */
+  match_tier: MatchTier;
   /** Number of shipment_items matching the item-level search (0 if no item search) */
   item_match_count: number;
 }
@@ -28,6 +32,9 @@ export interface CandidateParams {
   /** Item-level vendor search — refines candidates in Stage 2 */
   itemVendor?: string | null;
 }
+
+/** Locked debounce delay for candidate search — do not change without Phase review */
+const CANDIDATE_DEBOUNCE_MS = 300;
 
 export function useInboundCandidates(params: CandidateParams) {
   const [candidates, setCandidates] = useState<InboundCandidate[]>([]);
@@ -64,6 +71,7 @@ export function useInboundCandidates(params: CandidateParams) {
 
       let results = ((data as unknown as InboundCandidate[]) || []).map((c) => ({
         ...c,
+        match_tier: c.match_tier || ('no_match' as MatchTier),
         item_match_count: 0,
       }));
 
@@ -141,12 +149,12 @@ export function useInboundCandidates(params: CandidateParams) {
     params.itemVendor,
   ]);
 
-  // Debounced search (300ms)
+  // Debounced search — cancelable on parameter change
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       fetchCandidates();
-    }, 300);
+    }, CANDIDATE_DEBOUNCE_MS);
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);

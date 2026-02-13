@@ -19,6 +19,7 @@ import DockIntakeMatchingPanel from '@/components/incoming/DockIntakeMatchingPan
 import type { CandidateParams } from '@/hooks/useInboundCandidates';
 import { downloadReceivingPdf, storeReceivingPdf, type ReceivingPdfData } from '@/lib/receivingPdf';
 import { queueReceivingDiscrepancyAlert } from '@/lib/alertQueue';
+import { ShipmentExceptionActions } from './ShipmentExceptionActions';
 
 interface ShipmentData {
   id: string;
@@ -37,6 +38,7 @@ interface ShipmentData {
   warehouse_id: string | null;
   sidemark_id: string | null;
   metadata: Record<string, unknown> | null;
+  shipment_exception_type: string | null;
 }
 
 interface ReceivingStageRouterProps {
@@ -383,6 +385,14 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
   };
 
   return (
+    <div className="space-y-3">
+      <ShipmentExceptionActions
+        shipmentId={shipmentId}
+        shipmentNumber={shipment.shipment_number}
+        accountId={shipment.account_id}
+        exceptionType={shipment.shipment_exception_type}
+        onUpdated={fetchShipment}
+      />
     <Tabs value={activeTab} onValueChange={setActiveTab}>
       <TabsList className="flex-wrap h-auto gap-1 mb-4">
         <TabsTrigger value="receiving" className="gap-2">
@@ -456,5 +466,6 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
         <IssuesTab shipmentId={shipmentId} />
       </TabsContent>
     </Tabs>
+    </div>
   );
 }
