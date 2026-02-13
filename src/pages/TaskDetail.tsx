@@ -1108,6 +1108,19 @@ export default function TaskDetailPage() {
               );
             })()}
 
+            {/* Mobile-only Billing Calculator — shown early for easier access */}
+            {canSeeBilling && task.account_id && (
+              <div className="lg:hidden">
+                <BillingCalculator
+                  taskId={task.id}
+                  taskType={task.task_type}
+                  taskTypeId={task.task_type_id}
+                  refreshKey={billingRefreshKey}
+                  title="Billing Calculator"
+                />
+              </div>
+            )}
+
             {/* Items Table */}
             {taskItems.length > 0 && (
               <Card>
@@ -1418,15 +1431,17 @@ export default function TaskDetailPage() {
               </Card>
             )}
 
-            {/* Billing Charges - Manager/Admin Only */}
+            {/* Billing Charges - Manager/Admin Only (desktop only, mobile shown earlier) */}
             {canSeeBilling && task.account_id && (
-              <BillingCalculator
-                taskId={task.id}
-                taskType={task.task_type}
-                taskTypeId={task.task_type_id}
-                refreshKey={billingRefreshKey}
-                title="Billing Calculator"
-              />
+              <div className="hidden lg:block">
+                <BillingCalculator
+                  taskId={task.id}
+                  taskType={task.task_type}
+                  taskTypeId={task.task_type_id}
+                  refreshKey={billingRefreshKey}
+                  title="Billing Calculator"
+                />
+              </div>
             )}
           </div>
         </div>
