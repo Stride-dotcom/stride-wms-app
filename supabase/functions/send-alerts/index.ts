@@ -291,91 +291,51 @@ async function getAccountContext(
 async function resolveClientRecipients(
   supabase: any,
   tenantId: string,
-  triggerEvent: string,
   accountId: string,
   accountName: string
 ): Promise<{ emails: string[]; source: string }> {
-  // Priority 1: alert_recipients → alert_types → client_contacts
+  const normalizedAccountName = (accountName || '').trim().toLowerCase();
+
+  if (!normalizedAccountName) {
+    console.log(`[resolveClientRecipients] NO_CLIENT_RECIPIENTS: account_name is empty for account ${accountId}`);
+    return { emails: [], source: 'none' };
+  }
+
+  // Step 1: Query client_contacts by tenant + is_active, filter by normalized account_name
   try {
-    // Find alert_type by key matching triggerEvent
-    const { data: alertType } = await supabase
-      .from('alert_types')
-      .select('id')
-      .eq('key', triggerEvent)
-      .maybeSingle();
+    const { data: contacts, error } = await supabase
+      .from('client_contacts')
+      .select('email, account_name')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true);
 
-    if (alertType) {
-      // Find alert_recipients for this alert_type and tenant
-      const { data: recipients } = await supabase
-        .from('alert_recipients')
-        .select('client_contact_id, email, recipient_type')
-        .eq('alert_type_id', alertType.id)
-        .eq('tenant_id', tenantId);
+    if (!error && contacts && contacts.length > 0) {
+      // Case-insensitive trim match on account_name (exact match, no fuzzy/ILIKE)
+      const matched = contacts
+        .filter((c: any) => (c.account_name || '').trim().toLowerCase() === normalizedAccountName)
+        .map((c: any) => c.email)
+        .filter(Boolean);
 
-      if (recipients && recipients.length > 0) {
-        const directEmails: string[] = [];
-        const contactIds: string[] = [];
-
-        for (const r of recipients) {
-          if (r.email) {
-            directEmails.push(r.email);
-          }
-          if (r.client_contact_id) {
-            contactIds.push(r.client_contact_id);
-          }
-        }
-
-        // Fetch client_contacts filtered by account_name
-        if (contactIds.length > 0) {
-          const { data: contacts } = await supabase
-            .from('client_contacts')
-            .select('email')
-            .in('id', contactIds)
-            .eq('tenant_id', tenantId)
-            .eq('account_name', accountName)
-            .eq('is_active', true);
-
-          if (contacts) {
-            for (const c of contacts) {
-              if (c.email) directEmails.push(c.email);
-            }
-          }
-        }
-
-        const cleaned = cleanEmails(directEmails);
-        if (cleaned.length > 0) {
-          return { emails: cleaned, source: 'alert_recipients + client_contacts' };
-        }
+      const cleaned = cleanEmails(matched);
+      if (cleaned.length > 0) {
+        return { emails: cleaned, source: 'client_contacts (account_name match)' };
       }
     }
   } catch (err) {
-    // alert_types or alert_recipients table may not exist; fall through gracefully
-    console.warn('[resolveClientRecipients] alert_recipients lookup failed (table may not exist):', err);
+    console.warn('[resolveClientRecipients] client_contacts lookup failed:', err);
   }
 
-  // Priority 2: accounts.alerts_contact_email fallback
+  // Step 2: Fallback to accounts.alerts_contact_email
   try {
     const { data: account } = await supabase
       .from('accounts')
-      .select('alerts_contact_email, account_alert_recipients')
+      .select('alerts_contact_email')
       .eq('id', accountId)
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
-    if (account) {
-      const emails: string[] = [];
-
-      // alerts_contact_email (single email or comma-separated)
-      if (account.alerts_contact_email) {
-        emails.push(...parseCommaEmails(account.alerts_contact_email));
-      }
-
-      // account_alert_recipients (comma-separated additional recipients)
-      if (account.account_alert_recipients) {
-        emails.push(...parseCommaEmails(account.account_alert_recipients));
-      }
-
-      const cleaned = cleanEmails(emails);
+    if (account?.alerts_contact_email) {
+      const cleaned = cleanEmails(parseCommaEmails(account.alerts_contact_email));
       if (cleaned.length > 0) {
         return { emails: cleaned, source: 'accounts.alerts_contact_email' };
       }
@@ -384,7 +344,7 @@ async function resolveClientRecipients(
     console.warn('[resolveClientRecipients] accounts fallback failed:', err);
   }
 
-  console.log(`[resolveClientRecipients] NO_CLIENT_RECIPIENTS: no client recipients found for trigger="${triggerEvent}" account="${accountName}" (${accountId})`);
+  console.log(`[resolveClientRecipients] NO_CLIENT_RECIPIENTS: no client recipients found for account="${accountName}" (${accountId})`);
   return { emails: [], source: 'none' };
 }
 
@@ -1460,7 +1420,6 @@ const handler = async (req: Request): Promise<Response> => {
             const clientResult = await resolveClientRecipients(
               supabase,
               alert.tenant_id,
-              alert.alert_type,
               accountCtx.accountId,
               accountCtx.accountName
             );
