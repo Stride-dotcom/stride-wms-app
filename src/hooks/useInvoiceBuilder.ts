@@ -12,6 +12,7 @@ import {
   InvoiceBuilderSummary,
   PreviewCounts,
 } from '@/lib/invoiceBuilder/types';
+import { markBillingEventsInvoiced } from '@/services/billing';
 
 export function useInvoiceBuilder() {
   const { profile } = useAuth();
@@ -356,16 +357,13 @@ export function useInvoiceBuilder() {
           if (linesError) throw linesError;
 
           // Update billing events to invoiced status
-          const { error: updateError } = await supabase
-            .from('billing_events')
-            .update({
-              status: 'invoiced',
-              invoice_id: invoice.id,
-              invoiced_at: new Date().toISOString(),
-            })
-            .in('id', preview.billingEventIds);
+          const markResult = await markBillingEventsInvoiced({
+            eventIds: preview.billingEventIds,
+            invoiceId: invoice.id,
+            invoicedAt: new Date().toISOString(),
+          });
 
-          if (updateError) throw updateError;
+          if (!markResult.success) throw new Error(markResult.error);
 
           result.success++;
           result.invoiceIds.push(invoice.id);

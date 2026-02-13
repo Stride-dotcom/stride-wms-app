@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { voidBillingEventsBatch, updateBillingEventFields, createEventRaw } from '@/services/billing';
 
 interface BillingEventRow {
   id: string;
@@ -545,12 +546,9 @@ export function BillingReportTab() {
     const eventIdsToVoid = inactiveServiceEvents.flatMap(g => g.eventIds);
 
     // Void the events
-    const { error } = await supabase
-      .from('billing_events')
-      .update({ status: 'void' })
-      .in('id', eventIdsToVoid);
+    const result = await voidBillingEventsBatch({ eventIds: eventIdsToVoid });
 
-    if (error) {
+    if (!result.success) {
       toast({ title: 'Error voiding events', variant: 'destructive' });
       return;
     }
@@ -814,18 +812,18 @@ export function BillingReportTab() {
         const beforeRow = rows.find(r => r.id === rowId);
 
         const totalAmount = unitRate * quantity;
-        const { error } = await supabase
-          .from("billing_events")
-          .update({
+        const updateResult = await updateBillingEventFields({
+          eventId: rowId,
+          patch: {
             unit_rate: unitRate,
             quantity: quantity,
             total_amount: totalAmount,
             description: edit.description || null,
             sidemark_id: edit.sidemark_id || null,
-          })
-          .eq("id", rowId);
+          },
+        });
 
-        if (error) throw error;
+        if (!updateResult.success) throw new Error(updateResult.error);
 
         // Log activity for billing event update (only if values actually changed)
         if (originalRow && profile?.tenant_id) {
@@ -923,9 +921,7 @@ export function BillingReportTab() {
 
     setAddChargeLoading(true);
     try {
-      const { error } = await supabase
-        .from("billing_events")
-        .insert({
+      const insertResult = await createEventRaw({
           tenant_id: profile.tenant_id,
           account_id: newCharge.account_id,
           sidemark_id: newCharge.sidemark_id || null,
@@ -939,9 +935,9 @@ export function BillingReportTab() {
           occurred_at: `${newCharge.occurred_at}T12:00:00.000Z`,
           created_by: profile.id,
           metadata: { source: 'billing_report_addon' },
-        });
+        } as any);
 
-      if (error) throw error;
+      if (!insertResult.success) throw new Error(insertResult.error);
 
       toast({ title: "Charge added", description: `Custom charge of $${(unitRate * quantity).toFixed(2)} added successfully.` });
       setAddChargeOpen(false);
