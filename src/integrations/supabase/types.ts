@@ -6453,17 +6453,97 @@ export type Database = {
           },
         ]
       }
+      location_capacity_cache: {
+        Row: {
+          available_cuft: number
+          location_id: string
+          updated_at: string
+          used_cuft: number
+          utilization_pct: number
+        }
+        Insert: {
+          available_cuft?: number
+          location_id: string
+          updated_at?: string
+          used_cuft?: number
+          utilization_pct?: number
+        }
+        Update: {
+          available_cuft?: number
+          location_id?: string
+          updated_at?: string
+          used_cuft?: number
+          utilization_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_capacity_cache_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: true
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_flag_links: {
+        Row: {
+          charge_type_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          location_id: string
+          service_code: string
+          tenant_id: string
+        }
+        Insert: {
+          charge_type_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id: string
+          service_code: string
+          tenant_id: string
+        }
+        Update: {
+          charge_type_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id?: string
+          service_code?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_flag_links_charge_type_id_fkey"
+            columns: ["charge_type_id"]
+            isOneToOne: false
+            referencedRelation: "charge_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_flag_links_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           capacity: number | null
           capacity_cu_ft: number | null
+          capacity_cuft: number | null
           capacity_sq_ft: number | null
           code: string
           created_at: string
           current_utilization: number | null
           deleted_at: string | null
+          group_code: string | null
           id: string
           is_active: boolean | null
+          length_in: number | null
           location_type: string | null
           metadata: Json | null
           name: string | null
@@ -6471,18 +6551,23 @@ export type Database = {
           status: string
           type: string
           updated_at: string
+          usable_height_in: number | null
           warehouse_id: string
+          width_in: number | null
         }
         Insert: {
           capacity?: number | null
           capacity_cu_ft?: number | null
+          capacity_cuft?: number | null
           capacity_sq_ft?: number | null
           code: string
           created_at?: string
           current_utilization?: number | null
           deleted_at?: string | null
+          group_code?: string | null
           id?: string
           is_active?: boolean | null
+          length_in?: number | null
           location_type?: string | null
           metadata?: Json | null
           name?: string | null
@@ -6490,18 +6575,23 @@ export type Database = {
           status?: string
           type: string
           updated_at?: string
+          usable_height_in?: number | null
           warehouse_id: string
+          width_in?: number | null
         }
         Update: {
           capacity?: number | null
           capacity_cu_ft?: number | null
+          capacity_cuft?: number | null
           capacity_sq_ft?: number | null
           code?: string
           created_at?: string
           current_utilization?: number | null
           deleted_at?: string | null
+          group_code?: string | null
           id?: string
           is_active?: boolean | null
+          length_in?: number | null
           location_type?: string | null
           metadata?: Json | null
           name?: string | null
@@ -6509,7 +6599,9 @@ export type Database = {
           status?: string
           type?: string
           updated_at?: string
+          usable_height_in?: number | null
           warehouse_id?: string
+          width_in?: number | null
         }
         Relationships: [
           {
@@ -9951,6 +10043,7 @@ export type Database = {
           released_to: string | null
           return_type: string | null
           scheduled_date: string | null
+          shipment_exception_type: string | null
           shipment_number: string
           shipment_type: string
           shipped_at: string | null
@@ -9960,6 +10053,7 @@ export type Database = {
           signature_name: string | null
           signature_timestamp: string | null
           signed_pieces: number | null
+          source_shipment_id: string | null
           status: string
           tenant_id: string
           total_items: number | null
@@ -10023,6 +10117,7 @@ export type Database = {
           released_to?: string | null
           return_type?: string | null
           scheduled_date?: string | null
+          shipment_exception_type?: string | null
           shipment_number: string
           shipment_type?: string
           shipped_at?: string | null
@@ -10032,6 +10127,7 @@ export type Database = {
           signature_name?: string | null
           signature_timestamp?: string | null
           signed_pieces?: number | null
+          source_shipment_id?: string | null
           status?: string
           tenant_id: string
           total_items?: number | null
@@ -10095,6 +10191,7 @@ export type Database = {
           released_to?: string | null
           return_type?: string | null
           scheduled_date?: string | null
+          shipment_exception_type?: string | null
           shipment_number?: string
           shipment_type?: string
           shipped_at?: string | null
@@ -10104,6 +10201,7 @@ export type Database = {
           signature_name?: string | null
           signature_timestamp?: string | null
           signed_pieces?: number | null
+          source_shipment_id?: string | null
           status?: string
           tenant_id?: string
           total_items?: number | null
@@ -10153,6 +10251,20 @@ export type Database = {
             columns: ["sidemark_id"]
             isOneToOne: false
             referencedRelation: "sidemarks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_source_shipment_id_fkey"
+            columns: ["source_shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_source_shipment_id_fkey"
+            columns: ["source_shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_shipments_canonical"
             referencedColumns: ["id"]
           },
           {
@@ -14368,6 +14480,18 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_apply_location_capacity_deltas: {
+        Args: { p_deltas: Json; p_tenant_id: string }
+        Returns: number
+      }
+      fn_backfill_location_capacity_cache: {
+        Args: { p_tenant_id: string; p_warehouse_id?: string }
+        Returns: number
+      }
+      fn_reconcile_location_capacity: {
+        Args: { p_tenant_id: string; p_warehouse_id?: string }
+        Returns: number
+      }
       generate_claim_number: { Args: never; Returns: string }
       generate_ic_code: { Args: { p_tenant_id: string }; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
@@ -14620,6 +14744,29 @@ export type Database = {
       rpc_get_location_capacity: {
         Args: { p_location_id: string }
         Returns: Json
+      }
+      rpc_get_location_suggestions: {
+        Args: {
+          p_item_id?: string
+          p_item_ids?: string[]
+          p_mode: string
+          p_tenant_id: string
+          p_warehouse_id: string
+        }
+        Returns: {
+          account_cluster: boolean
+          available_cuft: number
+          capacity_cuft: number
+          flag_compliant: boolean
+          group_match: boolean
+          leftover_cuft: number
+          location_code: string
+          location_id: string
+          overflow: boolean
+          sku_or_vendor_match: boolean
+          used_cuft: number
+          utilization_pct: number
+        }[]
       }
       rpc_link_dock_intake_to_shipment: {
         Args: {

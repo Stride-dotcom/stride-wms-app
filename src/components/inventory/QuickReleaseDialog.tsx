@@ -155,14 +155,14 @@ export function QuickReleaseDialog({
       if (itemsError) throw itemsError;
 
       // Update each item's status to 'released' and set released_at
-      const itemIds = selectedItems.map(item => item.id);
+      const releaseItemIds = selectedItems.map(item => item.id);
       const { error: updateError } = await (supabase
         .from('items') as any)
         .update({
           status: 'released',
           released_at: releaseDate.toISOString(),
         })
-        .in('id', itemIds);
+        .in('id', releaseItemIds);
 
       if (updateError) throw updateError;
 
