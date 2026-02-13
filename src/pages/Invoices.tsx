@@ -102,6 +102,7 @@ export default function Invoices() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [lines, setLines] = useState<InvoiceLine[]>([]);
   const [loadingLines, setLoadingLines] = useState(false);
+  const [chargeNameMap, setChargeNameMap] = useState<Map<string, string>>(new Map());
   
   // Notes editing
   const [editingNotes, setEditingNotes] = useState(false);
@@ -538,8 +539,11 @@ export default function Invoices() {
   const sortedLines = useMemo(() => {
     return [...lines].sort((a, b) => {
       switch (lineSortOption) {
-        case 'service':
-          return ((a as any).charge_type || '').localeCompare((b as any).charge_type || '');
+        case 'service': {
+          const aName = chargeNameMap.get((a as any).service_id) || (a as any).charge_type || '';
+          const bName = chargeNameMap.get((b as any).service_id) || (b as any).charge_type || '';
+          return aName.localeCompare(bName);
+        }
         case 'item':
           return (String(a.item_id) || '').localeCompare(String(b.item_id) || '');
         case 'amount':
@@ -549,7 +553,7 @@ export default function Invoices() {
           return 0; // Keep original order (by created_at)
       }
     });
-  }, [lines, lineSortOption]);
+  }, [lines, lineSortOption, chargeNameMap]);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -689,6 +693,21 @@ export default function Invoices() {
     setLoadingLines(true);
     const data = await fetchInvoiceLines(invoice.id);
     setLines(data);
+
+    // Fetch charge_types for service name lookup
+    const serviceIds = [...new Set(data.map(l => (l as any).service_id).filter(Boolean))] as string[];
+    if (serviceIds.length > 0) {
+      const { data: chargeTypes } = await supabase
+        .from('charge_types')
+        .select('id, charge_name')
+        .in('id', serviceIds);
+      const map = new Map<string, string>();
+      (chargeTypes || []).forEach((ct) => map.set(ct.id, ct.charge_name));
+      setChargeNameMap(map);
+    } else {
+      setChargeNameMap(new Map());
+    }
+
     setLoadingLines(false);
   };
 
@@ -1611,8 +1630,8 @@ export default function Invoices() {
                   <TableBody>
                     {sortedLines.map((line) => {
                       const serviceLabel =
+                        chargeNameMap.get((line as any).service_id) ||
                         (line as any).charge_type ||
-                        (line as any).service_code ||
                         (typeof line.description === 'string' ? line.description : '') ||
                         '\u2014';
                       const entityLabel =
@@ -1623,7 +1642,7 @@ export default function Invoices() {
                       return (
                       <TableRow key={line.id}>
                         <TableCell className="font-medium max-w-[240px] truncate">{serviceLabel}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{entityLabel}</TableCell>
+                        <TableCell className="max-w-[220px] truncate">{entityLabel}</TableCell>
                         <TableCell className="text-right tabular-nums whitespace-nowrap">{line.quantity}</TableCell>
                         <TableCell className="text-right tabular-nums whitespace-nowrap">${Number(line.unit_rate || 0).toFixed(2)}</TableCell>
                         <TableCell className="text-right font-semibold tabular-nums whitespace-nowrap">${Number(line.total_amount || 0).toFixed(2)}</TableCell>
