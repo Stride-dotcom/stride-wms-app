@@ -68,6 +68,7 @@ interface Stage2DetailedReceivingProps {
     signed_pieces: number | null;
     vendor_name: string | null;
     sidemark_id: string | null;
+    shipment_exception_type?: string | null;
   };
   onComplete: () => void;
   onRefresh: () => void;
@@ -401,6 +402,13 @@ export function Stage2DetailedReceiving({
             continue;
           }
 
+          // If the shipment is flagged MIS_SHIP or RETURN_TO_SENDER, quarantine units
+          const unitStatus =
+            shipment.shipment_exception_type === 'MIS_SHIP' ||
+            shipment.shipment_exception_type === 'RETURN_TO_SENDER'
+              ? 'QUARANTINE'
+              : 'active';
+
           const { data: unit, error: unitErr } = await (supabase as any)
             .from('inventory_units')
             .insert({
@@ -410,7 +418,7 @@ export function Stage2DetailedReceiving({
               location_id: receivingLocationId,
               shipment_id: shipmentId,
               shipment_item_id: shipmentItemId,
-              status: 'active',
+              status: unitStatus,
               created_by: profile.id,
             })
             .select('id')

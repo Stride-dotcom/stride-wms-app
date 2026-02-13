@@ -45,6 +45,7 @@ import { useLocations } from '@/hooks/useLocations';
 import { hapticError, hapticSuccess } from '@/lib/haptics';
 import { HelpButton, usePromptContextSafe } from '@/components/prompts';
 import { SOPValidationDialog, SOPBlocker } from '@/components/common/SOPValidationDialog';
+import { ShipmentExceptionActions } from '@/components/receiving/ShipmentExceptionActions';
 
 // ============================================
 // TYPES
@@ -1531,6 +1532,19 @@ export default function ShipmentDetail() {
           {isInbound && <HelpButton workflow="receiving" />}
         </div>
       </div>
+
+      {/* Exception Actions for inbound shipments */}
+      {isInbound && (
+        <div className="mb-4">
+          <ShipmentExceptionActions
+            shipmentId={shipment.id}
+            shipmentNumber={shipment.shipment_number}
+            accountId={shipment.account_id}
+            exceptionType={(shipment as any).shipment_exception_type ?? null}
+            onUpdated={fetchShipment}
+          />
+        </div>
+      )}
 
       {/* Receiving In Progress Banner */}
       {isReceiving && (

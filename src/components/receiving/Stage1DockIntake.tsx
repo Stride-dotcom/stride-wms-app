@@ -253,6 +253,11 @@ export function Stage1DockIntake({
         dock_intake_breakdown: breakdown,
       };
 
+      // Flag as UNKNOWN_ACCOUNT if no account assigned at Stage 1 completion
+      if (!shipment.account_id) {
+        updateData.shipment_exception_type = 'UNKNOWN_ACCOUNT';
+      }
+
       const { error } = await supabase
         .from('shipments')
         .update(updateData as any)
