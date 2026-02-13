@@ -351,7 +351,7 @@ export default function IncomingManager() {
       setCreating(true);
       const statusMap: Record<InboundKind, string> = {
         manifest: 'draft',
-        expected: 'open',
+        expected: 'draft',
         dock_intake: 'draft',
       };
 
