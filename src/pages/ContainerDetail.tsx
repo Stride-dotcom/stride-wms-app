@@ -37,6 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useContainerUnits } from '@/hooks/useContainerUnits';
 import { useContainerActions } from '@/hooks/useContainerActions';
+import { useOrgPreferences } from '@/hooks/useOrgPreferences';
 import { useContainers } from '@/hooks/useContainers';
 import { useLocations } from '@/hooks/useLocations';
 import type { Database } from '@/integrations/supabase/types';
@@ -75,6 +76,7 @@ export default function ContainerDetail() {
   const { moveContainer, removeUnitFromContainer, loading: actionLoading } = useContainerActions();
   const { updateContainer } = useContainers();
   const { locations } = useLocations();
+  const { preferences, updatePreference } = useOrgPreferences();
 
   useEffect(() => {
     if (id) {
@@ -476,6 +478,23 @@ export default function ContainerDetail() {
             <CardDescription>
               {unitsWithDesc.length} unit{unitsWithDesc.length !== 1 ? 's' : ''} in this container
             </CardDescription>
+            <div className="flex items-center gap-2 mt-2">
+              <HelpTip tooltip="Switch between detailed table rows and a compact single-line format.">
+                <span className="text-xs font-medium text-muted-foreground">Format:</span>
+              </HelpTip>
+              <Select
+                value={preferences.inventory_line_format}
+                onValueChange={(v) => updatePreference('inventory_line_format', v)}
+              >
+                <SelectTrigger className="w-[140px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Table</SelectItem>
+                  <SelectItem value="single_line">Single Line</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
             {unitsLoading ? (
@@ -487,57 +506,93 @@ export default function ContainerDetail() {
                 This container is empty.
               </p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>IC Code</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Class</TableHead>
-                    <TableHead>Volume</TableHead>
-                    <TableHead>Dimensions</TableHead>
-                    <TableHead className="w-[70px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              {preferences.inventory_line_format === 'single_line' ? (
+                <div className="divide-y">
                   {unitsWithDesc.map((unit) => (
-                    <TableRow key={unit.id}>
-                      <TableCell className="font-medium">
-                        <code className="text-sm bg-muted px-1.5 py-0.5 rounded">
-                          {unit.ic_code}
-                        </code>
-                      </TableCell>
-                      <TableCell className="text-sm max-w-[200px] truncate">
-                        {unit.description || '—'}
-                      </TableCell>
-                      <TableCell>
-                        <StatusIndicator status={unit.status} size="sm" />
-                      </TableCell>
-                      <TableCell>{unit.class || '—'}</TableCell>
-                      <TableCell>
-                        {unit.unit_cu_ft != null ? `${unit.unit_cu_ft} cu ft` : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {unit.dims_l != null && unit.dims_w != null && unit.dims_h != null
-                          ? `${unit.dims_l} x ${unit.dims_w} x ${unit.dims_h}`
-                          : '—'}
-                      </TableCell>
-                      <TableCell>
+                    <div key={unit.id} className="px-3 py-1.5 text-sm flex items-center gap-1.5 hover:bg-muted/30">
+                      <code className="bg-muted px-1 py-0.5 rounded text-xs font-medium">{unit.ic_code}</code>
+                      <span className="text-muted-foreground">•</span>
+                      <StatusIndicator status={unit.status} size="sm" />
+                      {unit.class && (
+                        <>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="text-xs">{unit.class}</span>
+                        </>
+                      )}
+                      {unit.description && (
+                        <>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="text-xs truncate max-w-[180px] text-muted-foreground">{unit.description}</span>
+                        </>
+                      )}
+                      <span className="ml-auto">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-6 w-6"
                           disabled={actionLoading}
                           onClick={() => handleRemoveUnit(unit.id)}
                           title="Remove from container"
                         >
                           <MaterialIcon name="logout" size="sm" />
                         </Button>
-                      </TableCell>
-                    </TableRow>
+                      </span>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>IC Code</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Class</TableHead>
+                      <TableHead>Volume</TableHead>
+                      <TableHead>Dimensions</TableHead>
+                      <TableHead className="w-[70px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {unitsWithDesc.map((unit) => (
+                      <TableRow key={unit.id}>
+                        <TableCell className="font-medium">
+                          <code className="text-sm bg-muted px-1.5 py-0.5 rounded">
+                            {unit.ic_code}
+                          </code>
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[200px] truncate">
+                          {unit.description || '—'}
+                        </TableCell>
+                        <TableCell>
+                          <StatusIndicator status={unit.status} size="sm" />
+                        </TableCell>
+                        <TableCell>{unit.class || '—'}</TableCell>
+                        <TableCell>
+                          {unit.unit_cu_ft != null ? `${unit.unit_cu_ft} cu ft` : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {unit.dims_l != null && unit.dims_w != null && unit.dims_h != null
+                            ? `${unit.dims_l} x ${unit.dims_w} x ${unit.dims_h}`
+                            : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={actionLoading}
+                            onClick={() => handleRemoveUnit(unit.id)}
+                            title="Remove from container"
+                          >
+                            <MaterialIcon name="logout" size="sm" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             )}
           </CardContent>
         </Card>

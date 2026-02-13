@@ -5,15 +5,21 @@ import { useToast } from '@/hooks/use-toast';
 
 export type ContainerVolumeMode = 'units_only' | 'bounded_footprint';
 export type SpaceTrackingMode = 'none' | 'cubic_feet' | 'dimensions';
+export type InventoryGroupMode = 'none' | 'description' | 'container';
+export type InventoryLineFormat = 'default' | 'single_line';
 
 export interface OrgPreferences {
   container_volume_mode: ContainerVolumeMode;
   space_tracking_mode: SpaceTrackingMode;
+  inventory_group_mode: InventoryGroupMode;
+  inventory_line_format: InventoryLineFormat;
 }
 
 const DEFAULTS: OrgPreferences = {
   container_volume_mode: 'bounded_footprint',
   space_tracking_mode: 'none',
+  inventory_group_mode: 'none',
+  inventory_line_format: 'single_line',
 };
 
 export function useOrgPreferences() {
@@ -31,7 +37,7 @@ export function useOrgPreferences() {
         .from('tenant_settings')
         .select('setting_key, setting_value')
         .eq('tenant_id', profile.tenant_id)
-        .in('setting_key', ['container_volume_mode', 'space_tracking_mode']);
+        .in('setting_key', ['container_volume_mode', 'space_tracking_mode', 'inventory_group_mode', 'inventory_line_format']);
 
       if (error) throw error;
 
@@ -42,6 +48,12 @@ export function useOrgPreferences() {
         }
         if (row.setting_key === 'space_tracking_mode' && row.setting_value) {
           prefs.space_tracking_mode = (row.setting_value as unknown as string) as SpaceTrackingMode;
+        }
+        if (row.setting_key === 'inventory_group_mode' && row.setting_value) {
+          prefs.inventory_group_mode = (row.setting_value as unknown as string) as InventoryGroupMode;
+        }
+        if (row.setting_key === 'inventory_line_format' && row.setting_value) {
+          prefs.inventory_line_format = (row.setting_value as unknown as string) as InventoryLineFormat;
         }
       });
 

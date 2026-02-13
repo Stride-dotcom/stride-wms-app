@@ -70,7 +70,7 @@ export default function LocationDetail() {
 
   const { units, loading: unitsLoading, refetch: refetchUnits } = useUnitsAtLocation(id, unitFilters);
   const { capacity, loading: capacityLoading, fetchCapacity } = useLocationCapacity(id);
-  const { preferences } = useOrgPreferences();
+  const { preferences, updatePreference } = useOrgPreferences();
 
   useEffect(() => {
     if (id) {
@@ -498,6 +498,39 @@ export default function LocationDetail() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="flex flex-wrap gap-2 mt-2 items-center">
+                  <HelpTip tooltip="Group units by shared attribute. View-only — does not affect data.">
+                    <span className="text-xs font-medium text-muted-foreground">Group by:</span>
+                  </HelpTip>
+                  <Select
+                    value={preferences.inventory_group_mode}
+                    onValueChange={(v) => updatePreference('inventory_group_mode', v)}
+                  >
+                    <SelectTrigger className="w-[160px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="description">Description</SelectItem>
+                      <SelectItem value="container">Container</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <HelpTip tooltip="Switch between detailed table rows and a compact single-line format.">
+                    <span className="text-xs font-medium text-muted-foreground">Format:</span>
+                  </HelpTip>
+                  <Select
+                    value={preferences.inventory_line_format}
+                    onValueChange={(v) => updatePreference('inventory_line_format', v)}
+                  >
+                    <SelectTrigger className="w-[140px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Table</SelectItem>
+                      <SelectItem value="single_line">Single Line</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardHeader>
               <CardContent>
                 {unitsLoading ? (
@@ -509,48 +542,126 @@ export default function LocationDetail() {
                     No inventory units at this location.
                   </p>
                 ) : (
-                  <div className="rounded-md border max-h-[600px] overflow-auto">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-background">
-                        <TableRow>
-                          <TableHead>IC Code</TableHead>
-                          <TableHead>Vendor</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Class</TableHead>
-                          <TableHead>Location</TableHead>
-                          <TableHead>Volume</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {units.map((unit) => (
-                          <TableRow key={unit.id}>
-                            <TableCell className="font-medium">
-                              <code className="text-sm bg-muted px-1.5 py-0.5 rounded">
-                                {unit.ic_code}
-                              </code>
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {unit.vendor || '—'}
-                            </TableCell>
-                            <TableCell className="text-sm max-w-[200px] truncate">
-                              {unit.description || '—'}
-                            </TableCell>
-                            <TableCell>
-                              <StatusIndicator status={unit.status} size="sm" />
-                            </TableCell>
-                            <TableCell>{unit.class || '—'}</TableCell>
-                            <TableCell className="text-sm">
-                              {formatLocationDisplay(unit.container_code)}
-                            </TableCell>
-                            <TableCell>
-                              {unit.unit_cu_ft != null ? `${unit.unit_cu_ft} cu ft` : '—'}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  {preferences.inventory_line_format === 'single_line' ? (
+                    /* ── Single-line compact format ── */
+                    <div className="rounded-md border max-h-[600px] overflow-auto">
+                      {(() => {
+                        const groupMode = preferences.inventory_group_mode;
+                        const grouped = groupMode === 'none'
+                          ? { '': units }
+                          : units.reduce<Record<string, typeof units>>((acc, u) => {
+                              const key = groupMode === 'container'
+                                ? (u.container_code || 'Uncontained')
+                                : (u.description || 'No Description');
+                              (acc[key] = acc[key] || []).push(u);
+                              return acc;
+                            }, {});
+                        const sortedKeys = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+                        return (
+                          <div className="divide-y">
+                            {sortedKeys.map((groupKey) => (
+                              <div key={groupKey}>
+                                {groupMode !== 'none' && (
+                                  <div className="px-3 py-1.5 bg-muted/50 text-xs font-semibold text-muted-foreground sticky top-0">
+                                    {groupKey} ({grouped[groupKey].length})
+                                  </div>
+                                )}
+                                {grouped[groupKey].map((unit) => (
+                                  <div key={unit.id} className="px-3 py-1.5 text-sm flex items-center gap-1.5 hover:bg-muted/30">
+                                    <code className="bg-muted px-1 py-0.5 rounded text-xs font-medium">{unit.ic_code}</code>
+                                    <span className="text-muted-foreground">•</span>
+                                    <StatusIndicator status={unit.status} size="sm" />
+                                    <span className="text-muted-foreground">•</span>
+                                    <span className="text-xs text-muted-foreground">{formatLocationDisplay(unit.container_code)}</span>
+                                    {unit.vendor && (
+                                      <>
+                                        <span className="text-muted-foreground">•</span>
+                                        <span className="text-xs truncate max-w-[120px]">{unit.vendor}</span>
+                                      </>
+                                    )}
+                                    {unit.description && (
+                                      <>
+                                        <span className="text-muted-foreground">•</span>
+                                        <span className="text-xs truncate max-w-[180px] text-muted-foreground">{unit.description}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    /* ── Default table format ── */
+                    <div className="rounded-md border max-h-[600px] overflow-auto">
+                      {(() => {
+                        const groupMode = preferences.inventory_group_mode;
+                        const grouped = groupMode === 'none'
+                          ? { '': units }
+                          : units.reduce<Record<string, typeof units>>((acc, u) => {
+                              const key = groupMode === 'container'
+                                ? (u.container_code || 'Uncontained')
+                                : (u.description || 'No Description');
+                              (acc[key] = acc[key] || []).push(u);
+                              return acc;
+                            }, {});
+                        const sortedKeys = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+                        return sortedKeys.map((groupKey) => (
+                          <div key={groupKey}>
+                            {groupMode !== 'none' && (
+                              <div className="px-3 py-2 bg-muted/50 text-xs font-semibold text-muted-foreground border-b">
+                                {groupKey} ({grouped[groupKey].length})
+                              </div>
+                            )}
+                            <Table>
+                              {groupKey === sortedKeys[0] && (
+                                <TableHeader className="sticky top-0 bg-background">
+                                  <TableRow>
+                                    <TableHead>IC Code</TableHead>
+                                    <TableHead>Vendor</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Class</TableHead>
+                                    <TableHead>Location</TableHead>
+                                    <TableHead>Volume</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                              )}
+                              <TableBody>
+                                {grouped[groupKey].map((unit) => (
+                                  <TableRow key={unit.id}>
+                                    <TableCell className="font-medium">
+                                      <code className="text-sm bg-muted px-1.5 py-0.5 rounded">
+                                        {unit.ic_code}
+                                      </code>
+                                    </TableCell>
+                                    <TableCell className="text-sm">
+                                      {unit.vendor || '—'}
+                                    </TableCell>
+                                    <TableCell className="text-sm max-w-[200px] truncate">
+                                      {unit.description || '—'}
+                                    </TableCell>
+                                    <TableCell>
+                                      <StatusIndicator status={unit.status} size="sm" />
+                                    </TableCell>
+                                    <TableCell>{unit.class || '—'}</TableCell>
+                                    <TableCell className="text-sm">
+                                      {formatLocationDisplay(unit.container_code)}
+                                    </TableCell>
+                                    <TableCell>
+                                      {unit.unit_cu_ft != null ? `${unit.unit_cu_ft} cu ft` : '—'}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  )}
                 )}
               </CardContent>
             </Card>
