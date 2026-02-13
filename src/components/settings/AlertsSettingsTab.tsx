@@ -13,6 +13,7 @@ export function AlertsSettingsTab() {
     templates,
     brandSettings,
     tenantCompanyInfo,
+    triggerCatalog,
     loading,
     createAlert,
     updateAlert,
@@ -89,6 +90,7 @@ export function AlertsSettingsTab() {
         <AlertList
           alerts={alerts}
           templates={templates}
+          triggerCatalog={triggerCatalog}
           tenantId={tenantId}
           onCreateAlert={createAlert}
           onUpdateAlert={updateAlert}

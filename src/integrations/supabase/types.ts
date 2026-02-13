@@ -3379,6 +3379,45 @@ export type Database = {
           },
         ]
       }
+      communication_trigger_catalog: {
+        Row: {
+          id: string
+          key: string
+          display_name: string
+          description: string | null
+          module_group: string
+          audience: string
+          default_channels: string[]
+          severity: string
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          display_name: string
+          description?: string | null
+          module_group: string
+          audience?: string
+          default_channels?: string[]
+          severity?: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          display_name?: string
+          description?: string | null
+          module_group?: string
+          audience?: string
+          default_channels?: string[]
+          severity?: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
       communication_templates: {
         Row: {
           alert_id: string
@@ -14563,6 +14602,10 @@ export type Database = {
       }
       rpc_deallocate_manifest_item: {
         Args: { p_allocation_id: string }
+        Returns: Json
+      }
+      rpc_ensure_flag_alert_trigger: {
+        Args: { p_charge_type_id: string }
         Returns: Json
       }
       rpc_find_inbound_candidates: {
