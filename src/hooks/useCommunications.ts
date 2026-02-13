@@ -17,6 +17,18 @@ export interface CommunicationAlert {
   updated_at: string;
 }
 
+export interface TriggerCatalogEntry {
+  id: string;
+  key: string;
+  display_name: string;
+  description: string | null;
+  module_group: string;
+  audience: 'internal' | 'client' | 'both';
+  default_channels: string[];
+  severity: 'info' | 'warn' | 'critical';
+  is_active: boolean;
+}
+
 export interface CommunicationTemplate {
   id: string;
   tenant_id: string;
@@ -247,6 +259,7 @@ export function useCommunications() {
   const { toast } = useToast();
   const [alerts, setAlerts] = useState<CommunicationAlert[]>([]);
   const [templates, setTemplates] = useState<CommunicationTemplate[]>([]);
+  const [triggerCatalog, setTriggerCatalog] = useState<TriggerCatalogEntry[]>([]);
   const [designElements, setDesignElements] = useState<CommunicationDesignElement[]>([]);
   const [brandSettings, setBrandSettings] = useState<CommunicationBrandSettings | null>(null);
   const [tenantCompanyInfo, setTenantCompanyInfo] = useState<TenantCompanyInfo>({});
@@ -291,11 +304,26 @@ export function useCommunications() {
         .from('communication_design_elements')
         .select('*')
         .order('category, name');
-      
+
       if (error) throw error;
       setDesignElements((data || []) as CommunicationDesignElement[]);
     } catch (error) {
       console.error('Error fetching design elements:', error);
+    }
+  }, []);
+
+  const fetchTriggerCatalog = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('communication_trigger_catalog')
+        .select('*')
+        .eq('is_active', true)
+        .order('module_group, display_name');
+
+      if (error) throw error;
+      setTriggerCatalog((data || []) as TriggerCatalogEntry[]);
+    } catch (error) {
+      console.error('Error fetching trigger catalog:', error);
     }
   }, []);
 
@@ -356,11 +384,12 @@ export function useCommunications() {
         fetchTemplates(),
         fetchDesignElements(),
         fetchBrandSettings(),
+        fetchTriggerCatalog(),
       ]);
       setLoading(false);
     };
     loadAll();
-  }, [fetchAlerts, fetchTemplates, fetchDesignElements, fetchBrandSettings]);
+  }, [fetchAlerts, fetchTemplates, fetchDesignElements, fetchBrandSettings, fetchTriggerCatalog]);
 
   const createAlert = async (alert: Omit<CommunicationAlert, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>) => {
     if (!profile?.tenant_id) return null;
@@ -650,6 +679,7 @@ export function useCommunications() {
     designElements,
     brandSettings,
     tenantCompanyInfo,
+    triggerCatalog,
     loading,
     createAlert,
     updateAlert,
@@ -660,7 +690,7 @@ export function useCommunications() {
     revertToVersion,
     updateBrandSettings,
     refetch: async () => {
-      await Promise.all([fetchAlerts(), fetchTemplates(), fetchDesignElements(), fetchBrandSettings()]);
+      await Promise.all([fetchAlerts(), fetchTemplates(), fetchDesignElements(), fetchBrandSettings(), fetchTriggerCatalog()]);
     },
   };
 }

@@ -27,6 +27,11 @@ import { logItemActivity } from '@/lib/activity/logItemActivity';
 import { ScanModeIcon } from '@/components/scan/ScanModeIcon';
 import { HelpButton } from '@/components/prompts';
 import { SOPValidationDialog, SOPBlocker } from '@/components/common/SOPValidationDialog';
+import { useLocationSuggestions, type LocationSuggestion } from '@/hooks/useLocationSuggestions';
+import { SuggestionPanel } from '@/components/scanhub/SuggestionPanel';
+import { CrossWarehouseBanner } from '@/components/scanhub/CrossWarehouseBanner';
+import { OverrideConfirmModal, type OverrideReason } from '@/components/scanhub/OverrideConfirmModal';
+import { useSelectedWarehouse } from '@/contexts/WarehouseContext';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -77,6 +82,7 @@ export default function ScanHub() {
   const { scanServiceEvents, getServiceRate, createBillingEvents, loading: serviceEventsLoading } = useServiceEvents();
   const { collapseSidebar } = useSidebar();
   const { hasRole } = usePermissions();
+  const { selectedWarehouseId, warehouses: contextWarehouses } = useSelectedWarehouse();
 
   // Role-based visibility for billing features (managers and above)
   const canSeeBilling = hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
@@ -110,11 +116,327 @@ export default function ScanHub() {
   const [quarantineItem, setQuarantineItem] = useState<ScannedItem | null>(null);
   const [quarantinePendingAction, setQuarantinePendingAction] = useState<(() => void) | null>(null);
 
+  // Location suggestions state
+  const [suggestionsWarehouseId, setSuggestionsWarehouseId] = useState<string | undefined>();
+  const [suggestionsWarning, setSuggestionsWarning] = useState<string | null>(null);
+
+  // Cross-warehouse mismatch state
+  const [crossWarehouseInfo, setCrossWarehouseInfo] = useState<{
+    itemWarehouse: string;
+    destWarehouse: string;
+    isMixedBatch?: boolean;
+  } | null>(null);
+
+  // Override modal state
+  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
+  const [overrideBlockingReasons, setOverrideBlockingReasons] = useState<OverrideReason[]>([]);
+  const [overrideAllReasons, setOverrideAllReasons] = useState<OverrideReason[]>([]);
+  const [overrideResolve, setOverrideResolve] = useState<((confirmed: boolean) => void) | null>(null);
+
   // Swipe confirmation state
   const [swipeProgress, setSwipeProgress] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const swipeStartX = useRef(0);
   const swipeContainerRef = useRef<HTMLDivElement>(null);
+
+  // Derive warehouse_id for suggestions.
+  // Precedence: item-derived (authoritative) → selectedWarehouseId (fallback) → disabled.
+  useEffect(() => {
+    setSuggestionsWarning(null);
+
+    if (mode === 'move' && scannedItem) {
+      if (scannedItem.current_location_code) {
+        const loc = locations.find(l => l.code === scannedItem.current_location_code);
+        if (loc) {
+          // Item warehouse is authoritative
+          setSuggestionsWarehouseId(loc.warehouse_id);
+          return;
+        }
+      }
+      // Can't derive from item — fall back to shared selection
+      if (selectedWarehouseId) {
+        setSuggestionsWarehouseId(selectedWarehouseId);
+        return;
+      }
+      setSuggestionsWarehouseId(undefined);
+      return;
+    }
+
+    if (mode === 'batch' && batchItems.length > 0) {
+      const warehouseIds = new Set<string>();
+      for (const item of batchItems) {
+        if (item.current_location_code) {
+          const loc = locations.find(l => l.code === item.current_location_code);
+          if (loc) warehouseIds.add(loc.warehouse_id);
+        }
+      }
+
+      if (warehouseIds.size === 1) {
+        setSuggestionsWarehouseId([...warehouseIds][0]);
+        return;
+      }
+
+      if (warehouseIds.size > 1) {
+        setSuggestionsWarning('Items span multiple warehouses. Suggestions unavailable \u2014 select a single-warehouse batch.');
+        setSuggestionsWarehouseId(undefined);
+        return;
+      }
+
+      // No items had a resolvable warehouse
+      setSuggestionsWarehouseId(undefined);
+      return;
+    }
+
+    // No items scanned yet — use shared selection if available
+    if (selectedWarehouseId) {
+      setSuggestionsWarehouseId(selectedWarehouseId);
+    } else {
+      setSuggestionsWarehouseId(undefined);
+    }
+  }, [scannedItem, batchItems, locations, mode, selectedWarehouseId]);
+
+  // Location suggestions hook
+  const suggestionsEnabled =
+    (mode === 'move' && !!scannedItem) || (mode === 'batch' && batchItems.length > 0);
+
+  const {
+    suggestions,
+    loading: suggestionsLoading,
+    error: suggestionsError,
+    refetch: refetchSuggestions,
+  } = useLocationSuggestions({
+    tenantId: profile?.tenant_id,
+    warehouseId: suggestionsWarehouseId,
+    mode: mode === 'batch' ? 'batch' : 'single',
+    itemId: mode === 'move' ? scannedItem?.id : undefined,
+    itemIds: mode === 'batch' ? batchItems.map(i => i.id) : undefined,
+    enabled: suggestionsEnabled,
+  });
+
+  // Cross-warehouse mismatch detection
+  useEffect(() => {
+    if (!targetLocation) {
+      setCrossWarehouseInfo(null);
+      return;
+    }
+
+    const destLoc = locations.find(l => l.id === targetLocation.id);
+    if (!destLoc?.warehouse_id) {
+      setCrossWarehouseInfo(null);
+      return;
+    }
+
+    // Determine item warehouse
+    let itemWarehouseId: string | undefined;
+    let itemWarehouseName: string | undefined;
+    let isMixedBatch = false;
+
+    if (mode === 'move' && scannedItem) {
+      const itemLoc = locations.find(l => l.code === scannedItem.current_location_code);
+      itemWarehouseId = itemLoc?.warehouse_id;
+      itemWarehouseName = scannedItem.warehouse_name || undefined;
+    } else if (mode === 'batch' && batchItems.length > 0) {
+      const warehouseIds = new Set<string>();
+      for (const item of batchItems) {
+        if (item.current_location_code) {
+          const loc = locations.find(l => l.code === item.current_location_code);
+          if (loc) warehouseIds.add(loc.warehouse_id);
+        }
+      }
+      if (warehouseIds.size === 1) {
+        itemWarehouseId = [...warehouseIds][0];
+      } else if (warehouseIds.size > 1) {
+        isMixedBatch = true;
+      }
+    }
+
+    if (isMixedBatch) {
+      const destWh = contextWarehouses.find(w => w.id === destLoc.warehouse_id);
+      setCrossWarehouseInfo({
+        itemWarehouse: 'multiple warehouses',
+        destWarehouse: destWh?.name || 'Unknown',
+        isMixedBatch: true,
+      });
+      return;
+    }
+
+    if (itemWarehouseId && destLoc.warehouse_id !== itemWarehouseId) {
+      const destWh = contextWarehouses.find(w => w.id === destLoc.warehouse_id);
+      const itemWh = contextWarehouses.find(w => w.id === itemWarehouseId);
+      setCrossWarehouseInfo({
+        itemWarehouse: itemWarehouseName || itemWh?.name || 'Unknown',
+        destWarehouse: destWh?.name || 'Unknown',
+      });
+    } else {
+      setCrossWarehouseInfo(null);
+    }
+  }, [targetLocation, scannedItem, batchItems, locations, mode, contextWarehouses]);
+
+  // Override modal helpers
+  const openOverrideModalAndAwait = (
+    blockingReasons: OverrideReason[],
+    allReasons: OverrideReason[],
+  ): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setOverrideBlockingReasons(blockingReasons);
+      setOverrideAllReasons(allReasons);
+      setOverrideResolve(() => resolve);
+      setOverrideModalOpen(true);
+    });
+  };
+
+  const handleOverrideConfirm = () => {
+    setOverrideModalOpen(false);
+    if (overrideResolve) overrideResolve(true);
+    setOverrideResolve(null);
+  };
+
+  const handleOverrideCancel = () => {
+    setOverrideModalOpen(false);
+    if (overrideResolve) overrideResolve(false);
+    setOverrideResolve(null);
+  };
+
+  // Evaluate override reasons for a destination location
+  const evaluateOverrideReasons = async (
+    destLocationId: string,
+    items: ScannedItem[],
+  ): Promise<{
+    allReasons: OverrideReason[];
+    blockingReasons: OverrideReason[];
+    requiredVolume: number;
+    preUtilization: number;
+    postUtilization: number;
+    itemDataForAudit: Array<{ id: string; current_location_id: string | null }>;
+  }> => {
+    const allReasons: OverrideReason[] = [];
+    const blockingReasons: OverrideReason[] = [];
+
+    // Fetch item sizes and current location IDs
+    const itemIds = items.map(i => i.id);
+    const { data: itemData } = await (supabase as any)
+      .from('items')
+      .select('id, size, current_location_id')
+      .in('id', itemIds);
+
+    const requiredVolume = (itemData || []).reduce(
+      (sum: number, i: { size: number | null }) => sum + (i.size || 0),
+      0,
+    );
+
+    // Check if destination is in the suggestions
+    const destSuggestion = suggestions.find((s: LocationSuggestion) => s.location_id === destLocationId);
+
+    let destCapacity = 0;
+    let destUsed = 0;
+    let destAvailable = 0;
+    let destUtilPct = 0;
+    let destFlagCompliant = true;
+
+    if (destSuggestion) {
+      destCapacity = destSuggestion.capacity_cuft;
+      destUsed = destSuggestion.used_cuft;
+      destAvailable = destSuggestion.available_cuft;
+      destUtilPct = destSuggestion.utilization_pct;
+      destFlagCompliant = destSuggestion.flag_compliant;
+    } else {
+      // Strategy (b): Query location_capacity_cache + locations for non-suggested destination
+      const { data: cacheData } = await (supabase
+        .from('location_capacity_cache') as any)
+        .select('used_cuft, available_cuft, utilization_pct')
+        .eq('location_id', destLocationId)
+        .maybeSingle();
+
+      const { data: locData } = await (supabase
+        .from('locations') as any)
+        .select('capacity_cuft')
+        .eq('id', destLocationId)
+        .maybeSingle();
+
+      destCapacity = locData?.capacity_cuft ? Number(locData.capacity_cuft) : 0;
+      destUsed = cacheData?.used_cuft ? Number(cacheData.used_cuft) : 0;
+      destAvailable = cacheData?.available_cuft != null ? Number(cacheData.available_cuft) : destCapacity;
+      destUtilPct = cacheData?.utilization_pct ? Number(cacheData.utilization_pct) : 0;
+
+      // Flag compliance check for non-suggested destination
+      if (profile?.tenant_id && itemData && itemData.length > 0) {
+        try {
+          const { data: itemFlags } = await (supabase as any)
+            .from('item_flags')
+            .select('service_code')
+            .eq('item_id', itemData[0].id)
+            .eq('tenant_id', profile.tenant_id);
+
+          if (itemFlags && itemFlags.length > 0) {
+            const { data: locFlags } = await (supabase as any)
+              .from('location_flag_links')
+              .select('service_code')
+              .eq('location_id', destLocationId)
+              .eq('tenant_id', profile.tenant_id);
+
+            const locFlagCodes = new Set(
+              (locFlags || []).map((f: { service_code: string }) => f.service_code),
+            );
+            destFlagCompliant = (itemFlags as Array<{ service_code: string }>).every(
+              f => locFlagCodes.has(f.service_code),
+            );
+          }
+        } catch {
+          // If flag check fails, default to compliant (non-blocking)
+          destFlagCompliant = true;
+        }
+      }
+    }
+
+    // Compute predicted utilization
+    if (destCapacity > 0) {
+      const predictedUsed = destUsed + requiredVolume;
+      const predictedUtil = predictedUsed / destCapacity;
+
+      if (predictedUtil >= 0.90) {
+        allReasons.push('OVER_UTILIZATION');
+        blockingReasons.push('OVER_UTILIZATION');
+      }
+
+      if (requiredVolume > destAvailable) {
+        allReasons.push('OVERFLOW');
+        blockingReasons.push('OVERFLOW');
+      }
+    }
+
+    if (!destFlagCompliant) {
+      allReasons.push('FLAG_MISMATCH');
+      blockingReasons.push('FLAG_MISMATCH');
+    }
+
+    // MIXED_SOURCE_BATCH (informational only)
+    if (items.length > 1 && itemData) {
+      const distinctLocations = new Set(
+        (itemData as Array<{ current_location_id: string | null }>)
+          .map(i => i.current_location_id)
+          .filter(Boolean),
+      );
+      if (distinctLocations.size > 1) {
+        allReasons.push('MIXED_SOURCE_BATCH');
+      }
+    }
+
+    const postUtilization = destCapacity > 0
+      ? (destUsed + requiredVolume) / destCapacity
+      : 0;
+
+    return {
+      allReasons,
+      blockingReasons,
+      requiredVolume,
+      preUtilization: destUtilPct,
+      postUtilization,
+      itemDataForAudit: (itemData || []).map((i: { id: string; current_location_id: string | null }) => ({
+        id: i.id,
+        current_location_id: i.current_location_id,
+      })),
+    };
+  };
 
   const parseQRPayload = (input: string): { type: string; id: string; code?: string } | null => {
     try {
@@ -514,6 +836,35 @@ export default function ScanHub() {
       const items = mode === 'move' && scannedItem ? [scannedItem] : batchItems;
       const itemIds = items.map(i => i.id);
 
+      // === Override evaluation gate ===
+      let overrideResult: {
+        allReasons: OverrideReason[];
+        blockingReasons: OverrideReason[];
+        requiredVolume: number;
+        preUtilization: number;
+        postUtilization: number;
+        itemDataForAudit: Array<{ id: string; current_location_id: string | null }>;
+      } | null = null;
+
+      try {
+        overrideResult = await evaluateOverrideReasons(targetLocation.id, items);
+      } catch (evalErr) {
+        // Override evaluation failures must NEVER block moves
+        console.error('[ScanHub] Override evaluation failed (non-blocking):', evalErr);
+      }
+
+      if (overrideResult && overrideResult.blockingReasons.length > 0) {
+        const confirmed = await openOverrideModalAndAwait(
+          overrideResult.blockingReasons,
+          overrideResult.allReasons,
+        );
+        if (!confirmed) {
+          setProcessing(false);
+          return;
+        }
+      }
+      // === End override evaluation gate ===
+
       // Call SOP validator RPC first
       const { data: validationResult, error: rpcError } = await (supabase as any).rpc(
         'validate_movement_event',
@@ -593,6 +944,35 @@ export default function ScanHub() {
             eventType: 'item_moved',
             eventLabel: `Moved to ${targetLocation.code}`,
             details: { from_location: item.current_location_code, to_location: targetLocation.code, to_location_id: targetLocation.id },
+          });
+        }
+      }
+
+      // Log override audit if an override was confirmed
+      if (overrideResult && overrideResult.blockingReasons.length > 0 && profile?.tenant_id) {
+        for (const item of items) {
+          const itemAudit = overrideResult.itemDataForAudit.find(d => d.id === item.id);
+          logItemActivity({
+            tenantId: profile.tenant_id,
+            itemId: item.id,
+            actorUserId: profile.id,
+            eventType: 'location_override',
+            eventLabel: `Override: moved to ${targetLocation.code}`,
+            details: {
+              type: 'LOCATION_OVERRIDE',
+              from_location_id: itemAudit?.current_location_id || null,
+              to_location_id: targetLocation.id,
+              reasons: overrideResult.allReasons,
+              required_volume: overrideResult.requiredVolume,
+              pre_utilization: overrideResult.preUtilization,
+              post_utilization: overrideResult.postUtilization,
+              metadata: {
+                mode: mode === 'move' ? 'single' : 'batch',
+                scanned_location_code: targetLocation.code,
+                suggestions_present: suggestions.length > 0,
+                overflow: suggestions.some(s => s.overflow),
+              },
+            },
           });
         }
       }
@@ -1449,6 +1829,33 @@ export default function ScanHub() {
             </Card>
           )}
 
+          {/* Cross-warehouse mismatch banner */}
+          {crossWarehouseInfo && (
+            <CrossWarehouseBanner
+              itemWarehouse={crossWarehouseInfo.itemWarehouse}
+              destWarehouse={crossWarehouseInfo.destWarehouse}
+              isMixedBatch={crossWarehouseInfo.isMixedBatch}
+            />
+          )}
+
+          {/* Location Suggestions Panel */}
+          {(mode === 'move' || mode === 'batch') && suggestionsWarning && (
+            <div className="w-full max-w-md mt-3 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 flex items-center gap-2">
+              <MaterialIcon name="warning" size="sm" />
+              {suggestionsWarning}
+            </div>
+          )}
+          {(mode === 'move' || mode === 'batch') && suggestionsEnabled && !suggestionsWarning && (
+            <SuggestionPanel
+              suggestions={suggestions}
+              loading={suggestionsLoading}
+              error={suggestionsError}
+              mode={mode === 'batch' ? 'batch' : 'single'}
+              onRefresh={refetchSuggestions}
+              matchChipLabel={scannedItem?.item_code ? 'SKU match' : 'Item match'}
+            />
+          )}
+
           {/* Processing indicator */}
           {processing && (
             <div className="flex items-center gap-2 text-primary mb-4">
@@ -1550,6 +1957,16 @@ export default function ScanHub() {
         open={sopValidationOpen}
         onOpenChange={setSopValidationOpen}
         blockers={sopBlockers}
+      />
+
+      {/* Override Confirmation Modal */}
+      <OverrideConfirmModal
+        open={overrideModalOpen}
+        onOpenChange={(open) => { if (!open) handleOverrideCancel(); }}
+        blockingReasons={overrideBlockingReasons}
+        allReasons={overrideAllReasons}
+        onConfirm={handleOverrideConfirm}
+        onCancel={handleOverrideCancel}
       />
 
       {/* Quarantine Warning Dialog */}

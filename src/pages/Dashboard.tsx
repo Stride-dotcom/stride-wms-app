@@ -7,10 +7,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSelectedWarehouse } from '@/contexts/WarehouseContext';
 import { useDashboardStats, PutAwayItem, TaskItem, ShipmentItem } from '@/hooks/useDashboardStats';
 import { useCountUp } from '@/hooks/useCountUp';
+import { CapacityCard } from '@/components/dashboard/CapacityCard';
 
 /** Animated count display for dashboard tiles */
 function AnimatedCount({ value, delay = 0, className }: { value: number; delay?: number; className?: string }) {
@@ -54,6 +63,7 @@ export default function Dashboard() {
     loading,
     refetch
   } = useDashboardStats();
+  const { warehouses, selectedWarehouseId, setSelectedWarehouseId } = useSelectedWarehouse();
   const [expandedCard, setExpandedCard] = useState<ExpandedCard>(null);
 
   const toggleCard = (key: ExpandedCard) => {
@@ -240,10 +250,26 @@ export default function Dashboard() {
             description={`Welcome back${profile?.first_name ? `, ${profile.first_name}` : ''}.`}
             data-testid="page-header"
           />
-          <Button variant="outline" size="sm" onClick={refetch} disabled={loading} data-testid="refresh-button">
-            <MaterialIcon name={loading ? "sync" : "refresh"} size="sm" className={cn("mr-2", loading && "animate-spin")} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            {warehouses.length > 1 && (
+              <Select value={selectedWarehouseId ?? ''} onValueChange={(v) => setSelectedWarehouseId(v || null)}>
+                <SelectTrigger className="w-[180px] h-9 text-xs">
+                  <SelectValue placeholder="Warehouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  {warehouses.map((wh) => (
+                    <SelectItem key={wh.id} value={wh.id}>
+                      {wh.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button variant="outline" size="sm" onClick={refetch} disabled={loading} data-testid="refresh-button">
+              <MaterialIcon name={loading ? "sync" : "refresh"} size="sm" className={cn("mr-2", loading && "animate-spin")} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {loading ? (
@@ -252,6 +278,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <CapacityCard warehouseId={selectedWarehouseId ?? undefined} />
             {tiles.map((t, tileIndex) => {
               const isExpanded = expandedCard === t.key;
               const items = getExpandedItems(t.key);

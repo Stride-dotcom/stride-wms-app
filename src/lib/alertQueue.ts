@@ -550,9 +550,16 @@ export async function queueBillingEventAlert(
 }
 
 /**
- * Queue a flag-added-to-item alert
- * Fires every time a flag is toggled ON for an item (even if removed and re-added).
- * Uses the existing alert pipeline — no new notification infrastructure.
+ * Queue a flag-added-to-item alert.
+ *
+ * Uses per-flag trigger keys (item.flag_added.{chargeCode}) so that
+ * only flags with an enabled per-flag communication_alerts trigger
+ * actually fire.  The send-alerts edge function matches on the
+ * trigger_event field, so per-flag alerts are processed independently.
+ *
+ * Guard: before queuing, checks that the per-flag trigger exists and is
+ * enabled in communication_alerts.  If missing/disabled, the alert is
+ * silently skipped (no spam).
  */
 export async function queueFlagAddedAlert({
   tenantId,
@@ -567,14 +574,36 @@ export async function queueFlagAddedAlert({
   itemId: string;
   itemCode: string;
   flagServiceName: string;
-  flagServiceCode?: string;
+  flagServiceCode: string;
   actorUserId: string;
   actorName?: string;
 }): Promise<boolean> {
+  // Per-flag trigger key: only fire if this specific flag has an enabled trigger
+  const perFlagEvent = `item.flag_added.${flagServiceCode}`;
+  const perFlagKey = `flag_alert_${flagServiceCode}`;
+
+  try {
+    const { data: trigger } = await supabase
+      .from('communication_alerts')
+      .select('is_enabled')
+      .eq('tenant_id', tenantId)
+      .eq('key', perFlagKey)
+      .maybeSingle();
+
+    if (!trigger || !trigger.is_enabled) {
+      // No per-flag trigger configured or it's disabled — skip silently
+      console.log(`[queueFlagAddedAlert] Skipped: no enabled trigger for ${flagServiceCode}`);
+      return false;
+    }
+  } catch (err) {
+    // If we can't verify the trigger, still attempt to queue (fail-open for existing behavior)
+    console.warn('[queueFlagAddedAlert] Could not verify per-flag trigger, proceeding:', err);
+  }
+
   const timestamp = new Date().toISOString();
   return queueAlert({
     tenantId,
-    alertType: 'item.flag_added',
+    alertType: perFlagEvent,
     entityType: 'item',
     entityId: itemId,
     subject: `Flag added to item ${itemCode}: ${flagServiceName}`,
@@ -583,14 +612,14 @@ export async function queueFlagAddedAlert({
       <p>A flag has been applied to an item:</p>
       <table style="border-collapse: collapse; margin: 20px 0;">
         <tr><td style="padding: 8px; font-weight: bold;">Flag:</td><td style="padding: 8px;">${flagServiceName}</td></tr>
-        ${flagServiceCode ? `<tr><td style="padding: 8px; font-weight: bold;">Service Code:</td><td style="padding: 8px;">${flagServiceCode}</td></tr>` : ''}
+        <tr><td style="padding: 8px; font-weight: bold;">Service Code:</td><td style="padding: 8px;">${flagServiceCode}</td></tr>
         <tr><td style="padding: 8px; font-weight: bold;">Item:</td><td style="padding: 8px;">${itemCode}</td></tr>
         <tr><td style="padding: 8px; font-weight: bold;">Applied by:</td><td style="padding: 8px;">${actorName || actorUserId}</td></tr>
         <tr><td style="padding: 8px; font-weight: bold;">Timestamp:</td><td style="padding: 8px;">${timestamp}</td></tr>
       </table>
       <p style="color: #6b7280; font-size: 14px;">This is an automated notification from Stride WMS.</p>
     `,
-    bodyText: `Flag Added to Item\n\nFlag: ${flagServiceName}${flagServiceCode ? `\nService Code: ${flagServiceCode}` : ''}\nItem: ${itemCode}\nApplied by: ${actorName || actorUserId}\nTimestamp: ${timestamp}\n\nThis is an automated notification from Stride WMS.`,
+    bodyText: `Flag Added to Item\n\nFlag: ${flagServiceName}\nService Code: ${flagServiceCode}\nItem: ${itemCode}\nApplied by: ${actorName || actorUserId}\nTimestamp: ${timestamp}\n\nThis is an automated notification from Stride WMS.`,
   });
 }
 

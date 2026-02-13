@@ -15,6 +15,8 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { ActiveBadge } from '@/components/ui/active-badge';
 import { useToast } from '@/hooks/use-toast';
 import { useChargeTypes, type ChargeType } from '@/hooks/useChargeTypes';
+import { ensureFlagAlertTrigger } from '@/lib/flagAlertTrigger';
+import { HelpTip } from '@/components/ui/help-tip';
 import { cn } from '@/lib/utils';
 
 export function FlagsTab() {
@@ -64,6 +66,8 @@ export function FlagsTab() {
               category: 'service',
             });
             if (result) {
+              // Auto-create/update per-flag alert trigger (tenant derived server-side)
+              await ensureFlagAlertTrigger(result.id);
               setShowAddForm(false);
               refetch();
             }
@@ -149,6 +153,8 @@ export function FlagsTab() {
                         is_active: data.is_active,
                       });
                       if (success) {
+                        // Auto-create/disable per-flag alert trigger (tenant derived server-side)
+                        await ensureFlagAlertTrigger(flag.id);
                         setExpandedItem('');
                         refetch();
                       }
@@ -277,14 +283,20 @@ function FlagEditForm({ flag, onSave, onCancel }: FlagEditFormProps) {
       {/* Toggles */}
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
-          <Label className="text-sm font-medium">Triggers Alert</Label>
-          <p className="text-xs text-muted-foreground">Sends email/SMS when this flag is applied.</p>
+          <div className="flex items-center gap-1.5">
+            <Label className="text-sm font-medium">Triggers Alert</Label>
+            <HelpTip tooltip="When enabled, applying this flag to an item will send email and in-app notifications to configured recipients." />
+          </div>
+          <p className="text-xs text-muted-foreground">Sends email and in-app notification when this flag is applied.</p>
         </div>
         <Switch checked={triggersAlert} onCheckedChange={setTriggersAlert} />
       </div>
 
       <div className="flex items-center justify-between">
-        <Label className="text-sm font-medium">Active</Label>
+        <div className="flex items-center gap-1.5">
+          <Label className="text-sm font-medium">Active</Label>
+          <HelpTip tooltip="Inactive flags are hidden from the item flags panel and cannot be applied to items." />
+        </div>
         <Switch checked={isActive} onCheckedChange={setIsActive} />
       </div>
 
@@ -425,15 +437,18 @@ function AddFlagForm({ onSave, onCancel }: AddFlagFormProps) {
         </div>
 
         <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5">
             <Label className="text-sm font-medium">Triggers Alert</Label>
-            <p className="text-xs text-muted-foreground">Sends email/SMS when this flag is applied.</p>
+            <HelpTip tooltip="When enabled, applying this flag to an item will send email and in-app notifications to configured recipients. A per-flag alert trigger is automatically created in Communications settings." />
           </div>
           <Switch checked={triggersAlert} onCheckedChange={setTriggersAlert} />
         </div>
 
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">Active</Label>
+          <div className="flex items-center gap-1.5">
+            <Label className="text-sm font-medium">Active</Label>
+            <HelpTip tooltip="Inactive flags are hidden from the item flags panel and cannot be applied to items." />
+          </div>
           <Switch checked={isActive} onCheckedChange={setIsActive} />
         </div>
 

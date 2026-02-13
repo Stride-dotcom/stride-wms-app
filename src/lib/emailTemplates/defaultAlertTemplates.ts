@@ -565,10 +565,27 @@ This is a notification from [[tenant_name]].`,
 
 /**
  * Get the default template for a trigger event, falling back to 'custom'.
+ *
+ * Supports per-flag trigger events (e.g. "item.flag_added.FLG_FRAGILE")
+ * by falling back to the parent event key ("item.flag_added") when no
+ * exact match is found.
  */
 export function getDefaultTemplate(triggerEvent?: string): DefaultAlertTemplate {
   if (triggerEvent && DEFAULT_ALERT_TEMPLATES[triggerEvent]) {
     return DEFAULT_ALERT_TEMPLATES[triggerEvent];
   }
+
+  // Fallback: try parent event key (e.g. "item.flag_added.FLG_X" → "item.flag_added")
+  if (triggerEvent) {
+    const parts = triggerEvent.split('.');
+    while (parts.length > 1) {
+      parts.pop();
+      const parentKey = parts.join('.');
+      if (DEFAULT_ALERT_TEMPLATES[parentKey]) {
+        return DEFAULT_ALERT_TEMPLATES[parentKey];
+      }
+    }
+  }
+
   return DEFAULT_ALERT_TEMPLATES['custom'];
 }
