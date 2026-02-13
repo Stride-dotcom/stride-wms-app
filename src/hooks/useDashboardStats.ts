@@ -189,11 +189,25 @@ export function useDashboardStats() {
         .in('status', ['awaiting_assignment', 'tech_submitted', 'under_review', 'sent_to_client']);
 
       // Fetch items at Receiving Dock location (need to put away)
-      const { data: receivingDockLocation } = await (supabase
+      // Try exact code first (REC-DOCK), then fallback patterns
+      let receivingDockLocation: { id: string } | null = null;
+      const { data: exactMatch } = await (supabase
         .from('locations') as any)
         .select('id')
-        .ilike('code', '%receiving%dock%')
-        .single();
+        .eq('code', 'REC-DOCK')
+        .maybeSingle();
+      
+      if (exactMatch) {
+        receivingDockLocation = exactMatch;
+      } else {
+        const { data: fuzzyMatch } = await (supabase
+          .from('locations') as any)
+          .select('id')
+          .or('code.ilike.%rec%dock%,code.ilike.%receiving%dock%,name.ilike.%receiving%dock%')
+          .limit(1)
+          .maybeSingle();
+        receivingDockLocation = fuzzyMatch;
+      }
 
       let putAwayData: PutAwayItem[] = [];
       let putAwayCount = 0;
