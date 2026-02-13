@@ -9265,6 +9265,45 @@ export type Database = {
           },
         ]
       }
+      saas_plans: {
+        Row: {
+          base_price: number
+          created_at: string | null
+          id: string
+          is_active: boolean
+          name: string
+          per_user_price: number
+          stripe_price_id_base: string | null
+          stripe_price_id_per_user: string | null
+          stripe_product_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          base_price?: number
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          per_user_price?: number
+          stripe_price_id_base?: string | null
+          stripe_price_id_per_user?: string | null
+          stripe_product_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          base_price?: number
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          per_user_price?: number
+          stripe_price_id_base?: string | null
+          stripe_price_id_per_user?: string | null
+          stripe_product_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       service_categories: {
         Row: {
           created_at: string | null
@@ -12748,6 +12787,72 @@ export type Database = {
           },
         ]
       }
+      tenant_subscriptions: {
+        Row: {
+          base_price_override: number | null
+          cancel_at_period_end: boolean | null
+          created_at: string | null
+          current_period_end: string | null
+          grace_until: string | null
+          last_payment_failed_at: string | null
+          per_user_override: number | null
+          plan_id: string | null
+          promo_expiration_date: string | null
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          base_price_override?: number | null
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          current_period_end?: string | null
+          grace_until?: string | null
+          last_payment_failed_at?: string | null
+          per_user_override?: number | null
+          plan_id?: string | null
+          promo_expiration_date?: string | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          base_price_override?: number | null
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          current_period_end?: string | null
+          grace_until?: string | null
+          last_payment_failed_at?: string | null
+          per_user_override?: number | null
+          plan_id?: string | null
+          promo_expiration_date?: string | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "saas_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           brand_settings: Json | null
@@ -14768,6 +14873,17 @@ export type Database = {
           utilization_pct: number
         }[]
       }
+      rpc_get_my_subscription_gate: { Args: never; Returns: Json }
+      rpc_initialize_tenant_subscription_from_checkout: {
+        Args: {
+          p_current_period_end?: string
+          p_plan_id?: string
+          p_stripe_customer_id: string
+          p_stripe_subscription_id: string
+          p_tenant_id: string
+        }
+        Returns: undefined
+      }
       rpc_link_dock_intake_to_shipment: {
         Args: {
           p_confidence_score?: number
@@ -14776,6 +14892,14 @@ export type Database = {
           p_linked_shipment_id: string
         }
         Returns: Json
+      }
+      rpc_mark_payment_failed_and_start_grace: {
+        Args: { p_grace_days?: number; p_stripe_subscription_id: string }
+        Returns: undefined
+      }
+      rpc_mark_payment_ok: {
+        Args: { p_stripe_subscription_id: string }
+        Returns: undefined
       }
       rpc_move_container: {
         Args: { p_container_id: string; p_new_location_id: string }
@@ -14789,6 +14913,17 @@ export type Database = {
       rpc_resolve_receiving_location: {
         Args: { p_account_id?: string; p_warehouse_id: string }
         Returns: Json
+      }
+      rpc_upsert_tenant_subscription_from_stripe: {
+        Args: {
+          p_cancel_at_period_end?: boolean
+          p_current_period_end?: string
+          p_status: string
+          p_stripe_customer_id: string
+          p_stripe_subscription_id: string
+          p_tenant_id: string
+        }
+        Returns: undefined
       }
       seed_core_charge_types: { Args: { p_tenant_id: string }; Returns: number }
       seed_default_billable_services: {

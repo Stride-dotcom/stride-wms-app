@@ -29,7 +29,7 @@ export function useSubscriptionGate() {
         // Fail-open: if RPC fails, treat as active
         return DEFAULT_GATE;
       }
-      return data as SubscriptionGateState;
+      return data as unknown as SubscriptionGateState;
     },
     enabled: !!session,
     staleTime: 5 * 60 * 1000, // 5 minutes
