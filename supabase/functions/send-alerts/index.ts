@@ -190,6 +190,205 @@ async function resolveRecipients(
 }
 
 // =============================================================================
+// CATALOG AUDIENCE LOOKUP
+// =============================================================================
+
+type Audience = 'internal' | 'client' | 'both';
+
+async function getCatalogAudience(
+  supabase: any,
+  triggerEvent: string
+): Promise<Audience> {
+  try {
+    const { data, error } = await supabase
+      .from('communication_trigger_catalog')
+      .select('audience')
+      .eq('key', triggerEvent)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (error || !data) {
+      // If trigger not in catalog, default to internal (safe default)
+      return 'internal';
+    }
+
+    const audience = data.audience as string;
+    if (audience === 'client' || audience === 'both') {
+      return audience;
+    }
+    return 'internal';
+  } catch {
+    return 'internal';
+  }
+}
+
+// =============================================================================
+// ENTITY → ACCOUNT CONTEXT RESOLUTION
+// =============================================================================
+
+interface AccountContext {
+  accountId: string;
+  accountName: string;
+}
+
+async function getAccountContext(
+  supabase: any,
+  entityType: string,
+  entityId: string,
+  tenantId: string
+): Promise<AccountContext | null> {
+  try {
+    // Map entity_type to table + join path
+    const entityTableMap: Record<string, { table: string; accountJoin?: boolean }> = {
+      shipment: { table: 'shipments', accountJoin: true },
+      item: { table: 'items', accountJoin: true },
+      task: { table: 'tasks', accountJoin: true },
+      invoice: { table: 'invoices', accountJoin: true },
+      release: { table: 'releases', accountJoin: true },
+      claim: { table: 'claims', accountJoin: true },
+      repair_quote: { table: 'repair_quotes', accountJoin: true },
+      billing_event: { table: 'billing_events', accountJoin: true },
+    };
+
+    const mapping = entityTableMap[entityType];
+    if (!mapping) {
+      console.log(`[getAccountContext] NO_ACCOUNT_CONTEXT: unknown entity_type "${entityType}"`);
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from(mapping.table)
+      .select('account_id, account:accounts(id, account_name)')
+      .eq('id', entityId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    if (error || !data) {
+      console.log(`[getAccountContext] NO_ACCOUNT_CONTEXT: entity ${entityType}/${entityId} not found or no tenant match`);
+      return null;
+    }
+
+    if (!data.account_id) {
+      console.log(`[getAccountContext] NO_ACCOUNT_CONTEXT: entity ${entityType}/${entityId} has no account_id`);
+      return null;
+    }
+
+    const accountName = data.account?.account_name || '';
+    return {
+      accountId: data.account_id,
+      accountName,
+    };
+  } catch (err) {
+    console.error(`[getAccountContext] NO_ACCOUNT_CONTEXT: unexpected error for ${entityType}/${entityId}:`, err);
+    return null;
+  }
+}
+
+// =============================================================================
+// CLIENT RECIPIENT RESOLUTION
+// =============================================================================
+
+async function resolveClientRecipients(
+  supabase: any,
+  tenantId: string,
+  triggerEvent: string,
+  accountId: string,
+  accountName: string
+): Promise<{ emails: string[]; source: string }> {
+  // Priority 1: alert_recipients → alert_types → client_contacts
+  try {
+    // Find alert_type by key matching triggerEvent
+    const { data: alertType } = await supabase
+      .from('alert_types')
+      .select('id')
+      .eq('key', triggerEvent)
+      .maybeSingle();
+
+    if (alertType) {
+      // Find alert_recipients for this alert_type and tenant
+      const { data: recipients } = await supabase
+        .from('alert_recipients')
+        .select('client_contact_id, email, recipient_type')
+        .eq('alert_type_id', alertType.id)
+        .eq('tenant_id', tenantId);
+
+      if (recipients && recipients.length > 0) {
+        const directEmails: string[] = [];
+        const contactIds: string[] = [];
+
+        for (const r of recipients) {
+          if (r.email) {
+            directEmails.push(r.email);
+          }
+          if (r.client_contact_id) {
+            contactIds.push(r.client_contact_id);
+          }
+        }
+
+        // Fetch client_contacts filtered by account_name
+        if (contactIds.length > 0) {
+          const { data: contacts } = await supabase
+            .from('client_contacts')
+            .select('email')
+            .in('id', contactIds)
+            .eq('tenant_id', tenantId)
+            .eq('account_name', accountName)
+            .eq('is_active', true);
+
+          if (contacts) {
+            for (const c of contacts) {
+              if (c.email) directEmails.push(c.email);
+            }
+          }
+        }
+
+        const cleaned = cleanEmails(directEmails);
+        if (cleaned.length > 0) {
+          return { emails: cleaned, source: 'alert_recipients + client_contacts' };
+        }
+      }
+    }
+  } catch (err) {
+    // alert_types or alert_recipients table may not exist; fall through gracefully
+    console.warn('[resolveClientRecipients] alert_recipients lookup failed (table may not exist):', err);
+  }
+
+  // Priority 2: accounts.alerts_contact_email fallback
+  try {
+    const { data: account } = await supabase
+      .from('accounts')
+      .select('alerts_contact_email, account_alert_recipients')
+      .eq('id', accountId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    if (account) {
+      const emails: string[] = [];
+
+      // alerts_contact_email (single email or comma-separated)
+      if (account.alerts_contact_email) {
+        emails.push(...parseCommaEmails(account.alerts_contact_email));
+      }
+
+      // account_alert_recipients (comma-separated additional recipients)
+      if (account.account_alert_recipients) {
+        emails.push(...parseCommaEmails(account.account_alert_recipients));
+      }
+
+      const cleaned = cleanEmails(emails);
+      if (cleaned.length > 0) {
+        return { emails: cleaned, source: 'accounts.alerts_contact_email' };
+      }
+    }
+  } catch (err) {
+    console.warn('[resolveClientRecipients] accounts fallback failed:', err);
+  }
+
+  console.log(`[resolveClientRecipients] NO_CLIENT_RECIPIENTS: no client recipients found for trigger="${triggerEvent}" account="${accountName}" (${accountId})`);
+  return { emails: [], source: 'none' };
+}
+
+// =============================================================================
 // ENTITY DATA & TEMPLATES (unchanged logic, extracted for clarity)
 // =============================================================================
 
@@ -1228,29 +1427,75 @@ const handler = async (req: Request): Promise<Response> => {
         }
 
         // =====================================================================
-        // RECIPIENT RESOLUTION (4-tier precedence)
+        // AUDIENCE-BASED ROUTING SWITCH (Phase 4)
         // =====================================================================
-        const { emails: recipients, source: recipientSource } = await resolveRecipients(
-          supabase,
-          alert.tenant_id,
-          alert.alert_type,
-          alert.recipient_emails
-        );
+        const audience = await getCatalogAudience(supabase, alert.alert_type);
 
-        if (recipients.length === 0) {
-          console.error(`[send-alerts] No recipients for alert ${alert.id} (type: ${alert.alert_type}, tenant: ${alert.tenant_id})`);
+        // Resolve internal recipients (existing 4-tier precedence)
+        let internalRecipients: string[] = [];
+        let internalSource = 'none';
+        if (audience === 'internal' || audience === 'both') {
+          const internalResult = await resolveRecipients(
+            supabase,
+            alert.tenant_id,
+            alert.alert_type,
+            alert.recipient_emails
+          );
+          internalRecipients = internalResult.emails;
+          internalSource = internalResult.source;
+        }
+
+        // Resolve client recipients (only for client/both audience)
+        let clientRecipients: string[] = [];
+        let clientSource = 'none';
+        if (audience === 'client' || audience === 'both') {
+          const accountCtx = await getAccountContext(
+            supabase,
+            alert.entity_type,
+            alert.entity_id,
+            alert.tenant_id
+          );
+
+          if (accountCtx) {
+            const clientResult = await resolveClientRecipients(
+              supabase,
+              alert.tenant_id,
+              alert.alert_type,
+              accountCtx.accountId,
+              accountCtx.accountName
+            );
+            clientRecipients = clientResult.emails;
+            clientSource = clientResult.source;
+          } else {
+            // NO_ACCOUNT_CONTEXT already logged by getAccountContext
+            if (audience === 'client') {
+              // Client-only trigger with no account context → skip
+              console.log(`[send-alerts] Alert ${alert.id}: audience=client but NO_ACCOUNT_CONTEXT, skipping client routing`);
+            }
+          }
+        }
+
+        // Merge and deduplicate all recipients
+        const allRecipientEmails = cleanEmails([...internalRecipients, ...clientRecipients]);
+
+        if (allRecipientEmails.length === 0) {
+          const noRecipMsg = audience === 'client'
+            ? 'No client recipients found. Configure alerts_contact_email on the account or set up alert_recipients.'
+            : 'No recipients found. Configure office_alert_emails in Organization Settings or assign admin/manager roles.';
+          console.error(`[send-alerts] No recipients for alert ${alert.id} (type: ${alert.alert_type}, audience: ${audience}, tenant: ${alert.tenant_id})`);
           await supabase
             .from('alert_queue')
-            .update({ 
-              status: 'failed', 
-              error_message: 'No recipients found. Configure office_alert_emails in Organization Settings or assign admin/manager roles.' 
-            })
+            .update({ status: 'failed', error_message: noRecipMsg })
             .eq('id', alert.id);
           failed++;
           continue;
         }
 
-        console.log(`[send-alerts] Alert ${alert.id}: ${recipients.length} recipients via ${recipientSource}`);
+        // Log routing details
+        const routingDetails = [];
+        if (internalRecipients.length > 0) routingDetails.push(`internal=${internalRecipients.length} via ${internalSource}`);
+        if (clientRecipients.length > 0) routingDetails.push(`client=${clientRecipients.length} via ${clientSource}`);
+        console.log(`[send-alerts] Alert ${alert.id} (audience=${audience}): ${allRecipientEmails.length} total recipients [${routingDetails.join(', ')}]`);
 
         // Try to get custom template first
         const customTemplate = await getTemplateForAlert(supabase, alert.alert_type, alert.tenant_id, 'email');
@@ -1297,10 +1542,10 @@ const handler = async (req: Request): Promise<Response> => {
           }
         }
 
-        // Send email
+        // Send email to merged recipient list
         const { error: sendError } = await resend.emails.send({
           from: `${fromName} <${fromEmail}>`,
-          to: recipients,
+          to: allRecipientEmails,
           subject: subject,
           html: html,
           text: text,
@@ -1309,125 +1554,132 @@ const handler = async (req: Request): Promise<Response> => {
         if (sendError) throw sendError;
 
         // =====================================================================
-        // IN-APP NOTIFICATION DISPATCH
+        // IN-APP NOTIFICATION DISPATCH (internal only — client in-app NOT supported)
         // =====================================================================
-        try {
-          // Check if in_app channel is enabled for this alert type
-          const { data: alertConfig } = await supabase
-            .from('communication_alerts')
-            .select('id, channels')
-            .eq('tenant_id', alert.tenant_id)
-            .eq('trigger_event', alert.alert_type)
-            .eq('is_enabled', true)
-            .maybeSingle();
+        if (audience === 'client') {
+          console.log(`[send-alerts] CLIENT_INAPP_NOT_SUPPORTED: skipping in-app for client-only alert ${alert.id}`);
+        }
 
-          const inAppEnabled = alertConfig?.channels?.in_app === true;
-
-          if (inAppEnabled) {
-            // Get the in-app template for recipients and body
-            const { data: inAppTemplate } = await supabase
-              .from('communication_templates')
-              .select('subject_template, body_template, in_app_recipients')
-              .eq('alert_id', alertConfig.id)
-              .eq('channel', 'in_app')
+        // Run in-app dispatch for internal and both audiences
+        if (audience === 'internal' || audience === 'both') {
+          try {
+            // Check if in_app channel is enabled for this alert type
+            const { data: alertConfig } = await supabase
+              .from('communication_alerts')
+              .select('id, channels')
+              .eq('tenant_id', alert.tenant_id)
+              .eq('trigger_event', alert.alert_type)
+              .eq('is_enabled', true)
               .maybeSingle();
 
-            if (inAppTemplate?.in_app_recipients) {
-              // Parse role tokens from recipients string: "[[manager_role]], [[client_user_role]]"
-              const roleTokens = (inAppTemplate.in_app_recipients || '')
-                .match(/\[\[(\w+_role)\]\]/g) || [];
-              const roleNames = roleTokens.map((t: string) =>
-                t.replace(/\[\[|\]\]/g, '').replace(/_role$/, '')
-              );
+            const inAppEnabled = alertConfig?.channels?.in_app === true;
 
-              if (roleNames.length > 0) {
-                // Resolve role names to user IDs
-                const { data: roles } = await supabase
-                  .from('roles')
-                  .select('id, name')
-                  .in('name', roleNames)
-                  .eq('tenant_id', alert.tenant_id)
-                  .is('deleted_at', null);
+            if (inAppEnabled) {
+              // Get the in-app template for recipients and body
+              const { data: inAppTemplate } = await supabase
+                .from('communication_templates')
+                .select('subject_template, body_template, in_app_recipients')
+                .eq('alert_id', alertConfig.id)
+                .eq('channel', 'in_app')
+                .maybeSingle();
 
-                if (roles && roles.length > 0) {
-                  const roleIds = roles.map((r: any) => r.id);
+              if (inAppTemplate?.in_app_recipients) {
+                // Parse role tokens from recipients string: "[[manager_role]], [[client_user_role]]"
+                const roleTokens = (inAppTemplate.in_app_recipients || '')
+                  .match(/\[\[(\w+_role)\]\]/g) || [];
+                const roleNames = roleTokens.map((t: string) =>
+                  t.replace(/\[\[|\]\]/g, '').replace(/_role$/, '')
+                );
 
-                  const { data: userRoles } = await supabase
-                    .from('user_roles')
-                    .select('user_id')
-                    .in('role_id', roleIds)
+                if (roleNames.length > 0) {
+                  // Resolve role names to user IDs
+                  const { data: roles } = await supabase
+                    .from('roles')
+                    .select('id, name')
+                    .in('name', roleNames)
+                    .eq('tenant_id', alert.tenant_id)
                     .is('deleted_at', null);
 
-                  if (userRoles && userRoles.length > 0) {
-                    const userIds = [...new Set(userRoles.map((ur: any) => ur.user_id))];
+                  if (roles && roles.length > 0) {
+                    const roleIds = roles.map((r: any) => r.id);
 
-                    // Verify users belong to this tenant
-                    const { data: tenantUsers } = await supabase
-                      .from('users')
-                      .select('id')
-                      .in('id', userIds)
-                      .eq('tenant_id', alert.tenant_id)
+                    const { data: userRoles } = await supabase
+                      .from('user_roles')
+                      .select('user_id')
+                      .in('role_id', roleIds)
                       .is('deleted_at', null);
 
-                    if (tenantUsers && tenantUsers.length > 0) {
-                      // Build notification content with variable substitution
-                      const notifTitle = replaceTemplateVariables(
-                        inAppTemplate.subject_template || alert.alert_type,
-                        variables
-                      );
-                      const notifBody = replaceTemplateVariables(
-                        inAppTemplate.body_template || subject,
-                        variables
-                      );
+                    if (userRoles && userRoles.length > 0) {
+                      const userIds = [...new Set(userRoles.map((ur: any) => ur.user_id))];
 
-                      // Determine category and action URL from alert type
-                      const category = alert.alert_type.split('.')[0].split('_')[0] || 'system';
-                      const ctaLink = variables.shipment_link || variables.task_link ||
-                        variables.release_link || variables.portal_invoice_url ||
-                        variables.portal_claim_url || variables.portal_repair_url ||
-                        variables.portal_inspection_url || variables.item_photos_link || null;
+                      // Verify users belong to this tenant
+                      const { data: tenantUsers } = await supabase
+                        .from('users')
+                        .select('id')
+                        .in('id', userIds)
+                        .eq('tenant_id', alert.tenant_id)
+                        .is('deleted_at', null);
 
-                      // Determine priority
-                      let priority = 'normal';
-                      if (alert.alert_type.includes('damaged') || alert.alert_type.includes('overdue') ||
-                          alert.alert_type.includes('requires_attention') || alert.alert_type.includes('delayed')) {
-                        priority = 'high';
-                      }
+                      if (tenantUsers && tenantUsers.length > 0) {
+                        // Build notification content with variable substitution
+                        const notifTitle = replaceTemplateVariables(
+                          inAppTemplate.subject_template || alert.alert_type,
+                          variables
+                        );
+                        const notifBody = replaceTemplateVariables(
+                          inAppTemplate.body_template || subject,
+                          variables
+                        );
 
-                      // Insert in-app notifications for each user
-                      const notifications = tenantUsers.map((u: any) => ({
-                        tenant_id: alert.tenant_id,
-                        user_id: u.id,
-                        title: notifTitle,
-                        body: notifBody,
-                        icon: 'notifications',
-                        category,
-                        related_entity_type: alert.entity_type,
-                        related_entity_id: alert.entity_id,
-                        action_url: ctaLink,
-                        is_read: false,
-                        priority,
-                        alert_queue_id: alert.id,
-                      }));
+                        // Determine category and action URL from alert type
+                        const category = alert.alert_type.split('.')[0].split('_')[0] || 'system';
+                        const ctaLink = variables.shipment_link || variables.task_link ||
+                          variables.release_link || variables.portal_invoice_url ||
+                          variables.portal_claim_url || variables.portal_repair_url ||
+                          variables.portal_inspection_url || variables.item_photos_link || null;
 
-                      const { error: notifError } = await supabase
-                        .from('in_app_notifications')
-                        .insert(notifications);
+                        // Determine priority
+                        let priority = 'normal';
+                        if (alert.alert_type.includes('damaged') || alert.alert_type.includes('overdue') ||
+                            alert.alert_type.includes('requires_attention') || alert.alert_type.includes('delayed')) {
+                          priority = 'high';
+                        }
 
-                      if (notifError) {
-                        console.error(`[send-alerts] Failed to create in-app notifications for alert ${alert.id}:`, notifError);
-                      } else {
-                        console.log(`[send-alerts] Created ${notifications.length} in-app notifications for alert ${alert.id} (roles: ${roleNames.join(', ')})`);
+                        // Insert in-app notifications for each user
+                        const notifications = tenantUsers.map((u: any) => ({
+                          tenant_id: alert.tenant_id,
+                          user_id: u.id,
+                          title: notifTitle,
+                          body: notifBody,
+                          icon: 'notifications',
+                          category,
+                          related_entity_type: alert.entity_type,
+                          related_entity_id: alert.entity_id,
+                          action_url: ctaLink,
+                          is_read: false,
+                          priority,
+                          alert_queue_id: alert.id,
+                        }));
+
+                        const { error: notifError } = await supabase
+                          .from('in_app_notifications')
+                          .insert(notifications);
+
+                        if (notifError) {
+                          console.error(`[send-alerts] Failed to create in-app notifications for alert ${alert.id}:`, notifError);
+                        } else {
+                          console.log(`[send-alerts] Created ${notifications.length} in-app notifications for alert ${alert.id} (roles: ${roleNames.join(', ')})`);
+                        }
                       }
                     }
                   }
                 }
               }
             }
+          } catch (inAppError) {
+            // In-app notification failure should not block email delivery
+            console.error(`[send-alerts] In-app notification error for alert ${alert.id}:`, inAppError);
           }
-        } catch (inAppError) {
-          // In-app notification failure should not block email delivery
-          console.error(`[send-alerts] In-app notification error for alert ${alert.id}:`, inAppError);
         }
 
         // Mark as sent
@@ -1440,7 +1692,7 @@ const handler = async (req: Request): Promise<Response> => {
           .eq('id', alert.id);
 
         sent++;
-        console.log(`Alert ${alert.id} sent successfully to ${recipients.length} recipients (${recipientSource})`);
+        console.log(`Alert ${alert.id} sent successfully to ${allRecipientEmails.length} recipients (audience=${audience})`);
       } catch (alertError) {
         console.error(`Error processing alert ${alert.id}:`, alertError);
 
