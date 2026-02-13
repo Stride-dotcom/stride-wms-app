@@ -16,6 +16,11 @@ export {
   createEventRaw,
   createEventsRaw,
   deleteUnbilledEventsByFilter,
+  updateBillingEventFields,
+  updateBillingEventStatus,
+  voidBillingEventWithMetadataMerge,
+  voidBillingEventsBatch,
+  markBillingEventsInvoiced,
 } from './billingGateway';
 
 // Types
@@ -34,4 +39,6 @@ export type {
   RawEventsResult,
   DeleteBillingEventFilters,
   DeleteResult,
+  UpdateResult,
+  BatchUpdateResult,
 } from './types';

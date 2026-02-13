@@ -171,3 +171,20 @@ export interface MoveChargesResult {
   movedCount: number;
   invoicedCount: number;
 }
+
+// =============================================================================
+// UPDATE / VOID / MARK INVOICED — Phase B4
+// =============================================================================
+
+/** Result for single-row update operations. */
+export interface UpdateResult {
+  success: boolean;
+  error?: string;
+}
+
+/** Result for batch update operations. */
+export interface BatchUpdateResult {
+  success: boolean;
+  updated?: number;
+  error?: string;
+}
