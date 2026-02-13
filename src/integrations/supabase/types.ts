@@ -4853,6 +4853,7 @@ export type Database = {
           created_by: string | null
           dims_h: number | null
           dims_l: number | null
+          dims_uom: string | null
           dims_w: number | null
           ic_code: string
           id: string
@@ -4874,6 +4875,7 @@ export type Database = {
           created_by?: string | null
           dims_h?: number | null
           dims_l?: number | null
+          dims_uom?: string | null
           dims_w?: number | null
           ic_code: string
           id?: string
@@ -4895,6 +4897,7 @@ export type Database = {
           created_by?: string | null
           dims_h?: number | null
           dims_l?: number | null
+          dims_uom?: string | null
           dims_w?: number | null
           ic_code?: string
           id?: string
@@ -9965,6 +9968,7 @@ export type Database = {
           total_items: number | null
           tracking_number: string | null
           updated_at: string
+          updated_by: string | null
           vendor_name: string | null
           warehouse_id: string | null
         }
@@ -10037,6 +10041,7 @@ export type Database = {
           total_items?: number | null
           tracking_number?: string | null
           updated_at?: string
+          updated_by?: string | null
           vendor_name?: string | null
           warehouse_id?: string | null
         }
@@ -10109,6 +10114,7 @@ export type Database = {
           total_items?: number | null
           tracking_number?: string | null
           updated_at?: string
+          updated_by?: string | null
           vendor_name?: string | null
           warehouse_id?: string | null
         }
