@@ -280,6 +280,10 @@ export function BillingReportTab() {
   const [creatingInvoices, setCreatingInvoices] = useState(false);
   const [combinedConfirmOpen, setCombinedConfirmOpen] = useState(false);
 
+  // Bulk void state
+  const [bulkVoidConfirmOpen, setBulkVoidConfirmOpen] = useState(false);
+  const [bulkVoiding, setBulkVoiding] = useState(false);
+
   // Billing Safety UX (Phase 5A)
   const [showOnlyIssues, setShowOnlyIssues] = useState(false);
   const [unsafeInvoiceDialogOpen, setUnsafeInvoiceDialogOpen] = useState(false);
@@ -594,6 +598,59 @@ export function BillingReportTab() {
     setInactiveServiceDialogOpen(false);
     setPendingBillingEvents([]);
     setInactiveServiceEvents([]);
+  };
+
+  // Bulk void selected rows
+  const handleBulkVoid = async () => {
+    const eventIds = Array.from(selectedRows);
+    if (eventIds.length === 0) return;
+
+    setBulkVoiding(true);
+    try {
+      const result = await voidBillingEventsBatch({ eventIds });
+
+      if (!result.success) {
+        toast({ title: 'Error voiding events', description: result.error || 'Unknown error', variant: 'destructive' });
+        return;
+      }
+
+      // Log activity for voided billing events
+      if (profile?.tenant_id) {
+        const voidedRows = rows.filter(r => eventIds.includes(r.id));
+        for (const row of voidedRows) {
+          logBillingActivity({
+            tenantId: profile.tenant_id,
+            actorUserId: profile.id,
+            eventType: 'billing_event_voided',
+            eventLabel: `Billing charge voided: ${row.charge_type}`,
+            details: {
+              billing_event_id: row.id,
+              service_code: row.charge_type,
+              reason: 'manual_bulk_void',
+              amount: row.total_amount,
+            },
+            itemId: row.item_id,
+            shipmentId: row.shipment_id,
+            taskId: row.task_id,
+            accountId: row.account_id,
+          });
+        }
+      }
+
+      toast({
+        title: 'Events Voided',
+        description: `Voided ${eventIds.length} billing event(s).`,
+      });
+
+      setSelectedRows(new Set());
+      setBulkVoidConfirmOpen(false);
+      fetchRows();
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      toast({ title: 'Void failed', description: message, variant: 'destructive' });
+    } finally {
+      setBulkVoiding(false);
+    }
   };
 
   // Sort rows
@@ -1285,10 +1342,16 @@ export function BillingReportTab() {
         </div>
         <div className="flex gap-2">
           {selectedRows.size > 0 && !showCreatePanel && (
-            <Button onClick={handleCreateInvoice} size="sm" variant="default">
-              <MaterialIcon name="receipt" size="sm" className="mr-2" />
-              Create Invoices ({selectedRows.size})
-            </Button>
+            <>
+              <Button onClick={handleCreateInvoice} size="sm" variant="default">
+                <MaterialIcon name="receipt" size="sm" className="mr-2" />
+                Create Invoices ({selectedRows.size})
+              </Button>
+              <Button onClick={() => setBulkVoidConfirmOpen(true)} size="sm" variant="outline" className="text-destructive border-destructive/50 hover:bg-destructive/10">
+                <MaterialIcon name="cancel" size="sm" className="mr-2" />
+                Void Selected ({selectedRows.size})
+              </Button>
+            </>
           )}
           <Button onClick={() => setAddChargeOpen(true)} size="sm" variant="outline">
             <MaterialIcon name="add" size="sm" className="mr-2" />
@@ -2165,6 +2228,31 @@ export function BillingReportTab() {
               <MaterialIcon name="visibility" size="sm" className="mr-2" />
               Show Issues
             </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Void Confirmation Dialog */}
+      <AlertDialog open={bulkVoidConfirmOpen} onOpenChange={setBulkVoidConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <MaterialIcon name="cancel" size="md" className="text-destructive" />
+              Void {selectedRows.size} Billing Event{selectedRows.size !== 1 ? 's' : ''}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will mark {selectedRows.size} selected billing event{selectedRows.size !== 1 ? 's' : ''} as void. Voided events cannot be invoiced. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkVoiding}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkVoid}
+              disabled={bulkVoiding}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkVoiding ? 'Voiding...' : 'Void Selected'}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
