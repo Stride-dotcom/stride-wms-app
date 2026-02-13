@@ -1382,7 +1382,7 @@ export function BillingReportTab() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Unbilled</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-600">${stats.unbilled.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-amber-600 tabular-nums">${stats.unbilled.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -1390,7 +1390,7 @@ export function BillingReportTab() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Invoiced</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">${stats.invoiced.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-green-600 tabular-nums">${stats.invoiced.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -1398,7 +1398,7 @@ export function BillingReportTab() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Voided</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">${stats.voided.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-red-600 tabular-nums">${stats.voided.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -1406,7 +1406,7 @@ export function BillingReportTab() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Active</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.total.toFixed(2)}</div>
+            <div className="text-2xl font-bold tabular-nums">${stats.total.toFixed(2)}</div>
           </CardContent>
         </Card>
       </div>
@@ -1841,10 +1841,10 @@ export function BillingReportTab() {
                           </span>
                         )}
                       </td>
-                      <td className="p-3">{r.occurred_at?.slice(0, 10)}</td>
-                      <td className="p-3">{r.account_name}</td>
+                      <td className="p-3 whitespace-nowrap">{r.occurred_at?.slice(0, 10)}</td>
+                      <td className="p-3 max-w-[180px] truncate">{r.account_name}</td>
                       {/* Sidemark - Editable */}
-                      <td className="p-3 text-xs">
+                      <td className="p-3 text-xs max-w-[150px] truncate">
                         {canEdit && editingCell?.rowId === r.id && editingCell?.field === 'sidemark_id' ? (
                           <Select
                             value={getRowValue(r, 'sidemark_id') || '__none__'}
@@ -1871,7 +1871,7 @@ export function BillingReportTab() {
                       </td>
                       <td className="p-3 font-mono text-xs">{r.item_code}</td>
                       <td className="p-3">{r.event_type}</td>
-                      <td className="p-3">{r.charge_type}</td>
+                      <td className="p-3">{r.charge_type || r.description || '\u2014'}</td>
                       {/* Description - Editable */}
                       <td className="p-3 max-w-[200px]">
                         {canEdit && editingCell?.rowId === r.id && editingCell?.field === 'description' ? (
@@ -1894,7 +1894,7 @@ export function BillingReportTab() {
                         )}
                       </td>
                       {/* Quantity - Editable */}
-                      <td className="p-3 text-right">
+                      <td className="p-3 text-right tabular-nums whitespace-nowrap">
                         {canEdit && editingCell?.rowId === r.id && editingCell?.field === 'quantity' ? (
                           <Input
                             autoFocus
@@ -1917,7 +1917,7 @@ export function BillingReportTab() {
                         )}
                       </td>
                       {/* Rate - Editable - Shows MISSING RATE badge if null */}
-                      <td className="p-3 text-right">
+                      <td className="p-3 text-right tabular-nums whitespace-nowrap">
                         {canEdit && editingCell?.rowId === r.id && editingCell?.field === 'unit_rate' ? (
                           <Input
                             autoFocus
@@ -1948,7 +1948,7 @@ export function BillingReportTab() {
                         )}
                       </td>
                       {/* Total - Auto-calculated (shows N/A if rate is missing) */}
-                      <td className="p-3 text-right font-semibold">
+                      <td className="p-3 text-right font-semibold tabular-nums whitespace-nowrap">
                         {hasMissingRate ? (
                           <span className="text-red-500 text-sm">N/A</span>
                         ) : (
@@ -2238,10 +2238,10 @@ export function BillingReportTab() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <MaterialIcon name="cancel" size="md" className="text-destructive" />
-              Void {selectedRows.size} Billing Event{selectedRows.size !== 1 ? 's' : ''}?
+              Void selected charges?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will mark {selectedRows.size} selected billing event{selectedRows.size !== 1 ? 's' : ''} as void. Voided events cannot be invoiced. This action cannot be undone.
+              This will mark {selectedRows.size} billing event{selectedRows.size !== 1 ? 's' : ''} as void. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2251,7 +2251,7 @@ export function BillingReportTab() {
               disabled={bulkVoiding}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {bulkVoiding ? 'Voiding...' : 'Void Selected'}
+              {bulkVoiding ? 'Voiding\u2026' : 'Void'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

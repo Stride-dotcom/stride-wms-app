@@ -57,6 +57,8 @@ type SortDir = 'asc' | 'desc';
 type LocalInvoiceGrouping = 'by_sidemark' | 'by_account';
 type LineSortOption = 'date' | 'service' | 'item' | 'amount';
 
+const shortId = (id: string) => id.slice(-6);
+
 interface SelectedBillingEvent {
   id: string;
   account_id: string;
@@ -100,6 +102,7 @@ export default function Invoices() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [lines, setLines] = useState<InvoiceLine[]>([]);
   const [loadingLines, setLoadingLines] = useState(false);
+  const [chargeNameMap, setChargeNameMap] = useState<Map<string, string>>(new Map());
   
   // Notes editing
   const [editingNotes, setEditingNotes] = useState(false);
@@ -536,8 +539,11 @@ export default function Invoices() {
   const sortedLines = useMemo(() => {
     return [...lines].sort((a, b) => {
       switch (lineSortOption) {
-        case 'service':
-          return (String(a.service_code) || '').localeCompare(String(b.service_code) || '');
+        case 'service': {
+          const aName = chargeNameMap.get((a as any).service_id) || (a as any).charge_type || '';
+          const bName = chargeNameMap.get((b as any).service_id) || (b as any).charge_type || '';
+          return aName.localeCompare(bName);
+        }
         case 'item':
           return (String(a.item_id) || '').localeCompare(String(b.item_id) || '');
         case 'amount':
@@ -547,7 +553,7 @@ export default function Invoices() {
           return 0; // Keep original order (by created_at)
       }
     });
-  }, [lines, lineSortOption]);
+  }, [lines, lineSortOption, chargeNameMap]);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -687,6 +693,21 @@ export default function Invoices() {
     setLoadingLines(true);
     const data = await fetchInvoiceLines(invoice.id);
     setLines(data);
+
+    // Fetch charge_types for service name lookup
+    const serviceIds = [...new Set(data.map(l => (l as any).service_id).filter(Boolean))] as string[];
+    if (serviceIds.length > 0) {
+      const { data: chargeTypes } = await supabase
+        .from('charge_types')
+        .select('id, charge_name')
+        .in('id', serviceIds);
+      const map = new Map<string, string>();
+      (chargeTypes || []).forEach((ct) => map.set(ct.id, ct.charge_name));
+      setChargeNameMap(map);
+    } else {
+      setChargeNameMap(new Map());
+    }
+
     setLoadingLines(false);
   };
 
@@ -1564,7 +1585,7 @@ export default function Invoices() {
 
         {/* Invoice Lines Dialog */}
         <Dialog open={linesDialogOpen} onOpenChange={setLinesDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
+          <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-4xl max-h-[80vh] overflow-auto">
             <DialogHeader>
               <DialogTitle>Invoice Lines - {selectedInvoice?.invoice_number}</DialogTitle>
               <DialogDescription>
@@ -1592,27 +1613,39 @@ export default function Invoices() {
                     </Select>
                   </div>
                 </div>
-                <Table>
+                <div className="w-full overflow-x-auto">
+                <Table className="min-w-[720px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Service</TableHead>
                       <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Rate</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Qty</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Rate</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Total</TableHead>
                       {selectedInvoice && selectedInvoice.status !== 'paid' && (
                         <TableHead className="w-10"></TableHead>
                       )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedLines.map((line) => (
+                    {sortedLines.map((line) => {
+                      const serviceLabel =
+                        chargeNameMap.get((line as any).service_id) ||
+                        (line as any).charge_type ||
+                        (typeof line.description === 'string' ? line.description : '') ||
+                        '\u2014';
+                      const entityLabel =
+                        (line as any).task_id ? `Task: ${shortId((line as any).task_id)}` :
+                        line.item_id ? `Item: ${shortId(line.item_id)}` :
+                        (line as any).shipment_id ? `Shipment: ${shortId((line as any).shipment_id)}` :
+                        (typeof line.description === 'string' ? line.description : '\u2014');
+                      return (
                       <TableRow key={line.id}>
-                        <TableCell className="font-medium">{String(line.service_code)}</TableCell>
-                        <TableCell>{line.description || "-"}</TableCell>
-                        <TableCell className="text-right">{line.quantity}</TableCell>
-                        <TableCell className="text-right">${Number(line.unit_rate || 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-right font-semibold">${Number(line.total_amount || 0).toFixed(2)}</TableCell>
+                        <TableCell className="font-medium max-w-[240px] truncate">{serviceLabel}</TableCell>
+                        <TableCell className="max-w-[220px] truncate">{entityLabel}</TableCell>
+                        <TableCell className="text-right tabular-nums whitespace-nowrap">{line.quantity}</TableCell>
+                        <TableCell className="text-right tabular-nums whitespace-nowrap">${Number(line.unit_rate || 0).toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums whitespace-nowrap">${Number(line.total_amount || 0).toFixed(2)}</TableCell>
                         {selectedInvoice && selectedInvoice.status !== 'paid' && (
                           <TableCell>
                             <Button
@@ -1632,7 +1665,8 @@ export default function Invoices() {
                           </TableCell>
                         )}
                       </TableRow>
-                    ))}
+                      );
+                    })}
                     {!sortedLines.length && (
                       <TableRow>
                         <TableCell colSpan={selectedInvoice && selectedInvoice.status !== 'paid' ? 6 : 5} className="text-center py-8 text-muted-foreground">
@@ -1642,6 +1676,7 @@ export default function Invoices() {
                     )}
                   </TableBody>
                 </Table>
+                </div>
 
                 {/* Notes Section */}
                 <div className="mt-4 space-y-2">
@@ -1681,8 +1716,8 @@ export default function Invoices() {
             )}
             <DialogFooter className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-4 border-t gap-4">
               <div className="flex items-center gap-4">
-                <div className="text-lg font-semibold">
-                  Total: ${Number(selectedInvoice?.total || selectedInvoice?.subtotal || 0).toFixed(2)}
+                <div className="text-lg font-semibold tabular-nums whitespace-nowrap">
+                  Total: ${sortedLines.reduce((s, l) => s + Number((l as any).total_amount || 0), 0).toFixed(2)}
                 </div>
                 {selectedInvoice && selectedInvoice.status !== 'paid' && (
                   <Button

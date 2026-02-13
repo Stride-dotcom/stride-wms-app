@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { HelpTip } from '@/components/ui/help-tip';
-import { useInboundCandidates, type CandidateParams, type InboundCandidate } from '@/hooks/useInboundCandidates';
+import { useInboundCandidates, type CandidateParams, type InboundCandidate, type MatchTier } from '@/hooks/useInboundCandidates';
 import { useInboundLinks, type InboundLink } from '@/hooks/useInboundLinks';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -29,6 +29,16 @@ function confidenceBadgeVariant(score: number): 'default' | 'secondary' | 'outli
   if (score >= 80) return 'default';
   if (score >= 50) return 'secondary';
   return 'outline';
+}
+
+function tierLabel(tier: MatchTier): string {
+  switch (tier) {
+    case 'tier_1': return 'T1';
+    case 'tier_2': return 'T2';
+    case 'tier_3': return 'T3';
+    case 'unknown_account': return 'XA';
+    case 'no_match': return '—';
+  }
 }
 
 function formatDate(d: string | null | undefined): string {
@@ -227,6 +237,9 @@ export default function DockIntakeMatchingPanel({
                       </Badge>
                       <Badge variant={confidenceBadgeVariant(c.confidence_score)}>
                         {c.confidence_score}% — {c.confidence_label}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] font-mono">
+                        {tierLabel(c.match_tier)}
                       </Badge>
                       {c.item_match_count > 0 && (
                         <Badge variant="secondary" className="text-[10px] gap-0.5">

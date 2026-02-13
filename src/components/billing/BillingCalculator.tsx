@@ -872,8 +872,8 @@ export function BillingCalculator({
                       <span className="text-muted-foreground italic text-xs">No rate</span>
                     ) : (
                       <>
-                        <span className="text-muted-foreground">{formatCurrency(item.unitRate)}</span>
-                        <span className="font-medium min-w-[70px] text-right">{formatCurrency(item.totalAmount)}</span>
+                        <span className="text-muted-foreground tabular-nums whitespace-nowrap">{formatCurrency(item.unitRate)}</span>
+                        <span className="font-medium min-w-[70px] text-right tabular-nums whitespace-nowrap">{formatCurrency(item.totalAmount)}</span>
                       </>
                     )}
                   </div>
@@ -937,8 +937,8 @@ export function BillingCalculator({
                       )}
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-muted-foreground">{formatCurrency(data.rate)}</span>
-                      <span className="font-medium min-w-[70px] text-right">{formatCurrency(data.total)}</span>
+                      <span className="text-muted-foreground tabular-nums whitespace-nowrap">{formatCurrency(data.rate)}</span>
+                      <span className="font-medium min-w-[70px] text-right tabular-nums whitespace-nowrap">{formatCurrency(data.total)}</span>
                     </div>
                   </div>
                 ));
@@ -963,10 +963,10 @@ export function BillingCalculator({
               {existingEvents.map((event) => {
                 const hasMissingRate = event.unit_rate === null || event.unit_rate === undefined;
                 return (
-                  <div key={event.id} className={`flex items-center justify-between py-1.5 text-sm ${hasMissingRate ? 'bg-red-50 dark:bg-red-950/20 -mx-2 px-2 rounded' : ''}`}>
+                  <div key={event.id} className={`flex items-center justify-between py-1.5 text-sm ${hasMissingRate ? 'bg-red-50 dark:bg-red-950/20 -mx-2 px-2 rounded' : event.status === 'void' ? 'opacity-50' : ''}`}>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="truncate">{event.charge_type}</span>
+                        <span className="truncate">{event.charge_type || event.description || '\u2014'}</span>
                         <Badge
                           variant={event.status === 'invoiced' ? 'default' : 'secondary'}
                           className="text-[10px] px-1"
@@ -990,11 +990,11 @@ export function BillingCalculator({
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       {hasMissingRate ? (
-                        <span className="text-red-600 font-medium text-xs">Set rate to invoice</span>
+                        <span className="text-red-600 font-medium text-xs whitespace-nowrap">Set rate to invoice</span>
                       ) : (
-                        <span className="font-medium">
+                        <span className={`font-medium tabular-nums whitespace-nowrap min-w-[70px] text-right${event.status === 'void' ? ' line-through' : ''}`}>
                           {formatCurrency(event.total_amount || (event.unit_rate || 0) * event.quantity)}
                         </span>
                       )}
@@ -1034,14 +1034,14 @@ export function BillingCalculator({
           {/* Total */}
           <div className="flex items-center justify-between pt-3 border-t">
             <span className="text-sm font-semibold">Total</span>
-            <span className={`text-lg font-bold ${waiveCharges ? 'text-muted-foreground line-through' : 'text-primary'}`}>
+            <span className={`text-lg font-bold tabular-nums whitespace-nowrap ${waiveCharges ? 'text-muted-foreground line-through' : 'text-primary'}`}>
               {formatCurrency(grandTotal)}
             </span>
           </div>
 
           {/* Breakdown */}
           {!waiveCharges && (existingEventsTotal > 0 || (showPreview && previewTotal > 0)) && (
-            <div className="text-xs text-muted-foreground text-right space-x-2">
+            <div className="text-xs text-muted-foreground text-right space-x-2 tabular-nums whitespace-nowrap">
               {showPreview && previewTotal > 0 && <span>Preview: {formatCurrency(previewTotal)}</span>}
               {existingEventsTotal > 0 && <span>Recorded: {formatCurrency(existingEventsTotal)}</span>}
             </div>

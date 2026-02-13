@@ -68,6 +68,7 @@ interface Stage2DetailedReceivingProps {
     signed_pieces: number | null;
     vendor_name: string | null;
     sidemark_id: string | null;
+    shipment_exception_type?: string | null;
   };
   onComplete: () => void;
   onRefresh: () => void;
@@ -120,6 +121,11 @@ export function Stage2DetailedReceiving({
   // Admin override
   const [showAdminOverride, setShowAdminOverride] = useState(false);
   const [overrideReason, setOverrideReason] = useState('');
+
+  // Container placement prompt
+  const [containerPromptItemId, setContainerPromptItemId] = useState<string | null>(null);
+  const [containerPromptQty, setContainerPromptQty] = useState(0);
+  const [customContainerCount, setCustomContainerCount] = useState(2);
 
   // Completing
   const [completing, setCompleting] = useState(false);
@@ -206,9 +212,22 @@ export function Stage2DetailedReceiving({
       const updated = prev.map(i => (i.id === id ? { ...i, [field]: value } : i));
       if (field === 'received_quantity') {
         updateReceivedPieces(updated);
+        // Show container placement prompt when qty > 1
+        const qty = value as number;
+        if (qty > 1) {
+          setContainerPromptItemId(id);
+          setContainerPromptQty(qty);
+          setCustomContainerCount(Math.min(qty, 2));
+        }
       }
       return updated;
     });
+  };
+
+  // Container placement handlers
+  const applyContainerChoice = (itemId: string, packages: number) => {
+    setItems(prev => prev.map(i => (i.id === itemId ? { ...i, packages } : i)));
+    setContainerPromptItemId(null);
   };
 
   // Remove item (allocation-aware)
@@ -401,6 +420,13 @@ export function Stage2DetailedReceiving({
             continue;
           }
 
+          // If the shipment is flagged MIS_SHIP or RETURN_TO_SENDER, quarantine units
+          const unitStatus =
+            shipment.shipment_exception_type === 'MIS_SHIP' ||
+            shipment.shipment_exception_type === 'RETURN_TO_SENDER'
+              ? 'QUARANTINE'
+              : 'active';
+
           const { data: unit, error: unitErr } = await (supabase as any)
             .from('inventory_units')
             .insert({
@@ -410,7 +436,7 @@ export function Stage2DetailedReceiving({
               location_id: receivingLocationId,
               shipment_id: shipmentId,
               shipment_item_id: shipmentItemId,
-              status: 'active',
+              status: unitStatus,
               created_by: profile.id,
             })
             .select('id')
@@ -689,7 +715,12 @@ export function Stage2DetailedReceiving({
                     <TableHead>Description</TableHead>
                     <TableHead className="w-20 text-right">Expected</TableHead>
                     <TableHead className="w-24 text-right">Received</TableHead>
-                    <TableHead className="w-20">Packages</TableHead>
+                    <TableHead className="w-20">
+                      <span className="flex items-center gap-1">
+                        Pkg
+                        <HelpTip tooltip="Number of containers. 0 = no containers, 1 = single container for all units, 2+ = split across containers. Set automatically by the placement prompt." />
+                      </span>
+                    </TableHead>
                     <TableHead className="w-20">Source</TableHead>
                     <TableHead className="w-16"></TableHead>
                   </TableRow>
@@ -826,6 +857,85 @@ export function Stage2DetailedReceiving({
               Complete
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Container Placement Dialog */}
+      <Dialog
+        open={!!containerPromptItemId}
+        onOpenChange={(open) => { if (!open) setContainerPromptItemId(null); }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MaterialIcon name="package_2" size="sm" />
+              Container Placement
+            </DialogTitle>
+            <DialogDescription>
+              You're receiving {containerPromptQty} units. How should they be containerized?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3 h-auto py-3"
+              onClick={() => containerPromptItemId && applyContainerChoice(containerPromptItemId, 1)}
+            >
+              <MaterialIcon name="inbox" size="sm" className="text-primary" />
+              <div className="text-left">
+                <div className="font-medium">All in 1 container</div>
+                <div className="text-xs text-muted-foreground">
+                  {containerPromptQty} units grouped in a single container
+                </div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3 h-auto py-3"
+              onClick={() => containerPromptItemId && applyContainerChoice(containerPromptItemId, containerPromptQty)}
+            >
+              <MaterialIcon name="grid_view" size="sm" className="text-primary" />
+              <div className="text-left">
+                <div className="font-medium">{containerPromptQty} separate containers</div>
+                <div className="text-xs text-muted-foreground">
+                  1 unit per container
+                </div>
+              </div>
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 justify-start gap-3 h-auto py-3"
+                onClick={() => containerPromptItemId && applyContainerChoice(containerPromptItemId, customContainerCount)}
+              >
+                <MaterialIcon name="tune" size="sm" className="text-primary" />
+                <div className="text-left">
+                  <div className="font-medium">Custom</div>
+                  <div className="text-xs text-muted-foreground">Split across containers</div>
+                </div>
+              </Button>
+              <Input
+                type="number"
+                min={2}
+                max={containerPromptQty}
+                value={customContainerCount}
+                onChange={(e) => setCustomContainerCount(Math.max(2, Math.min(containerPromptQty, parseInt(e.target.value) || 2)))}
+                className="w-20 h-10"
+              />
+            </div>
+            <Separator />
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-auto py-3 text-muted-foreground"
+              onClick={() => containerPromptItemId && applyContainerChoice(containerPromptItemId, 0)}
+            >
+              <MaterialIcon name="close" size="sm" />
+              <div className="text-left">
+                <div className="font-medium">No containers</div>
+                <div className="text-xs text-muted-foreground">Units stored individually without containers</div>
+              </div>
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

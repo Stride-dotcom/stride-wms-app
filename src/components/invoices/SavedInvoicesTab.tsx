@@ -496,28 +496,28 @@ export function SavedInvoicesTab() {
           <CardContent className="pt-4">
             <div className="text-sm text-muted-foreground">Draft</div>
             <div className="text-2xl font-bold text-blue-600">{summary.draft.count}</div>
-            <div className="text-sm text-muted-foreground">${summary.draft.total.toFixed(2)}</div>
+            <div className="text-sm text-muted-foreground tabular-nums whitespace-nowrap">${summary.draft.total.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="text-sm text-muted-foreground">Sent</div>
             <div className="text-2xl font-bold text-green-600">{summary.sent.count}</div>
-            <div className="text-sm text-muted-foreground">${summary.sent.total.toFixed(2)}</div>
+            <div className="text-sm text-muted-foreground tabular-nums whitespace-nowrap">${summary.sent.total.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="text-sm text-muted-foreground">Paid</div>
             <div className="text-2xl font-bold text-emerald-600">{summary.paid.count}</div>
-            <div className="text-sm text-muted-foreground">${summary.paid.total.toFixed(2)}</div>
+            <div className="text-sm text-muted-foreground tabular-nums whitespace-nowrap">${summary.paid.total.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="text-sm text-muted-foreground">Total Active</div>
             <div className="text-2xl font-bold">{summary.total.count}</div>
-            <div className="text-sm text-muted-foreground">${summary.total.total.toFixed(2)}</div>
+            <div className="text-sm text-muted-foreground tabular-nums whitespace-nowrap">${summary.total.total.toFixed(2)}</div>
           </CardContent>
         </Card>
       </div>
@@ -702,7 +702,7 @@ export function SavedInvoicesTab() {
                       )}
                     </TableCell>
                     <TableCell>{getStatusBadge(invoice.status || 'draft')}</TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right font-medium tabular-nums whitespace-nowrap">
                       ${Number(invoice.total_amount || 0).toFixed(2)}
                     </TableCell>
                     <TableCell>
@@ -782,7 +782,7 @@ export function SavedInvoicesTab() {
                 </div>
                 <div>
                   <div className="text-muted-foreground">Total</div>
-                  <div className="font-medium text-lg">${Number(selectedInvoice?.total_amount || 0).toFixed(2)}</div>
+                  <div className="font-medium text-lg tabular-nums">${Number(selectedInvoice?.total_amount || 0).toFixed(2)}</div>
                 </div>
               </div>
 
