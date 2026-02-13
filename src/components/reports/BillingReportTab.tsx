@@ -1382,7 +1382,7 @@ export function BillingReportTab() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Unbilled</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-600">${stats.unbilled.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-amber-600 tabular-nums">${stats.unbilled.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -1390,7 +1390,7 @@ export function BillingReportTab() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Invoiced</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">${stats.invoiced.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-green-600 tabular-nums">${stats.invoiced.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -1398,7 +1398,7 @@ export function BillingReportTab() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Voided</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">${stats.voided.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-red-600 tabular-nums">${stats.voided.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -1406,7 +1406,7 @@ export function BillingReportTab() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Active</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.total.toFixed(2)}</div>
+            <div className="text-2xl font-bold tabular-nums">${stats.total.toFixed(2)}</div>
           </CardContent>
         </Card>
       </div>
@@ -2241,7 +2241,7 @@ export function BillingReportTab() {
               Void selected charges?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will mark {selectedRows.size} billing event{selectedRows.size !== 1 ? 's' : ''} as void. This can't be undone.
+              This will mark {selectedRows.size} billing event{selectedRows.size !== 1 ? 's' : ''} as void. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
