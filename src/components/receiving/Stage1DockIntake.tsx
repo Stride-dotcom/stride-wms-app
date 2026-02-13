@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { AutosaveIndicator } from './AutosaveIndicator';
 import { useReceivingAutosave } from '@/hooks/useReceivingAutosave';
+import { BigCounter } from './BigCounter';
 import { useShipmentPhotos, type ShipmentPhoto } from '@/hooks/useShipmentPhotos';
 import { useReceivingDiscrepancies, type DiscrepancyType } from '@/hooks/useReceivingDiscrepancies';
 import { SignaturePad } from '@/components/shipments/SignaturePad';
@@ -309,32 +310,34 @@ export function Stage1DockIntake({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="vendor_name">
-                Vendor Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="vendor_name"
-                placeholder="Enter vendor name"
-                value={vendorName}
-                onChange={(e) => handleVendorNameChange(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
+          <div className="space-y-2">
+            <Label htmlFor="vendor_name">
+              Vendor Name <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="vendor_name"
+              placeholder="Enter vendor name"
+              value={vendorName}
+              onChange={(e) => handleVendorNameChange(e.target.value)}
+            />
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-1 justify-center">
               <Label htmlFor="signed_pieces">
                 Signed Pieces <span className="text-red-500">*</span>
-                <HelpTip tooltip="The number of pieces counted and signed for at the dock. This is the authoritative piece count." />
               </Label>
-              <Input
-                id="signed_pieces"
-                type="number"
-                min={0}
-                placeholder="0"
-                value={signedPieces || ''}
-                onChange={(e) => handleSignedPiecesChange(parseInt(e.target.value) || 0)}
-              />
+              <HelpTip tooltip="The number of pieces counted and signed for at the dock. Tap the number to type a value directly, or use +/- buttons." />
             </div>
+            <BigCounter
+              id="signed_pieces"
+              value={signedPieces}
+              onChange={handleSignedPiecesChange}
+              min={0}
+              step={1}
+            />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
