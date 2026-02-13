@@ -167,7 +167,7 @@ export function SavedInvoicesTab() {
         invoice.period_end,
         invoice.status,
         invoice.subtotal?.toString(),
-        invoice.total?.toString(),
+        invoice.total_amount?.toString(),
         invoice.notes,
       ];
 
@@ -210,8 +210,8 @@ export function SavedInvoicesTab() {
           bVal = new Date(b.created_at || 0).getTime();
           break;
         case 'total':
-          aVal = Number(a.total || 0);
-          bVal = Number(b.total || 0);
+          aVal = Number(a.total_amount || 0);
+          bVal = Number(b.total_amount || 0);
           break;
         case 'status':
           aVal = a.status || '';
@@ -241,12 +241,12 @@ export function SavedInvoicesTab() {
     const paid = filteredInvoices.filter(i => i.status === 'paid');
 
     return {
-      draft: { count: draft.length, total: draft.reduce((s, i) => s + Number(i.total || 0), 0) },
-      sent: { count: sent.length, total: sent.reduce((s, i) => s + Number(i.total || 0), 0) },
-      paid: { count: paid.length, total: paid.reduce((s, i) => s + Number(i.total || 0), 0) },
+      draft: { count: draft.length, total: draft.reduce((s, i) => s + Number(i.total_amount || 0), 0) },
+      sent: { count: sent.length, total: sent.reduce((s, i) => s + Number(i.total_amount || 0), 0) },
+      paid: { count: paid.length, total: paid.reduce((s, i) => s + Number(i.total_amount || 0), 0) },
       total: {
         count: filteredInvoices.filter(i => i.status !== 'void').length,
-        total: filteredInvoices.filter(i => i.status !== 'void').reduce((s, i) => s + Number(i.total || 0), 0)
+        total: filteredInvoices.filter(i => i.status !== 'void').reduce((s, i) => s + Number(i.total_amount || 0), 0)
       },
     };
   }, [filteredInvoices]);
@@ -336,7 +336,7 @@ export function SavedInvoicesTab() {
         accountName: account.account_name,
         periodStart: invoice.period_start || '',
         periodEnd: invoice.period_end || '',
-        total: Number(invoice.total || 0),
+        total: Number(invoice.total_amount || 0),
         lineCount: lines.length,
       });
 
@@ -383,7 +383,7 @@ export function SavedInvoicesTab() {
       })),
       subtotal: Number(invoice.subtotal || 0),
       taxAmount: Number(invoice.tax_amount || 0),
-      total: Number(invoice.total || 0),
+      total: Number(invoice.total_amount || 0),
       notes: invoice.notes || '',
     };
 
@@ -426,7 +426,7 @@ export function SavedInvoicesTab() {
             accountName: account.account_name,
             periodStart: invoice.period_start || '',
             periodEnd: invoice.period_end || '',
-            total: Number(invoice.total || 0),
+            total: Number(invoice.total_amount || 0),
             lineCount: lines.length,
           });
 
@@ -461,7 +461,7 @@ export function SavedInvoicesTab() {
       'Status': inv.status || '',
       'Subtotal': Number(inv.subtotal || 0).toFixed(2),
       'Tax': Number(inv.tax_amount || 0).toFixed(2),
-      'Total': Number(inv.total || 0).toFixed(2),
+      'Total': Number(inv.total_amount || 0).toFixed(2),
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -703,7 +703,7 @@ export function SavedInvoicesTab() {
                     </TableCell>
                     <TableCell>{getStatusBadge(invoice.status || 'draft')}</TableCell>
                     <TableCell className="text-right font-medium">
-                      ${Number(invoice.total || 0).toFixed(2)}
+                      ${Number(invoice.total_amount || 0).toFixed(2)}
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
@@ -782,31 +782,31 @@ export function SavedInvoicesTab() {
                 </div>
                 <div>
                   <div className="text-muted-foreground">Total</div>
-                  <div className="font-medium text-lg">${Number(selectedInvoice?.total || 0).toFixed(2)}</div>
+                  <div className="font-medium text-lg">${Number(selectedInvoice?.total_amount || 0).toFixed(2)}</div>
                 </div>
               </div>
 
-              <div className="border rounded-lg overflow-auto">
+              <div className="border rounded-lg overflow-auto max-w-full">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Sidemark</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Rate</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="whitespace-nowrap">Date</TableHead>
+                      <TableHead className="min-w-[200px]">Description</TableHead>
+                      <TableHead className="whitespace-nowrap">Sidemark</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Qty</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Rate</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {invoiceLines.map(line => (
                       <TableRow key={line.id}>
-                        <TableCell>{(line.occurred_at as string)?.slice(0, 10) || '-'}</TableCell>
-                        <TableCell>{(line.description as string) || (line.charge_type as string) || '-'}</TableCell>
+                        <TableCell className="whitespace-nowrap">{(line.occurred_at as string)?.slice(0, 10) || '-'}</TableCell>
+                        <TableCell className="max-w-[300px] break-words">{(line.description as string) || (line.charge_type as string) || '-'}</TableCell>
                         <TableCell>{(line.sidemark_name as string) || '-'}</TableCell>
-                        <TableCell className="text-right">{line.quantity}</TableCell>
-                        <TableCell className="text-right">${Number(line.unit_rate || 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${Number(line.total_amount || 0).toFixed(2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{line.quantity}</TableCell>
+                        <TableCell className="text-right tabular-nums">${Number(line.unit_rate || 0).toFixed(2)}</TableCell>
+                        <TableCell className="text-right tabular-nums font-medium">${Number(line.total_amount || 0).toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
