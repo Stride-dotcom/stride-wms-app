@@ -3379,6 +3379,45 @@ export type Database = {
           },
         ]
       }
+      communication_trigger_catalog: {
+        Row: {
+          id: string
+          key: string
+          display_name: string
+          description: string | null
+          module_group: string
+          audience: string
+          default_channels: string[]
+          severity: string
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          display_name: string
+          description?: string | null
+          module_group: string
+          audience?: string
+          default_channels?: string[]
+          severity?: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          display_name?: string
+          description?: string | null
+          module_group?: string
+          audience?: string
+          default_channels?: string[]
+          severity?: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
       communication_templates: {
         Row: {
           alert_id: string
