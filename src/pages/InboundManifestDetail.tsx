@@ -193,7 +193,7 @@ export default function InboundManifestDetail() {
     if (!profile?.tenant_id || !id) return;
     try {
       setAddingItem(true);
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('shipment_items')
         .insert({
           tenant_id: profile.tenant_id,
@@ -204,7 +204,7 @@ export default function InboundManifestDetail() {
           room: addItemRoom || null,
           expected_quantity: Number(addItemQty) || 1,
           notes: addItemNotes || null,
-        } as Record<string, unknown>);
+        });
       if (error) throw error;
       toast({ title: 'Item Added' });
       setShowAddItemDialog(false);

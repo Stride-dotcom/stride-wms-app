@@ -355,7 +355,7 @@ export default function IncomingManager() {
         dock_intake: 'draft',
       };
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('shipments')
         .insert({
           tenant_id: profile.tenant_id,
@@ -364,7 +364,7 @@ export default function IncomingManager() {
           inbound_kind: kind,
           inbound_status: statusMap[kind],
           created_by: profile.id,
-        } as Record<string, unknown>)
+        })
         .select('id')
         .single();
 

@@ -88,7 +88,7 @@ export default function ExpectedShipmentDetail() {
   const handleEditHeader = () => {
     if (!shipment) return;
     setHeaderVendor(shipment.vendor_name || '');
-    setHeaderCarrier((shipment as Record<string, unknown>).carrier_name as string || '');
+    setHeaderCarrier((shipment as any).carrier_name as string || '');
     setHeaderEtaStart(shipment.eta_start ? String(shipment.eta_start).split('T')[0] : '');
     setHeaderEtaEnd(shipment.eta_end ? String(shipment.eta_end).split('T')[0] : '');
     setHeaderPieces(shipment.expected_pieces?.toString() || '');
@@ -128,7 +128,7 @@ export default function ExpectedShipmentDetail() {
     if (!profile?.tenant_id || !id) return;
     try {
       setAddingItem(true);
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('shipment_items')
         .insert({
           tenant_id: profile.tenant_id,
@@ -139,7 +139,7 @@ export default function ExpectedShipmentDetail() {
           room: addItemRoom || null,
           expected_quantity: Number(addItemQty) || 1,
           notes: addItemNotes || null,
-        } as Record<string, unknown>);
+        });
       if (error) throw error;
       toast({ title: 'Item Added' });
       setShowAddItemDialog(false);
@@ -186,7 +186,7 @@ export default function ExpectedShipmentDetail() {
   }
 
   const displayRefs = refs.length > 0 ? refs : shipmentRefs;
-  const carrierName = (shipment as Record<string, unknown>).carrier_name as string | null;
+  const carrierName = (shipment as any).carrier_name as string | null;
 
   return (
     <DashboardLayout>
