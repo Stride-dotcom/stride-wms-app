@@ -53,9 +53,8 @@ export function CapacityCard({ warehouseId }: CapacityCardProps) {
         );
 
         if (measuredIds.length > 0) {
-          const { data: cacheData, error: cacheError } = await (
-            supabase.from('location_capacity_cache') as any
-          )
+          const { data: cacheData, error: cacheError } = await (supabase as any)
+            .from('location_capacity_cache')
             .select('used_cuft')
             .in('location_id', measuredIds);
 

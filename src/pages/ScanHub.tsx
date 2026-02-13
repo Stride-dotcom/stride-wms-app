@@ -341,8 +341,8 @@ export default function ScanHub() {
       destFlagCompliant = destSuggestion.flag_compliant;
     } else {
       // Strategy (b): Query location_capacity_cache + locations for non-suggested destination
-      const { data: cacheData } = await (supabase
-        .from('location_capacity_cache') as any)
+      const { data: cacheData } = await (supabase as any)
+        .from('location_capacity_cache')
         .select('used_cuft, available_cuft, utilization_pct')
         .eq('location_id', destLocationId)
         .maybeSingle();
