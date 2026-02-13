@@ -20,6 +20,7 @@ export interface Invoice {
   subtotal?: number;
   tax_total?: number;
   total?: number;
+  total_amount?: number;
   notes?: string | null;
   created_by?: string | null;
   created_at: string;

@@ -229,7 +229,7 @@ export function InvoiceDetailDialog({
                     <TableRow key={line.id}>
                       <TableCell className="text-sm">{line.occurred_at?.slice(0, 10) || '-'}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-xs">{line.charge_type}</Badge>
+                        <Badge variant="outline" className="text-xs">{line.charge_type || line.description || '\u2014'}</Badge>
                       </TableCell>
                       <TableCell className="text-sm">{line.description || '-'}</TableCell>
                       <TableCell className="text-right">{line.quantity}</TableCell>
