@@ -1654,14 +1654,14 @@ export default function TaskDetailPage() {
                   const total = parseFloat(rateAmount) * qty;
                   return (
                     <div key={event.id} className="flex justify-between text-sm mt-1 text-blue-700 dark:text-blue-300">
-                      <span>{event.charge_type} × {qty}</span>
-                      <span className="font-medium">${total.toFixed(2)}</span>
+                      <span className="truncate mr-2">{event.charge_type || '\u2014'} × {qty}</span>
+                      <span className="font-medium tabular-nums whitespace-nowrap">${total.toFixed(2)}</span>
                     </div>
                   );
                 })}
                 <div className="border-t border-blue-200 mt-2 pt-2 flex justify-between font-medium text-blue-800 dark:text-blue-200">
                   <span>Total</span>
-                  <span>
+                  <span className="tabular-nums whitespace-nowrap">
                     ${pendingRateBillingEvents.reduce((sum, e) => sum + parseFloat(rateAmount) * (e.quantity || 1), 0).toFixed(2)}
                   </span>
                 </div>
