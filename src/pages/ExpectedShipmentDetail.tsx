@@ -131,7 +131,6 @@ export default function ExpectedShipmentDetail() {
       const { error } = await (supabase as any)
         .from('shipment_items')
         .insert({
-          tenant_id: profile.tenant_id,
           shipment_id: id,
           expected_description: addItemDesc || null,
           expected_vendor: addItemVendor || null,
