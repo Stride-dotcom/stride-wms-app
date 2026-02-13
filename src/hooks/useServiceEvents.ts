@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { queueBillingEventAlert } from '@/lib/alertQueue';
 import { logItemActivity } from '@/lib/activity/logItemActivity';
+import { createEventRaw } from '@/services/billing';
 import {
   getEffectiveRate,
   mapUnitToLegacy,
@@ -359,9 +360,7 @@ export function useServiceEvents() {
             { item_code: item.item_code }
           );
 
-          const { data: billingEvent, error } = await (supabase
-            .from('billing_events') as any)
-            .insert({
+          const result = await createEventRaw({
               tenant_id: profile.tenant_id,
               account_id: item.account_id,
               item_id: item.id,
@@ -376,12 +375,10 @@ export function useServiceEvents() {
               has_rate_error: rateInfo.hasError,
               rate_error_message: rateInfo.errorMessage,
               calculation_metadata: metadata,
-            })
-            .select('id')
-            .single();
+            } as any);
 
-          if (error) {
-            console.error('[useServiceEvents] Failed to create billing event:', error);
+          if (!result.success) {
+            console.error('[useServiceEvents] Failed to create billing event:', result.error);
             errorCount++;
           } else {
             successCount++;
@@ -397,10 +394,10 @@ export function useServiceEvents() {
             });
 
             // Queue alert if service has email_office alert rule
-            if (rateInfo.alertRule === 'email_office' && billingEvent?.id) {
+            if (rateInfo.alertRule === 'email_office' && result.billingEventId) {
               await queueBillingEventAlert(
                 profile.tenant_id,
-                billingEvent.id,
+                result.billingEventId,
                 rateInfo.serviceName,
                 item.item_code,
                 item.account_name || 'Unknown Account',

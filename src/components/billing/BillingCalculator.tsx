@@ -65,6 +65,7 @@ import {
   BillingPreview,
 } from '@/lib/billing/billingCalculation';
 import { logActivity, logBillingActivity } from '@/lib/activity/logActivity';
+import { voidCharge, voidBillingEventWithMetadataMerge } from '@/services/billing';
 
 // ============================================================================
 // WAIVE REASONS
@@ -407,13 +408,9 @@ export function BillingCalculator({
 
     setIsVoiding(true);
     try {
-      const { error } = await supabase
-        .from('billing_events')
-        .update({ status: 'void' })
-        .eq('id', voidingEventId)
-        .eq('status', 'unbilled'); // Only void unbilled charges
+      const result = await voidCharge(voidingEventId); // Only voids unbilled charges (guarded)
 
-      if (error) throw error;
+      if (!result.success) throw new Error('Failed to void charge');
 
       toast({
         title: 'Charge voided',
@@ -530,23 +527,16 @@ export function BillingCalculator({
 
       if (unbilledEvents && unbilledEvents.length > 0) {
         for (const event of unbilledEvents) {
-          const voidMetadata = {
-            ...(event.metadata || {}),
-            void_reason: 'waived',
-            waived_by: profile.id,
-            waived_at: new Date().toISOString(),
-            waive_reason: waiveModalReason,
-            waive_notes: waiveModalNotes.trim() || null,
-          };
-
-          await (supabase
-            .from('billing_events') as any)
-            .update({
-              status: 'void',
-              metadata: voidMetadata,
-            })
-            .eq('id', event.id)
-            .eq('status', 'unbilled');
+          await voidBillingEventWithMetadataMerge({
+            eventId: event.id,
+            metadataMerge: {
+              void_reason: 'waived',
+              waived_by: profile.id,
+              waived_at: new Date().toISOString(),
+              waive_reason: waiveModalReason,
+              waive_notes: waiveModalNotes.trim() || null,
+            },
+          });
         }
       }
 

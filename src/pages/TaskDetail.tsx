@@ -55,6 +55,7 @@ import { validateTaskCompletion, TaskCompletionValidationResult } from '@/lib/bi
 import { logItemActivity } from '@/lib/activity/logItemActivity';
 import { queueRepairUnableToCompleteAlert } from '@/lib/alertQueue';
 import { resolveRepairTaskTypeId, fetchRepairTaskTypeDetails } from '@/lib/tasks/resolveRepairTaskType';
+import { updateBillingEventFields } from '@/services/billing';
 
 interface TaskDetail {
   id: string;
@@ -330,12 +331,9 @@ export default function TaskDetailPage() {
           };
         }
 
-        const { error } = await (supabase
-          .from('billing_events') as any)
-          .update(updateData)
-          .eq('id', event.id);
+        const result = await updateBillingEventFields({ eventId: event.id, patch: updateData });
 
-        if (error) throw error;
+        if (!result.success) throw new Error(result.error);
       }
 
       toast({

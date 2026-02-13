@@ -54,6 +54,7 @@ import { PushToQuickBooksButton } from '@/components/billing/PushToQuickBooksBut
 import { ApplyPromoDialog } from '@/components/billing/ApplyPromoDialog';
 import { BillingEventForSync } from '@/hooks/useQuickBooks';
 import { useInvoices } from '@/hooks/useInvoices';
+import { createEventsRaw, updateBillingEventStatus as updateBillingEventStatusGateway } from '@/services/billing';
 
 interface BillingEvent {
   id: string;
@@ -646,11 +647,9 @@ export default function BillingReports() {
         created_by: profile.id,
       }));
 
-      const { error } = await supabase
-        .from('billing_events')
-        .insert(eventsToInsert);
+      const insertResult = await createEventsRaw(eventsToInsert as any);
 
-      if (error) throw error;
+      if (!insertResult.success) throw new Error(insertResult.error);
 
       toast({
         title: 'Storage events created',
@@ -684,12 +683,9 @@ export default function BillingReports() {
   const updateBillingEventStatus = async (eventId: string, newStatus: string) => {
     setUpdatingStatus(eventId);
     try {
-      const { error } = await supabase
-        .from('billing_events')
-        .update({ status: newStatus })
-        .eq('id', eventId);
+      const result = await updateBillingEventStatusGateway({ eventId, status: newStatus });
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
 
       toast({
         title: 'Status Updated',
