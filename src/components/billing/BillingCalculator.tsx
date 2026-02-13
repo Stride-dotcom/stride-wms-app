@@ -186,9 +186,9 @@ export function BillingCalculator({
     hasRole('admin') ||
     hasRole('owner');
 
-  // BUILD-38: Waive toggle permissions (admin/tenant_admin/manager)
+  // BUILD-38: Waive toggle permissions (admin/tenant_admin/manager/admin_dev)
   const canWaiveCharges =
-    hasRole('admin') || hasRole('tenant_admin') || hasRole('manager');
+    isAdmin || hasRole('admin') || hasRole('tenant_admin') || hasRole('manager') || hasRole('admin_dev');
 
   // Determine context
   const isTask = !!taskId;
