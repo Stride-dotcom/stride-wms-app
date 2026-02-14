@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,10 +51,25 @@ function validateE164(phone: string): string | null {
   return null;
 }
 
+function normalizeUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  return withProtocol.replace(/\/+$/, '');
+}
+
+function isHttpsUrl(raw: string): boolean {
+  if (!raw.trim()) return false;
+  try {
+    const parsed = new URL(normalizeUrl(raw));
+    return parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export function TwilioSmsCard({ settings, tenantId, onUpdate }: TwilioSmsCardProps) {
   const { toast } = useToast();
-  const baseUrl = (settings?.app_base_url || window.location.origin).replace(/\/+$/, '');
-  const suggestedProofOfConsentUrl = `${baseUrl}/sms-opt-in?t=${tenantId}`;
 
   // --- Local form state ---
   const [smsEnabled, setSmsEnabled] = useState(false);
@@ -89,6 +104,41 @@ export function TwilioSmsCard({ settings, tenantId, onUpdate }: TwilioSmsCardPro
 
   // --- Validation errors ---
   const [errors, setErrors] = useState<Record<string, string | null>>({});
+
+  const generatedOptInUrl = useMemo(() => {
+    if (!tenantId) return '';
+    const configuredBase = settings?.app_base_url ? normalizeUrl(settings.app_base_url) : '';
+    const fallbackBase = typeof window !== 'undefined' ? normalizeUrl(window.location.origin) : '';
+    const baseUrl = configuredBase || fallbackBase;
+    return baseUrl ? `${baseUrl}/sms/opt-in/${tenantId}` : '';
+  }, [settings?.app_base_url, tenantId]);
+
+  const effectiveProofOfConsentUrl = proofOfConsentUrl.trim() || generatedOptInUrl;
+
+  const readinessItems = useMemo(
+    () => [
+      { id: 'proof', label: 'Public opt-in workflow URL (HTTPS)', ready: isHttpsUrl(effectiveProofOfConsentUrl) },
+      { id: 'privacy', label: 'Privacy policy URL (HTTPS)', ready: isHttpsUrl(privacyPolicyUrl) },
+      { id: 'terms', label: 'Terms & conditions URL (HTTPS)', ready: isHttpsUrl(termsConditionsUrl) },
+      { id: 'opt-in', label: 'Opt-in confirmation message', ready: Boolean(optInMessage.trim()) },
+      { id: 'help', label: 'HELP response message', ready: Boolean(helpMessage.trim()) },
+      { id: 'stop', label: 'STOP response message', ready: Boolean(stopMessage.trim()) },
+      { id: 'sample', label: 'Sample outbound message', ready: Boolean(sampleMessage.trim()) },
+      { id: 'use-case', label: 'Use case description', ready: Boolean(useCaseDescription.trim()) },
+    ],
+    [
+      effectiveProofOfConsentUrl,
+      privacyPolicyUrl,
+      termsConditionsUrl,
+      optInMessage,
+      helpMessage,
+      stopMessage,
+      sampleMessage,
+      useCaseDescription,
+    ]
+  );
+  const readyCount = readinessItems.filter((item) => item.ready).length;
+  const checklistComplete = readyCount === readinessItems.length;
 
   // Load from settings
   useEffect(() => {
@@ -207,6 +257,25 @@ export function TwilioSmsCard({ settings, tenantId, onUpdate }: TwilioSmsCardPro
   };
 
   const handleSaveVerification = async () => {
+    const missingRequired: string[] = [];
+    if (!isHttpsUrl(effectiveProofOfConsentUrl)) missingRequired.push('Public opt-in workflow URL');
+    if (!isHttpsUrl(privacyPolicyUrl)) missingRequired.push('Privacy policy URL');
+    if (!isHttpsUrl(termsConditionsUrl)) missingRequired.push('Terms & conditions URL');
+    if (!optInMessage.trim()) missingRequired.push('Opt-in confirmation message');
+    if (!helpMessage.trim()) missingRequired.push('Help message');
+    if (!stopMessage.trim()) missingRequired.push('Stop message');
+    if (!useCaseDescription.trim()) missingRequired.push('Use case description');
+    if (!sampleMessage.trim()) missingRequired.push('Sample message');
+
+    if (missingRequired.length > 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Missing Twilio verification fields',
+        description: `Complete: ${missingRequired.slice(0, 3).join(', ')}${missingRequired.length > 3 ? ', ...' : ''}`,
+      });
+      return;
+    }
+
     setVerificationSaving(true);
     try {
       const success = await onUpdate({
@@ -214,19 +283,22 @@ export function TwilioSmsCard({ settings, tenantId, onUpdate }: TwilioSmsCardPro
         sms_help_message: helpMessage || null,
         sms_stop_message: stopMessage || null,
         sms_opt_in_keywords: optInKeywords || null,
-        sms_privacy_policy_url: privacyPolicyUrl || null,
-        sms_terms_conditions_url: termsConditionsUrl || null,
+        sms_privacy_policy_url: privacyPolicyUrl ? normalizeUrl(privacyPolicyUrl) : null,
+        sms_terms_conditions_url: termsConditionsUrl ? normalizeUrl(termsConditionsUrl) : null,
         sms_use_case_description: useCaseDescription || null,
         sms_sample_message: sampleMessage || null,
         sms_estimated_monthly_volume: estimatedMonthlyVolume || null,
         sms_opt_in_type: optInType || null,
         sms_use_case_categories: useCaseCategories || null,
         sms_notification_email: notificationEmail || null,
-        sms_proof_of_consent_url: proofOfConsentUrl || null,
+        sms_proof_of_consent_url: normalizeUrl(effectiveProofOfConsentUrl),
         sms_additional_info: additionalInfo || null,
       });
 
       if (success) {
+        if (!proofOfConsentUrl.trim() && effectiveProofOfConsentUrl) {
+          setProofOfConsentUrl(normalizeUrl(effectiveProofOfConsentUrl));
+        }
         toast({
           title: 'Verification Settings Saved',
           description: 'Toll-free verification fields have been updated.',
@@ -260,10 +332,65 @@ export function TwilioSmsCard({ settings, tenantId, onUpdate }: TwilioSmsCardPro
               <li>Copy your <span className="font-medium text-foreground">Account SID</span> and paste it below</li>
               <li>Add <code className="text-xs bg-muted px-1 py-0.5 rounded">TWILIO_AUTH_TOKEN</code> as a <span className="font-medium text-foreground">Supabase secret</span> (never paste it here)</li>
               <li>Paste your <span className="font-medium text-foreground">Messaging Service SID</span> or <span className="font-medium text-foreground">From Phone Number</span></li>
+              <li>Copy the <span className="font-medium text-foreground">Public Opt-In URL</span> into Twilio&apos;s proof-of-consent field</li>
               <li>Save, then use <span className="font-medium text-foreground">Send Test SMS</span> to verify</li>
             </ol>
           </AlertDescription>
         </Alert>
+
+        <Separator />
+
+        {/* Public Opt-In URL */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Public Opt-In URL (for Twilio verification)</Label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              value={generatedOptInUrl}
+              readOnly
+              placeholder="Set Company Info > Portal URL to generate your public opt-in URL"
+              className="font-mono text-xs"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => handleCopy(generatedOptInUrl, 'Public Opt-In URL')}
+              disabled={!generatedOptInUrl}
+              title="Copy Public Opt-In URL"
+            >
+              <MaterialIcon name="content_copy" size="sm" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => window.open(generatedOptInUrl, '_blank', 'noopener,noreferrer')}
+              disabled={!generatedOptInUrl}
+            >
+              <MaterialIcon name="open_in_new" size="sm" className="mr-2" />
+              Open
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs"
+              onClick={() => setProofOfConsentUrl(generatedOptInUrl)}
+              disabled={!generatedOptInUrl}
+            >
+              Use as Proof of Consent URL
+            </Button>
+            {!settings?.app_base_url && (
+              <p className="text-xs text-muted-foreground">
+                Tip: set Company Info &gt; Portal URL to ensure this uses your production domain.
+              </p>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            This route is public and is intentionally accessible without login for Twilio verification reviewers.
+          </p>
+        </div>
 
         <Separator />
 
@@ -453,6 +580,32 @@ export function TwilioSmsCard({ settings, tenantId, onUpdate }: TwilioSmsCardPro
               </AlertDescription>
             </Alert>
 
+            <div className="border rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h5 className="text-sm font-medium flex items-center gap-2">
+                  <MaterialIcon name="checklist" size="sm" />
+                  Twilio Verification Readiness
+                </h5>
+                <Badge variant={checklistComplete ? 'default' : 'secondary'}>
+                  {readyCount}/{readinessItems.length} complete
+                </Badge>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {readinessItems.map((item) => (
+                  <div key={item.id} className="flex items-center gap-2 text-xs">
+                    <MaterialIcon
+                      name={item.ready ? 'check_circle' : 'radio_button_unchecked'}
+                      size="sm"
+                      className={item.ready ? 'text-green-600' : 'text-muted-foreground'}
+                    />
+                    <span className={item.ready ? 'text-foreground' : 'text-muted-foreground'}>
+                      {item.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Section: Messaging Use Case */}
             <div className="space-y-4">
               <h5 className="text-sm font-medium flex items-center gap-2">
@@ -496,35 +649,13 @@ export function TwilioSmsCard({ settings, tenantId, onUpdate }: TwilioSmsCardPro
                 value={proofOfConsentUrl}
                 onChange={setProofOfConsentUrl}
                 onCopy={handleCopy}
-                placeholder="https://portal.yourcompany.com/sms-opt-in?t=<tenantId>"
-                hint="Public URL where you collect SMS opt-in consent (must be accessible without login)"
+                placeholder="https://yoursite.com/sms-opt-in"
+                hint={
+                  generatedOptInUrl
+                    ? `Use your generated app URL: ${generatedOptInUrl}`
+                    : 'URL where you collect SMS opt-in consent from recipients'
+                }
               />
-              <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground space-y-2">
-                <p className="flex flex-col gap-1">
-                  <span className="font-medium text-foreground">Suggested URL (based on your App Base URL):</span>
-                  <code className="font-mono text-[11px] break-all">{suggestedProofOfConsentUrl}</code>
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopy(suggestedProofOfConsentUrl, 'Suggested Proof of Consent URL')}
-                  >
-                    <MaterialIcon name="content_copy" size="sm" className="mr-2" />
-                    Copy Suggested URL
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setProofOfConsentUrl(suggestedProofOfConsentUrl)}
-                  >
-                    <MaterialIcon name="auto_fix_high" size="sm" className="mr-2" />
-                    Use Suggested URL
-                  </Button>
-                </div>
-              </div>
 
               {/* Use Case Description */}
               <CopyableTextarea
