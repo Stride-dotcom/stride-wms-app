@@ -10,10 +10,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useFieldHelpTooltip } from '@/hooks/useFieldHelpContent';
 
 interface HelpTipProps {
   /** The help text to display in the popover */
   tooltip: string;
+  /** Optional page key for centralized help overrides */
+  pageKey?: string;
+  /** Optional field key for centralized help overrides */
+  fieldKey?: string;
   /** Optional children to render alongside the help icon */
   children?: ReactNode;
   /** Side for the popover placement */
@@ -28,7 +33,10 @@ interface HelpTipProps {
  * Desktop: hover shows tooltip; click opens popover for longer reading.
  * Mobile/Tablet: tap opens popover (no hover available).
  */
-export function HelpTip({ tooltip, children, side = 'top', className }: HelpTipProps) {
+export function HelpTip({ tooltip, pageKey, fieldKey, children, side = 'top', className }: HelpTipProps) {
+  const { helpText } = useFieldHelpTooltip(pageKey, fieldKey);
+  const displayText = helpText || tooltip;
+
   return (
     <span className={`inline-flex items-center gap-1 ${className || ''}`}>
       {children}
@@ -47,10 +55,10 @@ export function HelpTip({ tooltip, children, side = 'top', className }: HelpTipP
               </PopoverTrigger>
             </TooltipTrigger>
             <TooltipContent side={side} className="max-w-[260px] text-xs">
-              <p>{tooltip}</p>
+              <p>{displayText}</p>
             </TooltipContent>
             <PopoverContent side={side} className="max-w-[280px] text-xs leading-relaxed p-3">
-              <p>{tooltip}</p>
+              <p>{displayText}</p>
             </PopoverContent>
           </Popover>
         </Tooltip>

@@ -12,7 +12,6 @@ import { ShipmentExceptionBadge } from '@/components/shipments/ShipmentException
 interface ConfirmationGuardProps {
   shipmentId: string;
   shipmentNumber: string;
-  exceptionCount?: number;
   shipment: {
     vendor_name: string | null;
     signed_pieces: number | null;
@@ -32,7 +31,6 @@ interface ConfirmationGuardProps {
 export function ConfirmationGuard({
   shipmentId,
   shipmentNumber,
-  exceptionCount,
   shipment,
   accountName,
   onConfirm,
