@@ -25,6 +25,7 @@ import {
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { HelpTip } from '@/components/ui/help-tip';
 import { useIncomingShipments, type InboundKind, type IncomingShipment } from '@/hooks/useIncomingShipments';
+import { useUnidentifiedAccount } from '@/hooks/useUnidentifiedAccount';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -333,6 +334,7 @@ export default function IncomingManager() {
   };
 
   const { profile } = useAuth();
+  const { ensureUnidentifiedAccount } = useUnidentifiedAccount();
   const { toast } = useToast();
 
   const handleRowClick = (id: string) => {
@@ -349,6 +351,8 @@ export default function IncomingManager() {
     if (!profile?.tenant_id) return;
     try {
       setCreating(true);
+      const defaultAccountId = await ensureUnidentifiedAccount(profile.tenant_id);
+
       const statusMap: Record<InboundKind, string> = {
         manifest: 'draft',
         expected: 'draft',
@@ -363,6 +367,7 @@ export default function IncomingManager() {
           status: 'expected',
           inbound_kind: kind,
           inbound_status: statusMap[kind],
+          account_id: defaultAccountId,
           created_by: profile.id,
         })
         .select('id')
@@ -427,7 +432,7 @@ export default function IncomingManager() {
                     className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
                   />
                   <Input
-                    placeholder="Search by shipment # or vendor..."
+                    placeholder="Search by shipment #, vendor, or account..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-8"

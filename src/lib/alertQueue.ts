@@ -106,6 +106,24 @@ export async function queueShipmentCompletedAlert(
 }
 
 /**
+ * Queue an unidentified intake completion alert
+ */
+export async function queueUnidentifiedIntakeCompletedAlert(
+  tenantId: string,
+  shipmentId: string,
+  shipmentNumber: string,
+  itemsFlaggedCount: number
+): Promise<boolean> {
+  return queueAlert({
+    tenantId,
+    alertType: 'shipment.unidentified_intake_completed',
+    entityType: 'shipment',
+    entityId: shipmentId,
+    subject: `Unidentified intake completed for ${shipmentNumber} (${itemsFlaggedCount} item${itemsFlaggedCount === 1 ? '' : 's'} flagged ARRIVAL_NO_ID)`,
+  });
+}
+
+/**
  * Queue a return shipment created alert
  */
 export async function queueReturnShipmentCreatedAlert(

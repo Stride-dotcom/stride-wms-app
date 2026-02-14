@@ -34,8 +34,10 @@ import { HelpTip } from '@/components/ui/help-tip';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useUnidentifiedAccount } from '@/hooks/useUnidentifiedAccount';
 import { supabase } from '@/integrations/supabase/client';
 import { logActivity } from '@/lib/activity/logActivity';
+import { queueUnidentifiedIntakeCompletedAlert } from '@/lib/alertQueue';
 import { AddFromManifestSelector } from './AddFromManifestSelector';
 import { ShipmentExceptionBadge } from '@/components/shipments/ShipmentExceptionBadge';
 
@@ -53,6 +55,8 @@ interface ReceivedItem {
   allocationId?: string;
   packages: number; // 0 = no container, 1 = single, 2+ = multi-package
 }
+
+const ARRIVAL_NO_ID_FLAG = 'ARRIVAL_NO_ID';
 
 export interface ItemMatchingParams {
   itemDescription: string | null;
@@ -91,6 +95,7 @@ export function Stage2DetailedReceiving({
   const { profile } = useAuth();
   const { toast } = useToast();
   const { isAdmin } = usePermissions();
+  const { ensureUnidentifiedAccount } = useUnidentifiedAccount();
 
   // Items
   const [items, setItems] = useState<ReceivedItem[]>([]);
@@ -340,12 +345,48 @@ export function Stage2DetailedReceiving({
     setCompleting(true);
 
     try {
+      let autoApplyArrivalNoIdFlag = true;
+      let unidentifiedAccountId: string | null = null;
+
+      try {
+        const { data: prefs } = await (supabase as any)
+          .from('tenant_preferences')
+          .select('auto_apply_arrival_no_id_flag')
+          .eq('tenant_id', profile.tenant_id)
+          .maybeSingle();
+
+        if (prefs?.auto_apply_arrival_no_id_flag === false) {
+          autoApplyArrivalNoIdFlag = false;
+        }
+      } catch (prefErr) {
+        console.warn('[Stage2] failed to read auto_apply_arrival_no_id_flag:', prefErr);
+      }
+
+      unidentifiedAccountId = await ensureUnidentifiedAccount(profile.tenant_id);
+
+      let effectiveShipmentAccountId = shipment.account_id;
+      if (!effectiveShipmentAccountId && unidentifiedAccountId) {
+        const { error: assignAccountErr } = await supabase
+          .from('shipments')
+          .update({ account_id: unidentifiedAccountId } as any)
+          .eq('id', shipmentId);
+
+        if (assignAccountErr) {
+          console.warn('[Stage2] could not assign unidentified account to shipment:', assignAccountErr);
+        } else {
+          effectiveShipmentAccountId = unidentifiedAccountId;
+        }
+      }
+
+      const isUnidentifiedShipment =
+        !!unidentifiedAccountId && effectiveShipmentAccountId === unidentifiedAccountId;
+
       // Resolve default receiving location
       let receivingLocationId: string | null = null;
       try {
         const { data: locResult } = await supabase.rpc('rpc_resolve_receiving_location', {
           p_warehouse_id: shipment.warehouse_id || '',
-          p_account_id: shipment.account_id,
+          p_account_id: effectiveShipmentAccountId,
         });
         const loc = locResult as any;
         if (loc?.ok) receivingLocationId = loc.location_id;
@@ -364,6 +405,7 @@ export function Stage2DetailedReceiving({
       }
 
       // Create/update shipment items, inventory units, containers, movements
+      const touchedShipmentItemIds: string[] = [];
       for (const item of items) {
         // Create or update shipment_item
         let shipmentItemId = item.shipment_item_id;
@@ -401,6 +443,10 @@ export function Stage2DetailedReceiving({
             .eq('id', shipmentItemId);
         }
 
+        if (shipmentItemId) {
+          touchedShipmentItemIds.push(shipmentItemId);
+        }
+
         // Generate IC codes and create inventory_units
         const qty = item.received_quantity;
         const unitIds: string[] = [];
@@ -432,7 +478,7 @@ export function Stage2DetailedReceiving({
             .from('inventory_units')
             .insert({
               tenant_id: profile.tenant_id,
-              account_id: shipment.account_id,
+              account_id: effectiveShipmentAccountId,
               ic_code: icCode,
               location_id: receivingLocationId,
               shipment_id: shipmentId,
@@ -536,6 +582,42 @@ export function Stage2DetailedReceiving({
         }
       }
 
+      let autoFlaggedItemCount = 0;
+      if (autoApplyArrivalNoIdFlag && isUnidentifiedShipment && touchedShipmentItemIds.length > 0) {
+        const uniqueShipmentItemIds = [...new Set(touchedShipmentItemIds)];
+
+        const { data: shipmentItemRows, error: shipmentItemsErr } = await (supabase as any)
+          .from('shipment_items')
+          .select('id, flags')
+          .in('id', uniqueShipmentItemIds);
+
+        if (shipmentItemsErr) {
+          console.error('[Stage2] failed to load shipment item flags:', shipmentItemsErr);
+        } else {
+          for (const row of (shipmentItemRows || []) as Array<{ id: string; flags: string[] | null }>) {
+            const existingFlags = Array.isArray(row.flags)
+              ? row.flags.filter((flag) => typeof flag === 'string')
+              : [];
+
+            if (existingFlags.includes(ARRIVAL_NO_ID_FLAG)) {
+              continue;
+            }
+
+            const { error: updateFlagErr } = await (supabase as any)
+              .from('shipment_items')
+              .update({ flags: [...existingFlags, ARRIVAL_NO_ID_FLAG] })
+              .eq('id', row.id);
+
+            if (updateFlagErr) {
+              console.error('[Stage2] failed to apply ARRIVAL_NO_ID flag:', updateFlagErr);
+              continue;
+            }
+
+            autoFlaggedItemCount += 1;
+          }
+        }
+      }
+
       // Log admin override if used
       if (adminOverride) {
         logActivity({
@@ -585,7 +667,27 @@ export function Stage2DetailedReceiving({
         },
       });
 
-      toast({ title: 'Receiving Complete', description: 'Shipment has been received and closed.' });
+      if (isUnidentifiedShipment && autoApplyArrivalNoIdFlag && autoFlaggedItemCount > 0) {
+        try {
+          await queueUnidentifiedIntakeCompletedAlert(
+            profile.tenant_id,
+            shipmentId,
+            shipmentNumber,
+            autoFlaggedItemCount
+          );
+        } catch (alertErr) {
+          // Alerting should not block receiving completion.
+          console.warn('[Stage2] failed to queue unidentified intake alert:', alertErr);
+        }
+      }
+
+      toast({
+        title: 'Receiving Complete',
+        description:
+          autoFlaggedItemCount > 0
+            ? `Shipment closed. ${autoFlaggedItemCount} item(s) auto-flagged ARRIVAL_NO_ID.`
+            : 'Shipment has been received and closed.',
+      });
       setShowCompleteDialog(false);
       setShowAdminOverride(false);
       onComplete();

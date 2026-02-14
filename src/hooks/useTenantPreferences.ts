@@ -41,6 +41,7 @@ export interface TenantPreferences {
   free_storage_days: number;
   will_call_minimum: number;
   should_create_inspections: boolean;
+  auto_apply_arrival_no_id_flag: boolean;
   // Auto-task settings (ACTIVE)
   auto_assembly_on_receiving: boolean;
   auto_repair_on_damage: boolean;

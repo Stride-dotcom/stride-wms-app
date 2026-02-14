@@ -124,6 +124,23 @@ export const DEFAULT_ALERT_TEMPLATES: Record<string, DefaultAlertTemplate> = {
     inAppBody: 'Shipment [[shipment_number]] completed. [[items_count]] items processed.',
     inAppRecipients: '[[manager_role]], [[client_user_role]]',
   },
+  'shipment.unidentified_intake_completed': {
+    heading: 'Unidentified Intake Completed',
+    subject: '[[tenant_name]]: Unidentified Intake Completed — [[shipment_number]]',
+    body: `An unidentified shipment intake has been completed and ARRIVAL_NO_ID flags were applied.
+
+**Shipment:** [[shipment_number]]
+**Account:** [[account_name]]
+**Status:** [[shipment_status]]
+**Items Flagged:** [[items_count]]
+
+[[items_table_html]]`,
+    ctaLabel: 'Open Shipment',
+    ctaLink: '[[shipment_link]]',
+    smsBody: '[[tenant_name]]: Unidentified intake completed for [[shipment_number]]. [[items_count]] item(s) flagged ARRIVAL_NO_ID. [[shipment_link]]',
+    inAppBody: 'Shipment [[shipment_number]] completed under UNIDENTIFIED SHIPMENT. [[items_count]] item(s) auto-flagged ARRIVAL_NO_ID.',
+    inAppRecipients: '[[manager_role]], [[warehouse_role]]',
+  },
   'shipment_scheduled': {
     heading: 'Shipment Scheduled',
     subject: '[[tenant_name]]: Shipment Scheduled — [[shipment_number]]',

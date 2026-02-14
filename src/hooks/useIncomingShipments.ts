@@ -41,7 +41,7 @@ export function useIncomingShipments(filters: IncomingFilters) {
 
       if (filters.search) {
         query = query.or(
-          `shipment_number.ilike.%${filters.search}%,vendor_name.ilike.%${filters.search}%`
+          `shipment_number.ilike.%${filters.search}%,vendor_name.ilike.%${filters.search}%,accounts.account_name.ilike.%${filters.search}%`
         );
       }
 
