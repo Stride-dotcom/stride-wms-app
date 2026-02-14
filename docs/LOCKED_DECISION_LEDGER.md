@@ -91,6 +91,7 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-059 | /subscription/update-payment auto-opens Stripe Customer Portal on page load | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-060 | Client portal users use the same blocked destination route as internal users | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-061 | Payment data entry remains Stripe-hosted; app never collects raw card details | Security/Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-062 | Blocked-flow support uses external mailto contact (tenant company email when available) | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -321,6 +322,25 @@ This reduces PCI exposure and security risk while relying on Stripe for payment 
 - `/subscription/update-payment` launches Stripe-hosted payment management only.
 - App stores only non-sensitive billing metadata needed for subscription state and UX (for example status, grace deadlines, Stripe IDs).
 - Maintain secure webhook verification and service-role controls because operational/security risk still exists outside raw card handling.
+
+### DL-2026-02-14-062: Blocked-flow support uses external mailto contact (tenant company email when available)
+- Domain: SaaS UX
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Help/support in blocked payment flow is external: use a mailto contact link (prefer tenant company email from settings when available).
+
+#### Why
+External support avoids adding another in-app route while access is restricted and ships quickly.
+
+#### Implementation impact
+- Payment update page renders support mailto link when company email is available.
+- Fallback guidance remains visible if no support email exists.
 
 ## Decision entry template (copy/paste)
 

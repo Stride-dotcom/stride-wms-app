@@ -17,6 +17,7 @@ Webhook lookup decision captured: `DL-2026-02-14-058` (accepted) uses `customer_
 Portal launch decision captured: `DL-2026-02-14-059` (accepted) auto-opens Stripe Customer Portal from `/subscription/update-payment`.
 Shared destination decision captured: `DL-2026-02-14-060` (accepted) applies the same blocked route to `/client/*` and internal users.
 Security boundary decision captured: `DL-2026-02-14-061` (accepted) keeps payment data entry Stripe-hosted, not in-app.
+Support-channel decision captured: `DL-2026-02-14-062` (accepted) uses external mailto support from blocked flow.
 
 ## Current implementation snapshot
 
@@ -60,5 +61,5 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. Should blocked-state "help/support" be an in-app route or an external support URL (mailto/help center)?
+1. Should we lock DL-2026-02-14-051 through DL-2026-02-14-062 after implementation verification, or keep them accepted until post-deploy Stripe CLI validation?
 
