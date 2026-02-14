@@ -4,7 +4,7 @@
 // import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import { WarehouseProvider } from "@/contexts/WarehouseContext";
@@ -105,7 +105,7 @@ const App = () => (
             <Route path="/inventory/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ItemDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/locations/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><LocationDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/containers/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ContainerDetail /></RequireRole></ProtectedRoute>} />
-            <Route path="/incoming" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><SubscriptionGatedRoute><IncomingManager /></SubscriptionGatedRoute></RequireRole></ProtectedRoute>} />
+            <Route path="/incoming" element={<Navigate to="/shipments" replace />} />
             <Route path="/incoming/manifest/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><InboundManifestDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/incoming/expected/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ExpectedShipmentDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/incoming/dock-intake/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><SubscriptionGatedRoute><DockIntakeReceiving /></SubscriptionGatedRoute></RequireRole></ProtectedRoute>} />

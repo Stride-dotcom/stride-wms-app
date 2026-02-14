@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { HelpTip } from '@/components/ui/help-tip';
+import { ShipmentNumberBadge } from '@/components/shipments/ShipmentNumberBadge';
 import { isValidUuid } from '@/lib/utils';
 import { useExpectedShipmentDetail } from '@/hooks/useExpectedShipmentDetail';
 import { useExternalRefs, type RefType } from '@/hooks/useExternalRefs';
@@ -199,7 +200,7 @@ export default function ExpectedShipmentDetail() {
           <div className="flex-1">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <MaterialIcon name="schedule" size="md" />
-              {shipment.shipment_number}
+              <ShipmentNumberBadge shipmentNumber={shipment.shipment_number} exceptionType={(shipment as any).shipment_exception_type} className="text-2xl" />
               <Badge variant="secondary">{shipment.inbound_status || 'open'}</Badge>
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
