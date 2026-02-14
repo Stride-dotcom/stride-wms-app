@@ -45,7 +45,7 @@ import { useLocations } from '@/hooks/useLocations';
 import { hapticError, hapticSuccess } from '@/lib/haptics';
 import { HelpButton, usePromptContextSafe } from '@/components/prompts';
 import { SOPValidationDialog, SOPBlocker } from '@/components/common/SOPValidationDialog';
-import { ShipmentExceptionActions } from '@/components/receiving/ShipmentExceptionActions';
+import { ShipmentExceptionBadge } from '@/components/shipments/ShipmentExceptionBadge';
 
 // ============================================
 // TYPES
@@ -1422,6 +1422,7 @@ export default function ShipmentDetail() {
 
   const isInbound = shipment.shipment_type === 'inbound' || shipment.shipment_type === 'return';
   const isOutbound = shipment.shipment_type === 'outbound';
+  const isDockIntakeShipment = (shipment as any).inbound_kind === 'dock_intake';
   const canReceive = isInbound && ['expected', 'receiving'].includes(shipment.status);
   const isReceiving = session !== null;
   const isReceived = shipment.status === 'received' || shipment.status === 'partial';
@@ -1441,6 +1442,14 @@ export default function ShipmentDetail() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold truncate">{shipment.shipment_number}</h1>
+              <ShipmentExceptionBadge
+                shipmentId={shipment.id}
+                onClick={
+                  isDockIntakeShipment
+                    ? () => navigate(`/incoming/dock-intake/${shipment.id}?tab=exceptions`)
+                    : undefined
+                }
+              />
               <StatusIndicator status={shipment.status} label={shipmentStatusLabels[shipment.status]} size="sm" />
               {shipment.release_type && (
                 <Badge variant="outline" className="text-xs">{shipment.release_type}</Badge>
@@ -1532,19 +1541,6 @@ export default function ShipmentDetail() {
           {isInbound && <HelpButton workflow="receiving" />}
         </div>
       </div>
-
-      {/* Exception Actions for inbound shipments */}
-      {isInbound && (
-        <div className="mb-4">
-          <ShipmentExceptionActions
-            shipmentId={shipment.id}
-            shipmentNumber={shipment.shipment_number}
-            accountId={shipment.account_id}
-            exceptionType={(shipment as any).shipment_exception_type ?? null}
-            onUpdated={fetchShipment}
-          />
-        </div>
-      )}
 
       {/* Receiving In Progress Banner */}
       {isReceiving && (

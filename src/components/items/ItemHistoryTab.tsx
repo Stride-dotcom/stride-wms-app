@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -6,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
+import { ShipmentExceptionBadge } from '@/components/shipments/ShipmentExceptionBadge';
 import {
   Tooltip,
   TooltipContent,
@@ -33,6 +35,7 @@ interface ItemHistoryTabProps {
 }
 
 export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
+  const navigate = useNavigate();
   const [events, setEvents] = useState<HistoryEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -149,11 +152,28 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
         .select(`
           id,
           created_at,
-          shipments:shipment_id(id, shipment_number, shipment_type, status, received_at)
+          shipments:shipment_id(id, shipment_number, shipment_type, inbound_kind, status, received_at)
         `)
         .eq('item_id', itemId);
 
       if (shipmentItems) {
+        const shipmentIds = shipmentItems
+          .map((si: any) => si.shipments?.id)
+          .filter(Boolean) as string[];
+        const exceptionCounts: Record<string, number> = {};
+
+        if (shipmentIds.length > 0) {
+          const { data: openExceptions } = await supabase
+            .from('shipment_exceptions')
+            .select('shipment_id')
+            .in('shipment_id', shipmentIds)
+            .eq('status', 'open');
+
+          (openExceptions || []).forEach((row) => {
+            exceptionCounts[row.shipment_id] = (exceptionCounts[row.shipment_id] || 0) + 1;
+          });
+        }
+
         shipmentItems.forEach((si: any) => {
           if (si.shipments) {
             const s = si.shipments;
@@ -163,7 +183,14 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
               title: s.shipment_type === 'inbound' ? 'Received in Shipment' : 'Released in Shipment',
               description: `Shipment ${s.shipment_number}`,
               timestamp: s.received_at || si.created_at,
-              metadata: { shipmentId: s.id, status: s.status, shipmentType: s.shipment_type },
+              metadata: {
+                shipmentId: s.id,
+                shipmentNumber: s.shipment_number,
+                status: s.status,
+                shipmentType: s.shipment_type,
+                inboundKind: s.inbound_kind || null,
+                exceptionOpenCount: exceptionCounts[s.id] || 0,
+              },
             });
           }
         });
@@ -324,7 +351,26 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
                         {event.type}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground">{event.description}</p>
+                    {event.type === 'shipment' && event.metadata?.shipmentId ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          className="text-sm font-medium underline-offset-2 hover:underline"
+                          onClick={() => navigate(`/shipments/${event.metadata.shipmentId}`)}
+                        >
+                          Shipment {event.metadata.shipmentNumber || 'Unknown'}
+                        </button>
+                        {event.metadata.shipmentType === 'inbound' && event.metadata.inboundKind === 'dock_intake' && (
+                          <ShipmentExceptionBadge
+                            shipmentId={event.metadata.shipmentId}
+                            count={event.metadata.exceptionOpenCount}
+                            onClick={() => navigate(`/incoming/dock-intake/${event.metadata.shipmentId}?tab=exceptions`)}
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">{event.description}</p>
+                    )}
 
                     {/* Shipment Status and Type Badges */}
                     {event.type === 'shipment' && event.metadata && (

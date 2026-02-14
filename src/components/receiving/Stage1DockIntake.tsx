@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,8 +15,13 @@ import { AutosaveIndicator } from './AutosaveIndicator';
 import { useReceivingAutosave } from '@/hooks/useReceivingAutosave';
 import { BigCounter } from './BigCounter';
 import { useShipmentPhotos, type ShipmentPhoto } from '@/hooks/useShipmentPhotos';
-import { useReceivingDiscrepancies, type DiscrepancyType } from '@/hooks/useReceivingDiscrepancies';
+import {
+  SHIPMENT_EXCEPTION_CODE_META,
+  useShipmentExceptions,
+  type ShipmentExceptionCode,
+} from '@/hooks/useShipmentExceptions';
 import { SignaturePad } from '@/components/shipments/SignaturePad';
+import { ShipmentExceptionBadge } from '@/components/shipments/ShipmentExceptionBadge';
 import {
   Dialog,
   DialogContent,
@@ -25,17 +30,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-// Exception types for Stage 1
-type ExceptionType = 'NO_EXCEPTIONS' | 'DAMAGE' | 'WET' | 'OPEN' | 'MISSING_DOCS' | 'REFUSED' | 'OTHER';
+type ExceptionChip = 'NO_EXCEPTIONS' | ShipmentExceptionCode;
 
-const EXCEPTION_OPTIONS: { value: ExceptionType; label: string; icon: string }[] = [
+const EXCEPTION_OPTIONS: { value: ExceptionChip; label: string; icon: string; requiresNote?: boolean }[] = [
   { value: 'NO_EXCEPTIONS', label: 'No Exceptions', icon: 'check_circle' },
-  { value: 'DAMAGE', label: 'Damage', icon: 'broken_image' },
-  { value: 'WET', label: 'Wet', icon: 'water_drop' },
-  { value: 'OPEN', label: 'Open', icon: 'package_2' },
-  { value: 'MISSING_DOCS', label: 'Missing Docs', icon: 'description' },
-  { value: 'REFUSED', label: 'Refused', icon: 'block' },
-  { value: 'OTHER', label: 'Other', icon: 'more_horiz' },
+  { value: 'DAMAGE', ...SHIPMENT_EXCEPTION_CODE_META.DAMAGE },
+  { value: 'WET', ...SHIPMENT_EXCEPTION_CODE_META.WET },
+  { value: 'OPEN', ...SHIPMENT_EXCEPTION_CODE_META.OPEN },
+  { value: 'MISSING_DOCS', ...SHIPMENT_EXCEPTION_CODE_META.MISSING_DOCS },
+  { value: 'REFUSED', ...SHIPMENT_EXCEPTION_CODE_META.REFUSED },
+  { value: 'CRUSHED_TORN_CARTONS', ...SHIPMENT_EXCEPTION_CODE_META.CRUSHED_TORN_CARTONS },
+  { value: 'OTHER', ...SHIPMENT_EXCEPTION_CODE_META.OTHER },
 ];
 
 export interface MatchingParamsUpdate {
@@ -47,6 +52,7 @@ export interface MatchingParamsUpdate {
 interface Stage1DockIntakeProps {
   shipmentId: string;
   shipmentNumber: string;
+  exceptionCount?: number;
   shipment: {
     account_id: string | null;
     vendor_name: string | null;
@@ -61,15 +67,18 @@ interface Stage1DockIntakeProps {
   onRefresh: () => void;
   /** Called whenever fields that affect matching change, so the matching panel can update reactively */
   onMatchingParamsChange?: (params: MatchingParamsUpdate) => void;
+  onOpenExceptions?: () => void;
 }
 
 export function Stage1DockIntake({
   shipmentId,
   shipmentNumber,
+  exceptionCount,
   shipment,
   onComplete,
   onRefresh,
   onMatchingParamsChange,
+  onOpenExceptions,
 }: Stage1DockIntakeProps) {
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -79,8 +88,10 @@ export function Stage1DockIntake({
   const [signedPieces, setSignedPieces] = useState<number>(shipment.signed_pieces || 0);
   const [driverName, setDriverName] = useState(shipment.driver_name || '');
   const [notes, setNotes] = useState(shipment.notes || '');
-  const [exceptions, setExceptions] = useState<ExceptionType[]>([]);
-  const [exceptionNotes, setExceptionNotes] = useState<Record<string, string>>({});
+  const [exceptions, setExceptions] = useState<ExceptionChip[]>(['NO_EXCEPTIONS']);
+  const [exceptionNotes, setExceptionNotes] = useState<Record<ShipmentExceptionCode, string>>({} as Record<ShipmentExceptionCode, string>);
+  const [pendingRequiredNoteCode, setPendingRequiredNoteCode] = useState<ShipmentExceptionCode | null>(null);
+  const [pendingRequiredNote, setPendingRequiredNote] = useState('');
   const [breakdown, setBreakdown] = useState<{ cartons: number; pallets: number; crates: number }>({
     cartons: 0,
     pallets: 0,
@@ -109,8 +120,12 @@ export function Stage1DockIntake({
     conditionCount,
   } = useShipmentPhotos(shipmentId);
 
-  // Discrepancies
-  const { createDiscrepancy } = useReceivingDiscrepancies(shipmentId);
+  // Shipment exceptions
+  const {
+    openExceptions,
+    upsertOpenException,
+    removeOpenException,
+  } = useShipmentExceptions(shipmentId);
 
   // File input refs
   const paperworkInputRef = useRef<HTMLInputElement>(null);
@@ -152,18 +167,89 @@ export function Stage1DockIntake({
     autosave.saveField('dock_intake_breakdown', newBreakdown);
   };
 
-  // Exception toggles — mutual exclusion with NO_EXCEPTIONS
-  const toggleException = (ex: ExceptionType) => {
-    setExceptions(prev => {
-      if (ex === 'NO_EXCEPTIONS') {
-        return ['NO_EXCEPTIONS'];
-      }
-      const filtered = prev.filter(e => e !== 'NO_EXCEPTIONS');
-      if (filtered.includes(ex)) {
-        return filtered.filter(e => e !== ex);
-      }
-      return [...filtered, ex];
+  // Sync local chips with persisted open exceptions
+  useEffect(() => {
+    if (openExceptions.length === 0) {
+      setExceptions(['NO_EXCEPTIONS']);
+      setExceptionNotes({} as Record<ShipmentExceptionCode, string>);
+      return;
+    }
+
+    const selected = openExceptions.map((e) => e.code as ExceptionChip);
+    const notesMap = {} as Record<ShipmentExceptionCode, string>;
+    openExceptions.forEach((e) => {
+      notesMap[e.code] = e.note || '';
     });
+    setExceptions(selected);
+    setExceptionNotes(notesMap);
+  }, [openExceptions]);
+
+  const isRequiredNoteCode = (code: ShipmentExceptionCode) => code === 'REFUSED' || code === 'OTHER';
+
+  // Exception toggles — mutual exclusion with NO_EXCEPTIONS
+  const toggleException = async (chip: ExceptionChip) => {
+    if (chip === 'NO_EXCEPTIONS') {
+      const selectedCodes = exceptions.filter((e): e is ShipmentExceptionCode => e !== 'NO_EXCEPTIONS');
+      await Promise.all(selectedCodes.map((code) => removeOpenException(code)));
+      setExceptions(['NO_EXCEPTIONS']);
+      return;
+    }
+
+    const selected = exceptions.includes(chip);
+    if (selected) {
+      const removed = await removeOpenException(chip);
+      if (!removed) return;
+      setExceptions((prev) => {
+        const next = prev.filter((e) => e !== chip);
+        return next.length > 0 ? next : ['NO_EXCEPTIONS'];
+      });
+      setExceptionNotes((prev) => {
+        const next = { ...prev };
+        delete next[chip];
+        return next;
+      });
+      return;
+    }
+
+    if (isRequiredNoteCode(chip)) {
+      setPendingRequiredNoteCode(chip);
+      setPendingRequiredNote(exceptionNotes[chip] || '');
+      return;
+    }
+
+    const saved = await upsertOpenException(chip, exceptionNotes[chip] || null);
+    if (saved) {
+      setExceptions((prev) => [...prev.filter((e) => e !== 'NO_EXCEPTIONS'), chip]);
+    }
+  };
+
+  const handleSaveRequiredNote = async () => {
+    if (!pendingRequiredNoteCode) return;
+    if (!pendingRequiredNote.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Note Required',
+        description: `${SHIPMENT_EXCEPTION_CODE_META[pendingRequiredNoteCode].label} requires a note.`,
+      });
+      return;
+    }
+
+    const note = pendingRequiredNote.trim();
+    const code = pendingRequiredNoteCode;
+    const saved = await upsertOpenException(code, note);
+    if (!saved) return;
+
+    setExceptionNotes((prev) => ({ ...prev, [code]: note }));
+    setExceptions((prev) => [...prev.filter((e) => e !== 'NO_EXCEPTIONS'), code]);
+    setPendingRequiredNoteCode(null);
+    setPendingRequiredNote('');
+  };
+
+  const handleExceptionNoteBlur = async (code: ShipmentExceptionCode) => {
+    if (!exceptions.includes(code)) return;
+    const note = exceptionNotes[code]?.trim() || null;
+    if (isRequiredNoteCode(code) && !note) return;
+    await upsertOpenException(code, note);
   };
 
   // Photo upload handler
@@ -218,6 +304,12 @@ export function Stage1DockIntake({
     if (!vendorName.trim()) errors.push('Vendor name is required');
     if (signedPieces <= 0) errors.push('Signed pieces must be greater than 0');
     if (exceptions.length === 0) errors.push('At least one exception selection is required');
+    if (exceptions.includes('REFUSED') && !exceptionNotes.REFUSED?.trim()) {
+      errors.push('Refused requires a note');
+    }
+    if (exceptions.includes('OTHER') && !exceptionNotes.OTHER?.trim()) {
+      errors.push('Other requires a note');
+    }
     if (paperworkCount < 1) errors.push('At least 1 paperwork photo is required');
     if (conditionCount < 1) errors.push('At least 1 condition photo is required');
     return errors;
@@ -240,19 +332,6 @@ export function Stage1DockIntake({
     try {
       // Flush any pending autosave
       await autosave.saveNow();
-
-      // Create discrepancy records for exceptions (not NO_EXCEPTIONS)
-      const exceptionTypes = exceptions.filter(e => e !== 'NO_EXCEPTIONS');
-      for (const exType of exceptionTypes) {
-        await createDiscrepancy({
-          shipmentId,
-          type: exType as DiscrepancyType,
-          details: {
-            stage: 'stage1',
-            note: exceptionNotes[exType] || undefined,
-          },
-        });
-      }
 
       // Update shipment: set inbound_status to stage1_complete
       // Include all current field values to prevent stale autosave overwrites
@@ -307,6 +386,12 @@ export function Stage1DockIntake({
               <CardTitle className="flex items-center gap-2">
                 <MaterialIcon name="local_shipping" size="md" className="text-primary" />
                 Stage 1 — Dock Intake
+                <Badge variant="outline">{shipmentNumber}</Badge>
+                <ShipmentExceptionBadge
+                  shipmentId={shipmentId}
+                  count={exceptionCount}
+                  onClick={onOpenExceptions}
+                />
               </CardTitle>
               <CardDescription className="mt-1">
                 Record the delivery at the dock. All fields autosave.
@@ -444,19 +529,27 @@ export function Stage1DockIntake({
           </div>
 
           {/* Exception notes for selected exceptions */}
-          {exceptions.filter(e => e !== 'NO_EXCEPTIONS').map((ex) => (
-            <div key={ex} className="space-y-1">
-              <Label className="text-xs text-muted-foreground">
-                Note for {EXCEPTION_OPTIONS.find(o => o.value === ex)?.label}
-              </Label>
-              <Textarea
-                placeholder="Describe the exception..."
-                rows={2}
-                value={exceptionNotes[ex] || ''}
-                onChange={(e) => setExceptionNotes(prev => ({ ...prev, [ex]: e.target.value }))}
-              />
-            </div>
-          ))}
+          {exceptions
+            .filter((ex): ex is ShipmentExceptionCode => ex !== 'NO_EXCEPTIONS')
+            .map((ex) => (
+              <div key={ex} className="space-y-1">
+                <Label className="text-xs text-muted-foreground">
+                  Note for {EXCEPTION_OPTIONS.find((o) => o.value === ex)?.label}
+                  {isRequiredNoteCode(ex) ? <span className="text-red-500"> *</span> : null}
+                </Label>
+                <Textarea
+                  placeholder={
+                    isRequiredNoteCode(ex)
+                      ? 'Required: describe what was refused/other condition...'
+                      : 'Optional: describe the exception...'
+                  }
+                  rows={2}
+                  value={exceptionNotes[ex] || ''}
+                  onChange={(e) => setExceptionNotes((prev) => ({ ...prev, [ex]: e.target.value }))}
+                  onBlur={() => void handleExceptionNoteBlur(ex)}
+                />
+              </div>
+            ))}
         </CardContent>
       </Card>
 
@@ -641,6 +734,39 @@ export function Stage1DockIntake({
           Complete Dock Intake
         </Button>
       </div>
+
+      {/* Required Exception Note Dialog */}
+      <Dialog open={!!pendingRequiredNoteCode} onOpenChange={(open) => !open && setPendingRequiredNoteCode(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MaterialIcon name="edit_note" size="sm" />
+              {pendingRequiredNoteCode
+                ? `${SHIPMENT_EXCEPTION_CODE_META[pendingRequiredNoteCode].label} requires a note`
+                : 'Exception note required'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>
+              Note <span className="text-red-500">*</span>
+            </Label>
+            <Textarea
+              value={pendingRequiredNote}
+              onChange={(e) => setPendingRequiredNote(e.target.value)}
+              rows={4}
+              placeholder="Please describe what was refused or what the other exception is."
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingRequiredNoteCode(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void handleSaveRequiredNote()}>
+              Save Note
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Signature Dialog */}
       <Dialog open={showSignatureDialog} onOpenChange={setShowSignatureDialog}>
