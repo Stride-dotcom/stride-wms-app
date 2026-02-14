@@ -23,15 +23,21 @@ interface UseFieldHelpEntriesParams {
 }
 
 export function useFieldHelpEntries(params: UseFieldHelpEntriesParams = {}) {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const includeInactive = params.includeInactive ?? true;
+  const tenantId = profile?.tenant_id ?? null;
+  const userId = session?.user?.id ?? null;
+  const queryScope = `${tenantId ?? 'no-tenant'}:${userId ?? 'no-user'}`;
 
   return useQuery<FieldHelpEntry[]>({
-    queryKey: ['field-help-entries', params],
-    enabled: !!session,
+    queryKey: ['field-help-entries', queryScope, params],
+    enabled: !!session && !!tenantId,
     queryFn: async () => {
+      if (!tenantId) return [];
+
       let query = (supabase.from('field_help_content') as any)
         .select('*')
+        .eq('tenant_id', tenantId)
         .order('page_key', { ascending: true })
         .order('field_key', { ascending: true });
 
@@ -58,15 +64,21 @@ export function useFieldHelpEntries(params: UseFieldHelpEntriesParams = {}) {
 }
 
 export function useFieldHelpTooltip(pageKey?: string, fieldKey?: string) {
-  const { session } = useAuth();
-  const enabled = !!session && !!pageKey && !!fieldKey;
+  const { session, profile } = useAuth();
+  const tenantId = profile?.tenant_id ?? null;
+  const userId = session?.user?.id ?? null;
+  const queryScope = `${tenantId ?? 'no-tenant'}:${userId ?? 'no-user'}`;
+  const enabled = !!session && !!tenantId && !!pageKey && !!fieldKey;
 
   const query = useQuery<string | null>({
-    queryKey: ['field-help-tooltip', pageKey, fieldKey],
+    queryKey: ['field-help-tooltip', queryScope, pageKey, fieldKey],
     enabled,
     queryFn: async () => {
+      if (!tenantId) return null;
+
       const { data, error } = await (supabase.from('field_help_content') as any)
         .select('help_text, is_active')
+        .eq('tenant_id', tenantId)
         .eq('page_key', pageKey)
         .eq('field_key', fieldKey)
         .maybeSingle();
@@ -80,7 +92,7 @@ export function useFieldHelpTooltip(pageKey?: string, fieldKey?: string) {
 
   return {
     ...query,
-    helpText: query.data ?? null,
+    helpText: enabled ? query.data ?? null : null,
   };
 }
 
