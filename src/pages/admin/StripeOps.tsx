@@ -153,26 +153,28 @@ export default function StripeOps() {
             <Button variant="outline" size="sm" onClick={() => void fetchSnapshot()} disabled={loadingSnapshot}>
               Refresh snapshot
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              asChild
-              disabled={!customerDashboardUrl}
-            >
-              <a href={customerDashboardUrl ?? "#"} target="_blank" rel="noreferrer">
+            {customerDashboardUrl ? (
+              <Button variant="outline" size="sm" asChild>
+                <a href={customerDashboardUrl} target="_blank" rel="noreferrer">
+                  Open Stripe customer
+                </a>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
                 Open Stripe customer
-              </a>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              asChild
-              disabled={!subscriptionDashboardUrl}
-            >
-              <a href={subscriptionDashboardUrl ?? "#"} target="_blank" rel="noreferrer">
+              </Button>
+            )}
+            {subscriptionDashboardUrl ? (
+              <Button variant="outline" size="sm" asChild>
+                <a href={subscriptionDashboardUrl} target="_blank" rel="noreferrer">
+                  Open Stripe subscription
+                </a>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
                 Open Stripe subscription
-              </a>
-            </Button>
+              </Button>
+            )}
             <Button variant="outline" size="sm" asChild>
               <a href="https://dashboard.stripe.com/" target="_blank" rel="noreferrer">
                 Stripe dashboard
