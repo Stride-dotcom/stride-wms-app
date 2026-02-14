@@ -4,6 +4,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 export type ShipmentExceptionCode =
+  | 'PIECES_MISMATCH'
+  | 'VENDOR_MISMATCH'
+  | 'DESCRIPTION_MISMATCH'
+  | 'SIDEMARK_MISMATCH'
+  | 'SHIPPER_MISMATCH'
+  | 'TRACKING_MISMATCH'
+  | 'REFERENCE_MISMATCH'
   | 'DAMAGE'
   | 'WET'
   | 'OPEN'
@@ -16,6 +23,13 @@ export const SHIPMENT_EXCEPTION_CODE_META: Record<
   ShipmentExceptionCode,
   { label: string; icon: string; requiresNote?: boolean }
 > = {
+  PIECES_MISMATCH: { label: 'Item Count Mismatch', icon: 'tag' },
+  VENDOR_MISMATCH: { label: 'Vendor Mismatch', icon: 'storefront' },
+  DESCRIPTION_MISMATCH: { label: 'Description Mismatch', icon: 'description' },
+  SIDEMARK_MISMATCH: { label: 'Side Mark Mismatch', icon: 'sell' },
+  SHIPPER_MISMATCH: { label: 'Shipper Mismatch', icon: 'local_shipping' },
+  TRACKING_MISMATCH: { label: 'Tracking Mismatch', icon: 'qr_code' },
+  REFERENCE_MISMATCH: { label: 'Reference Mismatch', icon: 'fingerprint' },
   DAMAGE: { label: 'Damage', icon: 'broken_image' },
   WET: { label: 'Wet', icon: 'water_drop' },
   OPEN: { label: 'Open', icon: 'package_2' },

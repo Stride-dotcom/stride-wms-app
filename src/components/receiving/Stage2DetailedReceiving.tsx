@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { Fragment, useState, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -34,6 +35,8 @@ import { HelpTip } from '@/components/ui/help-tip';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useClasses } from '@/hooks/useClasses';
+import { useServiceEvents } from '@/hooks/useServiceEvents';
 import { useUnidentifiedAccount } from '@/hooks/useUnidentifiedAccount';
 import { supabase } from '@/integrations/supabase/client';
 import { logActivity } from '@/lib/activity/logActivity';
@@ -49,7 +52,9 @@ interface ReceivedItem {
   received_quantity: number;
   vendor: string;
   sidemark: string;
+  room: string;
   class_id: string | null;
+  flags: string[];
   sourceType: 'manual' | 'manifest';
   sourceShipmentItemId?: string;
   allocationId?: string;
@@ -99,7 +104,10 @@ export function Stage2DetailedReceiving({
 
   // Items
   const [items, setItems] = useState<ReceivedItem[]>([]);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [receivedPieces, setReceivedPieces] = useState<number>(0);
+  const { classes, loading: classesLoading } = useClasses();
+  const { flagServiceEvents, loading: flagServicesLoading } = useServiceEvents();
 
   // Emit item-level matching params whenever items change
   useEffect(() => {
@@ -168,7 +176,9 @@ export function Stage2DetailedReceiving({
         received_quantity: item.actual_quantity || item.expected_quantity || 0,
         vendor: item.expected_vendor || '',
         sidemark: item.expected_sidemark || '',
+        room: item.room || '',
         class_id: item.expected_class_id || null,
+        flags: Array.isArray(item.flags) ? item.flags.filter((f: unknown) => typeof f === 'string') : [],
         sourceType: 'manifest' as const,
         packages: 1,
       }));
@@ -186,7 +196,9 @@ export function Stage2DetailedReceiving({
       received_quantity: 1,
       vendor: shipment.vendor_name || '',
       sidemark: '',
+      room: '',
       class_id: null,
+      flags: [],
       sourceType: 'manual',
       packages: 1,
     };
@@ -203,13 +215,18 @@ export function Stage2DetailedReceiving({
       received_quantity: item.expected_quantity || 0,
       vendor: item.expected_vendor || '',
       sidemark: item.expected_sidemark || '',
+      room: item.room || '',
       class_id: item.expected_class_id || null,
+      flags: [],
       sourceType: 'manifest' as const,
       sourceShipmentItemId: item.id,
       packages: 1,
     }));
-    setItems(prev => [...prev, ...newItems]);
-    updateReceivedPieces([...items, ...newItems]);
+    setItems(prev => {
+      const next = [...prev, ...newItems];
+      updateReceivedPieces(next);
+      return next;
+    });
   };
 
   // Update item field
@@ -228,6 +245,49 @@ export function Stage2DetailedReceiving({
       }
       return updated;
     });
+  };
+
+  const duplicateItem = (id: string) => {
+    setItems((prev) => {
+      const source = prev.find((row) => row.id === id);
+      if (!source) return prev;
+
+      const copy: ReceivedItem = {
+        ...source,
+        id: crypto.randomUUID(),
+        shipment_item_id: undefined,
+        sourceType: 'manual',
+        sourceShipmentItemId: undefined,
+        allocationId: undefined,
+      };
+      const next = [...prev, copy];
+      updateReceivedPieces(next);
+      return next;
+    });
+  };
+
+  const toggleRowExpanded = (id: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleItemFlag = (id: string, serviceCode: string) => {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const nextFlags = new Set(item.flags);
+        if (nextFlags.has(serviceCode)) {
+          nextFlags.delete(serviceCode);
+        } else {
+          nextFlags.add(serviceCode);
+        }
+        return { ...item, flags: Array.from(nextFlags) };
+      })
+    );
   };
 
   // Container placement handlers
@@ -286,6 +346,11 @@ export function Stage2DetailedReceiving({
       const updated = prev.filter(i => i.id !== item.id);
       updateReceivedPieces(updated);
       return updated;
+    });
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      next.delete(item.id);
+      return next;
     });
 
     toast({ title: 'Removed', description: 'Item removed from receiving.' });
@@ -420,6 +485,8 @@ export function Stage2DetailedReceiving({
               expected_vendor: item.vendor || null,
               expected_sidemark: item.sidemark || null,
               expected_class_id: item.class_id || null,
+              room: item.room || null,
+              flags: item.flags,
               status: 'received',
               received_at: new Date().toISOString(),
             })
@@ -436,6 +503,12 @@ export function Stage2DetailedReceiving({
           await (supabase as any)
             .from('shipment_items')
             .update({
+              expected_description: item.description || null,
+              expected_vendor: item.vendor || null,
+              expected_sidemark: item.sidemark || null,
+              expected_class_id: item.class_id || null,
+              room: item.room || null,
+              flags: item.flags,
               actual_quantity: item.received_quantity,
               status: 'received',
               received_at: new Date().toISOString(),
@@ -716,7 +789,6 @@ export function Stage2DetailedReceiving({
                 <Badge variant="outline">{shipmentNumber}</Badge>
                 <ShipmentExceptionBadge
                   shipmentId={shipmentId}
-                  count={exceptionCount}
                   onClick={onOpenExceptions}
                 />
               </CardTitle>
@@ -779,7 +851,7 @@ export function Stage2DetailedReceiving({
               </Button>
               <Button variant="outline" size="sm" onClick={addManualItem}>
                 <MaterialIcon name="add" size="sm" className="mr-1" />
-                Manual Entry
+                Add Item
               </Button>
             </div>
           </div>
@@ -797,7 +869,7 @@ export function Stage2DetailedReceiving({
                 </Button>
                 <Button variant="outline" onClick={addManualItem}>
                   <MaterialIcon name="add" size="sm" className="mr-1" />
-                  Manual Entry
+                  Add Item
                 </Button>
               </div>
             </div>
@@ -806,71 +878,156 @@ export function Stage2DetailedReceiving({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="w-20 text-right">Expected</TableHead>
-                    <TableHead className="w-24 text-right">Received</TableHead>
-                    <TableHead className="w-20">
-                      <span className="flex items-center gap-1">
-                        Pkg
-                        <HelpTip tooltip="Number of containers. 0 = no containers, 1 = single container for all units, 2+ = split across containers. Set automatically by the placement prompt." />
-                      </span>
-                    </TableHead>
-                    <TableHead className="w-20">Source</TableHead>
-                    <TableHead className="w-16"></TableHead>
+                    <TableHead className="w-24 text-right">Quantity</TableHead>
+                    <TableHead className="w-40">Vendor</TableHead>
+                    <TableHead className="min-w-[220px]">Description</TableHead>
+                    <TableHead className="w-44">Glass</TableHead>
+                    <TableHead className="w-40">Side Mark</TableHead>
+                    <TableHead className="w-36">Room</TableHead>
+                    <TableHead className="w-40">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        {item.sourceType === 'manual' ? (
+                    <Fragment key={item.id}>
+                      <TableRow>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            min={0}
+                            value={item.received_quantity}
+                            onChange={(e) => updateItem(item.id, 'received_quantity', parseInt(e.target.value) || 0)}
+                            className="w-20 h-8 text-right ml-auto"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.vendor}
+                            onChange={(e) => updateItem(item.id, 'vendor', e.target.value)}
+                            placeholder="Vendor"
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
                           <Input
                             value={item.description}
                             onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                            placeholder="Item description"
+                            placeholder="Description"
                             className="h-8"
                           />
-                        ) : (
-                          <span className="text-sm">{item.description || '-'}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {item.expected_quantity}
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={item.received_quantity}
-                          onChange={(e) => updateItem(item.id, 'received_quantity', parseInt(e.target.value) || 0)}
-                          className="w-20 h-8 text-right"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={item.packages}
-                          onChange={(e) => updateItem(item.id, 'packages', parseInt(e.target.value) || 0)}
-                          className="w-16 h-8 text-right"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {item.sourceType}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeItem(item)}
-                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                        >
-                          <MaterialIcon name="delete" size="sm" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={item.class_id || '__none__'}
+                            onValueChange={(value) => updateItem(item.id, 'class_id', value === '__none__' ? null : value)}
+                          >
+                            <SelectTrigger className="h-8">
+                              <SelectValue placeholder={classesLoading ? 'Loading...' : 'Select class'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">No class</SelectItem>
+                              {classes.map((cls) => (
+                                <SelectItem key={cls.id} value={cls.id}>
+                                  {cls.code} - {cls.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.sidemark}
+                            onChange={(e) => updateItem(item.id, 'sidemark', e.target.value)}
+                            placeholder="Side Mark"
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.room}
+                            onChange={(e) => updateItem(item.id, 'room', e.target.value)}
+                            placeholder="Room"
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Badge variant="outline" className="text-xs">
+                              <MaterialIcon name="flag" size="sm" className="mr-1" />
+                              {item.flags.length}
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleRowExpanded(item.id)}
+                              className="h-8 w-8 p-0"
+                              title="Flags"
+                            >
+                              <MaterialIcon
+                                name={expandedRows.has(item.id) ? 'expand_less' : 'expand_more'}
+                                size="sm"
+                              />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => duplicateItem(item.id)}
+                              className="h-8 w-8 p-0"
+                              title="Duplicate item"
+                            >
+                              <MaterialIcon name="content_copy" size="sm" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeItem(item)}
+                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                              title="Remove item"
+                            >
+                              <MaterialIcon name="delete" size="sm" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      {expandedRows.has(item.id) && (
+                        <TableRow className="bg-muted/30">
+                          <TableCell colSpan={7}>
+                            <div className="space-y-3 py-2">
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>
+                                  Source: {item.sourceType}
+                                  {item.expected_quantity > 0 ? ` · Expected Qty: ${item.expected_quantity}` : ''}
+                                </span>
+                                <span>Flag tray</span>
+                              </div>
+                              {flagServicesLoading ? (
+                                <div className="text-sm text-muted-foreground">Loading flags...</div>
+                              ) : flagServiceEvents.length === 0 ? (
+                                <div className="text-sm text-muted-foreground">No flag services configured.</div>
+                              ) : (
+                                <div className="flex flex-wrap gap-x-5 gap-y-2">
+                                  {flagServiceEvents.map((flag) => {
+                                    const checked = item.flags.includes(flag.service_code);
+                                    return (
+                                      <label
+                                        key={`${item.id}-${flag.service_code}`}
+                                        className="flex items-center gap-2 text-sm cursor-pointer"
+                                      >
+                                        <Checkbox
+                                          checked={checked}
+                                          onCheckedChange={() => toggleItemFlag(item.id, flag.service_code)}
+                                        />
+                                        <span>{flag.service_name}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
                   ))}
                 </TableBody>
               </Table>

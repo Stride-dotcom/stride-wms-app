@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { HelpTip } from '@/components/ui/help-tip';
 import { ShipmentNumberBadge } from '@/components/shipments/ShipmentNumberBadge';
+import { ShipmentExceptionBadge } from '@/components/shipments/ShipmentExceptionBadge';
 import { useIncomingShipments, type InboundKind, type IncomingShipment } from '@/hooks/useIncomingShipments';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -108,8 +109,11 @@ function ManifestList({
         {shipments.map((s) => (
           <Card key={s.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onRowClick(s.id)}>
             <CardContent className="p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <ShipmentNumberBadge shipmentNumber={s.shipment_number} exceptionType={s.shipment_exception_type} />
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <ShipmentNumberBadge shipmentNumber={s.shipment_number} exceptionType={s.shipment_exception_type} />
+                  <ShipmentExceptionBadge shipmentId={s.id} count={s.exception_count} />
+                </div>
                 <Badge variant={statusBadgeVariant(s.inbound_status)}>
                   {formatStatus(s.inbound_status)}
                 </Badge>
@@ -145,7 +149,10 @@ function ManifestList({
                 onClick={() => onRowClick(s.id)}
               >
                 <TableCell>
-                  <ShipmentNumberBadge shipmentNumber={s.shipment_number} exceptionType={s.shipment_exception_type} />
+                  <div className="flex items-center gap-2">
+                    <ShipmentNumberBadge shipmentNumber={s.shipment_number} exceptionType={s.shipment_exception_type} />
+                    <ShipmentExceptionBadge shipmentId={s.id} count={s.exception_count} />
+                  </div>
                 </TableCell>
                 <TableCell>{s.account_name || '-'}</TableCell>
                 <TableCell>{s.vendor_name || '-'}</TableCell>
@@ -205,8 +212,11 @@ function ExpectedList({
         {shipments.map((s) => (
           <Card key={s.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onRowClick(s.id)}>
             <CardContent className="p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <ShipmentNumberBadge shipmentNumber={s.shipment_number} exceptionType={s.shipment_exception_type} />
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <ShipmentNumberBadge shipmentNumber={s.shipment_number} exceptionType={s.shipment_exception_type} />
+                  <ShipmentExceptionBadge shipmentId={s.id} count={s.exception_count} />
+                </div>
                 <Badge variant={statusBadgeVariant(s.inbound_status)}>
                   {formatStatus(s.inbound_status)}
                 </Badge>
@@ -242,7 +252,10 @@ function ExpectedList({
                 onClick={() => onRowClick(s.id)}
               >
                 <TableCell>
-                  <ShipmentNumberBadge shipmentNumber={s.shipment_number} exceptionType={s.shipment_exception_type} />
+                  <div className="flex items-center gap-2">
+                    <ShipmentNumberBadge shipmentNumber={s.shipment_number} exceptionType={s.shipment_exception_type} />
+                    <ShipmentExceptionBadge shipmentId={s.id} count={s.exception_count} />
+                  </div>
                 </TableCell>
                 <TableCell>{s.account_name || '-'}</TableCell>
                 <TableCell>{s.vendor_name || '-'}</TableCell>
@@ -311,8 +324,11 @@ function DockIntakeList({
         {shipments.map((s) => (
           <Card key={s.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onRowClick(s.id)}>
             <CardContent className="p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <ShipmentNumberBadge shipmentNumber={s.shipment_number} exceptionType={s.shipment_exception_type} />
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <ShipmentNumberBadge shipmentNumber={s.shipment_number} exceptionType={s.shipment_exception_type} />
+                  <ShipmentExceptionBadge shipmentId={s.id} count={s.exception_count} />
+                </div>
                 <Badge variant={statusBadgeVariant(s.inbound_status)}>
                   {formatStatus(s.inbound_status)}
                 </Badge>
@@ -346,7 +362,10 @@ function DockIntakeList({
                 onClick={() => onRowClick(s.id)}
               >
                 <TableCell>
-                  <ShipmentNumberBadge shipmentNumber={s.shipment_number} exceptionType={s.shipment_exception_type} />
+                  <div className="flex items-center gap-2">
+                    <ShipmentNumberBadge shipmentNumber={s.shipment_number} exceptionType={s.shipment_exception_type} />
+                    <ShipmentExceptionBadge shipmentId={s.id} count={s.exception_count} />
+                  </div>
                 </TableCell>
                 <TableCell>
                   {s.account_name || (
@@ -532,7 +551,7 @@ export function IncomingContent({ initialSubTab, onStartDockIntake }: IncomingCo
                   className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
                 />
                 <Input
-                  placeholder="Search shipment #, vendor, tracking..."
+                  placeholder="Search #, account, vendor, notes, refs..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-8"
