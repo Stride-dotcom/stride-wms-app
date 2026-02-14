@@ -59,6 +59,45 @@ async function tenantExists(
   return data !== null;
 }
 
+async function resolveTenantByStripeMapping(
+  supabase: ReturnType<typeof getServiceClient>,
+  customerId: string | null,
+  subscriptionId: string | null
+): Promise<{ tenant_id: string; resolvedBy: "customer" | "subscription" } | null> {
+  if (customerId) {
+    const { data: byCustomer, error: customerLookupError } = await supabase
+      .from("tenant_subscriptions")
+      .select("tenant_id")
+      .eq("stripe_customer_id", customerId)
+      .maybeSingle();
+
+    if (customerLookupError) {
+      console.error("resolveTenantByStripeMapping customer lookup error:", customerLookupError.message);
+    } else if (byCustomer?.tenant_id) {
+      return { tenant_id: byCustomer.tenant_id, resolvedBy: "customer" };
+    }
+  }
+
+  if (subscriptionId) {
+    const { data: bySubscription, error: subscriptionLookupError } = await supabase
+      .from("tenant_subscriptions")
+      .select("tenant_id")
+      .eq("stripe_subscription_id", subscriptionId)
+      .maybeSingle();
+
+    if (subscriptionLookupError) {
+      console.error(
+        "resolveTenantByStripeMapping subscription lookup error:",
+        subscriptionLookupError.message
+      );
+    } else if (bySubscription?.tenant_id) {
+      return { tenant_id: bySubscription.tenant_id, resolvedBy: "subscription" };
+    }
+  }
+
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Event handlers
 // ---------------------------------------------------------------------------
@@ -165,24 +204,18 @@ async function handleSubscriptionUpdated(
 ) {
   const subscription = event.data.object as Stripe.Subscription;
 
-  // Look up tenant by stripe_subscription_id
-  const { data: existing } = await supabase
-    .from("tenant_subscriptions")
-    .select("tenant_id")
-    .eq("stripe_subscription_id", subscription.id)
-    .maybeSingle();
-
-  if (!existing) {
-    console.warn(
-      `customer.subscription.updated: no tenant found for subscription ${subscription.id}, skipping`
-    );
-    return;
-  }
-
   const customerId =
     typeof subscription.customer === "string"
       ? subscription.customer
       : subscription.customer?.id ?? null;
+
+  const resolved = await resolveTenantByStripeMapping(supabase, customerId, subscription.id);
+  if (!resolved) {
+    console.warn(
+      `customer.subscription.updated: no tenant found for customer=${customerId ?? "null"} subscription=${subscription.id}, skipping`
+    );
+    return;
+  }
 
   const periodEnd = subscription.current_period_end
     ? new Date(subscription.current_period_end * 1000).toISOString()
@@ -191,7 +224,7 @@ async function handleSubscriptionUpdated(
   const { error } = await supabase.rpc(
     "rpc_upsert_tenant_subscription_from_stripe",
     {
-      p_tenant_id: existing.tenant_id,
+      p_tenant_id: resolved.tenant_id,
       p_stripe_customer_id: customerId,
       p_stripe_subscription_id: subscription.id,
       p_status: mapStripeStatus(subscription.status),
@@ -203,7 +236,9 @@ async function handleSubscriptionUpdated(
   if (error) {
     console.error("rpc_upsert_tenant_subscription_from_stripe error:", error.message);
   } else {
-    console.log(`customer.subscription.updated: upserted for tenant ${existing.tenant_id}`);
+    console.log(
+      `customer.subscription.updated: upserted for tenant ${resolved.tenant_id} (resolved by ${resolved.resolvedBy})`
+    );
   }
 }
 
@@ -213,28 +248,23 @@ async function handleSubscriptionDeleted(
 ) {
   const subscription = event.data.object as Stripe.Subscription;
 
-  const { data: existing } = await supabase
-    .from("tenant_subscriptions")
-    .select("tenant_id")
-    .eq("stripe_subscription_id", subscription.id)
-    .maybeSingle();
-
-  if (!existing) {
-    console.warn(
-      `customer.subscription.deleted: no tenant found for subscription ${subscription.id}, skipping`
-    );
-    return;
-  }
-
   const customerId =
     typeof subscription.customer === "string"
       ? subscription.customer
       : subscription.customer?.id ?? null;
 
+  const resolved = await resolveTenantByStripeMapping(supabase, customerId, subscription.id);
+  if (!resolved) {
+    console.warn(
+      `customer.subscription.deleted: no tenant found for customer=${customerId ?? "null"} subscription=${subscription.id}, skipping`
+    );
+    return;
+  }
+
   const { error } = await supabase.rpc(
     "rpc_upsert_tenant_subscription_from_stripe",
     {
-      p_tenant_id: existing.tenant_id,
+      p_tenant_id: resolved.tenant_id,
       p_stripe_customer_id: customerId,
       p_stripe_subscription_id: subscription.id,
       p_status: "canceled",
@@ -245,7 +275,9 @@ async function handleSubscriptionDeleted(
   if (error) {
     console.error("rpc_upsert_tenant_subscription_from_stripe (deleted) error:", error.message);
   } else {
-    console.log(`customer.subscription.deleted: set canceled for tenant ${existing.tenant_id}`);
+    console.log(
+      `customer.subscription.deleted: set canceled for tenant ${resolved.tenant_id} (resolved by ${resolved.resolvedBy})`
+    );
   }
 }
 

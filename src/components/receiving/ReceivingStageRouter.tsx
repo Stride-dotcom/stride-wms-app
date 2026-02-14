@@ -193,7 +193,7 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
 
       // Fire alerts (non-blocking)
       try {
-        const { data: exceptions } = await supabase
+        const { data: exceptions } = await (supabase as any)
           .from('shipment_exceptions')
           .select('id')
           .eq('shipment_id', shipmentId)

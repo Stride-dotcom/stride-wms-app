@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { pageTours, deepTours, PageTour, TourStep, TourMode, RoleContext, Priority, ERROR_CODES, ErrorCode, shouldCheckScrollBuffer, shouldFailRun, getDeepToursOrdered } from './tours';
 import { getFileHintsForRoute, getAllRoutes } from './routeToFileHints';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { randomUUID } from 'node:crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -143,7 +144,7 @@ const sharedContext: Map<string, string> = new Map();
 // ============================================================
 
 function generateRunId(): string {
-  return `ui-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  return randomUUID();
 }
 
 async function createSupabaseClient(): Promise<SupabaseClient> {

@@ -80,8 +80,19 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-048 | SubscriptionGate blocks specified creation routes when restricted | Frontend Gating | locked | `docs/LOCKED_DECISION_LEDGER_PHASE5V3_IMPORT.md` | - | 2026-02-14 |
 | DL-2026-02-14-049 | useSubscriptionGate uses query key, stale time, and window-focus refetch policy | Frontend Gating | locked | `docs/LOCKED_DECISION_LEDGER_PHASE5V3_IMPORT.md` | - | 2026-02-14 |
 | DL-2026-02-14-050 | Gated route list is exact and includes internal and client creation routes | Frontend Gating | locked | `docs/LOCKED_DECISION_LEDGER_PHASE5V3_IMPORT.md` | - | 2026-02-14 |
-| DL-2026-02-14-051 | Subscription enforcement scope moves to full-app restriction with payment-update redirect | SaaS Enforcement | locked | Chat Q&A (2026-02-14) | DL-2026-02-14-018, DL-2026-02-14-019, DL-2026-02-14-048, DL-2026-02-14-050 | 2026-02-14 |
-| DL-2026-02-14-052 | Full-app redirect starts immediately at past_due (during grace) | SaaS Enforcement | locked | Chat Q&A (2026-02-14) | DL-2026-02-14-024 | 2026-02-14 |
+| DL-2026-02-14-051 | Subscription enforcement scope moves to full-app restriction with payment-update redirect | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | DL-2026-02-14-018, DL-2026-02-14-019, DL-2026-02-14-048, DL-2026-02-14-050 | - |
+| DL-2026-02-14-052 | Full-app redirect starts immediately at past_due (during grace) | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | DL-2026-02-14-024 | - |
+| DL-2026-02-14-053 | Blocked page must auto-check subscription recovery and allow manual status refresh | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-054 | Blocked-user destination route is /subscription/update-payment | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-055 | Provide minimal admin_dev Stripe Ops observability page without credential editing | SaaS Ops | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-056 | Blocked-state allowlist includes auth, payment-update, logout, and help/support access | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-057 | Payment-state mutation RPC identity standard is stripe_subscription_id | Webhook/RPC Contract | accepted | Chat Q&A (2026-02-14) | DL-2026-02-14-040, DL-2026-02-14-041 | - |
+| DL-2026-02-14-058 | subscription.updated tenant resolution must use customer_id fallback to subscription_id | Webhook Contract | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-059 | /subscription/update-payment auto-opens Stripe Customer Portal on page load | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-060 | Client portal users use the same blocked destination route as internal users | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-061 | Payment data entry remains Stripe-hosted; app never collects raw card details | Security/Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-062 | Blocked-flow support uses external mailto contact (tenant company email when available) | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-063 | Keep DL-051 through DL-062 in accepted state until post-deploy Stripe CLI validation | Release Governance | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -93,12 +104,12 @@ It captures high-impact implementation decisions, their status, and supersession
 
 ### DL-2026-02-14-051: Subscription enforcement scope moves to full-app restriction with payment-update redirect
 - Domain: SaaS Enforcement
-- State: locked
+- State: accepted
 - Source: Chat Q&A (2026-02-14)
 - Supersedes: DL-2026-02-14-018, DL-2026-02-14-019, DL-2026-02-14-048, DL-2026-02-14-050
 - Superseded by: -
 - Date created: 2026-02-14
-- Locked at: 2026-02-14
+- Locked at: -
 
 #### Decision
 When subscription enforcement triggers, users should be routed to a subscription payment update page and blocked from normal app access until payment information is updated and access is restored.
@@ -113,12 +124,12 @@ Business intent is to make subscription remediation the immediate path instead o
 
 ### DL-2026-02-14-052: Full-app redirect starts immediately at past_due (during grace)
 - Domain: SaaS Enforcement
-- State: locked
+- State: accepted
 - Source: Chat Q&A (2026-02-14)
 - Supersedes: DL-2026-02-14-024
 - Superseded by: -
 - Date created: 2026-02-14
-- Locked at: 2026-02-14
+- Locked at: -
 
 #### Decision
 Users are redirected to the subscription payment-update path immediately when status becomes `past_due` (during grace), not only after grace expires.
@@ -130,6 +141,226 @@ Business priority is hard enforcement of billing remediation flow as soon as pay
 - Redefines grace as a payment-recovery window rather than an access-allowed window.
 - App-level gate condition must block normal app routes for `past_due`, `canceled`, and `inactive`.
 - Requires supersession-aware updates to banner/copy so in-grace users are still blocked but informed of grace deadline.
+
+### DL-2026-02-14-053: Blocked page must auto-check subscription recovery and allow manual status refresh
+- Domain: SaaS UX
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+The blocked payment-update page should automatically re-check subscription status on an interval (target ~10 seconds) and also provide a manual "Check status" action.
+
+#### Why
+Stripe recovery events are asynchronous; users need a low-friction path to regain access quickly once payment is fixed.
+
+#### Implementation impact
+- Add polling/refetch behavior to blocked flow.
+- Add manual status refresh control on blocked page.
+- On recovered status, immediately release app-level restriction and continue normal app navigation.
+
+### DL-2026-02-14-054: Blocked-user destination route is /subscription/update-payment
+- Domain: SaaS UX
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+The enforced payment-recovery flow uses a dedicated app route: `/subscription/update-payment`.
+
+#### Why
+A dedicated route keeps blocked-state logic isolated from normal billing/settings pages and simplifies allowlisting.
+
+#### Implementation impact
+- Add route/page for subscription payment update flow.
+- Route allowlist while blocked must include `/subscription/update-payment`.
+- Portal return URL should target `/subscription/update-payment`.
+
+### DL-2026-02-14-055: Provide minimal admin_dev Stripe Ops observability page without credential editing
+- Domain: SaaS Ops
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Build a dev-only (`admin_dev`) Stripe Ops page focused on observability and diagnostics, while keeping Stripe account settings, credentials, and key management outside the app.
+
+#### Why
+This gives operational visibility for troubleshooting and status checks without introducing security risk from in-app credential editing.
+
+#### Implementation impact
+- Add a restricted `admin_dev` route/page for Stripe observability.
+- Include read-mostly data (subscription state lookups, webhook processing health, links to Stripe objects).
+- Exclude any in-app editing of Stripe API keys or account-level credential material.
+
+### DL-2026-02-14-056: Blocked-state allowlist includes auth, payment-update, logout, and help/support access
+- Domain: SaaS Enforcement
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+While the app is globally blocked for unpaid subscription status, allowlisted access remains available for authentication, payment update flow, logout/sign-out, and help/support routes.
+
+#### Why
+Users must be able to remediate billing, recover sessions safely, and reach support without bypassing enforcement.
+
+#### Implementation impact
+- Global block middleware/guard must exempt:
+  - `/auth`
+  - `/subscription/update-payment`
+  - logout/sign-out action route (if present)
+  - help/support route(s) where available
+- All other authenticated app routes are redirected to `/subscription/update-payment` during blocked states.
+
+### DL-2026-02-14-057: Payment-state mutation RPC identity standard is stripe_subscription_id
+- Domain: Webhook/RPC Contract
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: DL-2026-02-14-040, DL-2026-02-14-041
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Payment-state mutation RPCs are standardized on `stripe_subscription_id` as the identity key for failure/paid transitions.
+
+#### Why
+Stripe invoice/payment events naturally provide subscription IDs, reducing extra lookup complexity and minimizing mismatch risk.
+
+#### Implementation impact
+- Keep/refine mutation RPC signatures to accept `stripe_subscription_id`.
+- Webhook invoice handlers call payment mutation RPCs using subscription ID directly.
+- Documentation and gate diagnostics should reference this identity model.
+
+### DL-2026-02-14-058: subscription.updated tenant resolution must use customer_id fallback to subscription_id
+- Domain: Webhook Contract
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+For `customer.subscription.updated`, tenant resolution must first attempt `stripe_customer_id`; if unresolved, fallback to `stripe_subscription_id`.
+
+#### Why
+Customer-based mapping improves resilience when subscription IDs rotate, change timing, or are missing from expected mapping windows.
+
+#### Implementation impact
+- Update webhook resolution logic for `customer.subscription.updated` (and preferably keep parity for deleted event handling).
+- Add logs that indicate which lookup path resolved the tenant.
+- Ensure idempotent upsert still applies after resolution path branching.
+
+### DL-2026-02-14-059: /subscription/update-payment auto-opens Stripe Customer Portal on page load
+- Domain: SaaS UX
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+When users land on `/subscription/update-payment`, the app should automatically open Stripe Customer Portal immediately on page load.
+
+#### Why
+This minimizes remediation friction and gets blocked users into payment recovery flow without extra clicks.
+
+#### Implementation impact
+- Payment-update page should trigger portal session creation and redirect/open flow automatically.
+- Include robust fallback UI for blocked popup/navigation failures (for example, retry button and support contact).
+- Keep status polling/manual refresh from DL-2026-02-14-053 for post-return unlock behavior.
+
+### DL-2026-02-14-060: Client portal users use the same blocked destination route as internal users
+- Domain: SaaS Enforcement
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Client portal users (`/client/*`) should follow the same blocked destination route (`/subscription/update-payment`) and remediation flow as internal users.
+
+#### Why
+Subscription enforcement is tenant-level and should remain consistent across user surfaces.
+
+#### Implementation impact
+- Global blocked-state routing logic applies uniformly to internal and client portal routes.
+- Avoid creating a separate client-only blocked flow unless later superseded.
+
+### DL-2026-02-14-061: Payment data entry remains Stripe-hosted; app never collects raw card details
+- Domain: Security/Compliance
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Users update payment details only in Stripe-hosted surfaces (Customer Portal/Checkout). The app does not capture, process, or store raw card numbers, CVC, or full PAN data.
+
+#### Why
+This reduces PCI exposure and security risk while relying on Stripe for payment data handling.
+
+#### Implementation impact
+- `/subscription/update-payment` launches Stripe-hosted payment management only.
+- App stores only non-sensitive billing metadata needed for subscription state and UX (for example status, grace deadlines, Stripe IDs).
+- Maintain secure webhook verification and service-role controls because operational/security risk still exists outside raw card handling.
+
+### DL-2026-02-14-062: Blocked-flow support uses external mailto contact (tenant company email when available)
+- Domain: SaaS UX
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Help/support in blocked payment flow is external: use a mailto contact link (prefer tenant company email from settings when available).
+
+#### Why
+External support avoids adding another in-app route while access is restricted and ships quickly.
+
+#### Implementation impact
+- Payment update page renders support mailto link when company email is available.
+- Fallback guidance remains visible if no support email exists.
+
+### DL-2026-02-14-063: Keep DL-051 through DL-062 in accepted state until post-deploy Stripe CLI validation
+- Domain: Release Governance
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Decisions DL-2026-02-14-051 through DL-2026-02-14-062 remain `accepted` and will not be moved to `locked` until deployment and Stripe CLI validation are completed.
+
+#### Why
+Final lock should occur only after live integration behavior is verified end-to-end.
+
+#### Implementation impact
+- Keep these decisions editable in accepted state until validation evidence is captured.
+- After verification, update state to locked and append corresponding verification events in the implementation log.
 
 ## Decision entry template (copy/paste)
 
