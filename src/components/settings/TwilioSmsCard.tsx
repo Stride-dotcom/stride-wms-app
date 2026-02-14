@@ -53,6 +53,8 @@ function validateE164(phone: string): string | null {
 
 export function TwilioSmsCard({ settings, tenantId, onUpdate }: TwilioSmsCardProps) {
   const { toast } = useToast();
+  const baseUrl = (settings?.app_base_url || window.location.origin).replace(/\/+$/, '');
+  const suggestedProofOfConsentUrl = `${baseUrl}/sms-opt-in?t=${tenantId}`;
 
   // --- Local form state ---
   const [smsEnabled, setSmsEnabled] = useState(false);
@@ -494,9 +496,35 @@ export function TwilioSmsCard({ settings, tenantId, onUpdate }: TwilioSmsCardPro
                 value={proofOfConsentUrl}
                 onChange={setProofOfConsentUrl}
                 onCopy={handleCopy}
-                placeholder="https://yoursite.com/sms-opt-in"
-                hint="URL where you collect SMS opt-in consent from recipients"
+                placeholder="https://portal.yourcompany.com/sms-opt-in?t=<tenantId>"
+                hint="Public URL where you collect SMS opt-in consent (must be accessible without login)"
               />
+              <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground space-y-2">
+                <p className="flex flex-col gap-1">
+                  <span className="font-medium text-foreground">Suggested URL (based on your App Base URL):</span>
+                  <code className="font-mono text-[11px] break-all">{suggestedProofOfConsentUrl}</code>
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopy(suggestedProofOfConsentUrl, 'Suggested Proof of Consent URL')}
+                  >
+                    <MaterialIcon name="content_copy" size="sm" className="mr-2" />
+                    Copy Suggested URL
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setProofOfConsentUrl(suggestedProofOfConsentUrl)}
+                  >
+                    <MaterialIcon name="auto_fix_high" size="sm" className="mr-2" />
+                    Use Suggested URL
+                  </Button>
+                </div>
+              </div>
 
               {/* Use Case Description */}
               <CopyableTextarea

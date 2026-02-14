@@ -20,7 +20,8 @@ interface TenantInfo {
 
 export default function SmsOptIn() {
   const [searchParams] = useSearchParams();
-  const tenantId = searchParams.get('t');
+  const tenantIdFromQuery = searchParams.get('t');
+  const tenantId = tenantIdFromQuery || import.meta.env.VITE_DEFAULT_TENANT_ID || null;
 
   const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +37,16 @@ export default function SmsOptIn() {
   // Fetch tenant branding info (public - uses edge function)
   useEffect(() => {
     if (!tenantId) {
-      setError('Missing tenant identifier in the URL.');
+      // Allow this page to be used as a stable public URL for Twilio review.
+      // Consent submission requires a tenant id (either via `?t=` or `VITE_DEFAULT_TENANT_ID`).
+      setTenantInfo({
+        company_name: null,
+        logo_url: null,
+        sms_opt_in_message: null,
+        sms_privacy_policy_url: null,
+        sms_terms_conditions_url: null,
+        sms_help_message: null,
+      });
       setLoading(false);
       return;
     }
@@ -128,6 +138,7 @@ export default function SmsOptIn() {
   }
 
   const companyName = tenantInfo.company_name || 'our company';
+  const canSubmit = Boolean(tenantId) && phone.trim() && agreed;
 
   // Success
   if (success) {
@@ -199,6 +210,17 @@ export default function SmsOptIn() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
+          {!tenantIdFromQuery && !import.meta.env.VITE_DEFAULT_TENANT_ID && (
+            <Alert className="bg-amber-50 border-amber-200">
+              <MaterialIcon name="info" size="sm" className="text-amber-700" />
+              <AlertDescription className="text-amber-900 text-sm">
+                This opt-in link is missing an organization identifier. If you were given a link by {companyName},
+                it should include <strong>?t=...</strong>. If you manage this site, set <code>VITE_DEFAULT_TENANT_ID</code>{' '}
+                to make <code>/sms-opt-in</code> work without parameters.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-1.5">
             <Label htmlFor="phone">Phone Number</Label>
             <Input
@@ -234,6 +256,7 @@ export default function SmsOptIn() {
               Message frequency varies. Message & data rates may apply.
               Reply <strong>STOP</strong> to cancel, <strong>HELP</strong> for help.
             </p>
+            <p>Consent is not a condition of purchase.</p>
             {(tenantInfo.sms_privacy_policy_url || tenantInfo.sms_terms_conditions_url) && (
               <p className="flex gap-3">
                 {tenantInfo.sms_privacy_policy_url && (
@@ -283,7 +306,7 @@ export default function SmsOptIn() {
           <Button
             className="w-full"
             onClick={handleSubmit}
-            disabled={submitting || !phone.trim() || !agreed}
+            disabled={submitting || !canSubmit}
           >
             {submitting ? (
               <>
