@@ -29,6 +29,8 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-007 | 2026-02-14 | DL-2026-02-14-052 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted timing decision | builder | Redirect trigger now starts at `past_due` (during grace). |
 | DLE-2026-02-14-008 | 2026-02-14 | DL-2026-02-14-051 | blocked | Commits `95a38e2`, `d3d3b72`, `c3e1f8f` (Twilio/public SMS routing work) | builder | Payment-update redirect implementation not started in this cycle; effort prioritized to Twilio compliance and public opt-in routing hardening. |
 | DLE-2026-02-14-009 | 2026-02-14 | DL-2026-02-14-052 | blocked | Commits `95a38e2`, `d3d3b72`, `c3e1f8f` (Twilio/public SMS routing work) | builder | Immediate past_due full-app redirect implementation pending; no functional SaaS enforcement changes landed this cycle. |
+| DLE-2026-02-14-010 | 2026-02-14 | DL-2026-02-14-051 | verified | Approval directive in chat (2026-02-14); `docs/LOCKED_DECISION_LEDGER.md` state updated accepted -> locked with locked date | builder | Decision content unchanged; lock applied as governance milestone action. |
+| DLE-2026-02-14-011 | 2026-02-14 | DL-2026-02-14-052 | verified | Approval directive in chat (2026-02-14); `docs/LOCKED_DECISION_LEDGER.md` state updated accepted -> locked with locked date | builder | Decision content unchanged; lock applied as governance milestone action. |
 
 ## Event template (copy/paste)
 
