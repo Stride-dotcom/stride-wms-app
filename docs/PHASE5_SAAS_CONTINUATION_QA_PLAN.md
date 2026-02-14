@@ -8,6 +8,7 @@ Primary source of truth: `docs/LOCKED_DECISION_LEDGER.md` + `docs/LOCKED_DECISIO
 Continue Phase 5 SaaS subscription automation using locked decisions and one-question-at-a-time clarification.
 Current superseding direction: `DL-2026-02-14-051` (accepted) shifts from route-level gating to app-level restriction with payment-update redirect.
 Redirect timing decision captured: `DL-2026-02-14-052` (accepted) starts redirect at `past_due` during grace.
+Recovery UX decision captured: `DL-2026-02-14-053` (accepted) requires auto-check polling plus manual status refresh on blocked page.
 
 ## Current implementation snapshot
 
@@ -35,10 +36,11 @@ Confirmed present in repo:
 
 1. **Define payment-update destination** (route/page ownership, allowlist behavior).
 2. **Decide Stripe operations visibility model** (Stripe dashboard only vs internal admin-dev mirror page).
-3. **Resolve webhook/RPC contract mismatches** (customer/subscription mapping and RPC identity).
-4. **Implement global restriction flow** without modifying locked history in place (supersession-aware).
-5. **Add verification checklist/tests** (Stripe replay, grace transitions, lock/unlock redirect behavior).
-6. **Log completion evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
+3. **Define blocked-route allowlist** (auth/logout/help/support and payment route).
+4. **Resolve webhook/RPC contract mismatches** (customer/subscription mapping and RPC identity).
+5. **Implement global restriction flow** without modifying locked history in place (supersession-aware).
+6. **Add verification checklist/tests** (Stripe replay, grace transitions, lock/unlock redirect behavior).
+7. **Log completion evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
 
 ## Q&A protocol (one question at a time)
 
