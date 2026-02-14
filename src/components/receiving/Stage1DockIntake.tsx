@@ -22,6 +22,10 @@ import {
 } from '@/hooks/useShipmentExceptions';
 import { SignaturePad } from '@/components/shipments/SignaturePad';
 import { ShipmentExceptionBadge } from '@/components/shipments/ShipmentExceptionBadge';
+import { AccountSelect } from '@/components/ui/account-select';
+import { DocumentCapture } from '@/components/scanner/DocumentCapture';
+import { useDocuments } from '@/hooks/useDocuments';
+import { useUnidentifiedAccount } from '@/hooks/useUnidentifiedAccount';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +38,13 @@ type ExceptionChip = 'NO_EXCEPTIONS' | ShipmentExceptionCode;
 
 const EXCEPTION_OPTIONS: { value: ExceptionChip; label: string; icon: string; requiresNote?: boolean }[] = [
   { value: 'NO_EXCEPTIONS', label: 'No Exceptions', icon: 'check_circle' },
+  { value: 'PIECES_MISMATCH', ...SHIPMENT_EXCEPTION_CODE_META.PIECES_MISMATCH },
+  { value: 'VENDOR_MISMATCH', ...SHIPMENT_EXCEPTION_CODE_META.VENDOR_MISMATCH },
+  { value: 'DESCRIPTION_MISMATCH', ...SHIPMENT_EXCEPTION_CODE_META.DESCRIPTION_MISMATCH },
+  { value: 'SIDEMARK_MISMATCH', ...SHIPMENT_EXCEPTION_CODE_META.SIDEMARK_MISMATCH },
+  { value: 'SHIPPER_MISMATCH', ...SHIPMENT_EXCEPTION_CODE_META.SHIPPER_MISMATCH },
+  { value: 'TRACKING_MISMATCH', ...SHIPMENT_EXCEPTION_CODE_META.TRACKING_MISMATCH },
+  { value: 'REFERENCE_MISMATCH', ...SHIPMENT_EXCEPTION_CODE_META.REFERENCE_MISMATCH },
   { value: 'DAMAGE', ...SHIPMENT_EXCEPTION_CODE_META.DAMAGE },
   { value: 'WET', ...SHIPMENT_EXCEPTION_CODE_META.WET },
   { value: 'OPEN', ...SHIPMENT_EXCEPTION_CODE_META.OPEN },
@@ -84,9 +95,10 @@ export function Stage1DockIntake({
   const { toast } = useToast();
 
   // Form state
+  const { unidentifiedAccountId, ensureUnidentifiedAccount, ensuring: ensuringUnidentified } = useUnidentifiedAccount();
+  const [accountId, setAccountId] = useState<string>(shipment.account_id || '');
   const [vendorName, setVendorName] = useState(shipment.vendor_name || '');
   const [signedPieces, setSignedPieces] = useState<number>(shipment.signed_pieces || 0);
-  const [driverName, setDriverName] = useState(shipment.driver_name || '');
   const [notes, setNotes] = useState(shipment.notes || '');
   const [exceptions, setExceptions] = useState<ExceptionChip[]>(['NO_EXCEPTIONS']);
   const [exceptionNotes, setExceptionNotes] = useState<Record<ShipmentExceptionCode, string>>({} as Record<ShipmentExceptionCode, string>);
@@ -131,17 +143,27 @@ export function Stage1DockIntake({
   // File input refs
   const paperworkInputRef = useRef<HTMLInputElement>(null);
   const conditionInputRef = useRef<HTMLInputElement>(null);
+  const { documents } = useDocuments({ contextType: 'shipment', contextId: shipmentId });
 
   // Emit matching params whenever relevant fields change
   useEffect(() => {
     onMatchingParamsChange?.({
       vendorName,
       pieces: signedPieces,
-      accountId: shipment.account_id,
+      accountId: accountId || null,
     });
-  }, [vendorName, signedPieces, shipment.account_id]);
+  }, [vendorName, signedPieces, accountId, onMatchingParamsChange]);
+
+  useEffect(() => {
+    setAccountId(shipment.account_id || '');
+  }, [shipment.account_id]);
 
   // Autosave handlers
+  const handleAccountChange = (value: string) => {
+    setAccountId(value);
+    autosave.saveField('account_id', value || null);
+  };
+
   const handleVendorNameChange = (value: string) => {
     setVendorName(value);
     autosave.saveField('vendor_name', value);
@@ -150,11 +172,6 @@ export function Stage1DockIntake({
   const handleSignedPiecesChange = (value: number) => {
     setSignedPieces(value);
     autosave.saveField('signed_pieces', value);
-  };
-
-  const handleDriverNameChange = (value: string) => {
-    setDriverName(value);
-    autosave.saveField('driver_name', value);
   };
 
   const handleNotesChange = (value: string) => {
@@ -323,7 +340,7 @@ export function Stage1DockIntake({
   // Validation
   const validate = (): string[] => {
     const errors: string[] = [];
-    if (!vendorName.trim()) errors.push('Vendor name is required');
+    if (!accountId) errors.push('Account is required (or use UNIDENTIFIED SHIPMENT)');
     if (signedPieces <= 0) errors.push('Signed pieces must be greater than 0');
     if (exceptions.length === 0) errors.push('At least one exception selection is required');
     if (exceptions.includes('REFUSED') && !exceptionNotes.REFUSED?.trim()) {
@@ -359,9 +376,9 @@ export function Stage1DockIntake({
       // Include all current field values to prevent stale autosave overwrites
       const updateData: Record<string, unknown> = {
         inbound_status: 'stage1_complete',
+        account_id: accountId || null,
         vendor_name: vendorName,
         signed_pieces: signedPieces,
-        driver_name: driverName || null,
         notes: notes || null,
         dock_intake_breakdown: breakdown,
       };
@@ -370,11 +387,6 @@ export function Stage1DockIntake({
       if (signatureData) {
         updateData.signature_data = signatureData;
         updateData.signature_name = signatureName;
-      }
-
-      // Flag as UNKNOWN_ACCOUNT if no account assigned at Stage 1 completion
-      if (!shipment.account_id) {
-        updateData.shipment_exception_type = 'UNKNOWN_ACCOUNT';
       }
 
       const { error } = await (supabase as any)
@@ -411,7 +423,6 @@ export function Stage1DockIntake({
                 <Badge variant="outline">{shipmentNumber}</Badge>
                 <ShipmentExceptionBadge
                   shipmentId={shipmentId}
-                  count={exceptionCount}
                   onClick={onOpenExceptions}
                 />
               </CardTitle>
@@ -429,13 +440,54 @@ export function Stage1DockIntake({
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <MaterialIcon name="business" size="sm" />
-            Delivery Info
+            Shipment Details + Summary
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
+            <Label>
+              Account <span className="text-red-500">*</span>
+            </Label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <AccountSelect
+                value={accountId}
+                onChange={handleAccountChange}
+                placeholder="Select account..."
+                clearable={false}
+                className="w-full"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={async () => {
+                  const ensuredId = unidentifiedAccountId || await ensureUnidentifiedAccount(profile?.tenant_id);
+                  if (ensuredId) {
+                    handleAccountChange(ensuredId);
+                    return;
+                  }
+                  toast({
+                    variant: 'destructive',
+                    title: 'Unidentified account unavailable',
+                    description: 'Could not resolve UNIDENTIFIED SHIPMENT account.',
+                  });
+                }}
+                disabled={ensuringUnidentified}
+              >
+                {ensuringUnidentified ? (
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-1 animate-spin" />
+                ) : (
+                  <MaterialIcon name="help_outline" size="sm" className="mr-1" />
+                )}
+                Use UNIDENTIFIED
+              </Button>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
             <Label htmlFor="vendor_name">
-              Vendor Name <span className="text-red-500">*</span>
+              Vendor Name
             </Label>
             <Input
               id="vendor_name"
@@ -463,17 +515,6 @@ export function Stage1DockIntake({
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="driver_name">Driver Name (optional)</Label>
-              <Input
-                id="driver_name"
-                placeholder="Enter driver name"
-                value={driverName}
-                onChange={(e) => handleDriverNameChange(e.target.value)}
-              />
-            </div>
-          </div>
         </CardContent>
       </Card>
 
@@ -692,6 +733,27 @@ export function Stage1DockIntake({
         </Card>
       </div>
 
+      {/* Documents */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <MaterialIcon name="description" size="sm" />
+            Documents
+            <Badge variant="outline">{documents.length}</Badge>
+          </CardTitle>
+          <CardDescription>
+            Capture or upload delivery paperwork and supporting intake documents.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DocumentCapture
+            context={{ type: 'shipment', shipmentId }}
+            maxDocuments={12}
+            ocrEnabled={true}
+          />
+        </CardContent>
+      </Card>
+
       {/* Signature (optional) */}
       <Card>
         <CardHeader>
@@ -796,7 +858,7 @@ export function Stage1DockIntake({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MaterialIcon name="draw" size="sm" />
-              Driver / Delivery Signature
+              Delivery Signature
             </DialogTitle>
           </DialogHeader>
           <div className="py-2">

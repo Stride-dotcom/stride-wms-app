@@ -363,7 +363,6 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
                         {event.metadata.shipmentType === 'inbound' && event.metadata.inboundKind === 'dock_intake' && (
                           <ShipmentExceptionBadge
                             shipmentId={event.metadata.shipmentId}
-                            count={event.metadata.exceptionOpenCount}
                             onClick={() => navigate(`/incoming/dock-intake/${event.metadata.shipmentId}?tab=exceptions`)}
                           />
                         )}

@@ -169,7 +169,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const lastScrollY = useRef(0);
   const { profile, signOut } = useAuth();
   const { hasRole, isAdmin } = usePermissions();
-  const { canAccessQACenter } = useAdminDev();
+  const { canAccessQACenter, isAdminDev } = useAdminDev();
   const { getUserStatus } = usePresence();
   const location = useLocation();
   const navigate = useNavigate();
@@ -391,8 +391,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       });
     }
 
+    // Add Decision Ledger for admin_dev users (internal build tracking)
+    if (isAdminDev) {
+      baseItems.push({
+        label: 'Decision Ledger',
+        href: '/decision-ledger',
+        icon: 'gavel',
+      });
+    }
+
     return baseItems;
-  }, [isTechnician, hasRole, isAdmin, canAccessQACenter]);
+  }, [isTechnician, hasRole, isAdmin, canAccessQACenter, isAdminDev]);
 
   // Sort nav items based on saved order
   const sortedNavItems = useMemo(() => {
