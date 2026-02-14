@@ -20,7 +20,7 @@ export default function SubscriptionUpdatePayment() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { signOut } = useAuth();
+  const { signOut, profile } = useAuth();
   const { data: gate, refetch, isLoading, isFetching } = useSubscriptionGate();
 
   const [launchError, setLaunchError] = useState<string | null>(null);
@@ -98,12 +98,15 @@ export default function SubscriptionUpdatePayment() {
   }, [gate, isBlocked, refetch]);
 
   useEffect(() => {
+    if (!profile?.tenant_id) return;
+
     let cancelled = false;
 
     const fetchSupportEmail = async () => {
       const { data } = await supabase
         .from("tenant_company_settings")
         .select("company_email")
+        .eq("tenant_id", profile.tenant_id)
         .maybeSingle();
 
       if (!cancelled) {
@@ -116,7 +119,7 @@ export default function SubscriptionUpdatePayment() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [profile?.tenant_id]);
 
   const handleCheckStatus = async () => {
     const { data } = await refetch();
@@ -133,7 +136,7 @@ export default function SubscriptionUpdatePayment() {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/auth", { replace: true });
+    navigate(returnPath.startsWith("/client") ? "/client/login" : "/auth", { replace: true });
   };
 
   if (isLoading && !gate) {
