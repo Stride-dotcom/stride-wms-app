@@ -37,6 +37,9 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-015 | 2026-02-14 | DL-2026-02-14-060 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted shared-route decision | builder | Client and internal users share the same blocked destination route. |
 | DLE-2026-02-14-016 | 2026-02-14 | DL-2026-02-14-061 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted Stripe-hosted payment-entry decision | builder | Payment details remain in Stripe-hosted pages; app avoids raw card data handling. |
 | DLE-2026-02-14-017 | 2026-02-14 | DL-2026-02-14-062 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted support-channel decision | builder | Blocked-flow support uses external mailto contact with tenant email preference. |
+| DLE-2026-02-14-018 | 2026-02-14 | DL-2026-02-14-051..DL-2026-02-14-054,DL-2026-02-14-056,DL-2026-02-14-060,DL-2026-02-14-062 | completed | Commit `28b25dc` (`src/components/ProtectedRoute.tsx`, `src/App.tsx`, `src/pages/SubscriptionUpdatePayment.tsx`) | builder | Implemented full-app blocked redirect flow, payment-update route, polling/manual refresh, shared client/internal destination, and support contact UX. |
+| DLE-2026-02-14-019 | 2026-02-14 | DL-2026-02-14-057,DL-2026-02-14-058,DL-2026-02-14-059,DL-2026-02-14-061 | completed | Commit `28b25dc` (`supabase/functions/stripe-webhook/index.ts`, `supabase/functions/create-stripe-portal-session/*`) | builder | Standardized subscription-id mutation identity, customer-first fallback lookup for subscription updates/deletes, auto-launch Stripe portal path, and Stripe-hosted payment boundary. |
+| DLE-2026-02-14-020 | 2026-02-14 | DL-2026-02-14-055 | completed | Commits `28b25dc`, `3f2b622` (`src/pages/admin/StripeOps.tsx`, `src/App.tsx`) | builder | Added minimal `admin_dev` Stripe Ops observability page and route with dashboard deep links and status snapshot. |
 
 ## Event template (copy/paste)
 

@@ -33,21 +33,21 @@ Confirmed present in repo:
 
 | Area | Locked decision reference | Current status | Evidence |
 |---|---|---|---|
-| Route gating list includes `/incoming` | DL-2026-02-14-050 | drift/ambiguous | `src/App.tsx` route for `/incoming` currently redirects to `/shipments` (line 108) |
-| Global banner rendered in authenticated shell above routes | DL-2026-02-14-046 | drift | Banner currently rendered inside `SubscriptionGatedRoute`, not globally in app shell |
-| invoice events resolve tenant via customer mapping | DL-2026-02-14-044/045 | drift | Webhook invoice handlers call RPCs by `subscription_id` directly |
-| subscription.updated resolution fallback customer->subscription | DL-2026-02-14-045 | drift | Handler lookup uses `stripe_subscription_id` only |
-| Payment mark RPC identity contract | DL-2026-02-14-040/041 | drift/contract mismatch | Migration RPC signatures take `p_stripe_subscription_id` (not tenant id) |
+| Route-level gating list (`/incoming` and create-only paths) | DL-2026-02-14-050 | superseded | Superseded by DL-051 full-app redirect model |
+| Global banner above routes | DL-2026-02-14-046 | superseded | Superseded by blocked destination page flow |
+| invoice events identity | DL-2026-02-14-044 + DL-2026-02-14-057 | aligned | Webhook invoice handlers mutate via `stripe_subscription_id` |
+| subscription.updated resolution fallback customer->subscription | DL-2026-02-14-058 | aligned | `stripe-webhook` now resolves customer first, then subscription fallback |
+| Payment mark RPC identity contract | DL-2026-02-14-057 | aligned | Migration + webhook use `p_stripe_subscription_id` |
 | Fail-open gate behavior when row missing | DL-2026-02-14-017/037 | aligned | `rpc_get_my_subscription_gate` returns active state when row not found |
 | RLS and service-role grant pattern | DL-2026-02-14-030..034 | aligned | Migration includes expected policy and grant pattern |
 
 ## Planned continuation sequence
 
-1. **Implement global restriction flow** without modifying locked history in place (supersession-aware).
-2. **Implement minimal admin_dev Stripe observability page**.
-3. **Update webhook subscription resolution logic to customer-first fallback**.
-4. **Add verification checklist/tests** (Stripe replay, grace transitions, lock/unlock redirect behavior).
-5. **Log completion evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
+1. **Deploy new edge function** `create-stripe-portal-session` with env vars (`STRIPE_SECRET_KEY`, `APP_URL`).
+2. **Deploy updated stripe-webhook** and verify event mapping behavior in environment.
+3. **Run Stripe CLI integration tests** (payment failed -> blocked redirect; payment fixed -> unlock recovery).
+4. **Lock accepted decisions DL-051..DL-062** after deployment verification.
+5. **Log final verification evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
 
 ## Q&A protocol (one question at a time)
 
