@@ -24,17 +24,21 @@ Checkout-trigger decision captured: `DL-2026-02-14-064` (accepted) places trigge
 Pricing-model decision captured: `DL-2026-02-14-065` (accepted) keeps one base plan and adds optional SMS add-on track.
 SMS onboarding decision captured: `DL-2026-02-14-066` (accepted) activates SMS post-checkout in Settings with form + terms.
 Billing visibility decision captured: `DL-2026-02-14-067` (accepted) requires subscription + SMS status visibility in Billing page.
+SMS terms audit decision captured: `DL-2026-02-14-068` (accepted) requires version/time/user/ip/user-agent/source capture.
 
 ## Current implementation snapshot
 
 Confirmed present in repo:
 
 - Migration: `supabase/migrations/20260213160000_saas_phase5_v3_stripe_subscription.sql`
+- Migration: `supabase/migrations/20260215013000_saas_sms_addon_activation.sql`
 - Webhook: `supabase/functions/stripe-webhook/index.ts`
 - Checkout creator (Phase 5.1): `supabase/functions/create-stripe-checkout-session/index.ts`
 - Portal creator: `supabase/functions/create-stripe-portal-session/index.ts`
 - Gate hook: `src/hooks/useSubscriptionGate.ts`
+- SMS activation hook: `src/hooks/useSmsAddonActivation.ts`
 - Gate components: `src/components/subscription/SubscriptionGate.tsx`, `SubscriptionBlockedBanner.tsx`
+- SMS activation UI: `src/components/settings/SmsAddonActivationCard.tsx`
 - Route wiring: `src/App.tsx`
 - Billing trigger: `src/pages/Billing.tsx` (dynamic Start/Manage subscription button)
 
@@ -47,6 +51,9 @@ Confirmed present in repo:
 | invoice events identity | DL-2026-02-14-044 + DL-2026-02-14-057 | aligned | Webhook invoice handlers mutate via `stripe_subscription_id` |
 | subscription.updated resolution fallback customer->subscription | DL-2026-02-14-058 | aligned | `stripe-webhook` now resolves customer first, then subscription fallback |
 | Payment mark RPC identity contract | DL-2026-02-14-057 | aligned | Migration + webhook use `p_stripe_subscription_id` |
+| SMS terms acceptance audit fields | DL-2026-02-14-068 | aligned | New SMS activation migration + RPC capture required terms evidence fields |
+| Settings-based SMS activation flow | DL-2026-02-14-066 | aligned | `SmsAddonActivationCard` enforces readiness + explicit terms confirmation |
+| Billing SMS visibility summary | DL-2026-02-14-067 | aligned | Billing page now includes consolidated subscription + SMS add-on summary card |
 | Fail-open gate behavior when row missing | DL-2026-02-14-017/037 | aligned | `rpc_get_my_subscription_gate` returns active state when row not found |
 | RLS and service-role grant pattern | DL-2026-02-14-030..034 | aligned | Migration includes expected policy and grant pattern |
 
@@ -75,5 +82,5 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. For SMS activation terms, should acceptance be captured as a required checkbox + timestamp + accepted-by user id in DB?
+1. For SMS add-on lifecycle, should tenant admins be able to self-deactivate SMS in Settings, or should deactivation require support/admin-dev action only?
 

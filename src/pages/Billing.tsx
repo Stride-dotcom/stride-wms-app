@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/page-header';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +43,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
+import { useSmsAddonActivation } from '@/hooks/useSmsAddonActivation';
 
 interface Account {
   id: string;
@@ -50,17 +52,33 @@ interface Account {
   parent_account_id: string | null;
 }
 
+interface TenantSubscriptionSnapshot {
+  status: string;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  updated_at: string | null;
+}
+
 const CHARGE_TYPE_OPTIONS = [
   { value: 'tasks', label: 'Task Charges (Receiving, Shipping, Assembly, etc.)' },
   { value: 'custom', label: 'Custom Billing Charges' },
 ];
 
 export default function Billing() {
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const { toast } = useToast();
   const { data: gate } = useSubscriptionGate();
+  const {
+    data: smsAddonActivation,
+    isLoading: smsAddonLoading,
+  } = useSmsAddonActivation();
   const { invoices, loading: invoicesLoading, createInvoice, updateInvoiceStatus, refetch: refetchInvoices } = useInvoices();
   const [startingSubscription, setStartingSubscription] = useState(false);
+  const [subscriptionSnapshot, setSubscriptionSnapshot] = useState<TenantSubscriptionSnapshot | null>(null);
+  const [subscriptionSummaryLoading, setSubscriptionSummaryLoading] = useState(true);
 
   // Filters and state
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -99,6 +117,10 @@ export default function Billing() {
     fetchAccounts();
   }, [profile?.tenant_id]);
 
+  useEffect(() => {
+    void fetchSubscriptionSnapshot();
+  }, [profile?.tenant_id]);
+
   const fetchAccounts = async () => {
     if (!profile?.tenant_id) return;
 
@@ -112,6 +134,31 @@ export default function Billing() {
 
     if (!error) {
       setAccounts(data || []);
+    }
+  };
+
+  const fetchSubscriptionSnapshot = async () => {
+    if (!profile?.tenant_id) {
+      setSubscriptionSummaryLoading(false);
+      setSubscriptionSnapshot(null);
+      return;
+    }
+
+    setSubscriptionSummaryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('tenant_subscriptions')
+        .select('status, current_period_end, cancel_at_period_end, stripe_customer_id, stripe_subscription_id, updated_at')
+        .eq('tenant_id', profile.tenant_id)
+        .maybeSingle();
+
+      if (error) throw error;
+      setSubscriptionSnapshot((data || null) as TenantSubscriptionSnapshot | null);
+    } catch (error) {
+      console.error('Error fetching subscription summary:', error);
+      setSubscriptionSnapshot(null);
+    } finally {
+      setSubscriptionSummaryLoading(false);
     }
   };
 
@@ -266,6 +313,30 @@ export default function Billing() {
     return sum + (charge?.total || 0);
   }, 0);
 
+  const formatSummaryDate = (value: string | null | undefined) => {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '—';
+    return format(parsed, 'PPP p');
+  };
+
+  const truncateStripeId = (value: string | null | undefined) => {
+    if (!value) return '—';
+    if (value.length <= 16) return value;
+    return `${value.slice(0, 8)}...${value.slice(-6)}`;
+  };
+
+  const getSubscriptionStatusBadge = (status: string) => {
+    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+      active: 'default',
+      past_due: 'destructive',
+      canceled: 'secondary',
+      inactive: 'secondary',
+      none: 'outline',
+    };
+    return <Badge variant={variants[status] || 'secondary'}>{status}</Badge>;
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       draft: 'secondary',
@@ -277,6 +348,8 @@ export default function Billing() {
   };
 
   const isNewSubscriber = gate?.status === 'none';
+  const baseSubscriptionStatus = subscriptionSnapshot?.status || gate?.status || 'none';
+  const smsActivationStatus = smsAddonActivation?.is_active ? 'active' : 'not_activated';
 
   const handleSubscriptionAction = async () => {
     setStartingSubscription(true);
@@ -328,6 +401,81 @@ export default function Billing() {
             {isNewSubscriber ? 'Start Subscription' : 'Manage Subscription'}
           </Button>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MaterialIcon name="subscriptions" size="md" />
+              Subscription Summary
+            </CardTitle>
+            <CardDescription>
+              Consolidated view of base subscription status and SMS add-on activation.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {subscriptionSummaryLoading || smsAddonLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <MaterialIcon name="progress_activity" size="md" className="animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Base Subscription</p>
+                    {getSubscriptionStatusBadge(baseSubscriptionStatus)}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Current Period End</p>
+                    <p className="text-sm font-medium">{formatSummaryDate(subscriptionSnapshot?.current_period_end)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Cancel at Period End</p>
+                    <p className="text-sm font-medium">
+                      {subscriptionSnapshot?.cancel_at_period_end ? 'Yes' : 'No'}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Grace Until</p>
+                    <p className="text-sm font-medium">{formatSummaryDate(gate?.grace_until)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">SMS Add-On</p>
+                    {getSubscriptionStatusBadge(smsActivationStatus)}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">SMS Terms Version</p>
+                    <p className="text-sm font-medium">{smsAddonActivation?.terms_version || '—'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">SMS Activated At</p>
+                    <p className="text-sm font-medium">{formatSummaryDate(smsAddonActivation?.activated_at)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">SMS Terms Accepted At</p>
+                    <p className="text-sm font-medium">{formatSummaryDate(smsAddonActivation?.terms_accepted_at)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Stripe Customer</p>
+                    <p className="text-sm font-mono">{truncateStripeId(subscriptionSnapshot?.stripe_customer_id)}</p>
+                  </div>
+                </div>
+
+                {!smsAddonActivation?.is_active && (
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => navigate('/settings?tab=organization')}
+                    >
+                      <MaterialIcon name="settings" size="sm" className="mr-2" />
+                      Complete SMS Activation in Settings
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Tabs defaultValue="create" className="space-y-6">
           <TabsList>

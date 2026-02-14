@@ -52,6 +52,8 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-030 | 2026-02-14 | DL-2026-02-14-063 | verified | `npx tsc --noEmit`, `npm run build`, script dry-run output (post commit `1d8ad62`) | builder | Local static verification passed; runtime validation remains blocked on environment deploy + Stripe CLI event execution. |
 | DLE-2026-02-14-031 | 2026-02-14 | DL-2026-02-14-065 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted pricing-model decision | builder | Tracked single base plan + optional SMS add-on direction for compatibility with parallel automation work. |
 | DLE-2026-02-14-032 | 2026-02-14 | DL-2026-02-14-066,DL-2026-02-14-067 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted post-checkout SMS and billing-visibility decisions | builder | Captured Settings-based SMS activation/terms flow and Billing summary visibility as next implementation scope. |
+| DLE-2026-02-14-033 | 2026-02-14 | DL-2026-02-14-068 | completed | Added `supabase/migrations/20260215013000_saas_sms_addon_activation.sql`, `src/hooks/useSmsAddonActivation.ts` | builder | Implemented tenant-level SMS terms acceptance audit schema and activation RPC capturing version/time/user/ip/user-agent/source. |
+| DLE-2026-02-14-034 | 2026-02-14 | DL-2026-02-14-066,DL-2026-02-14-067 | completed | Added `src/components/settings/SmsAddonActivationCard.tsx`; updated `OrganizationSettingsTab.tsx` and `src/pages/Billing.tsx` | builder | Added Settings SMS activation card with readiness + terms confirmation and Billing subscription summary including SMS add-on state. |
 
 ## Event template (copy/paste)
 

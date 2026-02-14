@@ -97,6 +97,7 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-065 | Subscription offering remains single base plan with optional SMS add-on track | SaaS Pricing Model | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-066 | SMS add-on activation happens post-checkout in app Settings with form and terms acceptance | SaaS SMS Add-on | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-067 | Billing page must show consolidated subscription details including SMS add-on status | SaaS Billing UX | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-068 | SMS terms acceptance audit must capture version/time/user/ip/user-agent/source | SaaS Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -446,6 +447,27 @@ Users need one billing view for account standing and add-on state.
 #### Implementation impact
 - Extend Billing page UI with subscription summary panel.
 - Include SMS add-on status fields and billing-relevant metadata in that summary.
+
+### DL-2026-02-14-068: SMS terms acceptance audit must capture version/time/user/ip/user-agent/source
+- Domain: SaaS Compliance
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+When SMS add-on terms are accepted, persist the minimum required audit fields:
+`terms_version`, `accepted_at`, `accepted_by`, `ip_address`, `user_agent`, and `acceptance_source`.
+
+#### Why
+These fields are the baseline evidence needed for operational traceability and compliance review when terms or consent flows are challenged.
+
+#### Implementation impact
+- Add tenant-level SMS activation/acceptance schema and append-only acceptance log.
+- Capture acceptance metadata server-side during activation to avoid client-trust gaps.
+- Surface resulting activation/acceptance status in Settings and Billing summary UX.
 
 ## Decision entry template (copy/paste)
 
