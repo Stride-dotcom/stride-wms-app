@@ -14,6 +14,7 @@ Ops visibility decision captured: `DL-2026-02-14-055` (accepted) adds a minimal 
 Blocked-state allowlist captured: `DL-2026-02-14-056` (accepted) keeps auth/payment-update/logout/help-support reachable.
 RPC identity decision captured: `DL-2026-02-14-057` (accepted) standardizes payment mutation on `stripe_subscription_id`.
 Webhook lookup decision captured: `DL-2026-02-14-058` (accepted) uses `customer_id` fallback to `subscription_id` for `subscription.updated`.
+Portal launch decision captured: `DL-2026-02-14-059` (accepted) auto-opens Stripe Customer Portal from `/subscription/update-payment`.
 
 ## Current implementation snapshot
 
@@ -57,6 +58,5 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. On `/subscription/update-payment`, should we auto-open Stripe Customer Portal on page load, or require users to click a clear “Update payment in Stripe” button?
-2. Should client-portal users (`/client/*`) use the same blocked destination route (`/subscription/update-payment`) as internal users?
+1. Should client-portal users (`/client/*`) use the same blocked destination route (`/subscription/update-payment`) as internal users?
 

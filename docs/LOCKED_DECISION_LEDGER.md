@@ -88,6 +88,7 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-056 | Blocked-state allowlist includes auth, payment-update, logout, and help/support access | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-057 | Payment-state mutation RPC identity standard is stripe_subscription_id | Webhook/RPC Contract | accepted | Chat Q&A (2026-02-14) | DL-2026-02-14-040, DL-2026-02-14-041 | - |
 | DL-2026-02-14-058 | subscription.updated tenant resolution must use customer_id fallback to subscription_id | Webhook Contract | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-059 | /subscription/update-payment auto-opens Stripe Customer Portal on page load | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -259,6 +260,26 @@ Customer-based mapping improves resilience when subscription IDs rotate, change 
 - Update webhook resolution logic for `customer.subscription.updated` (and preferably keep parity for deleted event handling).
 - Add logs that indicate which lookup path resolved the tenant.
 - Ensure idempotent upsert still applies after resolution path branching.
+
+### DL-2026-02-14-059: /subscription/update-payment auto-opens Stripe Customer Portal on page load
+- Domain: SaaS UX
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+When users land on `/subscription/update-payment`, the app should automatically open Stripe Customer Portal immediately on page load.
+
+#### Why
+This minimizes remediation friction and gets blocked users into payment recovery flow without extra clicks.
+
+#### Implementation impact
+- Payment-update page should trigger portal session creation and redirect/open flow automatically.
+- Include robust fallback UI for blocked popup/navigation failures (for example, retry button and support contact).
+- Keep status polling/manual refresh from DL-2026-02-14-053 for post-return unlock behavior.
 
 ## Decision entry template (copy/paste)
 

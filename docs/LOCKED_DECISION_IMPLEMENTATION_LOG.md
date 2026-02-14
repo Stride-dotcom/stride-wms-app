@@ -33,6 +33,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-011 | 2026-02-14 | DL-2026-02-14-056 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted allowlist decision | builder | Blocked-state allowlist includes auth, payment update, logout, and help/support. |
 | DLE-2026-02-14-012 | 2026-02-14 | DL-2026-02-14-057 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted RPC identity decision | builder | Standardized payment mutation identity on `stripe_subscription_id`. |
 | DLE-2026-02-14-013 | 2026-02-14 | DL-2026-02-14-058 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted webhook lookup decision | builder | `subscription.updated` tenant resolution now uses customer-id fallback to subscription-id. |
+| DLE-2026-02-14-014 | 2026-02-14 | DL-2026-02-14-059 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted portal-launch decision | builder | Payment update route will auto-open Stripe Customer Portal on load. |
 
 ## Event template (copy/paste)
 
