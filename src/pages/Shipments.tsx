@@ -140,7 +140,7 @@ export default function Shipments() {
           .from('shipments')
           .select('id', { count: 'exact', head: true })
           .eq('shipment_type', 'outbound')
-          .in('status', ['released', 'completed'])
+          .in('status', ['released', 'completed', 'shipped'])
           .gte('completed_at', todayISO)
           .lt('completed_at', tomorrowISO)
           .is('deleted_at', null),
@@ -180,7 +180,7 @@ export default function Shipments() {
           .from('shipments')
           .select('id, shipment_number, status, created_at, completed_at, carrier, shipment_exception_type, accounts(account_name)')
           .eq('shipment_type', 'outbound')
-          .in('status', ['released', 'completed'])
+          .in('status', ['released', 'completed', 'shipped'])
           .gte('completed_at', todayISO)
           .lt('completed_at', tomorrowISO)
           .is('deleted_at', null)

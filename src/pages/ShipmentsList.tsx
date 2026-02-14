@@ -91,6 +91,12 @@ export default function ShipmentsList() {
   // ------------------------------------------
   useEffect(() => {
     if (!profile?.tenant_id) return;
+    // OutboundContent handles its own data fetching
+    if (activeTab === 'outbound') {
+      setShipments([]);
+      setLoading(false);
+      return;
+    }
 
     const fetchShipments = async () => {
       setLoading(true);
@@ -122,11 +128,6 @@ export default function ShipmentsList() {
             query = query
               .eq('shipment_type', 'inbound')
               .in('status', ['expected', 'in_progress', 'receiving']);
-            break;
-          case 'outbound':
-            query = query
-              .eq('shipment_type', 'outbound')
-              .in('status', ['pending', 'expected', 'in_progress']);
             break;
           case 'received':
             query = query
@@ -426,29 +427,29 @@ export default function ShipmentsList() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
-          <div className="relative flex-1 min-w-[200px]">
-            <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search shipments..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={accountFilter} onValueChange={setAccountFilter}>
-            <SelectTrigger className="w-full sm:w-44">
-              <SelectValue placeholder="All accounts" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All accounts</SelectItem>
-              {uniqueAccounts.map(account => (
-                <SelectItem key={account} value={account}>{account}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {activeTab !== 'outbound' && (
+        {/* Filters — hidden for outbound tab since OutboundContent has its own */}
+        {activeTab !== 'outbound' && (
+          <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
+              <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search shipments..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={accountFilter} onValueChange={setAccountFilter}>
+              <SelectTrigger className="w-full sm:w-44">
+                <SelectValue placeholder="All accounts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All accounts</SelectItem>
+                {uniqueAccounts.map(account => (
+                  <SelectItem key={account} value={account}>{account}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={carrierFilter} onValueChange={setCarrierFilter}>
               <SelectTrigger className="w-full sm:w-36">
                 <SelectValue placeholder="All carriers" />
@@ -460,19 +461,19 @@ export default function ShipmentsList() {
                 ))}
               </SelectContent>
             </Select>
-          )}
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-36">
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              {uniqueStatuses.map(status => (
-                <SelectItem key={status} value={status}>{status}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-36">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {uniqueStatuses.map(status => (
+                  <SelectItem key={status} value={status}>{status}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Tab Content */}
         {activeTab === 'outbound' ? (
