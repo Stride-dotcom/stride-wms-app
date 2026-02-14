@@ -17,7 +17,6 @@ import { BigCounter } from './BigCounter';
 import { useShipmentPhotos, type ShipmentPhoto } from '@/hooks/useShipmentPhotos';
 import { useReceivingDiscrepancies, type DiscrepancyType } from '@/hooks/useReceivingDiscrepancies';
 import { SignaturePad } from '@/components/shipments/SignaturePad';
-import { ShipmentNumberBadge } from '@/components/shipments/ShipmentNumberBadge';
 import {
   Dialog,
   DialogContent,
@@ -308,7 +307,6 @@ export function Stage1DockIntake({
               <CardTitle className="flex items-center gap-2">
                 <MaterialIcon name="local_shipping" size="md" className="text-primary" />
                 Stage 1 — Dock Intake
-                <ShipmentNumberBadge shipmentNumber={shipmentNumber} />
               </CardTitle>
               <CardDescription className="mt-1">
                 Record the delivery at the dock. All fields autosave.

@@ -28,6 +28,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUnidentifiedAccount } from '@/hooks/useUnidentifiedAccount';
+import { useAccounts } from '@/hooks/useAccounts';
 import { DraftQueueList } from '@/components/receiving/DraftQueueList';
 
 type TabValue = 'manifests' | 'expected' | 'dock_intakes';
@@ -426,6 +427,15 @@ export function IncomingContent({ initialSubTab, onStartDockIntake }: IncomingCo
   const { profile } = useAuth();
   const { toast } = useToast();
   const { unidentifiedAccountId } = useUnidentifiedAccount();
+  const { accounts } = useAccounts();
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+
+  // Default selected account to UNIDENTIFIED once loaded
+  useMemo(() => {
+    if (unidentifiedAccountId && !selectedAccountId) {
+      setSelectedAccountId(unidentifiedAccountId);
+    }
+  }, [unidentifiedAccountId]);
 
   const handleRowClick = (id: string) => {
     if (activeTab === 'manifests') {
@@ -439,27 +449,40 @@ export function IncomingContent({ initialSubTab, onStartDockIntake }: IncomingCo
 
   const handleCreateInbound = async (kind: InboundKind) => {
     if (!profile?.tenant_id) return;
+    if (!selectedAccountId) {
+      toast({
+        variant: 'destructive',
+        title: 'Account Required',
+        description: 'Please select an account before creating a shipment.',
+      });
+      return;
+    }
     try {
       setCreating(true);
 
-      const insertPayload: Record<string, unknown> = {
+      // Insert with exact PF-1 payload (no account_id)
+      const { data, error } = await (supabase as any)
+        .from('shipments')
+        .insert({
           tenant_id: profile.tenant_id,
           shipment_type: 'inbound',
           status: 'expected',
           inbound_kind: kind,
           inbound_status: 'draft',
           created_by: profile.id,
-        };
-      if (unidentifiedAccountId) {
-        insertPayload.account_id = unidentifiedAccountId;
-      }
-      const { data, error } = await (supabase as any)
-        .from('shipments')
-        .insert(insertPayload)
+        })
         .select('id')
         .single();
 
       if (error) throw error;
+
+      // Post-insert: set account_id
+      const { error: updateError } = await (supabase as any)
+        .from('shipments')
+        .update({ account_id: selectedAccountId })
+        .eq('id', data.id);
+
+      if (updateError) throw updateError;
 
       const routeMap: Record<InboundKind, string> = {
         manifest: `/incoming/manifest/${data.id}`,
@@ -529,12 +552,25 @@ export function IncomingContent({ initialSubTab, onStartDockIntake }: IncomingCo
                 </SelectContent>
               </Select>
 
+              <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select account *" />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.account_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <div className="flex gap-2 ml-auto">
                 {activeTab === 'manifests' && (
                   <Button
                     size="sm"
                     onClick={() => handleCreateInbound('manifest')}
-                    disabled={creating}
+                    disabled={creating || !selectedAccountId}
                   >
                     <MaterialIcon name="add" size="sm" className="mr-1" />
                     New Manifest
@@ -544,7 +580,7 @@ export function IncomingContent({ initialSubTab, onStartDockIntake }: IncomingCo
                   <Button
                     size="sm"
                     onClick={() => handleCreateInbound('expected')}
-                    disabled={creating}
+                    disabled={creating || !selectedAccountId}
                   >
                     <MaterialIcon name="add" size="sm" className="mr-1" />
                     New Expected Shipment

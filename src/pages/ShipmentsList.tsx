@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MobileDataCard } from '@/components/ui/mobile-data-card';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { AddShipmentDialog } from '@/components/shipments/AddShipmentDialog';
+import { OutboundContent } from '@/components/shipments/OutboundContent';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { format } from 'date-fns';
 
@@ -474,11 +475,15 @@ export default function ShipmentsList() {
         </div>
 
         {/* Tab Content */}
-        <Card>
-          <CardContent className="p-0 sm:p-6">
-            {renderTabContent()}
-          </CardContent>
-        </Card>
+        {activeTab === 'outbound' ? (
+          <OutboundContent />
+        ) : (
+          <Card>
+            <CardContent className="p-0 sm:p-6">
+              {renderTabContent()}
+            </CardContent>
+          </Card>
+        )}
       </Tabs>
 
       {/* Add Shipment Dialog */}
