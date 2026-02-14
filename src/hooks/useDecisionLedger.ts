@@ -71,7 +71,7 @@ export function useDecisionLedgerEntries(params: UseDecisionLedgerEntriesParams 
     queryKey: ["decision-ledger-entries", params],
     enabled: !!session,
     queryFn: async () => {
-      let query = (supabase.from("decision_ledger_entries") as any)
+      let query = (supabase as any).from("decision_ledger_entries")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(limit);
@@ -134,7 +134,7 @@ export function useAppendDecisionLedgerEntry() {
         created_by: profile?.id ?? null,
       };
 
-      const { data, error } = await (supabase.from("decision_ledger_entries") as any).insert(payload).select("*").single();
+      const { data, error } = await (supabase as any).from("decision_ledger_entries").insert(payload).select("*").single();
       if (error) throw error;
       return data as DecisionLedgerEntry;
     },

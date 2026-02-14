@@ -78,7 +78,7 @@ export function useShipmentExceptions(shipmentId: string | undefined): UseShipme
     if (!shipmentId || !profile?.tenant_id) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('shipment_exceptions')
         .select('*')
         .eq('shipment_id', shipmentId)
@@ -109,7 +109,7 @@ export function useShipmentExceptions(shipmentId: string | undefined): UseShipme
       const existingOpen = exceptions.find((e) => e.code === code && e.status === 'open');
 
       if (existingOpen) {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('shipment_exceptions')
           .update({
             note: normalizedNote,
@@ -124,7 +124,7 @@ export function useShipmentExceptions(shipmentId: string | undefined): UseShipme
         return data as ShipmentExceptionRow;
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('shipment_exceptions')
         .insert({
           tenant_id: profile.tenant_id,
@@ -154,7 +154,7 @@ export function useShipmentExceptions(shipmentId: string | undefined): UseShipme
   const removeOpenException = useCallback(async (code: ShipmentExceptionCode): Promise<boolean> => {
     if (!shipmentId || !profile?.tenant_id) return false;
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('shipment_exceptions')
         .delete()
         .eq('shipment_id', shipmentId)
@@ -179,7 +179,7 @@ export function useShipmentExceptions(shipmentId: string | undefined): UseShipme
   const resolveException = useCallback(async (id: string, resolutionNote: string): Promise<boolean> => {
     if (!profile?.id) return false;
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('shipment_exceptions')
         .update({
           status: 'resolved',
@@ -208,7 +208,7 @@ export function useShipmentExceptions(shipmentId: string | undefined): UseShipme
   const reopenException = useCallback(async (id: string): Promise<boolean> => {
     if (!profile?.id) return false;
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('shipment_exceptions')
         .update({
           status: 'open',
