@@ -88,7 +88,7 @@ export default function ExpectedShipmentDetail() {
   const handleEditHeader = () => {
     if (!shipment) return;
     setHeaderVendor(shipment.vendor_name || '');
-    setHeaderCarrier((shipment as any).carrier_name as string || '');
+    setHeaderCarrier((shipment as any).carrier as string || '');
     setHeaderEtaStart(shipment.eta_start ? String(shipment.eta_start).split('T')[0] : '');
     setHeaderEtaEnd(shipment.eta_end ? String(shipment.eta_end).split('T')[0] : '');
     setHeaderPieces(shipment.expected_pieces?.toString() || '');
@@ -103,7 +103,7 @@ export default function ExpectedShipmentDetail() {
         .from('shipments')
         .update({
           vendor_name: headerVendor || null,
-          carrier_name: headerCarrier || null,
+          carrier: headerCarrier || null,
           eta_start: headerEtaStart || null,
           eta_end: headerEtaEnd || null,
           expected_pieces: headerPieces ? Number(headerPieces) : null,
@@ -185,7 +185,7 @@ export default function ExpectedShipmentDetail() {
   }
 
   const displayRefs = refs.length > 0 ? refs : shipmentRefs;
-  const carrierName = (shipment as any).carrier_name as string | null;
+  const carrierName = (shipment as any).carrier as string | null;
 
   return (
     <DashboardLayout>
