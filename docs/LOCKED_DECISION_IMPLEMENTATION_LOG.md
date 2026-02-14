@@ -48,6 +48,8 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-026 | 2026-02-14 | DL-2026-02-14-063 | completed | Commit `f65af67` (`scripts/phase5_validate.sh`) | builder | Corrected helper behavior so dry-run mode works without local Supabase CLI installation. |
 | DLE-2026-02-14-027 | 2026-02-14 | DL-2026-02-14-013,DL-2026-02-14-014 | planned | Updated `docs/PHASE5_SAAS_CONTINUATION_QA_PLAN.md` | builder | Explicitly tracked outstanding Phase 5.1 checkout session creator dependency (`metadata.tenant_id` source). |
 | DLE-2026-02-14-028 | 2026-02-14 | DL-2026-02-14-064,DL-2026-02-14-013,DL-2026-02-14-014 | completed | Added `create-stripe-checkout-session` edge function and Billing trigger wiring | builder | Implemented Phase 5.1 checkout session creator with `metadata.tenant_id` and Billing page Start/Manage subscription trigger. |
+| DLE-2026-02-14-029 | 2026-02-14 | DL-2026-02-14-064,DL-2026-02-14-013,DL-2026-02-14-014 | completed | Commit `1d8ad62` (`supabase/functions/create-stripe-checkout-session/*`, `src/pages/Billing.tsx`) | builder | Added Phase 5.1 session creator and dynamic Start/Manage subscription trigger path from Billing page. |
+| DLE-2026-02-14-030 | 2026-02-14 | DL-2026-02-14-063 | verified | `npx tsc --noEmit`, `npm run build`, script dry-run output (post commit `1d8ad62`) | builder | Local static verification passed; runtime validation remains blocked on environment deploy + Stripe CLI event execution. |
 
 ## Event template (copy/paste)
 

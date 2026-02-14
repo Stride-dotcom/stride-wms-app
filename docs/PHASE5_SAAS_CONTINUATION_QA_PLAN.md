@@ -28,9 +28,12 @@ Confirmed present in repo:
 
 - Migration: `supabase/migrations/20260213160000_saas_phase5_v3_stripe_subscription.sql`
 - Webhook: `supabase/functions/stripe-webhook/index.ts`
+- Checkout creator (Phase 5.1): `supabase/functions/create-stripe-checkout-session/index.ts`
+- Portal creator: `supabase/functions/create-stripe-portal-session/index.ts`
 - Gate hook: `src/hooks/useSubscriptionGate.ts`
 - Gate components: `src/components/subscription/SubscriptionGate.tsx`, `SubscriptionBlockedBanner.tsx`
 - Route wiring: `src/App.tsx`
+- Billing trigger: `src/pages/Billing.tsx` (dynamic Start/Manage subscription button)
 
 ## Decision-to-code alignment check (initial)
 
