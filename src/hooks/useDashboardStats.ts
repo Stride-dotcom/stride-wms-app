@@ -217,7 +217,7 @@ export function useDashboardStats() {
           .from('items') as any)
           .select(`
             id, item_code, description, client_account, received_at,
-            location:locations(code, name)
+            location:locations!items_current_location_id_fkey(code, name)
           `, { count: 'exact' })
           .eq('current_location_id', receivingDockLocation.id)
           .is('deleted_at', null)
@@ -233,7 +233,7 @@ export function useDashboardStats() {
           .from('items') as any)
           .select(`
             id, item_code, description, client_account, received_at,
-            location:locations(code, name)
+            location:locations!items_current_location_id_fkey(code, name)
           `, { count: 'exact' })
           .is('deleted_at', null)
           .eq('status', 'active')
