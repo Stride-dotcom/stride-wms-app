@@ -107,6 +107,15 @@ export default function ExpectedShipmentDetail() {
     if (error) throw error;
   };
 
+  const getAllocationCountForItem = async (itemId: string) => {
+    const { count, error } = await (supabase.from('shipment_item_allocations') as any)
+      .select('id', { head: true, count: 'exact' })
+      .or(`expected_shipment_item_id.eq.${itemId},manifest_shipment_item_id.eq.${itemId}`);
+
+    if (error) throw error;
+    return count ?? 0;
+  };
+
   const handleDuplicateItem = async (item: (typeof itemRows)[number]) => {
     try {
       const { error } = await (supabase.from('shipment_items') as any).insert({
@@ -118,7 +127,7 @@ export default function ExpectedShipmentDetail() {
         room: item.room || null,
         expected_quantity: item.expected_quantity || 1,
         notes: item.notes || null,
-        status: item.status || 'pending',
+        status: 'pending',
       });
 
       if (error) throw error;
@@ -136,6 +145,16 @@ export default function ExpectedShipmentDetail() {
 
   const handleRemoveItem = async (itemId: string) => {
     try {
+      const allocationCount = await getAllocationCountForItem(itemId);
+      if (allocationCount > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Item is allocated',
+          description: 'Deallocate this item before removing it from the expected shipment.',
+        });
+        return;
+      }
+
       const { error } = await (supabase.from('shipment_items') as any)
         .delete()
         .eq('id', itemId);
