@@ -7,10 +7,12 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useShipmentPhotos } from '@/hooks/useShipmentPhotos';
+import { ShipmentExceptionBadge } from '@/components/shipments/ShipmentExceptionBadge';
 
 interface ConfirmationGuardProps {
   shipmentId: string;
   shipmentNumber: string;
+  exceptionCount?: number;
   shipment: {
     vendor_name: string | null;
     signed_pieces: number | null;
@@ -24,15 +26,18 @@ interface ConfirmationGuardProps {
   accountName?: string | null;
   onConfirm: () => void;
   onGoBack: () => void;
+  onOpenExceptions?: () => void;
 }
 
 export function ConfirmationGuard({
   shipmentId,
   shipmentNumber,
+  exceptionCount,
   shipment,
   accountName,
   onConfirm,
   onGoBack,
+  onOpenExceptions,
 }: ConfirmationGuardProps) {
   const { toast } = useToast();
   const [confirming, setConfirming] = useState(false);
@@ -102,6 +107,11 @@ export function ConfirmationGuard({
             <MaterialIcon name="verified" size="md" />
             Confirm Dock Intake
             <Badge variant="outline">{shipmentNumber}</Badge>
+            <ShipmentExceptionBadge
+              shipmentId={shipmentId}
+              count={exceptionCount}
+              onClick={onOpenExceptions}
+            />
           </CardTitle>
           <CardDescription className="text-amber-700">
             Review the dock intake details below. Confirm to proceed to detailed receiving, or go back to make changes.
