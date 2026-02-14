@@ -29,6 +29,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-007 | 2026-02-14 | DL-2026-02-14-052 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted timing decision | builder | Redirect trigger now starts at `past_due` (during grace). |
 | DLE-2026-02-14-008 | 2026-02-14 | DL-2026-02-14-053 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted UX polling decision | builder | Blocked flow will auto-check recovery and include manual refresh. |
 | DLE-2026-02-14-009 | 2026-02-14 | DL-2026-02-14-054 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted route decision | builder | Standardized blocked destination as `/subscription/update-payment`. |
+| DLE-2026-02-14-010 | 2026-02-14 | DL-2026-02-14-055 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted ops-page decision | builder | Added dev-only Stripe observability page direction; no credential editing in app. |
 
 ## Event template (copy/paste)
 

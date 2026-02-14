@@ -84,6 +84,7 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-052 | Full-app redirect starts immediately at past_due (during grace) | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | DL-2026-02-14-024 | - |
 | DL-2026-02-14-053 | Blocked page must auto-check subscription recovery and allow manual status refresh | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-054 | Blocked-user destination route is /subscription/update-payment | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-055 | Provide minimal admin_dev Stripe Ops observability page without credential editing | SaaS Ops | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -172,6 +173,26 @@ A dedicated route keeps blocked-state logic isolated from normal billing/setting
 - Add route/page for subscription payment update flow.
 - Route allowlist while blocked must include `/subscription/update-payment`.
 - Portal return URL should target `/subscription/update-payment`.
+
+### DL-2026-02-14-055: Provide minimal admin_dev Stripe Ops observability page without credential editing
+- Domain: SaaS Ops
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Build a dev-only (`admin_dev`) Stripe Ops page focused on observability and diagnostics, while keeping Stripe account settings, credentials, and key management outside the app.
+
+#### Why
+This gives operational visibility for troubleshooting and status checks without introducing security risk from in-app credential editing.
+
+#### Implementation impact
+- Add a restricted `admin_dev` route/page for Stripe observability.
+- Include read-mostly data (subscription state lookups, webhook processing health, links to Stripe objects).
+- Exclude any in-app editing of Stripe API keys or account-level credential material.
 
 ## Decision entry template (copy/paste)
 

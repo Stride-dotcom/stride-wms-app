@@ -10,6 +10,7 @@ Current superseding direction: `DL-2026-02-14-051` (accepted) shifts from route-
 Redirect timing decision captured: `DL-2026-02-14-052` (accepted) starts redirect at `past_due` during grace.
 Recovery UX decision captured: `DL-2026-02-14-053` (accepted) requires auto-check polling plus manual status refresh on blocked page.
 Blocked destination route decision captured: `DL-2026-02-14-054` (accepted) sets path to `/subscription/update-payment`.
+Ops visibility decision captured: `DL-2026-02-14-055` (accepted) adds a minimal `admin_dev` Stripe observability page with no credential editing.
 
 ## Current implementation snapshot
 
@@ -35,10 +36,10 @@ Confirmed present in repo:
 
 ## Planned continuation sequence
 
-1. **Decide Stripe operations visibility model** (Stripe dashboard only vs internal admin-dev mirror page).
-2. **Define blocked-route allowlist** (auth/logout/help/support and payment route).
-3. **Resolve webhook/RPC contract mismatches** (customer/subscription mapping and RPC identity).
-4. **Implement global restriction flow** without modifying locked history in place (supersession-aware).
+1. **Define blocked-route allowlist** (auth/logout/help/support and payment route).
+2. **Resolve webhook/RPC contract mismatches** (customer/subscription mapping and RPC identity).
+3. **Implement global restriction flow** without modifying locked history in place (supersession-aware).
+4. **Implement minimal admin_dev Stripe observability page**.
 5. **Add verification checklist/tests** (Stripe replay, grace transitions, lock/unlock redirect behavior).
 6. **Log completion evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
 
@@ -54,8 +55,7 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. Should we add an internal `admin_dev` Stripe operations page (read-mostly mirror) in addition to Stripe Dashboard?
-2. Which routes should remain allowlisted while blocked (for example auth/logout/help/support)?
-3. For payment-state RPCs, should we supersede DL-040/DL-041 to standardize on `stripe_subscription_id` (matching current implementation), or refactor code to tenant-id-based mutation?
-4. For `customer.subscription.updated`, should tenant resolution strictly follow customer-id then subscription-id fallback (as locked), or remain subscription-id only?
+1. Which routes should remain allowlisted while blocked (for example auth/logout/help/support)?
+2. For payment-state RPCs, should we supersede DL-040/DL-041 to standardize on `stripe_subscription_id` (matching current implementation), or refactor code to tenant-id-based mutation?
+3. For `customer.subscription.updated`, should tenant resolution strictly follow customer-id then subscription-id fallback (as locked), or remain subscription-id only?
 
