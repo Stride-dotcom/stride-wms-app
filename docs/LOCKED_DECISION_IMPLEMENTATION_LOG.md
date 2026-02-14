@@ -50,6 +50,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-028 | 2026-02-14 | DL-2026-02-14-064,DL-2026-02-14-013,DL-2026-02-14-014 | completed | Added `create-stripe-checkout-session` edge function and Billing trigger wiring | builder | Implemented Phase 5.1 checkout session creator with `metadata.tenant_id` and Billing page Start/Manage subscription trigger. |
 | DLE-2026-02-14-029 | 2026-02-14 | DL-2026-02-14-064,DL-2026-02-14-013,DL-2026-02-14-014 | completed | Commit `1d8ad62` (`supabase/functions/create-stripe-checkout-session/*`, `src/pages/Billing.tsx`) | builder | Added Phase 5.1 session creator and dynamic Start/Manage subscription trigger path from Billing page. |
 | DLE-2026-02-14-030 | 2026-02-14 | DL-2026-02-14-063 | verified | `npx tsc --noEmit`, `npm run build`, script dry-run output (post commit `1d8ad62`) | builder | Local static verification passed; runtime validation remains blocked on environment deploy + Stripe CLI event execution. |
+| DLE-2026-02-14-031 | 2026-02-14 | DL-2026-02-14-065 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted pricing-model decision | builder | Tracked single base plan + optional SMS add-on direction for compatibility with parallel automation work. |
 
 ## Event template (copy/paste)
 

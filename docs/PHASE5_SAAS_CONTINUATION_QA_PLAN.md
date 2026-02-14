@@ -21,6 +21,7 @@ Support-channel decision captured: `DL-2026-02-14-062` (accepted) uses external 
 Release-governance decision captured: `DL-2026-02-14-063` (accepted) keeps DL-051..DL-062 accepted until post-deploy Stripe CLI validation.
 Authoritative outstanding item from the source record: **Phase 5.1 checkout session creator** that sets `metadata.tenant_id`.
 Checkout-trigger decision captured: `DL-2026-02-14-064` (accepted) places trigger on Billing page with dynamic Start/Manage label.
+Pricing-model decision captured: `DL-2026-02-14-065` (accepted) keeps one base plan and adds optional SMS add-on track.
 
 ## Current implementation snapshot
 
@@ -72,5 +73,5 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. Should Phase 5.1 checkout use a single default active plan (current implementation), or should users choose among active plans in UI?
+1. Should SMS add-on be selected during checkout (single flow) or managed post-checkout in subscription management flow?
 

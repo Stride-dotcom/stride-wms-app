@@ -94,6 +94,7 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-062 | Blocked-flow support uses external mailto contact (tenant company email when available) | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-063 | Keep DL-051 through DL-062 in accepted state until post-deploy Stripe CLI validation | Release Governance | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-064 | Phase 5.1 checkout trigger lives on Billing page and uses dynamic Start/Manage label | SaaS Checkout | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-065 | Subscription offering remains single base plan with optional SMS add-on track | SaaS Pricing Model | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -385,6 +386,25 @@ This provides a single discoverable entry point while preserving clearer user in
   - checkout session creator for new subscribers
   - customer portal session creator for existing subscribers
 - Phase 5.1 checkout creator must set `metadata.tenant_id` for webhook bootstrap reliability.
+
+### DL-2026-02-14-065: Subscription offering remains single base plan with optional SMS add-on track
+- Domain: SaaS Pricing Model
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+For current rollout, keep one primary subscription plan. Support an optional SMS-related add-on as a separate option.
+
+#### Why
+This preserves a simple base subscription while allowing extensibility for message usage/automation features.
+
+#### Implementation impact
+- Checkout and plan governance should remain compatible with a single base plan + optional add-on model.
+- SMS add-on automation may be delivered in a parallel implementation stream.
 
 ## Decision entry template (copy/paste)
 
