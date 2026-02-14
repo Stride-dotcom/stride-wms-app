@@ -74,33 +74,8 @@ export function QuickReleaseDialog({
 
     setSubmitting(true);
     try {
-      // Quarantine guard: block if any selected items came from exception-flagged shipments
-      const itemIds = selectedItems.map(item => item.id);
-      if (itemIds.length > 0) {
-        const { data: flaggedRows } = await (supabase
-          .from('shipment_items') as any)
-          .select('item_id, shipment_id')
-          .in('item_id', itemIds);
-
-        if (flaggedRows && flaggedRows.length > 0) {
-          const shipmentIds = [...new Set((flaggedRows as { shipment_id: string }[]).map(r => r.shipment_id))];
-          const { data: flaggedShipments } = await (supabase
-            .from('shipments') as any)
-            .select('id')
-            .in('id', shipmentIds)
-            .in('shipment_exception_type', ['MIS_SHIP', 'RETURN_TO_SENDER']);
-
-          if (flaggedShipments && flaggedShipments.length > 0) {
-            toast({
-              variant: 'destructive',
-              title: 'Release Blocked',
-              description: 'One or more items are from a quarantined shipment (Mis-Ship or Return to Sender). Release is not allowed.',
-            });
-            setSubmitting(false);
-            return;
-          }
-        }
-      }
+      // Do not block outbound release for MIS_SHIP / RETURN_TO_SENDER workflows.
+      // Those paths often require outbound processing to return goods to sender.
 
       // Get current user's profile - users.id IS the auth.uid() in this schema
       const { data: { user } } = await supabase.auth.getUser();

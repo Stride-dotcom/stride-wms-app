@@ -326,7 +326,6 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
             shipmentId={shipmentId}
             shipmentNumber={shipment.shipment_number}
             shipment={shipment as any}
-            exceptionCount={openCount}
             onComplete={handleStageChange}
             onRefresh={fetchShipment}
             onMatchingParamsChange={handleMatchingParamsChange}
@@ -341,7 +340,6 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
             shipmentNumber={shipment.shipment_number}
             shipment={shipment as any}
             accountName={accountName}
-            exceptionCount={openCount}
             onConfirm={handleStageChange}
             onGoBack={handleStageChange}
             onOpenExceptions={() => setTab('exceptions')}
@@ -354,7 +352,6 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
             shipmentId={shipmentId}
             shipmentNumber={shipment.shipment_number}
             shipment={shipment as any}
-            exceptionCount={openCount}
             onComplete={handleReceivingComplete}
             onRefresh={fetchShipment}
             onItemMatchingParamsChange={handleItemMatchingParamsChange}
@@ -411,7 +408,6 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
         />
         <ShipmentExceptionBadge
           shipmentId={shipmentId}
-          count={openCount}
           onClick={() => setTab('exceptions')}
         />
       </div>

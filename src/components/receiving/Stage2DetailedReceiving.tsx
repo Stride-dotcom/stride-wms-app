@@ -789,7 +789,6 @@ export function Stage2DetailedReceiving({
                 <Badge variant="outline">{shipmentNumber}</Badge>
                 <ShipmentExceptionBadge
                   shipmentId={shipmentId}
-                  count={exceptionCount}
                   onClick={onOpenExceptions}
                 />
               </CardTitle>

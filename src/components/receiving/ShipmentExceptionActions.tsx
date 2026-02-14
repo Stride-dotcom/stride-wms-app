@@ -222,7 +222,7 @@ export function ShipmentExceptionActions({
             <span className="text-xs">— No account assigned. Receiving may proceed; admin must resolve before outbound.</span>
           )}
           {(isMisShip || isReturnToSender) && (
-            <span className="text-xs">— Units quarantined. Outbound blocked until resolved.</span>
+            <span className="text-xs">— Units quarantined. Create return drafts and continue outbound workflow as needed.</span>
           )}
 
           {/* Resolve Account (admin only, UNKNOWN_ACCOUNT only) */}
@@ -336,7 +336,7 @@ export function ShipmentExceptionActions({
             <AlertDialogDescription>
               This will quarantine all existing inventory units for this shipment.
               Future units received for this shipment will also be quarantined.
-              Outbound releases involving these items will be blocked.
+              Outbound processing can still proceed for return/disposition workflows.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

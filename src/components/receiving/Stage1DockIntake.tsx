@@ -38,6 +38,13 @@ type ExceptionChip = 'NO_EXCEPTIONS' | ShipmentExceptionCode;
 
 const EXCEPTION_OPTIONS: { value: ExceptionChip; label: string; icon: string; requiresNote?: boolean }[] = [
   { value: 'NO_EXCEPTIONS', label: 'No Exceptions', icon: 'check_circle' },
+  { value: 'PIECES_MISMATCH', ...SHIPMENT_EXCEPTION_CODE_META.PIECES_MISMATCH },
+  { value: 'VENDOR_MISMATCH', ...SHIPMENT_EXCEPTION_CODE_META.VENDOR_MISMATCH },
+  { value: 'DESCRIPTION_MISMATCH', ...SHIPMENT_EXCEPTION_CODE_META.DESCRIPTION_MISMATCH },
+  { value: 'SIDEMARK_MISMATCH', ...SHIPMENT_EXCEPTION_CODE_META.SIDEMARK_MISMATCH },
+  { value: 'SHIPPER_MISMATCH', ...SHIPMENT_EXCEPTION_CODE_META.SHIPPER_MISMATCH },
+  { value: 'TRACKING_MISMATCH', ...SHIPMENT_EXCEPTION_CODE_META.TRACKING_MISMATCH },
+  { value: 'REFERENCE_MISMATCH', ...SHIPMENT_EXCEPTION_CODE_META.REFERENCE_MISMATCH },
   { value: 'DAMAGE', ...SHIPMENT_EXCEPTION_CODE_META.DAMAGE },
   { value: 'WET', ...SHIPMENT_EXCEPTION_CODE_META.WET },
   { value: 'OPEN', ...SHIPMENT_EXCEPTION_CODE_META.OPEN },
@@ -416,7 +423,6 @@ export function Stage1DockIntake({
                 <Badge variant="outline">{shipmentNumber}</Badge>
                 <ShipmentExceptionBadge
                   shipmentId={shipmentId}
-                  count={exceptionCount}
                   onClick={onOpenExceptions}
                 />
               </CardTitle>
