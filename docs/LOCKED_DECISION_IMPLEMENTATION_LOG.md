@@ -31,6 +31,8 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-009 | 2026-02-14 | DL-2026-02-14-054 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted route decision | builder | Standardized blocked destination as `/subscription/update-payment`. |
 | DLE-2026-02-14-010 | 2026-02-14 | DL-2026-02-14-055 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted ops-page decision | builder | Added dev-only Stripe observability page direction; no credential editing in app. |
 | DLE-2026-02-14-011 | 2026-02-14 | DL-2026-02-14-056 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted allowlist decision | builder | Blocked-state allowlist includes auth, payment update, logout, and help/support. |
+| DLE-2026-02-14-012 | 2026-02-14 | DL-2026-02-14-057 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted RPC identity decision | builder | Standardized payment mutation identity on `stripe_subscription_id`. |
+| DLE-2026-02-14-013 | 2026-02-14 | DL-2026-02-14-058 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted webhook lookup decision | builder | `subscription.updated` tenant resolution now uses customer-id fallback to subscription-id. |
 
 ## Event template (copy/paste)
 

@@ -12,6 +12,8 @@ Recovery UX decision captured: `DL-2026-02-14-053` (accepted) requires auto-chec
 Blocked destination route decision captured: `DL-2026-02-14-054` (accepted) sets path to `/subscription/update-payment`.
 Ops visibility decision captured: `DL-2026-02-14-055` (accepted) adds a minimal `admin_dev` Stripe observability page with no credential editing.
 Blocked-state allowlist captured: `DL-2026-02-14-056` (accepted) keeps auth/payment-update/logout/help-support reachable.
+RPC identity decision captured: `DL-2026-02-14-057` (accepted) standardizes payment mutation on `stripe_subscription_id`.
+Webhook lookup decision captured: `DL-2026-02-14-058` (accepted) uses `customer_id` fallback to `subscription_id` for `subscription.updated`.
 
 ## Current implementation snapshot
 
@@ -37,9 +39,9 @@ Confirmed present in repo:
 
 ## Planned continuation sequence
 
-1. **Resolve webhook/RPC contract mismatches** (customer/subscription mapping and RPC identity).
-2. **Implement global restriction flow** without modifying locked history in place (supersession-aware).
-3. **Implement minimal admin_dev Stripe observability page**.
+1. **Implement global restriction flow** without modifying locked history in place (supersession-aware).
+2. **Implement minimal admin_dev Stripe observability page**.
+3. **Update webhook subscription resolution logic to customer-first fallback**.
 4. **Add verification checklist/tests** (Stripe replay, grace transitions, lock/unlock redirect behavior).
 5. **Log completion evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
 
@@ -55,6 +57,6 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. For payment-state RPCs, should we supersede DL-040/DL-041 to standardize on `stripe_subscription_id` (matching current implementation), or refactor code to tenant-id-based mutation?
-2. For `customer.subscription.updated`, should tenant resolution strictly follow customer-id then subscription-id fallback (as locked), or remain subscription-id only?
+1. On `/subscription/update-payment`, should we auto-open Stripe Customer Portal on page load, or require users to click a clear “Update payment in Stripe” button?
+2. Should client-portal users (`/client/*`) use the same blocked destination route (`/subscription/update-payment`) as internal users?
 

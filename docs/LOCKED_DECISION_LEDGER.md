@@ -86,6 +86,8 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-054 | Blocked-user destination route is /subscription/update-payment | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-055 | Provide minimal admin_dev Stripe Ops observability page without credential editing | SaaS Ops | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-056 | Blocked-state allowlist includes auth, payment-update, logout, and help/support access | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-057 | Payment-state mutation RPC identity standard is stripe_subscription_id | Webhook/RPC Contract | accepted | Chat Q&A (2026-02-14) | DL-2026-02-14-040, DL-2026-02-14-041 | - |
+| DL-2026-02-14-058 | subscription.updated tenant resolution must use customer_id fallback to subscription_id | Webhook Contract | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -217,6 +219,46 @@ Users must be able to remediate billing, recover sessions safely, and reach supp
   - logout/sign-out action route (if present)
   - help/support route(s) where available
 - All other authenticated app routes are redirected to `/subscription/update-payment` during blocked states.
+
+### DL-2026-02-14-057: Payment-state mutation RPC identity standard is stripe_subscription_id
+- Domain: Webhook/RPC Contract
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: DL-2026-02-14-040, DL-2026-02-14-041
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Payment-state mutation RPCs are standardized on `stripe_subscription_id` as the identity key for failure/paid transitions.
+
+#### Why
+Stripe invoice/payment events naturally provide subscription IDs, reducing extra lookup complexity and minimizing mismatch risk.
+
+#### Implementation impact
+- Keep/refine mutation RPC signatures to accept `stripe_subscription_id`.
+- Webhook invoice handlers call payment mutation RPCs using subscription ID directly.
+- Documentation and gate diagnostics should reference this identity model.
+
+### DL-2026-02-14-058: subscription.updated tenant resolution must use customer_id fallback to subscription_id
+- Domain: Webhook Contract
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+For `customer.subscription.updated`, tenant resolution must first attempt `stripe_customer_id`; if unresolved, fallback to `stripe_subscription_id`.
+
+#### Why
+Customer-based mapping improves resilience when subscription IDs rotate, change timing, or are missing from expected mapping windows.
+
+#### Implementation impact
+- Update webhook resolution logic for `customer.subscription.updated` (and preferably keep parity for deleted event handling).
+- Add logs that indicate which lookup path resolved the tenant.
+- Ensure idempotent upsert still applies after resolution path branching.
 
 ## Decision entry template (copy/paste)
 
