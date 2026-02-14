@@ -17,6 +17,17 @@ const DEFAULT_GATE: SubscriptionGateState = {
   is_restricted: false,
 };
 
+/**
+ * Global enforcement semantics (superseding Phase 5 route-level gating):
+ * - past_due is blocked immediately
+ * - restricted statuses remain blocked
+ */
+export function isSubscriptionAccessBlocked(gate?: SubscriptionGateState | null): boolean {
+  if (!gate) return false;
+  if (gate.status === "past_due") return true;
+  return gate.is_restricted || gate.status === "canceled" || gate.status === "inactive";
+}
+
 export function useSubscriptionGate() {
   const { session } = useAuth();
 

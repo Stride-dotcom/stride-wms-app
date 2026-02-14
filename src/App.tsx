@@ -16,6 +16,7 @@ import { RequireRole } from "@/components/RequireRole";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import SubscriptionUpdatePayment from "./pages/SubscriptionUpdatePayment";
 import Inventory from "./pages/Inventory";
 import ItemDetail from "./pages/ItemDetail";
 
@@ -71,6 +72,7 @@ import ScanItemRedirect from "./pages/ScanItemRedirect";
 import PrintPreview from "./pages/PrintPreview";
 import Diagnostics from "./pages/Diagnostics";
 import BotQA from "./pages/admin/BotQA";
+import StripeOps from "./pages/admin/StripeOps";
 import QACenter from "./pages/QACenter";
 import DecisionLedger from "./pages/DecisionLedger";
 import Messages from "./pages/Messages";
@@ -101,6 +103,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/subscription/update-payment" element={<ProtectedRoute><SubscriptionUpdatePayment /></ProtectedRoute>} />
             <Route path="/" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Dashboard /></RequireRole></ProtectedRoute>} />
             <Route path="/inventory" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Inventory /></RequireRole></ProtectedRoute>} />
             <Route path="/inventory/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ItemDetail /></RequireRole></ProtectedRoute>} />
@@ -155,6 +158,7 @@ const App = () => (
             {/* QA/Dev tooling: allow system-level admin_dev access */}
             <Route path="/diagnostics" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'admin_dev']}><Diagnostics /></RequireRole></ProtectedRoute>} />
             <Route path="/admin/bot-qa" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'admin_dev']}><BotQA /></RequireRole></ProtectedRoute>} />
+            <Route path="/admin/stripe-ops" element={<ProtectedRoute><RequireRole role={['admin_dev']}><StripeOps /></RequireRole></ProtectedRoute>} />
             <Route path="/qa" element={<ProtectedRoute><QACenter /></ProtectedRoute>} />
             <Route path="/decision-ledger" element={<ProtectedRoute><RequireRole role="admin_dev"><DecisionLedger /></RequireRole></ProtectedRoute>} />
             <Route path="/repair-access" element={<RepairTechAccess />} />

@@ -8,6 +8,17 @@ Primary source of truth: `docs/LOCKED_DECISION_LEDGER.md` + `docs/LOCKED_DECISIO
 Continue Phase 5 SaaS subscription automation using locked decisions and one-question-at-a-time clarification.
 Current superseding direction: `DL-2026-02-14-051` (accepted) shifts from route-level gating to app-level restriction with payment-update redirect.
 Redirect timing decision captured: `DL-2026-02-14-052` (accepted) starts redirect at `past_due` during grace.
+Recovery UX decision captured: `DL-2026-02-14-053` (accepted) requires auto-check polling plus manual status refresh on blocked page.
+Blocked destination route decision captured: `DL-2026-02-14-054` (accepted) sets path to `/subscription/update-payment`.
+Ops visibility decision captured: `DL-2026-02-14-055` (accepted) adds a minimal `admin_dev` Stripe observability page with no credential editing.
+Blocked-state allowlist captured: `DL-2026-02-14-056` (accepted) keeps auth/payment-update/logout/help-support reachable.
+RPC identity decision captured: `DL-2026-02-14-057` (accepted) standardizes payment mutation on `stripe_subscription_id`.
+Webhook lookup decision captured: `DL-2026-02-14-058` (accepted) uses `customer_id` fallback to `subscription_id` for `subscription.updated`.
+Portal launch decision captured: `DL-2026-02-14-059` (accepted) auto-opens Stripe Customer Portal from `/subscription/update-payment`.
+Shared destination decision captured: `DL-2026-02-14-060` (accepted) applies the same blocked route to `/client/*` and internal users.
+Security boundary decision captured: `DL-2026-02-14-061` (accepted) keeps payment data entry Stripe-hosted, not in-app.
+Support-channel decision captured: `DL-2026-02-14-062` (accepted) uses external mailto support from blocked flow.
+Release-governance decision captured: `DL-2026-02-14-063` (accepted) keeps DL-051..DL-062 accepted until post-deploy Stripe CLI validation.
 
 ## Current implementation snapshot
 
@@ -23,22 +34,26 @@ Confirmed present in repo:
 
 | Area | Locked decision reference | Current status | Evidence |
 |---|---|---|---|
-| Route gating list includes `/incoming` | DL-2026-02-14-050 | drift/ambiguous | `src/App.tsx` route for `/incoming` currently redirects to `/shipments` (line 108) |
-| Global banner rendered in authenticated shell above routes | DL-2026-02-14-046 | drift | Banner currently rendered inside `SubscriptionGatedRoute`, not globally in app shell |
-| invoice events resolve tenant via customer mapping | DL-2026-02-14-044/045 | drift | Webhook invoice handlers call RPCs by `subscription_id` directly |
-| subscription.updated resolution fallback customer->subscription | DL-2026-02-14-045 | drift | Handler lookup uses `stripe_subscription_id` only |
-| Payment mark RPC identity contract | DL-2026-02-14-040/041 | drift/contract mismatch | Migration RPC signatures take `p_stripe_subscription_id` (not tenant id) |
+| Route-level gating list (`/incoming` and create-only paths) | DL-2026-02-14-050 | superseded | Superseded by DL-051 full-app redirect model |
+| Global banner above routes | DL-2026-02-14-046 | superseded | Superseded by blocked destination page flow |
+| invoice events identity | DL-2026-02-14-044 + DL-2026-02-14-057 | aligned | Webhook invoice handlers mutate via `stripe_subscription_id` |
+| subscription.updated resolution fallback customer->subscription | DL-2026-02-14-058 | aligned | `stripe-webhook` now resolves customer first, then subscription fallback |
+| Payment mark RPC identity contract | DL-2026-02-14-057 | aligned | Migration + webhook use `p_stripe_subscription_id` |
 | Fail-open gate behavior when row missing | DL-2026-02-14-017/037 | aligned | `rpc_get_my_subscription_gate` returns active state when row not found |
 | RLS and service-role grant pattern | DL-2026-02-14-030..034 | aligned | Migration includes expected policy and grant pattern |
 
 ## Planned continuation sequence
 
-1. **Define payment-update destination** (route/page ownership, allowlist behavior).
-2. **Decide Stripe operations visibility model** (Stripe dashboard only vs internal admin-dev mirror page).
-3. **Resolve webhook/RPC contract mismatches** (customer/subscription mapping and RPC identity).
-4. **Implement global restriction flow** without modifying locked history in place (supersession-aware).
-5. **Add verification checklist/tests** (Stripe replay, grace transitions, lock/unlock redirect behavior).
-6. **Log completion evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
+1. **Deploy new edge function** `create-stripe-portal-session` with env vars (`STRIPE_SECRET_KEY`, `APP_URL`).
+2. **Deploy updated stripe-webhook** and verify event mapping behavior in environment.
+3. **Run Stripe CLI integration tests** (payment failed -> blocked redirect; payment fixed -> unlock recovery).
+4. **Lock accepted decisions DL-051..DL-062** after deployment verification.
+5. **Log final verification evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
+
+Execution checklist:
+- `docs/PHASE5_STRIPE_CLI_VALIDATION_CHECKLIST.md`
+- `docs/PHASE5_DEPLOYMENT_COMMAND_SCRIPT.md`
+- `scripts/phase5_validate.sh`
 
 ## Q&A protocol (one question at a time)
 
@@ -52,9 +67,5 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. What exact route should host payment update (`/billing/subscription`, `/settings/billing`, or new `/subscription/update-payment`)?
-2. Should we add an internal `admin_dev` Stripe operations page (read-mostly mirror) in addition to Stripe Dashboard?
-3. Which routes should remain allowlisted while blocked (for example auth/logout/help/support)?
-4. For payment-state RPCs, should we supersede DL-040/DL-041 to standardize on `stripe_subscription_id` (matching current implementation), or refactor code to tenant-id-based mutation?
-5. For `customer.subscription.updated`, should tenant resolution strictly follow customer-id then subscription-id fallback (as locked), or remain subscription-id only?
+No open governance questions currently. Next pending action is deployment and Stripe CLI verification before locking accepted decisions.
 
