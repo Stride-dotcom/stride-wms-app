@@ -50,6 +50,9 @@ Confirmed present in repo:
 4. **Lock accepted decisions DL-051..DL-062** after deployment verification.
 5. **Log final verification evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
 
+Execution checklist:
+- `docs/PHASE5_STRIPE_CLI_VALIDATION_CHECKLIST.md`
+
 ## Q&A protocol (one question at a time)
 
 For each unresolved item:

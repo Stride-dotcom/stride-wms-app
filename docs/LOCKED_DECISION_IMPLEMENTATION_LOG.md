@@ -42,6 +42,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-020 | 2026-02-14 | DL-2026-02-14-055 | completed | Commits `28b25dc`, `3f2b622` (`src/pages/admin/StripeOps.tsx`, `src/App.tsx`) | builder | Added minimal `admin_dev` Stripe Ops observability page and route with dashboard deep links and status snapshot. |
 | DLE-2026-02-14-021 | 2026-02-14 | DL-2026-02-14-054,DL-2026-02-14-055,DL-2026-02-14-062 | completed | Commit `c4d5c66` (`src/pages/admin/StripeOps.tsx`, `src/pages/SubscriptionUpdatePayment.tsx`) | builder | Aligned new subscription/ops pages to existing app UI patterns (DashboardLayout + PageHeader for admin page, consistent card/button/typography behavior, tenant-scoped support contact flow). |
 | DLE-2026-02-14-022 | 2026-02-14 | DL-2026-02-14-063 | completed | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted governance decision | builder | Kept DL-051..DL-062 in accepted state pending post-deploy Stripe CLI validation. |
+| DLE-2026-02-14-023 | 2026-02-14 | DL-2026-02-14-051..DL-2026-02-14-062 | planned | Added `docs/PHASE5_STRIPE_CLI_VALIDATION_CHECKLIST.md` | builder | Prepared executable Stripe CLI validation runbook to gather verification evidence before locking decisions. |
 
 ## Event template (copy/paste)
 
