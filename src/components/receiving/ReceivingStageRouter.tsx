@@ -401,7 +401,7 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
         </TabsTrigger>
         <TabsTrigger value="issues" className="gap-2">
           <MaterialIcon name="report_problem" size="sm" />
-          Issues
+          Exceptions
           {openCount > 0 && (
             <Badge variant="destructive" className="ml-1 h-5 min-w-5 text-xs">
               {openCount}
