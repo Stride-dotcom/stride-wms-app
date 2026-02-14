@@ -162,6 +162,9 @@ if [[ "${SKIP_DEPLOY}" == "false" ]]; then
   log "Deploying stripe-webhook (no JWT verify)..."
   run_cmd "supabase functions deploy stripe-webhook --project-ref \"${PROJECT_REF}\" --no-verify-jwt"
 
+  log "Deploying create-stripe-checkout-session (JWT verify enabled)..."
+  run_cmd "supabase functions deploy create-stripe-checkout-session --project-ref \"${PROJECT_REF}\""
+
   log "Deploying create-stripe-portal-session (JWT verify enabled)..."
   run_cmd "supabase functions deploy create-stripe-portal-session --project-ref \"${PROJECT_REF}\""
 else

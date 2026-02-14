@@ -59,6 +59,9 @@ If your org applies migrations through CI/CD, run your normal migration pipeline
 # Stripe webhook receives Stripe-origin requests directly (no JWT)
 supabase functions deploy stripe-webhook --project-ref "$PROJECT_REF" --no-verify-jwt
 
+# Checkout session creator for new subscribers (Phase 5.1)
+supabase functions deploy create-stripe-checkout-session --project-ref "$PROJECT_REF"
+
 # Portal session function is app-authenticated
 supabase functions deploy create-stripe-portal-session --project-ref "$PROJECT_REF"
 ```

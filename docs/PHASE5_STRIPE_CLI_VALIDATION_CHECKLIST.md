@@ -12,6 +12,7 @@ Complete these first:
    - `supabase/migrations/20260213160000_saas_phase5_v3_stripe_subscription.sql`
 2. Edge functions deployed:
    - `stripe-webhook` (no JWT verify)
+   - `create-stripe-checkout-session` (JWT verify enabled)
    - `create-stripe-portal-session` (JWT verify enabled)
 3. Required env vars configured:
    - `STRIPE_SECRET_KEY`
@@ -48,7 +49,8 @@ Copy the emitted signing secret into `STRIPE_WEBHOOK_SECRET`.
 ## A. Checkout bootstrap mapping
 
 ### Trigger
-- Complete a test checkout flow that includes:
+- From Billing page, click `Start Subscription` for a tenant with no subscription row.
+- Confirm the checkout session includes:
   - `metadata.tenant_id=<tenant-uuid>`
 
 ### Expected results
