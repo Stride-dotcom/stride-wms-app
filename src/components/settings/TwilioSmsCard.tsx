@@ -387,6 +387,9 @@ export function TwilioSmsCard({ settings, tenantId, onUpdate }: TwilioSmsCardPro
               </p>
             )}
           </div>
+          <p className="text-xs text-muted-foreground">
+            This route is public and is intentionally accessible without login for Twilio verification reviewers.
+          </p>
         </div>
 
         <Separator />

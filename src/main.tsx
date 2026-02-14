@@ -1,6 +1,7 @@
 // Cache bust: 2026-01-30T04:52
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
+import PublicSmsOptInApp from "./PublicSmsOptInApp.tsx";
 import "./index.css";
 import { initErrorTracker } from "@/lib/errorTracker";
 
@@ -42,4 +43,9 @@ initErrorTracker({
   appVersion: import.meta.env.VITE_APP_VERSION || 'dev',
 });
 
-createRoot(document.getElementById("root")!).render(<App />);
+const pathname = window.location.pathname;
+const isPublicSmsOptInPath =
+  pathname === '/sms/opt-in' || pathname.startsWith('/sms/opt-in/');
+const RootApp = isPublicSmsOptInPath ? PublicSmsOptInApp : App;
+
+createRoot(document.getElementById("root")!).render(<RootApp />);
