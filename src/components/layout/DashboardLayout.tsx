@@ -53,7 +53,6 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: 'dashboard' },
   { label: 'Shipments', href: '/shipments', icon: 'local_shipping' },
-  { label: 'Incoming', href: '/incoming', icon: 'move_to_inbox', requiredRole: ['admin', 'tenant_admin', 'warehouse_user'] },
   { label: 'Inventory', href: '/inventory', icon: 'inventory_2' },
   { label: 'Tasks', href: '/tasks', icon: 'task_alt' },
   { label: 'Stocktake', href: '/stocktakes', icon: 'fact_check' },

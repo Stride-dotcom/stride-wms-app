@@ -11,7 +11,7 @@ export const ENTITY_CONFIG = {
   },
   shipment: {
     prefix: 'SHP',
-    pattern: /\b(SHP-\d{5})\b/gi,
+    pattern: /\b((?:SHP|MAN|EXP|INT|OUT)-\d{5,6})\b/gi,
     route: '/shipments',
     color: 'green',
     icon: 'Truck',

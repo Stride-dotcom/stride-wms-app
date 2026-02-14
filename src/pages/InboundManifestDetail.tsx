@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { HelpTip } from '@/components/ui/help-tip';
+import { ShipmentNumberBadge } from '@/components/shipments/ShipmentNumberBadge';
 import { isValidUuid } from '@/lib/utils';
 import { useInboundManifestDetail, type ManifestItem } from '@/hooks/useInboundManifestDetail';
 import { useExternalRefs, type RefType } from '@/hooks/useExternalRefs';
@@ -272,7 +273,7 @@ export default function InboundManifestDetail() {
           <div className="flex-1">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <MaterialIcon name="list_alt" size="md" />
-              {manifest.shipment_number}
+              <ShipmentNumberBadge shipmentNumber={manifest.shipment_number} exceptionType={(manifest as any).shipment_exception_type} className="text-2xl" />
               <Badge variant="secondary">{manifest.inbound_status || 'draft'}</Badge>
             </h1>
             <p className="text-muted-foreground text-sm mt-1">

@@ -39,12 +39,6 @@ export function useIncomingShipments(filters: IncomingFilters) {
         query = query.eq('inbound_status', filters.status);
       }
 
-      if (filters.search) {
-        query = query.or(
-          `shipment_number.ilike.%${filters.search}%,vendor_name.ilike.%${filters.search}%`
-        );
-      }
-
       const { data, error } = await query;
       if (error) throw error;
 
@@ -60,7 +54,21 @@ export function useIncomingShipments(filters: IncomingFilters) {
         } as unknown as IncomingShipment;
       });
 
-      setShipments(mapped);
+      // Client-side search to include account_name matching
+      const filtered = filters.search
+        ? mapped.filter((s) => {
+            const q = filters.search!.toLowerCase();
+            return (
+              s.shipment_number?.toLowerCase().includes(q) ||
+              s.vendor_name?.toLowerCase().includes(q) ||
+              (s.notes as string | null)?.toLowerCase().includes(q) ||
+              s.tracking_number?.toLowerCase().includes(q) ||
+              s.account_name?.toLowerCase().includes(q)
+            );
+          })
+        : mapped;
+
+      setShipments(filtered);
     } catch (error) {
       console.error('Error fetching incoming shipments:', error);
       toast({

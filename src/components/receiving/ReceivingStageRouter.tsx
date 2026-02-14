@@ -20,6 +20,7 @@ import type { CandidateParams } from '@/hooks/useInboundCandidates';
 import { downloadReceivingPdf, storeReceivingPdf, type ReceivingPdfData } from '@/lib/receivingPdf';
 import { queueReceivingDiscrepancyAlert } from '@/lib/alertQueue';
 import { ShipmentExceptionBadge } from '@/components/shipments/ShipmentExceptionBadge';
+import { ShipmentNumberBadge } from '@/components/shipments/ShipmentNumberBadge';
 
 interface ShipmentData {
   id: string;
@@ -403,7 +404,10 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 px-1">
-        <span className="font-mono text-sm sm:text-base font-medium">{shipment.shipment_number}</span>
+        <ShipmentNumberBadge
+          shipmentNumber={shipment.shipment_number}
+          exceptionType={shipment.shipment_exception_type}
+        />
         <ShipmentExceptionBadge
           shipmentId={shipmentId}
           count={openCount}

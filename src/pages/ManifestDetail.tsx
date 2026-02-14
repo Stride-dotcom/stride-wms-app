@@ -50,6 +50,7 @@ import { PrintLabelsDialog } from '@/components/inventory/PrintLabelsDialog';
 import { ItemLabelData } from '@/lib/labelGenerator';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
+import { ShipmentNumberBadge } from '@/components/shipments/ShipmentNumberBadge';
 import { format } from 'date-fns';
 
 const statusLabels: Record<ManifestStatus, string> = {
@@ -257,7 +258,7 @@ export default function ManifestDetail() {
               </Badge>
             )}
           </div>
-          <p className="text-muted-foreground font-mono text-sm">{manifest.manifest_number}</p>
+          <ShipmentNumberBadge shipmentNumber={manifest.manifest_number} />
         </div>
         <div className="flex gap-2">
           {isDraft && items.length > 0 && (

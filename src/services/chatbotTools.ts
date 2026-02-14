@@ -33,7 +33,7 @@ export function getChatbotTools(): ChatbotTool[] {
     },
     {
       name: 'lookup_shipment',
-      description: 'Search shipments by number (SHP-XXXXX), tracking number, or keywords',
+      description: 'Search shipments by number (SHP/MAN/EXP/INT/OUT-XXXXX), tracking number, or keywords',
       parameters: {
         type: 'object',
         properties: {
@@ -184,7 +184,7 @@ async function lookupTask({ query }: { query: string }) {
 }
 
 async function lookupShipment({ query }: { query: string }) {
-  if (/^SHP-\d{5}$/i.test(query)) {
+  if (/^(SHP|MAN|EXP|INT|OUT)-\d{5,6}$/i.test(query)) {
     const { data, error } = await db
       .from('shipments')
       .select('id, shipment_number, status, carrier, tracking_number, shipment_type, expected_arrival_date, account_id')

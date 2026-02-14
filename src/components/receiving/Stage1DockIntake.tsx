@@ -107,8 +107,8 @@ export function Stage1DockIntake({
   // Submitting
   const [completing, setCompleting] = useState(false);
 
-  // Autosave
-  const autosave = useReceivingAutosave(shipmentId, true);
+  // Autosave - disable while completing to prevent race conditions
+  const autosave = useReceivingAutosave(shipmentId, !completing);
 
   // Photos
   const {
@@ -269,23 +269,33 @@ export function Stage1DockIntake({
   };
 
   // Signature handlers
-  const handleSignatureComplete = (data: string, name: string) => {
+  const handleSignatureComplete = async (data: string, name: string) => {
     setSignatureData(data);
     setSignatureName(name);
     setShowSignatureDialog(false);
 
-    // Save signature to shipment
-    supabase
-      .from('shipments')
-      .update({
-        signature_data: data,
-        signature_name: name,
-        signature_timestamp: new Date().toISOString(),
-      } as any)
-      .eq('id', shipmentId)
-      .then(({ error }) => {
-        if (error) console.error('[Stage1] signature save error:', error);
+    // Save signature to shipment (awaited with error handling)
+    try {
+      const { error } = await (supabase as any)
+        .from('shipments')
+        .update({
+          signature_data: data,
+          signature_name: name,
+          signature_timestamp: new Date().toISOString(),
+        })
+        .eq('id', shipmentId);
+
+      if (error) throw error;
+      toast({ title: 'Signature saved' });
+      onRefresh();
+    } catch (err: any) {
+      console.error('[Stage1] signature save error:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Signature Error',
+        description: err?.message || 'Failed to save signature',
       });
+    }
   };
 
   // Validation
@@ -324,6 +334,7 @@ export function Stage1DockIntake({
       await autosave.saveNow();
 
       // Update shipment: set inbound_status to stage1_complete
+      // Include all current field values to prevent stale autosave overwrites
       const updateData: Record<string, unknown> = {
         inbound_status: 'stage1_complete',
         vendor_name: vendorName,
@@ -333,9 +344,20 @@ export function Stage1DockIntake({
         dock_intake_breakdown: breakdown,
       };
 
-      const { error } = await supabase
+      // Include signature data if captured
+      if (signatureData) {
+        updateData.signature_data = signatureData;
+        updateData.signature_name = signatureName;
+      }
+
+      // Flag as UNKNOWN_ACCOUNT if no account assigned at Stage 1 completion
+      if (!shipment.account_id) {
+        updateData.shipment_exception_type = 'UNKNOWN_ACCOUNT';
+      }
+
+      const { error } = await (supabase as any)
         .from('shipments')
-        .update(updateData as any)
+        .update(updateData)
         .eq('id', shipmentId);
 
       if (error) throw error;
