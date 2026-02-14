@@ -333,6 +333,9 @@ export default function Billing() {
       canceled: 'secondary',
       inactive: 'secondary',
       none: 'outline',
+      disabled: 'destructive',
+      paused: 'secondary',
+      not_activated: 'outline',
     };
     return <Badge variant={variants[status] || 'secondary'}>{status}</Badge>;
   };
@@ -349,7 +352,7 @@ export default function Billing() {
 
   const isNewSubscriber = gate?.status === 'none';
   const baseSubscriptionStatus = subscriptionSnapshot?.status || gate?.status || 'none';
-  const smsActivationStatus = smsAddonActivation?.is_active ? 'active' : 'not_activated';
+  const smsActivationStatus = smsAddonActivation?.activation_status || 'not_activated';
 
   const handleSubscriptionAction = async () => {
     setStartingSubscription(true);

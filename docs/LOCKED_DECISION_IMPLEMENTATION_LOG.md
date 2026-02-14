@@ -55,6 +55,8 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-033 | 2026-02-14 | DL-2026-02-14-068 | completed | Added `supabase/migrations/20260215013000_saas_sms_addon_activation.sql`, `src/hooks/useSmsAddonActivation.ts` | builder | Implemented tenant-level SMS terms acceptance audit schema and activation RPC capturing version/time/user/ip/user-agent/source. |
 | DLE-2026-02-14-034 | 2026-02-14 | DL-2026-02-14-066,DL-2026-02-14-067 | completed | Added `src/components/settings/SmsAddonActivationCard.tsx`; updated `OrganizationSettingsTab.tsx` and `src/pages/Billing.tsx` | builder | Added Settings SMS activation card with readiness + terms confirmation and Billing subscription summary including SMS add-on state. |
 | DLE-2026-02-14-035 | 2026-02-14 | DL-2026-02-14-066,DL-2026-02-14-067,DL-2026-02-14-068 | verified | `npx tsc --noEmit`, `npm run build` (post commit `73d378c`) | builder | Local static validation passed for SMS activation schema/RPC and Settings/Billing UX updates. |
+| DLE-2026-02-14-036 | 2026-02-14 | DL-2026-02-14-069 | completed | Added `supabase/migrations/20260215015500_sms_addon_self_deactivation.sql` | builder | Added tenant-admin self-deactivation RPC with deactivation audit event and automatic `sms_enabled=false` safety update. |
+| DLE-2026-02-14-037 | 2026-02-14 | DL-2026-02-14-069,DL-2026-02-14-067 | completed | Updated `src/hooks/useSmsAddonActivation.ts`, `src/components/settings/SmsAddonActivationCard.tsx`, `src/pages/Billing.tsx` | builder | Added self-deactivate action in Settings (with confirmation) and surfaced `disabled` SMS add-on status in Billing summary. |
 
 ## Event template (copy/paste)
 
