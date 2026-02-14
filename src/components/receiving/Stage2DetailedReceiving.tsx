@@ -71,7 +71,6 @@ export interface ItemMatchingParams {
 interface Stage2DetailedReceivingProps {
   shipmentId: string;
   shipmentNumber: string;
-  exceptionCount?: number;
   shipment: {
     account_id: string | null;
     warehouse_id: string | null;
@@ -90,7 +89,6 @@ interface Stage2DetailedReceivingProps {
 export function Stage2DetailedReceiving({
   shipmentId,
   shipmentNumber,
-  exceptionCount,
   shipment,
   onComplete,
   onRefresh,
@@ -814,7 +812,11 @@ export function Stage2DetailedReceiving({
           <CardTitle className="text-base flex items-center gap-2">
             <MaterialIcon name="pin" size="sm" />
             Received Pieces <span className="text-red-500">*</span>
-            <HelpTip tooltip="Total number of pieces received at dock intake stage 2." />
+            <HelpTip
+              tooltip="Total number of pieces received at dock intake stage 2."
+              pageKey="receiving.stage2"
+              fieldKey="received_pieces"
+            />
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -881,7 +883,7 @@ export function Stage2DetailedReceiving({
                     <TableHead className="w-24 text-right">Quantity</TableHead>
                     <TableHead className="w-40">Vendor</TableHead>
                     <TableHead className="min-w-[220px]">Description</TableHead>
-                    <TableHead className="w-44">Glass</TableHead>
+                    <TableHead className="w-44">Class</TableHead>
                     <TableHead className="w-40">Side Mark</TableHead>
                     <TableHead className="w-36">Room</TableHead>
                     <TableHead className="w-40">Actions</TableHead>

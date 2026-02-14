@@ -66,7 +66,7 @@ const handler = async (req: Request): Promise<Response> => {
       const { data: settings } = await supabase
         .from("tenant_company_settings")
         .select(
-          "company_name, logo_url, sms_opt_in_message, sms_help_message, sms_privacy_policy_url, sms_terms_conditions_url"
+          "company_name, company_email, company_phone, logo_url, sms_opt_in_message, sms_help_message, sms_privacy_policy_url, sms_terms_conditions_url"
         )
         .eq("tenant_id", tenant_id)
         .maybeSingle();
@@ -74,6 +74,8 @@ const handler = async (req: Request): Promise<Response> => {
       return jsonResponse({
         tenant: {
           company_name: settings?.company_name || tenant.name,
+          company_email: settings?.company_email || null,
+          company_phone: settings?.company_phone || null,
           logo_url: settings?.logo_url || null,
           sms_opt_in_message: settings?.sms_opt_in_message || null,
           sms_help_message: settings?.sms_help_message || null,

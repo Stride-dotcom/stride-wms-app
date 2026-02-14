@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -410,10 +410,9 @@ export function IncomingContent({ initialSubTab, onStartDockIntake }: IncomingCo
   const [statusFilter, setStatusFilter] = useState('all');
   const [creating, setCreating] = useState(false);
 
-  // Update tab when initialSubTab changes from parent
-  const prevSubTab = useMemo(() => initialSubTab, []);
-  useMemo(() => {
-    if (initialSubTab && initialSubTab !== prevSubTab) {
+  // Keep active tab aligned with parent-provided sub-tab.
+  useEffect(() => {
+    if (initialSubTab) {
       setActiveTab(mapInitialTab());
     }
   }, [initialSubTab]);
@@ -450,11 +449,11 @@ export function IncomingContent({ initialSubTab, onStartDockIntake }: IncomingCo
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
   // Default selected account to UNIDENTIFIED once loaded
-  useMemo(() => {
+  useEffect(() => {
     if (unidentifiedAccountId && !selectedAccountId) {
       setSelectedAccountId(unidentifiedAccountId);
     }
-  }, [unidentifiedAccountId]);
+  }, [unidentifiedAccountId, selectedAccountId]);
 
   const handleRowClick = (id: string) => {
     if (activeTab === 'manifests') {
@@ -607,7 +606,11 @@ export function IncomingContent({ initialSubTab, onStartDockIntake }: IncomingCo
                 )}
               </div>
 
-              <HelpTip tooltip="Filter and search inbound shipments. Click a row to view details, allocate items, or manage references." />
+              <HelpTip
+                tooltip="Filter and search inbound shipments. Click a row to view details, allocate items, or manage references."
+                pageKey="incoming.list"
+                fieldKey="filters_toolbar"
+              />
             </div>
           </CardContent>
         </Card>

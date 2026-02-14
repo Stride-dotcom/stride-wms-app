@@ -1,5 +1,13 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_DEFAULT_TENANT_ID?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 // BarcodeDetector API (available in Chrome/Edge, experimental)
 interface BarcodeDetectorOptions {
   formats?: string[];

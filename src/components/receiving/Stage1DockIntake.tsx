@@ -63,12 +63,10 @@ export interface MatchingParamsUpdate {
 interface Stage1DockIntakeProps {
   shipmentId: string;
   shipmentNumber: string;
-  exceptionCount?: number;
   shipment: {
     account_id: string | null;
     vendor_name: string | null;
     signed_pieces: number | null;
-    driver_name: string | null;
     signature_data: string | null;
     signature_name: string | null;
     dock_intake_breakdown: Record<string, unknown> | null;
@@ -84,7 +82,6 @@ interface Stage1DockIntakeProps {
 export function Stage1DockIntake({
   shipmentId,
   shipmentNumber,
-  exceptionCount,
   shipment,
   onComplete,
   onRefresh,
@@ -504,7 +501,11 @@ export function Stage1DockIntake({
               <Label htmlFor="signed_pieces">
                 Signed Pieces <span className="text-red-500">*</span>
               </Label>
-              <HelpTip tooltip="The number of pieces counted and signed for at the dock. Tap the number to type a value directly, or use +/- buttons." />
+              <HelpTip
+                tooltip="The number of pieces counted and signed for at the dock. Tap the number to type a value directly, or use +/- buttons."
+                pageKey="receiving.stage1"
+                fieldKey="signed_pieces"
+              />
             </div>
             <BigCounter
               id="signed_pieces"
@@ -524,7 +525,11 @@ export function Stage1DockIntake({
           <CardTitle className="text-base flex items-center gap-2">
             <MaterialIcon name="inventory" size="sm" />
             Unit Breakdown (optional)
-            <HelpTip tooltip="Break down signed pieces by packaging type. Does not need to sum to signed pieces." />
+            <HelpTip
+              tooltip="Break down signed pieces by packaging type. Does not need to sum to signed pieces."
+              pageKey="receiving.stage1"
+              fieldKey="unit_breakdown"
+            />
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -569,7 +574,11 @@ export function Stage1DockIntake({
           <CardTitle className="text-base flex items-center gap-2">
             <MaterialIcon name="report_problem" size="sm" />
             Exceptions <span className="text-red-500">*</span>
-            <HelpTip tooltip="Select any exceptions observed at the dock. Selecting 'No Exceptions' clears all others. At least one selection required." />
+            <HelpTip
+              tooltip="Select any exceptions observed at the dock. Selecting 'No Exceptions' clears all others. At least one selection required."
+              pageKey="receiving.stage1"
+              fieldKey="exceptions"
+            />
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">

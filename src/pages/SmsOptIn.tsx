@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface TenantInfo {
   company_name: string | null;
+  company_email: string | null;
+  company_phone: string | null;
   logo_url: string | null;
   sms_opt_in_message: string | null;
   sms_privacy_policy_url: string | null;
@@ -18,9 +20,16 @@ interface TenantInfo {
   sms_help_message: string | null;
 }
 
+function normalizePhone(raw: string): string {
+  const stripped = raw.replace(/[\s\-()]/g, '');
+  if (stripped.startsWith('+')) return '+' + stripped.slice(1).replace(/\D/g, '');
+  return '+' + stripped.replace(/\D/g, '');
+}
+
 export default function SmsOptIn() {
   const [searchParams] = useSearchParams();
-  const tenantId = searchParams.get('t');
+  const { tenantId: tenantIdFromPath } = useParams<{ tenantId: string }>();
+  const tenantId = tenantIdFromPath || searchParams.get('t');
 
   const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +45,7 @@ export default function SmsOptIn() {
   // Fetch tenant branding info (public - uses edge function)
   useEffect(() => {
     if (!tenantId) {
-      setError('Missing tenant identifier in the URL.');
+      setError('Missing tenant identifier in the URL. Use /sms/opt-in/<tenant-id> or ?t=<tenant-id>.');
       setLoading(false);
       return;
     }
@@ -65,6 +74,12 @@ export default function SmsOptIn() {
   const handleSubmit = async () => {
     if (!phone.trim() || !agreed || !tenantId) return;
 
+    const normalizedPhone = normalizePhone(phone.trim());
+    if (!/^\+\d{7,15}$/.test(normalizedPhone)) {
+      setSubmitError('Please enter a valid phone number in international format.');
+      return;
+    }
+
     setSubmitting(true);
     setSubmitError(null);
 
@@ -73,7 +88,7 @@ export default function SmsOptIn() {
         body: {
           action: 'opt_in',
           tenant_id: tenantId,
-          phone_number: phone.trim(),
+          phone_number: normalizedPhone,
           contact_name: name.trim() || null,
         },
       });
@@ -226,14 +241,21 @@ export default function SmsOptIn() {
 
           <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground space-y-2">
             <p>
-              By subscribing, you agree to receive automated SMS notifications
-              from {companyName} about shipment updates, inventory alerts, and
-              account notifications.
+              By checking the consent box and submitting this form, you agree to receive automated SMS
+              notifications from {companyName} about shipment updates, inventory alerts, and account notifications.
             </p>
             <p>
               Message frequency varies. Message & data rates may apply.
               Reply <strong>STOP</strong> to cancel, <strong>HELP</strong> for help.
             </p>
+            {(tenantInfo.company_email || tenantInfo.company_phone) && (
+              <p>
+                Support:{' '}
+                {tenantInfo.company_email ? tenantInfo.company_email : null}
+                {tenantInfo.company_email && tenantInfo.company_phone ? ' | ' : null}
+                {tenantInfo.company_phone ? tenantInfo.company_phone : null}
+              </p>
+            )}
             {(tenantInfo.sms_privacy_policy_url || tenantInfo.sms_terms_conditions_url) && (
               <p className="flex gap-3">
                 {tenantInfo.sms_privacy_policy_url && (
@@ -268,8 +290,8 @@ export default function SmsOptIn() {
               className="mt-0.5"
             />
             <label htmlFor="agree" className="text-sm leading-snug cursor-pointer">
-              I agree to receive SMS notifications from {companyName} and acknowledge
-              the terms above.
+              I agree to receive SMS notifications from {companyName}, acknowledge message frequency varies,
+              message/data rates may apply, and understand I can reply STOP to opt out or HELP for help.
             </label>
           </div>
 
