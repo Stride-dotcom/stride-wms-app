@@ -89,6 +89,8 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-057 | Payment-state mutation RPC identity standard is stripe_subscription_id | Webhook/RPC Contract | accepted | Chat Q&A (2026-02-14) | DL-2026-02-14-040, DL-2026-02-14-041 | - |
 | DL-2026-02-14-058 | subscription.updated tenant resolution must use customer_id fallback to subscription_id | Webhook Contract | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-059 | /subscription/update-payment auto-opens Stripe Customer Portal on page load | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-060 | Client portal users use the same blocked destination route as internal users | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-061 | Payment data entry remains Stripe-hosted; app never collects raw card details | Security/Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -280,6 +282,45 @@ This minimizes remediation friction and gets blocked users into payment recovery
 - Payment-update page should trigger portal session creation and redirect/open flow automatically.
 - Include robust fallback UI for blocked popup/navigation failures (for example, retry button and support contact).
 - Keep status polling/manual refresh from DL-2026-02-14-053 for post-return unlock behavior.
+
+### DL-2026-02-14-060: Client portal users use the same blocked destination route as internal users
+- Domain: SaaS Enforcement
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Client portal users (`/client/*`) should follow the same blocked destination route (`/subscription/update-payment`) and remediation flow as internal users.
+
+#### Why
+Subscription enforcement is tenant-level and should remain consistent across user surfaces.
+
+#### Implementation impact
+- Global blocked-state routing logic applies uniformly to internal and client portal routes.
+- Avoid creating a separate client-only blocked flow unless later superseded.
+
+### DL-2026-02-14-061: Payment data entry remains Stripe-hosted; app never collects raw card details
+- Domain: Security/Compliance
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Users update payment details only in Stripe-hosted surfaces (Customer Portal/Checkout). The app does not capture, process, or store raw card numbers, CVC, or full PAN data.
+
+#### Why
+This reduces PCI exposure and security risk while relying on Stripe for payment data handling.
+
+#### Implementation impact
+- `/subscription/update-payment` launches Stripe-hosted payment management only.
+- App stores only non-sensitive billing metadata needed for subscription state and UX (for example status, grace deadlines, Stripe IDs).
+- Maintain secure webhook verification and service-role controls because operational/security risk still exists outside raw card handling.
 
 ## Decision entry template (copy/paste)
 

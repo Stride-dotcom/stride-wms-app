@@ -15,6 +15,8 @@ Blocked-state allowlist captured: `DL-2026-02-14-056` (accepted) keeps auth/paym
 RPC identity decision captured: `DL-2026-02-14-057` (accepted) standardizes payment mutation on `stripe_subscription_id`.
 Webhook lookup decision captured: `DL-2026-02-14-058` (accepted) uses `customer_id` fallback to `subscription_id` for `subscription.updated`.
 Portal launch decision captured: `DL-2026-02-14-059` (accepted) auto-opens Stripe Customer Portal from `/subscription/update-payment`.
+Shared destination decision captured: `DL-2026-02-14-060` (accepted) applies the same blocked route to `/client/*` and internal users.
+Security boundary decision captured: `DL-2026-02-14-061` (accepted) keeps payment data entry Stripe-hosted, not in-app.
 
 ## Current implementation snapshot
 
@@ -58,5 +60,5 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. Should client-portal users (`/client/*`) use the same blocked destination route (`/subscription/update-payment`) as internal users?
+1. Should blocked-state "help/support" be an in-app route or an external support URL (mailto/help center)?
 

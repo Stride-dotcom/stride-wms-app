@@ -34,6 +34,8 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-012 | 2026-02-14 | DL-2026-02-14-057 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted RPC identity decision | builder | Standardized payment mutation identity on `stripe_subscription_id`. |
 | DLE-2026-02-14-013 | 2026-02-14 | DL-2026-02-14-058 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted webhook lookup decision | builder | `subscription.updated` tenant resolution now uses customer-id fallback to subscription-id. |
 | DLE-2026-02-14-014 | 2026-02-14 | DL-2026-02-14-059 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted portal-launch decision | builder | Payment update route will auto-open Stripe Customer Portal on load. |
+| DLE-2026-02-14-015 | 2026-02-14 | DL-2026-02-14-060 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted shared-route decision | builder | Client and internal users share the same blocked destination route. |
+| DLE-2026-02-14-016 | 2026-02-14 | DL-2026-02-14-061 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted Stripe-hosted payment-entry decision | builder | Payment details remain in Stripe-hosted pages; app avoids raw card data handling. |
 
 ## Event template (copy/paste)
 
