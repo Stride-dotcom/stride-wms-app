@@ -125,6 +125,7 @@ export function Stage1DockIntake({
     openExceptions,
     upsertOpenException,
     removeOpenException,
+    refetch: refetchExceptions,
   } = useShipmentExceptions(shipmentId);
 
   // File input refs
@@ -190,8 +191,29 @@ export function Stage1DockIntake({
   const toggleException = async (chip: ExceptionChip) => {
     if (chip === 'NO_EXCEPTIONS') {
       const selectedCodes = exceptions.filter((e): e is ShipmentExceptionCode => e !== 'NO_EXCEPTIONS');
-      await Promise.all(selectedCodes.map((code) => removeOpenException(code)));
+      const removalResults = await Promise.all(
+        selectedCodes.map(async (code) => ({
+          code,
+          removed: await removeOpenException(code),
+        }))
+      );
+
+      const failedCodes = removalResults
+        .filter((result) => !result.removed)
+        .map((result) => result.code);
+
+      if (failedCodes.length > 0) {
+        await refetchExceptions();
+        toast({
+          variant: 'destructive',
+          title: 'Could not clear all exceptions',
+          description: `Failed to remove: ${failedCodes.join(', ')}`,
+        });
+        return;
+      }
+
       setExceptions(['NO_EXCEPTIONS']);
+      setExceptionNotes({} as Record<ShipmentExceptionCode, string>);
       return;
     }
 
