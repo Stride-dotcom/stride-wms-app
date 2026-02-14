@@ -164,6 +164,7 @@ const App = () => (
             <Route path="/quote/accept" element={<QuoteAcceptance />} />
             <Route path="/activate" element={<ClientActivate />} />
             <Route path="/sms/opt-in" element={<SmsOptIn />} />
+            <Route path="/sms/opt-in/:tenantId" element={<SmsOptIn />} />
             <Route path="/client/login" element={<ClientLogin />} />
             <Route path="/client" element={<ProtectedRoute><RequireRole role="client_user"><ClientDashboard /></RequireRole></ProtectedRoute>} />
             <Route path="/client/items" element={<ProtectedRoute><RequireRole role="client_user"><ClientItems /></RequireRole></ProtectedRoute>} />
