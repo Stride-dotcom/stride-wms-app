@@ -42,6 +42,7 @@ import { IntegrationsSettingsTab } from '@/components/settings/IntegrationsSetti
 import { OperationsSettingsTab } from '@/components/settings/OperationsSettingsTab';
 import { QATestConsoleTab } from '@/components/settings/QATestConsoleTab';
 import { OnboardingChecklistTab } from '@/components/settings/OnboardingChecklistTab';
+import { FieldHelpSettingsTab } from '@/components/settings/FieldHelpSettingsTab';
 import packageJson from '../../package.json';
 
 interface TenantInfo {
@@ -57,6 +58,7 @@ const TAB_OPTIONS = [
   { value: 'organization', label: 'Organization' },
   { value: 'alerts', label: 'Alerts' },
   { value: 'operations', label: 'Operations', adminOnly: true },
+  { value: 'field-help', label: 'Field Help', adminOnly: true },
   { value: 'service-rates', label: 'Service Rates', adminOnly: true },
   { value: 'integrations', label: 'Integrations', adminOnly: true },
   { value: 'warehouses', label: 'Warehouses' },
@@ -324,6 +326,7 @@ export default function Settings() {
             <TabsTrigger value="organization">Organization</TabsTrigger>
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
             {isAdmin && <TabsTrigger value="operations">Operations</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="field-help">Field Help</TabsTrigger>}
             {isAdmin && <TabsTrigger value="service-rates">Service Rates</TabsTrigger>}
             {isAdmin && <TabsTrigger value="integrations">Integrations</TabsTrigger>}
             <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
@@ -433,6 +436,12 @@ export default function Settings() {
                   </div>
                 }
               />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="field-help">
+              <FieldHelpSettingsTab />
             </TabsContent>
           )}
 

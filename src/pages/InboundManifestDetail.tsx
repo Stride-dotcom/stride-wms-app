@@ -468,7 +468,11 @@ export default function InboundManifestDetail() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               External References
-              <HelpTip tooltip="BOL, PRO, tracking numbers, POs. Used for matching dock intakes to manifests and expected shipments." />
+              <HelpTip
+                tooltip="BOL, PRO, tracking numbers, POs. Used for matching dock intakes to manifests and expected shipments."
+                pageKey="incoming.manifest_detail"
+                fieldKey="external_refs"
+              />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -524,7 +528,11 @@ export default function InboundManifestDetail() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
                 Manifest Items
-                <HelpTip tooltip="Items on this manifest. Select items and click 'Allocate' to assign them to an expected shipment." />
+                <HelpTip
+                  tooltip="Items on this manifest. Select items and click 'Allocate' to assign them to an expected shipment."
+                  pageKey="incoming.manifest_detail"
+                  fieldKey="manifest_items"
+                />
               </CardTitle>
               <div className="flex gap-2">
                 {selectedItems.size > 0 && (

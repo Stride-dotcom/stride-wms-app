@@ -308,7 +308,11 @@ export default function ExpectedShipmentDetail() {
                 <div className="space-y-1">
                   <Label className="text-xs">
                     Carrier Name
-                    <HelpTip tooltip="The shipping carrier or trucking company delivering this shipment." />
+                    <HelpTip
+                      tooltip="The shipping carrier or trucking company delivering this shipment."
+                      pageKey="incoming.expected_detail"
+                      fieldKey="carrier_name"
+                    />
                   </Label>
                   <Input
                     value={headerCarrier}
@@ -393,7 +397,11 @@ export default function ExpectedShipmentDetail() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               External References
-              <HelpTip tooltip="BOL, PRO, tracking numbers, POs. These references are used to match dock intakes to this expected shipment." />
+              <HelpTip
+                tooltip="BOL, PRO, tracking numbers, POs. These references are used to match dock intakes to this expected shipment."
+                pageKey="incoming.expected_detail"
+                fieldKey="external_refs"
+              />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -448,7 +456,11 @@ export default function ExpectedShipmentDetail() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               Expected Items
-              <HelpTip tooltip="Items expected in this shipment. Items may be created manually or through allocation from a manifest." />
+              <HelpTip
+                tooltip="Items expected in this shipment. Items may be created manually or through allocation from a manifest."
+                pageKey="incoming.expected_detail"
+                fieldKey="expected_items"
+              />
             </CardTitle>
           </CardHeader>
           <CardContent>
