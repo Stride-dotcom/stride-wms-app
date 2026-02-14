@@ -41,6 +41,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-019 | 2026-02-14 | DL-2026-02-14-057,DL-2026-02-14-058,DL-2026-02-14-059,DL-2026-02-14-061 | completed | Commit `28b25dc` (`supabase/functions/stripe-webhook/index.ts`, `supabase/functions/create-stripe-portal-session/*`) | builder | Standardized subscription-id mutation identity, customer-first fallback lookup for subscription updates/deletes, auto-launch Stripe portal path, and Stripe-hosted payment boundary. |
 | DLE-2026-02-14-020 | 2026-02-14 | DL-2026-02-14-055 | completed | Commits `28b25dc`, `3f2b622` (`src/pages/admin/StripeOps.tsx`, `src/App.tsx`) | builder | Added minimal `admin_dev` Stripe Ops observability page and route with dashboard deep links and status snapshot. |
 | DLE-2026-02-14-021 | 2026-02-14 | DL-2026-02-14-054,DL-2026-02-14-055,DL-2026-02-14-062 | completed | Commit `c4d5c66` (`src/pages/admin/StripeOps.tsx`, `src/pages/SubscriptionUpdatePayment.tsx`) | builder | Aligned new subscription/ops pages to existing app UI patterns (DashboardLayout + PageHeader for admin page, consistent card/button/typography behavior, tenant-scoped support contact flow). |
+| DLE-2026-02-14-022 | 2026-02-14 | DL-2026-02-14-063 | completed | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted governance decision | builder | Kept DL-051..DL-062 in accepted state pending post-deploy Stripe CLI validation. |
 
 ## Event template (copy/paste)
 

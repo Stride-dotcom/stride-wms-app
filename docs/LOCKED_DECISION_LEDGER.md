@@ -92,6 +92,7 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-060 | Client portal users use the same blocked destination route as internal users | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-061 | Payment data entry remains Stripe-hosted; app never collects raw card details | Security/Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-062 | Blocked-flow support uses external mailto contact (tenant company email when available) | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-063 | Keep DL-051 through DL-062 in accepted state until post-deploy Stripe CLI validation | Release Governance | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -341,6 +342,25 @@ External support avoids adding another in-app route while access is restricted a
 #### Implementation impact
 - Payment update page renders support mailto link when company email is available.
 - Fallback guidance remains visible if no support email exists.
+
+### DL-2026-02-14-063: Keep DL-051 through DL-062 in accepted state until post-deploy Stripe CLI validation
+- Domain: Release Governance
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Decisions DL-2026-02-14-051 through DL-2026-02-14-062 remain `accepted` and will not be moved to `locked` until deployment and Stripe CLI validation are completed.
+
+#### Why
+Final lock should occur only after live integration behavior is verified end-to-end.
+
+#### Implementation impact
+- Keep these decisions editable in accepted state until validation evidence is captured.
+- After verification, update state to locked and append corresponding verification events in the implementation log.
 
 ## Decision entry template (copy/paste)
 
