@@ -91,6 +91,71 @@ BEGIN
       'CRUSHED_TORN_CARTONS',
       'OTHER'
     )
+  ),
+  ranked AS (
+    SELECT
+      n.*,
+      row_number() OVER (
+        PARTITION BY n.tenant_id, n.shipment_id, n.code, n.status
+        ORDER BY n.created_at, n.legacy_id
+      ) AS status_rank
+    FROM normalized n
+  ),
+  deduped AS (
+    SELECT
+      r.tenant_id,
+      r.shipment_id,
+      r.code,
+      r.note,
+      r.status,
+      r.resolution_note,
+      r.created_at,
+      r.created_by,
+      r.resolved_at,
+      r.resolved_by
+    FROM ranked r
+    WHERE r.status <> 'open' OR r.status_rank = 1
+  ),
+  prepared AS (
+    SELECT
+      d.tenant_id,
+      d.shipment_id,
+      d.code,
+      d.note,
+      d.status,
+      d.resolution_note,
+      d.created_at,
+      d.created_by,
+      d.resolved_at,
+      d.resolved_by
+    FROM deduped d
+    WHERE
+      (
+        d.status = 'open'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.shipment_exceptions se
+          WHERE se.tenant_id = d.tenant_id
+            AND se.shipment_id = d.shipment_id
+            AND se.code = d.code
+            AND se.status = 'open'
+        )
+      )
+      OR
+      (
+        d.status = 'resolved'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.shipment_exceptions se
+          WHERE se.tenant_id = d.tenant_id
+            AND se.shipment_id = d.shipment_id
+            AND se.code = d.code
+            AND se.status = 'resolved'
+            AND COALESCE(se.note, '') = COALESCE(d.note, '')
+            AND COALESCE(se.resolution_note, '') = COALESCE(d.resolution_note, '')
+            AND se.created_at = d.created_at
+        )
+      )
   )
   INSERT INTO public.shipment_exceptions (
     tenant_id,
@@ -106,28 +171,19 @@ BEGIN
     updated_at
   )
   SELECT
-    n.tenant_id,
-    n.shipment_id,
-    n.code,
-    n.note,
-    n.status,
-    n.resolution_note,
-    n.created_at,
-    n.created_by,
-    n.resolved_at,
-    n.resolved_by,
+    p.tenant_id,
+    p.shipment_id,
+    p.code,
+    p.note,
+    p.status,
+    p.resolution_note,
+    p.created_at,
+    p.created_by,
+    p.resolved_at,
+    p.resolved_by,
     now()
-  FROM normalized n
-  WHERE NOT EXISTS (
-    SELECT 1
-    FROM public.shipment_exceptions se
-    WHERE se.tenant_id = n.tenant_id
-      AND se.shipment_id = n.shipment_id
-      AND se.code = n.code
-      AND se.status = n.status
-      AND COALESCE(se.note, '') = COALESCE(n.note, '')
-      AND se.created_at = n.created_at
-  );
+  FROM prepared p
+  ON CONFLICT (shipment_id, code) WHERE status = 'open' DO NOTHING;
 
   GET DIAGNOSTICS v_inserted = ROW_COUNT;
   RAISE NOTICE 'Backfill complete: % rows copied from receiving_discrepancies to shipment_exceptions', v_inserted;
