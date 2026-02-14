@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,11 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 
 interface TenantInfo {
   company_name: string | null;
+  company_email: string | null;
+  company_phone: string | null;
   logo_url: string | null;
   sms_opt_in_message: string | null;
   sms_privacy_policy_url: string | null;
@@ -19,9 +20,16 @@ interface TenantInfo {
   sms_help_message: string | null;
 }
 
+function normalizePhone(raw: string): string {
+  const stripped = raw.replace(/[\s\-()]/g, '');
+  if (stripped.startsWith('+')) return '+' + stripped.slice(1).replace(/\D/g, '');
+  return '+' + stripped.replace(/\D/g, '');
+}
+
 export default function SmsOptIn() {
   const [searchParams] = useSearchParams();
-  const tenantId = searchParams.get('t');
+  const { tenantId: tenantIdFromPath } = useParams<{ tenantId: string }>();
+  const tenantId = tenantIdFromPath || searchParams.get('t');
 
   const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,7 +45,7 @@ export default function SmsOptIn() {
   // Fetch tenant branding info (public - uses edge function)
   useEffect(() => {
     if (!tenantId) {
-      setError('Missing tenant identifier in the URL.');
+      setError('Missing tenant identifier in the URL. Use /sms/opt-in/<tenant-id> or ?t=<tenant-id>.');
       setLoading(false);
       return;
     }
@@ -66,6 +74,12 @@ export default function SmsOptIn() {
   const handleSubmit = async () => {
     if (!phone.trim() || !agreed || !tenantId) return;
 
+    const normalizedPhone = normalizePhone(phone.trim());
+    if (!/^\+\d{7,15}$/.test(normalizedPhone)) {
+      setSubmitError('Please enter a valid phone number in international format.');
+      return;
+    }
+
     setSubmitting(true);
     setSubmitError(null);
 
@@ -74,7 +88,7 @@ export default function SmsOptIn() {
         body: {
           action: 'opt_in',
           tenant_id: tenantId,
-          phone_number: phone.trim(),
+          phone_number: normalizedPhone,
           contact_name: name.trim() || null,
         },
       });
@@ -90,8 +104,6 @@ export default function SmsOptIn() {
       setSubmitting(false);
     }
   };
-
-  const companyName = tenantInfo?.company_name || 'our company';
 
   // Loading
   if (loading) {
@@ -130,6 +142,8 @@ export default function SmsOptIn() {
     );
   }
 
+  const companyName = tenantInfo.company_name || 'our company';
+
   // Success
   if (success) {
     return (
@@ -150,7 +164,7 @@ export default function SmsOptIn() {
                 <MaterialIcon name="check_circle" size="xl" className="text-green-600" />
               </div>
             </div>
-            <CardTitle>You&apos;re Subscribed!</CardTitle>
+            <CardTitle>You're Subscribed!</CardTitle>
             <CardDescription>
               You have opted in to receive SMS notifications from {companyName}.
             </CardDescription>
@@ -164,35 +178,11 @@ export default function SmsOptIn() {
                 </AlertDescription>
               </Alert>
             )}
-            <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground space-y-2">
+            <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground space-y-1">
               <p>You can opt out at any time by replying <strong>STOP</strong> to any message.</p>
               <p>Reply <strong>HELP</strong> for assistance.</p>
-              <p>Message and data rates may apply. Message frequency varies.</p>
+              <p>Message & data rates may apply.</p>
             </div>
-            {(tenantInfo.sms_privacy_policy_url || tenantInfo.sms_terms_conditions_url) && (
-              <div className="flex justify-center gap-4 text-sm">
-                {tenantInfo.sms_privacy_policy_url && (
-                  <a
-                    href={tenantInfo.sms_privacy_policy_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline"
-                  >
-                    Privacy Policy
-                  </a>
-                )}
-                {tenantInfo.sms_terms_conditions_url && (
-                  <a
-                    href={tenantInfo.sms_terms_conditions_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline"
-                  >
-                    Terms &amp; Conditions
-                  </a>
-                )}
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -218,24 +208,14 @@ export default function SmsOptIn() {
               <MaterialIcon name="sms" size="lg" className="text-primary" />
             </div>
           </div>
-          <CardTitle>SMS Notifications Opt-In</CardTitle>
+          <CardTitle>SMS Notifications</CardTitle>
           <CardDescription>
-            Subscribe to receive SMS text message notifications from {companyName}.
+            Subscribe to receive SMS notifications from {companyName}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* What you'll receive */}
-          <div className="bg-primary/5 rounded-lg p-4 text-sm space-y-2">
-            <p className="font-medium text-foreground">What you&apos;ll receive:</p>
-            <ul className="list-disc list-inside text-muted-foreground space-y-1">
-              <li>Shipment arrival and status updates</li>
-              <li>Inventory alerts and notifications</li>
-              <li>Account and order notifications</li>
-            </ul>
-          </div>
-
           <div className="space-y-1.5">
-            <Label htmlFor="phone">Mobile Phone Number <span className="text-destructive">*</span></Label>
+            <Label htmlFor="phone">Phone Number</Label>
             <Input
               id="phone"
               value={phone}
@@ -243,89 +223,66 @@ export default function SmsOptIn() {
               placeholder="+1 (555) 123-4567"
               className="font-mono"
               type="tel"
-              autoComplete="tel"
             />
             <p className="text-xs text-muted-foreground">
-              Enter your mobile phone number to receive SMS text message alerts.
+              Enter your mobile phone number to receive SMS alerts
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="name">Name <span className="text-xs text-muted-foreground">(optional)</span></Label>
+            <Label htmlFor="name">Name (optional)</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
-              autoComplete="name"
             />
           </div>
 
-          <Separator />
-
-          {/* Compliance disclosure */}
-          <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground space-y-3">
-            <p className="font-medium text-foreground">SMS Program Terms:</p>
+          <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground space-y-2">
             <p>
-              By opting in, you consent to receive automated SMS text messages
-              from <strong className="text-foreground">{companyName}</strong> at the mobile number provided.
-              Messages may include shipment updates, inventory alerts, and
-              account notifications.
+              By checking the consent box and submitting this form, you agree to receive automated SMS
+              notifications from {companyName} about shipment updates, inventory alerts, and account notifications.
             </p>
-            <ul className="space-y-1.5">
-              <li className="flex items-start gap-2">
-                <MaterialIcon name="schedule" size="sm" className="mt-0.5 shrink-0" />
-                <span><strong>Message frequency:</strong> Varies based on account activity. Typically 1-10 messages per week.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <MaterialIcon name="payments" size="sm" className="mt-0.5 shrink-0" />
-                <span><strong>Message and data rates may apply.</strong> Contact your carrier for details.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <MaterialIcon name="cancel" size="sm" className="mt-0.5 shrink-0" />
-                <span>Reply <strong>STOP</strong> at any time to opt out and stop receiving messages.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <MaterialIcon name="help" size="sm" className="mt-0.5 shrink-0" />
-                <span>Reply <strong>HELP</strong> for help or contact information.</span>
-              </li>
-            </ul>
-            <p className="text-xs">
-              Consent is not a condition of purchase. You may opt out at any time.
+            <p>
+              Message frequency varies. Message & data rates may apply.
+              Reply <strong>STOP</strong> to cancel, <strong>HELP</strong> for help.
             </p>
+            {(tenantInfo.company_email || tenantInfo.company_phone) && (
+              <p>
+                Support:{' '}
+                {tenantInfo.company_email ? tenantInfo.company_email : null}
+                {tenantInfo.company_email && tenantInfo.company_phone ? ' | ' : null}
+                {tenantInfo.company_phone ? tenantInfo.company_phone : null}
+              </p>
+            )}
             {(tenantInfo.sms_privacy_policy_url || tenantInfo.sms_terms_conditions_url) && (
-              <>
-                <Separator className="my-2" />
-                <p className="flex gap-3 flex-wrap">
-                  {tenantInfo.sms_privacy_policy_url && (
-                    <a
-                      href={tenantInfo.sms_privacy_policy_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline inline-flex items-center gap-1"
-                    >
-                      <MaterialIcon name="shield" size="sm" />
-                      Privacy Policy
-                    </a>
-                  )}
-                  {tenantInfo.sms_terms_conditions_url && (
-                    <a
-                      href={tenantInfo.sms_terms_conditions_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline inline-flex items-center gap-1"
-                    >
-                      <MaterialIcon name="gavel" size="sm" />
-                      Terms &amp; Conditions
-                    </a>
-                  )}
-                </p>
-              </>
+              <p className="flex gap-3">
+                {tenantInfo.sms_privacy_policy_url && (
+                  <a
+                    href={tenantInfo.sms_privacy_policy_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    Privacy Policy
+                  </a>
+                )}
+                {tenantInfo.sms_terms_conditions_url && (
+                  <a
+                    href={tenantInfo.sms_terms_conditions_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    Terms & Conditions
+                  </a>
+                )}
+              </p>
             )}
           </div>
 
-          {/* Consent checkbox */}
-          <div className="flex items-start gap-3 p-3 border rounded-lg bg-background">
+          <div className="flex items-start gap-3">
             <Checkbox
               id="agree"
               checked={agreed}
@@ -333,10 +290,8 @@ export default function SmsOptIn() {
               className="mt-0.5"
             />
             <label htmlFor="agree" className="text-sm leading-snug cursor-pointer">
-              I consent to receive automated SMS text messages from{' '}
-              <strong>{companyName}</strong> at the phone number provided. I understand that
-              message and data rates may apply, message frequency varies, and I can reply STOP
-              to opt out at any time.
+              I agree to receive SMS notifications from {companyName}, acknowledge message frequency varies,
+              message/data rates may apply, and understand I can reply STOP to opt out or HELP for help.
             </label>
           </div>
 
@@ -364,14 +319,6 @@ export default function SmsOptIn() {
               </>
             )}
           </Button>
-
-          {/* Footer compliance text */}
-          <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
-            By clicking &ldquo;Subscribe&rdquo; you agree to receive recurring automated
-            promotional and informational text messages from {companyName}.
-            Consent is not a condition of any purchase. Reply STOP to cancel, HELP for help.
-            Msg &amp; data rates may apply.
-          </p>
         </CardContent>
       </Card>
     </div>
