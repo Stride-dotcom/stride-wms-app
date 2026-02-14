@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,6 +36,7 @@ import { ShipmentNumberBadge } from '@/components/shipments/ShipmentNumberBadge'
 import { isValidUuid } from '@/lib/utils';
 import { useExpectedShipmentDetail } from '@/hooks/useExpectedShipmentDetail';
 import { useExternalRefs, type RefType } from '@/hooks/useExternalRefs';
+import { useClasses } from '@/hooks/useClasses';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -57,9 +58,11 @@ export default function ExpectedShipmentDetail() {
   const { toast } = useToast();
   const { shipment, items, refs: shipmentRefs, loading, refetch } = useExpectedShipmentDetail(id);
   const { refs, addRef, removeRef } = useExternalRefs(id);
+  const { classes, loading: classesLoading } = useClasses();
 
   const [newRefType, setNewRefType] = useState<RefType>('BOL');
   const [newRefValue, setNewRefValue] = useState('');
+  const [itemRows, setItemRows] = useState(items);
 
   // Editable header
   const [editingHeader, setEditingHeader] = useState(false);
@@ -80,10 +83,74 @@ export default function ExpectedShipmentDetail() {
   const [addItemNotes, setAddItemNotes] = useState('');
   const [addingItem, setAddingItem] = useState(false);
 
+  useEffect(() => {
+    setItemRows(items);
+  }, [items]);
+
   const handleAddRef = async () => {
     if (!newRefValue.trim()) return;
     await addRef(newRefType, newRefValue);
     setNewRefValue('');
+  };
+
+  const updateLocalItem = (itemId: string, field: string, value: unknown) => {
+    setItemRows((prev) =>
+      prev.map((item) => (item.id === itemId ? ({ ...item, [field]: value }) : item))
+    );
+  };
+
+  const persistItemPatch = async (itemId: string, patch: Record<string, unknown>) => {
+    const { error } = await (supabase.from('shipment_items') as any)
+      .update(patch)
+      .eq('id', itemId);
+
+    if (error) throw error;
+  };
+
+  const handleDuplicateItem = async (item: (typeof itemRows)[number]) => {
+    try {
+      const { error } = await (supabase.from('shipment_items') as any).insert({
+        shipment_id: id,
+        expected_description: item.expected_description || null,
+        expected_vendor: item.expected_vendor || null,
+        expected_sidemark: item.expected_sidemark || null,
+        expected_class_id: item.expected_class_id || null,
+        room: item.room || null,
+        expected_quantity: item.expected_quantity || 1,
+        notes: item.notes || null,
+        status: item.status || 'pending',
+      });
+
+      if (error) throw error;
+
+      toast({ title: 'Item Duplicated' });
+      refetch();
+    } catch (err: unknown) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to duplicate item',
+      });
+    }
+  };
+
+  const handleRemoveItem = async (itemId: string) => {
+    try {
+      const { error } = await (supabase.from('shipment_items') as any)
+        .delete()
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      toast({ title: 'Item Removed' });
+      refetch();
+    } catch (err: unknown) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to remove item',
+      });
+    }
   };
 
   const handleEditHeader = () => {
@@ -316,7 +383,7 @@ export default function ExpectedShipmentDetail() {
           <Card>
             <CardContent className="pt-4">
               <div className="text-xs text-muted-foreground">Items</div>
-              <div className="font-medium">{items.length}</div>
+              <div className="font-medium">{itemRows.length}</div>
             </CardContent>
           </Card>
         </div>
@@ -385,7 +452,7 @@ export default function ExpectedShipmentDetail() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {items.length === 0 ? (
+            {itemRows.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <MaterialIcon name="inventory_2" size="xl" className="mb-2 opacity-40" />
                 <p>No items yet. Add items manually or allocate from a manifest.</p>
@@ -395,34 +462,189 @@ export default function ExpectedShipmentDetail() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Vendor</TableHead>
-                      <TableHead>Sidemark</TableHead>
-                      <TableHead>Room</TableHead>
-                      <TableHead>Notes</TableHead>
-                      <TableHead className="text-right">Expected Qty</TableHead>
-                      <TableHead className="text-right">Actual Qty</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead className="w-24 text-right">Qty</TableHead>
+                      <TableHead className="w-40">Vendor</TableHead>
+                      <TableHead className="min-w-[220px]">Description</TableHead>
+                      <TableHead className="w-44">Glass</TableHead>
+                      <TableHead className="w-40">Side Mark</TableHead>
+                      <TableHead className="w-36">Room</TableHead>
+                      <TableHead className="w-24 text-right">Actual</TableHead>
+                      <TableHead className="w-28">Status</TableHead>
+                      <TableHead className="w-28 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {items.map((item) => (
+                    {itemRows.map((item) => (
                       <TableRow key={item.id}>
-                        <TableCell className="font-medium max-w-[200px] truncate">
-                          {item.expected_description || '-'}
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            min={1}
+                            value={item.expected_quantity ?? 1}
+                            onChange={(e) => updateLocalItem(item.id, 'expected_quantity', Number(e.target.value) || 1)}
+                            onBlur={async () => {
+                              try {
+                                await persistItemPatch(item.id, {
+                                  expected_quantity: item.expected_quantity || 1,
+                                });
+                              } catch (err: unknown) {
+                                toast({
+                                  variant: 'destructive',
+                                  title: 'Failed to save quantity',
+                                  description: err instanceof Error ? err.message : 'Could not save item quantity.',
+                                });
+                                refetch();
+                              }
+                            }}
+                            className="h-8 text-right"
+                          />
                         </TableCell>
-                        <TableCell>{item.expected_vendor || '-'}</TableCell>
-                        <TableCell>{item.expected_sidemark || '-'}</TableCell>
-                        <TableCell>{item.room || '-'}</TableCell>
-                        <TableCell className="max-w-[150px] truncate text-muted-foreground text-sm">
-                          {item.notes || '-'}
+                        <TableCell>
+                          <Input
+                            value={item.expected_vendor || ''}
+                            onChange={(e) => updateLocalItem(item.id, 'expected_vendor', e.target.value)}
+                            onBlur={async () => {
+                              try {
+                                await persistItemPatch(item.id, {
+                                  expected_vendor: item.expected_vendor || null,
+                                });
+                              } catch (err: unknown) {
+                                toast({
+                                  variant: 'destructive',
+                                  title: 'Failed to save vendor',
+                                  description: err instanceof Error ? err.message : 'Could not save item vendor.',
+                                });
+                                refetch();
+                              }
+                            }}
+                            placeholder="Vendor"
+                            className="h-8"
+                          />
                         </TableCell>
-                        <TableCell className="text-right">{item.expected_quantity}</TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.expected_description || ''}
+                            onChange={(e) => updateLocalItem(item.id, 'expected_description', e.target.value)}
+                            onBlur={async () => {
+                              try {
+                                await persistItemPatch(item.id, {
+                                  expected_description: item.expected_description || null,
+                                });
+                              } catch (err: unknown) {
+                                toast({
+                                  variant: 'destructive',
+                                  title: 'Failed to save description',
+                                  description: err instanceof Error ? err.message : 'Could not save item description.',
+                                });
+                                refetch();
+                              }
+                            }}
+                            placeholder="Description"
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={item.expected_class_id || '__none__'}
+                            onValueChange={async (value) => {
+                              const classId = value === '__none__' ? null : value;
+                              updateLocalItem(item.id, 'expected_class_id', classId);
+                              try {
+                                await persistItemPatch(item.id, { expected_class_id: classId });
+                              } catch (err: unknown) {
+                                toast({
+                                  variant: 'destructive',
+                                  title: 'Failed to save class',
+                                  description: err instanceof Error ? err.message : 'Could not save item class.',
+                                });
+                                refetch();
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-8">
+                              <SelectValue placeholder={classesLoading ? 'Loading...' : 'Select class'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">No class</SelectItem>
+                              {classes.map((cls) => (
+                                <SelectItem key={cls.id} value={cls.id}>
+                                  {cls.code} - {cls.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.expected_sidemark || ''}
+                            onChange={(e) => updateLocalItem(item.id, 'expected_sidemark', e.target.value)}
+                            onBlur={async () => {
+                              try {
+                                await persistItemPatch(item.id, {
+                                  expected_sidemark: item.expected_sidemark || null,
+                                });
+                              } catch (err: unknown) {
+                                toast({
+                                  variant: 'destructive',
+                                  title: 'Failed to save side mark',
+                                  description: err instanceof Error ? err.message : 'Could not save item side mark.',
+                                });
+                                refetch();
+                              }
+                            }}
+                            placeholder="Side Mark"
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.room || ''}
+                            onChange={(e) => updateLocalItem(item.id, 'room', e.target.value)}
+                            onBlur={async () => {
+                              try {
+                                await persistItemPatch(item.id, {
+                                  room: item.room || null,
+                                });
+                              } catch (err: unknown) {
+                                toast({
+                                  variant: 'destructive',
+                                  title: 'Failed to save room',
+                                  description: err instanceof Error ? err.message : 'Could not save item room.',
+                                });
+                                refetch();
+                              }
+                            }}
+                            placeholder="Room"
+                            className="h-8"
+                          />
+                        </TableCell>
                         <TableCell className="text-right">{item.actual_quantity ?? '-'}</TableCell>
                         <TableCell>
                           <Badge variant={item.status === 'received' ? 'default' : 'outline'}>
                             {item.status || 'pending'}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              title="Duplicate item"
+                              onClick={() => handleDuplicateItem(item)}
+                            >
+                              <MaterialIcon name="content_copy" size="sm" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                              title="Remove item"
+                              onClick={() => handleRemoveItem(item.id)}
+                            >
+                              <MaterialIcon name="delete" size="sm" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
