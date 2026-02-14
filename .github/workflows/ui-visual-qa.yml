@@ -130,7 +130,7 @@ jobs:
           QA_TENANT_ID: ${{ secrets.QA_TENANT_ID }}
         run: |
           if [ -d "screenshots" ]; then
-            npx ts-node-esm qa/ui/upload-artifacts.ts
+            node qa/ui/upload-artifacts.mjs
           fi
 
   notify:
