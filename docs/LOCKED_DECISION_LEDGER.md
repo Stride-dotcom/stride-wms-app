@@ -80,12 +80,35 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-048 | SubscriptionGate blocks specified creation routes when restricted | Frontend Gating | locked | `docs/LOCKED_DECISION_LEDGER_PHASE5V3_IMPORT.md` | - | 2026-02-14 |
 | DL-2026-02-14-049 | useSubscriptionGate uses query key, stale time, and window-focus refetch policy | Frontend Gating | locked | `docs/LOCKED_DECISION_LEDGER_PHASE5V3_IMPORT.md` | - | 2026-02-14 |
 | DL-2026-02-14-050 | Gated route list is exact and includes internal and client creation routes | Frontend Gating | locked | `docs/LOCKED_DECISION_LEDGER_PHASE5V3_IMPORT.md` | - | 2026-02-14 |
+| DL-2026-02-14-051 | Subscription enforcement scope moves to full-app restriction with payment-update redirect | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | DL-2026-02-14-018, DL-2026-02-14-019, DL-2026-02-14-048, DL-2026-02-14-050 | - |
 
 ## Detailed imports
 
 - Phase 5 v3 detailed locked extraction:
   - `docs/LOCKED_DECISION_LEDGER_PHASE5V3_IMPORT.md`
   - Source: `/home/ubuntu/.cursor/projects/workspace/uploads/Stride_SaaS_Authoritative_Implementation_Record_Phase5v3.pdf`
+
+## Post-import working decisions
+
+### DL-2026-02-14-051: Subscription enforcement scope moves to full-app restriction with payment-update redirect
+- Domain: SaaS Enforcement
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: DL-2026-02-14-018, DL-2026-02-14-019, DL-2026-02-14-048, DL-2026-02-14-050
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+When subscription enforcement triggers, users should be routed to a subscription payment update page and blocked from normal app access until payment information is updated and access is restored.
+
+#### Why
+Business intent is to make subscription remediation the immediate path instead of route-by-route operational gating.
+
+#### Implementation impact
+- Introduces app-level restriction flow instead of limited route wrappers.
+- Requires a dedicated payment-update destination route/page and allowlist behavior.
+- Requires supersession plan for Phase 5 route-level gate decisions.
 
 ## Decision entry template (copy/paste)
 

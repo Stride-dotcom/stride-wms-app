@@ -6,6 +6,7 @@ Primary source of truth: `docs/LOCKED_DECISION_LEDGER.md` + `docs/LOCKED_DECISIO
 ## Scope
 
 Continue Phase 5 SaaS subscription automation using locked decisions and one-question-at-a-time clarification.
+Current superseding direction: `DL-2026-02-14-051` (accepted) shifts from route-level gating to app-level restriction with payment-update redirect.
 
 ## Current implementation snapshot
 
@@ -31,11 +32,12 @@ Confirmed present in repo:
 
 ## Planned continuation sequence
 
-1. **Resolve contract mismatches first** (webhook + RPC identity resolution model).
-2. **Finalize route gating behavior** (`/incoming` path semantics).
-3. **Implement global banner placement in app shell** without touching `ProtectedRoute`.
-4. **Add verification checklist/tests** (Stripe event replay, fail-open gate, route restriction behavior).
-5. **Log completion evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
+1. **Finalize global restriction trigger timing** (when redirect takes effect).
+2. **Define payment-update destination** (route/page ownership, allowlist behavior).
+3. **Resolve webhook/RPC contract mismatches** (customer/subscription mapping and RPC identity).
+4. **Implement global restriction flow** without modifying locked history in place (supersession-aware).
+5. **Add verification checklist/tests** (Stripe replay, grace transitions, lock/unlock redirect behavior).
+6. **Log completion evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
 
 ## Q&A protocol (one question at a time)
 
@@ -49,8 +51,9 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. Should `/incoming` remain an alias redirect to `/shipments`, or should it be restored as a gated operational page to satisfy DL-050 literally?
-2. For payment-state RPCs, should we supersede DL-040/DL-041 to standardize on `stripe_subscription_id` (matching current implementation), or refactor code to tenant-id-based mutation?
-3. For `customer.subscription.updated`, should tenant resolution strictly follow customer-id then subscription-id fallback (as locked), or remain subscription-id only?
-4. Should we implement the global banner exactly in app shell now, even if route-level banner already exists?
+1. Should full-app redirect happen only when `is_restricted=true` (after grace), or immediately on `past_due` (during grace too)?
+2. What exact route should host payment update (`/billing/subscription`, `/settings/billing`, or new `/subscription/update-payment`)?
+3. Which routes should remain allowlisted while blocked (for example auth/logout/help/support)?
+4. For payment-state RPCs, should we supersede DL-040/DL-041 to standardize on `stripe_subscription_id` (matching current implementation), or refactor code to tenant-id-based mutation?
+5. For `customer.subscription.updated`, should tenant resolution strictly follow customer-id then subscription-id fallback (as locked), or remain subscription-id only?
 
