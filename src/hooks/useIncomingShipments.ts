@@ -132,7 +132,7 @@ export function useIncomingShipments(filters: IncomingFilters) {
       // Badge formula: shipment-level open exceptions + item-level flag instances.
       const filteredIds = filtered.map((shipment) => shipment.id);
       const [openExceptionsRes, itemFlagsRes] = await Promise.all([
-        (supabase.from('shipment_exceptions') as any)
+        (supabase as any).from('shipment_exceptions')
           .select('shipment_id')
           .in('shipment_id', filteredIds)
           .eq('status', 'open'),

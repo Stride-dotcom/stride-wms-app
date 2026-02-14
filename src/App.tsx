@@ -56,6 +56,8 @@ import QuoteAcceptance from "./pages/QuoteAcceptance";
 import ClientQuoteReview from "./pages/ClientQuoteReview";
 import ClientActivate from "./pages/ClientActivate";
 import SmsOptIn from "./pages/SmsOptIn";
+import LandingPage from "./pages/LandingPage";
+import SmsInfoPage from "./pages/SmsInfoPage";
 import ClaimAcceptance from "./pages/ClaimAcceptance";
 import ClientLogin from "./pages/ClientLogin";
 import ClientDashboard from "./pages/ClientDashboard";
@@ -102,6 +104,8 @@ const App = () => (
           <SidebarProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/welcome" element={<LandingPage />} />
+            <Route path="/sms" element={<SmsInfoPage />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/subscription/update-payment" element={<ProtectedRoute><SubscriptionUpdatePayment /></ProtectedRoute>} />
             <Route path="/" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Dashboard /></RequireRole></ProtectedRoute>} />

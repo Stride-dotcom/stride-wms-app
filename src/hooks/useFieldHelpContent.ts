@@ -35,7 +35,7 @@ export function useFieldHelpEntries(params: UseFieldHelpEntriesParams = {}) {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = (supabase.from('field_help_content') as any)
+      let query = (supabase as any).from('field_help_content')
         .select('*')
         .eq('tenant_id', tenantId)
         .order('page_key', { ascending: true })
@@ -76,7 +76,7 @@ export function useFieldHelpTooltip(pageKey?: string, fieldKey?: string) {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await (supabase.from('field_help_content') as any)
+      const { data, error } = await (supabase as any).from('field_help_content')
         .select('help_text, is_active')
         .eq('tenant_id', tenantId)
         .eq('page_key', pageKey)
@@ -120,7 +120,7 @@ export function useUpsertFieldHelpEntry() {
         updated_by: profile.id ?? null,
       };
 
-      const { data, error } = await (supabase.from('field_help_content') as any)
+      const { data, error } = await (supabase as any).from('field_help_content')
         .upsert(payload, { onConflict: 'tenant_id,page_key,field_key' })
         .select('*')
         .single();
@@ -154,7 +154,7 @@ export function useUpdateFieldHelpEntry() {
         updated_by: profile?.id ?? null,
       };
 
-      const { data, error } = await (supabase.from('field_help_content') as any)
+      const { data, error } = await (supabase as any).from('field_help_content')
         .update(payload)
         .eq('id', id)
         .select('*')
