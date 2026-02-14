@@ -163,6 +163,8 @@ const App = () => (
             <Route path="/claim/accept/:token" element={<ClaimAcceptance />} />
             <Route path="/quote/accept" element={<QuoteAcceptance />} />
             <Route path="/activate" element={<ClientActivate />} />
+            <Route path="/sms-opt-in" element={<SmsOptIn />} />
+            <Route path="/sms-opt-in/:tenantId" element={<SmsOptIn />} />
             <Route path="/sms/opt-in" element={<SmsOptIn />} />
             <Route path="/sms/opt-in/:tenantId" element={<SmsOptIn />} />
             <Route path="/client/login" element={<ClientLogin />} />
