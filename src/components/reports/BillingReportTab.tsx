@@ -605,6 +605,16 @@ export function BillingReportTab() {
     const eventIds = Array.from(selectedRows);
     if (eventIds.length === 0) return;
 
+    // Guard: prevent voiding invoiced events (race condition safety)
+    const invoicedInSelection = eventIds.filter(id => {
+      const row = rows.find(r => r.id === id);
+      return row?.status === 'invoiced';
+    });
+    if (invoicedInSelection.length > 0) {
+      toast({ title: 'Cannot void', description: `${invoicedInSelection.length} selected charge(s) are invoiced and cannot be voided.`, variant: 'destructive' });
+      return;
+    }
+
     setBulkVoiding(true);
     try {
       const result = await voidBillingEventsBatch({ eventIds });
