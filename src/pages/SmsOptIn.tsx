@@ -45,7 +45,7 @@ export default function SmsOptIn() {
   // Fetch tenant branding info (public - uses edge function)
   useEffect(() => {
     if (!tenantId) {
-      setError('Missing tenant identifier in the URL. Use /sms/opt-in/<tenant-id> or ?t=<tenant-id>.');
+      setError('Missing tenant identifier in the URL. Use /sms/opt-in?t=<tenant-id>, /sms/opt-in/<tenant-id>, or /sms-opt-in?t=<tenant-id>.');
       setLoading(false);
       return;
     }

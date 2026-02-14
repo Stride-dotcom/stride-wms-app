@@ -110,7 +110,7 @@ export function TwilioSmsCard({ settings, tenantId, onUpdate }: TwilioSmsCardPro
     const configuredBase = settings?.app_base_url ? normalizeUrl(settings.app_base_url) : '';
     const fallbackBase = typeof window !== 'undefined' ? normalizeUrl(window.location.origin) : '';
     const baseUrl = configuredBase || fallbackBase;
-    return baseUrl ? `${baseUrl}/sms/opt-in/${tenantId}` : '';
+    return baseUrl ? `${baseUrl}/sms/opt-in?t=${encodeURIComponent(tenantId)}` : '';
   }, [settings?.app_base_url, tenantId]);
 
   const effectiveProofOfConsentUrl = proofOfConsentUrl.trim() || generatedOptInUrl;
