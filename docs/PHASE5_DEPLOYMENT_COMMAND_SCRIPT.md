@@ -6,6 +6,19 @@ Use with: `docs/PHASE5_STRIPE_CLI_VALIDATION_CHECKLIST.md`
 This is a practical deployment sequence for Phase 5 SaaS subscription enforcement.
 Follow in order. Replace placeholders before running.
 
+## Quick start (helper script)
+
+```bash
+bash scripts/phase5_validate.sh \
+  --project-ref "<your-project-ref>" \
+  --app-url "https://<your-app-domain>" \
+  --stripe-secret-key "sk_test_..." \
+  --stripe-webhook-secret "whsec_..." \
+  --tenant-id "<tenant-uuid>"
+```
+
+Use `--dry-run` first to preview commands.
+
 ## 0) Set placeholders (required)
 
 ```bash

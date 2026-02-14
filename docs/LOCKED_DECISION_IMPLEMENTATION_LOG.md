@@ -44,6 +44,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-022 | 2026-02-14 | DL-2026-02-14-063 | completed | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted governance decision | builder | Kept DL-051..DL-062 in accepted state pending post-deploy Stripe CLI validation. |
 | DLE-2026-02-14-023 | 2026-02-14 | DL-2026-02-14-051..DL-2026-02-14-062 | planned | Added `docs/PHASE5_STRIPE_CLI_VALIDATION_CHECKLIST.md` | builder | Prepared executable Stripe CLI validation runbook to gather verification evidence before locking decisions. |
 | DLE-2026-02-14-024 | 2026-02-14 | DL-2026-02-14-063 | completed | Added `docs/PHASE5_DEPLOYMENT_COMMAND_SCRIPT.md` | builder | Prepared copy/paste deployment command order for schema, function deploy, secrets, Stripe CLI forwarding, validation, and post-verify locking steps. |
+| DLE-2026-02-14-025 | 2026-02-14 | DL-2026-02-14-063 | completed | Added `scripts/phase5_validate.sh` and linked docs | builder | Added non-interactive helper script for db push, function deploy, and secret updates with dry-run support. |
 
 ## Event template (copy/paste)
 

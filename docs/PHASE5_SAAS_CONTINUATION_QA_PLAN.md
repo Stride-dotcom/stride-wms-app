@@ -53,6 +53,7 @@ Confirmed present in repo:
 Execution checklist:
 - `docs/PHASE5_STRIPE_CLI_VALIDATION_CHECKLIST.md`
 - `docs/PHASE5_DEPLOYMENT_COMMAND_SCRIPT.md`
+- `scripts/phase5_validate.sh`
 
 ## Q&A protocol (one question at a time)
 
