@@ -10,6 +10,7 @@ import { SidebarProvider } from "@/contexts/SidebarContext";
 import { WarehouseProvider } from "@/contexts/WarehouseContext";
 import { AppleBannerProvider } from "@/contexts/AppleBannerContext";
 import { PromptProvider } from "@/components/prompts";
+import { SubscriptionGateProvider, SubscriptionGatedRoute } from "@/components/subscription/SubscriptionGate";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { RequireRole } from "@/components/RequireRole";
 import Dashboard from "./pages/Dashboard";
@@ -94,6 +95,7 @@ const App = () => (
         <AuthProvider>
           <WarehouseProvider>
           <PromptProvider>
+          <SubscriptionGateProvider>
           <SidebarProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
@@ -103,20 +105,20 @@ const App = () => (
             <Route path="/inventory/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ItemDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/locations/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><LocationDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/containers/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ContainerDetail /></RequireRole></ProtectedRoute>} />
-            <Route path="/incoming" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><IncomingManager /></RequireRole></ProtectedRoute>} />
+            <Route path="/incoming" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><SubscriptionGatedRoute><IncomingManager /></SubscriptionGatedRoute></RequireRole></ProtectedRoute>} />
             <Route path="/incoming/manifest/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><InboundManifestDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/incoming/expected/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ExpectedShipmentDetail /></RequireRole></ProtectedRoute>} />
-            <Route path="/incoming/dock-intake/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><DockIntakeReceiving /></RequireRole></ProtectedRoute>} />
+            <Route path="/incoming/dock-intake/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><SubscriptionGatedRoute><DockIntakeReceiving /></SubscriptionGatedRoute></RequireRole></ProtectedRoute>} />
             <Route path="/shipments" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Shipments /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments/list" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentsList /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments/incoming" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentsList /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments/outbound" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentsList /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments/received" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentsList /></RequireRole></ProtectedRoute>} />
             <Route path="/shipments/released" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentsList /></RequireRole></ProtectedRoute>} />
-            <Route path="/shipments/new" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentCreate /></RequireRole></ProtectedRoute>} />
-            <Route path="/shipments/create" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentCreate /></RequireRole></ProtectedRoute>} />
-            <Route path="/shipments/return/new" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentCreate /></RequireRole></ProtectedRoute>} />
-            <Route path="/shipments/outbound/new" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><OutboundCreate /></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments/new" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><SubscriptionGatedRoute><ShipmentCreate /></SubscriptionGatedRoute></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments/create" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><SubscriptionGatedRoute><ShipmentCreate /></SubscriptionGatedRoute></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments/return/new" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><SubscriptionGatedRoute><ShipmentCreate /></SubscriptionGatedRoute></RequireRole></ProtectedRoute>} />
+            <Route path="/shipments/outbound/new" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><SubscriptionGatedRoute><OutboundCreate /></SubscriptionGatedRoute></RequireRole></ProtectedRoute>} />
             <Route path="/shipments/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><ShipmentDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Tasks /></RequireRole></ProtectedRoute>} />
             <Route path="/tasks/:id" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><TaskDetail /></RequireRole></ProtectedRoute>} />
@@ -165,8 +167,8 @@ const App = () => (
             <Route path="/client/items" element={<ProtectedRoute><RequireRole role="client_user"><ClientItems /></RequireRole></ProtectedRoute>} />
             <Route path="/client/quotes" element={<ProtectedRoute><RequireRole role="client_user"><ClientQuotes /></RequireRole></ProtectedRoute>} />
             <Route path="/client/shipments" element={<ProtectedRoute><RequireRole role="client_user"><ClientShipments /></RequireRole></ProtectedRoute>} />
-            <Route path="/client/shipments/new" element={<ProtectedRoute><RequireRole role="client_user"><ClientInboundCreate /></RequireRole></ProtectedRoute>} />
-            <Route path="/client/shipments/outbound/new" element={<ProtectedRoute><RequireRole role="client_user"><ClientOutboundCreate /></RequireRole></ProtectedRoute>} />
+            <Route path="/client/shipments/new" element={<ProtectedRoute><RequireRole role="client_user"><SubscriptionGatedRoute><ClientInboundCreate /></SubscriptionGatedRoute></RequireRole></ProtectedRoute>} />
+            <Route path="/client/shipments/outbound/new" element={<ProtectedRoute><RequireRole role="client_user"><SubscriptionGatedRoute><ClientOutboundCreate /></SubscriptionGatedRoute></RequireRole></ProtectedRoute>} />
             <Route path="/client/shipments/:id" element={<ProtectedRoute><RequireRole role="client_user"><ClientShipmentDetail /></RequireRole></ProtectedRoute>} />
             <Route path="/client/tasks/new" element={<ProtectedRoute><RequireRole role="client_user"><ClientTaskCreate /></RequireRole></ProtectedRoute>} />
             <Route path="/client/claims" element={<ProtectedRoute><RequireRole role="client_user"><ClientClaims /></RequireRole></ProtectedRoute>} />
@@ -177,6 +179,7 @@ const App = () => (
           </Routes>
           <AIBotSwitch />
           </SidebarProvider>
+          </SubscriptionGateProvider>
           </PromptProvider>
           </WarehouseProvider>
         </AuthProvider>
